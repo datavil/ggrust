@@ -74,16 +74,16 @@ Steps inside a phase are ordered; each builds on the previous.
 - [x] **0.6 Minimal layout.** Single panel, axes with nice breaks, axis titles, plot title, panel grid, `ggsize`.
 - [x] **0.7 Python API slice.** `ggplot`, `aes`, `geom_point`, `ggsize`, `labs`, `PlotSpec.as_dict()`, `+`, `to_svg`, `to_png`, `_repr_html_` (static). `as_dict()` parity tests vs lets_plot. Spec JSON must handle NaN/inf (`json.dumps` emits invalid `NaN`) and numpy scalars; reject duplicate `color`/`colour` mapping keys.
 - [x] **0.8 Test + visual + bench harness.** pytest suite, golden-image compare (pixel diff with tolerance, diff image on failure), side-by-side HTML report vs lets-plot, first benchmark (scatter 10k / 100k / 1M) with honest settings.
-- [ ] **0.9 Foundation review.** Bug-hunt agents on the whole foundation. Ask user to review the architecture before building on it.
+- [x] **0.9 Foundation review.** Bug-hunt agents on the whole foundation. Ask user to review the architecture before building on it.
 
-- [ ] **0.10 Foundation v2 (from the 0.9 review; awaiting user approval).** Make "one file + one registry line" true for Phases 1-4:
+- [ ] **0.10 Foundation v2 (from the 0.9 review; approved by the user).** Make "one file + one registry line" true for Phases 1-4:
   - [ ] 0.10.1 Staged build: map all layers -> resolve scales from spec (transforms, discrete positions) -> stat -> position -> geom setup -> train positions + style scales -> guides -> layout -> draw. Steps return warnings (no `&mut Vec`), ready for rayon.
   - [ ] 0.10.2 Scales: `PositionScale` (continuous + transform | discrete) owning breaks/labels/limits/expand, used by coord + layout; `StyleScale` trait (train, map to typed values, legend breaks) with a registry by aesthetic + `scale_mapper_kind`; defaults per aesthetic and column kind.
   - [ ] 0.10.3 `LayerData` v2: `Variable::{Aesthetic, Computed}` (stat variables, `..count..`), `group_index` (explicit + implicit discrete grouping), `panel_index`, `source_rows` (tooltips).
   - [ ] 0.10.4 Coord owns all data->pixel math (layout uses `Panel::map`); `Coord::{flipped, aspect_ratio, limits}`; one flip representation.
   - [ ] 0.10.5 Python bridge v2: data objects replaced by `{"frame": i}` refs, frames deduplicated by identity (works for gggrid, enables caching); referenced columns computed once in Rust (`spec`), incl. tooltips/facets.
-  - [ ] 0.10.6 Typed style values: `Aesthetic::value_kind()` single source; `StyleValues` for color/number/shape/linetype/text; mismatch is an error.
-  - [ ] 0.10.7 Registries as one static list per kind (lookup + names derived, round-trip test).
+  - [x] 0.10.6 Typed style values: `Aesthetic::value_kind()` single source; `StyleValues` for color/number/shape/linetype/text; mismatch is an error.
+  - [x] 0.10.7 Registries as one static list per kind (lookup + names derived, round-trip test).
   - [ ] 0.10.8 Layout into an area `Rect` with measure-then-place (gggrid, legends); deterministic SVG ids (explicit prefix).
   - [ ] 0.10.9 Small fixes from the review: ignored aesthetics checked before column fetch, `with_notes` keeps error kinds, batch consistency validated once, `is_axis_title_only` via defaults.
 

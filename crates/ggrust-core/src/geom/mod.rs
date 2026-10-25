@@ -1,5 +1,5 @@
 //! Geoms: turn a layer's (stat- and position-adjusted) data into scene nodes.
-//! One file per geom; register it in [`geom`].
+//! One file per geom; add it to [`GEOMS`].
 //!
 //! A geom declares what it needs (required aesthetics, style aesthetics with
 //! defaults, extra parameters); the build stage validates the layer against that,
@@ -9,23 +9,13 @@ mod point;
 
 pub use point::PointGeom;
 
-use std::collections::BTreeMap;
-
 use crate::Result;
 use crate::coord::Panel;
 use crate::data::LayerData;
 use crate::parameters::Parameters;
-use crate::scene::{Color, Node, PerItem};
+use crate::scene::Node;
 use crate::spec::Aesthetic;
-
-/// Default value of a style aesthetic, which also fixes its value type.
-#[derive(Debug, Clone, Copy, PartialEq)]
-pub enum StyleDefault {
-    /// A color (`color`, `fill`).
-    Color(Color),
-    /// A number (`size`, `alpha`, `shape`, `stroke`).
-    Number(f64),
-}
+use crate::style::{StyleDefault, Styles};
 
 /// A geometric object.
 pub trait Geom: Sync {
@@ -57,24 +47,17 @@ pub trait Geom: Sync {
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>>;
 }
 
+/// Every geom, in one place: lookup and names derive from it.
+pub static GEOMS: &[&dyn Geom] = &[&PointGeom];
+
 /// Look up a geom by its lets-plot name.
 pub fn geom(name: &str) -> Option<&'static dyn Geom> {
-    match name {
-        "point" => Some(&PointGeom),
-        _ => None,
-    }
+    GEOMS.iter().copied().find(|geom| geom.name() == name)
 }
 
-/// Names [`geom`] accepts, for error messages.
-pub const NAMES: &[&str] = &["point"];
-
-/// Resolved style values of one style aesthetic.
-#[derive(Debug, Clone, PartialEq)]
-pub enum StyleValues {
-    /// Colors.
-    Colors(PerItem<Color>),
-    /// Numbers.
-    Numbers(PerItem<f64>),
+/// Names of all geoms, for error messages.
+pub fn names() -> Vec<&'static str> {
+    GEOMS.iter().map(|geom| geom.name()).collect()
 }
 
 /// Everything a geom needs to draw one layer.
@@ -82,25 +65,36 @@ pub struct DrawLayer<'a> {
     /// Position columns (continuous, in data units).
     pub data: &'a LayerData,
     /// Resolved style aesthetics; every entry of the geom's `style_defaults` is present.
-    pub styles: &'a BTreeMap<Aesthetic, StyleValues>,
+    pub styles: &'a Styles,
     /// Layer options.
     pub parameters: Parameters<'a>,
 }
 
-impl DrawLayer<'_> {
-    /// Colors of a style aesthetic the geom declared as a color.
-    pub fn colors(&self, aesthetic: Aesthetic) -> PerItem<Color> {
-        match self.styles.get(&aesthetic) {
-            Some(StyleValues::Colors(colors)) => colors.clone(),
-            _ => PerItem::Uniform(Color::BLACK),
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn registry_names_round_trip() {
+        for name in names() {
+            assert_eq!(geom(name).map(|geom| geom.name()), Some(name));
         }
+        let mut sorted = names();
+        sorted.dedup();
+        assert_eq!(sorted.len(), GEOMS.len(), "duplicate geom names");
     }
 
-    /// Numbers of a style aesthetic the geom declared as a number.
-    pub fn numbers(&self, aesthetic: Aesthetic) -> PerItem<f64> {
-        match self.styles.get(&aesthetic) {
-            Some(StyleValues::Numbers(numbers)) => numbers.clone(),
-            _ => PerItem::Uniform(f64::NAN),
+    #[test]
+    fn style_defaults_match_aesthetic_kinds() {
+        for geom in GEOMS {
+            for (aesthetic, default) in geom.style_defaults() {
+                assert_eq!(
+                    aesthetic.kind().style(),
+                    Some(default.kind()),
+                    "geom_{}: default for '{aesthetic}'",
+                    geom.name()
+                );
+            }
         }
     }
 }

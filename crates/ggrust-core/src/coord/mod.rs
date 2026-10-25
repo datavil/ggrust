@@ -1,6 +1,6 @@
 //! Coordinate systems: place scale-mapped positions (0..1) inside the panel.
 //!
-//! One file per coordinate system; register it in [`coord`].
+//! One file per coordinate system; add it to [`COORDS`].
 
 mod cartesian;
 
@@ -18,16 +18,18 @@ pub trait Coord: Sync {
     fn map(&self, x: f64, y: f64, panel: Rect) -> (f64, f64);
 }
 
+/// Every coordinate system, in one place: lookup and names derive from it.
+pub static COORDS: &[&dyn Coord] = &[&Cartesian];
+
 /// Look up a coordinate system by its lets-plot name.
 pub fn coord(name: &str) -> Option<&'static dyn Coord> {
-    match name {
-        "cartesian" => Some(&Cartesian),
-        _ => None,
-    }
+    COORDS.iter().copied().find(|item| item.name() == name)
 }
 
-/// Names [`coord`] accepts, for error messages.
-pub const NAMES: &[&str] = &["cartesian"];
+/// Names of all coordinate systems, for error messages.
+pub fn names() -> Vec<&'static str> {
+    COORDS.iter().map(|item| item.name()).collect()
+}
 
 /// The drawing area of one panel and how data maps into it.
 pub struct Panel<'a> {

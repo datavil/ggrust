@@ -71,7 +71,60 @@ aesthetics! {
     Group => "group",
 }
 
+/// What an aesthetic's values are used for.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum AestheticKind {
+    /// A horizontal position (x scale).
+    PositionX,
+    /// A vertical position (y scale).
+    PositionY,
+    /// A style with values of this kind.
+    Style(crate::style::ValueKind),
+    /// Grouping only (`group`).
+    Group,
+    /// Not drawn by any ggrust geom (map ids, animation frames, ...).
+    Other,
+}
+
+impl AestheticKind {
+    /// The style value kind, for style aesthetics.
+    pub fn style(self) -> Option<crate::style::ValueKind> {
+        match self {
+            AestheticKind::Style(kind) => Some(kind),
+            _ => None,
+        }
+    }
+}
+
 impl Aesthetic {
+    /// The single source of truth for what this aesthetic's values are.
+    pub fn kind(self) -> AestheticKind {
+        use crate::style::ValueKind;
+        use Aesthetic::*;
+        if self.is_x_position() {
+            return AestheticKind::PositionX;
+        }
+        if self.is_y_position() {
+            return AestheticKind::PositionY;
+        }
+        match self {
+            Color | Fill | PaintA | PaintB | PaintC | SegmentColor => {
+                AestheticKind::Style(ValueKind::Color)
+            }
+            Shape => AestheticKind::Style(ValueKind::Shape),
+            Linetype => AestheticKind::Style(ValueKind::Linetype),
+            Label | Family | Fontface => AestheticKind::Style(ValueKind::Text),
+            Alpha | Size | Stroke | Linewidth | Stacksize | Width | Height | Binwidth
+            | Violinwidth | Weight | Intercept | Slope | Quantile | Lineheight | Angle | Hjust
+            | Vjust | Radius | Slice | Explode | SizeStart | SizeEnd | StrokeStart | StrokeEnd
+            | PointSize | PointStroke | SegmentSize | SegmentAlpha => {
+                AestheticKind::Style(ValueKind::Number)
+            }
+            Group => AestheticKind::Group,
+            _ => AestheticKind::Other,
+        }
+    }
+
     /// Whether values of this aesthetic are horizontal positions (trained on the x scale).
     pub fn is_x_position(self) -> bool {
         matches!(

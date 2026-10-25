@@ -1,5 +1,5 @@
 //! Position adjustments: move layer data to avoid overlap (dodge, jitter, stack).
-//! One file per position; register it in [`position`].
+//! One file per position; add it to [`POSITIONS`].
 
 mod identity;
 
@@ -23,13 +23,27 @@ pub trait Position: Sync {
     fn adjust(&self, data: LayerData, parameters: &Parameters) -> Result<LayerData>;
 }
 
+/// Every position, in one place: lookup and names derive from it.
+pub static POSITIONS: &[&dyn Position] = &[&IdentityPosition];
+
 /// Look up a position by its lets-plot name.
 pub fn position(name: &str) -> Option<&'static dyn Position> {
-    match name {
-        "identity" => Some(&IdentityPosition),
-        _ => None,
-    }
+    POSITIONS.iter().copied().find(|item| item.name() == name)
 }
 
-/// Names [`position`] accepts, for error messages.
-pub const NAMES: &[&str] = &["identity"];
+/// Names of all positions, for error messages.
+pub fn names() -> Vec<&'static str> {
+    POSITIONS.iter().map(|item| item.name()).collect()
+}
+
+#[cfg(test)]
+mod registry_tests {
+    use super::*;
+
+    #[test]
+    fn registry_names_round_trip() {
+        for name in names() {
+            assert_eq!(position(name).map(|item| item.name()), Some(name));
+        }
+    }
+}

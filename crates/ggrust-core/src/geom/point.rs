@@ -4,11 +4,12 @@
 //! `#474747` (the theme "pen"), solid circle (shape 16). Other shapes come in 1.5.
 //! `alpha`, when given, replaces the color's alpha (lets-plot semantics).
 
-use super::{DrawLayer, Geom, StyleDefault};
+use super::{DrawLayer, Geom};
 use crate::Result;
 use crate::coord::Panel;
 use crate::scene::{Color, MarkerShape, Node, PerItem, Points};
 use crate::spec::Aesthetic;
+use crate::style::StyleDefault;
 
 /// lets-plot `POINT_UNIT_SIZE`: pixels of diameter per unit of `size`.
 pub const POINT_UNIT_SIZE: f64 = 2.2;
@@ -56,9 +57,9 @@ impl Geom for PointGeom {
             pixel_x.push(px);
             pixel_y.push(py);
         }
-        let colors = layer.colors(Aesthetic::Color);
-        let alphas = layer.numbers(Aesthetic::Alpha);
-        let fill = match (&colors, &alphas) {
+        let colors = layer.styles.colors(Aesthetic::Color)?;
+        let alphas = layer.styles.numbers(Aesthetic::Alpha)?;
+        let fill = match (colors, alphas) {
             (PerItem::Uniform(color), PerItem::Uniform(alpha)) => {
                 PerItem::Uniform(Some(color.with_opacity(*alpha)))
             }
@@ -68,7 +69,7 @@ impl Geom for PointGeom {
                     .collect(),
             ),
         };
-        let size = match layer.numbers(Aesthetic::Size) {
+        let size = match layer.styles.numbers(Aesthetic::Size)? {
             PerItem::Uniform(size) => PerItem::Uniform(size * POINT_UNIT_SIZE),
             PerItem::Varying(sizes) => {
                 PerItem::Varying(sizes.iter().map(|size| size * POINT_UNIT_SIZE).collect())

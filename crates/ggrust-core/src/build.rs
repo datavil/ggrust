@@ -7,18 +7,19 @@
 //! Features parsed by `spec` but not built yet are reported as warnings by
 //! [`report_unimplemented`]; remove an entry there when its phase lands.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use crate::coord::{self, Coord, Panel};
 use crate::data::{Column, ContinuousColumn, DataFrame, LayerData};
-use crate::geom::{self, DrawLayer, Geom, StyleDefault, StyleValues};
+use crate::geom::{self, DrawLayer, Geom};
 use crate::layout::{Titles, draw_axes_and_titles, draw_panel_background, layout_plot};
 use crate::parameters::Parameters;
 use crate::position;
 use crate::scale::ContinuousPositionScale;
-use crate::scene::{Group, Node, PerItem, Scene};
+use crate::scene::{Group, Node, Scene};
 use crate::spec::{Aesthetic, GuideSpec, LayerSpec, Mapping, MappingValue, Options, PlotSpec};
 use crate::stat;
+use crate::style::{Styles, parse_constant};
 use crate::theme::Theme;
 use crate::{Error, Result};
 
@@ -182,7 +183,7 @@ struct PreparedLayer {
     path: String,
     geom: &'static dyn Geom,
     data: LayerData,
-    styles: BTreeMap<Aesthetic, StyleValues>,
+    styles: Styles,
 }
 
 fn prepare_layer(
@@ -195,16 +196,22 @@ fn prepare_layer(
     let path = format!("layers[{index}]");
     let at = |key: &str| format!("{path}.{key}");
     let geom = geom::geom(&spec.geom)
-        .ok_or_else(|| unknown("geom", &at("geom"), &spec.geom, geom::NAMES))?;
+        .ok_or_else(|| unknown("geom", &at("geom"), &spec.geom, &geom::names()))?;
     let stat_name = spec.stat.as_deref().unwrap_or(geom.default_stat());
     let stat = stat::stat(stat_name)
-        .ok_or_else(|| unknown("stat", &at("stat"), stat_name, stat::NAMES))?;
+        .ok_or_else(|| unknown("stat", &at("stat"), stat_name, &stat::names()))?;
     let (position_name, position_options) = match &spec.position {
         Some(position) => (position.name.as_str(), position.parameters.clone()),
         None => (geom.default_position(), Default::default()),
     };
-    let position = position::position(position_name)
-        .ok_or_else(|| unknown("position", &at("position"), position_name, position::NAMES))?;
+    let position = position::position(position_name).ok_or_else(|| {
+        unknown(
+            "position",
+            &at("position"),
+            position_name,
+            &position::names(),
+        )
+    })?;
 
     let options = normalize_options(&spec.parameters, &path, warnings);
     validate_parameters(geom, stat, &options, &path, warnings);
@@ -476,8 +483,8 @@ fn resolve_styles(
     parameters: &Parameters,
     path: &str,
     warnings: &mut Vec<String>,
-) -> Result<BTreeMap<Aesthetic, StyleValues>> {
-    let mut styles = BTreeMap::new();
+) -> Result<Styles> {
+    let mut styles = Styles::default();
     for &(aesthetic, default) in geom.style_defaults() {
         if mapping.contains_key(&aesthetic) {
             warnings.push(format!(
@@ -485,16 +492,16 @@ fn resolve_styles(
                  supported yet; the constant or default value was used"
             ));
         }
-        let name = aesthetic.as_str();
-        let values = match default {
-            StyleDefault::Color(fallback) => StyleValues::Colors(PerItem::Uniform(
-                parameters.color(name)?.unwrap_or(fallback),
-            )),
-            StyleDefault::Number(fallback) => StyleValues::Numbers(PerItem::Uniform(
-                parameters.number(name)?.unwrap_or(fallback),
-            )),
+        let values = match parameters.value(aesthetic.as_str()) {
+            Some(value) => parse_constant(default.kind(), value).map_err(|message| {
+                Error::InvalidSpec(format!(
+                    "at '{}': {message}",
+                    parameters.path_of(aesthetic.as_str())
+                ))
+            })?,
+            None => default.uniform(),
         };
-        styles.insert(aesthetic, values);
+        styles.insert(aesthetic, values)?;
     }
     Ok(styles)
 }
@@ -538,7 +545,7 @@ fn resolve_coord(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<&'static
                 "at 'coord': coord_{} is not supported yet; coord_cartesian was used. \
                  Supported: {}",
                 coord_spec.name,
-                coord::NAMES.join(", ")
+                coord::names().join(", ")
             ));
             Ok(&coord::Cartesian)
         }

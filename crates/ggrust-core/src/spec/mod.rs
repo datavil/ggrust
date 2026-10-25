@@ -26,7 +26,7 @@ use std::collections::BTreeMap;
 use serde::de::DeserializeOwned;
 use serde::{Deserialize, Deserializer};
 
-pub use aesthetic::{Aesthetic, UnknownAesthetic};
+pub use aesthetic::{Aesthetic, AestheticKind, UnknownAesthetic};
 pub use coord::CoordSpec;
 pub use facet::FacetSpec;
 pub use guide::{GuideOptions, GuideSpec};

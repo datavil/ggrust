@@ -79,6 +79,27 @@ pub enum PerItem<T> {
     Varying(Vec<T>),
 }
 
+impl<T> PerItem<T> {
+    /// Whether `Varying` has exactly `len` items (always true for `Uniform`).
+    pub fn fits(&self, len: usize) -> bool {
+        match self {
+            PerItem::Uniform(_) => true,
+            PerItem::Varying(values) => values.len() == len,
+        }
+    }
+
+    /// Reference to the value of item `index` (any value type).
+    ///
+    /// # Panics
+    /// If `Varying` is shorter than `index + 1`; batches are validated by their builder.
+    pub fn get_ref(&self, index: usize) -> &T {
+        match self {
+            PerItem::Uniform(value) => value,
+            PerItem::Varying(values) => &values[index],
+        }
+    }
+}
+
 impl<T: Copy> PerItem<T> {
     /// Value of item `index`.
     ///
@@ -88,14 +109,6 @@ impl<T: Copy> PerItem<T> {
         match self {
             PerItem::Uniform(value) => *value,
             PerItem::Varying(values) => values[index],
-        }
-    }
-
-    /// Whether `Varying` has exactly `len` items (always true for `Uniform`).
-    pub fn fits(&self, len: usize) -> bool {
-        match self {
-            PerItem::Uniform(_) => true,
-            PerItem::Varying(values) => values.len() == len,
         }
     }
 }

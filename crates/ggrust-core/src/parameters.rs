@@ -29,6 +29,16 @@ impl<'a> Parameters<'a> {
         self.options.keys().map(String::as_str)
     }
 
+    /// The raw value, if present and not null.
+    pub fn value(&self, name: &str) -> Option<&'a Value> {
+        self.options.get(name).filter(|value| !value.is_null())
+    }
+
+    /// The path of an option, e.g. `layers[0].size`, for error messages.
+    pub fn path_of(&self, name: &str) -> String {
+        self.at(name)
+    }
+
     /// A finite number. Null counts as absent.
     pub fn number(&self, name: &str) -> Result<Option<f64>> {
         match self.options.get(name) {

@@ -16,6 +16,7 @@ pub mod scale;
 pub mod scene;
 pub mod spec;
 pub mod stat;
+pub mod style;
 pub mod text;
 pub mod theme;
 

@@ -6,8 +6,7 @@
 //! the same breaks as lets-plot; labels are then drawn with real font metrics.
 
 use crate::scale::ContinuousPositionScale;
-use crate::scale::breaks::linear_breaks;
-use crate::scale::format::{Label, format_breaks};
+use crate::scale::format::Label;
 use crate::scene::SUPERSCRIPT_SCALE;
 use crate::text::estimated_width;
 use crate::theme::TextStyle;
@@ -25,7 +24,7 @@ const DEFAULT_LABEL_SIZE: f64 = 13.0;
 /// Breaks of one axis with their labels.
 #[derive(Debug, Clone, PartialEq)]
 pub struct AxisBreaks {
-    /// Break values in data units.
+    /// Break positions in transformed units.
     pub values: Vec<f64>,
     /// Formatted labels, one per value.
     pub labels: Vec<Label>,
@@ -55,11 +54,12 @@ pub fn choose_breaks(
     orientation: Orientation,
     text: Option<TextStyle>,
 ) -> AxisBreaks {
-    let (low, high) = scale.expanded_domain();
     let breaks_for = |count: usize| {
-        let values = linear_breaks(low, high, count);
-        let labels = format_breaks(&values);
-        AxisBreaks { values, labels }
+        let breaks = scale.breaks(count);
+        AxisBreaks {
+            values: breaks.positions,
+            labels: breaks.labels,
+        }
     };
     let size = text.map_or(DEFAULT_LABEL_SIZE, |text| text.size);
     let face = text.map(|text| text.face).unwrap_or_default();

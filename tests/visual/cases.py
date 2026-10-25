@@ -43,4 +43,30 @@ def tiny_plot(m):
     return m.ggplot(frame, m.aes("x", "y")) + m.geom_point(color="red", size=4) + m.ggsize(220, 160)
 
 
-CASES = {case.__name__: case for case in [scatter_basic, umap_titles, qc_commas, tiny_plot]}
+def log_scales(m):
+    frame = pl.DataFrame(
+        {"total_counts": 10.0 ** RANDOM.uniform(2.5, 5, 400), "n_genes": RANDOM.uniform(1, 9, 400)}
+    ).with_columns(n_genes=pl.col("total_counts") ** 0.8 / pl.col("n_genes"))
+    return (
+        m.ggplot(frame, m.aes("total_counts", "n_genes"))
+        + m.geom_point(size=1.5, alpha=0.5, color="#4daf4a")
+        + m.scale_x_log10("total counts")
+        + m.scale_y_log2()
+        + m.ggsize(500, 350)
+    )
+
+
+def reversed_limits(m):
+    return (
+        m.ggplot(CELLS, m.aes("UMAP1", "UMAP2"))
+        + m.geom_point(size=1)
+        + m.scale_y_reverse()
+        + m.xlim(-5, 15)
+        + m.ggsize(400, 300)
+    )
+
+
+CASES = {
+    case.__name__: case
+    for case in [scatter_basic, umap_titles, qc_commas, tiny_plot, log_scales, reversed_limits]
+}

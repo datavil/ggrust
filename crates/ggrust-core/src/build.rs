@@ -15,7 +15,7 @@ use crate::geom::{self, DrawLayer, Geom};
 use crate::layout::{Titles, draw_axes_and_titles, draw_panel_background, layout_plot};
 use crate::parameters::Parameters;
 use crate::position;
-use crate::scale::ContinuousPositionScale;
+use crate::scale::{ContinuousPositionScale, PositionScales, Transform, position_scales};
 use crate::scene::{Group, Node, Scene};
 use crate::spec::{Aesthetic, GuideSpec, LayerSpec, Mapping, MappingValue, Options, PlotSpec};
 use crate::stat;
@@ -59,17 +59,26 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
         None => DEFAULT_SIZE,
     };
     let coord = resolve_coord(spec, &mut warnings)?;
+    let scales =
+        position_scales(spec, &mut warnings).map_err(|error| error.with_notes(&warnings))?;
 
     let mut layers = Vec::with_capacity(spec.layers.len());
     for (index, layer) in spec.layers.iter().enumerate() {
-        match prepare_layer(index, layer, spec, data, &mut warnings) {
+        match prepare_layer(
+            index,
+            layer,
+            spec,
+            data,
+            [&scales.x, &scales.y],
+            &mut warnings,
+        ) {
             Ok(prepared) => layers.push(prepared),
             Err(error) => return Err(error.with_notes(&warnings)),
         }
     }
 
-    let mut x_scale = ContinuousPositionScale::default();
-    let mut y_scale = ContinuousPositionScale::default();
+    let mut x_scale = scales.x.clone();
+    let mut y_scale = scales.y.clone();
     for layer in &layers {
         for aesthetic in layer.data.aesthetics() {
             if let Some(column) = layer.data.continuous(aesthetic) {
@@ -83,7 +92,7 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
     }
 
     let theme = Theme::default();
-    let titles = plot_titles(spec);
+    let titles = plot_titles(spec, &scales);
     let layout = layout_plot(width, height, &theme, &titles, &x_scale, &y_scale);
     let panel = Panel {
         rect: layout.panel,
@@ -119,21 +128,24 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
 }
 
 /// Title, subtitle and axis titles. Axis titles follow lets-plot: `labs(x=...)`
-/// first, otherwise `defaultScaleName` (see [`default_axis_title`]).
-fn plot_titles(spec: &PlotSpec) -> Titles {
-    let axis_title = |aesthetic: Aesthetic| {
+/// first, then the scale's `name`, otherwise `defaultScaleName` (see
+/// [`default_axis_title`]).
+fn plot_titles(spec: &PlotSpec, scales: &PositionScales) -> Titles {
+    let axis_title = |aesthetic: Aesthetic, scale_name: &Option<String>| {
         let from_labs = match spec.guides.get(aesthetic.as_str()) {
             Some(GuideSpec::Full(options)) => options.title.clone(),
             _ => None,
         };
-        from_labs.unwrap_or_else(|| default_axis_title(spec, aesthetic))
+        from_labs
+            .or_else(|| scale_name.clone())
+            .unwrap_or_else(|| default_axis_title(spec, aesthetic))
     };
     let title = spec.ggtitle.as_ref();
     Titles {
         title: title.and_then(|title| title.text.clone()),
         subtitle: title.and_then(|title| title.subtitle.clone()),
-        x: Some(axis_title(Aesthetic::X)),
-        y: Some(axis_title(Aesthetic::Y)),
+        x: Some(axis_title(Aesthetic::X, &scales.x_name)),
+        y: Some(axis_title(Aesthetic::Y, &scales.y_name)),
     }
 }
 
@@ -191,8 +203,28 @@ fn prepare_layer(
     spec: &LayerSpec,
     plot: &PlotSpec,
     data: &PlotData,
+    [x_scale, y_scale]: [&ContinuousPositionScale; 2],
     warnings: &mut Vec<String>,
 ) -> Result<PreparedLayer> {
+    // Positions are stored transformed (lets-plot transforms data when mapping);
+    // values outside the transform domain or the scale limits become missing.
+    let transformed = |aesthetic: Aesthetic, column: Column| {
+        let scale = if aesthetic.is_x_position() {
+            x_scale
+        } else if aesthetic.is_y_position() {
+            y_scale
+        } else {
+            return column;
+        };
+        match column {
+            Column::Continuous(column)
+                if scale.transform != Transform::Identity || scale.limits != [None, None] =>
+            {
+                Column::Continuous(column.map_values(|value| scale.transform_value(value)))
+            }
+            column => column,
+        }
+    };
     let path = format!("layers[{index}]");
     let at = |key: &str| format!("{path}.{key}");
     let geom = geom::geom(&spec.geom)
@@ -265,7 +297,7 @@ fn prepare_layer(
         {
             default_grouping.push((name, column.clone()));
         }
-        layer_data.insert(*aesthetic, column)?;
+        layer_data.insert(*aesthetic, transformed(*aesthetic, column))?;
     }
     let grouping = match explicit_grouping(plot, spec, &path, warnings) {
         Some(names) => names
@@ -287,7 +319,10 @@ fn prepare_layer(
         let parameters = Parameters::new(&options, &path);
         if let Some(value) = parameters.number(aesthetic.as_str())? {
             let column = ContinuousColumn::from_values(vec![value; layer_data.row_count()]);
-            layer_data.insert(aesthetic, Column::Continuous(column))?;
+            layer_data.insert(
+                aesthetic,
+                transformed(aesthetic, Column::Continuous(column)),
+            )?;
         }
     }
 
@@ -595,7 +630,7 @@ fn report_missing_positions(
         .count();
     if removed > 0 {
         warnings.push(format!(
-            "at '{path}': removed {removed} rows containing missing or non-finite values \
+            "at '{path}': removed {removed} rows containing missing, non-finite or out-of-limits values \
              (geom_{}); pass na_rm=True to silence",
             geom.name()
         ));
@@ -644,7 +679,6 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
     };
     ignored(spec.theme.is_some(), "theme");
     ignored(spec.facet.is_some(), "facet");
-    ignored(!spec.scales.is_empty(), "scales");
     ignored(spec.caption.is_some(), "caption");
     ignored(spec.ggtoolbar.is_some(), "ggtb");
     ignored(
@@ -688,6 +722,18 @@ mod tests {
     use super::*;
     use crate::spec::Figure;
 
+    fn prepare(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<PreparedLayer> {
+        let scale = ContinuousPositionScale::default();
+        prepare_layer(
+            0,
+            &spec.layers[0],
+            spec,
+            &cells(),
+            [&scale, &scale],
+            warnings,
+        )
+    }
+
     fn plot(json: &str) -> PlotSpec {
         match Figure::from_json(json).unwrap() {
             Figure::Plot(plot) => *plot,
@@ -722,7 +768,7 @@ mod tests {
     fn groups(json: &str) -> (Option<Vec<u32>>, Vec<String>) {
         let spec = plot(json);
         let mut warnings = Vec::new();
-        let layer = prepare_layer(0, &spec.layers[0], &spec, &cells(), &mut warnings).unwrap();
+        let layer = prepare(&spec, &mut warnings).unwrap();
         (layer.data.group_index().map(<[u32]>::to_vec), warnings)
     }
 
@@ -771,13 +817,37 @@ mod tests {
             r#"{"kind": "plot", "mapping": {"x": "x", "y": "y", "group": "nope"},
                 "layers": [{"geom": "point"}]}"#,
         );
-        let error = prepare_layer(0, &spec.layers[0], &spec, &cells(), &mut Vec::new())
-            .err()
-            .unwrap()
-            .to_string();
+        let error = prepare(&spec, &mut Vec::new()).err().unwrap().to_string();
         assert!(
             error.contains("at 'mapping.group': column 'nope' not found"),
             "{error}"
         );
+    }
+
+    #[test]
+    fn positions_outside_limits_or_the_transform_domain_become_missing() {
+        let spec = plot(
+            r#"{"kind": "plot", "mapping": {"x": "x", "y": "y"}, "layers": [{"geom": "point"}]}"#,
+        );
+        let mut limited = ContinuousPositionScale::default();
+        limited.limits = [Some(2.0), None];
+        let mut log = ContinuousPositionScale::default();
+        log.transform = Transform::Log10;
+        let layer = prepare_layer(
+            0,
+            &spec.layers[0],
+            &spec,
+            &cells(),
+            [&limited, &log],
+            &mut Vec::new(),
+        )
+        .unwrap();
+        let x = layer.data.continuous(Aesthetic::X).unwrap();
+        assert_eq!(
+            (0..4).map(|row| x.get(row)).collect::<Vec<_>>(),
+            [None, Some(2.0), Some(3.0), Some(4.0)]
+        );
+        let y = layer.data.continuous(Aesthetic::Y).unwrap();
+        assert!((y.get(3).unwrap() - 4_f64.log10()).abs() < 1e-12);
     }
 }

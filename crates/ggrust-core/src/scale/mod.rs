@@ -6,5 +6,9 @@
 pub mod breaks;
 mod continuous;
 pub mod format;
+mod spec;
+mod transform;
 
-pub use continuous::ContinuousPositionScale;
+pub use continuous::{ContinuousPositionScale, ScaleBreaks};
+pub use spec::{PositionScales, position_scales};
+pub use transform::Transform;

@@ -167,6 +167,17 @@ impl ContinuousColumn {
     pub fn null_count(&self) -> usize {
         self.values.null_count()
     }
+
+    /// Every present value passed through `function`; `None` results become null.
+    pub fn map_values(&self, function: impl Fn(f64) -> Option<f64>) -> Self {
+        ContinuousColumn {
+            values: self
+                .values
+                .iter()
+                .map(|value| value.and_then(&function))
+                .collect(),
+        }
+    }
 }
 
 /// Discrete values as codes into an ordered list of levels.

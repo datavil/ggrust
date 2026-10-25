@@ -1,8 +1,21 @@
 //! Continuous position scale: trained on data, expanded like lets-plot.
 
+use super::Transform;
+use super::breaks::linear_breaks;
+use super::format::{Label, format_breaks, format_breaks_individually};
 use crate::data::ContinuousColumn;
 
-/// Linear continuous position scale.
+/// Breaks of a scale: positions in transformed units with their labels.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ScaleBreaks {
+    /// Break positions in transformed units (what [`ContinuousPositionScale::map`] takes).
+    pub positions: Vec<f64>,
+    /// Labels, from the break values in data units.
+    pub labels: Vec<Label>,
+}
+
+/// Continuous position scale. Domain, limits and expansion are in transformed
+/// units: data is transformed when it is mapped (see [`Transform`]).
 ///
 /// Defaults follow lets-plot: 5% multiplicative expansion on each side, no additive
 /// expansion, and an empty or zero-width domain widened to +/- 0.5.
@@ -13,8 +26,10 @@ pub struct ContinuousPositionScale {
     pub multiplicative_expand: f64,
     /// Data units added on each side.
     pub additive_expand: f64,
-    /// User limits; `None` on a side keeps the trained value.
+    /// User limits in transformed units; `None` on a side keeps the trained value.
     pub limits: [Option<f64>; 2],
+    /// Transform applied to the data; decides how breaks are generated.
+    pub transform: Transform,
 }
 
 impl Default for ContinuousPositionScale {
@@ -24,6 +39,7 @@ impl Default for ContinuousPositionScale {
             multiplicative_expand: 0.05,
             additive_expand: 0.0,
             limits: [None, None],
+            transform: Transform::Identity,
         }
     }
 }
@@ -55,9 +71,15 @@ impl ContinuousPositionScale {
     /// Domain after limits, before expansion. Never empty, zero-width or infinite.
     ///
     /// Non-finite limits are ignored. A one-sided limit without data gives a
-    /// one-unit range at the limit. A degenerate range is widened by +/- 0.5, or
-    /// relatively for huge values (where +/- 0.5 would be lost to rounding).
+    /// one-unit range at the limit. See [`widen_degenerate`] for zero-width ranges.
     pub fn limited_domain(&self) -> (f64, f64) {
+        self.raw_domain()
+            .map_or((-0.5, 0.5), |(low, high)| widen_degenerate(low, high))
+    }
+
+    /// Trained domain with limits applied, ordered; may be zero-width. `None`
+    /// without data or limits.
+    fn raw_domain(&self) -> Option<(f64, f64)> {
         let finite = |limit: Option<f64>| limit.filter(|value| value.is_finite());
         let (low_limit, high_limit) = (finite(self.limits[0]), finite(self.limits[1]));
         let (low, high) = match (self.domain, low_limit, high_limit) {
@@ -66,35 +88,108 @@ impl ContinuousPositionScale {
                 (low_limit.unwrap_or(low), high_limit.unwrap_or(high))
             }
             (None, Some(value), None) | (None, None, Some(value)) => (value, value),
-            (None, None, None) => return (-0.5, 0.5),
+            (None, None, None) => return None,
         };
-        let (low, high) = if low <= high {
-            (low, high)
-        } else {
-            (high, low)
-        };
-        // A span that overflows f64 (e.g. -1e308..1e308) is fine: expansion and
-        // mapping work on halves.
-        if super::breaks::is_degenerate_range(low, high) {
-            let half_width = 0.5_f64.max(low.abs() * 1e-9);
-            return (low - half_width, low + half_width);
-        }
-        (low, high)
+        Some((low.min(high), low.max(high)))
     }
 
     /// Domain after limits and expansion: the panel spans exactly this range.
+    ///
+    /// As lets-plot (`PositionalScalesUtil.finalizeDomains`): expand, then widen a
+    /// zero-width result (unexpanded); no data gives -0.5..0.5. With a transform the
+    /// expansion is computed in data units (`PlotUtil.rangeWithExpand`): ends that
+    /// cannot be transformed back (e.g. a padded log axis reaching below 0) stay
+    /// unexpanded.
     pub fn expanded_domain(&self) -> (f64, f64) {
-        let (low, high) = self.limited_domain();
-        // Halves keep the arithmetic finite near f64::MAX.
-        let padding =
-            (high / 2.0 - low / 2.0) * 2.0 * self.multiplicative_expand + self.additive_expand;
-        (
-            (low - padding).max(-f64::MAX),
-            (high + padding).min(f64::MAX),
-        )
+        let Some((low, high)) = self.raw_domain() else {
+            return (-0.5, 0.5);
+        };
+        let transform = self.transform;
+        let (low, high) = if transform == Transform::Identity {
+            // Halves keep the arithmetic finite near f64::MAX; a span that overflows
+            // f64 (e.g. -1e308..1e308) is fine.
+            let padding =
+                (high / 2.0 - low / 2.0) * 2.0 * self.multiplicative_expand + self.additive_expand;
+            (
+                (low - padding).max(-f64::MAX),
+                (high + padding).min(f64::MAX),
+            )
+        } else {
+            let (first, second) = (transform.inverse(low), transform.inverse(high));
+            let (data_low, data_high) = (first.min(second), first.max(second));
+            let padding =
+                self.additive_expand + (data_high - data_low) * self.multiplicative_expand;
+            let end = |value: f64, fallback: f64| {
+                let transformed = transform.apply_unchecked(value);
+                if transformed.is_nan() {
+                    fallback
+                } else {
+                    transformed
+                }
+            };
+            let (first, second) = (end(data_low - padding, low), end(data_high + padding, high));
+            (first.min(second), first.max(second))
+        };
+        widen_degenerate(low, high)
     }
 
-    /// Map a data value to 0..1 across the panel (outside for out-of-range values).
+    /// A data value in transformed units, or `None` when it is outside the
+    /// transform's domain or the scale limits (lets-plot drops those rows).
+    pub fn transform_value(&self, value: f64) -> Option<f64> {
+        let transformed = self.transform.apply(value)?;
+        let [low, high] = self.limits;
+        let inside = low.is_none_or(|low| !low.is_finite() || transformed >= low)
+            && high.is_none_or(|high| !high.is_finite() || transformed <= high);
+        inside.then_some(transformed)
+    }
+
+    /// About `target_count` breaks across the expanded domain, as lets-plot's
+    /// `TransformedDomainBreaksGenerator`: linear in data units for identity and
+    /// reverse; otherwise linear in transformed units (whole powers for log10 when
+    /// that gives 3 or more), each labelled with the step to its neighbour.
+    pub fn breaks(&self, target_count: usize) -> ScaleBreaks {
+        let (low, high) = self.expanded_domain();
+        let transform = self.transform;
+        let ordered = |a: f64, b: f64| if a <= b { (a, b) } else { (b, a) };
+        let (data_low, data_high) = ordered(transform.inverse(low), transform.inverse(high));
+        if transform.is_linear() {
+            let values = linear_breaks(data_low, data_high, target_count);
+            let labels = format_breaks(&values);
+            let positions = values
+                .iter()
+                .map(|&value| transform.inverse(value))
+                .collect();
+            return ScaleBreaks { positions, labels };
+        }
+        let (Some(low), Some(high)) = (transform.apply(data_low), transform.apply(data_high))
+        else {
+            return ScaleBreaks {
+                positions: Vec::new(),
+                labels: Vec::new(),
+            };
+        };
+        let (low, high) = ordered(low, high);
+        let mut count = target_count;
+        if transform == Transform::Log10 {
+            let whole_powers = (high.floor() - low.ceil()).round() + 1.0;
+            if (3.0..=target_count as f64).contains(&whole_powers) {
+                count = whole_powers as usize;
+            }
+        }
+        let values: Vec<f64> = linear_breaks(low, high, count)
+            .into_iter()
+            .map(|position| transform.inverse(position))
+            .filter(|value| transform.is_in_domain(*value))
+            .collect();
+        let labels = format_breaks_individually(&values);
+        let positions = values
+            .iter()
+            .map(|&value| transform.apply(value).unwrap_or(f64::NAN))
+            .collect();
+        ScaleBreaks { positions, labels }
+    }
+
+    /// Map a transformed value to 0..1 across the panel (outside for out-of-range values).
     /// Non-finite input gives NaN.
     pub fn map(&self, value: f64) -> f64 {
         if !value.is_finite() {
@@ -103,6 +198,17 @@ impl ContinuousPositionScale {
         let (low, high) = self.expanded_domain();
         (value / 2.0 - low / 2.0) / (high / 2.0 - low / 2.0)
     }
+}
+
+/// A zero-width (or rounding-noise) range widened to +/- 0.5 around its low end
+/// (lets-plot `ensureApplicableRange`), or relatively for huge values where
+/// +/- 0.5 would be lost to rounding.
+fn widen_degenerate(low: f64, high: f64) -> (f64, f64) {
+    if super::breaks::is_degenerate_range(low, high) {
+        let half_width = 0.5_f64.max(low.abs() * 1e-9);
+        return (low - half_width, low + half_width);
+    }
+    (low, high)
 }
 
 #[cfg(test)]
@@ -132,6 +238,9 @@ mod tests {
         let mut single = ContinuousPositionScale::default();
         single.train_range(3.0, 3.0);
         assert_eq!(single.limited_domain(), (2.5, 3.5));
+        // lets-plot widens after expanding: the +/- 0.5 is not padded.
+        assert_eq!(single.expanded_domain(), (2.5, 3.5));
+        assert_eq!(empty.expanded_domain(), (-0.5, 0.5));
     }
 
     #[test]
@@ -170,6 +279,24 @@ mod tests {
         };
         not_a_number.train_range(2.0, 10.0);
         assert_eq!(not_a_number.limited_domain(), (2.0, 10.0));
+    }
+
+    #[test]
+    fn values_outside_limits_or_domain_are_dropped() {
+        let scale = ContinuousPositionScale {
+            limits: [Some(0.0), Some(2.0)],
+            transform: Transform::Log10,
+            ..ContinuousPositionScale::default()
+        };
+        assert_eq!(scale.transform_value(10.0), Some(1.0));
+        assert_eq!(scale.transform_value(1000.0), None);
+        assert_eq!(scale.transform_value(0.5), None);
+        assert_eq!(scale.transform_value(-1.0), None);
+        let open = ContinuousPositionScale {
+            limits: [None, Some(f64::NAN)],
+            ..ContinuousPositionScale::default()
+        };
+        assert_eq!(open.transform_value(-1e9), Some(-1e9));
     }
 
     #[test]

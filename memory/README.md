@@ -14,3 +14,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Calibrate against real lets-plot SVG](letsplot_reference_svg.md): `to_svg()` works offline; measured defaults (point r 3.3 #474747, text 13px, grid #E9E9E9).
 - [lets-plot semantics traps](lets_plot_semantics_traps.md): alpha replaces (not multiplies), layer/plot data merge, constant positions, colour alias, precision test, write SVG attributes once.
 - [Never let a failing check reach a commit](check_before_commit.md): don't pipe `make check` into grep and then `;` commit; gate on its exit status.
+- [letsplot_transformed_scales.md](letsplot_transformed_scales.md): log/sqrt/reverse scales, data-space expansion, half-up label rounding, limits drop rows.

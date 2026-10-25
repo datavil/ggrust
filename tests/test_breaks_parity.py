@@ -31,11 +31,13 @@ def ggrust_labels(svg: str, axis: str) -> list[str]:
     return [re.sub(r"<[^>]+>", "", text).replace("\u2212", "-") for text in texts]
 
 
-def labels_of(module, low, high, size):
+def labels_of(module, low, high, size, trans=None):
     frame = {"x": [low, high], "y": [low, high]}
     plot = module.ggplot(frame, module.aes("x", "y")) + module.geom_point()
     if size is not None:
         plot += module.ggsize(*size)
+    if trans is not None:
+        plot += module.scale_x_continuous(trans=trans) + module.scale_y_continuous(trans=trans)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         svg = plot.to_svg()
@@ -54,6 +56,8 @@ FIXED_RANGES = [
     (1e-9, 3e-9),
     (0, 12345),
     (1, 4.5),
+    (3, 3),
+    (1e6, 1e6),
 ]
 
 RANDOM = np.random.default_rng(42)
@@ -82,6 +86,46 @@ def test_labels_agree_on_random_ranges_and_sizes():
             ours = labels_of(gg, low, high, size)
             axes.extend(
                 (low, high, size, axis, ours[index], theirs[index])
+                for index, axis in enumerate("xy")
+            )
+    mismatches = [axis for axis in axes if axis[4] != axis[5]]
+    assert len(mismatches) <= 0.05 * len(axes), "\n".join(map(str, mismatches))
+
+
+TRANSFORMED_RANGES = {
+    "log10": [(1, 1000), (0.01, 50), (5, 5e6), (1, 2), (1e-6, 1), (3, 30), (100, 100)],
+    "log2": [(1, 1024), (0.5, 3), (1, 100), (7, 9), (0.001, 1)],
+    "sqrt": [(0, 100), (2, 50), (0, 1), (10, 1e4)],
+    "reverse": [(0, 1), (-7, 13), (1, 4.5), (0, 1.2e6)],
+}
+
+
+@pytest.mark.parametrize(
+    "trans, low, high",
+    [(trans, low, high) for trans, ranges in TRANSFORMED_RANGES.items() for low, high in ranges],
+)
+def test_transformed_labels_match_lets_plot(trans, low, high):
+    theirs = labels_of(lp, low, high, None, trans)
+    ours = labels_of(gg, low, high, None, trans)
+    assert ours == theirs, f"{trans} labels for [{low}, {high}]"
+
+
+def test_transformed_labels_agree_on_random_ranges():
+    # Same near-tie allowance as for linear scales.
+    random = np.random.default_rng(7)
+    axes = []
+    for trans in TRANSFORMED_RANGES:
+        for _ in range(12):
+            if trans in ("log10", "log2"):
+                low = 10.0 ** random.uniform(-6, 6)
+                high = low * 10.0 ** random.uniform(0.1, 6)
+            else:
+                low = random.uniform(0, 100) if trans == "sqrt" else random.uniform(-100, 100)
+                high = low + 10.0 ** random.uniform(-2, 4)
+            theirs = labels_of(lp, low, high, None, trans)
+            ours = labels_of(gg, low, high, None, trans)
+            axes.extend(
+                (trans, low, high, axis, ours[index], theirs[index])
                 for index, axis in enumerate("xy")
             )
     mismatches = [axis for axis in axes if axis[4] != axis[5]]

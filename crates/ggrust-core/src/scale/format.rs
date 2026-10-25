@@ -47,6 +47,23 @@ pub fn format_breaks(breaks: &[f64]) -> Vec<Label> {
         .collect()
 }
 
+/// Labels for unevenly spaced breaks (transformed scales): each break formatted
+/// with the step to its neighbour (lets-plot `NonlinearBreaksHelper.createMultiFormatter`).
+pub fn format_breaks_individually(breaks: &[f64]) -> Vec<Label> {
+    breaks
+        .iter()
+        .enumerate()
+        .map(|(index, &value)| {
+            let step = match (breaks.len(), index) {
+                (1, _) => value / 10.0,
+                (_, 0) => value - breaks[1],
+                _ => value - breaks[index - 1],
+            };
+            format_general(value, precision(value.abs(), step.abs()))
+        })
+        .collect()
+}
+
 /// Significant digits needed to tell the breaks apart (lets-plot logic).
 fn break_precision(breaks: &[f64]) -> i32 {
     let (reference, step) = match breaks {
@@ -57,6 +74,12 @@ fn break_precision(breaks: &[f64]) -> i32 {
             (first.abs().max(last.abs()), (second - first).abs())
         }
     };
+    precision(reference, step)
+}
+
+/// lets-plot `NumericBreakFormatter`: significant digits for a value of magnitude
+/// `reference` next to breaks `step` apart.
+fn precision(reference: f64, step: f64) -> i32 {
     let reference = if reference == 0.0 {
         f64::MIN_POSITIVE * 10.0
     } else {
@@ -85,17 +108,15 @@ fn format_general(value: f64, precision: i32) -> Label {
     if !value.is_finite() {
         return Label::plain(value.to_string());
     }
-    let digits = (precision - 1).clamp(0, 16) as usize;
-    // Rust's exponent formatting rounds the exact decimal expansion correctly.
-    let scientific = format!("{value:.digits$e}");
-    let (mantissa, exponent) = scientific.split_once('e').unwrap_or((&scientific, "0"));
-    let exponent: i32 = exponent.parse().unwrap_or(0);
-    let negative = mantissa.starts_with('-');
-    let mantissa_digits: String = mantissa.chars().filter(char::is_ascii_digit).collect();
+    let (mantissa_digits, exponent) = rounded_digits(value, (precision - 1).max(0) as usize);
     if mantissa_digits.bytes().all(|byte| byte == b'0') {
         return Label::plain("0");
     }
-    let sign = if negative { "-" } else { "" };
+    let mantissa = match mantissa_digits.split_at(1) {
+        (first, "") => first.to_owned(),
+        (first, rest) => format!("{first}.{rest}"),
+    };
+    let sign = if value < 0.0 { "-" } else { "" };
     if exponent > MIN_EXPONENT && exponent < MAX_EXPONENT {
         Label::plain(format!(
             "{sign}{}",
@@ -112,6 +133,41 @@ fn format_general(value: f64, precision: i32) -> Label {
             superscript: Some(exponent.to_string().replace('-', "\u{2212}")),
         }
     }
+}
+
+/// Significant digits and decimal exponent of `|value|` as lets-plot's `BigFloat`
+/// sees them: the shortest round-trip digits (Kotlin `Double.toString`), rounded
+/// half-up to one digit plus `fraction_digits` (so 0.125 at 2 digits is 0.13).
+fn rounded_digits(value: f64, fraction_digits: usize) -> (String, i32) {
+    let shortest = format!("{:e}", value.abs());
+    let (mantissa, exponent) = shortest.split_once('e').unwrap_or((&shortest, "0"));
+    let mut exponent: i32 = exponent.parse().unwrap_or(0);
+    let mut digits: Vec<u8> = mantissa.bytes().filter(u8::is_ascii_digit).collect();
+    let keep = 1 + fraction_digits;
+    if digits.len() > keep {
+        let round_up = digits[keep] >= b'5';
+        digits.truncate(keep);
+        if round_up {
+            let mut index = keep;
+            loop {
+                if index == 0 {
+                    // 9.99 -> 10.0: one more integer digit.
+                    digits.insert(0, b'1');
+                    digits.pop();
+                    exponent += 1;
+                    break;
+                }
+                index -= 1;
+                if digits[index] == b'9' {
+                    digits[index] = b'0';
+                } else {
+                    digits[index] += 1;
+                    break;
+                }
+            }
+        }
+    }
+    (String::from_utf8(digits).unwrap_or_default(), exponent)
 }
 
 /// Place the decimal point into significant `digits` for a number `d.ddd x 10^exponent`,

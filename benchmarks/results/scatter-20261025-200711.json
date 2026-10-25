@@ -1,0 +1,90 @@
+{
+  "date": "2026-10-25T20:07:11+00:00",
+  "machine": {
+    "platform": "Linux-6.18.44-fc-v153-x86_64-with-glibc2.39",
+    "processor": "x86_64",
+    "python": "3.13.17"
+  },
+  "results": [
+    {
+      "library": "ggrust",
+      "output": "svg",
+      "points": 10000,
+      "cold_seconds": 0.0034240470013173763,
+      "warm_seconds": 0.002839106000465108,
+      "repeats": 3,
+      "peak_memory_above_data_mb": 4.6875,
+      "output_bytes": 422040
+    },
+    {
+      "library": "lets-plot",
+      "output": "svg",
+      "points": 10000,
+      "cold_seconds": 0.14222368499940785,
+      "warm_seconds": 0.12466964200029906,
+      "repeats": 3,
+      "peak_memory_above_data_mb": 48.58984375,
+      "output_bytes": 1575328
+    },
+    {
+      "library": "ggrust",
+      "output": "svg",
+      "points": 100000,
+      "cold_seconds": 0.028773729000022286,
+      "warm_seconds": 0.025652799999079434,
+      "repeats": 3,
+      "peak_memory_above_data_mb": 13.1328125,
+      "output_bytes": 4179491
+    },
+    {
+      "library": "lets-plot",
+      "output": "svg",
+      "points": 100000,
+      "cold_seconds": 1.3826976030013611,
+      "warm_seconds": 1.3574700890003442,
+      "repeats": 3,
+      "peak_memory_above_data_mb": 334.79296875,
+      "output_bytes": 15632254
+    },
+    {
+      "library": "ggrust",
+      "output": "png",
+      "points": 10000,
+      "cold_seconds": 0.059139293000043835,
+      "warm_seconds": 0.05278011799964588,
+      "repeats": 3,
+      "peak_memory_above_data_mb": 15.89453125,
+      "output_bytes": 204704
+    },
+    {
+      "library": "lets-plot",
+      "output": "png",
+      "points": 10000,
+      "cold_seconds": 1.3338519650005765,
+      "warm_seconds": 1.2672219639989635,
+      "repeats": 3,
+      "peak_memory_above_data_mb": 186.02734375,
+      "output_bytes": 160365
+    },
+    {
+      "library": "ggrust",
+      "output": "png",
+      "points": 100000,
+      "cold_seconds": 0.28420209099931526,
+      "warm_seconds": 0.2793436179999844,
+      "repeats": 3,
+      "peak_memory_above_data_mb": 17.26953125,
+      "output_bytes": 247192
+    },
+    {
+      "library": "lets-plot",
+      "output": "png",
+      "points": 100000,
+      "cold_seconds": 10.291279442000814,
+      "warm_seconds": 9.320167990999835,
+      "repeats": 3,
+      "peak_memory_above_data_mb": 984.12109375,
+      "output_bytes": 140704
+    }
+  ]
+}

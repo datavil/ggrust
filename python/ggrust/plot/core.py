@@ -105,9 +105,12 @@ class FeatureSpec:
     def __add__(self, other):
         if isinstance(other, DummySpec):
             return self
-        if self.kind not in ["plot", "subplots"] and isinstance(other, FeatureSpec):
-            if other.kind not in ["plot", "subplots"]:
-                return FeatureSpecArray(self, other)
+        if (
+            self.kind not in ["plot", "subplots"]
+            and isinstance(other, FeatureSpec)
+            and other.kind not in ["plot", "subplots"]
+        ):
+            return FeatureSpecArray(self, other)
         message = f"unsupported operand type(s) for +: {self.__class__} and {other.__class__}"
         raise TypeError(message)
 
@@ -277,7 +280,7 @@ class PlotSpec(FeatureSpec):
 class LayerSpec(FeatureSpec):
     """A plot layer. Build it with ``geom_*()`` functions or ``layer()``."""
 
-    __own_features = ["geom", "stat", "mapping", "position"]
+    __own_features = ("geom", "stat", "mapping", "position")
 
     @classmethod
     def duplicate(cls, other: LayerSpec) -> LayerSpec:

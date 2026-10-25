@@ -13,3 +13,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [PNG: rasterise directly, never via big SVG](png_direct_raster.md): usvg node limit breaks 1M points; direct tiny-skia + text via resvg; consistency test guards SVG/PNG parity.
 - [Calibrate against real lets-plot SVG](letsplot_reference_svg.md): `to_svg()` works offline; measured defaults (point r 3.3 #474747, text 13px, grid #E9E9E9).
 - [lets-plot semantics traps](lets_plot_semantics_traps.md): alpha replaces (not multiplies), layer/plot data merge, constant positions, colour alias, precision test, write SVG attributes once.
+- [Never let a failing check reach a commit](check_before_commit.md): don't pipe `make check` into grep and then `;` commit; gate on its exit status.

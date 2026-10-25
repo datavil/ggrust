@@ -7,17 +7,42 @@ use std::collections::BTreeMap;
 
 use serde::Deserialize;
 
-use super::{Options, Value, join_path, report_unsupported};
+use super::{Options, Value, from_value_tracked, join_path, nest_error_path, report_unsupported};
 
 /// `theme_*()` + `theme(...)`.
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
-#[serde(default)]
+#[serde(try_from = "Value")]
 pub struct ThemeSpec {
     /// Base theme: `classic`, `bw`, `grey`, `minimal`, `none`, ...
     pub name: Option<String>,
     /// Per-element overrides keyed by element name.
-    #[serde(flatten)]
     pub elements: BTreeMap<String, ThemeValue>,
+}
+
+impl TryFrom<Value> for ThemeSpec {
+    type Error = String;
+
+    /// Parsed by hand (not `flatten`) so errors keep the element path,
+    /// e.g. `theme.axis_text.size`.
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        let Value::Object(entries) = value else {
+            return Err(format!("expected theme options, got {value}"));
+        };
+        let mut theme = ThemeSpec::default();
+        for (key, value) in entries {
+            if key == "name" {
+                match value {
+                    Value::String(name) => theme.name = Some(name),
+                    other => return Err(format!("at 'name': expected a string, got {other}")),
+                }
+            } else {
+                let element = ThemeValue::try_from(value)
+                    .map_err(|message| nest_error_path(&key, &message))?;
+                theme.elements.insert(key, element);
+            }
+        }
+        Ok(theme)
+    }
 }
 
 impl ThemeSpec {
@@ -43,13 +68,13 @@ pub enum ThemeValue {
 }
 
 impl TryFrom<Value> for ThemeValue {
-    type Error = serde_json::Error;
+    type Error = String;
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
         match value {
             Value::String(text) if text == "blank" => Ok(ThemeValue::Blank),
             Value::Object(_) => {
-                let element: ElementSpec = serde_json::from_value(value)?;
+                let element: ElementSpec = from_value_tracked(value)?;
                 if element.blank {
                     Ok(ThemeValue::Blank)
                 } else {

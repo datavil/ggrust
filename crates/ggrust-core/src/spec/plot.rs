@@ -7,7 +7,7 @@ use serde::de::IgnoredAny;
 
 use super::{
     Aesthetic, CoordSpec, FacetSpec, GuideSpec, LayerSpec, Mapping, Options, ScaleSpec, ThemeSpec,
-    Value, join_path, report_unsupported,
+    Value, guide_map, join_path, report_unsupported,
 };
 
 /// Everything `PlotSpec.as_dict()` produces for one plot.
@@ -29,6 +29,7 @@ pub struct PlotSpec {
     /// Theme, if any was set.
     pub theme: Option<ThemeSpec>,
     /// Guides keyed by aesthetic name; also carries axis titles from `labs()`.
+    #[serde(deserialize_with = "guide_map")]
     pub guides: BTreeMap<String, GuideSpec>,
     /// Coordinate system.
     pub coord: Option<CoordSpec>,
@@ -42,8 +43,9 @@ pub struct PlotSpec {
     pub caption: Option<CaptionSpec>,
     /// `ggtb(...)`: interactive zoom/pan toolbar.
     pub ggtoolbar: Option<ToolbarSpec>,
-    /// lets-plot front-end metadata. Accepted and ignored.
-    pub metainfo_list: Vec<IgnoredAny>,
+    /// lets-plot front-end metadata (`font_family_info`, ...). Not supported:
+    /// every entry is reported by [`super::Figure::unsupported_options`].
+    pub metainfo_list: Vec<Value>,
     /// Keys no component consumes.
     #[serde(flatten)]
     pub unsupported: Options,
@@ -52,6 +54,26 @@ pub struct PlotSpec {
 impl PlotSpec {
     pub(super) fn collect_unsupported(&self, parent: &str, found: &mut Vec<String>) {
         report_unsupported(parent, &self.unsupported, found);
+        for index in 0..self.metainfo_list.len() {
+            found.push(join_path(parent, &format!("metainfo_list[{index}]")));
+        }
+        self.data_meta
+            .collect_unsupported(&join_path(parent, "data_meta"), found);
+        for (key, unsupported) in [
+            ("ggsize", self.ggsize.as_ref().map(|size| &size.unsupported)),
+            (
+                "ggtitle",
+                self.ggtitle.as_ref().map(|title| &title.unsupported),
+            ),
+            (
+                "caption",
+                self.caption.as_ref().map(|caption| &caption.unsupported),
+            ),
+        ] {
+            if let Some(unsupported) = unsupported {
+                report_unsupported(&join_path(parent, key), unsupported, found);
+            }
+        }
         for (index, layer) in self.layers.iter().enumerate() {
             layer.collect_unsupported(&join_path(parent, &format!("layers[{index}]")), found);
         }
@@ -81,6 +103,25 @@ pub struct DataMeta {
     pub series_annotations: Vec<SeriesAnnotation>,
     /// Per-aesthetic annotations, e.g. `as_discrete`.
     pub mapping_annotations: Vec<MappingAnnotation>,
+    /// Keys no component consumes (e.g. `geodataframe`).
+    #[serde(flatten)]
+    pub unsupported: Options,
+}
+
+impl DataMeta {
+    pub(super) fn collect_unsupported(&self, parent: &str, found: &mut Vec<String>) {
+        report_unsupported(parent, &self.unsupported, found);
+        for (index, annotation) in self.series_annotations.iter().enumerate() {
+            let path = join_path(parent, &format!("series_annotations[{index}]"));
+            report_unsupported(&path, &annotation.unsupported, found);
+        }
+        for (index, annotation) in self.mapping_annotations.iter().enumerate() {
+            let path = join_path(parent, &format!("mapping_annotations[{index}]"));
+            report_unsupported(&path, &annotation.unsupported, found);
+            let path = join_path(&path, "parameters");
+            report_unsupported(&path, &annotation.parameters.unsupported, found);
+        }
+    }
 }
 
 /// Type (and category order) of one data column.
@@ -95,6 +136,11 @@ pub struct SeriesAnnotation {
     pub factor_levels: Option<Vec<Value>>,
     /// `1` ascending, `-1` descending.
     pub order: Option<i64>,
+    /// Time zone of a datetime column, e.g. `UTC`.
+    pub time_zone: Option<String>,
+    /// Keys no component consumes.
+    #[serde(flatten)]
+    pub unsupported: Options,
 }
 
 /// An annotation on a mapped aesthetic, e.g. `color=as_discrete("cluster")`.
@@ -104,9 +150,14 @@ pub struct MappingAnnotation {
     pub aes: Aesthetic,
     /// Annotation kind; lets-plot only emits `as_discrete`.
     pub annotation: String,
+    /// Category levels in order, from `as_discrete(levels=...)`.
+    pub levels: Option<Vec<Value>>,
     /// Annotation options.
     #[serde(default)]
     pub parameters: MappingAnnotationParameters,
+    /// Keys no component consumes.
+    #[serde(flatten)]
+    pub unsupported: Options,
 }
 
 /// Options of `as_discrete(...)`.
@@ -119,15 +170,21 @@ pub struct MappingAnnotationParameters {
     pub order_by: Option<String>,
     /// `1` ascending, `-1` descending.
     pub order: Option<i64>,
+    /// Keys no component consumes.
+    #[serde(flatten)]
+    pub unsupported: Options,
 }
 
 /// Plot size in pixels.
-#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct SizeSpec {
     /// Width in pixels.
     pub width: f64,
     /// Height in pixels.
     pub height: f64,
+    /// Keys no component consumes.
+    #[serde(flatten)]
+    pub unsupported: Options,
 }
 
 /// Plot title and subtitle.
@@ -137,6 +194,9 @@ pub struct TitleSpec {
     pub text: Option<String>,
     /// Subtitle text.
     pub subtitle: Option<String>,
+    /// Keys no component consumes.
+    #[serde(flatten)]
+    pub unsupported: Options,
 }
 
 /// Plot caption.
@@ -144,6 +204,9 @@ pub struct TitleSpec {
 pub struct CaptionSpec {
     /// Caption text.
     pub text: Option<String>,
+    /// Keys no component consumes.
+    #[serde(flatten)]
+    pub unsupported: Options,
 }
 
 /// `ggtb(size_basis=..., size_zoomin=...)`.

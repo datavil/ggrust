@@ -60,7 +60,7 @@ aesthetics! {
     Xend => "xend", Yend => "yend",
     MapId => "map_id", Frame => "frame", Speed => "speed", Flow => "flow",
     Label => "label", Family => "family", Fontface => "fontface",
-    Lineheight => "lineheight", Angle => "angle",
+    Lineheight => "lineheight", Angle => "angle", Hjust => "hjust", Vjust => "vjust",
     Radius => "radius", Slice => "slice", Explode => "explode",
     Istart => "istart", Iend => "iend", Lenstart => "lenstart", Lenend => "lenend",
     SizeStart => "size_start", SizeEnd => "size_end",

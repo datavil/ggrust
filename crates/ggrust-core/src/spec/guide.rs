@@ -2,11 +2,11 @@
 
 use serde::Deserialize;
 
-use super::{Options, Value, report_unsupported};
+use super::{Options, Value, from_value_tracked, optional_count, report_unsupported};
 
 /// A guide, given as a name (`"none"`, `"legend"`) or with options.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(untagged)]
+#[serde(try_from = "Value")]
 pub enum GuideSpec {
     /// `"none"`, `"legend"`, `"colorbar"`.
     Name(String),
@@ -23,8 +23,10 @@ pub struct GuideOptions {
     /// Guide (or axis) title.
     pub title: Option<String>,
     /// Legend columns.
+    #[serde(deserialize_with = "optional_count")]
     pub ncol: Option<u32>,
     /// Legend rows.
+    #[serde(deserialize_with = "optional_count")]
     pub nrow: Option<u32>,
     /// Fill legend keys row by row.
     pub byrow: Option<bool>,
@@ -35,6 +37,7 @@ pub struct GuideOptions {
     /// Colorbar height in pixels.
     pub barheight: Option<f64>,
     /// Number of colorbar bins.
+    #[serde(deserialize_with = "optional_count")]
     pub nbin: Option<u32>,
     /// Legend order among guides.
     pub order: Option<i64>,
@@ -43,6 +46,20 @@ pub struct GuideOptions {
     /// Keys no component consumes.
     #[serde(flatten)]
     pub unsupported: Options,
+}
+
+impl TryFrom<Value> for GuideSpec {
+    type Error = String;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::String(name) => Ok(GuideSpec::Name(name)),
+            Value::Object(_) => from_value_tracked(value).map(GuideSpec::Full),
+            other => Err(format!(
+                "expected a guide name or guide_*() options, got {other}"
+            )),
+        }
+    }
 }
 
 impl GuideSpec {

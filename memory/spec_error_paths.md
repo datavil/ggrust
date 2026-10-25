@@ -12,3 +12,9 @@ paths; only the flattened leftovers lose them.
 **How to apply:** don't put untagged or internally tagged enums above deep structures.
 Use them only for small leaves (`PositionSpec`, `GuideSpec`, `TooltipsSpec`). Add a test
 asserting the path for any new nesting level.
+
+**Pattern for leaves (works):** `#[serde(try_from = "Value")]` + a `TryFrom<Value>` that
+matches on the JSON shape and calls `from_value_tracked` for objects. Errors come back as
+`at '<inner path>': ...` and the outer tracker joins paths (`theme.axis_text.size`,
+`scales[0].aesthetic[1]`). Never use plain `#[serde(untagged)]` where users can make
+mistakes: its error is "data did not match any variant", which names nothing.

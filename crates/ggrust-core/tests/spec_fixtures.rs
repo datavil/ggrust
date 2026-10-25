@@ -55,7 +55,7 @@ fn every_fixture_parses_with_no_unsupported_options() {
 #[test]
 fn umap_categorical_fields() {
     let plot = plot("umap_categorical");
-    assert_eq!(plot.mapping[&Aesthetic::Color], "cluster");
+    assert_eq!(plot.mapping[&Aesthetic::Color].as_column(), Some("cluster"));
     assert_eq!(
         plot.ggsize.map(|size| (size.width, size.height)),
         Some((500.0, 400.0))

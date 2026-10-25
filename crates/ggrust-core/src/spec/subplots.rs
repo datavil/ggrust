@@ -5,8 +5,8 @@ use std::collections::BTreeMap;
 use serde::Deserialize;
 
 use super::{
-    CaptionSpec, Figure, GuideSpec, Options, SizeSpec, ThemeSpec, TitleSpec, ToolbarSpec,
-    join_path, report_unsupported,
+    CaptionSpec, Figure, GuideSpec, Options, SizeSpec, ThemeSpec, TitleSpec, ToolbarSpec, count,
+    guide_map, join_path, report_unsupported,
 };
 
 /// Everything `SupPlotsSpec.as_dict()` produces.
@@ -22,7 +22,7 @@ pub struct SubplotsSpec {
     #[serde(default)]
     pub theme: Option<ThemeSpec>,
     /// Guides applied to the whole grid.
-    #[serde(default)]
+    #[serde(default, deserialize_with = "guide_map")]
     pub guides: BTreeMap<String, GuideSpec>,
     /// `ggsize(width, height)` of the whole grid.
     #[serde(default)]
@@ -75,8 +75,10 @@ pub struct GridLayoutSpec {
     /// Layout kind; lets-plot emits `grid`.
     pub name: String,
     /// Number of columns.
+    #[serde(deserialize_with = "count")]
     pub ncol: u32,
     /// Number of rows.
+    #[serde(deserialize_with = "count")]
     pub nrow: u32,
     /// Relative column widths.
     #[serde(default)]

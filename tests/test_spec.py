@@ -50,3 +50,54 @@ def test_unsupported_options_are_listed():
 def test_not_json_raises():
     with pytest.raises(ValueError, match="not valid JSON"):
         validate_spec("{")
+
+
+def lets_plot_json(spec):
+    generator = load_generator()
+    return json.dumps(generator.strip_data(spec.as_dict()))
+
+
+def test_real_lets_plot_specs_found_by_bug_hunt():
+    import numpy as np
+    import polars as pl
+    from lets_plot import (
+        aes,
+        as_discrete,
+        facet_wrap,
+        geom_imshow,
+        geom_point,
+        geom_text,
+        ggplot,
+        guide_legend,
+        guides,
+    )
+
+    frame = pl.DataFrame({"x": [1.0, 2.0], "y": [3.0, 4.0], "c": ["a", "b"]})
+    categorical = frame.with_columns(pl.col("c").cast(pl.Categorical))
+    base = ggplot(frame, aes("x", "y"))
+    supported = [
+        base + geom_text(aes(label="c", hjust="c", vjust="c")),
+        base + geom_point(aes(group=["c", "x"])),
+        ggplot() + geom_imshow(np.random.default_rng(0).random((3, 3))),
+        base + geom_point(aes(color="c")) + guides(color=guide_legend(ncol=2.0)),
+        base + geom_point() + facet_wrap("c", ncol=2.0),
+        base + geom_point(sampling="none"),
+        ggplot(categorical, aes(x=as_discrete("c", levels=["b", "a"]), y="y")) + geom_point(),
+    ]
+    for spec in supported:
+        assert validate_spec(lets_plot_json(spec)) == []
+
+
+def test_real_lets_plot_theme_error_names_element():
+    from lets_plot import element_text, geom_point, ggplot, theme
+
+    spec = ggplot() + geom_point() + theme(text=element_text(size="12"))
+    with pytest.raises(ValueError, match=r"at 'theme\.text\.size'"):
+        validate_spec(lets_plot_json(spec))
+
+
+def test_real_lets_plot_font_metainfo_is_reported():
+    from lets_plot import font_family_info, geom_point, ggplot
+
+    spec = ggplot() + geom_point() + font_family_info("Arial", mono=False)
+    assert validate_spec(lets_plot_json(spec)) == ["metainfo_list[0]"]

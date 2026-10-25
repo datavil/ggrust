@@ -3,7 +3,7 @@
 use serde::Deserialize;
 use serde::de::IgnoredAny;
 
-use super::{DataMeta, Mapping, Options, Value, join_path, report_unsupported};
+use super::{DataMeta, Mapping, Options, Value, from_value_tracked, join_path, report_unsupported};
 
 /// One `geom_*()` layer.
 #[derive(Debug, Clone, Deserialize)]
@@ -54,12 +54,24 @@ pub struct LayerSpec {
 
 impl LayerSpec {
     pub(super) fn collect_unsupported(&self, parent: &str, found: &mut Vec<String>) {
-        if self.sampling.is_some() {
+        // ggrust never samples, so only an explicit "none" matches what it does.
+        if self
+            .sampling
+            .as_ref()
+            .is_some_and(|sampling| sampling != "none")
+        {
             found.push(join_path(parent, "sampling"));
         }
+        self.data_meta
+            .collect_unsupported(&join_path(parent, "data_meta"), found);
         for (key, tooltips) in [("tooltips", &self.tooltips), ("labels", &self.labels)] {
             if let Some(TooltipsSpec::Lines(lines)) = tooltips {
-                report_unsupported(&join_path(parent, key), &lines.unsupported, found);
+                let path = join_path(parent, key);
+                report_unsupported(&path, &lines.unsupported, found);
+                for (index, format) in lines.formats.iter().enumerate() {
+                    let path = join_path(&path, &format!("formats[{index}]"));
+                    report_unsupported(&path, &format.unsupported, found);
+                }
             }
         }
     }
@@ -67,7 +79,7 @@ impl LayerSpec {
 
 /// A position adjustment, given as a name (`"jitter"`) or with options.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(from = "PositionRepresentation")]
+#[serde(try_from = "Value")]
 pub struct PositionSpec {
     /// Position name, e.g. `dodge`, `jitterdodge`.
     pub name: String,
@@ -75,45 +87,52 @@ pub struct PositionSpec {
     pub parameters: Options,
 }
 
-#[derive(Deserialize)]
-#[serde(untagged)]
-enum PositionRepresentation {
-    Name(String),
-    Full {
-        name: String,
-        #[serde(flatten)]
-        parameters: Options,
-    },
-}
+impl TryFrom<Value> for PositionSpec {
+    type Error = String;
 
-impl From<PositionRepresentation> for PositionSpec {
-    fn from(representation: PositionRepresentation) -> Self {
-        match representation {
-            PositionRepresentation::Name(name) => PositionSpec {
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::String(name) => Ok(PositionSpec {
                 name,
                 parameters: Options::new(),
+            }),
+            Value::Object(mut parameters) => match parameters.remove("name") {
+                Some(Value::String(name)) => Ok(PositionSpec {
+                    name,
+                    parameters: parameters.into_iter().collect(),
+                }),
+                Some(other) => Err(format!("at 'name': expected a string, got {other}")),
+                None => Err("at 'name': missing position name".into()),
             },
-            PositionRepresentation::Full { name, parameters } => PositionSpec { name, parameters },
+            other => Err(format!(
+                "expected a position name or position_*() options, got {other}"
+            )),
         }
     }
 }
 
 /// Tooltip (or label) configuration.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(untagged)]
+#[serde(try_from = "Value")]
 pub enum TooltipsSpec {
     /// `tooltips="none"`: hover tooltips disabled.
-    Disabled(TooltipsDisabled),
+    Disabled,
     /// `layer_tooltips()...`
     Lines(Box<TooltipLines>),
 }
 
-/// The literal string `"none"`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
-#[serde(rename_all = "lowercase")]
-pub enum TooltipsDisabled {
-    /// `"none"`
-    None,
+impl TryFrom<Value> for TooltipsSpec {
+    type Error = String;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        match value {
+            Value::String(text) if text == "none" => Ok(TooltipsSpec::Disabled),
+            Value::Object(_) => from_value_tracked(value).map(TooltipsSpec::Lines),
+            other => Err(format!(
+                "expected \"none\" or layer_tooltips() options, got {other}"
+            )),
+        }
+    }
 }
 
 /// Content and look of a tooltip built with `layer_tooltips()`.
@@ -148,4 +167,7 @@ pub struct TooltipFormat {
     pub field: String,
     /// Format string, e.g. `.2f`, `{.1%}`.
     pub format: String,
+    /// Keys no component consumes.
+    #[serde(flatten)]
+    pub unsupported: Options,
 }

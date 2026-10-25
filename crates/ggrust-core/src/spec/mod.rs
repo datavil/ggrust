@@ -23,13 +23,14 @@ mod theme;
 
 use std::collections::BTreeMap;
 
-use serde::Deserialize;
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Deserializer};
 
 pub use aesthetic::{Aesthetic, UnknownAesthetic};
 pub use coord::CoordSpec;
 pub use facet::FacetSpec;
-pub use guide::GuideSpec;
-pub use layer::{LayerSpec, PositionSpec, TooltipsSpec};
+pub use guide::{GuideOptions, GuideSpec};
+pub use layer::{LayerSpec, PositionSpec, TooltipFormat, TooltipLines, TooltipsSpec};
 pub use plot::{
     CaptionSpec, DataMeta, MappingAnnotation, MappingAnnotationParameters, PlotSpec,
     SeriesAnnotation, SizeSpec, TitleSpec, ToolbarSpec,
@@ -46,8 +47,30 @@ pub type Value = serde_json::Value;
 /// Options keyed by name, kept in a stable (sorted) order.
 pub type Options = BTreeMap<String, Value>;
 
-/// Aesthetic to column name.
-pub type Mapping = BTreeMap<Aesthetic, String>;
+/// Aesthetic to mapped value (usually a column name).
+pub type Mapping = BTreeMap<Aesthetic, MappingValue>;
+
+/// What an aesthetic is mapped to.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(untagged)]
+pub enum MappingValue {
+    /// A column name: `aes(color="cluster")`.
+    Column(String),
+    /// Several columns: `aes(group=["sample", "cluster"])`.
+    Columns(Vec<String>),
+    /// Anything else lets_plot emits, e.g. `geom_imshow`'s `paint_c: [min, max]`.
+    Other(Value),
+}
+
+impl MappingValue {
+    /// The column name, if this maps a single column.
+    pub fn as_column(&self) -> Option<&str> {
+        match self {
+            MappingValue::Column(name) => Some(name),
+            _ => None,
+        }
+    }
+}
 
 /// A figure: a single plot, or a grid of figures.
 ///
@@ -105,42 +128,55 @@ impl<'de> Deserialize<'de> for Figure {
     }
 }
 
+/// Boxed [`from_value_tracked`].
+fn deserialize_tracked<T: DeserializeOwned>(value: Value) -> std::result::Result<Box<T>, String> {
+    from_value_tracked(value).map(Box::new)
+}
+
 /// Deserialize `value`, reporting failures as `at '<path>': <message>`.
-fn deserialize_tracked<T: serde::de::DeserializeOwned>(
-    value: Value,
-) -> std::result::Result<Box<T>, String> {
-    serde_path_to_error::deserialize(value)
-        .map(Box::new)
-        .map_err(|error| {
-            let path = error.path().to_string();
-            let message = error.into_inner().to_string();
-            nest_error_path(&path, &message)
-        })
+///
+/// Custom `TryFrom<Value>` leaves use this so their errors keep the inner path;
+/// the outer tracker joins it with [`nest_error_path`].
+fn from_value_tracked<T: DeserializeOwned>(value: Value) -> std::result::Result<T, String> {
+    serde_path_to_error::deserialize(value).map_err(|error| {
+        let path = error.path().to_string();
+        let message = error.into_inner().to_string();
+        nest_error_path(&path, &message)
+    })
 }
 
 /// Join an outer path with the path inside a nested figure error.
 ///
 /// `("figures[0]", "at 'layers[1]': bad")` -> `"at 'figures[0].layers[1]': bad"`.
 fn nest_error_path(outer: &str, message: &str) -> String {
-    let outer = if outer == "." { "" } else { outer };
-    match message
+    let (inner, rest) = message
         .strip_prefix("at '")
         .and_then(|rest| rest.split_once("': "))
-    {
-        Some((inner, rest)) => format!("at '{}': {rest}", join_path(outer, inner)),
-        None if outer.is_empty() => format!("at '.': {message}"),
-        None => format!("at '{outer}': {message}"),
-    }
+        .unwrap_or((".", message));
+    let path = join_path(outer, inner);
+    let path = if path.is_empty() { "." } else { &path };
+    format!("at '{path}': {rest}")
 }
 
 /// A value given either as a single item or as a list (`"a"` or `["a", "b"]`).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
-#[serde(untagged)]
+#[serde(try_from = "Value", bound = "T: DeserializeOwned")]
 pub enum OneOrMany<T> {
     /// A single item.
     One(T),
     /// A list of items.
     Many(Vec<T>),
+}
+
+impl<T: DeserializeOwned> TryFrom<Value> for OneOrMany<T> {
+    type Error = String;
+
+    fn try_from(value: Value) -> std::result::Result<Self, Self::Error> {
+        match value {
+            Value::Array(_) => from_value_tracked(value).map(OneOrMany::Many),
+            single => from_value_tracked(single).map(OneOrMany::One),
+        }
+    }
 }
 
 impl<T> OneOrMany<T> {
@@ -154,12 +190,57 @@ impl<T> OneOrMany<T> {
 }
 
 /// Join a parent path and a key: `("layers[0]", "size")` -> `"layers[0].size"`.
+///
+/// `"."` (serde_path_to_error's root) counts as empty; index keys (`[1]`) attach
+/// without a dot.
 fn join_path(parent: &str, key: &str) -> String {
+    let parent = if parent == "." { "" } else { parent };
+    let key = if key == "." { "" } else { key };
     if parent.is_empty() {
         key.to_owned()
+    } else if key.is_empty() {
+        parent.to_owned()
+    } else if key.starts_with('[') {
+        format!("{parent}{key}")
     } else {
         format!("{parent}.{key}")
     }
+}
+
+/// A count (`ncol`, `nrow`, ...): a non-negative whole number. Accepts `2.0`,
+/// which lets_plot passes through unchanged from Python floats.
+fn count<'de, D: Deserializer<'de>>(deserializer: D) -> std::result::Result<u32, D::Error> {
+    let number = f64::deserialize(deserializer)?;
+    if number.fract() == 0.0 && (0.0..=f64::from(u32::MAX)).contains(&number) {
+        Ok(number as u32)
+    } else {
+        Err(serde::de::Error::custom(format!(
+            "expected a non-negative whole number, got {number}"
+        )))
+    }
+}
+
+/// Optional [`count`].
+fn optional_count<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<Option<u32>, D::Error> {
+    #[derive(Deserialize)]
+    struct Count(#[serde(deserialize_with = "count")] u32);
+    Ok(Option::<Count>::deserialize(deserializer)?.map(|Count(number)| number))
+}
+
+/// Guides keyed by aesthetic name, with `colour`/`col` normalised to `color`.
+fn guide_map<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> std::result::Result<BTreeMap<String, GuideSpec>, D::Error> {
+    let guides = BTreeMap::<String, GuideSpec>::deserialize(deserializer)?;
+    Ok(guides
+        .into_iter()
+        .map(|(key, guide)| match key.parse::<Aesthetic>() {
+            Ok(aesthetic) => (aesthetic.as_str().to_owned(), guide),
+            Err(_) => (key, guide),
+        })
+        .collect())
 }
 
 /// Append the path of every key in `unsupported` to `found`.
@@ -223,7 +304,7 @@ mod tests {
         else {
             panic!("expected plot");
         };
-        assert_eq!(plot.mapping[&Aesthetic::Color], "a");
+        assert_eq!(plot.mapping[&Aesthetic::Color].as_column(), Some("a"));
     }
 
     #[test]
@@ -272,7 +353,7 @@ mod tests {
         };
         assert!(matches!(
             plot.layers[0].tooltips,
-            Some(TooltipsSpec::Disabled(_))
+            Some(TooltipsSpec::Disabled)
         ));
     }
 }

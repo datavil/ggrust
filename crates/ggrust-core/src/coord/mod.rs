@@ -6,7 +6,7 @@ mod cartesian;
 
 pub use cartesian::Cartesian;
 
-use crate::scale::ContinuousPositionScale;
+use crate::scale::PositionScale;
 use crate::scene::Rect;
 
 /// A coordinate system.
@@ -36,9 +36,9 @@ pub struct Panel<'a> {
     /// Panel rectangle in scene pixels.
     pub rect: Rect,
     /// Horizontal position scale.
-    pub x_scale: &'a ContinuousPositionScale,
+    pub x_scale: &'a PositionScale,
     /// Vertical position scale.
-    pub y_scale: &'a ContinuousPositionScale,
+    pub y_scale: &'a PositionScale,
     /// Coordinate system.
     pub coord: &'a dyn Coord,
 }

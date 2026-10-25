@@ -1,8 +1,8 @@
-"""Position scales: ``scale_x_continuous()``, ``scale_x_log10()``, ``xlim()``, ...
+"""Position scales: ``scale_x_continuous()``, ``scale_x_discrete()``, ``xlim()``, ...
 
 Ported from lets-plot's ``lets_plot/plot/scale.py``, ``scale_position.py`` and
-``scale_convenience.py`` (MIT, see THIRD_PARTY_NOTICES.md). Discrete and color scales
-come in later phases.
+``scale_convenience.py`` (MIT, see THIRD_PARTY_NOTICES.md). Color scales come in a
+later phase.
 """
 
 from ggrust.plot.core import DummySpec, FeatureSpec, FeatureSpecArray
@@ -10,10 +10,14 @@ from ggrust.plot.core import DummySpec, FeatureSpec, FeatureSpecArray
 __all__ = [
     "lims",
     "scale_x_continuous",
+    "scale_x_discrete",
+    "scale_x_discrete_reversed",
     "scale_x_log2",
     "scale_x_log10",
     "scale_x_reverse",
     "scale_y_continuous",
+    "scale_y_discrete",
+    "scale_y_discrete_reversed",
     "scale_y_log2",
     "scale_y_log10",
     "scale_y_reverse",
@@ -210,6 +214,142 @@ scale_x_reverse = _transformed(scale_x_continuous, "reverse")
 scale_y_reverse = _transformed(scale_y_continuous, "reverse")
 
 
+def _as_boolean(value, *, default):
+    """lets-plot ``as_boolean``: ``None`` -> ``default``; the string ``'False'`` is false."""
+    if value is None:
+        return default
+    return bool(value) and value != "False"
+
+
+def scale_x_discrete(
+    name=None,
+    *,
+    breaks=None,
+    labels=None,
+    lablim=None,
+    limits=None,
+    expand=None,
+    na_value=None,
+    reverse=None,
+    format=None,
+    position=None,
+) -> FeatureSpec:
+    """Discrete position scale x.
+
+    Parameters
+    ----------
+    name : str, optional
+        Axis title (``labs(x=...)`` takes precedence).
+    breaks, labels, lablim, na_value, format, position
+        As in lets-plot; not drawn yet (ggrust warns).
+    limits : list of str, optional
+        The categories to show, in axis order; other categories are dropped.
+    expand : list, optional
+        ``[multiplicative]`` or ``[multiplicative, additive]``; the default adds 0.2
+        categories on each side.
+    reverse : bool, default False
+        Reverse the category order.
+
+    Returns
+    -------
+    FeatureSpec
+        Scale specification.
+    """
+    return _scale(
+        "x",
+        name=name,
+        breaks=breaks,
+        labels=labels,
+        lablim=lablim,
+        limits=limits,
+        expand=expand,
+        na_value=na_value,
+        trans=None,
+        guide=None,
+        format=format,
+        position=position,
+        discrete=True,
+        reverse=_as_boolean(reverse, default=False),
+    )
+
+
+def scale_y_discrete(
+    name=None,
+    *,
+    breaks=None,
+    labels=None,
+    lablim=None,
+    limits=None,
+    expand=None,
+    na_value=None,
+    reverse=None,
+    format=None,
+    position=None,
+) -> FeatureSpec:
+    """Discrete position scale y. See ``scale_x_discrete``.
+
+    Returns
+    -------
+    FeatureSpec
+        Scale specification.
+    """
+    return _scale(
+        "y",
+        name=name,
+        breaks=breaks,
+        labels=labels,
+        lablim=lablim,
+        limits=limits,
+        expand=expand,
+        na_value=na_value,
+        trans=None,
+        guide=None,
+        format=format,
+        position=position,
+        discrete=True,
+        reverse=_as_boolean(reverse, default=False),
+    )
+
+
+def _discrete_reversed(scale):
+    def scale_function(
+        name=None,
+        *,
+        breaks=None,
+        labels=None,
+        lablim=None,
+        limits=None,
+        expand=None,
+        na_value=None,
+        format=None,
+        position=None,
+    ) -> FeatureSpec:
+        return scale(
+            name,
+            breaks=breaks,
+            labels=labels,
+            lablim=lablim,
+            limits=limits,
+            expand=expand,
+            na_value=na_value,
+            format=format,
+            position=position,
+            reverse=True,
+        )
+
+    scale_function.__name__ = f"{scale.__name__}_reversed"
+    scale_function.__qualname__ = scale_function.__name__
+    scale_function.__doc__ = (
+        f"``{scale.__name__}(reverse=True)``.\n\n"
+        "Returns\n-------\nFeatureSpec\n    Scale specification.\n"
+    )
+    return scale_function
+
+
+scale_x_discrete_reversed = _discrete_reversed(scale_x_discrete)
+scale_y_discrete_reversed = _discrete_reversed(scale_y_discrete)
+
+
 def lims(x, y) -> FeatureSpec:
     """Limits for both axes: ``xlim(*x) + ylim(*y)``.
 
@@ -227,7 +367,7 @@ def lims(x, y) -> FeatureSpec:
 
 
 def xlim(*limits) -> FeatureSpec:
-    """Limits of the x axis, e.g. ``xlim(0, 10)`` or ``xlim(None, 10)``.
+    """Limits of the x axis, e.g. ``xlim(0, 10)``, ``xlim(None, 10)`` or ``xlim("B", "T")``.
 
     Returns
     -------
@@ -252,7 +392,7 @@ def _limits(aesthetic, *limits) -> FeatureSpec:
     if len(limits) == 0:
         return DummySpec()
     if any(isinstance(value, str | bytes) for value in limits):
-        message = "discrete limits (category lists) are not supported yet"
-        raise NotImplementedError(message)
-    scale = scale_x_continuous if aesthetic == "x" else scale_y_continuous
+        scale = scale_x_discrete if aesthetic == "x" else scale_y_discrete
+    else:
+        scale = scale_x_continuous if aesthetic == "x" else scale_y_continuous
     return scale(limits=list(limits))

@@ -1,7 +1,7 @@
 //! Render a plot with ggrust next to lets-plot's own SVG of the same spec.
 //!
 //! Input: a directory holding `<case>.json` (`{"spec": as_dict() without data,
-//! "data": {column: [numbers]}}`) and `<case>_letsplot.svg` (lets-plot `to_svg()`).
+//! "data": {column: [numbers or strings]}}`) and `<case>_letsplot.svg` (lets-plot `to_svg()`).
 //! Output: `<output>/compare_<case>.png`, lets-plot on the left, ggrust on the right.
 //!
 //! `cargo run --release --example compare_letsplot -- <input dir> <output dir> <case>...`
@@ -10,7 +10,7 @@ use std::fs;
 use std::path::Path;
 use std::sync::Arc;
 
-use arrow_array::{ArrayRef, Float64Array, RecordBatch};
+use arrow_array::{ArrayRef, Float64Array, RecordBatch, StringArray};
 use ggrust_core::build::{PlotData, build_plot};
 use ggrust_core::data::DataFrame;
 use ggrust_core::render::{svg_to_png, to_png};
@@ -35,14 +35,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             .ok_or("data must be an object")?
             .iter()
             .map(|(name, values)| {
-                let numbers: Vec<Option<f64>> = values
-                    .as_array()
-                    .map(|values| values.iter().map(serde_json::Value::as_f64).collect())
-                    .unwrap_or_default();
-                (
-                    name.clone(),
-                    Arc::new(Float64Array::from(numbers)) as ArrayRef,
-                )
+                let values = values.as_array().cloned().unwrap_or_default();
+                // A column with any string is a string column; otherwise numbers.
+                let array: ArrayRef = if values.iter().any(serde_json::Value::is_string) {
+                    let strings: Vec<Option<&str>> =
+                        values.iter().map(serde_json::Value::as_str).collect();
+                    Arc::new(StringArray::from(strings))
+                } else {
+                    let numbers: Vec<Option<f64>> =
+                        values.iter().map(serde_json::Value::as_f64).collect();
+                    Arc::new(Float64Array::from(numbers))
+                };
+                (name.clone(), array)
             })
             .collect();
         let batch = RecordBatch::try_from_iter(columns)?;

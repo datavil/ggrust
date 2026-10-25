@@ -239,8 +239,14 @@ fn errors_name_the_path() {
             "at 'layers[0]': geom_point requires aesthetics x, y (mapped to columns or given as constants); missing: y",
         ),
         (
-            r#"{"kind": "plot", "layers": [{"geom": "point", "mapping": {"x": "cluster", "y": "UMAP2"}}]}"#,
-            "at 'layers[0].mapping.x': column 'cluster' is discrete",
+            r#"{"kind": "plot", "scales": [{"aesthetic": "x", "trans": "log10"}],
+                "layers": [{"geom": "point", "mapping": {"x": "cluster", "y": "UMAP2"}}]}"#,
+            "at 'scales[0].trans': transform 'log10' needs a continuous axis",
+        ),
+        (
+            r#"{"kind": "plot", "scales": [{"aesthetic": "x", "discrete": true}],
+                "layers": [{"geom": "point", "mapping": {"x": "UMAP1", "y": "UMAP2"}}]}"#,
+            "at 'layers[0].mapping.x': the x axis is discrete (scale_x_discrete()) but only numeric",
         ),
         (
             r#"{"kind": "plot", "mapping": {"x": "UMAP1", "y": "UMAP2"}, "layers": [{"geom": "point", "size": "big"}]}"#,

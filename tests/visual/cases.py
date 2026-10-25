@@ -2,7 +2,8 @@
 
 Each case is a function ``(module) -> plot`` where ``module`` is ``ggrust`` or
 ``lets_plot``, so the same code feeds the golden tests and the side-by-side report.
-Add a case here when a phase adds a visible feature.
+Add a case here when a phase adds a visible feature. Cases that need random data use
+their own seeded generator, so a case renders the same whichever cases run first.
 """
 
 import numpy as np
@@ -44,8 +45,9 @@ def tiny_plot(m):
 
 
 def log_scales(m):
+    random = np.random.default_rng(11)  # own generator: data must not depend on case order
     frame = pl.DataFrame(
-        {"total_counts": 10.0 ** RANDOM.uniform(2.5, 5, 400), "n_genes": RANDOM.uniform(1, 9, 400)}
+        {"total_counts": 10.0 ** random.uniform(2.5, 5, 400), "n_genes": random.uniform(1, 9, 400)}
     ).with_columns(n_genes=pl.col("total_counts") ** 0.8 / pl.col("n_genes"))
     return (
         m.ggplot(frame, m.aes("total_counts", "n_genes"))
@@ -66,7 +68,47 @@ def reversed_limits(m):
     )
 
 
+def discrete_strip(m):
+    clusters = ["T cells", "B cells", "NK", "Monocytes", "DC"]
+    frame = pl.DataFrame(
+        {
+            "cluster": [clusters[index % 5] for index in range(300)],
+            "n_genes": np.random.default_rng(12).lognormal(7.5, 0.4, 300),
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("cluster", "n_genes"))
+        + m.geom_point(alpha=0.4, color="#984ea3")
+        + m.scale_x_discrete(limits=["B cells", "T cells", "NK", "Monocytes"])
+        + m.ggsize(500, 320)
+    )
+
+
+def discrete_genes(m):
+    genes = ["CD3E", "CD14", "MS4A1", "NKG7", "FCGR3A", "LYZ", "PPBP", "GNLY", "CST3", "IL7R"]
+    frame = pl.DataFrame(
+        {
+            "gene": [genes[index % 10] for index in range(200)],
+            "cluster": [f"cluster {index % 4}" for index in range(200)],
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("gene", "cluster"))
+        + m.geom_point(size=4, color="#e41a1c", alpha=0.3)
+        + m.ggsize(420, 300)
+    )
+
+
 CASES = {
     case.__name__: case
-    for case in [scatter_basic, umap_titles, qc_commas, tiny_plot, log_scales, reversed_limits]
+    for case in [
+        scatter_basic,
+        umap_titles,
+        qc_commas,
+        tiny_plot,
+        log_scales,
+        reversed_limits,
+        discrete_strip,
+        discrete_genes,
+    ]
 }

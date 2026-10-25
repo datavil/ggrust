@@ -15,3 +15,5 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [lets-plot semantics traps](lets_plot_semantics_traps.md): alpha replaces (not multiplies), layer/plot data merge, constant positions, colour alias, precision test, write SVG attributes once.
 - [Never let a failing check reach a commit](check_before_commit.md): don't pipe `make check` into grep and then `;` commit; gate on its exit status.
 - [Transformed scales follow lets-plot exactly](letsplot_transformed_scales.md): log/sqrt/reverse scales, data-space expansion, half-up label rounding, limits drop rows.
+- [Discrete axes follow lets-plot](letsplot_discrete_axes.md): 0.2 expansion, levels joined over layers, label fallbacks and the one-reflow layout order.
+- [Visual cases need their own seeded generator](visual_case_determinism.md): shared `RANDOM` at call time made goldens depend on test order.

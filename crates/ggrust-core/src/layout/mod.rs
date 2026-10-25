@@ -4,15 +4,18 @@
 //! length), but text bands use the real font's line box (ascent + descent, about
 //! 1.12 x the font size) instead of lets-plot's "font size" estimate, so glyphs never
 //! spill into neighbouring bands. Order: fixed vertical bands -> panel height ->
-//! y breaks -> y label width -> panel width -> x breaks.
+//! y breaks -> y label width -> panel width -> x breaks. When the x labels need a
+//! thicker band (tilted or two-row labels), the y axis is laid out once more.
 //!
 //! Single panel only; facets and grids come in Phase 3.
 
 mod axis;
 
-pub use axis::{AxisBreaks, Orientation, choose_breaks};
+pub use axis::{AxisBreaks, LabelArrangement, Orientation, choose_breaks};
 
-use crate::scale::ContinuousPositionScale;
+use axis::{LABELS_OVERFLOW, TILT_DEGREES};
+
+use crate::scale::PositionScale;
 use crate::scale::format::Label;
 use crate::scene::{Group, HorizontalAlign, Node, Path, PerItem, Rect, Rects, Text, VerticalAlign};
 use crate::text::{measure, measure_label};
@@ -50,13 +53,54 @@ pub struct PlotLayout {
 }
 
 /// Lay out a `width` x `height` plot.
+///
+/// As lets-plot (`TopDownTileLayout.computeAxisInfos`): y axis for the estimated
+/// height, then x axis for the resulting width; if the x labels need a thicker band
+/// (tilted, two rows), the y axis is laid out again for the shorter panel while the
+/// x breaks and their arrangement are kept.
 pub fn layout_plot(
     width: f64,
     height: f64,
     theme: &Theme,
     titles: &Titles,
-    x_scale: &ContinuousPositionScale,
-    y_scale: &ContinuousPositionScale,
+    x_scale: &PositionScale,
+    y_scale: &PositionScale,
+) -> PlotLayout {
+    let simple = theme.axis_text_x.map_or(0.0, text_band);
+    let first = layout_with(
+        (width, height),
+        theme,
+        titles,
+        x_scale,
+        y_scale,
+        simple,
+        None,
+    );
+    let needed = x_labels_height(&first.x_breaks, theme);
+    if needed <= simple {
+        return first;
+    }
+    let x_breaks = first.x_breaks;
+    layout_with(
+        (width, height),
+        theme,
+        titles,
+        x_scale,
+        y_scale,
+        needed,
+        Some(x_breaks),
+    )
+}
+
+/// One layout pass with an x label band `labels_height` px tall.
+fn layout_with(
+    (width, height): (f64, f64),
+    theme: &Theme,
+    titles: &Titles,
+    x_scale: &PositionScale,
+    y_scale: &PositionScale,
+    labels_height: f64,
+    x_breaks: Option<AxisBreaks>,
 ) -> PlotLayout {
     let outer = theme.plot_margin.plus(theme.plot_inset);
     let content = shrink(
@@ -76,8 +120,12 @@ pub fn layout_plot(
             &titles.subtitle,
             theme.plot_subtitle_margin_top,
         );
+    let x_axis_band = tick_band(theme.axis_ticks_x, theme)
+        + theme
+            .axis_text_x
+            .map_or(0.0, |_| theme.axis_text_spacing + labels_height);
     let bottom =
-        content.y + content.height - band(theme.axis_title_x, &titles.x, 0.0) - x_axis_band(theme);
+        content.y + content.height - band(theme.axis_title_x, &titles.x, 0.0) - x_axis_band;
     let panel_height = (bottom - top).max(1.0);
 
     let y_breaks = choose_breaks(
@@ -85,6 +133,7 @@ pub fn layout_plot(
         panel_height,
         Orientation::Vertical,
         theme.axis_text_y,
+        (0.0, 0.0),
     );
     let y_label_width = theme.axis_text_y.map_or(0.0, |text| {
         y_breaks
@@ -100,20 +149,24 @@ pub fn layout_plot(
             })
             .fold(0.0, f64::max)
     });
-    let left = content.x
-        + band(theme.axis_title_y, &titles.y, theme.axis_title_spacing)
-        + tick_band(theme.axis_ticks_y, theme)
+    let y_axis_width = tick_band(theme.axis_ticks_y, theme)
         + theme
             .axis_text_y
             .map_or(0.0, |_| theme.axis_text_spacing + y_label_width);
+    let left =
+        content.x + band(theme.axis_title_y, &titles.y, theme.axis_title_spacing) + y_axis_width;
     let panel_width = (content.x + content.width - left).max(1.0);
 
-    let x_breaks = choose_breaks(
-        x_scale,
-        panel_width,
-        Orientation::Horizontal,
-        theme.axis_text_x,
-    );
+    // lets-plot lets x labels reach over the y axis on the left (geom area insets).
+    let x_breaks = x_breaks.unwrap_or_else(|| {
+        choose_breaks(
+            x_scale,
+            panel_width,
+            Orientation::Horizontal,
+            theme.axis_text_x,
+            (y_axis_width.max(LABELS_OVERFLOW), LABELS_OVERFLOW),
+        )
+    });
     PlotLayout {
         content,
         panel: Rect {
@@ -127,12 +180,51 @@ pub fn layout_plot(
     }
 }
 
+/// Height the x labels need in their arrangement (real font metrics).
+fn x_labels_height(breaks: &AxisBreaks, theme: &Theme) -> f64 {
+    let Some(text) = theme.axis_text_x else {
+        return 0.0;
+    };
+    let line = text_band(text);
+    let widest = || {
+        breaks
+            .labels
+            .iter()
+            .map(|label| {
+                measure_label(
+                    &label.text,
+                    label.superscript.as_deref(),
+                    text.size,
+                    text.face,
+                )
+            })
+            .fold(0.0, f64::max)
+    };
+    match &breaks.arrangement {
+        LabelArrangement::Simple => line,
+        LabelArrangement::TwoRows(rows) => {
+            let row_count = rows.iter().max().map_or(1, |row| row + 1) as f64;
+            row_count * line + (row_count - 1.0) * row_gap(text)
+        }
+        LabelArrangement::Tilted => {
+            let (sin, cos) = TILT_DEGREES.to_radians().sin_cos();
+            widest() * sin + line * cos
+        }
+        LabelArrangement::Vertical => widest(),
+    }
+}
+
+/// lets-plot `HorizontalMultilineLabelsLayout`: rows are 0.2 line heights apart.
+fn row_gap(text: TextStyle) -> f64 {
+    text.size * 0.2
+}
+
 /// Panel background and grid lines: drawn below the data.
 pub fn draw_panel_background(
     layout: &PlotLayout,
     theme: &Theme,
-    x_scale: &ContinuousPositionScale,
-    y_scale: &ContinuousPositionScale,
+    x_scale: &PositionScale,
+    y_scale: &PositionScale,
 ) -> Vec<Node> {
     let panel = layout.panel;
     let mut nodes = Vec::new();
@@ -171,8 +263,8 @@ pub fn draw_axes_and_titles(
     layout: &PlotLayout,
     theme: &Theme,
     titles: &Titles,
-    x_scale: &ContinuousPositionScale,
-    y_scale: &ContinuousPositionScale,
+    x_scale: &PositionScale,
+    y_scale: &PositionScale,
 ) -> Vec<Node> {
     let panel = layout.panel;
     let content = layout.content;
@@ -186,7 +278,13 @@ pub fn draw_axes_and_titles(
         ));
     }
     let x_label_top = bottom + tick_band(theme.axis_ticks_x, theme) + theme.axis_text_spacing;
-    for (value, label) in layout.x_breaks.values.iter().zip(&layout.x_breaks.labels) {
+    for (index, (value, label)) in layout
+        .x_breaks
+        .values
+        .iter()
+        .zip(&layout.x_breaks.labels)
+        .enumerate()
+    {
         let x = panel.x + x_scale.map(*value) * panel.width;
         if let Some(tick) = theme.axis_ticks_x {
             axis_x.push(segment(
@@ -196,12 +294,13 @@ pub fn draw_axes_and_titles(
             ));
         }
         if let Some(text) = theme.axis_text_x {
-            axis_x.push(label_node(
+            axis_x.push(x_label_node(
                 label,
                 text,
-                (x, x_label_top + text_band(text) / 2.0),
-                HorizontalAlign::Middle,
-                0.0,
+                index,
+                x,
+                x_label_top,
+                &layout.x_breaks.arrangement,
             ));
         }
     }
@@ -287,6 +386,44 @@ pub fn draw_axes_and_titles(
     ]
 }
 
+/// An x tick label placed by its arrangement; `top` is the top of the label band.
+fn x_label_node(
+    label: &Label,
+    text: TextStyle,
+    index: usize,
+    x: f64,
+    top: f64,
+    arrangement: &LabelArrangement,
+) -> Node {
+    let line = text_band(text);
+    let (anchor, horizontal, vertical, angle) = match arrangement {
+        LabelArrangement::Simple => (
+            (x, top + line / 2.0),
+            HorizontalAlign::Middle,
+            VerticalAlign::Middle,
+            0.0,
+        ),
+        LabelArrangement::TwoRows(rows) => {
+            let row = rows.get(index).copied().unwrap_or(0) as f64;
+            let y = top + row * (line + row_gap(text)) + line / 2.0;
+            ((x, y), HorizontalAlign::Middle, VerticalAlign::Middle, 0.0)
+        }
+        // Rotated about the tick: the end of the text sits at the tick.
+        LabelArrangement::Tilted => (
+            (x, top),
+            HorizontalAlign::End,
+            VerticalAlign::Top,
+            TILT_DEGREES,
+        ),
+        LabelArrangement::Vertical => ((x, top), HorizontalAlign::End, VerticalAlign::Middle, 90.0),
+    };
+    let mut node = label_node(label, text, anchor, horizontal, angle);
+    if let Node::Text(text) = &mut node {
+        text.vertical = vertical;
+    }
+    node
+}
+
 fn present(text: &Option<String>) -> Option<&str> {
     text.as_deref().filter(|text| !text.is_empty())
 }
@@ -301,14 +438,6 @@ fn band(style: Option<TextStyle>, text: &Option<String>, gap: f64) -> f64 {
 
 fn tick_band(ticks: Option<LineStyle>, theme: &Theme) -> f64 {
     ticks.map_or(0.0, |_| theme.axis_ticks_length)
-}
-
-/// Ticks, spacing and labels below the panel.
-fn x_axis_band(theme: &Theme) -> f64 {
-    tick_band(theme.axis_ticks_x, theme)
-        + theme
-            .axis_text_x
-            .map_or(0.0, |text| theme.axis_text_spacing + text_band(text))
 }
 
 fn shrink(rect: Rect, margins: Margins) -> Rect {

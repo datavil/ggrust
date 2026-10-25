@@ -14,11 +14,11 @@ use crate::data::{Column, ContinuousColumn, DataFrame, LayerData, group_index};
 use crate::geom::{self, DrawLayer, Geom};
 use crate::layout::{Titles, draw_axes_and_titles, draw_panel_background, layout_plot};
 use crate::parameters::Parameters;
-use crate::position;
-use crate::scale::{ContinuousPositionScale, PositionScales, Transform, position_scales};
+use crate::position::{self, Position};
+use crate::scale::{AxisScaleSpec, PositionScale, PositionScales, position_scales};
 use crate::scene::{Group, Node, Scene};
 use crate::spec::{Aesthetic, GuideSpec, LayerSpec, Mapping, MappingValue, Options, PlotSpec};
-use crate::stat;
+use crate::stat::{self, Stat};
 use crate::style::{Styles, parse_constant};
 use crate::theme::Theme;
 use crate::{Error, Result};
@@ -62,23 +62,39 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
     let scales =
         position_scales(spec, &mut warnings).map_err(|error| error.with_notes(&warnings))?;
 
-    let mut layers = Vec::with_capacity(spec.layers.len());
+    let mut mapped = Vec::with_capacity(spec.layers.len());
     for (index, layer) in spec.layers.iter().enumerate() {
-        match prepare_layer(
-            index,
-            layer,
-            spec,
-            data,
-            [&scales.x, &scales.y],
+        match map_layer(index, layer, spec, data, &mut warnings) {
+            Ok(layer) => mapped.push(layer),
+            Err(error) => return Err(error.with_notes(&warnings)),
+        }
+    }
+    let axis_scales = axis_scale(
+        &scales.x,
+        &mapped,
+        Aesthetic::is_x_position,
+        "x",
+        &mut warnings,
+    )
+    .and_then(|x| {
+        axis_scale(
+            &scales.y,
+            &mapped,
+            Aesthetic::is_y_position,
+            "y",
             &mut warnings,
-        ) {
+        )
+        .map(|y| (x, y))
+    });
+    let (mut x_scale, mut y_scale) = axis_scales.map_err(|error| error.with_notes(&warnings))?;
+    let mut layers = Vec::with_capacity(mapped.len());
+    for layer in mapped {
+        match finish_layer(layer, [&x_scale, &y_scale], &mut warnings) {
             Ok(prepared) => layers.push(prepared),
             Err(error) => return Err(error.with_notes(&warnings)),
         }
     }
 
-    let mut x_scale = scales.x.clone();
-    let mut y_scale = scales.y.clone();
     for layer in &layers {
         for aesthetic in layer.data.aesthetics() {
             if let Some(column) = layer.data.continuous(aesthetic) {
@@ -144,8 +160,8 @@ fn plot_titles(spec: &PlotSpec, scales: &PositionScales) -> Titles {
     Titles {
         title: title.and_then(|title| title.text.clone()),
         subtitle: title.and_then(|title| title.subtitle.clone()),
-        x: Some(axis_title(Aesthetic::X, &scales.x_name)),
-        y: Some(axis_title(Aesthetic::Y, &scales.y_name)),
+        x: Some(axis_title(Aesthetic::X, &scales.x.name)),
+        y: Some(axis_title(Aesthetic::Y, &scales.y.name)),
     }
 }
 
@@ -198,33 +214,16 @@ struct PreparedLayer {
     styles: Styles,
 }
 
-fn prepare_layer(
+/// Stage 1 of a layer: look up geom/stat/position, validate options, fetch the
+/// mapped columns and compute groups. Positions stay as in the data: the position
+/// scales are known only after every layer is mapped.
+fn map_layer<'a>(
     index: usize,
-    spec: &LayerSpec,
+    spec: &'a LayerSpec,
     plot: &PlotSpec,
     data: &PlotData,
-    [x_scale, y_scale]: [&ContinuousPositionScale; 2],
     warnings: &mut Vec<String>,
-) -> Result<PreparedLayer> {
-    // Positions are stored transformed (lets-plot transforms data when mapping);
-    // values outside the transform domain or the scale limits become missing.
-    let transformed = |aesthetic: Aesthetic, column: Column| {
-        let scale = if aesthetic.is_x_position() {
-            x_scale
-        } else if aesthetic.is_y_position() {
-            y_scale
-        } else {
-            return column;
-        };
-        match column {
-            Column::Continuous(column)
-                if scale.transform != Transform::Identity || scale.limits != [None, None] =>
-            {
-                Column::Continuous(column.map_values(|value| scale.transform_value(value)))
-            }
-            column => column,
-        }
-    };
+) -> Result<MappedLayer<'a>> {
     let path = format!("layers[{index}]");
     let at = |key: &str| format!("{path}.{key}");
     let geom = geom::geom(&spec.geom)
@@ -254,7 +253,7 @@ fn prepare_layer(
         layer: data.layers.get(index).and_then(Option::as_ref),
         plot: data.plot.as_ref(),
     };
-    let mut layer_data = LayerData::new(frames.row_count());
+    let mut columns = Vec::new();
     // Discrete non-positional columns, the default grouping (lets-plot
     // `defaultGroupingVariables`), by column name.
     let mut default_grouping: Vec<(&str, Column)> = Vec::new();
@@ -276,14 +275,6 @@ fn prepare_layer(
             continue;
         };
         let column = frames.column(name, &mapping_path)?;
-        if (aesthetic.is_x_position() || aesthetic.is_y_position())
-            && matches!(column, Column::Discrete(_))
-        {
-            return Err(Error::InvalidSpec(format!(
-                "at '{mapping_path}': column '{name}' is discrete; discrete positions are not \
-                 supported yet"
-            )));
-        }
         if !geom_uses(geom, *aesthetic) {
             warnings.push(format!(
                 "at '{mapping_path}': geom_{} does not use aesthetic '{aesthetic}' (yet); \
@@ -293,11 +284,13 @@ fn prepare_layer(
             continue;
         }
         if matches!(column, Column::Discrete(_))
+            && !aesthetic.is_x_position()
+            && !aesthetic.is_y_position()
             && !default_grouping.iter().any(|(seen, _)| seen == name)
         {
             default_grouping.push((name, column.clone()));
         }
-        layer_data.insert(*aesthetic, transformed(*aesthetic, column))?;
+        columns.push((*aesthetic, column, mapping_path));
     }
     let grouping = match explicit_grouping(plot, spec, &path, warnings) {
         Some(names) => names
@@ -309,7 +302,115 @@ fn prepare_layer(
             .map(|(_, column)| column)
             .collect(),
     };
-    layer_data.set_group_index(group_index(&grouping.iter().collect::<Vec<_>>()))?;
+    Ok(MappedLayer {
+        spec,
+        path,
+        geom,
+        stat,
+        position,
+        position_options,
+        options,
+        row_count: frames.row_count(),
+        columns,
+        group_index: group_index(&grouping.iter().collect::<Vec<_>>()),
+    })
+}
+
+/// A layer after [`map_layer`].
+struct MappedLayer<'a> {
+    spec: &'a LayerSpec,
+    path: String,
+    geom: &'static dyn Geom,
+    stat: &'static dyn Stat,
+    position: &'static dyn Position,
+    position_options: Options,
+    /// Layer options with aliases normalised (`colour` -> `color`).
+    options: Options,
+    row_count: usize,
+    /// Mapped columns with their mapping paths; positions not yet scaled.
+    columns: Vec<(Aesthetic, Column, String)>,
+    group_index: Option<Vec<u32>>,
+}
+
+/// The scale of one axis: discrete when `scale_*_discrete()` asks for it or any
+/// layer maps a discrete column to the axis; levels join across layers in order.
+fn axis_scale(
+    spec: &AxisScaleSpec,
+    layers: &[MappedLayer],
+    on_axis: fn(Aesthetic) -> bool,
+    axis: &str,
+    warnings: &mut Vec<String>,
+) -> Result<PositionScale> {
+    let axis_columns = || {
+        layers
+            .iter()
+            .flat_map(|layer| &layer.columns)
+            .filter(|(aesthetic, _, _)| on_axis(*aesthetic))
+    };
+    let discrete = spec.requests_discrete()
+        || axis_columns().any(|(_, column, _)| matches!(column, Column::Discrete(_)));
+    let mut scale = spec.build(discrete, warnings)?;
+    if let PositionScale::Discrete(discrete) = &mut scale {
+        for (_, column, _) in axis_columns() {
+            if let Column::Discrete(column) = column {
+                discrete.train_levels(column.levels());
+            }
+        }
+        if !discrete.has_levels()
+            && let Some((_, _, path)) =
+                axis_columns().find(|(_, column, _)| matches!(column, Column::Continuous(_)))
+        {
+            return Err(Error::InvalidSpec(format!(
+                "at '{path}': the {axis} axis is discrete (scale_{axis}_discrete()) but only \
+                 numeric columns are mapped to it; converting numbers to categories is not \
+                 supported yet, map a string column instead"
+            )));
+        }
+    }
+    Ok(scale)
+}
+
+/// Stage 2 of a layer: scale the positions (lets-plot transforms data when mapping;
+/// values a scale drops become missing), add constant positions, then run the stat
+/// and position adjustment and resolve styles.
+fn finish_layer(
+    layer: MappedLayer,
+    [x_scale, y_scale]: [&PositionScale; 2],
+    warnings: &mut Vec<String>,
+) -> Result<PreparedLayer> {
+    let MappedLayer {
+        spec,
+        path,
+        geom,
+        stat,
+        position,
+        position_options,
+        options,
+        row_count,
+        columns,
+        group_index,
+    } = layer;
+    let at = |key: &str| format!("{path}.{key}");
+    let scale_of = |aesthetic: Aesthetic| {
+        if aesthetic.is_x_position() {
+            Some(x_scale)
+        } else if aesthetic.is_y_position() {
+            Some(y_scale)
+        } else {
+            None
+        }
+    };
+    let mut layer_data = LayerData::new(row_count);
+    for (aesthetic, column, mapping_path) in columns {
+        let column = match scale_of(aesthetic) {
+            Some(scale) => scale
+                .positions(column)
+                .map_err(|message| Error::InvalidSpec(format!("at '{mapping_path}': {message}")))?,
+            None => column,
+        };
+        layer_data.insert(aesthetic, column)?;
+    }
+    layer_data.set_group_index(group_index)?;
 
     // Constant positions, e.g. geom_point(x=1.5): one value repeated for every row.
     for &aesthetic in geom.required_aesthetics() {
@@ -319,10 +420,15 @@ fn prepare_layer(
         let parameters = Parameters::new(&options, &path);
         if let Some(value) = parameters.number(aesthetic.as_str())? {
             let column = ContinuousColumn::from_values(vec![value; layer_data.row_count()]);
-            layer_data.insert(
-                aesthetic,
-                transformed(aesthetic, Column::Continuous(column)),
-            )?;
+            let column = match scale_of(aesthetic) {
+                Some(scale) => scale
+                    .positions(Column::Continuous(column))
+                    .map_err(|message| {
+                        Error::InvalidSpec(format!("at '{}': {message}", at(aesthetic.as_str())))
+                    })?,
+                None => Column::Continuous(column),
+            };
+            layer_data.insert(aesthetic, column)?;
         }
     }
 
@@ -720,18 +826,21 @@ mod tests {
     use arrow_array::{ArrayRef, Float64Array, RecordBatch, StringArray};
 
     use super::*;
+    use crate::scale::{ContinuousPositionScale, Transform};
     use crate::spec::Figure;
 
+    fn prepare_with(
+        spec: &PlotSpec,
+        [x_scale, y_scale]: [&PositionScale; 2],
+        warnings: &mut Vec<String>,
+    ) -> Result<PreparedLayer> {
+        let mapped = map_layer(0, &spec.layers[0], spec, &cells(), warnings)?;
+        finish_layer(mapped, [x_scale, y_scale], warnings)
+    }
+
     fn prepare(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<PreparedLayer> {
-        let scale = ContinuousPositionScale::default();
-        prepare_layer(
-            0,
-            &spec.layers[0],
-            spec,
-            &cells(),
-            [&scale, &scale],
-            warnings,
-        )
+        let scale = PositionScale::Continuous(ContinuousPositionScale::default());
+        prepare_with(spec, [&scale, &scale], warnings)
     }
 
     fn plot(json: &str) -> PlotSpec {
@@ -833,15 +942,11 @@ mod tests {
         limited.limits = [Some(2.0), None];
         let mut log = ContinuousPositionScale::default();
         log.transform = Transform::Log10;
-        let layer = prepare_layer(
-            0,
-            &spec.layers[0],
-            &spec,
-            &cells(),
-            [&limited, &log],
-            &mut Vec::new(),
-        )
-        .unwrap();
+        let (limited, log) = (
+            PositionScale::Continuous(limited),
+            PositionScale::Continuous(log),
+        );
+        let layer = prepare_with(&spec, [&limited, &log], &mut Vec::new()).unwrap();
         let x = layer.data.continuous(Aesthetic::X).unwrap();
         assert_eq!(
             (0..4).map(|row| x.get(row)).collect::<Vec<_>>(),

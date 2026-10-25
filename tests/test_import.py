@@ -8,4 +8,6 @@ def test_engine_version_matches_package_version():
 
 
 def test_public_names_are_exported():
-    assert set(ggrust.__all__) == {"__version__", "engine_version"}
+    for name in ["ggplot", "aes", "geom_point", "ggsize", "labs", "LetsPlot", "engine_version"]:
+        assert name in ggrust.__all__
+        assert hasattr(ggrust, name)

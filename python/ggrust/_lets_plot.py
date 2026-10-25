@@ -1,0 +1,9 @@
+"""``LetsPlot`` compatibility shim: settings calls that have no effect in ggrust."""
+
+
+class LetsPlot:
+    """lets_plot's global settings object. ggrust needs no setup; calls are accepted."""
+
+    @classmethod
+    def setup_html(cls, *args, **kwargs) -> None:
+        """No-op: ggrust renders inline SVG without a JavaScript library."""

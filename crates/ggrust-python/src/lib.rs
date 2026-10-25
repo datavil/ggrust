@@ -8,9 +8,12 @@ use pyo3::prelude::*;
 #[pymodule]
 mod _ggrust {
     use super::*;
+    use ggrust_core::build::{PlotData, build_plot};
     use ggrust_core::data::{Column, DataFrame};
+    use ggrust_core::render::{to_png, to_svg};
+    use ggrust_core::spec::Figure;
     use pyo3::exceptions::PyValueError;
-    use pyo3::types::PyDict;
+    use pyo3::types::{PyBytes, PyDict};
     use pyo3_arrow::input::AnyRecordBatch;
 
     /// Return the version of the Rust engine.
@@ -41,8 +44,7 @@ mod _ggrust {
         python: Python<'py>,
         data: AnyRecordBatch,
     ) -> PyResult<Vec<Bound<'py, PyDict>>> {
-        let (batches, schema) = data.into_table()?.into_inner();
-        let frame = DataFrame::new(schema, batches).map_err(to_value_error)?;
+        let frame = to_frame(data)?;
         let names: Vec<String> = frame.column_names().map(str::to_owned).collect();
         names
             .into_iter()
@@ -76,5 +78,58 @@ mod _ggrust {
 
     fn to_value_error(error: ggrust_core::Error) -> PyErr {
         PyValueError::new_err(error.to_string())
+    }
+
+    /// Build and render a plot.
+    ///
+    /// `spec_json` is the plot spec without inline data; `plot_data` and
+    /// `layer_data` are Arrow tables (any object exporting `__arrow_c_stream__`).
+    /// `output` is `"svg"` or `"png"`; `scale` multiplies PNG pixel size.
+    /// Returns the encoded image (UTF-8 for SVG) and the build warnings.
+    /// The GIL is released while building and rendering.
+    #[pyfunction]
+    #[pyo3(signature = (spec_json, plot_data, layer_data, output, scale))]
+    fn render<'py>(
+        python: Python<'py>,
+        spec_json: &str,
+        plot_data: Option<AnyRecordBatch>,
+        layer_data: Vec<Option<AnyRecordBatch>>,
+        output: &str,
+        scale: f64,
+    ) -> PyResult<(Bound<'py, PyBytes>, Vec<String>)> {
+        let plot = plot_data.map(to_frame).transpose()?;
+        let layers = layer_data
+            .into_iter()
+            .map(|frame| frame.map(to_frame).transpose())
+            .collect::<PyResult<Vec<_>>>()?;
+        let spec_json = spec_json.to_owned();
+        let output = output.to_owned();
+        let (bytes, warnings) = python
+            .detach(move || -> ggrust_core::Result<(Vec<u8>, Vec<String>)> {
+                let figure = Figure::from_json(&spec_json)?;
+                let Figure::Plot(spec) = figure else {
+                    return Err(ggrust_core::Error::InvalidSpec(
+                        "gggrid (subplots) is not supported yet".into(),
+                    ));
+                };
+                let built = build_plot(&spec, &PlotData { plot, layers })?;
+                let bytes = match output.as_str() {
+                    "svg" => to_svg(&built.scene).into_bytes(),
+                    "png" => to_png(&built.scene, scale)?,
+                    other => {
+                        return Err(ggrust_core::Error::Render(format!(
+                            "unknown output format '{other}'; expected 'svg' or 'png'"
+                        )));
+                    }
+                };
+                Ok((bytes, built.warnings))
+            })
+            .map_err(to_value_error)?;
+        Ok((PyBytes::new(python, &bytes), warnings))
+    }
+
+    fn to_frame(data: AnyRecordBatch) -> PyResult<DataFrame> {
+        let (batches, schema) = data.into_table()?.into_inner();
+        DataFrame::new(schema, batches).map_err(to_value_error)
     }
 }

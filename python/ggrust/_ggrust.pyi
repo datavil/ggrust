@@ -2,7 +2,7 @@
 
 from typing import Any, TypedDict
 
-__all__ = ["describe_frame", "engine_version", "validate_spec"]
+__all__ = ["describe_frame", "engine_version", "render", "validate_spec"]
 
 class ColumnSummary(TypedDict, total=False):
     """How ggrust reads one column."""
@@ -49,4 +49,37 @@ def describe_frame(data: Any) -> list[ColumnSummary]:
     list[ColumnSummary]
         One summary per column, in column order. Columns ggrust cannot plot have
         kind ``"unsupported"`` and an ``error`` message.
+    """
+
+def render(
+    spec_json: str,
+    plot_data: Any | None,
+    layer_data: list[Any | None],
+    output: str,
+    scale: float,
+) -> tuple[bytes, list[str]]:
+    """Build and render a plot.
+
+    Parameters
+    ----------
+    spec_json
+        Plot spec (lets_plot ``as_dict()`` without data) as JSON.
+    plot_data
+        Plot data exporting ``__arrow_c_stream__``, or None.
+    layer_data
+        One entry per layer: its own data, or None.
+    output
+        ``"svg"`` or ``"png"``.
+    scale
+        PNG pixel scale.
+
+    Returns
+    -------
+    tuple[bytes, list[str]]
+        Encoded image (UTF-8 for SVG) and build warnings.
+
+    Raises
+    ------
+    ValueError
+        If the spec or data is invalid; the message names the offending path.
     """

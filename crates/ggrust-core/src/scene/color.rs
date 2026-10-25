@@ -84,7 +84,8 @@ impl Color {
     /// Parse `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa` (case-insensitive).
     pub fn from_hex(text: &str) -> Option<Self> {
         let digits = text.strip_prefix('#')?;
-        if !digits.is_ascii() {
+        // from_str_radix would also accept a leading '+'.
+        if !digits.bytes().all(|byte| byte.is_ascii_hexdigit()) {
             return None;
         }
         let pair = |index: usize| u8::from_str_radix(digits.get(index..index + 2)?, 16).ok();
@@ -214,6 +215,7 @@ mod tests {
         assert_eq!(Color::from_hex("#ff0"), Some(Color::rgb(255, 255, 0)));
         assert_eq!(Color::from_hex("#gg0000"), None);
         assert_eq!(Color::from_hex("#é00"), None);
+        assert_eq!(Color::from_hex("#+f+f+f"), None);
     }
 
     #[test]

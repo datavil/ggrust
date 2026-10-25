@@ -9,11 +9,14 @@
 use std::sync::{Arc, LazyLock};
 
 use resvg::tiny_skia::{
-    self, FillRule, LineCap, LineJoin, Mask, Paint, PathBuilder, Pixmap, Transform,
+    self, FillRule, IntRect, LineCap, LineJoin, Mask, Paint, PathBuilder, Pixmap, Transform,
 };
 use resvg::usvg::{self, fontdb};
 
 use crate::render::svg::text_document;
+use crate::scene::geometry::{
+    ClipBox, is_drawable_marker, is_drawable_rect, is_drawable_stroke, is_drawable_width,
+};
 use crate::scene::{
     Color, Group, MarkerShape, Node, Path, Points, Rect, Rects, Scene, Stroke, Text,
 };
@@ -28,8 +31,10 @@ pub fn to_png(scene: &Scene, scale: f64) -> Result<Vec<u8>> {
     }
     let mut canvas = Canvas {
         pixmap,
+        scale,
         transform: Transform::from_scale(scale as f32, scale as f32),
         scene_size: (scene.width, scene.height),
+        clip_box: ClipBox::for_scene(scene.width, scene.height),
     };
     canvas.nodes(&scene.nodes, None)?;
     encode(&canvas.pixmap)
@@ -64,6 +69,11 @@ fn new_pixmap(width: f64, height: f64, scale: f64) -> Result<Pixmap> {
     }
     let width = (width * scale).ceil();
     let height = (height * scale).ceil();
+    if !(width >= 1.0 && height >= 1.0) {
+        return Err(Error::Render(format!(
+            "image size {width} x {height} pixels is empty; width and height must be at least 1"
+        )));
+    }
     let side_ok = |side: f64| (1.0..=MAX_SIDE).contains(&side);
     if !(side_ok(width) && side_ok(height) && width * height <= MAX_PIXELS) {
         return Err(Error::Render(format!(
@@ -93,41 +103,58 @@ fn parse_svg(svg: &str) -> Result<usvg::Tree> {
 
 struct Canvas {
     pixmap: Pixmap,
+    scale: f64,
     transform: Transform,
     scene_size: (f64, f64),
+    clip_box: ClipBox,
+}
+
+/// The active clip: a mask over the whole canvas plus the device-pixel bounds it
+/// can be non-zero in (used to size text layers).
+#[derive(Clone, Copy)]
+struct Clip<'a> {
+    mask: &'a Mask,
+    bounds: IntRect,
 }
 
 impl Canvas {
     /// Draw nodes in order; consecutive text nodes are rendered as one batch.
-    fn nodes(&mut self, nodes: &[Node], mask: Option<&Mask>) -> Result<()> {
+    fn nodes(&mut self, nodes: &[Node], clip: Option<Clip>) -> Result<()> {
         let mut texts: Vec<&Text> = Vec::new();
         for node in nodes {
             if let Node::Text(text) = node {
                 texts.push(text);
                 continue;
             }
-            self.texts(&texts, mask)?;
+            self.texts(&texts, clip)?;
             texts.clear();
+            let mask = clip.map(|clip| clip.mask);
             match node {
-                Node::Group(group) => self.group(group, mask)?,
+                Node::Group(group) => self.group(group, clip)?,
                 Node::Points(points) => self.points(points, mask),
                 Node::Path(path) => self.path(path, mask),
                 Node::Rects(rects) => self.rects(rects, mask),
                 Node::Text(_) => {}
             }
         }
-        self.texts(&texts, mask)
+        self.texts(&texts, clip)
     }
 
-    fn group(&mut self, group: &Group, mask: Option<&Mask>) -> Result<()> {
+    fn group(&mut self, group: &Group, parent: Option<Clip>) -> Result<()> {
         let Some(clip) = group.clip else {
-            return self.nodes(&group.nodes, mask);
+            return self.nodes(&group.nodes, parent);
         };
-        let Some(clip_path) = rect_path(&clip) else {
+        let Some(clip) = self.clip_box.clip_rect(&clip) else {
             return Ok(()); // empty or invalid clip: nothing is visible
         };
-        let mut clip_mask = match mask {
-            Some(parent) => parent.clone(),
+        let Some(clip_path) = rect_path(&clip) else {
+            return Ok(());
+        };
+        let Some(bounds) = self.device_bounds(&clip, parent.map(|parent| parent.bounds)) else {
+            return Ok(());
+        };
+        let mut clip_mask = match parent {
+            Some(parent) => parent.mask.clone(),
             None => {
                 let mut full = Mask::new(self.pixmap.width(), self.pixmap.height())
                     .ok_or_else(|| Error::Render("could not allocate a clip mask".into()))?;
@@ -136,7 +163,33 @@ impl Canvas {
             }
         };
         clip_mask.intersect_path(&clip_path, FillRule::Winding, true, self.transform);
-        self.nodes(&group.nodes, Some(&clip_mask))
+        self.nodes(
+            &group.nodes,
+            Some(Clip {
+                mask: &clip_mask,
+                bounds,
+            }),
+        )
+    }
+
+    /// Device-pixel bounds of a scene rectangle, within the canvas and the parent clip.
+    fn device_bounds(&self, rect: &Rect, parent: Option<IntRect>) -> Option<IntRect> {
+        let scale = self.scale;
+        let mut left = (rect.x * scale).floor().max(0.0);
+        let mut top = (rect.y * scale).floor().max(0.0);
+        let mut right = ((rect.x + rect.width) * scale)
+            .ceil()
+            .min(f64::from(self.pixmap.width()));
+        let mut bottom = ((rect.y + rect.height) * scale)
+            .ceil()
+            .min(f64::from(self.pixmap.height()));
+        if let Some(parent) = parent {
+            left = left.max(f64::from(parent.x()));
+            top = top.max(f64::from(parent.y()));
+            right = right.min(f64::from(parent.right()));
+            bottom = bottom.min(f64::from(parent.bottom()));
+        }
+        IntRect::from_ltrb(left as i32, top as i32, right as i32, bottom as i32)
     }
 
     fn points(&mut self, points: &Points, mask: Option<&Mask>) {
@@ -147,7 +200,7 @@ impl Canvas {
         let mut stroke_paint = paint(Color::BLACK);
         for index in 0..points.len() {
             let (x, y, size) = (points.x[index], points.y[index], points.size.get(index));
-            if !(x.is_finite() && y.is_finite() && size.is_finite() && size > 0.0) {
+            if !is_drawable_marker(x, y, size) || !self.clip_box.contains(x, y) {
                 continue;
             }
             let Some(path) = marker_path(points.shape.get(index), x, y, size) else {
@@ -163,8 +216,7 @@ impl Canvas {
                 .stroke
                 .get(index)
                 .filter(|stroke| !stroke.is_transparent())
-                && width.is_finite()
-                && width > 0.0
+                && is_drawable_width(width)
             {
                 stroke_paint.set_color(skia_color(stroke));
                 let style = tiny_skia::Stroke {
@@ -179,21 +231,17 @@ impl Canvas {
 
     fn path(&mut self, path: &Path, mask: Option<&Mask>) {
         let mut builder = PathBuilder::new();
-        let mut drawing = false;
-        for &(x, y) in &path.points {
-            if !(x.is_finite() && y.is_finite()) {
-                drawing = false;
-                continue;
+        for subpath in self.clip_box.subpaths(&path.points, path.closed) {
+            for (index, &(x, y)) in subpath.iter().enumerate() {
+                if index == 0 {
+                    builder.move_to(x as f32, y as f32);
+                } else {
+                    builder.line_to(x as f32, y as f32);
+                }
             }
-            if drawing {
-                builder.line_to(x as f32, y as f32);
-            } else {
-                builder.move_to(x as f32, y as f32);
-                drawing = true;
+            if path.closed {
+                builder.close(); // every ring is closed, not only the last
             }
-        }
-        if path.closed {
-            builder.close();
         }
         let Some(geometry) = builder.finish() else {
             return;
@@ -220,7 +268,11 @@ impl Canvas {
         }
         let mut fill_paint = paint(Color::BLACK);
         for (index, rect) in rects.rects.iter().enumerate() {
-            let Some(geometry) = rect_path(rect) else {
+            let Some(geometry) = self
+                .clip_box
+                .clip_rect(rect)
+                .and_then(|rect| rect_path(&rect))
+            else {
                 continue;
             };
             if let Some(fill) = rects.fill.get(index).filter(|fill| !fill.is_transparent()) {
@@ -240,17 +292,12 @@ impl Canvas {
     }
 
     fn stroke(&mut self, geometry: &tiny_skia::Path, stroke: &Stroke, mask: Option<&Mask>) {
-        if stroke.color.is_transparent() || !(stroke.width.is_finite() && stroke.width > 0.0) {
+        if !is_drawable_stroke(stroke) {
             return;
         }
-        let dash = if stroke.dash.is_empty() {
-            None
-        } else {
-            tiny_skia::StrokeDash::new(
-                stroke.dash.iter().map(|&length| length as f32).collect(),
-                0.0,
-            )
-        };
+        let dash = stroke.dash_pattern().and_then(|pattern| {
+            tiny_skia::StrokeDash::new(pattern.iter().map(|&length| length as f32).collect(), 0.0)
+        });
         let style = tiny_skia::Stroke {
             width: stroke.width as f32,
             line_cap: LineCap::Butt,
@@ -263,28 +310,32 @@ impl Canvas {
     }
 
     /// Render a run of text nodes through resvg (glyph outlines and shaping).
-    fn texts(&mut self, texts: &[&Text], mask: Option<&Mask>) -> Result<()> {
+    /// Under a clip, the run goes through a layer the size of the clip bounds.
+    fn texts(&mut self, texts: &[&Text], clip: Option<Clip>) -> Result<()> {
         if texts.is_empty() {
             return Ok(());
         }
         let (width, height) = self.scene_size;
         let tree = parse_svg(&text_document(width, height, texts))?;
-        match mask {
-            None => resvg::render(&tree, self.transform, &mut self.pixmap.as_mut()),
-            Some(mask) => {
-                let mut layer = Pixmap::new(self.pixmap.width(), self.pixmap.height())
-                    .ok_or_else(|| Error::Render("could not allocate a text layer".into()))?;
-                resvg::render(&tree, self.transform, &mut layer.as_mut());
-                self.pixmap.draw_pixmap(
-                    0,
-                    0,
-                    layer.as_ref(),
-                    &tiny_skia::PixmapPaint::default(),
-                    Transform::identity(),
-                    Some(mask),
-                );
-            }
-        }
+        let Some(clip) = clip else {
+            resvg::render(&tree, self.transform, &mut self.pixmap.as_mut());
+            return Ok(());
+        };
+        let bounds = clip.bounds;
+        let mut layer = Pixmap::new(bounds.width(), bounds.height())
+            .ok_or_else(|| Error::Render("could not allocate a text layer".into()))?;
+        let shifted = self
+            .transform
+            .post_translate(-(bounds.x() as f32), -(bounds.y() as f32));
+        resvg::render(&tree, shifted, &mut layer.as_mut());
+        self.pixmap.draw_pixmap(
+            bounds.x(),
+            bounds.y(),
+            layer.as_ref(),
+            &tiny_skia::PixmapPaint::default(),
+            Transform::identity(),
+            Some(clip.mask),
+        );
         Ok(())
     }
 }
@@ -330,15 +381,14 @@ fn marker_path(shape: MarkerShape, x: f64, y: f64, size: f64) -> Option<tiny_ski
 }
 
 fn rect_path(rect: &Rect) -> Option<tiny_skia::Path> {
-    let values = [rect.x, rect.y, rect.width, rect.height];
-    if !values.iter().all(|value| value.is_finite()) {
+    if !is_drawable_rect(rect) {
         return None;
     }
     tiny_skia::Rect::from_xywh(
         rect.x as f32,
         rect.y as f32,
-        rect.width.max(0.0) as f32,
-        rect.height.max(0.0) as f32,
+        rect.width as f32,
+        rect.height as f32,
     )
     .map(PathBuilder::from_rect)
 }

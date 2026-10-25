@@ -7,6 +7,7 @@
 //! What it does not do: line wrapping or bidirectional text. Multi-line labels are
 //! split on `\n` by [`measure_lines`].
 
+use std::borrow::Cow;
 use std::sync::LazyLock;
 
 use harfrust::{FontRef, ShaperData, UnicodeBuffer};
@@ -110,16 +111,30 @@ pub struct BlockExtent {
     pub line_count: usize,
 }
 
-/// Measure one line of text at `size` pixels.
+/// Text as one line: tabs, carriage returns and newlines become spaces.
+///
+/// Renderers write exactly this (with whitespace preserved), and [`measure`]
+/// measures exactly this, so widths always match the drawn text. Split multi-line
+/// labels on `\n` before (see [`measure_lines`]).
+pub fn single_line(text: &str) -> Cow<'_, str> {
+    if text.contains(['\t', '\r', '\n']) {
+        Cow::Owned(text.replace(['\t', '\r', '\n'], " "))
+    } else {
+        Cow::Borrowed(text)
+    }
+}
+
+/// Measure one line of text at `size` pixels (see [`single_line`]).
 pub fn measure(text: &str, size: f64, face: FontFace) -> TextExtent {
     let font = &FONTS[face.index()];
     let scale = size / f64::from(font.units_per_em);
+    let text = single_line(text);
     let width = if text.is_empty() {
         0.0
     } else {
         let shaper = font.shaper_data.shaper(&font.font_ref).build();
         let mut buffer = UnicodeBuffer::new();
-        buffer.push_str(text);
+        buffer.push_str(&text);
         buffer.guess_segment_properties();
         let output = shaper.shape(buffer, harfrust::ShapeOptions::new());
         let advance: i64 = output
@@ -234,6 +249,14 @@ mod tests {
         assert!((block.width - longest).abs() < 1e-9);
         let single = measure("x", 10.0, FontFace::Plain).height();
         assert!((block.height - (single + LINE_HEIGHT * 10.0)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn control_whitespace_measures_as_spaces() {
+        let spaced = measure("a b", 20.0, FontFace::Plain).width;
+        assert_eq!(measure("a\tb", 20.0, FontFace::Plain).width, spaced);
+        assert_eq!(measure("a\nb", 20.0, FontFace::Plain).width, spaced);
+        assert_eq!(single_line("plain"), "plain");
     }
 
     #[test]

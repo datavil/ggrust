@@ -25,7 +25,7 @@
 <rect x="152" y="112" width="16" height="16" fill="#377eb8"/>
 <path d="M220 69.61L229 85.2L211 85.2Z" fill="#4daf4a"/>
 <path d="M280 51L289 60L280 69L271 60Z" fill="none"/>
-<circle cx="340" cy="100" r="15" fill="#984ea3" fill-opacity="0.5"/>
+<circle cx="340" cy="100" r="15" fill="#984ea3" fill-opacity="0.502"/>
 <circle cx="365" cy="100" r="15" fill="#ff7f00"/>
 </g>
 </g>
@@ -35,10 +35,10 @@
 <g fill="#c6dbef" stroke="none">
 <rect x="380" y="182" width="88.94" height="24"/>
 </g>
-<text x="210" y="239.77" font-size="13" fill="#000000" text-anchor="middle">UMAP1 &lt;x &amp; y&gt;</text>
-<text x="40" y="117.25" font-size="13" fill="#000000" text-anchor="middle" transform="rotate(-90 40 120)">UMAP2</text>
-<text x="380" y="40" font-size="16" font-weight="bold" fill="#000000">Bold title</text>
-<text x="380" y="60" font-size="11" font-style="italic" fill="#787878">italic subtitle</text>
-<text x="520" y="143.81" font-size="11" fill="#000000" text-anchor="end" transform="rotate(-45 520 140)">rotated 45</text>
-<text x="380" y="200" font-size="20" fill="#000000">Measured</text>
+<text x="210" y="239.77" font-size="13" xml:space="preserve" fill="#000000" text-anchor="middle">UMAP1 &lt;x &amp; y&gt;</text>
+<text x="40" y="117.25" font-size="13" xml:space="preserve" fill="#000000" text-anchor="middle" transform="rotate(-90 40 120)">UMAP2</text>
+<text x="380" y="40" font-size="16" xml:space="preserve" font-weight="bold" fill="#000000">Bold title</text>
+<text x="380" y="60" font-size="11" xml:space="preserve" font-style="italic" fill="#787878">italic subtitle</text>
+<text x="520" y="143.81" font-size="11" xml:space="preserve" fill="#000000" text-anchor="end" transform="rotate(-45 520 140)">rotated 45</text>
+<text x="380" y="200" font-size="20" xml:space="preserve" fill="#000000">Measured</text>
 </svg>

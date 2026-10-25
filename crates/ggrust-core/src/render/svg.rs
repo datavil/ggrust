@@ -1,24 +1,27 @@
 //! SVG writer.
 //!
 //! Uniform batch styles are written once on a wrapping `<g>`; per-item values go on
-//! each element. Non-finite coordinates are skipped (a `NaN` in SVG breaks the file).
+//! each element. Drawability, dash patterns and clipping of huge geometry follow the
+//! shared rules in [`crate::scene::geometry`], so SVG and PNG agree.
 //! Text is positioned by baseline computed from the embedded font metrics, never by
 //! `dominant-baseline`, which renderers implement inconsistently.
 
 use std::fmt::Write;
 use std::sync::atomic::{AtomicU64, Ordering};
 
+use crate::scene::geometry::{ClipBox, is_drawable_marker, is_drawable_stroke, is_drawable_width};
 use crate::scene::{
     Color, Group, HorizontalAlign, MarkerShape, Node, Path, PerItem, Points, Rect, Rects, Scene,
     Stroke, Text, VerticalAlign,
 };
-use crate::text::{CSS_FONT_FAMILY, measure};
+use crate::text::{CSS_FONT_FAMILY, measure, single_line};
 
 /// Options for [`to_svg_with`].
 #[derive(Debug, Clone)]
 pub struct SvgOptions {
     /// Prefix for element ids (clip paths). Must be unique per document when several
-    /// SVGs share one HTML page.
+    /// SVGs share one HTML page. Characters other than ASCII letters, digits, `-` and
+    /// `_` are replaced by `_`.
     pub id_prefix: String,
 }
 
@@ -41,8 +44,9 @@ pub fn to_svg(scene: &Scene) -> String {
 pub fn to_svg_with(scene: &Scene, options: &SvgOptions) -> String {
     let mut writer = SvgWriter {
         output: String::with_capacity(4096),
-        id_prefix: &options.id_prefix,
+        id_prefix: sanitize_id(&options.id_prefix),
         clip_count: 0,
+        clip_box: ClipBox::for_scene(scene.width, scene.height),
     };
     writer.document(scene);
     writer.output
@@ -53,8 +57,9 @@ pub fn to_svg_with(scene: &Scene, options: &SvgOptions) -> String {
 pub(super) fn text_document(width: f64, height: f64, texts: &[&Text]) -> String {
     let mut writer = SvgWriter {
         output: String::with_capacity(256 * texts.len()),
-        id_prefix: "text",
+        id_prefix: "text".into(),
         clip_count: 0,
+        clip_box: ClipBox::for_scene(width, height),
     };
     writer.open(width, height);
     for text in texts {
@@ -64,13 +69,14 @@ pub(super) fn text_document(width: f64, height: f64, texts: &[&Text]) -> String 
     writer.output
 }
 
-struct SvgWriter<'a> {
+struct SvgWriter {
     output: String,
-    id_prefix: &'a str,
+    id_prefix: String,
     clip_count: usize,
+    clip_box: ClipBox,
 }
 
-impl SvgWriter<'_> {
+impl SvgWriter {
     fn document(&mut self, scene: &Scene) {
         self.open(scene.width, scene.height);
         if let Some(background) = scene.background {
@@ -146,12 +152,16 @@ impl SvgWriter<'_> {
             self.stroke_color(stroke);
         }
         if let PerItem::Uniform(width) = points.stroke_width {
-            self.attribute_number("stroke-width", width);
+            if is_drawable_width(width) {
+                self.attribute_precise("stroke-width", width);
+            } else {
+                self.attribute("stroke", "none");
+            }
         }
         self.raw(">\n");
         for index in 0..points.len() {
             let (x, y, size) = (points.x[index], points.y[index], points.size.get(index));
-            if !(x.is_finite() && y.is_finite() && size.is_finite()) {
+            if !is_drawable_marker(x, y, size) || !self.clip_box.contains(x, y) {
                 continue;
             }
             let radius = size / 2.0;
@@ -160,14 +170,14 @@ impl SvgWriter<'_> {
                     self.raw("<circle");
                     self.attribute_number("cx", x);
                     self.attribute_number("cy", y);
-                    self.attribute_number("r", radius);
+                    self.attribute_precise("r", radius);
                 }
                 MarkerShape::Square => {
                     self.raw("<rect");
                     self.attribute_number("x", x - radius);
                     self.attribute_number("y", y - radius);
-                    self.attribute_number("width", size);
-                    self.attribute_number("height", size);
+                    self.attribute_precise("width", size);
+                    self.attribute_precise("height", size);
                 }
                 MarkerShape::Triangle => {
                     // Equilateral, side = size, centroid at (x, y).
@@ -194,7 +204,11 @@ impl SvgWriter<'_> {
                 self.stroke_color(strokes[index]);
             }
             if let PerItem::Varying(widths) = &points.stroke_width {
-                self.attribute_number("stroke-width", widths[index]);
+                if is_drawable_width(widths[index]) {
+                    self.attribute_precise("stroke-width", widths[index]);
+                } else {
+                    self.attribute("stroke", "none");
+                }
             }
             self.raw("/>\n");
         }
@@ -202,24 +216,21 @@ impl SvgWriter<'_> {
     }
 
     fn path(&mut self, path: &Path) {
-        let mut data = String::with_capacity(path.points.len() * 14);
-        let mut drawing = false;
-        for &(x, y) in &path.points {
-            if !(x.is_finite() && y.is_finite()) {
-                drawing = false; // a gap starts a new subpath
-                continue;
-            }
-            data.push(if drawing { 'L' } else { 'M' });
-            push_number(&mut data, x);
-            data.push(' ');
-            push_number(&mut data, y);
-            drawing = true;
-        }
-        if data.is_empty() {
+        let subpaths = self.clip_box.subpaths(&path.points, path.closed);
+        if subpaths.is_empty() {
             return;
         }
-        if path.closed {
-            data.push('Z');
+        let mut data = String::with_capacity(path.points.len() * 14);
+        for subpath in &subpaths {
+            for (index, &(x, y)) in subpath.iter().enumerate() {
+                data.push(if index == 0 { 'M' } else { 'L' });
+                push_number(&mut data, x);
+                data.push(' ');
+                push_number(&mut data, y);
+            }
+            if path.closed {
+                data.push('Z'); // every ring is closed, not only the last
+            }
         }
         self.raw("<path");
         self.attribute("d", &data);
@@ -239,11 +250,10 @@ impl SvgWriter<'_> {
         self.stroke(rects.stroke.as_ref());
         self.raw(">\n");
         for (index, rect) in rects.rects.iter().enumerate() {
-            let values = [rect.x, rect.y, rect.width, rect.height];
-            if !values.iter().all(|value| value.is_finite()) {
+            let Some(rect) = self.clip_box.clip_rect(rect) else {
                 continue;
-            }
-            self.rect_element(rect);
+            };
+            self.rect_element(&rect);
             if let PerItem::Varying(fills) = &rects.fill {
                 self.fill(fills[index]);
             }
@@ -253,7 +263,8 @@ impl SvgWriter<'_> {
     }
 
     fn text(&mut self, text: &Text) {
-        if !(text.x.is_finite() && text.y.is_finite() && text.size.is_finite()) {
+        let drawable = text.size.is_finite() && text.size > 0.0 && !text.content.is_empty();
+        if !drawable || !self.clip_box.contains(text.x, text.y) {
             return;
         }
         let metrics = measure("", text.size, text.face);
@@ -266,7 +277,9 @@ impl SvgWriter<'_> {
         self.raw("<text");
         self.attribute_number("x", text.x);
         self.attribute_number("y", text.y + baseline_offset);
-        self.attribute_number("font-size", text.size);
+        self.attribute_precise("font-size", text.size);
+        // Keep spaces as measured: SVG collapses whitespace by default.
+        self.raw(" xml:space=\"preserve\"");
         if text.face.is_bold() {
             self.raw(" font-weight=\"bold\"");
         }
@@ -290,7 +303,7 @@ impl SvgWriter<'_> {
             self.raw(")\"");
         }
         self.raw(">");
-        escape_into(&mut self.output, &text.content);
+        escape_into(&mut self.output, &single_line(&text.content));
         self.raw("</text>\n");
     }
 
@@ -322,15 +335,15 @@ impl SvgWriter<'_> {
     }
 
     fn stroke(&mut self, stroke: Option<&Stroke>) {
-        let Some(stroke) = stroke else {
+        let Some(stroke) = stroke.filter(|stroke| is_drawable_stroke(stroke)) else {
             self.raw(" stroke=\"none\"");
             return;
         };
         self.paint("stroke", Some(stroke.color));
-        self.attribute_number("stroke-width", stroke.width);
-        if !stroke.dash.is_empty() {
+        self.attribute_precise("stroke-width", stroke.width);
+        if let Some(dash) = stroke.dash_pattern() {
             let mut pattern = String::new();
-            for (index, &length) in stroke.dash.iter().enumerate() {
+            for (index, &length) in dash.iter().enumerate() {
                 if index > 0 {
                     pattern.push(' ');
                 }
@@ -346,7 +359,7 @@ impl SvgWriter<'_> {
             Some(color) if !color.is_transparent() => {
                 self.attribute(name, &color.to_string());
                 if !color.is_opaque() {
-                    self.attribute_number(&format!("{name}-opacity"), color.opacity());
+                    self.attribute_precise(&format!("{name}-opacity"), color.opacity());
                 }
             }
             _ => self.attribute(name, "none"),
@@ -369,6 +382,16 @@ impl SvgWriter<'_> {
         self.output.push('"');
     }
 
+    /// Like [`Self::attribute_number`] with 4 decimals, for widths, radii and
+    /// opacities, where 2 decimals would turn small values into 0.
+    fn attribute_precise(&mut self, name: &str, value: f64) {
+        self.output.push(' ');
+        self.output.push_str(name);
+        self.output.push_str("=\"");
+        push_decimal(&mut self.output, value, 4);
+        self.output.push('"');
+    }
+
     fn number(&mut self, value: f64) {
         push_number(&mut self.output, value);
     }
@@ -380,24 +403,51 @@ impl SvgWriter<'_> {
 
 /// Append `value` rounded to 2 decimals, without trailing zeros (`1.5`, `-3`, `0.25`).
 fn push_number(output: &mut String, value: f64) {
-    let scaled = (value * 100.0).round();
-    if !scaled.is_finite() {
+    push_decimal(output, value, 2);
+}
+
+/// Append `value` rounded to `decimals` (at most 6) decimals, without trailing zeros.
+/// Non-finite values are written as `0`; magnitudes beyond 1e15 are written whole.
+fn push_decimal(output: &mut String, value: f64, decimals: u32) {
+    if !value.is_finite() {
         output.push('0');
         return;
     }
-    let scaled = scaled as i64;
+    if value.abs() >= 1e15 {
+        let _ = write!(output, "{}", value.round());
+        return;
+    }
+    let factor = 10_u64.pow(decimals.min(6));
+    let scaled = (value * factor as f64).round() as i64;
     if scaled < 0 {
         output.push('-');
     }
     let magnitude = scaled.unsigned_abs();
-    let _ = write!(output, "{}", magnitude / 100);
-    let fraction = magnitude % 100;
+    let _ = write!(output, "{}", magnitude / factor);
+    let fraction = magnitude % factor;
     if fraction != 0 {
-        if fraction % 10 == 0 {
-            let _ = write!(output, ".{}", fraction / 10);
-        } else {
-            let _ = write!(output, ".{fraction:02}");
-        }
+        let digits = format!("{fraction:0width$}", width = decimals.min(6) as usize);
+        output.push('.');
+        output.push_str(digits.trim_end_matches('0'));
+    }
+}
+
+/// Ids keep only `[A-Za-z0-9_-]` and start with a letter, so `url(#id)` always works.
+fn sanitize_id(prefix: &str) -> String {
+    let cleaned: String = prefix
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || matches!(character, '-' | '_') {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect();
+    if cleaned.starts_with(|character: char| character.is_ascii_alphabetic()) {
+        cleaned
+    } else {
+        format!("g{cleaned}")
     }
 }
 
@@ -410,11 +460,19 @@ fn escape_into(output: &mut String, text: &str) {
             '>' => output.push_str("&gt;"),
             '"' => output.push_str("&quot;"),
             '\'' => output.push_str("&#39;"),
-            // XML 1.0 forbids most control characters, even escaped.
-            control if control.is_control() && !matches!(control, '\t' | '\n' | '\r') => {}
-            other => output.push(other),
+            other if is_xml_character(other) => output.push(other),
+            _ => {} // XML 1.0 forbids it even escaped (controls, U+FFFE, U+FFFF)
         }
     }
+}
+
+/// XML 1.0 `Char` production.
+fn is_xml_character(character: char) -> bool {
+    matches!(character,
+        '\t' | '\n' | '\r'
+        | '\u{20}'..='\u{D7FF}'
+        | '\u{E000}'..='\u{FFFD}'
+        | '\u{10000}'..='\u{10FFFF}')
 }
 
 #[cfg(test)]
@@ -441,9 +499,32 @@ mod tests {
     }
 
     #[test]
-    fn text_is_escaped() {
+    fn text_is_escaped_and_non_xml_characters_dropped() {
         let mut output = String::new();
-        escape_into(&mut output, "a<b & \"c\" 'd'\u{1}");
-        assert_eq!(output, "a&lt;b &amp; &quot;c&quot; &#39;d&#39;");
+        escape_into(
+            &mut output,
+            "a<b & \"c\" 'd'\u{1}\u{FFFE}\u{FFFF}é\u{1F600}",
+        );
+        assert_eq!(output, "a&lt;b &amp; &quot;c&quot; &#39;d&#39;é\u{1F600}");
+    }
+
+    #[test]
+    fn huge_and_precise_numbers() {
+        let mut output = String::new();
+        push_decimal(&mut output, 1e20, 2);
+        assert_eq!(output, "100000000000000000000");
+        let mut output = String::new();
+        push_decimal(&mut output, 1.0 / 255.0, 4);
+        assert_eq!(output, "0.0039");
+        let mut output = String::new();
+        push_decimal(&mut output, 0.5, 4);
+        assert_eq!(output, "0.5");
+    }
+
+    #[test]
+    fn id_prefixes_are_sanitized() {
+        assert_eq!(sanitize_id("my plot)"), "my_plot_");
+        assert_eq!(sanitize_id("7up"), "g7up");
+        assert_eq!(sanitize_id("gg3"), "gg3");
     }
 }

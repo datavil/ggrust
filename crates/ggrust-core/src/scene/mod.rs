@@ -11,6 +11,7 @@
 
 mod color;
 mod color_names;
+pub mod geometry;
 
 pub use color::Color;
 

@@ -12,6 +12,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Lessons: [memory/](memory/README.md
 | Build | maturin (PyO3 wheel) + uv |
 | Repo | `datavil/ggrust`, import name `ggrust` |
 | Data transfer | Arrow PyCapsule interface (polars, pandas, pyarrow, dict of numpy), zero-copy where possible. No JSON for data |
+| Spec transfer | Spec (without data) crosses as a JSON string parsed by serde_json: tiny, one parser for fixtures and live calls, no pythonize/pyo3 version lock |
 | Fonts | One embedded open font so text measurement and PNGs are identical on every machine |
 
 ## Scope: what cellestial actually uses
@@ -66,7 +67,7 @@ Steps inside a phase are ordered; each builds on the previous.
 ### Phase 0: Foundation (do this very carefully)
 
 - [ ] **0.1 Workspace skeleton.** Cargo workspace (`ggrust-core`, `ggrust-python`), `pyproject.toml` (maturin), `python/ggrust/`, ruff + clippy config, `Makefile` with `check`, `.gitignore`, README. `maturin develop` builds; `import ggrust` works.
-- [ ] **0.2 Typed spec model.** `spec/` structs for plot, layer, mapping, scale, theme, guides, subplots, matching lets_plot `as_dict()` keys. Parsed from Python dict via `pythonize` + serde. Unknown keys collected and reported (not silently dropped). Rust unit tests from JSON fixtures produced by real lets_plot.
+- [ ] **0.2 Typed spec model.** `spec/` structs for plot, layer, mapping, scale, theme, guides, subplots, matching lets_plot `as_dict()` keys. Parsed from JSON (spec without data) via serde_json + serde_path_to_error. Unknown keys collected and reported (not silently dropped). Rust unit tests from JSON fixtures produced by real lets_plot.
 - [ ] **0.3 Data bridge.** Arrow PyCapsule import (`pyo3-arrow`), `data::Column` enum (numeric f64, categorical/string, bool, null mask), lookup by name. Tests: polars, pandas, numpy dict, nulls, categoricals, empty frames.
 - [ ] **0.4 Scene + SVG backend.** `scene::Primitive` (points batch, polyline, polygon, rect batch, text, group with clip) in pixel space; SVG writer; `text/` with embedded font + measurement. Golden test: hand-built scene -> SVG -> PNG.
 - [ ] **0.5 Trait registries.** `Stat`, `Geom`, `Position`, `Scale`, `Coord` traits + name registries. `stat_identity`, `position_identity`, `coord_cartesian`, continuous linear scale, `geom_point` as the first vertical slice.

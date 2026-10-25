@@ -1,0 +1,72 @@
+{
+ "coord": {
+  "flip": true,
+  "name": "flip"
+ },
+ "data_meta": {
+  "series_annotations": [
+   {
+    "column": "UMAP1",
+    "type": "float"
+   },
+   {
+    "column": "UMAP2",
+    "type": "float"
+   },
+   {
+    "column": "cluster",
+    "type": "str"
+   },
+   {
+    "column": "CD14",
+    "type": "float"
+   },
+   {
+    "column": "sample",
+    "type": "str"
+   }
+  ]
+ },
+ "kind": "plot",
+ "layers": [
+  {
+   "alpha": 0.7,
+   "data_meta": {},
+   "geom": "area_ridges",
+   "mapping": {},
+   "scale": 1.5,
+   "tooltips": {
+    "formats": [],
+    "lines": [
+     "@cluster"
+    ]
+   }
+  }
+ ],
+ "mapping": {
+  "fill": "cluster",
+  "x": "CD14",
+  "y": "cluster"
+ },
+ "metainfo_list": [],
+ "scales": [
+  {
+   "aesthetic": "fill",
+   "values": [
+    "#e41a1c",
+    "#377eb8",
+    "#4daf4a"
+   ]
+  },
+  {
+   "aesthetic": "y",
+   "discrete": true,
+   "limits": [
+    "NK",
+    "T",
+    "B"
+   ],
+   "reverse": false
+  }
+ ]
+}

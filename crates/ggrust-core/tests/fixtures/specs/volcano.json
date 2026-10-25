@@ -1,0 +1,109 @@
+{
+ "data_meta": {
+  "series_annotations": [
+   {
+    "column": "UMAP1",
+    "type": "float"
+   },
+   {
+    "column": "UMAP2",
+    "type": "float"
+   },
+   {
+    "column": "cluster",
+    "type": "str"
+   },
+   {
+    "column": "CD14",
+    "type": "float"
+   },
+   {
+    "column": "sample",
+    "type": "str"
+   }
+  ]
+ },
+ "kind": "plot",
+ "layers": [
+  {
+   "data_meta": {},
+   "geom": "point",
+   "mapping": {}
+  },
+  {
+   "data_meta": {},
+   "geom": "text_repel",
+   "mapping": {
+    "label": "cluster"
+   },
+   "max_overlaps": 10,
+   "seed": 1,
+   "size": 8
+  },
+  {
+   "data_meta": {},
+   "geom": "label_repel",
+   "mapping": {
+    "label": "cluster"
+   },
+   "seed": 1
+  },
+  {
+   "data_meta": {},
+   "geom": "vline",
+   "linetype": "dashed",
+   "mapping": {},
+   "xintercept": [
+    -1,
+    1
+   ]
+  },
+  {
+   "data_meta": {},
+   "geom": "hline",
+   "linetype": "dashed",
+   "mapping": {},
+   "yintercept": 1.3
+  }
+ ],
+ "mapping": {
+  "color": "sample",
+  "x": "UMAP1",
+  "y": "UMAP2"
+ },
+ "metainfo_list": [],
+ "scales": [
+  {
+   "aesthetic": "color",
+   "breaks": [
+    "s1",
+    "s2"
+   ],
+   "na_value": "grey",
+   "values": [
+    "red",
+    "blue"
+   ]
+  },
+  {
+   "aesthetic": "x",
+   "breaks": [
+    -1,
+    0,
+    1
+   ],
+   "format": ".1f",
+   "limits": [
+    -2,
+    null
+   ]
+  },
+  {
+   "aesthetic": "y",
+   "expand": [
+    0,
+    0.05
+   ]
+  }
+ ]
+}

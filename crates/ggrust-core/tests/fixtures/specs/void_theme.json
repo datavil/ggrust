@@ -1,0 +1,81 @@
+{
+ "data_meta": {
+  "mapping_annotations": [
+   {
+    "aes": "color",
+    "annotation": "as_discrete",
+    "parameters": {
+     "label": "cluster",
+     "order": -1
+    }
+   }
+  ],
+  "series_annotations": [
+   {
+    "column": "cluster",
+    "type": "str"
+   },
+   {
+    "column": "UMAP1",
+    "type": "float"
+   },
+   {
+    "column": "UMAP2",
+    "type": "float"
+   },
+   {
+    "column": "CD14",
+    "type": "float"
+   },
+   {
+    "column": "sample",
+    "type": "str"
+   }
+  ]
+ },
+ "kind": "plot",
+ "layers": [
+  {
+   "data_meta": {},
+   "geom": "point",
+   "mapping": {}
+  }
+ ],
+ "mapping": {
+  "color": "cluster",
+  "x": "UMAP1",
+  "y": "UMAP2"
+ },
+ "metainfo_list": [],
+ "scales": [],
+ "theme": {
+  "axis": "blank",
+  "axis_title": {
+   "blank": false,
+   "face": "bold",
+   "family": "Arial",
+   "margin": [
+    1,
+    2,
+    3,
+    4
+   ]
+  },
+  "legend_direction": "horizontal",
+  "legend_position": [
+   1,
+   1
+  ],
+  "line": "blank",
+  "name": "classic",
+  "panel_grid": {
+   "blank": false,
+   "linetype": "dashed",
+   "size": 0.5
+  },
+  "plot_background": {
+   "blank": false,
+   "fill": "white"
+  }
+ }
+}

@@ -1,0 +1,87 @@
+{
+ "data_meta": {
+  "series_annotations": [
+   {
+    "column": "UMAP1",
+    "type": "float"
+   },
+   {
+    "column": "UMAP2",
+    "type": "float"
+   },
+   {
+    "column": "cluster",
+    "type": "str"
+   },
+   {
+    "column": "CD14",
+    "type": "float"
+   },
+   {
+    "column": "sample",
+    "type": "str"
+   }
+  ]
+ },
+ "ggtitle": {
+  "subtitle": "expression",
+  "text": "CD14"
+ },
+ "guides": {
+  "color": {
+   "barheight": 120,
+   "barwidth": 8,
+   "name": "colorbar"
+  }
+ },
+ "kind": "plot",
+ "layers": [
+  {
+   "data_meta": {},
+   "geom": "point",
+   "mapping": {},
+   "size": 1
+  }
+ ],
+ "mapping": {
+  "color": "CD14",
+  "x": "UMAP1",
+  "y": "UMAP2"
+ },
+ "metainfo_list": [],
+ "scales": [
+  {
+   "aesthetic": "color",
+   "direction": -1,
+   "option": "magma",
+   "scale_mapper_kind": "color_cmap"
+  },
+  {
+   "aesthetic": "color",
+   "high": "red",
+   "low": "grey",
+   "scale_mapper_kind": "color_gradient"
+  },
+  {
+   "aesthetic": "color",
+   "cmap": "viridis",
+   "scale_mapper_kind": "color_gradient"
+  },
+  {
+   "aesthetic": "color",
+   "high": "red",
+   "low": "blue",
+   "mid": "white",
+   "midpoint": 0,
+   "scale_mapper_kind": "color_gradient2"
+  }
+ ],
+ "theme": {
+  "axis_line": {
+   "blank": false,
+   "color": "black",
+   "size": 1
+  },
+  "legend_position": "bottom"
+ }
+}

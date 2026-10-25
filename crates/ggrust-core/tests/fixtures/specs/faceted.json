@@ -1,0 +1,66 @@
+{
+ "caption": {
+  "text": "caption text"
+ },
+ "coord": {
+  "flip": false,
+  "name": "cartesian",
+  "xlim": [
+   -1,
+   2
+  ],
+  "ylim": [
+   null,
+   1.5
+  ]
+ },
+ "data_meta": {
+  "series_annotations": [
+   {
+    "column": "UMAP1",
+    "type": "float"
+   },
+   {
+    "column": "UMAP2",
+    "type": "float"
+   },
+   {
+    "column": "cluster",
+    "type": "str"
+   },
+   {
+    "column": "CD14",
+    "type": "float"
+   },
+   {
+    "column": "sample",
+    "type": "str"
+   }
+  ]
+ },
+ "facet": {
+  "dir": "h",
+  "facets": "sample",
+  "name": "wrap",
+  "ncol": 2,
+  "order": -1,
+  "scales": "free_y"
+ },
+ "ggtitle": {
+  "text": "Faceted"
+ },
+ "kind": "plot",
+ "layers": [
+  {
+   "data_meta": {},
+   "geom": "point",
+   "mapping": {}
+  }
+ ],
+ "mapping": {
+  "x": "UMAP1",
+  "y": "UMAP2"
+ },
+ "metainfo_list": [],
+ "scales": []
+}

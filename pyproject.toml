@@ -25,8 +25,11 @@ Repository = "https://github.com/datavil/ggrust"
 dev = [
     "lets-plot>=4.11,<5",
     "maturin>=1.9,<2",
+    "numpy>=2.4.6",
     "packaging>=24",
+    "pandas>=3.1.0",
     "polars>=1.30",
+    "pyarrow>=26.0.0",
     "pytest>=8",
     "ruff>=0.15",
 ]

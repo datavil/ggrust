@@ -1,0 +1,21 @@
+{
+ "data_meta": {},
+ "kind": "plot",
+ "layers": [
+  {
+   "data_meta": {},
+   "geom": "image",
+   "href": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAMAAAACCAYAAACddGYaAAAAEElEQVR4nGNgYGD4j4QRHABE1QX7fwpwkQAAAABJRU5ErkJggg==",
+   "inherit_aes": false,
+   "mapping": {},
+   "show_legend": true,
+   "xmax": 3.0,
+   "xmin": 0.0,
+   "ymax": 2.0,
+   "ymin": 0.0
+  }
+ ],
+ "mapping": {},
+ "metainfo_list": [],
+ "scales": []
+}

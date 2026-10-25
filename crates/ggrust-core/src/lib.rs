@@ -4,6 +4,7 @@
 //! The Python bindings live in the `ggrust-python` crate.
 
 pub mod error;
+pub mod spec;
 
 pub use error::{Error, Result};
 

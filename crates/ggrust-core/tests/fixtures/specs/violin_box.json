@@ -1,0 +1,108 @@
+{
+ "data_meta": {
+  "series_annotations": [
+   {
+    "column": "UMAP1",
+    "type": "float"
+   },
+   {
+    "column": "UMAP2",
+    "type": "float"
+   },
+   {
+    "column": "cluster",
+    "type": "str"
+   },
+   {
+    "column": "CD14",
+    "type": "float"
+   },
+   {
+    "column": "sample",
+    "type": "str"
+   }
+  ]
+ },
+ "guides": {
+  "y": {
+   "title": "Expression"
+  }
+ },
+ "kind": "plot",
+ "layers": [
+  {
+   "data_meta": {},
+   "geom": "violin",
+   "mapping": {},
+   "quantiles": [
+    0.25,
+    0.5,
+    0.75
+   ],
+   "scale": "width",
+   "trim": true
+  },
+  {
+   "data_meta": {},
+   "geom": "boxplot",
+   "mapping": {},
+   "position": {
+    "name": "dodge",
+    "width": 0.9
+   },
+   "width": 0.2
+  },
+  {
+   "data_meta": {},
+   "geom": "point",
+   "mapping": {},
+   "na_rm": true,
+   "position": {
+    "name": "dodge",
+    "width": 0.9
+   },
+   "show_legend": false,
+   "stat": "boxplot_outlier"
+  },
+  {
+   "data_meta": {},
+   "geom": "point",
+   "mapping": {},
+   "position": {
+    "jitter_width": 0.1,
+    "name": "jitterdodge",
+    "seed": 42
+   },
+   "size": 0.5
+  }
+ ],
+ "mapping": {
+  "fill": "cluster",
+  "x": "cluster",
+  "y": "CD14"
+ },
+ "metainfo_list": [],
+ "scales": [
+  {
+   "aesthetic": "fill",
+   "scale_mapper_kind": "color_hue"
+  },
+  {
+   "aesthetic": "color",
+   "scale_mapper_kind": "color_hue"
+  },
+  {
+   "aesthetic": "y",
+   "trans": "log2"
+  }
+ ],
+ "theme": {
+  "axis_text_x": {
+   "angle": 45,
+   "blank": false,
+   "hjust": 1
+  },
+  "legend_position": "none",
+  "name": "bw"
+ }
+}

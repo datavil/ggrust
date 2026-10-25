@@ -1,0 +1,64 @@
+{
+ "data_meta": {
+  "mapping_annotations": [
+   {
+    "aes": "color",
+    "annotation": "as_discrete",
+    "parameters": {
+     "label": "cluster",
+     "order": 1,
+     "order_by": "CD14"
+    }
+   }
+  ],
+  "series_annotations": [
+   {
+    "column": "cluster",
+    "type": "str"
+   },
+   {
+    "column": "UMAP1",
+    "type": "float"
+   },
+   {
+    "column": "UMAP2",
+    "type": "float"
+   },
+   {
+    "column": "CD14",
+    "type": "float"
+   },
+   {
+    "column": "sample",
+    "type": "str"
+   }
+  ]
+ },
+ "kind": "plot",
+ "layers": [
+  {
+   "data_meta": {
+    "mapping_annotations": [
+     {
+      "aes": "fill",
+      "annotation": "as_discrete",
+      "parameters": {
+       "label": "Sample"
+      }
+     }
+    ]
+   },
+   "geom": "point",
+   "mapping": {
+    "fill": "sample",
+    "x": "UMAP1",
+    "y": "UMAP2"
+   }
+  }
+ ],
+ "mapping": {
+  "color": "cluster"
+ },
+ "metainfo_list": [],
+ "scales": []
+}

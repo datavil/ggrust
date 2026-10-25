@@ -1,0 +1,102 @@
+{
+ "coord": {
+  "flip": false,
+  "name": "fixed",
+  "ratio": 1
+ },
+ "data_meta": {
+  "series_annotations": [
+   {
+    "column": "UMAP1",
+    "type": "float"
+   },
+   {
+    "column": "UMAP2",
+    "type": "float"
+   },
+   {
+    "column": "cluster",
+    "type": "str"
+   },
+   {
+    "column": "CD14",
+    "type": "float"
+   },
+   {
+    "column": "sample",
+    "type": "str"
+   }
+  ]
+ },
+ "ggsize": {
+  "height": 400,
+  "width": 500
+ },
+ "ggtoolbar": {
+  "size_zoomin": -1
+ },
+ "guides": {
+  "color": {
+   "name": "legend",
+   "ncol": 2,
+   "override_aes": {
+    "size": 4
+   },
+   "title": "Cluster"
+  },
+  "x": {
+   "title": "UMAP1"
+  },
+  "y": {
+   "title": "UMAP2"
+  }
+ },
+ "kind": "plot",
+ "layers": [
+  {
+   "alpha": 0.8,
+   "data_meta": {},
+   "geom": "point",
+   "mapping": {},
+   "shape": 16,
+   "size": 1.5,
+   "tooltips": {
+    "formats": [
+     {
+      "field": "@CD14",
+      "format": ".2f"
+     }
+    ],
+    "lines": [
+     "@cluster"
+    ],
+    "variables": [
+     "sample"
+    ]
+   }
+  }
+ ],
+ "mapping": {
+  "color": "cluster",
+  "x": "UMAP1",
+  "y": "UMAP2"
+ },
+ "metainfo_list": [],
+ "scales": [
+  {
+   "aesthetic": "color",
+   "palette": "Set2",
+   "scale_mapper_kind": "color_brewer"
+  }
+ ],
+ "theme": {
+  "axis_text": {
+   "blank": true
+  },
+  "axis_ticks": {
+   "blank": true
+  },
+  "legend_position": "right",
+  "name": "classic"
+ }
+}

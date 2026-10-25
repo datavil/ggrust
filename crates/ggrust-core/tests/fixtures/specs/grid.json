@@ -1,0 +1,490 @@
+{
+ "figures": [
+  {
+   "coord": {
+    "flip": false,
+    "name": "fixed",
+    "ratio": 1
+   },
+   "data_meta": {
+    "series_annotations": [
+     {
+      "column": "UMAP1",
+      "type": "float"
+     },
+     {
+      "column": "UMAP2",
+      "type": "float"
+     },
+     {
+      "column": "cluster",
+      "type": "str"
+     },
+     {
+      "column": "CD14",
+      "type": "float"
+     },
+     {
+      "column": "sample",
+      "type": "str"
+     }
+    ]
+   },
+   "ggsize": {
+    "height": 400,
+    "width": 500
+   },
+   "ggtoolbar": {
+    "size_zoomin": -1
+   },
+   "guides": {
+    "color": {
+     "name": "legend",
+     "ncol": 2,
+     "override_aes": {
+      "size": 4
+     },
+     "title": "Cluster"
+    },
+    "x": {
+     "title": "UMAP1"
+    },
+    "y": {
+     "title": "UMAP2"
+    }
+   },
+   "kind": "plot",
+   "layers": [
+    {
+     "alpha": 0.8,
+     "data_meta": {},
+     "geom": "point",
+     "mapping": {},
+     "shape": 16,
+     "size": 1.5,
+     "tooltips": {
+      "formats": [
+       {
+        "field": "@CD14",
+        "format": ".2f"
+       }
+      ],
+      "lines": [
+       "@cluster"
+      ],
+      "variables": [
+       "sample"
+      ]
+     }
+    }
+   ],
+   "mapping": {
+    "color": "cluster",
+    "x": "UMAP1",
+    "y": "UMAP2"
+   },
+   "metainfo_list": [],
+   "scales": [
+    {
+     "aesthetic": "color",
+     "palette": "Set2",
+     "scale_mapper_kind": "color_brewer"
+    }
+   ],
+   "theme": {
+    "axis_text": {
+     "blank": true
+    },
+    "axis_ticks": {
+     "blank": true
+    },
+    "legend_position": "right",
+    "name": "classic"
+   }
+  },
+  {
+   "data_meta": {
+    "series_annotations": [
+     {
+      "column": "UMAP1",
+      "type": "float"
+     },
+     {
+      "column": "UMAP2",
+      "type": "float"
+     },
+     {
+      "column": "cluster",
+      "type": "str"
+     },
+     {
+      "column": "CD14",
+      "type": "float"
+     },
+     {
+      "column": "sample",
+      "type": "str"
+     }
+    ]
+   },
+   "kind": "plot",
+   "layers": [
+    {
+     "color": "white",
+     "data_meta": {},
+     "geom": "tile",
+     "mapping": {},
+     "size": 0.2
+    },
+    {
+     "data_meta": {},
+     "geom": "raster",
+     "mapping": {}
+    }
+   ],
+   "mapping": {
+    "fill": "CD14",
+    "x": "sample",
+    "y": "cluster"
+   },
+   "metainfo_list": [],
+   "scales": [
+    {
+     "aesthetic": "fill",
+     "high": "red",
+     "low": "blue",
+     "mid": "white",
+     "midpoint": 1,
+     "scale_mapper_kind": "color_gradient2"
+    },
+    {
+     "aesthetic": "fill",
+     "colors": [
+      "#000004",
+      "#fcfdbf"
+     ],
+     "scale_mapper_kind": "color_gradientn"
+    },
+    {
+     "aesthetic": "fill",
+     "high": "black",
+     "low": "white",
+     "scale_mapper_kind": "color_gradient"
+    },
+    {
+     "aesthetic": "x",
+     "discrete": true,
+     "expand": [
+      0,
+      0
+     ],
+     "reverse": false
+    },
+    {
+     "aesthetic": "y",
+     "trans": "reverse"
+    }
+   ],
+   "theme": {
+    "axis_text_x": {
+     "angle": 90,
+     "blank": false,
+     "size": 8,
+     "vjust": 0.5
+    },
+    "panel_background": {
+     "blank": false,
+     "color": "black",
+     "fill": "white"
+    },
+    "panel_grid": {
+     "blank": true
+    }
+   }
+  },
+  null,
+  {
+   "data_meta": {
+    "series_annotations": [
+     {
+      "column": "UMAP1",
+      "type": "float"
+     },
+     {
+      "column": "UMAP2",
+      "type": "float"
+     },
+     {
+      "column": "cluster",
+      "type": "str"
+     },
+     {
+      "column": "CD14",
+      "type": "float"
+     },
+     {
+      "column": "sample",
+      "type": "str"
+     }
+    ]
+   },
+   "guides": {
+    "y": {
+     "title": "Expression"
+    }
+   },
+   "kind": "plot",
+   "layers": [
+    {
+     "data_meta": {},
+     "geom": "violin",
+     "mapping": {},
+     "quantiles": [
+      0.25,
+      0.5,
+      0.75
+     ],
+     "scale": "width",
+     "trim": true
+    },
+    {
+     "data_meta": {},
+     "geom": "boxplot",
+     "mapping": {},
+     "position": {
+      "name": "dodge",
+      "width": 0.9
+     },
+     "width": 0.2
+    },
+    {
+     "data_meta": {},
+     "geom": "point",
+     "mapping": {},
+     "na_rm": true,
+     "position": {
+      "name": "dodge",
+      "width": 0.9
+     },
+     "show_legend": false,
+     "stat": "boxplot_outlier"
+    },
+    {
+     "data_meta": {},
+     "geom": "point",
+     "mapping": {},
+     "position": {
+      "jitter_width": 0.1,
+      "name": "jitterdodge",
+      "seed": 42
+     },
+     "size": 0.5
+    }
+   ],
+   "mapping": {
+    "fill": "cluster",
+    "x": "cluster",
+    "y": "CD14"
+   },
+   "metainfo_list": [],
+   "scales": [
+    {
+     "aesthetic": "fill",
+     "scale_mapper_kind": "color_hue"
+    },
+    {
+     "aesthetic": "color",
+     "scale_mapper_kind": "color_hue"
+    },
+    {
+     "aesthetic": "y",
+     "trans": "log2"
+    }
+   ],
+   "theme": {
+    "axis_text_x": {
+     "angle": 45,
+     "blank": false,
+     "hjust": 1
+    },
+    "legend_position": "none",
+    "name": "bw"
+   }
+  },
+  {
+   "figures": [
+    {
+     "data_meta": {
+      "series_annotations": [
+       {
+        "column": "UMAP1",
+        "type": "float"
+       },
+       {
+        "column": "UMAP2",
+        "type": "float"
+       },
+       {
+        "column": "cluster",
+        "type": "str"
+       },
+       {
+        "column": "CD14",
+        "type": "float"
+       },
+       {
+        "column": "sample",
+        "type": "str"
+       }
+      ]
+     },
+     "guides": {
+      "fill": "none",
+      "size": {
+       "byrow": true,
+       "name": "legend",
+       "nrow": 1
+      }
+     },
+     "kind": "plot",
+     "layers": [
+      {
+       "color": "black",
+       "data_meta": {},
+       "geom": "point",
+       "mapping": {},
+       "shape": 21
+      }
+     ],
+     "mapping": {
+      "fill": "CD14",
+      "size": "CD14",
+      "x": "sample",
+      "y": "cluster"
+     },
+     "metainfo_list": [],
+     "scales": [
+      {
+       "aesthetic": "size",
+       "name": "Fraction",
+       "range": [
+        1,
+        6
+       ]
+      },
+      {
+       "aesthetic": "fill",
+       "high": "red",
+       "low": "white",
+       "scale_mapper_kind": "color_gradient"
+      },
+      {
+       "aesthetic": "fill",
+       "scale_mapper_kind": "color_cmap"
+      }
+     ]
+    },
+    {
+     "coord": {
+      "flip": true,
+      "name": "flip"
+     },
+     "data_meta": {
+      "series_annotations": [
+       {
+        "column": "UMAP1",
+        "type": "float"
+       },
+       {
+        "column": "UMAP2",
+        "type": "float"
+       },
+       {
+        "column": "cluster",
+        "type": "str"
+       },
+       {
+        "column": "CD14",
+        "type": "float"
+       },
+       {
+        "column": "sample",
+        "type": "str"
+       }
+      ]
+     },
+     "kind": "plot",
+     "layers": [
+      {
+       "alpha": 0.7,
+       "data_meta": {},
+       "geom": "area_ridges",
+       "mapping": {},
+       "scale": 1.5,
+       "tooltips": {
+        "formats": [],
+        "lines": [
+         "@cluster"
+        ]
+       }
+      }
+     ],
+     "mapping": {
+      "fill": "cluster",
+      "x": "CD14",
+      "y": "cluster"
+     },
+     "metainfo_list": [],
+     "scales": [
+      {
+       "aesthetic": "fill",
+       "values": [
+        "#e41a1c",
+        "#377eb8",
+        "#4daf4a"
+       ]
+      },
+      {
+       "aesthetic": "y",
+       "discrete": true,
+       "limits": [
+        "NK",
+        "T",
+        "B"
+       ],
+       "reverse": false
+      }
+     ]
+    }
+   ],
+   "kind": "subplots",
+   "layout": {
+    "name": "grid",
+    "ncol": 2,
+    "nrow": 1
+   }
+  },
+  null
+ ],
+ "ggsize": {
+  "height": 800,
+  "width": 1000
+ },
+ "kind": "subplots",
+ "layout": {
+  "align": true,
+  "guides": "collect",
+  "hspace": 4,
+  "name": "grid",
+  "ncol": 2,
+  "nrow": 3,
+  "vspace": 2,
+  "widths": [
+   1,
+   2
+  ]
+ },
+ "theme": {
+  "legend_position": "bottom"
+ }
+}

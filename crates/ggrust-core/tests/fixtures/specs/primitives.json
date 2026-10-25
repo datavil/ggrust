@@ -1,0 +1,112 @@
+{
+ "data_meta": {
+  "series_annotations": [
+   {
+    "column": "UMAP1",
+    "type": "float"
+   },
+   {
+    "column": "UMAP2",
+    "type": "float"
+   },
+   {
+    "column": "cluster",
+    "type": "str"
+   },
+   {
+    "column": "CD14",
+    "type": "float"
+   },
+   {
+    "column": "sample",
+    "type": "str"
+   }
+  ]
+ },
+ "guides": {
+  "x": {
+   "title": "x"
+  },
+  "y": {
+   "title": "y"
+  }
+ },
+ "kind": "plot",
+ "layers": [
+  {
+   "data_meta": {},
+   "geom": "path",
+   "mapping": {
+    "group": "cluster"
+   },
+   "size": 0.5
+  },
+  {
+   "data_meta": {},
+   "geom": "line",
+   "mapping": {}
+  },
+  {
+   "arrow": {
+    "length": 5,
+    "name": "arrow",
+    "type": "closed"
+   },
+   "data_meta": {},
+   "geom": "segment",
+   "mapping": {
+    "xend": "CD14",
+    "yend": "CD14"
+   }
+  },
+  {
+   "color": "black",
+   "data_meta": {},
+   "geom": "polygon",
+   "mapping": {
+    "group": "cluster"
+   }
+  },
+  {
+   "alpha": 0.2,
+   "data_meta": {},
+   "geom": "rect",
+   "mapping": {
+    "xmax": "CD14",
+    "xmin": "UMAP1",
+    "ymax": "CD14",
+    "ymin": "UMAP2"
+   }
+  },
+  {
+   "data_meta": {},
+   "geom": "text",
+   "mapping": {
+    "label": "cluster"
+   },
+   "nudge_y": 0.1,
+   "size_unit": "x"
+  },
+  {
+   "data_meta": {},
+   "fill": "white",
+   "geom": "label",
+   "mapping": {
+    "label": "cluster"
+   }
+  },
+  {
+   "data_meta": {},
+   "geom": "blank",
+   "inherit_aes": false,
+   "mapping": {},
+   "tooltips": "none"
+  }
+ ],
+ "mapping": {
+  "x": "UMAP1",
+  "y": "UMAP2"
+ },
+ "metainfo_list": [],
+ "scales": []
+}

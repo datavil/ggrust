@@ -1,0 +1,104 @@
+{
+ "data_meta": {
+  "series_annotations": [
+   {
+    "column": "UMAP1",
+    "type": "float"
+   },
+   {
+    "column": "UMAP2",
+    "type": "float"
+   },
+   {
+    "column": "cluster",
+    "type": "str"
+   },
+   {
+    "column": "CD14",
+    "type": "float"
+   },
+   {
+    "column": "sample",
+    "type": "str"
+   }
+  ]
+ },
+ "kind": "plot",
+ "layers": [
+  {
+   "data_meta": {},
+   "geom": "bar",
+   "mapping": {
+    "fill": "sample",
+    "x": "cluster"
+   },
+   "position": "dodge"
+  },
+  {
+   "bins": 30,
+   "data_meta": {},
+   "geom": "histogram",
+   "mapping": {
+    "x": "CD14"
+   }
+  },
+  {
+   "data_meta": {},
+   "geom": "boxplot",
+   "mapping": {
+    "x": "cluster",
+    "y": "CD14"
+   }
+  },
+  {
+   "data_meta": {},
+   "geom": "point",
+   "mapping": {
+    "x": "cluster",
+    "y": "CD14"
+   },
+   "na_rm": true,
+   "show_legend": false,
+   "stat": "boxplot_outlier"
+  },
+  {
+   "data_meta": {},
+   "geom": "bracket",
+   "mapping": {
+    "label": "cluster",
+    "xmax": "sample",
+    "xmin": "cluster",
+    "y": "CD14"
+   }
+  },
+  {
+   "data_meta": {
+    "series_annotations": [
+     {
+      "column": "x",
+      "type": "float"
+     },
+     {
+      "column": "y",
+      "type": "float"
+     }
+    ]
+   },
+   "geom": "line",
+   "mapping": {
+    "x": "x",
+    "y": "y"
+   },
+   "stat": "identity"
+  }
+ ],
+ "mapping": {},
+ "metainfo_list": [],
+ "scales": [
+  {
+   "aesthetic": "fill",
+   "palette": "Paired",
+   "scale_mapper_kind": "color_brewer"
+  }
+ ]
+}

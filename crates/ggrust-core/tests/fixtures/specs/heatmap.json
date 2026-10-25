@@ -1,0 +1,100 @@
+{
+ "data_meta": {
+  "series_annotations": [
+   {
+    "column": "UMAP1",
+    "type": "float"
+   },
+   {
+    "column": "UMAP2",
+    "type": "float"
+   },
+   {
+    "column": "cluster",
+    "type": "str"
+   },
+   {
+    "column": "CD14",
+    "type": "float"
+   },
+   {
+    "column": "sample",
+    "type": "str"
+   }
+  ]
+ },
+ "kind": "plot",
+ "layers": [
+  {
+   "color": "white",
+   "data_meta": {},
+   "geom": "tile",
+   "mapping": {},
+   "size": 0.2
+  },
+  {
+   "data_meta": {},
+   "geom": "raster",
+   "mapping": {}
+  }
+ ],
+ "mapping": {
+  "fill": "CD14",
+  "x": "sample",
+  "y": "cluster"
+ },
+ "metainfo_list": [],
+ "scales": [
+  {
+   "aesthetic": "fill",
+   "high": "red",
+   "low": "blue",
+   "mid": "white",
+   "midpoint": 1,
+   "scale_mapper_kind": "color_gradient2"
+  },
+  {
+   "aesthetic": "fill",
+   "colors": [
+    "#000004",
+    "#fcfdbf"
+   ],
+   "scale_mapper_kind": "color_gradientn"
+  },
+  {
+   "aesthetic": "fill",
+   "high": "black",
+   "low": "white",
+   "scale_mapper_kind": "color_gradient"
+  },
+  {
+   "aesthetic": "x",
+   "discrete": true,
+   "expand": [
+    0,
+    0
+   ],
+   "reverse": false
+  },
+  {
+   "aesthetic": "y",
+   "trans": "reverse"
+  }
+ ],
+ "theme": {
+  "axis_text_x": {
+   "angle": 90,
+   "blank": false,
+   "size": 8,
+   "vjust": 0.5
+  },
+  "panel_background": {
+   "blank": false,
+   "color": "black",
+   "fill": "white"
+  },
+  "panel_grid": {
+   "blank": true
+  }
+ }
+}

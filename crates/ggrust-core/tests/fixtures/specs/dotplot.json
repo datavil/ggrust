@@ -1,0 +1,71 @@
+{
+ "data_meta": {
+  "series_annotations": [
+   {
+    "column": "UMAP1",
+    "type": "float"
+   },
+   {
+    "column": "UMAP2",
+    "type": "float"
+   },
+   {
+    "column": "cluster",
+    "type": "str"
+   },
+   {
+    "column": "CD14",
+    "type": "float"
+   },
+   {
+    "column": "sample",
+    "type": "str"
+   }
+  ]
+ },
+ "guides": {
+  "fill": "none",
+  "size": {
+   "byrow": true,
+   "name": "legend",
+   "nrow": 1
+  }
+ },
+ "kind": "plot",
+ "layers": [
+  {
+   "color": "black",
+   "data_meta": {},
+   "geom": "point",
+   "mapping": {},
+   "shape": 21
+  }
+ ],
+ "mapping": {
+  "fill": "CD14",
+  "size": "CD14",
+  "x": "sample",
+  "y": "cluster"
+ },
+ "metainfo_list": [],
+ "scales": [
+  {
+   "aesthetic": "size",
+   "name": "Fraction",
+   "range": [
+    1,
+    6
+   ]
+  },
+  {
+   "aesthetic": "fill",
+   "high": "red",
+   "low": "white",
+   "scale_mapper_kind": "color_gradient"
+  },
+  {
+   "aesthetic": "fill",
+   "scale_mapper_kind": "color_cmap"
+  }
+ ]
+}

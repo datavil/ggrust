@@ -1,0 +1,27 @@
+[workspace]
+resolver = "3"
+members = ["crates/ggrust-core", "crates/ggrust-python"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+repository = "https://github.com/datavil/ggrust"
+rust-version = "1.85"
+
+[workspace.dependencies]
+ggrust-core = { path = "crates/ggrust-core" }
+pyo3 = { version = "0.30", features = ["abi3-py311"] }
+thiserror = "2"
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+unwrap_used = "warn"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

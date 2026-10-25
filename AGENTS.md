@@ -101,7 +101,7 @@ editing many unrelated files, the foundation is wrong: stop and tell the user.
 - Every module starts with a short doc comment: what it does, what it does not.
 - Error messages say what was wrong, which parameter, and what is accepted.
 - Small files, one concept each. No hidden global state.
-- `make check` (or `just check`) runs everything an agent needs: fmt, clippy, cargo test,
+- `make check` runs everything an agent needs: fmt, clippy, cargo test,
   pytest, visual tests. Keep it fast and green.
 - Golden images live in `tests/visual/golden/`. Update them only on purpose, and say so
   in the commit message.
@@ -121,12 +121,12 @@ editing many unrelated files, the foundation is wrong: stop and tell the user.
 ## Commands
 
 ```bash
-uv sync                                  # dev env
-uv run maturin develop --release         # build + install the extension
-cargo fmt --all && cargo clippy --all-targets -- -D warnings
-cargo test --workspace
-uv run pytest
-uv run python benchmarks/run.py          # ggrust vs lets-plot
+uv sync                  # dev env (first time)
+make develop             # maturin develop --release into .venv
+make format              # cargo fmt + ruff format + ruff check --fix
+make check               # lint + develop + cargo test + pytest (run before every commit)
+uv run --no-sync pytest  # Python tests only, without uv rebuilding the extension
+```
 ```
 
 ## Memory index

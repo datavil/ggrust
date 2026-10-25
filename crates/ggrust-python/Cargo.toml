@@ -1,0 +1,20 @@
+[package]
+name = "ggrust-python"
+description = "PyO3 bindings for ggrust-core. Thin: convert, call core, return."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+name = "_ggrust"
+crate-type = ["cdylib"]
+
+[dependencies]
+ggrust-core.workspace = true
+pyo3.workspace = true
+
+[lints]
+workspace = true

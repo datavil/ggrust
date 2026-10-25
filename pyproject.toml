@@ -7,6 +7,7 @@ name = "ggrust"
 description = "Grammar-of-graphics plotting engine in Rust with a lets_plot-compatible Python API"
 readme = "README.md"
 license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 authors = [{ name = "Zaf4", email = "zafermolbio@gmail.com" }]
 classifiers = [
@@ -21,17 +22,23 @@ dependencies = []
 Repository = "https://github.com/datavil/ggrust"
 
 [dependency-groups]
-dev = ["maturin>=1.9,<2", "pytest>=8", "ruff>=0.15"]
+dev = [
+    "lets-plot>=4.11,<5",
+    "maturin>=1.9,<2",
+    "packaging>=24",
+    "polars>=1.30",
+    "pytest>=8",
+    "ruff>=0.15",
+]
 
 [tool.maturin]
 manifest-path = "crates/ggrust-python/Cargo.toml"
 module-name = "ggrust._ggrust"
 python-source = "python"
-features = ["pyo3/extension-module"]
 
 [tool.uv]
 # Rebuild the extension whenever Rust or Python sources change.
-cache-keys = [{ file = "pyproject.toml" }, { file = "Cargo.toml" }, { file = "crates/**/*.rs" }, { file = "crates/**/Cargo.toml" }]
+cache-keys = [{ file = "pyproject.toml" }, { file = "Cargo.toml" }, { file = "Cargo.lock" }, { file = "crates/**/*.rs" }, { file = "crates/**/Cargo.toml" }]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

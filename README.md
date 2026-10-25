@@ -3,8 +3,8 @@
 Grammar-of-graphics plotting engine written in Rust, used from Python through a
 lets_plot-compatible API. Built for [cellestial](https://github.com/datavil/cellestial).
 
-Status: early development. See [plan.md](plan.md) for the roadmap and
-[AGENTS.md](AGENTS.md) for contributor rules.
+Status: early development. See [plan.md](https://github.com/datavil/ggrust/blob/main/plan.md) for the roadmap and
+[AGENTS.md](https://github.com/datavil/ggrust/blob/main/AGENTS.md) for contributor rules.
 
 ## Development
 

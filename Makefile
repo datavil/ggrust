@@ -1,21 +1,31 @@
-.PHONY: develop format lint test check
+# Single build path: uv builds and installs the extension (maturin backend).
+# `uv run` rebuilds automatically when Rust sources change (see [tool.uv] cache-keys).
+.PHONY: venv develop format lint test check
 
-develop:  ## build and install the extension into .venv (release mode)
-	uv run maturin develop --release --uv
+# cargo (clippy/test) must use the project interpreter, not the system python3.
+export PYO3_PYTHON := $(CURDIR)/.venv/bin/python
 
-format:
+venv:
+	uv sync
+
+develop: venv  ## force a rebuild + reinstall of the extension
+	uv sync --reinstall-package ggrust
+
+format: venv
 	cargo fmt --all
 	uv run ruff format .
 	uv run ruff check --fix .
 
-lint:
+lint: venv
 	cargo fmt --all --check
 	cargo clippy --workspace --all-targets -- -D warnings
 	uv run ruff format --check .
 	uv run ruff check .
 
-test:
+test: venv
 	cargo test --workspace
-	uv run --no-sync pytest
+	uv run pytest
 
-check: lint develop test  ## everything an agent must run before committing
+check:  ## everything an agent must run before committing (sequential, -j safe)
+	$(MAKE) lint
+	$(MAKE) test

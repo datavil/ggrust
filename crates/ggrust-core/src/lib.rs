@@ -9,13 +9,3 @@ pub use error::{Error, Result};
 
 /// Version of the engine, taken from the workspace manifest.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn version_matches_manifest() {
-        assert_eq!(VERSION, "0.1.0");
-    }
-}

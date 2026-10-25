@@ -122,10 +122,10 @@ editing many unrelated files, the foundation is wrong: stop and tell the user.
 
 ```bash
 uv sync                  # dev env (first time)
-make develop             # maturin develop --release into .venv
+make develop             # force rebuild + reinstall of the extension
 make format              # cargo fmt + ruff format + ruff check --fix
-make check               # lint + develop + cargo test + pytest (run before every commit)
-uv run --no-sync pytest  # Python tests only, without uv rebuilding the extension
+make check               # lint + cargo test + pytest (run before every commit)
+uv run pytest            # Python tests only (rebuilds the extension if Rust changed)
 ```
 ```
 

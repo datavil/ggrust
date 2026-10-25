@@ -52,6 +52,13 @@ pub struct PlotSpec {
 }
 
 impl PlotSpec {
+    /// Paths of every option ggrust does not support, e.g. `layers[0].sampling`.
+    pub fn unsupported_options(&self) -> Vec<String> {
+        let mut found = Vec::new();
+        self.collect_unsupported("", &mut found);
+        found
+    }
+
     pub(super) fn collect_unsupported(&self, parent: &str, found: &mut Vec<String>) {
         report_unsupported(parent, &self.unsupported, found);
         for index in 0..self.metainfo_list.len() {

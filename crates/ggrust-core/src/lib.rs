@@ -3,11 +3,18 @@
 //! Pure Rust, no Python. Everything here is testable with `cargo test`.
 //! The Python bindings live in the `ggrust-python` crate.
 
+pub mod build;
+pub mod coord;
 pub mod data;
 pub mod error;
+pub mod geom;
+pub mod parameters;
+pub mod position;
 pub mod render;
+pub mod scale;
 pub mod scene;
 pub mod spec;
+pub mod stat;
 pub mod text;
 
 pub use error::{Error, Result};

@@ -8,11 +8,13 @@
 //! default order found here.
 
 mod column;
+mod layer;
 
 use arrow_array::{RecordBatch, new_empty_array};
 use arrow_schema::{Schema, SchemaRef};
 
 pub use column::{Column, ContinuousColumn, DiscreteColumn};
+pub use layer::LayerData;
 
 use crate::{Error, Result};
 

@@ -124,6 +124,20 @@ pub struct ContinuousColumn {
 }
 
 impl ContinuousColumn {
+    /// A column with every value present (NaN stays NaN).
+    pub fn from_values(values: Vec<f64>) -> Self {
+        ContinuousColumn {
+            values: Float64Array::from(values),
+        }
+    }
+
+    /// A column with missing values as `None`.
+    pub fn from_options(values: Vec<Option<f64>>) -> Self {
+        ContinuousColumn {
+            values: Float64Array::from(values),
+        }
+    }
+
     /// Number of rows.
     pub fn len(&self) -> usize {
         self.values.len()

@@ -11,3 +11,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [polars Null columns break arrow-rs FFI](polars_null_column_ffi.md): cast pl.Null to Float64 in `as_arrow` before export. Float64 crosses zero-copy.
 - [Never cast strings to Utf8](arrow_string_casts.md): i32 offsets overflow past 2 GiB (panic); iterate string types in place; never concat dictionary chunks.
 - [PNG: rasterise directly, never via big SVG](png_direct_raster.md): usvg node limit breaks 1M points; direct tiny-skia + text via resvg; consistency test guards SVG/PNG parity.
+- [Calibrate against real lets-plot SVG](letsplot_reference_svg.md): `to_svg()` works offline; measured defaults (point r 3.3 #474747, text 13px, grid #E9E9E9).

@@ -71,6 +71,38 @@ aesthetics! {
     Group => "group",
 }
 
+impl Aesthetic {
+    /// Whether values of this aesthetic are horizontal positions (trained on the x scale).
+    pub fn is_x_position(self) -> bool {
+        matches!(
+            self,
+            Aesthetic::X
+                | Aesthetic::Xmin
+                | Aesthetic::Xmax
+                | Aesthetic::Xend
+                | Aesthetic::Xintercept
+                | Aesthetic::Xlower
+                | Aesthetic::Xmiddle
+                | Aesthetic::Xupper
+        )
+    }
+
+    /// Whether values of this aesthetic are vertical positions (trained on the y scale).
+    pub fn is_y_position(self) -> bool {
+        matches!(
+            self,
+            Aesthetic::Y
+                | Aesthetic::Ymin
+                | Aesthetic::Ymax
+                | Aesthetic::Yend
+                | Aesthetic::Yintercept
+                | Aesthetic::Lower
+                | Aesthetic::Middle
+                | Aesthetic::Upper
+        )
+    }
+}
+
 /// Error for a name that is not an aesthetic.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UnknownAesthetic(pub String);

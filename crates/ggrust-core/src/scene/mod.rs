@@ -10,6 +10,7 @@
 //! renderers can write uniform styles once and stream geometry.
 
 mod color;
+mod color_names;
 
 pub use color::Color;
 

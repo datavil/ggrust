@@ -148,15 +148,16 @@ impl SvgWriter {
         if let PerItem::Uniform(fill) = points.fill {
             self.fill(fill);
         }
-        if let PerItem::Uniform(stroke) = points.stroke {
-            self.stroke_color(stroke);
-        }
-        if let PerItem::Uniform(width) = points.stroke_width {
-            if is_drawable_width(width) {
-                self.attribute_precise("stroke-width", width);
-            } else {
-                self.attribute("stroke", "none");
+        // One decision per marker stroke (color and width together), so the
+        // `stroke` attribute is written exactly once.
+        let uniform_stroke = match (&points.stroke, &points.stroke_width) {
+            (PerItem::Uniform(color), PerItem::Uniform(width)) => {
+                Some(marker_stroke(*color, *width))
             }
+            _ => None,
+        };
+        if let Some(stroke) = uniform_stroke {
+            self.marker_stroke(stroke);
         }
         self.raw(">\n");
         for index in 0..points.len() {
@@ -200,15 +201,11 @@ impl SvgWriter {
             if let PerItem::Varying(fills) = &points.fill {
                 self.fill(fills[index]);
             }
-            if let PerItem::Varying(strokes) = &points.stroke {
-                self.stroke_color(strokes[index]);
-            }
-            if let PerItem::Varying(widths) = &points.stroke_width {
-                if is_drawable_width(widths[index]) {
-                    self.attribute_precise("stroke-width", widths[index]);
-                } else {
-                    self.attribute("stroke", "none");
-                }
+            if uniform_stroke.is_none() {
+                self.marker_stroke(marker_stroke(
+                    points.stroke.get(index),
+                    points.stroke_width.get(index),
+                ));
             }
             self.raw("/>\n");
         }
@@ -330,8 +327,15 @@ impl SvgWriter {
         self.paint("fill", fill);
     }
 
-    fn stroke_color(&mut self, stroke: Option<Color>) {
-        self.paint("stroke", stroke);
+    /// `stroke` + `stroke-width` of a marker, or `stroke="none"`.
+    fn marker_stroke(&mut self, stroke: Option<(Color, f64)>) {
+        match stroke {
+            Some((color, width)) => {
+                self.paint("stroke", Some(color));
+                self.attribute_precise("stroke-width", width);
+            }
+            None => self.attribute("stroke", "none"),
+        }
     }
 
     fn stroke(&mut self, stroke: Option<&Stroke>) {
@@ -399,6 +403,14 @@ impl SvgWriter {
     fn raw(&mut self, text: &str) {
         self.output.push_str(text);
     }
+}
+
+/// The visible stroke of a marker: a non-transparent color with a drawable width.
+fn marker_stroke(color: Option<Color>, width: f64) -> Option<(Color, f64)> {
+    color
+        .filter(|color| !color.is_transparent())
+        .filter(|_| is_drawable_width(width))
+        .map(|color| (color, width))
 }
 
 /// Append `value` rounded to 2 decimals, without trailing zeros (`1.5`, `-3`, `0.25`).

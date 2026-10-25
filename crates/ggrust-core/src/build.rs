@@ -10,14 +10,14 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::coord::{self, Coord, Panel};
-use crate::data::{Column, DataFrame, LayerData};
+use crate::data::{Column, ContinuousColumn, DataFrame, LayerData};
 use crate::geom::{self, DrawLayer, Geom, StyleDefault, StyleValues};
 use crate::layout::{Titles, draw_axes_and_titles, draw_panel_background, layout_plot};
 use crate::parameters::Parameters;
 use crate::position;
 use crate::scale::ContinuousPositionScale;
 use crate::scene::{Group, Node, PerItem, Scene};
-use crate::spec::{Aesthetic, GuideSpec, LayerSpec, Mapping, MappingValue, PlotSpec};
+use crate::spec::{Aesthetic, GuideSpec, LayerSpec, Mapping, MappingValue, Options, PlotSpec};
 use crate::stat;
 use crate::theme::Theme;
 use crate::{Error, Result};
@@ -94,7 +94,7 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
         let draw_layer = DrawLayer {
             data: &layer.data,
             styles: &layer.styles,
-            parameters: Parameters::new(&layer.spec.parameters, &layer.path),
+            parameters: Parameters::new(&layer.options, &layer.path),
         };
         layer_nodes.extend(layer.geom.draw(&draw_layer, &panel)?);
     }
@@ -159,21 +159,22 @@ fn is_axis_title_only(key: &str, guide: &GuideSpec) -> bool {
 }
 
 /// One layer after stat and position, ready to draw.
-struct PreparedLayer<'a> {
-    spec: &'a LayerSpec,
+struct PreparedLayer {
+    /// Layer options with aliases normalised (`colour` -> `color`).
+    options: Options,
     path: String,
     geom: &'static dyn Geom,
     data: LayerData,
     styles: BTreeMap<Aesthetic, StyleValues>,
 }
 
-fn prepare_layer<'a>(
+fn prepare_layer(
     index: usize,
-    spec: &'a LayerSpec,
+    spec: &LayerSpec,
     plot: &PlotSpec,
     data: &PlotData,
     warnings: &mut Vec<String>,
-) -> Result<PreparedLayer<'a>> {
+) -> Result<PreparedLayer> {
     let path = format!("layers[{index}]");
     let at = |key: &str| format!("{path}.{key}");
     let geom = geom::geom(&spec.geom)
@@ -188,32 +189,31 @@ fn prepare_layer<'a>(
     let position = position::position(position_name)
         .ok_or_else(|| unknown("position", &at("position"), position_name, position::NAMES))?;
 
-    validate_parameters(geom, stat, &spec.parameters, &path, warnings);
+    let options = normalize_options(&spec.parameters, &path, warnings);
+    validate_parameters(geom, stat, &options, &path, warnings);
+    validate_position_options(position, &position_options, &at("position"), warnings);
 
-    let mapping = merged_mapping(plot, spec);
-    let frame = data
-        .layers
-        .get(index)
-        .and_then(Option::as_ref)
-        .or(data.plot.as_ref());
-    let mut layer_data = LayerData::new(frame.map_or(0, DataFrame::row_count));
+    let (mapping, inherited) = merged_mapping(plot, spec);
+    let frames = LayerFrames {
+        layer: data.layers.get(index).and_then(Option::as_ref),
+        plot: data.plot.as_ref(),
+    };
+    let mut layer_data = LayerData::new(frames.row_count());
     for (aesthetic, value) in &mapping {
-        let mapping_path = at(&format!("mapping.{aesthetic}"));
+        let mapping_path = if inherited.contains(aesthetic) {
+            format!("mapping.{aesthetic}")
+        } else {
+            at(&format!("mapping.{aesthetic}"))
+        };
         let MappingValue::Column(name) = value else {
             warnings.push(format!(
-                "at '{mapping_path}': mapping to {value:?} is not supported yet and was ignored"
+                "at '{mapping_path}': mapping '{aesthetic}' to {} is not supported yet and \
+                 was ignored",
+                describe_mapping_value(value)
             ));
             continue;
         };
-        let Some(frame) = frame else {
-            return Err(Error::InvalidSpec(format!(
-                "at '{mapping_path}': column '{name}' is mapped but the layer has no data; \
-                 pass data to ggplot() or to the geom"
-            )));
-        };
-        let column = frame
-            .column(name)
-            .map_err(|error| Error::InvalidSpec(format!("at '{mapping_path}': {error}")))?;
+        let column = frames.column(name, &mapping_path)?;
         if (aesthetic.is_x_position() || aesthetic.is_y_position())
             && matches!(column, Column::Discrete(_))
         {
@@ -222,7 +222,27 @@ fn prepare_layer<'a>(
                  supported yet"
             )));
         }
+        if !geom_uses(geom, *aesthetic) {
+            warnings.push(format!(
+                "at '{mapping_path}': geom_{} does not use aesthetic '{aesthetic}' (yet); \
+                 the mapping was ignored",
+                geom.name()
+            ));
+            continue;
+        }
         layer_data.insert(*aesthetic, column)?;
+    }
+
+    // Constant positions, e.g. geom_point(x=1.5): one value repeated for every row.
+    for &aesthetic in geom.required_aesthetics() {
+        if layer_data.contains(aesthetic) {
+            continue;
+        }
+        let parameters = Parameters::new(&options, &path);
+        if let Some(value) = parameters.number(aesthetic.as_str())? {
+            let column = ContinuousColumn::from_values(vec![value; layer_data.row_count()]);
+            layer_data.insert(aesthetic, Column::Continuous(column))?;
+        }
     }
 
     let missing: Vec<&str> = geom
@@ -233,7 +253,8 @@ fn prepare_layer<'a>(
         .collect();
     if !missing.is_empty() {
         return Err(Error::InvalidSpec(format!(
-            "at '{path}': geom_{} requires aesthetics {}; missing: {}",
+            "at '{path}': geom_{} requires aesthetics {} (mapped to columns or given as \
+             constants); missing: {}",
             geom.name(),
             geom.required_aesthetics()
                 .iter()
@@ -244,7 +265,7 @@ fn prepare_layer<'a>(
         )));
     }
 
-    let parameters = Parameters::new(&spec.parameters, &path);
+    let parameters = Parameters::new(&options, &path);
     let layer_data = stat.compute(layer_data, &parameters)?;
     let position_path = at("position");
     let layer_data = position.adjust(
@@ -257,7 +278,7 @@ fn prepare_layer<'a>(
     }
     let styles = resolve_styles(geom, &mapping, &parameters, &path, warnings)?;
     Ok(PreparedLayer {
-        spec,
+        options,
         path,
         geom,
         data: layer_data,
@@ -265,22 +286,140 @@ fn prepare_layer<'a>(
     })
 }
 
-/// Layer mapping over the inherited plot mapping (unless `inherit_aes=False`).
-fn merged_mapping(plot: &PlotSpec, layer: &LayerSpec) -> Mapping {
+/// Layer mapping over the inherited plot mapping (unless `inherit_aes=False`), and
+/// which aesthetics came from the plot (for error paths).
+fn merged_mapping(plot: &PlotSpec, layer: &LayerSpec) -> (Mapping, BTreeSet<Aesthetic>) {
     let mut mapping = if layer.inherit_aes.unwrap_or(true) {
         plot.mapping.clone()
     } else {
         Mapping::new()
     };
+    mapping.retain(|aesthetic, _| !layer.mapping.contains_key(aesthetic));
+    let inherited = mapping.keys().copied().collect();
     mapping.extend(layer.mapping.clone());
-    mapping
+    (mapping, inherited)
+}
+
+/// Where a layer's columns come from, following lets-plot (`DataConfigUtil`): the
+/// layer's own data first; when plot data has the same number of rows, its columns
+/// fill in what the layer data lacks.
+struct LayerFrames<'a> {
+    layer: Option<&'a DataFrame>,
+    plot: Option<&'a DataFrame>,
+}
+
+impl LayerFrames<'_> {
+    /// Rows of the layer: its own data, else the plot data, else one row (so
+    /// constant-only layers such as `geom_point(x=1, y=2)` draw once).
+    fn row_count(&self) -> usize {
+        self.layer.or(self.plot).map_or(1, DataFrame::row_count)
+    }
+
+    fn column(&self, name: &str, path: &str) -> Result<Column> {
+        let error = |message: String| Error::InvalidSpec(format!("at '{path}': {message}"));
+        let shared_plot = self.plot.filter(|plot| match self.layer {
+            Some(layer) => plot.row_count() == layer.row_count(),
+            None => true,
+        });
+        let source = match (self.layer, shared_plot) {
+            (Some(layer), _) if layer.contains(name) => layer,
+            (_, Some(plot)) if plot.contains(name) => plot,
+            (None, None) => {
+                return Err(error(format!(
+                    "column '{name}' is mapped but the layer has no data; pass data to \
+                     ggplot() or to the geom"
+                )));
+            }
+            (Some(layer), _) => {
+                let note = match self.plot {
+                    Some(plot) if plot.contains(name) => format!(
+                        "; the plot data has it, but its {} rows differ from the layer \
+                         data's {} rows",
+                        plot.row_count(),
+                        layer.row_count()
+                    ),
+                    _ => String::new(),
+                };
+                return layer
+                    .column(name)
+                    .map_err(|missing| error(format!("{missing}{note}")));
+            }
+            (None, Some(plot)) => plot,
+        };
+        source
+            .column(name)
+            .map_err(|failure| error(failure.to_string()))
+    }
+}
+
+/// Whether the geom reads an aesthetic (required positions, styles, or `group`).
+fn geom_uses(geom: &dyn Geom, aesthetic: Aesthetic) -> bool {
+    aesthetic == Aesthetic::Group
+        || geom.required_aesthetics().contains(&aesthetic)
+        || geom
+            .style_defaults()
+            .iter()
+            .any(|(style, _)| *style == aesthetic)
+}
+
+fn describe_mapping_value(value: &MappingValue) -> String {
+    match value {
+        MappingValue::Column(name) => format!("column '{name}'"),
+        MappingValue::Columns(names) => format!("columns [{}]", names.join(", ")),
+        MappingValue::Other(value) => format!("the value {value}"),
+    }
+}
+
+/// Layer options with lets-plot's aliases resolved: `colour` and `col` -> `color`.
+fn normalize_options(options: &Options, path: &str, warnings: &mut Vec<String>) -> Options {
+    let mut normalized = Options::new();
+    for (name, value) in options {
+        let canonical = match name.as_str() {
+            "colour" | "col" => "color",
+            other => other,
+        };
+        if normalized
+            .insert(canonical.to_owned(), value.clone())
+            .is_some()
+        {
+            warnings.push(format!(
+                "at '{path}.{name}': '{canonical}' is given twice (as an alias too); the \
+                 value of '{name}' was used"
+            ));
+        }
+    }
+    normalized
+}
+
+/// Warn about position options the position does not read.
+fn validate_position_options(
+    position: &dyn position::Position,
+    options: &Options,
+    path: &str,
+    warnings: &mut Vec<String>,
+) {
+    for name in options.keys() {
+        if !position.parameters().contains(&name.as_str()) {
+            let supported = position.parameters().join(", ");
+            warnings.push(format!(
+                "at '{path}.{name}': position_{} does not support option '{name}'; it was \
+                 ignored. Supported: {}",
+                position.name(),
+                if supported.is_empty() {
+                    "none"
+                } else {
+                    &supported
+                }
+            ));
+        }
+    }
 }
 
 /// Warn about options neither the geom nor the stat reads.
 fn validate_parameters(
     geom: &dyn Geom,
     stat: &dyn stat::Stat,
-    options: &crate::spec::Options,
+    options: &Options,
     path: &str,
     warnings: &mut Vec<String>,
 ) {
@@ -293,6 +432,12 @@ fn validate_parameters(
             geom.style_defaults()
                 .iter()
                 .map(|(aesthetic, _)| aesthetic.as_str()),
+        )
+        // Constant positions: geom_point(x=1.5).
+        .chain(
+            geom.required_aesthetics()
+                .iter()
+                .map(|aesthetic| aesthetic.as_str()),
         )
         .collect();
     for name in options.keys() {

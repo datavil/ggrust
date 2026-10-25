@@ -2,6 +2,7 @@
 //!
 //! Sizes follow lets-plot: diameter = `size` x 2.2 px; default size 3, color
 //! `#474747` (the theme "pen"), solid circle (shape 16). Other shapes come in 1.5.
+//! `alpha`, when given, replaces the color's alpha (lets-plot semantics).
 
 use super::{DrawLayer, Geom, StyleDefault};
 use crate::Result;
@@ -18,7 +19,8 @@ const STYLE_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
         StyleDefault::Color(Color::rgb(0x47, 0x47, 0x47)),
     ),
     (Aesthetic::Size, StyleDefault::Number(3.0)),
-    (Aesthetic::Alpha, StyleDefault::Number(1.0)),
+    // NaN: keep the color's own alpha (lets-plot: alpha replaces it only when set).
+    (Aesthetic::Alpha, StyleDefault::Number(f64::NAN)),
 ];
 
 /// Scatter points.

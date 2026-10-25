@@ -22,3 +22,6 @@ thiserror.workspace = true
 
 [lints]
 workspace = true
+
+[dev-dependencies]
+roxmltree = "0.21"

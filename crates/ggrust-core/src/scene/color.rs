@@ -51,20 +51,20 @@ impl Color {
     ///
     /// The error message says what was wrong and which forms are accepted.
     pub fn parse(text: &str) -> Result<Self, String> {
-        let trimmed = text.trim();
-        let parsed = if trimmed.contains('(') {
-            parse_functional(trimmed)
-        } else if trimmed.starts_with('#') {
-            Color::from_hex(trimmed)
-        } else if let Some(color) = named(trimmed) {
+        // No trimming: lets-plot rejects " red " too.
+        let parsed = if text.find('(').is_some_and(|index| index > 0) {
+            parse_functional(text)
+        } else if text.starts_with('#') {
+            Color::from_hex(text)
+        } else if let Some(color) = named(text) {
             Some(color)
-        } else if let Some((name, opacity)) = trimmed.split_once('/') {
+        } else if let Some((name, opacity)) = text.split_once('/') {
             let opacity = opacity
                 .trim()
                 .parse::<f64>()
                 .ok()
                 .filter(|value| value.is_finite());
-            match (Color::parse(name), opacity) {
+            match (Color::parse(name.trim()), opacity) {
                 (Ok(color), Some(opacity)) if !name.contains('/') => {
                     Some(color.with_opacity(opacity))
                 }
@@ -103,15 +103,14 @@ impl Color {
         }
     }
 
-    /// The same color with its alpha multiplied by `opacity` (clamped to 0..1).
+    /// The same color with its alpha replaced by `opacity` (clamped to 0..1), like
+    /// lets-plot's `Color.withOpacity`. NaN keeps the color's own alpha.
     pub fn with_opacity(self, opacity: f64) -> Self {
-        let opacity = if opacity.is_nan() {
-            1.0
-        } else {
-            opacity.clamp(0.0, 1.0)
-        };
+        if opacity.is_nan() {
+            return self;
+        }
         Color {
-            alpha: (f64::from(self.alpha) * opacity).round() as u8,
+            alpha: (opacity.clamp(0.0, 1.0) * 255.0).round() as u8,
             ..self
         }
     }
@@ -146,6 +145,7 @@ fn named(name: &str) -> Option<Color> {
     if let Some(level) = normalised.strip_prefix("gray")
         && !level.is_empty()
         && level.bytes().all(|byte| byte.is_ascii_digit())
+        && (level == "0" || !level.starts_with('0'))
     {
         let level: u32 = level.parse().ok().filter(|level| *level <= 100)?;
         let value = (f64::from(level) * 255.0 / 100.0).round() as u8;
@@ -157,12 +157,13 @@ fn named(name: &str) -> Option<Color> {
         .map(|index| NAMED_COLORS[index].1)
 }
 
-/// `rgb(r, g, b)`, `rgba(r, g, b, a)`, `color(r, g, b[, a])`.
+/// `rgb(r, g, b)`, `rgba(r, g, b, a)`, `color(r, g, b[, a])`. Like lets-plot, the
+/// prefix must match exactly and anything after the last `)` is ignored.
 fn parse_functional(text: &str) -> Option<Color> {
     let (prefix, rest) = text.split_once('(')?;
-    let inner = rest.strip_suffix(')')?;
+    let inner = &rest[..rest.rfind(')')?];
     let components: Vec<&str> = inner.split(',').map(str::trim).collect();
-    let valid_count = match prefix.trim() {
+    let valid_count = match prefix {
         "rgb" => components.len() == 3,
         "rgba" => components.len() == 4,
         "color" => matches!(components.len(), 3 | 4),
@@ -238,6 +239,15 @@ mod tests {
     }
 
     #[test]
+    fn strictness_matches_lets_plot() {
+        for text in [" red ", "rgb (1, 2, 3)", "gray050", "grey007"] {
+            assert!(Color::parse(text).is_err(), "{text}");
+        }
+        // Kotlin ignores what follows the closing parenthesis.
+        assert_eq!(Color::parse("rgb(1,2,3) / 0.5"), Ok(Color::rgb(1, 2, 3)));
+    }
+
+    #[test]
     fn rejects_invalid_color_strings_with_guidance() {
         for text in [
             "reddish",
@@ -264,11 +274,17 @@ mod tests {
     }
 
     #[test]
-    fn opacity_multiplies_and_clamps() {
+    fn opacity_replaces_alpha_and_clamps() {
         assert_eq!(Color::BLACK.with_opacity(0.5).alpha, 128);
+        assert_eq!(Color::rgba(0, 0, 0, 10).with_opacity(0.5).alpha, 128);
+        assert_eq!(Color::rgba(255, 0, 0, 128).with_opacity(1.0).alpha, 255);
         assert_eq!(Color::BLACK.with_opacity(2.0).alpha, 255);
         assert_eq!(Color::BLACK.with_opacity(-1.0).alpha, 0);
-        assert_eq!(Color::BLACK.with_opacity(f64::NAN).alpha, 255);
+        assert_eq!(Color::rgba(1, 2, 3, 77).with_opacity(f64::NAN).alpha, 77);
+        assert_eq!(
+            Color::parse("transparent / 0.5"),
+            Ok(Color::rgba(0, 0, 0, 128))
+        );
     }
 
     #[test]

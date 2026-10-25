@@ -236,7 +236,7 @@ fn errors_name_the_path() {
         ),
         (
             r#"{"kind": "plot", "layers": [{"geom": "point", "mapping": {"x": "UMAP1"}}]}"#,
-            "at 'layers[0]': geom_point requires aesthetics x, y; missing: y",
+            "at 'layers[0]': geom_point requires aesthetics x, y (mapped to columns or given as constants); missing: y",
         ),
         (
             r#"{"kind": "plot", "layers": [{"geom": "point", "mapping": {"x": "cluster", "y": "UMAP2"}}]}"#,

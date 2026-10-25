@@ -25,6 +25,9 @@ wheels = [
 [[package]]
 name = "ggrust"
 source = { editable = "." }
+dependencies = [
+    { name = "polars" },
+]
 
 [package.dev-dependencies]
 dev = [
@@ -41,6 +44,7 @@ dev = [
 ]
 
 [package.metadata]
+requires-dist = [{ name = "polars", specifier = ">=1.30" }]
 
 [package.metadata.requires-dev]
 dev = [

@@ -1,6 +1,17 @@
 """Type stubs for the native extension module."""
 
-__all__ = ["engine_version", "validate_spec"]
+from typing import Any, TypedDict
+
+__all__ = ["describe_frame", "engine_version", "validate_spec"]
+
+class ColumnSummary(TypedDict, total=False):
+    """How ggrust reads one column."""
+
+    name: str
+    kind: str
+    length: int
+    null_count: int
+    levels: list[str]
 
 def engine_version() -> str:
     """Return the version of the Rust engine."""
@@ -22,4 +33,23 @@ def validate_spec(spec_json: str) -> list[str]:
     ------
     ValueError
         If the spec is invalid; the message names the offending path.
+    """
+
+def describe_frame(data: Any) -> list[ColumnSummary]:
+    """Describe how ggrust reads each column of an Arrow table (debugging aid).
+
+    Parameters
+    ----------
+    data
+        Any object exporting `__arrow_c_stream__` or `__arrow_c_array__`.
+
+    Returns
+    -------
+    list[ColumnSummary]
+        One summary per column, in column order.
+
+    Raises
+    ------
+    ValueError
+        If a column has a type ggrust cannot plot.
     """

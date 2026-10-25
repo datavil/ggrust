@@ -16,7 +16,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Visualization",
 ]
 dynamic = ["version"]
-dependencies = []
+dependencies = ["polars>=1.30"]
 
 [project.urls]
 Repository = "https://github.com/datavil/ggrust"

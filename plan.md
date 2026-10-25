@@ -120,6 +120,7 @@ Steps inside a phase are ordered; each builds on the previous.
 ### Phase 6: Performance
 
 - [ ] 6.1 Profile (flamegraph via `cargo flamegraph`, `py-spy`, memory via `/usr/bin/time -v` + `tracemalloc`) on cellestial benchmark scripts.
+- [ ] 6.1b Integer -> f64 column cast is single-threaded (50M rows ~0.6 s): consider chunked parallel cast.
 - [ ] 6.2 Rayon parallelism (layers, panels, subplots, groups); measure, keep only wins.
 - [ ] 6.3 Caching of Arrow conversion + stat results across subplots.
 - [ ] 6.4 Final benchmark report vs lets-plot (methodology + raw numbers + plots).

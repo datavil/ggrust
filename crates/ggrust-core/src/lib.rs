@@ -3,6 +3,7 @@
 //! Pure Rust, no Python. Everything here is testable with `cargo test`.
 //! The Python bindings live in the `ggrust-python` crate.
 
+pub mod data;
 pub mod error;
 pub mod spec;
 

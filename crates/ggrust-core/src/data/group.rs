@@ -2,7 +2,7 @@
 //!
 //! One variable: rows get the index of their value in the variable's distinct
 //! values (discrete: level order; continuous: first appearance), with missing
-//! values as one extra group after them. Several variables: the combinations,
+//! (null, NaN, +/-inf) as one extra group after them. Several variables: the combinations,
 //! numbered in order of first appearance.
 
 use std::collections::HashMap;
@@ -34,11 +34,15 @@ fn column_groups(column: &Column) -> Vec<u32> {
                 .collect()
         }
         Column::Continuous(column) => {
-            // Values compare by bits like Kotlin's boxed Double: NaN == NaN, 0.0 != -0.0.
+            // lets-plot's Python layer turns NaN and +/-inf into None, so they join the
+            // missing group; finite values compare by bits like Kotlin's boxed Double.
             let mut by_value: HashMap<Option<u64>, u32> = HashMap::new();
             let mut groups: Vec<u32> = (0..column.len())
                 .map(|row| {
-                    let key = column.get(row).map(f64::to_bits);
+                    let key = column
+                        .get(row)
+                        .filter(|value| value.is_finite())
+                        .map(f64::to_bits);
                     let count = by_value.len() as u32;
                     *by_value.entry(key).or_insert(count)
                 })
@@ -105,10 +109,11 @@ mod tests {
             Some(f64::NAN),
             Some(1.0),
             Some(2.0),
-            Some(f64::NAN),
+            Some(f64::INFINITY),
             None,
         ]));
-        assert_eq!(group_index(&[&column]), Some(vec![3, 0, 1, 2, 0, 1, 3]));
+        // null, NaN and inf are one missing group, after 2 and 1.
+        assert_eq!(group_index(&[&column]), Some(vec![2, 0, 2, 1, 0, 2, 2]));
     }
 
     #[test]

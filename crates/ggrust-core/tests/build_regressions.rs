@@ -121,7 +121,8 @@ fn constant_positions_draw_points() {
         Some(frame(&[("a", vec![1.0, 2.0])])),
         vec![],
     );
-    assert_eq!(points(&built)[0].len(), 2);
+    // lets-plot drops the data of a layer without mapped columns: one point.
+    assert_eq!(points(&built)[0].len(), 1);
     assert!(built.warnings.is_empty(), "{:?}", built.warnings);
     let alone = build(
         r#"{"kind": "plot", "layers": [{"geom": "point", "x": 1.5, "y": 1.5}]}"#,
@@ -129,6 +130,37 @@ fn constant_positions_draw_points() {
         vec![],
     );
     assert_eq!(points(&alone)[0].len(), 1);
+}
+
+#[test]
+fn constants_win_over_mappings_like_lets_plot() {
+    // x = 2.5 replaces the inherited x mapping; y stays mapped (3 rows).
+    let built = build(
+        r#"{"kind": "plot", "mapping": {"x": "a", "y": "b"},
+            "layers": [{"geom": "point", "x": 2.5}]}"#,
+        Some(frame(&[
+            ("a", vec![1.0, 2.0, 3.0]),
+            ("b", vec![1.0, 2.0, 3.0]),
+        ])),
+        vec![],
+    );
+    let layer_points = &points(&built)[0];
+    assert_eq!(layer_points.len(), 3);
+    assert!(
+        layer_points
+            .x
+            .iter()
+            .all(|x| (x - layer_points.x[0]).abs() < 1e-9)
+    );
+    // A constant color means the mapped column is never looked up (no error).
+    let built = build(
+        r#"{"kind": "plot", "mapping": {"x": "a", "y": "b", "color": "missing"},
+            "layers": [{"geom": "point", "color": "red"}]}"#,
+        Some(frame(&[("a", vec![1.0, 2.0]), ("b", vec![1.0, 2.0])])),
+        vec![],
+    );
+    assert_eq!(points(&built)[0].len(), 2);
+    assert!(built.warnings.is_empty(), "{:?}", built.warnings);
 }
 
 #[test]

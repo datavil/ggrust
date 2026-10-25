@@ -248,7 +248,14 @@ fn map_layer<'a>(
     validate_parameters(geom, stat, &options, &path, warnings);
     validate_position_options(position, &position_options, &at("position"), warnings);
 
-    let (mapping, inherited) = merged_mapping(plot, spec);
+    let (mut mapping, inherited) = merged_mapping(plot, spec);
+    // lets-plot (`DataConfigUtil`): an aesthetic given as a constant wins over its
+    // mapping, and the mapped column is not even looked up.
+    mapping.retain(|aesthetic, _| {
+        options
+            .get(aesthetic.as_str())
+            .is_none_or(|value| value.is_null())
+    });
     let frames = LayerFrames {
         layer: data.layers.get(index).and_then(Option::as_ref),
         plot: data.plot.as_ref(),
@@ -302,6 +309,7 @@ fn map_layer<'a>(
             .map(|(_, column)| column)
             .collect(),
     };
+    let unbound = columns.is_empty();
     Ok(MappedLayer {
         spec,
         path,
@@ -310,9 +318,14 @@ fn map_layer<'a>(
         position,
         position_options,
         options,
-        row_count: frames.row_count(),
+        // lets-plot drops the data of a layer with no mapped columns: one row.
+        row_count: if unbound { 1 } else { frames.row_count() },
         columns,
-        group_index: group_index(&grouping.iter().collect::<Vec<_>>()),
+        group_index: if unbound {
+            None
+        } else {
+            group_index(&grouping.iter().collect::<Vec<_>>())
+        },
     })
 }
 

@@ -85,6 +85,7 @@ Steps inside a phase are ordered; each builds on the previous.
   - [x] 0.10.6 Typed style values: `Aesthetic::value_kind()` single source; `StyleValues` for color/number/shape/linetype/text; mismatch is an error.
   - [x] 0.10.7 Registries as one static list per kind (lookup + names derived, round-trip test).
   - [ ] 0.10.8 Layout into an area `Rect` with measure-then-place (gggrid, legends); deterministic SVG ids (explicit prefix).
+  - Known gaps (bug hunt 0.10.2, deferred): sqrt axis with a single value keeps all breaks where lets-plot thins labels; an Enum's level order does not carry over to the same column in other layers.
   - [ ] 0.10.9 Small fixes from the review: ignored aesthetics checked before column fetch, `with_notes` keeps error kinds, batch consistency validated once, `is_axis_title_only` via defaults.
 
 ### Phase 1: Scatter-class plots (cellestial `dimensional`, `umap`, `scatter`, `xyplot`)

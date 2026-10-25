@@ -43,7 +43,7 @@ impl AxisScaleSpec {
     /// Build the (untrained) scale; `discrete` when the axis shows categories.
     pub fn build(&self, discrete: bool, warnings: &mut Vec<String>) -> Result<PositionScale> {
         if discrete {
-            return self.build_discrete().map(PositionScale::Discrete);
+            return self.build_discrete(warnings).map(PositionScale::Discrete);
         }
         if let Some((true, path)) = &self.reverse {
             warnings.push(format!(
@@ -69,23 +69,26 @@ impl AxisScaleSpec {
         Ok(scale)
     }
 
-    fn build_discrete(&self) -> Result<DiscretePositionScale> {
+    fn build_discrete(&self, warnings: &mut Vec<String>) -> Result<DiscretePositionScale> {
         let mut scale = DiscretePositionScale::default();
+        // lets-plot ignores a transform on a discrete axis.
         if let Some((name, path)) = &self.trans
             && Transform::parse(name, path)? != Transform::Identity
         {
-            return Err(Error::InvalidSpec(format!(
-                "at '{path}': transform '{name}' needs a continuous axis, but this axis is \
-                 discrete (a discrete column or scale_*_discrete() is mapped to it)"
-            )));
+            warnings.push(format!(
+                "at '{path}': transform '{name}' applies to continuous axes, but this axis is \
+                 discrete (a discrete column or scale_*_discrete() is mapped to it); ignored"
+            ));
         }
         if let Some([multiplicative, additive]) = self.expansion()? {
             scale.multiplicative_expand = multiplicative.unwrap_or(scale.multiplicative_expand);
             scale.additive_expand = additive.unwrap_or(scale.additive_expand);
         }
         if let Some((limits, path)) = &self.limits {
+            // Nulls are skipped (`xlim("a", None)`).
             let categories = limits
                 .iter()
+                .filter(|value| !value.is_null())
                 .map(|value| match value {
                     Value::String(text) => Ok(text.clone()),
                     other => Err(Error::InvalidSpec(format!(
@@ -93,7 +96,7 @@ impl AxisScaleSpec {
                     ))),
                 })
                 .collect::<Result<Vec<_>>>()?;
-            scale.limits = Some(categories);
+            scale.set_limits(categories);
         }
         scale.reverse = self.reverse.as_ref().is_some_and(|(reverse, _)| *reverse);
         Ok(scale)
@@ -160,42 +163,33 @@ fn merge(target: &mut AxisScaleSpec, scale: &ScaleSpec, path: &str) {
     }
 }
 
-/// `[low, high]` in data units (either may be null) -> limits in transformed units.
+/// `[low, high]` in data units -> limits in transformed units, as lenient as
+/// lets-plot: null leaves a side open, the two ends may come in either order, values
+/// after the second are ignored, an empty list means no limits, and a limit outside
+/// the transform's domain (log of 0) leaves that side open.
 fn transformed_limits(
     limits: &[Value],
     transform: Transform,
     path: &str,
 ) -> Result<[Option<f64>; 2]> {
-    let invalid = |detail: String| Error::InvalidSpec(format!("at '{path}': {detail}"));
-    let [low, high] = limits else {
-        return Err(invalid(format!(
-            "expected [low, high] (numbers or null), got {} values",
-            limits.len()
-        )));
-    };
-    let read = |value: &Value| -> Result<Option<f64>> {
-        if value.is_null() {
-            return Ok(None);
+    let read = |value: Option<&Value>| -> Result<Option<f64>> {
+        match value {
+            None | Some(Value::Null) => Ok(None),
+            Some(value) => value.as_f64().map(Some).ok_or_else(|| {
+                Error::InvalidSpec(format!(
+                    "at '{path}': limits are numbers or null, got {value}"
+                ))
+            }),
         }
-        let number = value
-            .as_f64()
-            .ok_or_else(|| invalid(format!("expected a number or null, got {value}")))?;
-        transform.apply(number).map(Some).ok_or_else(|| {
-            invalid(format!(
-                "limit {number} is outside the domain of the '{}' transform",
-                transform.as_str()
-            ))
-        })
     };
-    let (low, high) = (read(low)?, read(high)?);
-    if let (Some(low), Some(high)) = (low, high)
-        && low > high
-        && transform != Transform::Reverse
+    let (mut low, mut high) = (read(limits.first())?, read(limits.get(1))?);
+    if let (Some(first), Some(second)) = (low, high)
+        && first > second
     {
-        return Err(invalid(format!(
-            "lower limit is above the upper limit: {limits:?}"
-        )));
+        (low, high) = (Some(second), Some(first));
     }
+    let transformed = |limit: Option<f64>| limit.and_then(|value| transform.apply(value));
+    let (low, high) = (transformed(low), transformed(high));
     // Reverse runs the other way: the lower data limit becomes the upper one.
     Ok(match transform {
         Transform::Reverse => [high, low],
@@ -307,6 +301,47 @@ mod tests {
     }
 
     #[test]
+    fn limits_are_as_lenient_as_lets_plot() {
+        let limits = |scale: &str| {
+            let (scales, _) = scales(&plot_with(scale)).unwrap();
+            continuous(&scales.x).limits
+        };
+        // Either order; reverse keeps both points inside (bug hunt 0.10.2).
+        assert_eq!(
+            limits(r#"{"aesthetic": "x", "limits": [10, 1]}"#),
+            [Some(1.0), Some(10.0)]
+        );
+        assert_eq!(
+            limits(r#"{"aesthetic": "x", "trans": "reverse", "limits": [10, 1]}"#),
+            [Some(-10.0), Some(-1.0)]
+        );
+        // Outside the log domain: that side stays open.
+        let [low, high] = limits(r#"{"aesthetic": "x", "trans": "log10", "limits": [0, 100]}"#);
+        assert_eq!(low, None);
+        assert!((high.unwrap() - 2.0).abs() < 1e-12);
+        assert_eq!(limits(r#"{"aesthetic": "x", "limits": []}"#), [None, None]);
+        assert_eq!(
+            limits(r#"{"aesthetic": "x", "limits": [1, 5, 9]}"#),
+            [Some(1.0), Some(5.0)]
+        );
+    }
+
+    #[test]
+    fn discrete_axes_skip_null_limits_and_ignore_transforms_with_a_warning() {
+        let (scales, _) = scales(&plot_with(
+            r#"{"aesthetic": "x", "trans": "log10", "limits": ["a", null]}"#,
+        ))
+        .unwrap();
+        let mut warnings = Vec::new();
+        let PositionScale::Discrete(x) = scales.x.build(true, &mut warnings).unwrap() else {
+            panic!("expected a discrete scale");
+        };
+        assert_eq!(x.effective_levels(), ["a"]);
+        assert_eq!(warnings.len(), 1);
+        assert!(warnings[0].contains("at 'scales[0].trans'"), "{warnings:?}");
+    }
+
+    #[test]
     fn errors_name_the_path() {
         for (json, discrete, expected) in [
             (
@@ -315,29 +350,9 @@ mod tests {
                 "at 'scales[0].trans': unknown transform",
             ),
             (
-                r#"{"aesthetic": "x", "trans": "log10", "limits": [0, 10]}"#,
-                false,
-                "at 'scales[0].limits': limit 0 is outside the domain of the 'log10' transform",
-            ),
-            (
-                r#"{"aesthetic": "x", "limits": [5, 1]}"#,
-                false,
-                "lower limit is above the upper",
-            ),
-            (
-                r#"{"aesthetic": "y", "limits": [1]}"#,
-                false,
-                "expected [low, high]",
-            ),
-            (
                 r#"{"aesthetic": "y", "expand": [0, 1, 2]}"#,
                 false,
                 "at 'scales[0].expand'",
-            ),
-            (
-                r#"{"aesthetic": "x", "trans": "log10"}"#,
-                true,
-                "at 'scales[0].trans': transform 'log10' needs a continuous axis",
             ),
             (
                 r#"{"aesthetic": "x", "limits": ["a", 2]}"#,
@@ -347,7 +362,7 @@ mod tests {
             (
                 r#"{"aesthetic": "x", "limits": ["a", "b"]}"#,
                 false,
-                "expected a number or null",
+                "at 'scales[0].limits': limits are numbers or null",
             ),
         ] {
             let (scales, _) = scales(&plot_with(json)).unwrap();

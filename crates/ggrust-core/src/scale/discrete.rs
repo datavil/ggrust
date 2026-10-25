@@ -3,7 +3,10 @@
 //!
 //! Levels are joined across layers in order of first appearance; `limits` replace
 //! (and order) them, `reverse` flips them. Numbers on a discrete axis pass through
-//! unchanged, as in lets-plot (e.g. a constant x).
+//! unchanged, as in lets-plot (e.g. a constant x). Mapping a position is O(1): it
+//! runs once per data point.
+
+use std::collections::{HashMap, HashSet};
 
 use super::ScaleBreaks;
 use super::format::Label;
@@ -13,10 +16,11 @@ use crate::data::{ContinuousColumn, DiscreteColumn};
 #[derive(Debug, Clone, PartialEq)]
 pub struct DiscretePositionScale {
     levels: Vec<String>,
+    known: HashSet<String>,
     /// Numbers seen on this axis (they pass through unchanged).
     numeric_range: Option<(f64, f64)>,
-    /// `scale_*_discrete(limits=[...])`: the categories shown, in this order.
-    pub limits: Option<Vec<String>>,
+    /// `scale_*_discrete(limits=[...])` without repeats: the categories shown.
+    limits: Option<Vec<String>>,
     /// Reverse the category order.
     pub reverse: bool,
     /// Fraction of the domain width added on each side (lets-plot: 0).
@@ -29,6 +33,7 @@ impl Default for DiscretePositionScale {
     fn default() -> Self {
         DiscretePositionScale {
             levels: Vec::new(),
+            known: HashSet::new(),
             numeric_range: None,
             limits: None,
             reverse: false,
@@ -39,10 +44,21 @@ impl Default for DiscretePositionScale {
 }
 
 impl DiscretePositionScale {
+    /// Show only these categories, in this order (repeats ignored). An empty list
+    /// means no limits, as in lets-plot.
+    pub fn set_limits(&mut self, limits: Vec<String>) {
+        let mut seen = HashSet::new();
+        let unique: Vec<String> = limits
+            .into_iter()
+            .filter(|limit| seen.insert(limit.clone()))
+            .collect();
+        self.limits = (!unique.is_empty()).then_some(unique);
+    }
+
     /// Add the levels of a column that are not known yet, keeping their order.
     pub fn train_levels(&mut self, levels: &[String]) {
         for level in levels {
-            if !self.levels.contains(level) {
+            if self.known.insert(level.clone()) {
                 self.levels.push(level.clone());
             }
         }
@@ -60,29 +76,25 @@ impl DiscretePositionScale {
         }
     }
 
-    /// Whether any categories are known (trained or from limits).
+    /// Whether any categories are shown (trained or from limits).
     pub fn has_levels(&self) -> bool {
-        !self.levels.is_empty()
-            || self
-                .limits
-                .as_ref()
-                .is_some_and(|limits| !limits.is_empty())
+        self.level_count() > 0
+    }
+
+    /// Number of categories shown.
+    fn level_count(&self) -> usize {
+        self.limits.as_ref().map_or(self.levels.len(), Vec::len)
     }
 
     /// Categories shown on the axis, in axis order (position 0 first).
     pub fn effective_levels(&self) -> Vec<&str> {
-        let mut levels: Vec<&str> = match &self.limits {
-            Some(limits) => {
-                let mut unique: Vec<&str> = Vec::new();
-                for limit in limits {
-                    if !unique.contains(&limit.as_str()) {
-                        unique.push(limit);
-                    }
-                }
-                unique
-            }
-            None => self.levels.iter().map(String::as_str).collect(),
-        };
+        let mut levels: Vec<&str> = self
+            .limits
+            .as_ref()
+            .unwrap_or(&self.levels)
+            .iter()
+            .map(String::as_str)
+            .collect();
         if self.reverse {
             levels.reverse();
         }
@@ -92,15 +104,19 @@ impl DiscretePositionScale {
     /// Positions of a discrete column: each category's index on the axis, or
     /// missing when the category is not shown (outside `limits`).
     pub fn positions(&self, column: &DiscreteColumn) -> ContinuousColumn {
-        let effective = self.effective_levels();
+        let index_by_level: HashMap<&str, usize> = self
+            .effective_levels()
+            .into_iter()
+            .enumerate()
+            .map(|(index, level)| (level, index))
+            .collect();
         let index_by_code: Vec<Option<f64>> = column
             .levels()
             .iter()
             .map(|level| {
-                effective
-                    .iter()
-                    .position(|candidate| candidate == level)
-                    .map(|index| index as f64)
+                index_by_level
+                    .get(level.as_str())
+                    .map(|index| *index as f64)
             })
             .collect();
         ContinuousColumn::from_options(
@@ -117,7 +133,7 @@ impl DiscretePositionScale {
     /// Domain after expansion (in position units), like lets-plot: categories span
     /// 0..n-1 joined with any numbers, plus the expansion; zero-width widens to +/- 0.5.
     pub fn expanded_domain(&self) -> (f64, f64) {
-        let count = self.effective_levels().len();
+        let count = self.level_count();
         let categories = (count > 0).then(|| (0.0, (count - 1) as f64));
         let range = match (categories, self.numeric_range) {
             (Some((low, high)), Some((number_low, number_high))) => {
@@ -197,10 +213,8 @@ mod tests {
     #[test]
     fn limits_order_and_drop_categories_and_reverse_flips() {
         let column = discrete(vec![Some("b"), Some("a"), None, Some("c")]);
-        let mut scale = DiscretePositionScale {
-            limits: Some(vec!["c".into(), "b".into(), "c".into()]),
-            ..DiscretePositionScale::default()
-        };
+        let mut scale = DiscretePositionScale::default();
+        scale.set_limits(vec!["c".into(), "b".into(), "c".into()]);
         scale.train_levels(column.levels());
         assert_eq!(scale.effective_levels(), ["c", "b"]);
         let positions = scale.positions(&column);
@@ -210,6 +224,9 @@ mod tests {
         );
         scale.reverse = true;
         assert_eq!(scale.effective_levels(), ["b", "c"]);
+        // An empty list is no limits (lets-plot).
+        scale.set_limits(Vec::new());
+        assert_eq!(scale.effective_levels(), ["c", "a", "b"]);
     }
 
     #[test]

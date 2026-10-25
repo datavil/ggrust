@@ -11,3 +11,11 @@ Measured so far (lets-plot 4.11, default theme):
 
 **How to apply:** for visual parity work (0.6 layout, 0.8 comparison report) render
 the same spec with lets-plot `to_svg()` and with ggrust, then compare numbers/pixels.
+
+## Layout decision (user, Phase 0.6): "same rules, real fonts"
+Copy lets-plot's constants and algorithms (breaks, label format, margins, spacing), but
+measure text with the embedded font. Text bands use the real line box (~1.12 x size)
+instead of lets-plot's "band = font size"; an explicit `axis_title_spacing` (3 px)
+reproduces the gap lets-plot gets implicitly from its baseline placement (without it the
+rotated y title touched the tick labels). Compare visually with
+`cargo run --release --example compare_letsplot -- <dir> tests/visual/output <case>...`.

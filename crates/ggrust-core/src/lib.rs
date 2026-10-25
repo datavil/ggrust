@@ -8,6 +8,7 @@ pub mod coord;
 pub mod data;
 pub mod error;
 pub mod geom;
+pub mod layout;
 pub mod parameters;
 pub mod position;
 pub mod render;
@@ -16,6 +17,7 @@ pub mod scene;
 pub mod spec;
 pub mod stat;
 pub mod text;
+pub mod theme;
 
 pub use error::{Error, Result};
 

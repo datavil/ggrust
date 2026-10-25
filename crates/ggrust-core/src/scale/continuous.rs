@@ -65,7 +65,7 @@ impl ContinuousPositionScale {
         if self.domain.is_none() && self.limits.iter().all(Option::is_none) {
             return (-0.5, 0.5);
         }
-        if high - low <= f64::EPSILON * low.abs().max(high.abs()).max(1.0) {
+        if super::breaks::is_degenerate_range(low, high) {
             return (low - 0.5, low + 0.5);
         }
         (low, high)

@@ -10,7 +10,7 @@ use arrow_array::{ArrayRef, Float64Array, RecordBatch, StringArray};
 use ggrust_core::build::{BuiltPlot, PlotData, build_plot};
 use ggrust_core::data::DataFrame;
 use ggrust_core::render::to_png;
-use ggrust_core::scene::{Node, Points};
+use ggrust_core::scene::{Group, Node, Points};
 use ggrust_core::spec::{Figure, PlotSpec};
 use resvg::tiny_skia::Pixmap;
 
@@ -54,11 +54,21 @@ fn build(json: &str, data: DataFrame) -> BuiltPlot {
     .unwrap()
 }
 
+/// The panel group (role "panel") of a built plot.
+fn panel(built: &BuiltPlot) -> &Group {
+    built
+        .scene
+        .nodes
+        .iter()
+        .find_map(|node| match node {
+            Node::Group(group) if group.role == Some("panel") => Some(group),
+            _ => None,
+        })
+        .expect("a panel group")
+}
+
 fn points(built: &BuiltPlot) -> &Points {
-    let Node::Group(panel) = &built.scene.nodes[0] else {
-        panic!("expected the panel group")
-    };
-    panel
+    panel(built)
         .nodes
         .iter()
         .find_map(|node| match node {
@@ -77,11 +87,12 @@ fn scatter_maps_data_into_the_panel_with_lets_plot_defaults() {
     assert!(built.warnings.is_empty(), "{:?}", built.warnings);
     assert_eq!((built.scene.width, built.scene.height), (600.0, 400.0));
     let points = points(&built);
-    // x domain 1..4.5 expanded by 5% each side; panel x from 40, width 540.
-    let expected_x = 40.0 + 540.0 * (0.05 / 1.1);
+    let rect = panel(&built).clip.unwrap();
+    // x domain 1..4.5 expanded by 5% on each side.
+    let expected_x = rect.x + rect.width * (0.05 / 1.1);
     assert!((points.x[0] - expected_x).abs() < 1e-9, "{}", points.x[0]);
-    // y = 4 is the top value: 5% padding below the panel top (panel y 20, height 340).
-    let expected_y = 20.0 + 340.0 * (0.05 / 1.1);
+    // y = 4 is the top value: 5% padding below the panel top.
+    let expected_y = rect.y + rect.height * (0.05 / 1.1);
     assert!((points.y[2] - expected_y).abs() < 1e-9, "{}", points.y[2]);
     // Diameter 3 x 2.2 = 6.6 px, color #474747 as in lets-plot.
     assert!((points.size.get(0) - 6.6).abs() < 1e-12);
@@ -106,7 +117,11 @@ fn constant_options_and_png_render() {
     fs::write(output.join("build_point_constant.png"), &png).unwrap();
     let pixmap = Pixmap::decode_png(&png).unwrap();
     let centre = pixmap
-        .pixel((points.x[0] * 2.0) as u32, (points.y[0] * 2.0) as u32)
+        // 2 px off the centre: the point sits on grid lines (x = 1, y = 2 are breaks).
+        .pixel(
+            ((points.x[0] + 2.0) * 2.0) as u32,
+            ((points.y[0] + 2.0) * 2.0) as u32,
+        )
         .unwrap()
         .demultiply();
     // Half-transparent red (228, 26, 28 at alpha 128) over white, +/- 1 for rounding.
@@ -123,14 +138,14 @@ fn constant_options_and_png_render() {
 fn unimplemented_features_and_unknown_options_warn() {
     let built = build(
         r#"{"kind": "plot", "mapping": {"x": "UMAP1", "y": "UMAP2", "color": "cluster"},
-            "theme": {"name": "classic"}, "ggtitle": {"text": "t"},
+            "theme": {"name": "classic"}, "guides": {"color": {"name": "legend", "ncol": 2}},
             "layers": [{"geom": "point", "colr": "red", "tooltips": "none"}]}"#,
         cells(),
     );
     let joined = built.warnings.join("\n");
     for expected in [
         "'theme' is not supported yet and was ignored",
-        "'ggtitle' is not supported yet and was ignored",
+        "at 'guides.color': legends and guides are not supported yet",
         "at 'layers[0]': 'tooltips' is not supported yet",
         "at 'layers[0].colr': geom_point does not support option 'colr'",
         "at 'layers[0].mapping.color': mapping data to 'color' is not supported yet",
@@ -186,10 +201,7 @@ fn layer_data_overrides_plot_data_and_inherit_aes() {
         },
     )
     .unwrap();
-    let Node::Group(panel) = &built.scene.nodes[0] else {
-        panic!()
-    };
-    let sizes: Vec<usize> = panel
+    let sizes: Vec<usize> = panel(&built)
         .nodes
         .iter()
         .filter_map(|node| match node {

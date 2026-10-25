@@ -12,12 +12,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::coord::{self, Coord, Panel};
 use crate::data::{Column, DataFrame, LayerData};
 use crate::geom::{self, DrawLayer, Geom, StyleDefault, StyleValues};
+use crate::layout::{Titles, draw_axes_and_titles, draw_panel_background, layout_plot};
 use crate::parameters::Parameters;
 use crate::position;
 use crate::scale::ContinuousPositionScale;
-use crate::scene::{Color, Group, Node, PerItem, Rect, Scene};
-use crate::spec::{Aesthetic, LayerSpec, Mapping, MappingValue, PlotSpec};
+use crate::scene::{Group, Node, PerItem, Scene};
+use crate::spec::{Aesthetic, GuideSpec, LayerSpec, Mapping, MappingValue, PlotSpec};
 use crate::stat;
+use crate::theme::Theme;
 use crate::{Error, Result};
 
 /// Plot size when `ggsize` is not given (lets-plot default).
@@ -78,39 +80,82 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
         }
     }
 
-    // Placeholder layout until Phase 0.6 adds axes, titles and theme spacing.
-    let panel_rect = Rect {
-        x: 40.0,
-        y: 20.0,
-        width: (width - 60.0).max(1.0),
-        height: (height - 60.0).max(1.0),
-    };
+    let theme = Theme::default();
+    let titles = plot_titles(spec);
+    let layout = layout_plot(width, height, &theme, &titles, &x_scale, &y_scale);
     let panel = Panel {
-        rect: panel_rect,
+        rect: layout.panel,
         x_scale: &x_scale,
         y_scale: &y_scale,
         coord,
     };
-    let mut panel_nodes = Vec::new();
+    let mut layer_nodes = Vec::new();
     for layer in &layers {
         let draw_layer = DrawLayer {
             data: &layer.data,
             styles: &layer.styles,
             parameters: Parameters::new(&layer.spec.parameters, &layer.path),
         };
-        panel_nodes.extend(layer.geom.draw(&draw_layer, &panel)?);
+        layer_nodes.extend(layer.geom.draw(&draw_layer, &panel)?);
     }
+    let mut nodes = draw_panel_background(&layout, &theme, &x_scale, &y_scale);
+    nodes.push(Node::Group(Group {
+        clip: Some(layout.panel),
+        role: Some("panel"),
+        nodes: layer_nodes,
+    }));
+    nodes.extend(draw_axes_and_titles(
+        &layout, &theme, &titles, &x_scale, &y_scale,
+    ));
     let scene = Scene {
         width,
         height,
-        background: Some(Color::WHITE),
-        nodes: vec![Node::Group(Group {
-            clip: Some(panel_rect),
-            role: Some("panel"),
-            nodes: panel_nodes,
-        })],
+        background: theme.plot_background,
+        nodes,
     };
     Ok(BuiltPlot { scene, warnings })
+}
+
+/// Title, subtitle and axis titles. Axis titles follow lets-plot: `labs(x=...)`
+/// first, otherwise the column mapped to the axis (plot mapping, then layers).
+fn plot_titles(spec: &PlotSpec) -> Titles {
+    let axis_title = |aesthetic: Aesthetic| {
+        let from_labs = match spec.guides.get(aesthetic.as_str()) {
+            Some(GuideSpec::Full(options)) => options.title.clone(),
+            _ => None,
+        };
+        from_labs.or_else(|| {
+            std::iter::once(&spec.mapping)
+                .chain(spec.layers.iter().map(|layer| &layer.mapping))
+                .find_map(|mapping| mapping.get(&aesthetic)?.as_column().map(str::to_owned))
+        })
+    };
+    let title = spec.ggtitle.as_ref();
+    Titles {
+        title: title.and_then(|title| title.text.clone()),
+        subtitle: title.and_then(|title| title.subtitle.clone()),
+        x: axis_title(Aesthetic::X),
+        y: axis_title(Aesthetic::Y),
+    }
+}
+
+/// Whether a guide entry is only an axis title from `labs(x=...)` / `labs(y=...)`,
+/// which the layout already uses.
+fn is_axis_title_only(key: &str, guide: &GuideSpec) -> bool {
+    let GuideSpec::Full(options) = guide else {
+        return false;
+    };
+    matches!(key, "x" | "y")
+        && options.name.is_none()
+        && options.ncol.is_none()
+        && options.nrow.is_none()
+        && options.byrow.is_none()
+        && options.override_aes.is_none()
+        && options.barwidth.is_none()
+        && options.barheight.is_none()
+        && options.nbin.is_none()
+        && options.order.is_none()
+        && options.manual_key.is_none()
 }
 
 /// One layer after stat and position, ready to draw.
@@ -348,6 +393,13 @@ fn unknown(kind: &str, path: &str, name: &str, supported: &[&str]) -> Error {
 /// Parsed features that the builder does not implement yet. Each is reported, never
 /// silently dropped. Remove an entry when its phase (plan.md) implements it.
 fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
+    for (key, guide) in &spec.guides {
+        if !is_axis_title_only(key, guide) {
+            warnings.push(format!(
+                "at 'guides.{key}': legends and guides are not supported yet; ignored"
+            ));
+        }
+    }
     let mut ignored = |present: bool, feature: &str| {
         if present {
             warnings.push(format!("'{feature}' is not supported yet and was ignored"));
@@ -356,8 +408,6 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
     ignored(spec.theme.is_some(), "theme");
     ignored(spec.facet.is_some(), "facet");
     ignored(!spec.scales.is_empty(), "scales");
-    ignored(!spec.guides.is_empty(), "guides / labs");
-    ignored(spec.ggtitle.is_some(), "ggtitle");
     ignored(spec.caption.is_some(), "caption");
     ignored(spec.ggtoolbar.is_some(), "ggtb");
     ignored(

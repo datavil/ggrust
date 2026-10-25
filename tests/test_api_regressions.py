@@ -130,3 +130,13 @@ def test_str_matches_lets_plot_layout():
     theirs = str(lp.ggplot() + lp.geom_point()).splitlines()
     assert ours[0] == theirs[0] == "plot"
     assert [line for line in ours if "[" in line] == [line for line in theirs if "[" in line]
+
+
+@pytest.mark.parametrize("kind", ["dict", "polars", "pandas"])
+def test_layer_data_without_referenced_columns_keeps_its_rows(kind):
+    # Bug hunt 0.10.2: the export kept no column, so the layer data had 0 rows and
+    # could not merge with the plot data (lets-plot draws 3 points).
+    layer = {"z": [1.0, 2.0, 3.0]}
+    layer = {"dict": layer, "polars": pl.DataFrame(layer), "pandas": pd.DataFrame(layer)}[kind]
+    plot = gg.ggplot({"a": [1.0, 2.0, 3.0], "b": [1.0, 2.0, 3.0]}, gg.aes("a", "b"))
+    assert (plot + gg.geom_point(data=layer)).to_svg().count("<circle") == 3

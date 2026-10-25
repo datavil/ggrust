@@ -20,6 +20,10 @@ use crate::scale::format::Label;
 use crate::scene::{Group, HorizontalAlign, Node, Path, PerItem, Rect, Rects, Text, VerticalAlign};
 use crate::text::{measure, measure_label};
 
+/// lets-plot `GEOM_MIN_SIZE`: the panel never shrinks below 50 x 50 px; axes and
+/// labels that do not fit then run past the plot edge instead.
+pub const PANEL_MIN_SIZE: f64 = 50.0;
+
 /// Height of a text band: the real line box of the font at this size.
 pub fn text_band(style: TextStyle) -> f64 {
     measure("", style.size, style.face).height()
@@ -50,6 +54,8 @@ pub struct PlotLayout {
     pub x_breaks: AxisBreaks,
     /// y axis breaks.
     pub y_breaks: AxisBreaks,
+    /// Ticks, spacing and labels below the panel (px): the x title goes below it.
+    pub x_axis_band: f64,
 }
 
 /// Lay out a `width` x `height` plot.
@@ -126,7 +132,7 @@ fn layout_with(
             .map_or(0.0, |_| theme.axis_text_spacing + labels_height);
     let bottom =
         content.y + content.height - band(theme.axis_title_x, &titles.x, 0.0) - x_axis_band;
-    let panel_height = (bottom - top).max(1.0);
+    let panel_height = (bottom - top).max(PANEL_MIN_SIZE);
 
     let y_breaks = choose_breaks(
         y_scale,
@@ -155,7 +161,7 @@ fn layout_with(
             .map_or(0.0, |_| theme.axis_text_spacing + y_label_width);
     let left =
         content.x + band(theme.axis_title_y, &titles.y, theme.axis_title_spacing) + y_axis_width;
-    let panel_width = (content.x + content.width - left).max(1.0);
+    let panel_width = (content.x + content.width - left).max(PANEL_MIN_SIZE);
 
     // lets-plot lets x labels reach over the y axis on the left (geom area insets).
     let x_breaks = x_breaks.unwrap_or_else(|| {
@@ -177,6 +183,7 @@ fn layout_with(
         },
         x_breaks,
         y_breaks,
+        x_axis_band,
     }
 }
 
@@ -330,7 +337,9 @@ pub fn draw_axes_and_titles(
     }
     let mut titles_nodes = Vec::new();
     if let (Some(style), Some(title)) = (theme.axis_title_x, present(&titles.x)) {
-        let y = content.y + content.height - text_band(style) / 2.0;
+        // Below the x axis, not at the plot edge: they differ only when the panel is
+        // at its minimum size and the axis runs past the plot (lets-plot does the same).
+        let y = bottom + layout.x_axis_band + text_band(style) / 2.0;
         titles_nodes.push(text_node(
             title,
             style,

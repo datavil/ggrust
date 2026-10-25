@@ -291,3 +291,40 @@ fn axis_title_follows_lets_plot_default_scale_name() {
     );
     assert_eq!(axis_titles(&several), ["x", "y"]);
 }
+
+#[test]
+fn the_panel_never_shrinks_below_lets_plots_minimum() {
+    // Bug hunt 0.10.2: 25 long vertical x labels left a 27 px panel at 600 x 400.
+    let labels: Vec<String> = (0..25)
+        .map(|index| format!("GO:{index:07} regulation of something biological process {index}"))
+        .collect();
+    let batch = RecordBatch::try_from_iter([
+        (
+            "term",
+            Arc::new(arrow_array::StringArray::from(labels.clone())) as ArrayRef,
+        ),
+        (
+            "score",
+            Arc::new(Float64Array::from(
+                (0..25).map(f64::from).collect::<Vec<_>>(),
+            )),
+        ),
+    ])
+    .unwrap();
+    let data = DataFrame::new(batch.schema(), vec![batch]).unwrap();
+    let built = build(
+        r#"{"kind": "plot", "mapping": {"x": "term", "y": "score"}, "layers": [{"geom": "point"}]}"#,
+        Some(data),
+        vec![],
+    );
+    let panel = built
+        .scene
+        .nodes
+        .iter()
+        .find_map(|node| match node {
+            Node::Group(group) if group.role == Some("panel") => group.clip,
+            _ => None,
+        })
+        .unwrap();
+    assert!(panel.height >= 50.0 && panel.width >= 50.0, "{panel:?}");
+}

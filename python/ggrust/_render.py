@@ -118,23 +118,32 @@ def _export(data: Any, columns: set[str], path: str):
 
 
 def _select(data: Any, columns: set[str]) -> Any:
-    """Keep only ``columns`` (in the data's own order) when the type allows it."""
+    """Keep only ``columns`` (in the data's own order) when the type allows it.
+
+    A frame needs at least one column to carry its row count (the engine merges plot
+    and layer data by row count), so when none is referenced its first column stays.
+    """
     import polars as pl
+
+    def keep(names) -> list:
+        names = list(names)
+        kept = [name for name in names if name in columns]
+        return kept or names[:1]
 
     pandas = sys.modules.get("pandas")
     pyarrow = sys.modules.get("pyarrow")
     if isinstance(data, pl.DataFrame | pl.LazyFrame):
-        names = data.collect_schema().names()
-        return data.select([name for name in names if name in columns])
+        return data.select(keep(data.collect_schema().names()))
     if pandas is not None and isinstance(data, pandas.DataFrame):
-        keep = [name for name in data.columns if name in columns]
-        if len(keep) != len(set(keep)):
+        kept = keep(data.columns)
+        if len(kept) != len(set(kept)):
             return data  # duplicate names: let the engine report them
-        return data[keep]
+        return data[kept]
     if pyarrow is not None and isinstance(data, pyarrow.Table):
-        return data.select([name for name in data.column_names if name in columns])
+        return data.select(keep(data.column_names))
     if isinstance(data, dict):
-        return {key: value for key, value in data.items() if key in columns}
+        kept = set(keep(data))
+        return {key: value for key, value in data.items() if key in kept}
     return data
 
 

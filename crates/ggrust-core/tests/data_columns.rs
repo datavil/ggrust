@@ -233,6 +233,7 @@ fn unsupported_type_names_column_and_type() {
 
 #[test]
 fn mismatched_batch_schema_is_rejected() {
+    // Names or types differ: rejected with a short `name: type` listing.
     let batch = RecordBatch::try_from_iter(vec![(
         "x",
         Arc::new(Float64Array::from(vec![1.0])) as ArrayRef,
@@ -247,4 +248,114 @@ fn mismatched_batch_schema_is_rejected() {
         DataFrame::new(other, vec![batch]),
         Err(Error::InvalidData(_))
     ));
+}
+
+// Regressions found by the Phase 0.3 bug hunt.
+
+#[test]
+fn chunks_with_different_dictionaries_merge_levels() {
+    let schema = Arc::new(Schema::new(vec![Field::new(
+        "c",
+        arrow_schema::DataType::Dictionary(
+            Box::new(arrow_schema::DataType::Int8),
+            Box::new(arrow_schema::DataType::Utf8),
+        ),
+        true,
+    )]));
+    let chunk = |keys: Vec<i8>, values: Vec<&str>| {
+        let dictionary: DictionaryArray<Int8Type> =
+            DictionaryArray::new(keys.into(), Arc::new(StringArray::from(values)));
+        RecordBatch::try_new(schema.clone(), vec![Arc::new(dictionary)]).unwrap()
+    };
+    // 2 x 100 distinct levels would overflow int8 keys if the chunks were concatenated.
+    let first: Vec<String> = (0..100).map(|index| format!("a{index}")).collect();
+    let second: Vec<String> = (0..100).map(|index| format!("b{index}")).collect();
+    let keys: Vec<i8> = (0..100).collect();
+    let frame = DataFrame::new(
+        schema.clone(),
+        vec![
+            chunk(keys.clone(), first.iter().map(String::as_str).collect()),
+            chunk(keys, second.iter().map(String::as_str).collect()),
+        ],
+    )
+    .unwrap();
+    let (levels, labels) = discrete(frame.column("c").unwrap());
+    assert_eq!(levels.len(), 200);
+    assert_eq!(levels[0], "a0");
+    assert_eq!(levels[100], "b0");
+    assert_eq!(labels[150].as_deref(), Some("b50"));
+}
+
+#[test]
+fn chunk_levels_keep_first_chunk_order_then_append() {
+    let schema = Arc::new(Schema::new(vec![Field::new(
+        "c",
+        arrow_schema::DataType::Utf8,
+        true,
+    )]));
+    let chunk = |values: Vec<&str>| {
+        RecordBatch::try_new(schema.clone(), vec![Arc::new(StringArray::from(values))]).unwrap()
+    };
+    let frame = DataFrame::new(
+        schema.clone(),
+        vec![chunk(vec!["b", "a"]), chunk(vec!["c", "a", "b"])],
+    )
+    .unwrap();
+    let (levels, labels) = discrete(frame.column("c").unwrap());
+    assert_eq!(levels, ["b", "a", "c"]);
+    assert_eq!(labels[2].as_deref(), Some("c"));
+    assert_eq!(labels[4].as_deref(), Some("b"));
+}
+
+#[test]
+fn duplicate_column_names_are_an_error_when_requested() {
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("x", arrow_schema::DataType::Float64, true),
+        Field::new("x", arrow_schema::DataType::Utf8, true),
+        Field::new("y", arrow_schema::DataType::Float64, true),
+    ]));
+    let batch = RecordBatch::try_new(
+        schema.clone(),
+        vec![
+            Arc::new(Float64Array::from(vec![1.0])),
+            Arc::new(StringArray::from(vec!["a"])),
+            Arc::new(Float64Array::from(vec![2.0])),
+        ],
+    )
+    .unwrap();
+    let frame = DataFrame::new(schema, vec![batch]).unwrap();
+    let error = frame.column("x").unwrap_err().to_string();
+    assert_eq!(
+        error,
+        "invalid data: column 'x' appears 2 times; column names must be unique"
+    );
+    assert!(frame.column("y").is_ok(), "other columns stay usable");
+}
+
+#[test]
+fn numeric_dictionary_values_become_labels() {
+    let dictionary: DictionaryArray<Int32Type> =
+        DictionaryArray::new(vec![1, 0].into(), Arc::new(Int64Array::from(vec![10, 20])));
+    let frame = frame_of(vec![("c", Arc::new(dictionary) as ArrayRef)]);
+    assert_eq!(discrete(frame.column("c").unwrap()).0, ["10", "20"]);
+}
+
+#[test]
+fn batch_schema_may_differ_in_metadata_and_nullability() {
+    let frame_schema = Arc::new(Schema::new(vec![Field::new(
+        "x",
+        arrow_schema::DataType::Float64,
+        true,
+    )]));
+    let batch_schema = Arc::new(
+        Schema::new(vec![Field::new(
+            "x",
+            arrow_schema::DataType::Float64,
+            false,
+        )])
+        .with_metadata([("pandas".to_owned(), "{}".to_owned())].into()),
+    );
+    let batch =
+        RecordBatch::try_new(batch_schema, vec![Arc::new(Float64Array::from(vec![1.0]))]).unwrap();
+    assert!(DataFrame::new(frame_schema, vec![batch]).is_ok());
 }

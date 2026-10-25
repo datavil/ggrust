@@ -113,8 +113,8 @@ def test_all_null_column_is_continuous():
 
 def test_unsupported_column_type_names_column():
     frame = pl.DataFrame({"when": pl.Series([0], dtype=pl.Datetime)})
-    with pytest.raises(ValueError, match=r"column 'when' has unsupported type Timestamp"):
-        describe(frame)
+    error = describe(frame)["when"]["error"]
+    assert error.startswith("column 'when' has unsupported type Timestamp")
 
 
 def test_unsupported_input_type():
@@ -126,3 +126,66 @@ def test_polars_float_column_is_zero_copy():
     values = np.arange(1_000_000, dtype=np.float64)
     frame = pl.DataFrame({"x": values})
     assert describe(frame)["x"]["length"] == 1_000_000
+
+
+# Regressions found by the Phase 0.3 bug hunt.
+
+
+def test_string_column_over_two_gibibytes_does_not_panic():
+    # Views share one buffer: tiny in memory, but > 2 GiB if cast to i32-offset Utf8.
+    frame = pl.select(pl.repeat("x" * 1000, 2_200_000).alias("s"))
+    summary = describe(frame)["s"]
+    assert summary["levels"] == ["x" * 1000]
+    assert summary["length"] == 2_200_000
+
+
+def test_chunked_pandas_categoricals_with_different_categories():
+    first = pd.DataFrame({"c": pd.Categorical([f"a{index}" for index in range(100)])})
+    second = pd.DataFrame({"c": pd.Categorical([f"b{index}" for index in range(100)])})
+    table = pa.concat_tables([pa.Table.from_pandas(first), pa.Table.from_pandas(second)])
+    summary = describe(table)["c"]
+    assert len(summary["levels"]) == 200
+    assert summary["levels"][:2] == ["a0", "a1"]
+
+
+def test_duplicate_column_names_are_reported():
+    table = pa.Table.from_arrays([pa.array([1.0]), pa.array(["a"])], names=["x", "x"])
+    summaries = describe_frame(table)
+    assert all(summary["kind"] == "unsupported" for summary in summaries)
+    assert "appears 2 times" in summaries[0]["error"]
+
+
+@pytest.mark.parametrize(
+    "data",
+    [
+        {"x": [None, None]},
+        {"x": pl.Series([None, None])},
+        pl.DataFrame({"x": [1, 2], "nested": pl.Series([[None], [None]])}),
+        pl.DataFrame({"x": [1, 2], "record": [{"a": None}, {"a": None}]}),
+    ],
+    ids=["dict", "dict-series", "list-of-null", "struct-with-null"],
+)
+def test_null_dtypes_anywhere_do_not_break_import(data):
+    summaries = describe_frame(as_arrow(data))
+    assert summaries[0]["kind"] == "continuous"
+
+
+def test_unplotted_nested_column_is_reported_not_raised():
+    frame = pl.DataFrame({"x": [1.0], "nested": [[1, 2]]})
+    summary = describe(frame)
+    assert summary["x"]["kind"] == "continuous"
+    assert summary["nested"]["kind"] == "unsupported"
+    assert "column 'nested' has unsupported type" in summary["nested"]["error"]
+
+
+@pytest.mark.parametrize("series", [pl.Series("x", [1.0]), pd.Series([1.0], name="x")])
+def test_series_are_rejected_with_type_error(series):
+    with pytest.raises(TypeError, match="got a Series"):
+        as_arrow(series)
+
+
+def test_pandas_index_is_dropped():
+    frame = pd.DataFrame({"x": [1.0, 2.0], "key": ["a", "b"]}).set_index("key")
+    assert list(describe(frame)) == ["x"]
+    named = pd.DataFrame({"x": [1.0]}, index=pd.Index([5], name="idx"))
+    assert list(describe(named)) == ["x"]

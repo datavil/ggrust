@@ -9,8 +9,8 @@
 
 mod column;
 
-use arrow_array::{ArrayRef, RecordBatch};
-use arrow_schema::SchemaRef;
+use arrow_array::{RecordBatch, new_empty_array};
+use arrow_schema::{Schema, SchemaRef};
 
 pub use column::{Column, ContinuousColumn, DiscreteColumn};
 
@@ -25,13 +25,18 @@ pub struct DataFrame {
 }
 
 impl DataFrame {
-    /// Wrap record batches that share `schema`. No data is copied.
+    /// Wrap record batches whose columns match `schema` by name and type.
+    /// Metadata and nullability may differ. No data is copied.
     pub fn new(schema: SchemaRef, batches: Vec<RecordBatch>) -> Result<Self> {
-        if let Some(batch) = batches.iter().find(|batch| batch.schema() != schema) {
+        let expected = describe_fields(&schema);
+        if let Some(batch) = batches
+            .iter()
+            .find(|batch| describe_fields(&batch.schema()) != expected)
+        {
             return Err(Error::InvalidData(format!(
-                "record batch schema {:?} does not match frame schema {:?}",
-                batch.schema(),
-                schema
+                "record batch columns [{}] do not match frame columns [{}]",
+                describe_fields(&batch.schema()),
+                expected
             )));
         }
         let row_count = batches.iter().map(RecordBatch::num_rows).sum();
@@ -60,34 +65,54 @@ impl DataFrame {
         self.schema.index_of(name).is_ok()
     }
 
-    /// Convert one column for plotting. Copies only when the column has several
-    /// chunks or a type that needs casting (e.g. integers to `f64`).
+    /// Convert one column for plotting.
+    ///
+    /// Each chunk is converted on its own and the results are merged, so
+    /// dictionary chunks with different dictionaries combine correctly.
+    /// Float64 single-chunk columns are not copied.
     pub fn column(&self, name: &str) -> Result<Column> {
-        let index = self
-            .schema
-            .index_of(name)
-            .map_err(|_| Error::MissingColumn {
-                name: name.to_owned(),
-                available: self.column_names().collect::<Vec<_>>().join(", "),
-            })?;
-        let array = self.concatenated(index)?;
-        Column::from_arrow(name, &array)
+        let index = self.index_of(name)?;
+        let parts = if self.batches.is_empty() {
+            let data_type = self.schema.field(index).data_type();
+            vec![Column::from_arrow(name, &new_empty_array(data_type))?]
+        } else {
+            self.batches
+                .iter()
+                .map(|batch| Column::from_arrow(name, batch.column(index)))
+                .collect::<Result<Vec<_>>>()?
+        };
+        Column::concat(name, parts)
     }
 
-    /// One column as a single Arrow array.
-    fn concatenated(&self, index: usize) -> Result<ArrayRef> {
-        let chunks: Vec<&dyn arrow_array::Array> = self
-            .batches
+    /// Index of a uniquely named column.
+    fn index_of(&self, name: &str) -> Result<usize> {
+        let mut matches = self
+            .schema
+            .fields()
             .iter()
-            .map(|batch| batch.column(index).as_ref())
-            .collect();
-        match chunks.as_slice() {
-            [] => Ok(arrow_array::new_empty_array(
-                self.schema.field(index).data_type(),
-            )),
-            [_] => Ok(self.batches[0].column(index).clone()),
-            _ => arrow_select::concat::concat(&chunks)
-                .map_err(|error| Error::InvalidData(error.to_string())),
+            .enumerate()
+            .filter(|(_, field)| field.name() == name)
+            .map(|(index, _)| index);
+        match (matches.next(), matches.count()) {
+            (Some(index), 0) => Ok(index),
+            (Some(_), duplicates) => Err(Error::InvalidData(format!(
+                "column '{name}' appears {} times; column names must be unique",
+                duplicates + 1
+            ))),
+            (None, _) => Err(Error::MissingColumn {
+                name: name.to_owned(),
+                available: self.column_names().collect::<Vec<_>>().join(", "),
+            }),
         }
     }
+}
+
+/// `name: type` for every field, used to compare and report schemas.
+fn describe_fields(schema: &Schema) -> String {
+    schema
+        .fields()
+        .iter()
+        .map(|field| format!("{}: {}", field.name(), field.data_type()))
+        .collect::<Vec<_>>()
+        .join(", ")
 }

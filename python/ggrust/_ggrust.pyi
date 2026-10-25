@@ -12,6 +12,7 @@ class ColumnSummary(TypedDict, total=False):
     length: int
     null_count: int
     levels: list[str]
+    error: str
 
 def engine_version() -> str:
     """Return the version of the Rust engine."""
@@ -46,10 +47,6 @@ def describe_frame(data: Any) -> list[ColumnSummary]:
     Returns
     -------
     list[ColumnSummary]
-        One summary per column, in column order.
-
-    Raises
-    ------
-    ValueError
-        If a column has a type ggrust cannot plot.
+        One summary per column, in column order. Columns ggrust cannot plot have
+        kind ``"unsupported"`` and an ``error`` message.
     """

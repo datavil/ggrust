@@ -34,8 +34,8 @@ mod _ggrust {
     ///
     /// Accepts any object exporting `__arrow_c_stream__` or `__arrow_c_array__`
     /// (polars, pyarrow, pandas >= 2.2). Returns one dict per column with keys
-    /// `name`, `kind` (`continuous` | `discrete`), `length`, `null_count`, and
-    /// `levels` (discrete only).
+    /// `name`, `kind` (`continuous` | `discrete` | `unsupported`), and then
+    /// `length` + `null_count` (+ `levels` for discrete) or `error` (unsupported).
     #[pyfunction]
     fn describe_frame<'py>(
         python: Python<'py>,
@@ -47,9 +47,16 @@ mod _ggrust {
         names
             .into_iter()
             .map(|name| {
-                let column = frame.column(&name).map_err(to_value_error)?;
                 let summary = PyDict::new(python);
                 summary.set_item("name", &name)?;
+                let column = match frame.column(&name) {
+                    Ok(column) => column,
+                    Err(error) => {
+                        summary.set_item("kind", "unsupported")?;
+                        summary.set_item("error", error.to_string())?;
+                        return Ok(summary);
+                    }
+                };
                 summary.set_item("length", column.len())?;
                 match &column {
                     Column::Continuous(continuous) => {

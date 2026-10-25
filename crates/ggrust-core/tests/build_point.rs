@@ -148,7 +148,7 @@ fn unimplemented_features_and_unknown_options_warn() {
         "at 'guides.color': legends and guides are not supported yet",
         "at 'layers[0]': 'tooltips' is not supported yet",
         "at 'layers[0].colr': geom_point does not support option 'colr'",
-        "at 'layers[0].mapping.color': mapping data to 'color' is not supported yet",
+        "'color' is mapped to data, but legends are not drawn yet",
     ] {
         assert!(
             joined.contains(expected),

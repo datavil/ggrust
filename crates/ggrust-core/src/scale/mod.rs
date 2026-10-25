@@ -1,7 +1,7 @@
 //! Scales: map data values to positions (0..1 within the panel) or to visual values.
 //!
 //! Position scales are continuous (linear or transformed) or discrete
-//! ([`PositionScale`]). Color/size scales are added in Phase 1 (see plan.md).
+//! ([`PositionScale`]); colors, sizes and alphas use [`style`] scales.
 
 pub mod breaks;
 mod continuous;
@@ -9,6 +9,7 @@ mod discrete;
 pub mod format;
 mod position;
 mod spec;
+pub mod style;
 mod transform;
 
 pub use continuous::{ContinuousPositionScale, ScaleBreaks};

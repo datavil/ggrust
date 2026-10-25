@@ -7,7 +7,7 @@
 //! Features parsed by `spec` but not built yet are reported as warnings by
 //! [`report_unimplemented`]; remove an entry there when its phase lands.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use crate::coord::{self, Coord, Panel};
 use crate::data::{Column, ContinuousColumn, DataFrame, LayerData, group_index};
@@ -15,6 +15,7 @@ use crate::geom::{self, DrawLayer, Geom};
 use crate::layout::{Titles, draw_axes_and_titles, draw_panel_background, layout_plot};
 use crate::parameters::Parameters;
 use crate::position::{self, Position};
+use crate::scale::style::{StyleScale, default_mapper};
 use crate::scale::{AxisScaleSpec, PositionScale, PositionScales, position_scales};
 use crate::scene::{Group, Node, Scene};
 use crate::spec::{Aesthetic, GuideSpec, LayerSpec, Mapping, MappingValue, Options, PlotSpec};
@@ -87,9 +88,11 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
         .map(|y| (x, y))
     });
     let (mut x_scale, mut y_scale) = axis_scales.map_err(|error| error.with_notes(&warnings))?;
+    let style_scales =
+        train_style_scales(&mapped, &mut warnings).map_err(|error| error.with_notes(&warnings))?;
     let mut layers = Vec::with_capacity(mapped.len());
     for layer in mapped {
-        match finish_layer(layer, [&x_scale, &y_scale], &mut warnings) {
+        match finish_layer(layer, [&x_scale, &y_scale], &style_scales, &mut warnings) {
             Ok(prepared) => layers.push(prepared),
             Err(error) => return Err(error.with_notes(&warnings)),
         }
@@ -389,6 +392,7 @@ fn axis_scale(
 fn finish_layer(
     layer: MappedLayer,
     [x_scale, y_scale]: [&PositionScale; 2],
+    style_scales: &BTreeMap<Aesthetic, StyleScale>,
     warnings: &mut Vec<String>,
 ) -> Result<PreparedLayer> {
     let MappedLayer {
@@ -476,7 +480,14 @@ fn finish_layer(
     if !spec.na_rm.unwrap_or(false) {
         report_missing_positions(geom, &layer_data, &path, warnings);
     }
-    let styles = resolve_styles(geom, &layer_data, &parameters, &path, warnings)?;
+    let styles = resolve_styles(
+        geom,
+        &layer_data,
+        style_scales,
+        &parameters,
+        &path,
+        warnings,
+    )?;
     Ok(PreparedLayer {
         options,
         path,
@@ -697,31 +708,66 @@ fn validate_parameters(
     }
 }
 
-/// Style values per aesthetic: mapped column (not yet) -> constant option -> geom default.
+/// Style scales of mapped style aesthetics, trained over every layer (lets-plot
+/// default mappers; `scale_color_*()` options come in Phase 1).
+fn train_style_scales(
+    layers: &[MappedLayer],
+    warnings: &mut Vec<String>,
+) -> Result<BTreeMap<Aesthetic, StyleScale>> {
+    let mut scales: BTreeMap<Aesthetic, StyleScale> = BTreeMap::new();
+    for (aesthetic, column, path) in layers.iter().flat_map(|layer| &layer.columns) {
+        let Some(mapper) = default_mapper(*aesthetic) else {
+            continue; // reported by `resolve_styles`
+        };
+        scales
+            .entry(*aesthetic)
+            .or_insert_with(|| StyleScale::new(mapper))
+            .train(column)
+            .map_err(|message| Error::InvalidSpec(format!("at '{path}': {message}")))?;
+    }
+    for aesthetic in scales.keys() {
+        warnings.push(format!(
+            "'{aesthetic}' is mapped to data, but legends are not drawn yet"
+        ));
+    }
+    Ok(scales)
+}
+
+/// Style values per aesthetic: mapped column (through its style scale) -> constant
+/// option -> geom default.
 fn resolve_styles(
     geom: &dyn Geom,
     data: &LayerData,
+    style_scales: &BTreeMap<Aesthetic, StyleScale>,
     parameters: &Parameters,
     path: &str,
     warnings: &mut Vec<String>,
 ) -> Result<Styles> {
     let mut styles = Styles::default();
     for &(aesthetic, default) in geom.style_defaults() {
-        // Only mappings that reached the data; skipped ones were reported already.
-        if data.contains(aesthetic) {
-            warnings.push(format!(
-                "at '{path}.mapping.{aesthetic}': mapping data to '{aesthetic}' is not \
-                 supported yet; the constant or default value was used"
-            ));
-        }
-        let values = match parameters.value(aesthetic.as_str()) {
-            Some(value) => parse_constant(default.kind(), value).map_err(|message| {
-                Error::InvalidSpec(format!(
-                    "at '{}': {message}",
-                    parameters.path_of(aesthetic.as_str())
-                ))
+        let mapped = data.get(aesthetic);
+        let values = match (mapped, style_scales.get(&aesthetic)) {
+            (Some(column), Some(scale)) => scale.map(column).map_err(|message| {
+                Error::InvalidSpec(format!("at '{path}.mapping.{aesthetic}': {message}"))
             })?,
-            None => default.uniform(),
+            _ => {
+                // Only mappings that reached the data; skipped ones were reported already.
+                if mapped.is_some() {
+                    warnings.push(format!(
+                        "at '{path}.mapping.{aesthetic}': mapping data to '{aesthetic}' is not \
+                         supported yet; the constant or default value was used"
+                    ));
+                }
+                match parameters.value(aesthetic.as_str()) {
+                    Some(value) => parse_constant(default.kind(), value).map_err(|message| {
+                        Error::InvalidSpec(format!(
+                            "at '{}': {message}",
+                            parameters.path_of(aesthetic.as_str())
+                        ))
+                    })?,
+                    None => default.uniform(),
+                }
+            }
         };
         styles.insert(aesthetic, values)?;
     }
@@ -848,7 +894,7 @@ mod tests {
         warnings: &mut Vec<String>,
     ) -> Result<PreparedLayer> {
         let mapped = map_layer(0, &spec.layers[0], spec, &cells(), warnings)?;
-        finish_layer(mapped, [x_scale, y_scale], warnings)
+        finish_layer(mapped, [x_scale, y_scale], &BTreeMap::new(), warnings)
     }
 
     fn prepare(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<PreparedLayer> {

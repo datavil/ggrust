@@ -99,6 +99,30 @@ def discrete_genes(m):
     )
 
 
+def umap_clusters(m):
+    random = np.random.default_rng(21)
+    centers = random.uniform(-8, 8, (7, 2))
+    labels = random.integers(0, 7, 1500)
+    frame = pl.DataFrame(
+        {
+            "UMAP1": centers[labels, 0] + random.normal(0, 1.0, 1500),
+            "UMAP2": centers[labels, 1] + random.normal(0, 1.0, 1500),
+            "cluster": [f"cluster {label}" for label in labels],
+        }
+    )
+    return m.ggplot(frame, m.aes("UMAP1", "UMAP2", color="cluster")) + m.geom_point(size=1.5)
+
+
+def umap_expression(m):
+    random = np.random.default_rng(22)
+    umap1, umap2 = random.normal(0, 3, 1500), random.normal(0, 3, 1500)
+    expression = np.clip(
+        np.exp(-((umap1 - 2) ** 2 + umap2**2) / 8) * 5 + random.normal(0, 0.3, 1500), 0, None
+    )
+    frame = pl.DataFrame({"UMAP1": umap1, "UMAP2": umap2, "CD14": expression})
+    return m.ggplot(frame, m.aes("UMAP1", "UMAP2", color="CD14")) + m.geom_point(size=1.5)
+
+
 CASES = {
     case.__name__: case
     for case in [
@@ -110,5 +134,7 @@ CASES = {
         reversed_limits,
         discrete_strip,
         discrete_genes,
+        umap_clusters,
+        umap_expression,
     ]
 }

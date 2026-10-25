@@ -17,3 +17,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Transformed scales follow lets-plot exactly](letsplot_transformed_scales.md): log/sqrt/reverse scales, data-space expansion, half-up label rounding, limits drop rows.
 - [Discrete axes follow lets-plot](letsplot_discrete_axes.md): 0.2 expansion, levels joined over layers, label fallbacks and the one-reflow layout order.
 - [Visual cases need their own seeded generator](visual_case_determinism.md): shared `RANDOM` at call time made goldens depend on test order.
+- [Default style scales follow lets-plot](letsplot_style_scales.md): Set1 + generated colors, LAB gradient, size/alpha ranges, NA values; benchmark machine changed.

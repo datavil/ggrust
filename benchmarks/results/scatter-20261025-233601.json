@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-25T23:36:01+00:00",
+  "machine": {
+    "platform": "Linux-6.18.44-fc-v153-x86_64-with-glibc2.39",
+    "processor": "x86_64",
+    "python": "3.13.17"
+  },
+  "results": [
+    {
+      "library": "ggrust",
+      "output": "svg",
+      "points": 1000000,
+      "cold_seconds": 0.6221642220000376,
+      "warm_seconds": 0.6013679769999953,
+      "repeats": 3,
+      "peak_memory_above_data_mb": 88.15625,
+      "output_bytes": 41756868
+    },
+    {
+      "library": "ggrust",
+      "output": "png",
+      "points": 1000000,
+      "cold_seconds": 5.38066496600004,
+      "warm_seconds": 5.557837716999984,
+      "repeats": 3,
+      "peak_memory_above_data_mb": 35.7421875,
+      "output_bytes": 257064
+    }
+  ]
+}

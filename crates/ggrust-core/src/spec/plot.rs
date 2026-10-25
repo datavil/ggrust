@@ -7,7 +7,7 @@ use serde::de::IgnoredAny;
 
 use super::{
     Aesthetic, CoordSpec, FacetSpec, GuideSpec, LayerSpec, Mapping, Options, ScaleSpec, ThemeSpec,
-    Value, guide_map, join_path, report_unsupported,
+    Value, guide_map, join_path, mapping, report_unsupported,
 };
 
 /// Everything `PlotSpec.as_dict()` produces for one plot.
@@ -19,6 +19,7 @@ pub struct PlotSpec {
     /// Inline data. Skipped: frames are passed separately as Arrow.
     pub data: Option<IgnoredAny>,
     /// Plot-level aesthetic mapping, inherited by layers.
+    #[serde(deserialize_with = "mapping")]
     pub mapping: Mapping,
     /// Column types and categorical ordering of the plot data.
     pub data_meta: DataMeta,

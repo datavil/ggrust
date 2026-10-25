@@ -34,6 +34,23 @@ pub enum Error {
     InvalidData(String),
 }
 
+impl Error {
+    /// The same error with `notes` (e.g. warnings collected before it) appended to
+    /// its message, so a failure explains what was ignored on the way.
+    pub fn with_notes(self, notes: &[String]) -> Self {
+        if notes.is_empty() {
+            return self;
+        }
+        let suffix: String = notes.iter().map(|note| format!("\nnote: {note}")).collect();
+        match self {
+            Error::InvalidSpec(message) => Error::InvalidSpec(message + &suffix),
+            Error::Render(message) => Error::Render(message + &suffix),
+            Error::InvalidData(message) => Error::InvalidData(message + &suffix),
+            other => Error::InvalidData(format!("{other}{suffix}")),
+        }
+    }
+}
+
 /// Engine result alias.
 pub type Result<T> = std::result::Result<T, Error>;
 

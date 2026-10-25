@@ -5,6 +5,7 @@ from ggrust.plot.geom import geom_point
 from ggrust.plot.guide import guides
 from ggrust.plot.label import ggtitle, labs, xlab, ylab
 from ggrust.plot.plot import ggplot, ggsize
+from ggrust.plot.tooltip import layer_tooltips
 
 __all__ = [
     "aes",
@@ -15,6 +16,7 @@ __all__ = [
     "guides",
     "labs",
     "layer",
+    "layer_tooltips",
     "xlab",
     "ylab",
 ]

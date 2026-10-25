@@ -105,8 +105,8 @@ def test_plus_semantics():
     plot = gg.ggplot(FRAME, gg.aes("x", "y"))
     assert isinstance(plot + gg.geom_point(), PlotSpec)
     assert isinstance(gg.geom_point() + gg.ggsize(1, 1), FeatureSpecArray)
-    with pytest.raises(TypeError):
-        _ = plot + plot
+    # lets_plot stores plot + plot under "plot" instead of raising.
+    assert (plot + plot).props()["plot"] is plot
     with pytest.raises(TypeError):
         _ = gg.geom_point() + plot
     # cellestial's deferred layers rely on TypeError for unknown right operands.

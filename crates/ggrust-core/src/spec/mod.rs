@@ -50,6 +50,24 @@ pub type Options = BTreeMap<String, Value>;
 /// Aesthetic to mapped value (usually a column name).
 pub type Mapping = BTreeMap<Aesthetic, MappingValue>;
 
+/// Deserialize a [`Mapping`], rejecting an aesthetic given twice through aliases
+/// (`color` and `colour`), which would otherwise keep one silently.
+fn mapping<'de, D: Deserializer<'de>>(deserializer: D) -> std::result::Result<Mapping, D::Error> {
+    let raw = BTreeMap::<String, MappingValue>::deserialize(deserializer)?;
+    let mut mapping = Mapping::new();
+    let mut names: BTreeMap<Aesthetic, String> = BTreeMap::new();
+    for (name, value) in raw {
+        let aesthetic: Aesthetic = name.parse().map_err(serde::de::Error::custom)?;
+        if let Some(previous) = names.insert(aesthetic, name.clone()) {
+            return Err(serde::de::Error::custom(format!(
+                "aesthetic '{aesthetic}' is mapped twice (as '{previous}' and '{name}')"
+            )));
+        }
+        mapping.insert(aesthetic, value);
+    }
+    Ok(mapping)
+}
+
 /// What an aesthetic is mapped to.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(untagged)]

@@ -22,6 +22,7 @@ from ggrust.plot import (
     guides,
     labs,
     layer,
+    layer_tooltips,
     xlab,
     ylab,
 )
@@ -42,6 +43,7 @@ __all__ = [
     "guides",
     "labs",
     "layer",
+    "layer_tooltips",
     "xlab",
     "ylab",
 ]

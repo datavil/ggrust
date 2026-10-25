@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import datetime
 import json
 import math
 import os
@@ -41,10 +42,11 @@ def render_bytes(plot, output: str, scale: float = 1.0, size: tuple | None = Non
     spec, plot_data, layer_data = split_data(plot.as_dict())
     if size is not None:
         spec["ggsize"] = {"width": size[0], "height": size[1]}
+    columns = referenced_columns(spec)
     encoded, messages = render(
         to_json(spec),
-        None if plot_data is None else as_arrow(plot_data),
-        [None if data is None else as_arrow(data) for data in layer_data],
+        _export(plot_data, columns, "data"),
+        [_export(data, columns, f"layers[{index}].data") for index, data in enumerate(layer_data)],
         output,
         float(scale),
     )
@@ -73,28 +75,127 @@ def split_data(spec: dict) -> tuple[dict, Any, list]:
     return spec, plot_data, layer_data
 
 
+def referenced_columns(spec: dict) -> set[str]:
+    """Return the column names the plot can read.
+
+    Every mapped column (plot and layers) and ``as_discrete(order_by=...)`` column.
+    Only these are exported to the engine.
+    """
+    columns: set[str] = set()
+
+    def add_mapping(mapping) -> None:
+        for value in (mapping or {}).values():
+            if isinstance(value, str):
+                columns.add(value)
+            elif isinstance(value, list | tuple):
+                columns.update(item for item in value if isinstance(item, str))
+
+    def add_meta(data_meta) -> None:
+        for annotation in (data_meta or {}).get("mapping_annotations", []):
+            order_by = annotation.get("parameters", {}).get("order_by")
+            if isinstance(order_by, str):
+                columns.add(order_by)
+
+    add_mapping(spec.get("mapping"))
+    add_meta(spec.get("data_meta"))
+    for layer in spec.get("layers", []):
+        add_mapping(layer.get("mapping"))
+        add_meta(layer.get("data_meta"))
+    return columns
+
+
+def _export(data: Any, columns: set[str], path: str):
+    """Arrow export of the referenced columns of ``data`` (None stays None)."""
+    if data is None:
+        return None
+    try:
+        return as_arrow(_select(data, columns))
+    except TypeError:
+        raise
+    except Exception as error:
+        message = f"at '{path}': could not read the data columns {sorted(columns)}: {error}"
+        raise ValueError(message) from error
+
+
+def _select(data: Any, columns: set[str]) -> Any:
+    """Keep only ``columns`` (in the data's own order) when the type allows it."""
+    import polars as pl
+
+    pandas = sys.modules.get("pandas")
+    pyarrow = sys.modules.get("pyarrow")
+    if isinstance(data, pl.DataFrame | pl.LazyFrame):
+        names = data.collect_schema().names()
+        return data.select([name for name in names if name in columns])
+    if pandas is not None and isinstance(data, pandas.DataFrame):
+        keep = [name for name in data.columns if name in columns]
+        if len(keep) != len(set(keep)):
+            return data  # duplicate names: let the engine report them
+        return data[keep]
+    if pyarrow is not None and isinstance(data, pyarrow.Table):
+        return data.select([name for name in data.column_names if name in columns])
+    if isinstance(data, dict):
+        return {key: value for key, value in data.items() if key in columns}
+    return data
+
+
+# Deeper option values than this are certainly a mistake (and would recurse forever
+# for self-referencing containers).
+MAX_DEPTH = 64
+
+
 def to_json(spec: dict) -> str:
-    """Serialise a spec: NaN/inf become null, numpy values become plain values."""
-    return json.dumps(_plain(spec, "spec"), allow_nan=False)
+    """Serialise a spec to JSON.
+
+    NaN/inf become null, numpy values become plain values, and datetimes become epoch
+    milliseconds (as lets-plot sends them).
+    """
+    return json.dumps(_plain(spec, "spec", 0), allow_nan=False)
 
 
-def _plain(value: Any, path: str) -> Any:
+def _plain(value: Any, path: str, depth: int) -> Any:
+    if depth > MAX_DEPTH:
+        message = f"at '{path}': value is nested more than {MAX_DEPTH} levels deep"
+        raise TypeError(message)
     if value is None or isinstance(value, bool | int | str):
         return value
     if isinstance(value, float):
         return value if math.isfinite(value) else None
     if isinstance(value, dict):
-        return {str(key): _plain(item, f"{path}.{key}") for key, item in value.items()}
+        plain = {}
+        for key, item in value.items():
+            name = str(key)
+            if name in plain:
+                message = f"at '{path}': keys {key!r} and {name!r} collide as JSON keys"
+                raise TypeError(message)
+            plain[name] = _plain(item, f"{path}.{key}", depth + 1)
+        return plain
     if isinstance(value, list | tuple):
-        return [_plain(item, f"{path}[{index}]") for index, item in enumerate(value)]
+        return [_plain(item, f"{path}[{index}]", depth + 1) for index, item in enumerate(value)]
+    if isinstance(value, datetime.datetime | datetime.date | datetime.timedelta):
+        return _epoch_milliseconds(value)
     numpy = sys.modules.get("numpy")
     if numpy is not None:
         if isinstance(value, numpy.ndarray):
-            return _plain(value.tolist(), path)
+            return _plain(value.tolist(), path, depth + 1)
+        if isinstance(value, numpy.datetime64):
+            return float(value.astype("datetime64[us]").astype("int64")) / 1000.0
+        if isinstance(value, numpy.timedelta64):
+            return float(value.astype("timedelta64[us]").astype("int64")) / 1000.0
         if isinstance(value, numpy.generic):
-            return _plain(value.item(), path)
+            return _plain(value.item(), path, depth + 1)
     message = f"at '{path}': cannot send a value of type {type(value).__name__} to the engine"
     raise TypeError(message)
+
+
+def _epoch_milliseconds(value) -> float:
+    """Milliseconds since the Unix epoch (naive datetimes are taken as UTC)."""
+    if isinstance(value, datetime.timedelta):
+        return value.total_seconds() * 1000.0
+    if not isinstance(value, datetime.datetime):
+        value = datetime.datetime(value.year, value.month, value.day)
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=datetime.UTC)
+    return value.timestamp() * 1000.0
 
 
 def _pixels(w, h, unit) -> tuple | None:

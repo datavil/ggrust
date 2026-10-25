@@ -45,17 +45,20 @@ def ggsize(width, height) -> FeatureSpec:
     Parameters
     ----------
     width, height : float
-        Size in pixels, at most 10,000 each.
+        Size in pixels, at most 10,000 each (NaN is rejected, as in lets_plot).
 
     Returns
     -------
     FeatureSpec
         The size feature.
     """
-    if not isinstance(width, numbers.Number) or not isinstance(height, numbers.Number):
-        message = f"'width' and 'height' must be numeric, got {width!r} and {height!r}"
-        raise TypeError(message)
-    if width > MAX_WIDTH or height > MAX_HEIGHT:
-        message = f"'width' and 'height' must be at most {MAX_WIDTH}, got {width} and {height}"
-        raise ValueError(message)
+    # Same checks and exception type (AssertionError) as lets_plot.
+    if not isinstance(width, numbers.Number):
+        raise AssertionError("'width' must be numeric")
+    if not isinstance(height, numbers.Number):
+        raise AssertionError("'height' must be numeric")
+    if not width <= MAX_WIDTH:
+        raise AssertionError(f"'width' must be less than or equal to {MAX_WIDTH}")
+    if not height <= MAX_HEIGHT:
+        raise AssertionError(f"'height' must be less than or equal to {MAX_HEIGHT}")
     return FeatureSpec("ggsize", name=None, width=width, height=height)

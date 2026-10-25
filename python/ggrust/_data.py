@@ -51,7 +51,14 @@ def as_arrow(data: Any) -> ArrowStreamExportable:
         message = "got a Series; pass a DataFrame instead (for example `series.to_frame()`)"
         raise TypeError(message)
     if _is_pandas(data, "DataFrame"):
-        return data.reset_index(drop=True)
+        # Convert eagerly (pandas' own __arrow_c_stream__ is lazy, so errors would
+        # surface inside the engine call) and drop the index, as lets-plot ignores it.
+        try:
+            import pyarrow
+        except ImportError as error:
+            message = "pandas data needs pyarrow: pip install pyarrow (or pass a polars DataFrame)"
+            raise ImportError(message) from error
+        return pyarrow.Table.from_pandas(data, preserve_index=False)
     if hasattr(data, "__arrow_c_stream__"):
         return data
     message = (

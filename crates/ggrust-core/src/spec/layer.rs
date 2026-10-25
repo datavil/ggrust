@@ -3,7 +3,9 @@
 use serde::Deserialize;
 use serde::de::IgnoredAny;
 
-use super::{DataMeta, Mapping, Options, Value, from_value_tracked, join_path, report_unsupported};
+use super::{
+    DataMeta, Mapping, Options, Value, from_value_tracked, join_path, mapping, report_unsupported,
+};
 
 /// One `geom_*()` layer.
 #[derive(Debug, Clone, Deserialize)]
@@ -17,7 +19,7 @@ pub struct LayerSpec {
     #[serde(default)]
     pub position: Option<PositionSpec>,
     /// Layer-level mapping, merged over the plot mapping (if `inherit_aes`).
-    #[serde(default)]
+    #[serde(default, deserialize_with = "mapping")]
     pub mapping: Mapping,
     /// Column types and categorical ordering of the layer data.
     #[serde(default)]

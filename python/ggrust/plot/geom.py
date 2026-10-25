@@ -5,6 +5,7 @@ Only geoms the engine draws are exported; more are added phase by phase (plan.md
 """
 
 from ggrust.plot.core import FeatureSpec, LayerSpec
+from ggrust.plot.tooltip import layer_tooltips
 from ggrust.plot.util import as_annotated_data, key_int2str
 
 __all__ = ["geom_point"]
@@ -87,6 +88,8 @@ def _geom(
         raise ValueError(message)
     data = key_int2str(data)
     data, mapping, data_meta = as_annotated_data(data, mapping)
+    if isinstance(tooltips, list | tuple):
+        tooltips = layer_tooltips(tooltips)
     return LayerSpec(
         geom=name,
         stat=stat,

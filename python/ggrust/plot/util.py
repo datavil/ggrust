@@ -94,10 +94,14 @@ def as_annotated_data(data: Any, mapping_spec: FeatureSpec | None) -> tuple:
             annotation["type"] = data_type
         if variable in time_zones:
             annotation["time_zone"] = time_zones[variable]
-        if is_pandas_data_frame(data):
-            column = data[variable]
-            if column.dtype.name == "category" and column.dtype.ordered:
-                annotation["factor_levels"] = column.cat.categories.to_list()
+        # Same branch order as lets_plot: an unordered pandas column falls through
+        # to the as_discrete levels below.
+        if (
+            is_pandas_data_frame(data)
+            and data[variable].dtype.name == "category"
+            and data[variable].dtype.ordered
+        ):
+            annotation["factor_levels"] = data[variable].cat.categories.to_list()
         elif is_polars_data_frame(data):
             import polars
 

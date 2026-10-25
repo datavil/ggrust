@@ -55,11 +55,12 @@ pub fn svg_to_png(svg: &str, width: f64, height: f64, scale: f64) -> Result<Vec<
     encode(&pixmap)
 }
 
-/// Upper bound on each side, to fail fast on absurd sizes.
-const MAX_SIDE: f64 = 16_384.0;
+/// Upper bound on each side: lets-plot's largest ggsize (10,000) at scale 3.
+const MAX_SIDE: f64 = 32_768.0;
 
-/// Upper bound on total pixels (400 MB of RGBA), to fail fast instead of exhausting memory.
-const MAX_PIXELS: f64 = 100_000_000.0;
+/// Upper bound on total pixels (1.6 GB of RGBA: a 10,000 x 10,000 plot at scale 2),
+/// to fail fast instead of exhausting memory.
+const MAX_PIXELS: f64 = 400_000_000.0;
 
 fn new_pixmap(width: f64, height: f64, scale: f64) -> Result<Pixmap> {
     if !(scale.is_finite() && scale > 0.0) {

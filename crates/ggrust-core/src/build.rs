@@ -59,12 +59,13 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
     };
     let coord = resolve_coord(spec, &mut warnings)?;
 
-    let layers = spec
-        .layers
-        .iter()
-        .enumerate()
-        .map(|(index, layer)| prepare_layer(index, layer, spec, data, &mut warnings))
-        .collect::<Result<Vec<_>>>()?;
+    let mut layers = Vec::with_capacity(spec.layers.len());
+    for (index, layer) in spec.layers.iter().enumerate() {
+        match prepare_layer(index, layer, spec, data, &mut warnings) {
+            Ok(prepared) => layers.push(prepared),
+            Err(error) => return Err(error.with_notes(&warnings)),
+        }
+    }
 
     let mut x_scale = ContinuousPositionScale::default();
     let mut y_scale = ContinuousPositionScale::default();

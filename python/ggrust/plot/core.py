@@ -100,7 +100,7 @@ class FeatureSpec:
     def __str__(self) -> str:
         import json
 
-        return json.dumps(self.as_dict(), indent=2, default=str)
+        return json.dumps(self.as_dict(), indent=2)
 
     def __add__(self, other):
         if isinstance(other, DummySpec):
@@ -148,7 +148,8 @@ class PlotSpec(FeatureSpec):
     def __add__(self, other):
         if isinstance(other, DummySpec):
             return self
-        if isinstance(other, FeatureSpec) and not isinstance(other, PlotSpec):
+        # lets_plot: plot + plot is not rejected; it is stored under "plot".
+        if isinstance(other, FeatureSpec):
             plot = PlotSpec.duplicate(self)
             if other.kind == "layer":
                 plot.__layers.append(other)
@@ -205,6 +206,21 @@ class PlotSpec(FeatureSpec):
         result["layers"] = [layer.as_dict() for layer in self.__layers]
         result["metainfo_list"] = [metainfo.as_dict() for metainfo in self.__metainfo_list]
         return result
+
+    def __str__(self) -> str:
+        lines = ["plot"]
+        lines.extend(f"{key}: {value}" for key, value in self.props().items())
+        for title, items in [
+            ("scales", self.__scales),
+            ("layers", self.__layers),
+            ("metainfo_list", self.__metainfo_list),
+        ]:
+            lines.append(f"{title} [{len(items)}]")
+            for item in items:
+                lines.append(str(item))
+                lines.append("-" * 34)
+        lines.append("")
+        return "\n".join(lines)
 
     def _repr_html_(self) -> str:
         from ggrust._render import render_notebook_html

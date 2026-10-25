@@ -66,15 +66,26 @@ Steps inside a phase are ordered; each builds on the previous.
 
 ### Phase 0: Foundation (do this very carefully)
 
-- [ ] **0.1 Workspace skeleton.** Cargo workspace (`ggrust-core`, `ggrust-python`), `pyproject.toml` (maturin), `python/ggrust/`, ruff + clippy config, `Makefile` with `check`, `.gitignore`, README. `maturin develop` builds; `import ggrust` works.
+- [x] **0.1 Workspace skeleton.** Cargo workspace (`ggrust-core`, `ggrust-python`), `pyproject.toml` (maturin), `python/ggrust/`, ruff + clippy config, `Makefile` with `check`, `.gitignore`, README. `maturin develop` builds; `import ggrust` works.
 - [x] **0.2 Typed spec model.** `spec/` structs for plot, layer, mapping, scale, theme, guides, subplots, matching lets_plot `as_dict()` keys. Parsed from JSON (spec without data) via serde_json + serde_path_to_error. Unknown keys collected and reported (not silently dropped). Rust unit tests from JSON fixtures produced by real lets_plot.
 - [x] **0.3 Data bridge.** Arrow PyCapsule import (`pyo3-arrow`), `data::Column` enum (numeric f64, categorical/string, bool, null mask), lookup by name. Tests: polars, pandas, numpy dict, nulls, categoricals, empty frames.
 - [x] **0.4 Scene + SVG backend.** `scene::Primitive` (points batch, polyline, polygon, rect batch, text, group with clip) in pixel space; SVG writer; `text/` with embedded font + measurement. Golden test: hand-built scene -> SVG -> PNG.
-- [x] **0.5 Trait registries.** `Stat`, `Geom`, `Position`, `Scale`, `Coord` traits + name registries. Unknown geom/stat/position/coord/facet names (e.g. `coord_polar`) and unknown layer `parameters` (typos like `colr="red"`) must be reported, not ignored. `stat_identity`, `position_identity`, `coord_cartesian`, continuous linear scale, `geom_point` as the first vertical slice.
+- [x] **0.5 Trait registries.** `Stat`, `Geom`, `Position`, `Coord` traits + name registries (a `Scale` abstraction was NOT done here; see 0.10). Unknown geom/stat/position/coord/facet names (e.g. `coord_polar`) and unknown layer `parameters` (typos like `colr="red"`) must be reported, not ignored. `stat_identity`, `position_identity`, `coord_cartesian`, continuous linear scale, `geom_point` as the first vertical slice.
 - [x] **0.6 Minimal layout.** Single panel, axes with nice breaks, axis titles, plot title, panel grid, `ggsize`.
 - [x] **0.7 Python API slice.** `ggplot`, `aes`, `geom_point`, `ggsize`, `labs`, `PlotSpec.as_dict()`, `+`, `to_svg`, `to_png`, `_repr_html_` (static). `as_dict()` parity tests vs lets_plot. Spec JSON must handle NaN/inf (`json.dumps` emits invalid `NaN`) and numpy scalars; reject duplicate `color`/`colour` mapping keys.
 - [x] **0.8 Test + visual + bench harness.** pytest suite, golden-image compare (pixel diff with tolerance, diff image on failure), side-by-side HTML report vs lets-plot, first benchmark (scatter 10k / 100k / 1M) with honest settings.
 - [ ] **0.9 Foundation review.** Bug-hunt agents on the whole foundation. Ask user to review the architecture before building on it.
+
+- [ ] **0.10 Foundation v2 (from the 0.9 review; awaiting user approval).** Make "one file + one registry line" true for Phases 1-4:
+  - [ ] 0.10.1 Staged build: map all layers -> resolve scales from spec (transforms, discrete positions) -> stat -> position -> geom setup -> train positions + style scales -> guides -> layout -> draw. Steps return warnings (no `&mut Vec`), ready for rayon.
+  - [ ] 0.10.2 Scales: `PositionScale` (continuous + transform | discrete) owning breaks/labels/limits/expand, used by coord + layout; `StyleScale` trait (train, map to typed values, legend breaks) with a registry by aesthetic + `scale_mapper_kind`; defaults per aesthetic and column kind.
+  - [ ] 0.10.3 `LayerData` v2: `Variable::{Aesthetic, Computed}` (stat variables, `..count..`), `group_index` (explicit + implicit discrete grouping), `panel_index`, `source_rows` (tooltips).
+  - [ ] 0.10.4 Coord owns all data->pixel math (layout uses `Panel::map`); `Coord::{flipped, aspect_ratio, limits}`; one flip representation.
+  - [ ] 0.10.5 Python bridge v2: data objects replaced by `{"frame": i}` refs, frames deduplicated by identity (works for gggrid, enables caching); referenced columns computed once in Rust (`spec`), incl. tooltips/facets.
+  - [ ] 0.10.6 Typed style values: `Aesthetic::value_kind()` single source; `StyleValues` for color/number/shape/linetype/text; mismatch is an error.
+  - [ ] 0.10.7 Registries as one static list per kind (lookup + names derived, round-trip test).
+  - [ ] 0.10.8 Layout into an area `Rect` with measure-then-place (gggrid, legends); deterministic SVG ids (explicit prefix).
+  - [ ] 0.10.9 Small fixes from the review: ignored aesthetics checked before column fetch, `with_notes` keeps error kinds, batch consistency validated once, `is_axis_title_only` via defaults.
 
 ### Phase 1: Scatter-class plots (cellestial `dimensional`, `umap`, `scatter`, `xyplot`)
 

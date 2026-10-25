@@ -17,3 +17,8 @@ Found by the Phase 0.5 bug hunt; each has a regression test in
   never `f64::EPSILON`-relative with a floor of 1 (that collapsed [1e-20, 3e-20]).
 - **SVG attributes must be written once.** Decide composite styles (stroke color +
   width) in one place; the XML well-formedness test parses every scene with roxmltree.
+
+## Grouping (`DataProcessing.computeGroups`, `LayerConfig.explicitGroupingVarNames`)
+- Explicit `group` from plot and layer is **combined** (plot + layer, distinct), not overridden like other aesthetics; `inherit_aes=False` drops the plot's. `group=[]` turns grouping off.
+- Default grouping: mapped, non-positional, discrete columns (distinct by column name). Continuous style columns never group.
+- One variable: group = index in distinct values (discrete: level order; continuous: first appearance), missing values one extra group last. Several: combinations numbered by first appearance (so variable order does not matter).

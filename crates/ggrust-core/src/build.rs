@@ -10,7 +10,7 @@
 use std::collections::BTreeSet;
 
 use crate::coord::{self, Coord, Panel};
-use crate::data::{Column, ContinuousColumn, DataFrame, LayerData};
+use crate::data::{Column, ContinuousColumn, DataFrame, LayerData, group_index};
 use crate::geom::{self, DrawLayer, Geom};
 use crate::layout::{Titles, draw_axes_and_titles, draw_panel_background, layout_plot};
 use crate::parameters::Parameters;
@@ -223,7 +223,13 @@ fn prepare_layer(
         plot: data.plot.as_ref(),
     };
     let mut layer_data = LayerData::new(frames.row_count());
+    // Discrete non-positional columns, the default grouping (lets-plot
+    // `defaultGroupingVariables`), by column name.
+    let mut default_grouping: Vec<(&str, Column)> = Vec::new();
     for (aesthetic, value) in &mapping {
+        if *aesthetic == Aesthetic::Group {
+            continue; // see `explicit_grouping`
+        }
         let mapping_path = if inherited.contains(aesthetic) {
             format!("mapping.{aesthetic}")
         } else {
@@ -254,8 +260,24 @@ fn prepare_layer(
             ));
             continue;
         }
+        if matches!(column, Column::Discrete(_))
+            && !default_grouping.iter().any(|(seen, _)| seen == name)
+        {
+            default_grouping.push((name, column.clone()));
+        }
         layer_data.insert(*aesthetic, column)?;
     }
+    let grouping = match explicit_grouping(plot, spec, &path, warnings) {
+        Some(names) => names
+            .iter()
+            .map(|(name, mapping_path)| frames.column(name, mapping_path))
+            .collect::<Result<Vec<_>>>()?,
+        None => default_grouping
+            .into_iter()
+            .map(|(_, column)| column)
+            .collect(),
+    };
+    layer_data.set_group_index(group_index(&grouping.iter().collect::<Vec<_>>()))?;
 
     // Constant positions, e.g. geom_point(x=1.5): one value repeated for every row.
     for &aesthetic in geom.required_aesthetics() {
@@ -300,7 +322,7 @@ fn prepare_layer(
     if !spec.na_rm.unwrap_or(false) {
         report_missing_positions(geom, &layer_data, &path, warnings);
     }
-    let styles = resolve_styles(geom, &mapping, &parameters, &path, warnings)?;
+    let styles = resolve_styles(geom, &layer_data, &parameters, &path, warnings)?;
     Ok(PreparedLayer {
         options,
         path,
@@ -322,6 +344,52 @@ fn merged_mapping(plot: &PlotSpec, layer: &LayerSpec) -> (Mapping, BTreeSet<Aest
     let inherited = mapping.keys().copied().collect();
     mapping.extend(layer.mapping.clone());
     (mapping, inherited)
+}
+
+/// Explicit `group` columns with their mapping paths: the plot's (when inherited)
+/// followed by the layer's, without repeats, as lets-plot combines them. `None`
+/// when neither maps `group`; an empty list turns grouping off.
+fn explicit_grouping(
+    plot: &PlotSpec,
+    layer: &LayerSpec,
+    path: &str,
+    warnings: &mut Vec<String>,
+) -> Option<Vec<(String, String)>> {
+    let sources = [
+        (
+            plot.mapping
+                .get(&Aesthetic::Group)
+                .filter(|_| layer.inherit_aes.unwrap_or(true)),
+            "mapping.group".to_owned(),
+        ),
+        (
+            layer.mapping.get(&Aesthetic::Group),
+            format!("{path}.mapping.group"),
+        ),
+    ];
+    let mut names: Option<Vec<(String, String)>> = None;
+    for (value, mapping_path) in sources {
+        let columns: &[String] = match value {
+            None => continue,
+            Some(MappingValue::Column(name)) => std::slice::from_ref(name),
+            Some(MappingValue::Columns(names)) => names,
+            Some(other) => {
+                warnings.push(format!(
+                    "at '{mapping_path}': mapping 'group' to {} is not supported yet and \
+                     was ignored",
+                    describe_mapping_value(other)
+                ));
+                continue;
+            }
+        };
+        let names = names.get_or_insert_with(Vec::new);
+        for name in columns {
+            if !names.iter().any(|(seen, _)| seen == name) {
+                names.push((name.clone(), mapping_path.clone()));
+            }
+        }
+    }
+    names
 }
 
 /// Where a layer's columns come from, following lets-plot (`DataConfigUtil`): the
@@ -378,8 +446,7 @@ impl LayerFrames<'_> {
 
 /// Whether the geom reads an aesthetic (required positions, styles, or `group`).
 fn geom_uses(geom: &dyn Geom, aesthetic: Aesthetic) -> bool {
-    aesthetic == Aesthetic::Group
-        || geom.required_aesthetics().contains(&aesthetic)
+    geom.required_aesthetics().contains(&aesthetic)
         || geom
             .style_defaults()
             .iter()
@@ -476,17 +543,18 @@ fn validate_parameters(
     }
 }
 
-/// Style values per aesthetic: mapped (not yet) -> constant option -> geom default.
+/// Style values per aesthetic: mapped column (not yet) -> constant option -> geom default.
 fn resolve_styles(
     geom: &dyn Geom,
-    mapping: &Mapping,
+    data: &LayerData,
     parameters: &Parameters,
     path: &str,
     warnings: &mut Vec<String>,
 ) -> Result<Styles> {
     let mut styles = Styles::default();
     for &(aesthetic, default) in geom.style_defaults() {
-        if mapping.contains_key(&aesthetic) {
+        // Only mappings that reached the data; skipped ones were reported already.
+        if data.contains(aesthetic) {
             warnings.push(format!(
                 "at '{path}.mapping.{aesthetic}': mapping data to '{aesthetic}' is not \
                  supported yet; the constant or default value was used"
@@ -608,5 +676,108 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
     }
     for path in spec.unsupported_options() {
         warnings.push(format!("unsupported option '{path}' was ignored"));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use arrow_array::{ArrayRef, Float64Array, RecordBatch, StringArray};
+
+    use super::*;
+    use crate::spec::Figure;
+
+    fn plot(json: &str) -> PlotSpec {
+        match Figure::from_json(json).unwrap() {
+            Figure::Plot(plot) => *plot,
+            Figure::Subplots(_) => panic!("expected a plot"),
+        }
+    }
+
+    fn cells() -> PlotData {
+        let columns: Vec<(&str, ArrayRef)> = vec![
+            ("x", Arc::new(Float64Array::from(vec![1.0, 2.0, 3.0, 4.0]))),
+            ("y", Arc::new(Float64Array::from(vec![1.0, 2.0, 3.0, 4.0]))),
+            (
+                "cluster",
+                Arc::new(StringArray::from(vec!["T", "B", "T", "NK"])),
+            ),
+            (
+                "sample",
+                Arc::new(StringArray::from(vec!["s1", "s1", "s2", "s2"])),
+            ),
+            (
+                "batch",
+                Arc::new(Float64Array::from(vec![7.0, 7.0, 7.0, 8.0])),
+            ),
+        ];
+        let batch = RecordBatch::try_from_iter(columns).unwrap();
+        PlotData {
+            plot: Some(DataFrame::new(batch.schema(), vec![batch]).unwrap()),
+            layers: vec![],
+        }
+    }
+
+    fn groups(json: &str) -> (Option<Vec<u32>>, Vec<String>) {
+        let spec = plot(json);
+        let mut warnings = Vec::new();
+        let layer = prepare_layer(0, &spec.layers[0], &spec, &cells(), &mut warnings).unwrap();
+        (layer.data.group_index().map(<[u32]>::to_vec), warnings)
+    }
+
+    #[test]
+    fn discrete_style_columns_group_by_default_positions_do_not() {
+        let (index, _) = groups(
+            r#"{"kind": "plot", "mapping": {"x": "x", "y": "y"}, "layers": [{"geom": "point"}]}"#,
+        );
+        assert_eq!(index, None);
+        let (index, _) = groups(
+            r#"{"kind": "plot", "mapping": {"x": "x", "y": "y", "color": "cluster"},
+                "layers": [{"geom": "point"}]}"#,
+        );
+        assert_eq!(index, Some(vec![0, 1, 0, 2]));
+        // Continuous style columns do not group.
+        let (index, _) = groups(
+            r#"{"kind": "plot", "mapping": {"x": "x", "y": "y", "size": "batch"},
+                "layers": [{"geom": "point"}]}"#,
+        );
+        assert_eq!(index, None);
+    }
+
+    #[test]
+    fn explicit_groups_combine_plot_and_layer_and_override_defaults() {
+        let (index, warnings) = groups(
+            r#"{"kind": "plot", "mapping": {"x": "x", "y": "y", "color": "cluster", "group": "sample"},
+                "layers": [{"geom": "point", "mapping": {"group": "batch"}}]}"#,
+        );
+        assert!(
+            warnings.iter().all(|warning| !warning.contains("group")),
+            "{warnings:?}"
+        );
+        // (s1,7) (s1,7) (s2,7) (s2,8)
+        assert_eq!(index, Some(vec![0, 0, 1, 2]));
+        let (index, _) = groups(
+            r#"{"kind": "plot", "mapping": {"x": "x", "y": "y", "color": "cluster", "group": "sample"},
+                "layers": [{"geom": "point", "inherit_aes": false,
+                            "mapping": {"x": "x", "y": "y", "group": []}}]}"#,
+        );
+        assert_eq!(index, None);
+    }
+
+    #[test]
+    fn missing_group_column_names_the_path() {
+        let spec = plot(
+            r#"{"kind": "plot", "mapping": {"x": "x", "y": "y", "group": "nope"},
+                "layers": [{"geom": "point"}]}"#,
+        );
+        let error = prepare_layer(0, &spec.layers[0], &spec, &cells(), &mut Vec::new())
+            .err()
+            .unwrap()
+            .to_string();
+        assert!(
+            error.contains("at 'mapping.group': column 'nope' not found"),
+            "{error}"
+        );
     }
 }

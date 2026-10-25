@@ -192,7 +192,7 @@ fn colour_option_is_an_alias() {
 #[test]
 fn list_mappings_warn_once_without_debug_output() {
     let built = build(
-        r#"{"kind": "plot", "mapping": {"x": "a", "y": "b", "group": ["a", "b"]},
+        r#"{"kind": "plot", "mapping": {"x": "a", "y": "b", "color": ["a", "b"]},
             "layers": [{"geom": "point"}]}"#,
         Some(frame(&[("a", vec![1.0]), ("b", vec![1.0])])),
         vec![],
@@ -200,7 +200,7 @@ fn list_mappings_warn_once_without_debug_output() {
     let relevant: Vec<_> = built
         .warnings
         .iter()
-        .filter(|warning| warning.contains("group"))
+        .filter(|warning| warning.contains("mapping.color"))
         .collect();
     assert_eq!(relevant.len(), 1, "{relevant:?}");
     assert!(relevant[0].contains("columns [a, b]"), "{relevant:?}");

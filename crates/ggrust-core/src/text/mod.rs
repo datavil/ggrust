@@ -7,6 +7,10 @@
 //! What it does not do: line wrapping or bidirectional text. Multi-line labels are
 //! split on `\n` by [`measure_lines`].
 
+mod estimate;
+
+pub use estimate::estimated_width;
+
 use std::borrow::Cow;
 use std::sync::LazyLock;
 
@@ -151,6 +155,15 @@ pub fn measure(text: &str, size: f64, face: FontFace) -> TextExtent {
     }
 }
 
+/// Width of a label with an optional superscript (see [`crate::scene::Text`]).
+pub fn measure_label(text: &str, superscript: Option<&str>, size: f64, face: FontFace) -> f64 {
+    let scale = crate::scene::SUPERSCRIPT_SCALE;
+    measure(text, size, face).width
+        + superscript.map_or(0.0, |superscript| {
+            measure(superscript, size * scale, face).width
+        })
+}
+
 /// Measure text that may contain `\n` line breaks.
 pub fn measure_lines(text: &str, size: f64, face: FontFace) -> BlockExtent {
     let mut width: f64 = 0.0;
@@ -257,6 +270,21 @@ mod tests {
         assert_eq!(measure("a\tb", 20.0, FontFace::Plain).width, spaced);
         assert_eq!(measure("a\nb", 20.0, FontFace::Plain).width, spaced);
         assert_eq!(single_line("plain"), "plain");
+    }
+
+    #[test]
+    fn glyph_coverage_used_by_labels() {
+        // Missing glyphs measure as .notdef (750 units). U+2212 is used for minus
+        // signs in exponents; U+207B (superscript minus) is NOT in Liberation Sans.
+        let notdef = measure("\u{FFFF}", 1000.0, FontFace::Plain).width;
+        for character in ["\u{2212}", "\u{00B7}", "0", "9"] {
+            assert_ne!(
+                measure(character, 1000.0, FontFace::Plain).width,
+                notdef,
+                "{character}"
+            );
+        }
+        assert_eq!(measure("\u{207B}", 1000.0, FontFace::Plain).width, notdef);
     }
 
     #[test]

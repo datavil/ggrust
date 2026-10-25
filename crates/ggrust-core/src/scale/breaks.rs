@@ -66,14 +66,13 @@ pub fn breaks_with_step(low: f64, high: f64, step: f64) -> Vec<f64> {
     if !(first.is_finite() && last.is_finite()) || last - first > 100_000.0 {
         return Vec::new();
     }
-    let decimals = (-step.log10().floor() + 1.0).clamp(0.0, 15.0) as i32;
-    let scale = 10_f64.powi(decimals);
+    // Round each break one digit finer than the step, relative to the step's
+    // magnitude, so tiny steps (p-values, 1e-20) keep their precision.
+    let decimals = 1 - step.log10().floor() as i32;
     let mut breaks = Vec::new();
     let mut multiple = first;
     while multiple <= last {
-        let value = multiple * step;
-        let rounded = (value * scale).round() / scale;
-        let value = if rounded.is_finite() { rounded } else { value };
+        let value = round_to_decimals(multiple * step, decimals);
         // -0.0 -> 0.0, and keep breaks inside the domain.
         let value = (value + 0.0).clamp(low, high);
         if breaks.last() != Some(&value) {
@@ -82,6 +81,22 @@ pub fn breaks_with_step(low: f64, high: f64, step: f64) -> Vec<f64> {
         multiple += 1.0;
     }
     breaks
+}
+
+/// Round `value` to `decimals` decimal places (negative: to tens, hundreds, ...).
+/// Powers of ten up to 1e22 are exact in f64; beyond that the value is kept as is.
+fn round_to_decimals(value: f64, decimals: i32) -> f64 {
+    if !value.is_finite() || decimals.abs() > 22 {
+        return value;
+    }
+    let rounded = if decimals >= 0 {
+        let scale = 10_f64.powi(decimals);
+        (value * scale).round() / scale
+    } else {
+        let unit = 10_f64.powi(-decimals);
+        (value / unit).round() * unit
+    };
+    if rounded.is_finite() { rounded } else { value }
 }
 
 #[cfg(test)]
@@ -142,6 +157,18 @@ mod tests {
         assert!(is_degenerate_range(1.0, 1.0));
         assert!(is_degenerate_range(1e6, 1e6 + 1e-9));
         assert!(!is_degenerate_range(0.0, 1e-9));
+    }
+
+    #[test]
+    fn tiny_magnitudes_keep_their_breaks() {
+        assert_eq!(
+            linear_breaks(1e-20, 5e-20, 5),
+            [1e-20, 2e-20, 3e-20, 4e-20, 5e-20]
+        );
+        assert_eq!(linear_breaks(0.0, 3e-15, 5).len(), 7);
+        let pvalues = linear_breaks(1.65e-17, 9.35e-17, 10);
+        assert_eq!(pvalues.len(), 8, "{pvalues:?}");
+        assert_eq!(pvalues[0], 2e-17);
     }
 
     #[test]

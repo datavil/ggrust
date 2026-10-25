@@ -27,6 +27,7 @@ const PANEL: Rect = Rect {
 fn text(content: &str, x: f64, y: f64, size: f64) -> Text {
     Text {
         content: content.into(),
+        superscript: None,
         x,
         y,
         size,

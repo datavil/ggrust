@@ -11,8 +11,8 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::scene::geometry::{ClipBox, is_drawable_marker, is_drawable_stroke, is_drawable_width};
 use crate::scene::{
-    Color, Group, HorizontalAlign, MarkerShape, Node, Path, PerItem, Points, Rect, Rects, Scene,
-    Stroke, Text, VerticalAlign,
+    Color, Group, HorizontalAlign, MarkerShape, Node, Path, PerItem, Points, Rect, Rects,
+    SUPERSCRIPT_RISE, SUPERSCRIPT_SCALE, Scene, Stroke, Text, VerticalAlign,
 };
 use crate::text::{CSS_FONT_FAMILY, measure, single_line};
 
@@ -301,6 +301,14 @@ impl SvgWriter {
         }
         self.raw(">");
         escape_into(&mut self.output, &single_line(&text.content));
+        if let Some(superscript) = &text.superscript {
+            self.raw("<tspan");
+            self.attribute_precise("font-size", text.size * SUPERSCRIPT_SCALE);
+            self.attribute_precise("dy", -text.size * SUPERSCRIPT_RISE);
+            self.raw(">");
+            escape_into(&mut self.output, &single_line(superscript));
+            self.raw("</tspan>");
+        }
         self.raw("</text>\n");
     }
 

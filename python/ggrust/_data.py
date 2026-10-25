@@ -42,7 +42,9 @@ def as_arrow(data: Any) -> ArrowStreamExportable:
     if isinstance(data, pl.LazyFrame):
         data = data.collect()
     if isinstance(data, Mapping):
-        data = pl.DataFrame(dict(data))
+        # strict=False: mixed ints/floats/None in one list (very common) are upcast
+        # instead of rejected, as lets_plot accepts them.
+        data = pl.DataFrame(dict(data), strict=False)
     if isinstance(data, pl.DataFrame):
         return _without_null_dtype(data)
     if isinstance(data, pl.Series) or _is_pandas(data, "Series"):

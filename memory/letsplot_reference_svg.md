@@ -19,3 +19,11 @@ instead of lets-plot's "band = font size"; an explicit `axis_title_spacing` (3 p
 reproduces the gap lets-plot gets implicitly from its baseline placement (without it the
 rotated y title touched the tick labels). Compare visually with
 `cargo run --release --example compare_letsplot -- <dir> tests/visual/output <case>...`.
+
+## Breaks parity (bug hunt 0.6)
+Break *counts* are decided with lets-plot's `TextMetricsEstimator` port
+(`text::estimated_width`) plus exact ports of `getFlexBreaks` and the union overlap test,
+so labels match lets-plot (`tests/test_breaks_parity.py`). Remaining mismatches are
+near-ties: real-font y labels make the panel a few px wider, which can flip an x
+overlap decided by < 1 px. Fixing that would require estimated widths in layout (the
+pixel clone the user declined).

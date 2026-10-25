@@ -117,25 +117,41 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
 }
 
 /// Title, subtitle and axis titles. Axis titles follow lets-plot: `labs(x=...)`
-/// first, otherwise the column mapped to the axis (plot mapping, then layers).
+/// first, otherwise `defaultScaleName` (see [`default_axis_title`]).
 fn plot_titles(spec: &PlotSpec) -> Titles {
     let axis_title = |aesthetic: Aesthetic| {
         let from_labs = match spec.guides.get(aesthetic.as_str()) {
             Some(GuideSpec::Full(options)) => options.title.clone(),
             _ => None,
         };
-        from_labs.or_else(|| {
-            std::iter::once(&spec.mapping)
-                .chain(spec.layers.iter().map(|layer| &layer.mapping))
-                .find_map(|mapping| mapping.get(&aesthetic)?.as_column().map(str::to_owned))
-        })
+        from_labs.unwrap_or_else(|| default_axis_title(spec, aesthetic))
     };
     let title = spec.ggtitle.as_ref();
     Titles {
         title: title.and_then(|title| title.text.clone()),
         subtitle: title.and_then(|title| title.subtitle.clone()),
-        x: axis_title(Aesthetic::X),
-        y: axis_title(Aesthetic::Y),
+        x: Some(axis_title(Aesthetic::X)),
+        y: Some(axis_title(Aesthetic::Y)),
+    }
+}
+
+/// lets-plot `PlotConfigUtil.defaultScaleName` for a position axis: the distinct
+/// columns mapped to it across layers, ignoring one named like the aesthetic; none
+/// or several -> the aesthetic name (`x`), exactly one -> that column.
+fn default_axis_title(spec: &PlotSpec, aesthetic: Aesthetic) -> String {
+    let mut labels: Vec<String> = Vec::new();
+    for layer in &spec.layers {
+        let (mapping, _) = merged_mapping(spec, layer);
+        if let Some(name) = mapping.get(&aesthetic).and_then(MappingValue::as_column)
+            && name != aesthetic.as_str()
+            && !labels.iter().any(|label| label == name)
+        {
+            labels.push(name.to_owned());
+        }
+    }
+    match labels.as_slice() {
+        [only] => only.clone(),
+        _ => aesthetic.as_str().to_owned(),
     }
 }
 

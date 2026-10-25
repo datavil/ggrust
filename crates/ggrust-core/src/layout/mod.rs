@@ -13,8 +13,9 @@ mod axis;
 pub use axis::{AxisBreaks, Orientation, choose_breaks};
 
 use crate::scale::ContinuousPositionScale;
+use crate::scale::format::Label;
 use crate::scene::{Group, HorizontalAlign, Node, Path, PerItem, Rect, Rects, Text, VerticalAlign};
-use crate::text::measure;
+use crate::text::{measure, measure_label};
 
 /// Height of a text band: the real line box of the font at this size.
 pub fn text_band(style: TextStyle) -> f64 {
@@ -89,7 +90,14 @@ pub fn layout_plot(
         y_breaks
             .labels
             .iter()
-            .map(|label| measure(label, text.size, text.face).width)
+            .map(|label| {
+                measure_label(
+                    &label.text,
+                    label.superscript.as_deref(),
+                    text.size,
+                    text.face,
+                )
+            })
             .fold(0.0, f64::max)
     });
     let left = content.x
@@ -188,7 +196,7 @@ pub fn draw_axes_and_titles(
             ));
         }
         if let Some(text) = theme.axis_text_x {
-            axis_x.push(text_node(
+            axis_x.push(label_node(
                 label,
                 text,
                 (x, x_label_top + text_band(text) / 2.0),
@@ -212,7 +220,7 @@ pub fn draw_axes_and_titles(
             ));
         }
         if let Some(text) = theme.axis_text_y {
-            axis_y.push(text_node(
+            axis_y.push(label_node(
                 label,
                 text,
                 (y_label_right, y),
@@ -321,6 +329,21 @@ fn segment(start: (f64, f64), end: (f64, f64), line: LineStyle) -> Node {
     })
 }
 
+/// A tick label: [`text_node`] plus its superscript.
+fn label_node(
+    label: &Label,
+    style: TextStyle,
+    anchor: (f64, f64),
+    horizontal: HorizontalAlign,
+    angle: f64,
+) -> Node {
+    let mut node = text_node(&label.text, style, anchor, horizontal, angle);
+    if let Node::Text(text) = &mut node {
+        text.superscript = label.superscript.clone();
+    }
+    node
+}
+
 fn text_node(
     content: &str,
     style: TextStyle,
@@ -330,6 +353,7 @@ fn text_node(
 ) -> Node {
     Node::Text(Text {
         content: content.to_owned(),
+        superscript: None,
         x,
         y,
         size: style.size,

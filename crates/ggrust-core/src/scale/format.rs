@@ -1,16 +1,45 @@
 //! Tick label formatting for numeric breaks (port of lets-plot
 //! `NumericBreakFormatter` + `NumberFormat` type `g`, with thousands commas and
-//! trimmed zeros). Exponents use lets-plot's default "power" style, written with
-//! Unicode superscripts: `2·10⁶`, `10⁷`.
+//! trimmed zeros). Exponents use lets-plot's default "power" style: the label is
+//! `2·10` with superscript `6` (`−9` for negative exponents, with U+2212 as lets-plot).
 
 /// lets-plot `NumericBreakFormatter.DEF_MIN_EXP`.
 const MIN_EXPONENT: i32 = -7;
 /// lets-plot `NumericBreakFormatter.DEF_MAX_EXP`.
 const MAX_EXPONENT: i32 = 6;
 
+/// A tick label: text, plus an exponent drawn as a superscript after it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Label {
+    /// Main text, e.g. `2·10` or `1,500`.
+    pub text: String,
+    /// Superscript exponent, e.g. `6` or `−9`.
+    pub superscript: Option<String>,
+}
+
+impl Label {
+    /// A label without superscript.
+    pub fn plain(text: impl Into<String>) -> Self {
+        Label {
+            text: text.into(),
+            superscript: None,
+        }
+    }
+}
+
+impl std::fmt::Display for Label {
+    /// `text` or `text^superscript`.
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match &self.superscript {
+            Some(superscript) => write!(formatter, "{}^{superscript}", self.text),
+            None => formatter.write_str(&self.text),
+        }
+    }
+}
+
 /// Labels for a list of breaks, all formatted with one precision chosen from the
 /// largest magnitude and the step between breaks.
-pub fn format_breaks(breaks: &[f64]) -> Vec<String> {
+pub fn format_breaks(breaks: &[f64]) -> Vec<Label> {
     let precision = break_precision(breaks);
     breaks
         .iter()
@@ -52,9 +81,9 @@ fn break_precision(breaks: &[f64]) -> i32 {
 
 /// `g` formatting: `precision` significant digits, decimal notation when the
 /// exponent is within (MIN_EXPONENT, MAX_EXPONENT), else `m·10ⁿ`.
-fn format_general(value: f64, precision: i32) -> String {
+fn format_general(value: f64, precision: i32) -> Label {
     if !value.is_finite() {
-        return value.to_string();
+        return Label::plain(value.to_string());
     }
     let digits = (precision - 1).clamp(0, 16) as usize;
     // Rust's exponent formatting rounds the exact decimal expansion correctly.
@@ -64,17 +93,23 @@ fn format_general(value: f64, precision: i32) -> String {
     let negative = mantissa.starts_with('-');
     let mantissa_digits: String = mantissa.chars().filter(char::is_ascii_digit).collect();
     if mantissa_digits.bytes().all(|byte| byte == b'0') {
-        return "0".into();
+        return Label::plain("0");
     }
     let sign = if negative { "-" } else { "" };
     if exponent > MIN_EXPONENT && exponent < MAX_EXPONENT {
-        format!("{sign}{}", decimal_from_digits(&mantissa_digits, exponent))
+        Label::plain(format!(
+            "{sign}{}",
+            decimal_from_digits(&mantissa_digits, exponent)
+        ))
     } else {
         let mantissa = trim_fraction(mantissa.trim_start_matches('-'));
-        let power = superscript(exponent);
-        match mantissa.as_str() {
-            "1" => format!("{sign}10{power}"),
-            _ => format!("{sign}{mantissa}·10{power}"),
+        let text = match mantissa.as_str() {
+            "1" => format!("{sign}10"),
+            _ => format!("{sign}{mantissa}·10"),
+        };
+        Label {
+            text,
+            superscript: Some(exponent.to_string().replace('-', "\u{2212}")),
         }
     }
 }
@@ -131,32 +166,13 @@ fn trim_fraction(mantissa: &str) -> String {
     }
 }
 
-fn superscript(exponent: i32) -> String {
-    exponent
-        .to_string()
-        .chars()
-        .map(|character| match character {
-            '-' => '⁻',
-            '0' => '⁰',
-            '1' => '¹',
-            '2' => '²',
-            '3' => '³',
-            '4' => '⁴',
-            '5' => '⁵',
-            '6' => '⁶',
-            '7' => '⁷',
-            '8' => '⁸',
-            _ => '⁹',
-        })
-        .collect()
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
+    /// Labels as `text^superscript` strings.
     fn labels(breaks: &[f64]) -> Vec<String> {
-        format_breaks(breaks)
+        format_breaks(breaks).iter().map(Label::to_string).collect()
     }
 
     #[test]
@@ -188,7 +204,7 @@ mod tests {
         );
         assert_eq!(
             labels(&[0.0, 2e6, 4e6, 6e6, 8e6, 1e7]),
-            ["0", "2·10⁶", "4·10⁶", "6·10⁶", "8·10⁶", "10⁷"]
+            ["0", "2·10^6", "4·10^6", "6·10^6", "8·10^6", "10^7"]
         );
     }
 
@@ -198,6 +214,15 @@ mod tests {
             labels(&[0.0, 0.2, 0.4, 0.6000000000000001, 0.8, 0.9999999999998934]),
             ["0", "0.2", "0.4", "0.6", "0.8", "1"]
         );
+    }
+
+    #[test]
+    fn negative_exponents_use_the_minus_sign() {
+        assert_eq!(
+            labels(&[2e-17, 4e-17, 6e-17]),
+            ["2·10^\u{2212}17", "4·10^\u{2212}17", "6·10^\u{2212}17"]
+        );
+        assert_eq!(labels(&[1e-9, 2e-9])[0], "10^\u{2212}9");
     }
 
     #[test]

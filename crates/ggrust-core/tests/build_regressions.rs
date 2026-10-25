@@ -205,3 +205,57 @@ fn list_mappings_warn_once_without_debug_output() {
     assert_eq!(relevant.len(), 1, "{relevant:?}");
     assert!(relevant[0].contains("columns [a, b]"), "{relevant:?}");
 }
+
+fn axis_titles(built: &BuiltPlot) -> Vec<String> {
+    let titles: &Group = built
+        .scene
+        .nodes
+        .iter()
+        .find_map(|node| match node {
+            Node::Group(group) if group.role == Some("titles") => Some(group),
+            _ => None,
+        })
+        .unwrap();
+    titles
+        .nodes
+        .iter()
+        .filter_map(|node| match node {
+            Node::Text(text) => Some(text.content.clone()),
+            _ => None,
+        })
+        .collect()
+}
+
+#[test]
+fn constant_positions_get_aesthetic_titles() {
+    // Bug hunt 0.6: lets-plot titles the axes "x" and "y".
+    let built = build(
+        r#"{"kind": "plot", "layers": [{"geom": "point", "x": 1, "y": 2}]}"#,
+        None,
+        vec![],
+    );
+    assert_eq!(axis_titles(&built), ["x", "y"]);
+}
+
+#[test]
+fn axis_title_follows_lets_plot_default_scale_name() {
+    // Columns mapped across layers, ignoring one named like the aesthetic.
+    let data = frame(&[("x", vec![1.0]), ("y", vec![2.0])]);
+    let built = build(
+        r#"{"kind": "plot", "layers": [
+            {"geom": "point", "mapping": {"x": "x", "y": "y"}},
+            {"geom": "point", "mapping": {"x": "y", "y": "x"}}]}"#,
+        Some(data.clone()),
+        vec![],
+    );
+    assert_eq!(axis_titles(&built), ["y", "x"]);
+    let data = frame(&[("a", vec![1.0]), ("b", vec![2.0])]);
+    let several = build(
+        r#"{"kind": "plot", "layers": [
+            {"geom": "point", "mapping": {"x": "a", "y": "b"}},
+            {"geom": "point", "mapping": {"x": "b", "y": "a"}}]}"#,
+        Some(data),
+        vec![],
+    );
+    assert_eq!(axis_titles(&several), ["x", "y"]);
+}

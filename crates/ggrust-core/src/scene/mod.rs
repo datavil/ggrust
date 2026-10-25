@@ -234,11 +234,20 @@ pub enum VerticalAlign {
     Bottom,
 }
 
+/// Size of a superscript relative to its text (lets-plot: 0.7em).
+pub const SUPERSCRIPT_SCALE: f64 = 0.7;
+
+/// Rise of a superscript in em of the base text (lets-plot: 0.4em).
+pub const SUPERSCRIPT_RISE: f64 = 0.4;
+
 /// One line of text.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Text {
     /// Content (a single line).
     pub content: String,
+    /// Exponent drawn after `content` at [`SUPERSCRIPT_SCALE`] x size, raised by
+    /// [`SUPERSCRIPT_RISE`] em (lets-plot's power labels: `2·10` + `6`).
+    pub superscript: Option<String>,
     /// Anchor x.
     pub x: f64,
     /// Anchor y.

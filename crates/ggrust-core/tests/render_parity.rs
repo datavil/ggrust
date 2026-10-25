@@ -73,6 +73,7 @@ fn line(points: Vec<(f64, f64)>, width: f64, dash: Vec<f64>) -> Node {
 fn text(content: &str, x: f64, horizontal: HorizontalAlign) -> Text {
     Text {
         content: content.into(),
+        superscript: None,
         x,
         y: 50.0,
         size: 20.0,

@@ -26,6 +26,9 @@ pub enum Error {
         /// The Arrow data type, e.g. `Timestamp(ms)`.
         data_type: String,
     },
+    /// Rendering failed (e.g. an impossible image size).
+    #[error("render failed: {0}")]
+    Render(String),
     /// Arrow data is malformed (e.g. batches with mismatched schemas).
     #[error("invalid data: {0}")]
     InvalidData(String),

@@ -69,7 +69,7 @@ Steps inside a phase are ordered; each builds on the previous.
 - [ ] **0.1 Workspace skeleton.** Cargo workspace (`ggrust-core`, `ggrust-python`), `pyproject.toml` (maturin), `python/ggrust/`, ruff + clippy config, `Makefile` with `check`, `.gitignore`, README. `maturin develop` builds; `import ggrust` works.
 - [x] **0.2 Typed spec model.** `spec/` structs for plot, layer, mapping, scale, theme, guides, subplots, matching lets_plot `as_dict()` keys. Parsed from JSON (spec without data) via serde_json + serde_path_to_error. Unknown keys collected and reported (not silently dropped). Rust unit tests from JSON fixtures produced by real lets_plot.
 - [x] **0.3 Data bridge.** Arrow PyCapsule import (`pyo3-arrow`), `data::Column` enum (numeric f64, categorical/string, bool, null mask), lookup by name. Tests: polars, pandas, numpy dict, nulls, categoricals, empty frames.
-- [ ] **0.4 Scene + SVG backend.** `scene::Primitive` (points batch, polyline, polygon, rect batch, text, group with clip) in pixel space; SVG writer; `text/` with embedded font + measurement. Golden test: hand-built scene -> SVG -> PNG.
+- [x] **0.4 Scene + SVG backend.** `scene::Primitive` (points batch, polyline, polygon, rect batch, text, group with clip) in pixel space; SVG writer; `text/` with embedded font + measurement. Golden test: hand-built scene -> SVG -> PNG.
 - [ ] **0.5 Trait registries.** `Stat`, `Geom`, `Position`, `Scale`, `Coord` traits + name registries. Unknown geom/stat/position/coord/facet names (e.g. `coord_polar`) and unknown layer `parameters` (typos like `colr="red"`) must be reported, not ignored. `stat_identity`, `position_identity`, `coord_cartesian`, continuous linear scale, `geom_point` as the first vertical slice.
 - [ ] **0.6 Minimal layout.** Single panel, axes with nice breaks, axis titles, plot title, panel grid, `ggsize`.
 - [ ] **0.7 Python API slice.** `ggplot`, `aes`, `geom_point`, `ggsize`, `labs`, `PlotSpec.as_dict()`, `+`, `to_svg`, `to_png`, `_repr_html_` (static). `as_dict()` parity tests vs lets_plot. Spec JSON must handle NaN/inf (`json.dumps` emits invalid `NaN`) and numpy scalars; reject duplicate `color`/`colour` mapping keys.
@@ -121,6 +121,7 @@ Steps inside a phase are ordered; each builds on the previous.
 
 - [ ] 6.1 Profile (flamegraph via `cargo flamegraph`, `py-spy`, memory via `/usr/bin/time -v` + `tracemalloc`) on cellestial benchmark scripts.
 - [ ] 6.1b Data bridge hot spots: integer -> f64 cast is single-threaded (50M rows ~0.6 s); string levels use SipHash (5M rows 91 ms vs polars unique 50 ms); multi-chunk columns are re-converted on every `column()` call (cache per frame).
+- [ ] 6.1c PNG markers: ~1.3 us per marker via tiny-skia paths (1M points 1.4 s). Stamp pre-rendered subpixel sprites for uniform-style batches; consider parallel tiles.
 - [ ] 6.2 Rayon parallelism (layers, panels, subplots, groups); measure, keep only wins.
 - [ ] 6.3 Caching of Arrow conversion + stat results across subplots.
 - [ ] 6.4 Final benchmark report vs lets-plot (methodology + raw numbers + plots).

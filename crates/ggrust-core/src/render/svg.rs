@@ -1,0 +1,449 @@
+//! SVG writer.
+//!
+//! Uniform batch styles are written once on a wrapping `<g>`; per-item values go on
+//! each element. Non-finite coordinates are skipped (a `NaN` in SVG breaks the file).
+//! Text is positioned by baseline computed from the embedded font metrics, never by
+//! `dominant-baseline`, which renderers implement inconsistently.
+
+use std::fmt::Write;
+use std::sync::atomic::{AtomicU64, Ordering};
+
+use crate::scene::{
+    Color, Group, HorizontalAlign, MarkerShape, Node, Path, PerItem, Points, Rect, Rects, Scene,
+    Stroke, Text, VerticalAlign,
+};
+use crate::text::{CSS_FONT_FAMILY, measure};
+
+/// Options for [`to_svg_with`].
+#[derive(Debug, Clone)]
+pub struct SvgOptions {
+    /// Prefix for element ids (clip paths). Must be unique per document when several
+    /// SVGs share one HTML page.
+    pub id_prefix: String,
+}
+
+impl Default for SvgOptions {
+    /// A process-unique prefix such as `gg7`.
+    fn default() -> Self {
+        static COUNTER: AtomicU64 = AtomicU64::new(0);
+        SvgOptions {
+            id_prefix: format!("gg{}", COUNTER.fetch_add(1, Ordering::Relaxed)),
+        }
+    }
+}
+
+/// Render a scene to SVG text with a process-unique id prefix.
+pub fn to_svg(scene: &Scene) -> String {
+    to_svg_with(scene, &SvgOptions::default())
+}
+
+/// Render a scene to SVG text.
+pub fn to_svg_with(scene: &Scene, options: &SvgOptions) -> String {
+    let mut writer = SvgWriter {
+        output: String::with_capacity(4096),
+        id_prefix: &options.id_prefix,
+        clip_count: 0,
+    };
+    writer.document(scene);
+    writer.output
+}
+
+/// A transparent SVG document containing only `texts`, positioned exactly as
+/// [`to_svg`] would. The PNG renderer rasterises text runs through this.
+pub(super) fn text_document(width: f64, height: f64, texts: &[&Text]) -> String {
+    let mut writer = SvgWriter {
+        output: String::with_capacity(256 * texts.len()),
+        id_prefix: "text",
+        clip_count: 0,
+    };
+    writer.open(width, height);
+    for text in texts {
+        writer.text(text);
+    }
+    writer.raw("</svg>\n");
+    writer.output
+}
+
+struct SvgWriter<'a> {
+    output: String,
+    id_prefix: &'a str,
+    clip_count: usize,
+}
+
+impl SvgWriter<'_> {
+    fn document(&mut self, scene: &Scene) {
+        self.open(scene.width, scene.height);
+        if let Some(background) = scene.background {
+            self.raw("<rect");
+            self.attribute_number("width", scene.width);
+            self.attribute_number("height", scene.height);
+            self.fill(Some(background));
+            self.raw("/>\n");
+        }
+        for node in &scene.nodes {
+            self.node(node);
+        }
+        self.raw("</svg>\n");
+    }
+
+    fn open(&mut self, width: f64, height: f64) {
+        self.raw("<svg xmlns=\"http://www.w3.org/2000/svg\"");
+        self.attribute_number("width", width);
+        self.attribute_number("height", height);
+        self.raw(" viewBox=\"0 0 ");
+        self.number(width);
+        self.raw(" ");
+        self.number(height);
+        self.raw("\"");
+        self.attribute("font-family", CSS_FONT_FAMILY);
+        self.raw(">\n");
+    }
+
+    fn node(&mut self, node: &Node) {
+        match node {
+            Node::Group(group) => self.group(group),
+            Node::Points(points) => self.points(points),
+            Node::Path(path) => self.path(path),
+            Node::Rects(rects) => self.rects(rects),
+            Node::Text(text) => self.text(text),
+        }
+    }
+
+    fn group(&mut self, group: &Group) {
+        let clip_id = group.clip.map(|clip| {
+            let id = format!("{}-clip{}", self.id_prefix, self.clip_count);
+            self.clip_count += 1;
+            self.raw("<clipPath");
+            self.attribute("id", &id);
+            self.raw(">");
+            self.rect_element(&clip);
+            self.raw("/></clipPath>\n");
+            id
+        });
+        self.raw("<g");
+        if let Some(role) = group.role {
+            self.attribute("class", role);
+        }
+        if let Some(id) = clip_id {
+            self.attribute("clip-path", &format!("url(#{id})"));
+        }
+        self.raw(">\n");
+        for node in &group.nodes {
+            self.node(node);
+        }
+        self.raw("</g>\n");
+    }
+
+    fn points(&mut self, points: &Points) {
+        if points.is_empty() || !points.is_consistent() {
+            return;
+        }
+        self.raw("<g");
+        if let PerItem::Uniform(fill) = points.fill {
+            self.fill(fill);
+        }
+        if let PerItem::Uniform(stroke) = points.stroke {
+            self.stroke_color(stroke);
+        }
+        if let PerItem::Uniform(width) = points.stroke_width {
+            self.attribute_number("stroke-width", width);
+        }
+        self.raw(">\n");
+        for index in 0..points.len() {
+            let (x, y, size) = (points.x[index], points.y[index], points.size.get(index));
+            if !(x.is_finite() && y.is_finite() && size.is_finite()) {
+                continue;
+            }
+            let radius = size / 2.0;
+            match points.shape.get(index) {
+                MarkerShape::Circle => {
+                    self.raw("<circle");
+                    self.attribute_number("cx", x);
+                    self.attribute_number("cy", y);
+                    self.attribute_number("r", radius);
+                }
+                MarkerShape::Square => {
+                    self.raw("<rect");
+                    self.attribute_number("x", x - radius);
+                    self.attribute_number("y", y - radius);
+                    self.attribute_number("width", size);
+                    self.attribute_number("height", size);
+                }
+                MarkerShape::Triangle => {
+                    // Equilateral, side = size, centroid at (x, y).
+                    let height = size * 3f64.sqrt() / 2.0;
+                    self.polygon_element(&[
+                        (x, y - height * 2.0 / 3.0),
+                        (x + radius, y + height / 3.0),
+                        (x - radius, y + height / 3.0),
+                    ]);
+                }
+                MarkerShape::Diamond => {
+                    self.polygon_element(&[
+                        (x, y - radius),
+                        (x + radius, y),
+                        (x, y + radius),
+                        (x - radius, y),
+                    ]);
+                }
+            }
+            if let PerItem::Varying(fills) = &points.fill {
+                self.fill(fills[index]);
+            }
+            if let PerItem::Varying(strokes) = &points.stroke {
+                self.stroke_color(strokes[index]);
+            }
+            if let PerItem::Varying(widths) = &points.stroke_width {
+                self.attribute_number("stroke-width", widths[index]);
+            }
+            self.raw("/>\n");
+        }
+        self.raw("</g>\n");
+    }
+
+    fn path(&mut self, path: &Path) {
+        let mut data = String::with_capacity(path.points.len() * 14);
+        let mut drawing = false;
+        for &(x, y) in &path.points {
+            if !(x.is_finite() && y.is_finite()) {
+                drawing = false; // a gap starts a new subpath
+                continue;
+            }
+            data.push(if drawing { 'L' } else { 'M' });
+            push_number(&mut data, x);
+            data.push(' ');
+            push_number(&mut data, y);
+            drawing = true;
+        }
+        if data.is_empty() {
+            return;
+        }
+        if path.closed {
+            data.push('Z');
+        }
+        self.raw("<path");
+        self.attribute("d", &data);
+        self.fill(if path.closed { path.fill } else { None });
+        self.stroke(path.stroke.as_ref());
+        self.raw("/>\n");
+    }
+
+    fn rects(&mut self, rects: &Rects) {
+        if rects.rects.is_empty() || !rects.is_consistent() {
+            return;
+        }
+        self.raw("<g");
+        if let PerItem::Uniform(fill) = rects.fill {
+            self.fill(fill);
+        }
+        self.stroke(rects.stroke.as_ref());
+        self.raw(">\n");
+        for (index, rect) in rects.rects.iter().enumerate() {
+            let values = [rect.x, rect.y, rect.width, rect.height];
+            if !values.iter().all(|value| value.is_finite()) {
+                continue;
+            }
+            self.rect_element(rect);
+            if let PerItem::Varying(fills) = &rects.fill {
+                self.fill(fills[index]);
+            }
+            self.raw("/>\n");
+        }
+        self.raw("</g>\n");
+    }
+
+    fn text(&mut self, text: &Text) {
+        if !(text.x.is_finite() && text.y.is_finite() && text.size.is_finite()) {
+            return;
+        }
+        let metrics = measure("", text.size, text.face);
+        let baseline_offset = match text.vertical {
+            VerticalAlign::Top => metrics.ascent,
+            VerticalAlign::Middle => (metrics.ascent - metrics.descent) / 2.0,
+            VerticalAlign::Baseline => 0.0,
+            VerticalAlign::Bottom => -metrics.descent,
+        };
+        self.raw("<text");
+        self.attribute_number("x", text.x);
+        self.attribute_number("y", text.y + baseline_offset);
+        self.attribute_number("font-size", text.size);
+        if text.face.is_bold() {
+            self.raw(" font-weight=\"bold\"");
+        }
+        if text.face.is_italic() {
+            self.raw(" font-style=\"italic\"");
+        }
+        self.fill(Some(text.color));
+        match text.horizontal {
+            HorizontalAlign::Start => {}
+            HorizontalAlign::Middle => self.raw(" text-anchor=\"middle\""),
+            HorizontalAlign::End => self.raw(" text-anchor=\"end\""),
+        }
+        if text.angle != 0.0 && text.angle.is_finite() {
+            // SVG rotates clockwise; the scene angle is counter-clockwise.
+            self.raw(" transform=\"rotate(");
+            self.number(-text.angle);
+            self.raw(" ");
+            self.number(text.x);
+            self.raw(" ");
+            self.number(text.y);
+            self.raw(")\"");
+        }
+        self.raw(">");
+        escape_into(&mut self.output, &text.content);
+        self.raw("</text>\n");
+    }
+
+    fn rect_element(&mut self, rect: &Rect) {
+        self.raw("<rect");
+        self.attribute_number("x", rect.x);
+        self.attribute_number("y", rect.y);
+        self.attribute_number("width", rect.width.max(0.0));
+        self.attribute_number("height", rect.height.max(0.0));
+    }
+
+    fn polygon_element(&mut self, vertices: &[(f64, f64)]) {
+        self.raw("<path d=\"");
+        for (index, &(x, y)) in vertices.iter().enumerate() {
+            self.raw(if index == 0 { "M" } else { "L" });
+            self.number(x);
+            self.raw(" ");
+            self.number(y);
+        }
+        self.raw("Z\"");
+    }
+
+    fn fill(&mut self, fill: Option<Color>) {
+        self.paint("fill", fill);
+    }
+
+    fn stroke_color(&mut self, stroke: Option<Color>) {
+        self.paint("stroke", stroke);
+    }
+
+    fn stroke(&mut self, stroke: Option<&Stroke>) {
+        let Some(stroke) = stroke else {
+            self.raw(" stroke=\"none\"");
+            return;
+        };
+        self.paint("stroke", Some(stroke.color));
+        self.attribute_number("stroke-width", stroke.width);
+        if !stroke.dash.is_empty() {
+            let mut pattern = String::new();
+            for (index, &length) in stroke.dash.iter().enumerate() {
+                if index > 0 {
+                    pattern.push(' ');
+                }
+                push_number(&mut pattern, length);
+            }
+            self.attribute("stroke-dasharray", &pattern);
+        }
+    }
+
+    /// `fill`/`stroke` plus `*-opacity` when translucent; `none` when absent.
+    fn paint(&mut self, name: &str, color: Option<Color>) {
+        match color {
+            Some(color) if !color.is_transparent() => {
+                self.attribute(name, &color.to_string());
+                if !color.is_opaque() {
+                    self.attribute_number(&format!("{name}-opacity"), color.opacity());
+                }
+            }
+            _ => self.attribute(name, "none"),
+        }
+    }
+
+    fn attribute(&mut self, name: &str, value: &str) {
+        self.output.push(' ');
+        self.output.push_str(name);
+        self.output.push_str("=\"");
+        escape_into(&mut self.output, value);
+        self.output.push('"');
+    }
+
+    fn attribute_number(&mut self, name: &str, value: f64) {
+        self.output.push(' ');
+        self.output.push_str(name);
+        self.output.push_str("=\"");
+        push_number(&mut self.output, value);
+        self.output.push('"');
+    }
+
+    fn number(&mut self, value: f64) {
+        push_number(&mut self.output, value);
+    }
+
+    fn raw(&mut self, text: &str) {
+        self.output.push_str(text);
+    }
+}
+
+/// Append `value` rounded to 2 decimals, without trailing zeros (`1.5`, `-3`, `0.25`).
+fn push_number(output: &mut String, value: f64) {
+    let scaled = (value * 100.0).round();
+    if !scaled.is_finite() {
+        output.push('0');
+        return;
+    }
+    let scaled = scaled as i64;
+    if scaled < 0 {
+        output.push('-');
+    }
+    let magnitude = scaled.unsigned_abs();
+    let _ = write!(output, "{}", magnitude / 100);
+    let fraction = magnitude % 100;
+    if fraction != 0 {
+        if fraction % 10 == 0 {
+            let _ = write!(output, ".{}", fraction / 10);
+        } else {
+            let _ = write!(output, ".{fraction:02}");
+        }
+    }
+}
+
+/// Append `text` with XML special characters escaped.
+fn escape_into(output: &mut String, text: &str) {
+    for character in text.chars() {
+        match character {
+            '&' => output.push_str("&amp;"),
+            '<' => output.push_str("&lt;"),
+            '>' => output.push_str("&gt;"),
+            '"' => output.push_str("&quot;"),
+            '\'' => output.push_str("&#39;"),
+            // XML 1.0 forbids most control characters, even escaped.
+            control if control.is_control() && !matches!(control, '\t' | '\n' | '\r') => {}
+            other => output.push(other),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn number(value: f64) -> String {
+        let mut output = String::new();
+        push_number(&mut output, value);
+        output
+    }
+
+    #[test]
+    fn numbers_are_compact() {
+        assert_eq!(number(1.0), "1");
+        assert_eq!(number(1.5), "1.5");
+        assert_eq!(number(0.25), "0.25");
+        assert_eq!(number(0.054), "0.05");
+        assert_eq!(number(-3.0), "-3");
+        assert_eq!(number(-0.001), "0");
+        assert_eq!(number(-0.25), "-0.25");
+        assert_eq!(number(f64::NAN), "0");
+        assert_eq!(number(1234.567), "1234.57");
+    }
+
+    #[test]
+    fn text_is_escaped() {
+        let mut output = String::new();
+        escape_into(&mut output, "a<b & \"c\" 'd'\u{1}");
+        assert_eq!(output, "a&lt;b &amp; &quot;c&quot; &#39;d&#39;");
+    }
+}

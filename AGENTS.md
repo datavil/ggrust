@@ -43,6 +43,8 @@ ggrust is a grammar-of-graphics plotting engine **written in Rust, used from Pyt
 9. **Commit each significant step on `main`.** Run `cargo fmt --all` (and `ruff format`,
    `ruff check --fix` for Python) before every commit. Tests must pass at each commit.
 10. Mindset of an industry lead: elegant yet robust. Robustness over flexibility.
+11. **Share progress visually.** At each visual milestone, send the user a rendered PNG
+    (after inspecting it yourself) so they can follow along.
 
 ## Naming and style
 
@@ -103,8 +105,9 @@ editing many unrelated files, the foundation is wrong: stop and tell the user.
 - Small files, one concept each. No hidden global state.
 - `make check` runs everything an agent needs: fmt, clippy, cargo test,
   pytest, visual tests. Keep it fast and green.
-- Golden images live in `tests/visual/golden/`. Update them only on purpose, and say so
-  in the commit message.
+- Golden files live next to the tests that own them (`crates/ggrust-core/tests/golden/`,
+  `tests/visual/golden/`). Update them only on purpose (`GGRUST_BLESS=1`), and say so in
+  the commit message. Rendered outputs for inspection go to `tests/visual/output/` (ignored).
 
 ## Workflow per step
 

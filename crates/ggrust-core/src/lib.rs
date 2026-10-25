@@ -5,7 +5,10 @@
 
 pub mod data;
 pub mod error;
+pub mod render;
+pub mod scene;
 pub mod spec;
+pub mod text;
 
 pub use error::{Error, Result};
 

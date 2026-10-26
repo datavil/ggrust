@@ -10,6 +10,18 @@ use crate::scene::{Color, HorizontalAlign, Node, Path, PerItem, Rect, Rects, Str
 use crate::text::{measure, measure_label};
 use crate::theme::Theme;
 
+/// Lines of a colorbar label: split at newlines (lets-plot does not wrap these).
+fn label_lines(label: &Label) -> Vec<Label> {
+    if label.superscript.is_some() || !label.text.contains('\n') {
+        return vec![label.clone()];
+    }
+    label
+        .text
+        .split('\n')
+        .map(|line| Label::plain(line.trim()))
+        .collect()
+}
+
 /// lets-plot `ColorBarComponentSpec.DEF_NUM_BIN`.
 pub const DEFAULT_BINS: usize = 20;
 /// lets-plot `ColorBarComponentLayout.barLengthExpand`: pixels at each bar end kept
@@ -64,18 +76,23 @@ pub(super) fn layout_colorbar(
     theme: &Theme,
 ) -> ColorbarLayout {
     let (label_height, label_gap, label_width) = match theme.legend_text {
-        // lets-plot sizes the bar by its text height estimate (the font size), not
-        // the line box: this keeps bar lengths identical.
+        // lets-plot sizes the bar by its text height estimate (lines x font size),
+        // not the line box: this keeps bar lengths identical.
         Some(style) => (
-            style.size,
+            colorbar
+                .breaks
+                .iter()
+                .map(|(_, label)| label_lines(label).len() as f64 * style.size)
+                .fold(0.0, f64::max),
             measure("_", style.size, style.face).width / 2.0,
             colorbar
                 .breaks
                 .iter()
-                .map(|(_, label)| {
+                .flat_map(|(_, label)| label_lines(label))
+                .map(|line| {
                     measure_label(
-                        &label.text,
-                        label.superscript.as_deref(),
+                        &line.text,
+                        line.superscript.as_deref(),
                         style.size,
                         style.face,
                     )
@@ -163,14 +180,20 @@ pub(super) fn draw_colorbar(
         }
     }
     if let Some(style) = theme.legend_text {
+        let band = super::text_band(style);
         for ((_, anchor), (_, label)) in layout.ticks.iter().zip(&colorbar.breaks) {
-            nodes.push(label_node(
-                label,
-                style,
-                *anchor,
-                HorizontalAlign::Start,
-                0.0,
-            ));
+            // Lines centred as a block on the tick.
+            let lines = label_lines(label);
+            let first = anchor.1 - band * (lines.len() as f64 - 1.0) / 2.0;
+            for (index, line) in lines.iter().enumerate() {
+                nodes.push(label_node(
+                    line,
+                    style,
+                    (anchor.0, first + band * index as f64),
+                    HorizontalAlign::Start,
+                    0.0,
+                ));
+            }
         }
     }
     nodes

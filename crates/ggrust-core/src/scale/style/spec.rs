@@ -112,7 +112,7 @@ fn report_unbuilt(scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
             scale
                 .guide
                 .as_ref()
-                .is_some_and(|guide| !matches!(guide, GuideSpec::Name(name) if matches!(name.as_str(), "none" | "legend" | "colorbar"))),
+                .is_some_and(|guide| !guide.is_built_style_guide()),
         ),
         ("trans", scale.trans.is_some()),
         ("expand", scale.expand.is_some()),
@@ -188,14 +188,11 @@ impl StyleScaleSpec {
         Ok(default)
     }
 
-    /// The scale's own `guide`, if given.
-    pub fn guide(&self) -> Option<&GuideSpec> {
-        self.guide.as_ref().map(|(guide, _)| guide)
-    }
-
-    /// `guide="none"` on the scale hides its legend.
-    pub fn hides_legend(&self) -> bool {
-        matches!(&self.guide, Some((GuideSpec::Name(name), _)) if name == "none")
+    /// The scale's own `guide` and its path, if given.
+    pub fn guide_with_path(&self) -> Option<(&GuideSpec, &str)> {
+        self.guide
+            .as_ref()
+            .map(|(guide, path)| (guide, path.as_str()))
     }
 
     /// `breaks`, `limits` and `labels` for a discrete scale.
@@ -369,15 +366,24 @@ impl StyleScaleSpec {
                         )))
                     }
                 };
-                Arc::new(ColormapMapper {
+                // lets-plot `DoubleSpan(begin, end)`: the ends are sorted.
+                let (begin, end) = (fraction("begin", 0.0)?, fraction("end", 1.0)?);
+                let mapper = ColormapMapper {
                     table: table.unwrap_or_default(),
                     opacity: fraction("alpha", 1.0)?,
-                    range: (fraction("begin", 0.0)?, fraction("end", 1.0)?),
+                    range: (begin.min(end), begin.max(end)),
                     reversed: self
                         .number("direction")?
                         .is_some_and(|direction| direction < 0.0),
                     na,
-                })
+                };
+                if mapper.stop_count() < 2 {
+                    return Err(Error::InvalidSpec(format!(
+                        "at '{path}': begin ({begin}) and end ({end}) select a single color of \
+                         the map; widen the range"
+                    )));
+                }
+                Arc::new(mapper)
             }
             _ => return Ok(None),
         };

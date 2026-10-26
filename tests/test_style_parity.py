@@ -112,6 +112,12 @@ CASES = {
     ),
     "viridis_continuous": lambda m: scatter(m, color="vna") + m.scale_color_viridis(),
     "viridis_discrete_one": lambda m: scatter(m, color="one") + m.scale_color_viridis(option="B"),
+    "viridis_begin_after_end": lambda m: (
+        scatter(m, color="v") + m.scale_color_viridis(begin=0.8, end=0.2)
+    ),
+    "viridis_begin_after_end_discrete": lambda m: (
+        scatter(m, color="c3") + m.scale_color_viridis(begin=0.8, end=0.2, direction=-1)
+    ),
     "viridis_limits_na": lambda m: (
         scatter(m, color="v") + m.scale_color_viridis(limits=[2, 6], na_value="red")
     ),

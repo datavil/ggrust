@@ -472,4 +472,4 @@ def _continuous(aesthetic, options: dict) -> FeatureSpec:
     kwargs = options.pop("kwargs")
     if options["scale_mapper_kind"] is None:
         options["scale_mapper_kind"] = "color_gradient"
-    return _scale(aesthetic, **options, expand=None, **kwargs)
+    return _scale(aesthetic, **options, expand=kwargs.pop("expand", None), **kwargs)

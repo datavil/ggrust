@@ -36,3 +36,8 @@ Kotlin sources: `plot-builder/.../assemble/LegendAssembler.kt`, `PlotAssemblerUt
   a different one is titled "name (aes)".
 - Continuous style limits: domain = data range within limits, widened to the limits;
   values outside -> NA. Colormap tables are generated from lets-plot's `Cm*.kt`.
+- Guides of an aesthetic: `guides(...)` first, then the scale's own `guide` (title, name,
+  colorbar options). A colorbar asked for on a non-continuous-color scale is an error, as
+  in lets-plot's `checkFitsColorBar`. Colorbar labels split at newlines; the bar grows by
+  lines x font size.
+- viridis `begin`/`end` are sorted (`DoubleSpan`).

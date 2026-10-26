@@ -2,7 +2,7 @@
 
 from ggrust.plot.core import aes, layer
 from ggrust.plot.geom import geom_point
-from ggrust.plot.guide import guides
+from ggrust.plot.guide import guide_colorbar, guide_legend, guides
 from ggrust.plot.label import ggtitle, labs, xlab, ylab
 from ggrust.plot.plot import ggplot, ggsize
 from ggrust.plot.scale import (
@@ -46,6 +46,8 @@ __all__ = [
     "ggplot",
     "ggsize",
     "ggtitle",
+    "guide_colorbar",
+    "guide_legend",
     "guides",
     "labs",
     "layer",

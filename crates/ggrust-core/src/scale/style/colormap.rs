@@ -43,6 +43,11 @@ pub struct ColormapMapper {
 }
 
 impl ColormapMapper {
+    /// How many table colors the `begin..end` range spans (a gradient needs 2).
+    pub fn stop_count(&self) -> usize {
+        self.colors(None).len()
+    }
+
     /// lets-plot `ColorMaps.getColors` (+ reversal): the whole cut range, or `n`.
     fn colors(&self, n: Option<usize>) -> Vec<Color> {
         let max_index = (self.table.len() - 1) as f64;

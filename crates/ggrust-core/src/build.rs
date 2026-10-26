@@ -947,23 +947,35 @@ fn assemble_legends(
             let Some(scale) = scales.get(&aesthetic) else {
                 continue;
             };
-            let hidden_by_scale = specs
-                .get(&aesthetic)
-                .is_some_and(StyleScaleSpec::hides_legend);
-            if legend_hidden(spec, aesthetic) || hidden_by_scale {
+            let guides = Guides::of(spec, aesthetic, specs.get(&aesthetic));
+            if guides.hidden() {
                 continue;
             }
-            let title = legend_title(spec, aesthetic, specs.get(&aesthetic));
+            let title = guides
+                .title()
+                .unwrap_or_else(|| legend_title(spec, aesthetic, specs.get(&aesthetic)));
+            let fits_colorbar = scale.continuous_guide().is_some()
+                && matches!(aesthetic, Aesthetic::Color | Aesthetic::Fill);
+            if guides.named("colorbar") && !fits_colorbar {
+                // lets-plot `checkFitsColorBar`.
+                return Err(Error::InvalidSpec(format!(
+                    "at 'guides.{aesthetic}': a colorbar needs a continuous color or fill \
+                     scale; '{aesthetic}' is {}",
+                    if scale.is_discrete() {
+                        "discrete"
+                    } else {
+                        "not a color"
+                    }
+                )));
+            }
             // lets-plot `fitsColorBar`: continuous colors get a colorbar unless a
             // legend is asked for.
             if let Some(guide) = scale.continuous_guide()
-                && matches!(aesthetic, Aesthetic::Color | Aesthetic::Fill)
-                && !legend_requested(spec, aesthetic, specs.get(&aesthetic))
+                && fits_colorbar
+                && !guides.named("legend")
             {
-                let options = colorbar_options(spec, aesthetic);
-                let bins = options
-                    .and_then(|options| options.nbin)
-                    .map_or(DEFAULT_BINS, |bins| bins as usize);
+                let options = guides.colorbar_options(aesthetic)?;
+                let bins = options.bins;
                 let StyleValues::Colors(colors) =
                     scale.map_numbers(&Colorbar::bin_values(guide.domain, bins))
                 else {
@@ -975,17 +987,27 @@ fn assemble_legends(
                     domain: guide.domain,
                     breaks: guide.breaks,
                     colors,
-                    bar_width: options.and_then(|options| options.barwidth),
-                    bar_height: options.and_then(|options| options.barheight),
+                    bar_width: options.bar_width,
+                    bar_height: options.bar_height,
                 };
                 // lets-plot: an equal colorbar under the same title is shown once; a
-                // different one gets "title (aesthetic)".
+                // different one gets "title (aesthetic)", which replaces an earlier
+                // one of that name (a map keyed by title).
                 match colorbars.iter().find(|known| known.title == colorbar.title) {
                     Some(known) if same_colorbar(known, &colorbar) => {}
-                    Some(_) => colorbars.push(Colorbar {
-                        title: format!("{} ({aesthetic})", colorbar.title),
-                        ..colorbar
-                    }),
+                    Some(_) => {
+                        let renamed = Colorbar {
+                            title: format!("{} ({aesthetic})", colorbar.title),
+                            ..colorbar
+                        };
+                        match colorbars
+                            .iter_mut()
+                            .find(|known| known.title == renamed.title)
+                        {
+                            Some(known) => *known = renamed,
+                            None => colorbars.push(renamed),
+                        }
+                    }
                     None => colorbars.push(colorbar),
                 }
                 continue;
@@ -1053,25 +1075,101 @@ fn assemble_legends(
 }
 
 fn same_colorbar(left: &Colorbar, right: &Colorbar) -> bool {
-    left.domain == right.domain && left.breaks == right.breaks && left.colors == right.colors
+    left.domain == right.domain
+        && left.breaks == right.breaks
+        && left.colors == right.colors
+        && left.bar_width == right.bar_width
+        && left.bar_height == right.bar_height
 }
 
-/// `guide_colorbar(...)` options of an aesthetic, if any.
-fn colorbar_options(spec: &PlotSpec, aesthetic: Aesthetic) -> Option<&GuideOptions> {
-    match spec.guides.get(aesthetic.as_str()) {
-        Some(GuideSpec::Full(options)) => Some(options),
-        _ => None,
+/// lets-plot has no limit; this keeps a typo from allocating billions of segments.
+const MAX_COLORBAR_BINS: u32 = 10_000;
+
+/// Resolved `guide_colorbar()` options.
+struct ColorbarOptions {
+    bins: usize,
+    bar_width: Option<f64>,
+    bar_height: Option<f64>,
+}
+
+/// The guides of one aesthetic: `guides(...)` first, then the scale's own `guide`.
+struct Guides<'a> {
+    entries: Vec<(&'a GuideSpec, String)>,
+}
+
+impl<'a> Guides<'a> {
+    fn of(spec: &'a PlotSpec, aesthetic: Aesthetic, scale: Option<&'a StyleScaleSpec>) -> Self {
+        let mut entries = Vec::new();
+        if let Some(guide) = spec.guides.get(aesthetic.as_str()) {
+            entries.push((guide, format!("guides.{aesthetic}")));
+        }
+        if let Some((guide, path)) = scale.and_then(StyleScaleSpec::guide_with_path) {
+            entries.push((guide, path.to_owned()));
+        }
+        Guides { entries }
     }
-}
 
-/// `guides(color="legend")`, `guide_legend()` or a scale's `guide="legend"`.
-fn legend_requested(spec: &PlotSpec, aesthetic: Aesthetic, scale: Option<&StyleScaleSpec>) -> bool {
-    let is_legend = |guide: &GuideSpec| match guide {
-        GuideSpec::Name(name) => name == "legend",
-        GuideSpec::Full(options) => options.name.as_deref() == Some("legend"),
-    };
-    spec.guides.get(aesthetic.as_str()).is_some_and(is_legend)
-        || scale.and_then(StyleScaleSpec::guide).is_some_and(is_legend)
+    /// `"none"` anywhere hides the legend.
+    fn hidden(&self) -> bool {
+        self.entries
+            .iter()
+            .any(|(guide, _)| matches!(guide, GuideSpec::Name(name) if name == "none"))
+    }
+
+    /// Whether the first guide with a name (`"legend"`, `guide_colorbar()`, ...) is `name`.
+    fn named(&self, name: &str) -> bool {
+        let named = self.entries.iter().find_map(|(guide, _)| match guide {
+            GuideSpec::Name(given) => Some(given.as_str()),
+            GuideSpec::Full(options) => options.name.as_deref(),
+        });
+        named == Some(name)
+    }
+
+    fn options(&self) -> impl Iterator<Item = (&'a GuideOptions, &str)> {
+        self.entries.iter().filter_map(|(guide, path)| match guide {
+            GuideSpec::Full(options) => Some((&**options, path.as_str())),
+            GuideSpec::Name(_) => None,
+        })
+    }
+
+    fn title(&self) -> Option<String> {
+        self.options()
+            .find_map(|(options, _)| options.title.clone())
+    }
+
+    /// `barwidth`, `barheight`, `nbin`: the first given of each, validated.
+    fn colorbar_options(&self, aesthetic: Aesthetic) -> Result<ColorbarOptions> {
+        let size = |pick: fn(&GuideOptions) -> Option<f64>, key: &str| -> Result<Option<f64>> {
+            match self
+                .options()
+                .find_map(|(options, path)| Some((pick(options)?, path)))
+            {
+                None => Ok(None),
+                Some((value, _)) if value.is_finite() && value > 0.0 => Ok(Some(value)),
+                Some((value, path)) => Err(Error::InvalidSpec(format!(
+                    "at '{path}.{key}': expected a positive size in pixels, got {value}"
+                ))),
+            }
+        };
+        let bins = match self
+            .options()
+            .find_map(|(options, path)| Some((options.nbin?, path)))
+        {
+            None => DEFAULT_BINS,
+            Some((bins, _)) if bins <= MAX_COLORBAR_BINS => bins as usize,
+            Some((bins, path)) => {
+                return Err(Error::InvalidSpec(format!(
+                    "at '{path}.nbin': at most {MAX_COLORBAR_BINS} bins, got {bins} \
+                     ('{aesthetic}' colorbar)"
+                )));
+            }
+        };
+        Ok(ColorbarOptions {
+            bins,
+            bar_width: size(|options| options.barwidth, "barwidth")?,
+            bar_height: size(|options| options.barheight, "barheight")?,
+        })
+    }
 }
 
 /// One-item styles of a legend key: the legend's values, else the layer's constant
@@ -1110,20 +1208,11 @@ fn key_styles(layer: &PreparedLayer, values: &[(Aesthetic, &StyleValues)]) -> Re
     Ok(styles)
 }
 
-/// `guides(color="none")` hides the legend of an aesthetic.
-fn legend_hidden(spec: &PlotSpec, aesthetic: Aesthetic) -> bool {
-    matches!(spec.guides.get(aesthetic.as_str()), Some(GuideSpec::Name(name)) if name == "none")
-}
-
-/// Legend title: `labs()` / guide title, then the scale `name`, then lets-plot's
-/// default scale name.
+/// Legend title without a guide title: the scale `name`, then lets-plot's default
+/// scale name.
 fn legend_title(spec: &PlotSpec, aesthetic: Aesthetic, scale: Option<&StyleScaleSpec>) -> String {
-    let from_guide = match spec.guides.get(aesthetic.as_str()) {
-        Some(GuideSpec::Full(options)) => options.title.clone(),
-        _ => None,
-    };
-    from_guide
-        .or_else(|| scale.and_then(|scale| scale.name.clone()))
+    scale
+        .and_then(|scale| scale.name.clone())
         .unwrap_or_else(|| default_scale_name(spec, aesthetic))
 }
 
@@ -1230,28 +1319,7 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
         let is_style = key
             .parse::<Aesthetic>()
             .is_ok_and(|aesthetic| default_mapper(aesthetic).is_some());
-        let built = is_axis_title_only(key, guide)
-            || (is_style
-                && match guide {
-                    GuideSpec::Name(name) => {
-                        matches!(name.as_str(), "none" | "legend" | "colorbar")
-                    }
-                    // `guide_legend(title=...)`, `guide_colorbar(title=..., barwidth=...,
-                    // barheight=..., nbin=...)` without other options.
-                    GuideSpec::Full(options) => {
-                        let colorbar = options.name.as_deref() == Some("colorbar");
-                        is_title_only(&GuideOptions {
-                            name: options
-                                .name
-                                .clone()
-                                .filter(|name| name != "legend" && name != "colorbar"),
-                            barwidth: options.barwidth.filter(|_| !colorbar),
-                            barheight: options.barheight.filter(|_| !colorbar),
-                            nbin: options.nbin.filter(|_| !colorbar),
-                            ..(**options).clone()
-                        })
-                    }
-                });
+        let built = is_axis_title_only(key, guide) || (is_style && guide.is_built_style_guide());
         if !built {
             warnings.push(format!(
                 "at 'guides.{key}': this guide option is not supported yet; ignored"

@@ -110,6 +110,16 @@ CASES = {
         + m.geom_point(m.aes(color="v"))
         + m.geom_point(m.aes(color="e"), size=1)
     ),
+    "multiline_labels": lambda m: (
+        point(m, color="v")
+        + m.scale_color_gradient(breaks=[-6, -3, 0, 3], labels=["a\nb", "c\nd", "e\nf", "g\nh"])
+    ),
+    "scale_guide_options": lambda m: (
+        point(m, color="e") + m.scale_color_gradient(guide=m.guide_colorbar(nbin=3, title="E"))
+    ),
+    "guide_colorbar_function": lambda m: (
+        point(m, color="e") + m.guides(color=m.guide_colorbar(barheight=200, nbin=6))
+    ),
     "colorbar_and_legend": lambda m: point(m, color="v", size="c"),
 }
 

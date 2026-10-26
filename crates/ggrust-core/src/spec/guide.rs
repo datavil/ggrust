@@ -14,6 +14,33 @@ pub enum GuideSpec {
     Full(Box<GuideOptions>),
 }
 
+impl GuideSpec {
+    /// Whether a style aesthetic's guide uses only options ggrust draws: `"none"`,
+    /// `"legend"`, `"colorbar"`, a title, and `guide_colorbar(barwidth, barheight,
+    /// nbin)`. Anything else (`ncol`, `override_aes`, ...) is not built yet.
+    pub fn is_built_style_guide(&self) -> bool {
+        match self {
+            GuideSpec::Name(name) => matches!(name.as_str(), "none" | "legend" | "colorbar"),
+            GuideSpec::Full(options) => {
+                let colorbar = options.name.as_deref() == Some("colorbar");
+                let rest = GuideOptions {
+                    name: options
+                        .name
+                        .clone()
+                        .filter(|name| name != "legend" && name != "colorbar"),
+                    title: None,
+                    barwidth: options.barwidth.filter(|_| !colorbar),
+                    barheight: options.barheight.filter(|_| !colorbar),
+                    nbin: options.nbin.filter(|_| !colorbar),
+                    unsupported: Default::default(),
+                    ..(**options).clone()
+                };
+                rest == GuideOptions::default()
+            }
+        }
+    }
+}
+
 /// Options of a legend or colorbar guide.
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
 #[serde(default)]

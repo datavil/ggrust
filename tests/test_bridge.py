@@ -76,3 +76,12 @@ def test_shared_frame_renders_like_separate_frames():
 
     # SVG ids are a hash of the content, so equal plots give equal bytes.
     assert shared.to_svg() == separate.to_svg()
+
+
+def test_continuous_color_scales_take_expand_like_lets_plot():
+    import lets_plot as lp
+
+    for aesthetic in ("color", "fill"):
+        ours = getattr(gg, f"scale_{aesthetic}_continuous")(expand=[0, 0], low="red")
+        theirs = getattr(lp, f"scale_{aesthetic}_continuous")(expand=[0, 0], low="red")
+        assert ours.as_dict() == theirs.as_dict()

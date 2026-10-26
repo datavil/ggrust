@@ -1272,27 +1272,33 @@ impl<'a> Guides<'a> {
         Ok(parsed)
     }
 
-    /// `barwidth`, `barheight`, `nbin`: the first given of each, validated.
+    /// `guide_colorbar(barwidth, barheight, nbin)`, validated. As lets-plot
+    /// (`GuideOptionsList.getColorBarOptions`), one colorbar guide gives all of them:
+    /// `guides()` over the scale's own guide, never mixed.
     fn colorbar_options(&self, aesthetic: Aesthetic) -> Result<ColorbarOptions> {
-        let size = |pick: fn(&GuideOptions) -> Option<f64>, key: &str| -> Result<Option<f64>> {
-            match self
-                .options()
-                .find_map(|(options, path)| Some((pick(options)?, path)))
-            {
+        let Some((options, path)) = self
+            .options()
+            .find(|(options, _)| options.name.as_deref() == Some("colorbar"))
+        else {
+            return Ok(ColorbarOptions {
+                bins: DEFAULT_BINS,
+                bar_width: None,
+                bar_height: None,
+            });
+        };
+        let size = |value: Option<f64>, key: &str| -> Result<Option<f64>> {
+            match value {
                 None => Ok(None),
-                Some((value, _)) if value.is_finite() && value > 0.0 => Ok(Some(value)),
-                Some((value, path)) => Err(Error::InvalidSpec(format!(
+                Some(value) if value.is_finite() && value > 0.0 => Ok(Some(value)),
+                Some(value) => Err(Error::InvalidSpec(format!(
                     "at '{path}.{key}': expected a positive size in pixels, got {value}"
                 ))),
             }
         };
-        let bins = match self
-            .options()
-            .find_map(|(options, path)| Some((options.nbin?, path)))
-        {
+        let bins = match options.nbin {
             None => DEFAULT_BINS,
-            Some((bins, _)) if bins <= MAX_COLORBAR_BINS => bins as usize,
-            Some((bins, path)) => {
+            Some(bins) if bins <= MAX_COLORBAR_BINS => bins as usize,
+            Some(bins) => {
                 return Err(Error::InvalidSpec(format!(
                     "at '{path}.nbin': at most {MAX_COLORBAR_BINS} bins, got {bins} \
                      ('{aesthetic}' colorbar)"
@@ -1301,8 +1307,8 @@ impl<'a> Guides<'a> {
         };
         Ok(ColorbarOptions {
             bins,
-            bar_width: size(|options| options.barwidth, "barwidth")?,
-            bar_height: size(|options| options.barheight, "barheight")?,
+            bar_width: size(options.barwidth, "barwidth")?,
+            bar_height: size(options.barheight, "barheight")?,
         })
     }
 }

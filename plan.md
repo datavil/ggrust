@@ -100,10 +100,7 @@ Steps inside a phase are ordered; each builds on the previous.
 - [x] 1.3 `scale_*_brewer` palettes (all ColorBrewer sets lets-plot ships). (All 35 schemes; `type`, palette name or index, `direction`, `overflow`; quantized on continuous data.)
 - [x] 1.4 `theme()` + `element_*`, `theme_classic`, `theme_bw`, `theme_void`; `legend_position` (right, bottom, none, inside), horizontal legends; `guides`/`guide_legend` (ncol, override_aes).
   (1.4a done: themes, `theme()`, `element_*`. 1.4b done: `legend_position` (right, left, top, bottom, none, inside), `legend_justification`, `legend_direction` (horizontal keys and colorbars), `legend_box`, `legend_box_just`, `guide_legend(ncol, nrow, byrow)`. 1.4c done: `override_aes` (values per key, lists padded, merged per legend). Known gap: overrides of aesthetics a geom does not draw yet (shape on points until 1.5) are ignored, as lets-plot ignores aesthetics a key does not use.)
-  - Open findings (bug hunt 1.4b, pre-existing, to decide with the user):
-    - Multi-line legend titles (`labs(color="a\nb")`) are drawn and measured as one line; lets-plot draws two.
-    - `guide_colorbar` options merge field by field across the scale guide and `guides()`; lets-plot takes the last whole colorbar options (`guides()` wins).
-    - Plot title, subtitle and axis titles are drawn inside `plot_inset`; lets-plot keeps them outside it (only visible with a non-default inset).
+  - Bug hunt 1.4b pre-existing findings, fixed: multi-line legend titles, colorbar options taken whole from one guide (`guides()` first), titles kept outside `plot_inset`.
 - [ ] 1.5 `scale_size`, point shapes, alpha, stroke; `coord_fixed`, `coord_cartesian` limits; `scale_x/y_continuous` (limits, breaks, labels, expand, format), `scale_y_reverse`, `scale_y_log2`/`log10`.
 - [ ] 1.6 `geom_text`, `geom_label`, `geom_path`, `geom_segment` (+ `arrow`), `geom_polygon`, `geom_vline`/`hline`, `geom_line`, `geom_blank`.
 - [ ] 1.7 Port check: cellestial dimensional/scatter tests pass on ggrust (compat shim in a branch of cellestial, not edited on main without asking).

@@ -137,7 +137,7 @@ impl LegendBox {
 /// A box measured for drawing; positions relative to its box origin.
 struct MeasuredLegend<'a> {
     title: &'a str,
-    /// Title anchor (left end, vertical middle).
+    /// Top-left corner of the title's first line.
     title_anchor: (f64, f64),
     size: (f64, f64),
     content: Measured<'a>,
@@ -157,13 +157,24 @@ pub struct LegendBlock<'a> {
     pub size: (f64, f64),
 }
 
+/// Title lines: split at newlines (lets-plot does not wrap titles).
+fn title_lines(title: &str) -> Vec<&str> {
+    title.split('\n').collect()
+}
+
 /// Title width and height (zero when absent).
 fn title_size(title: &str, theme: &Theme) -> (f64, f64) {
     match theme.legend_title {
-        Some(style) if !title.trim().is_empty() => (
-            measure(title, style.size, style.font).width,
-            text_band(style),
-        ),
+        Some(style) if !title.trim().is_empty() => {
+            let lines = title_lines(title);
+            (
+                lines
+                    .iter()
+                    .map(|line| measure(line, style.size, style.font).width)
+                    .fold(0.0, f64::max),
+                text_band(style) * lines.len() as f64,
+            )
+        }
         _ => (0.0, 0.0),
     }
 }
@@ -188,21 +199,20 @@ fn arrange_title(
         )
     } else {
         // lets-plot `LegendBoxLayout.graphOrigin`: half a title line below the title.
-        let top = if title_height > 0.0 {
-            title_height * 1.5
-        } else {
-            0.0
+        let top = match theme.legend_title {
+            Some(style) if title_height > 0.0 => title_height + text_band(style) / 2.0,
+            _ => 0.0,
         };
         ((0.0, top), (title_width.max(graph.0), top + graph.1))
     };
-    let title_middle = if horizontal {
-        content.1 / 2.0
+    let title_top = if horizontal {
+        (content.1 - title_height) / 2.0
     } else {
-        title_height / 2.0
+        0.0
     };
     (
         (margin.left + graph_origin.0, margin.top + graph_origin.1),
-        (margin.left, margin.top + title_middle),
+        (margin.left, margin.top + title_top),
         (
             margin.left + content.0 + margin.right,
             margin.top + content.1 + margin.bottom,
@@ -506,13 +516,17 @@ pub fn draw_legends(block: &LegendBlock, origin: (f64, f64), theme: &Theme) -> R
         if let Some(style) = theme.legend_title
             && !measured.title.trim().is_empty()
         {
-            legend_nodes.push(text_node(
-                measured.title,
-                style,
-                (x + measured.title_anchor.0, y + measured.title_anchor.1),
-                HorizontalAlign::Start,
-                0.0,
-            ));
+            let band = text_band(style);
+            let (left, top) = (x + measured.title_anchor.0, y + measured.title_anchor.1);
+            for (index, line) in title_lines(measured.title).into_iter().enumerate() {
+                legend_nodes.push(text_node(
+                    line,
+                    style,
+                    (left, top + band * (index as f64 + 0.5)),
+                    HorizontalAlign::Start,
+                    0.0,
+                ));
+            }
         }
         match &measured.content {
             Measured::Colorbar(colorbar, layout) => {

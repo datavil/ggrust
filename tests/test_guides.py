@@ -1,5 +1,6 @@
 """Guide options: what is built, what warns, what is an error."""
 
+import re
 import warnings
 
 import ggrust as gg
@@ -79,3 +80,21 @@ def test_override_aes_values_are_validated(override, message):
     )
     with pytest.raises(ValueError, match=message):
         plot.to_svg()
+
+
+def test_colorbar_options_come_from_one_guide():
+    # lets-plot takes the last colorbar guide whole (guides() over the scale's guide),
+    # it does not mix their fields.
+    def bar_width(plot):
+        pattern = r'<rect x="[\d.]+" y="[\d.]+" width="([\d.]+)" height="23"'
+        widths = re.findall(pattern, plot.to_svg())
+        return max(float(width) for width in widths)
+
+    base = (
+        gg.ggplot(FRAME, gg.aes("x", "y", color="v"))
+        + gg.geom_point()
+        + gg.theme(legend_position="bottom")
+    )
+    scale = gg.scale_color_continuous(guide=gg.guide_colorbar(barwidth=200))
+    assert bar_width(base + scale) == 200
+    assert bar_width(base + scale + gg.guides(color=gg.guide_colorbar(nbin=4))) == 115

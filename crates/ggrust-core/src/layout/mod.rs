@@ -56,7 +56,8 @@ pub struct Titles {
 /// Result of laying out a single-panel plot.
 #[derive(Debug, Clone, PartialEq)]
 pub struct PlotLayout {
-    /// Area inside the plot margin and inset.
+    /// Area inside the plot margin: titles, legends and axis titles go here; the
+    /// inset (`plot_inset`) is kept around the axes and panel only, as in lets-plot.
     pub content: Rect,
     /// The data panel.
     pub panel: Rect,
@@ -121,8 +122,8 @@ fn layout_with(
     labels_height: f64,
     x_breaks: Option<AxisBreaks>,
 ) -> PlotLayout {
-    let outer = theme.plot_margin.plus(theme.plot_inset);
-    let content = shrink(area, outer);
+    let inset = theme.plot_inset;
+    let content = shrink(area, theme.plot_margin);
 
     let top = content.y
         + band(theme.plot_title, &titles.title, 0.0)
@@ -131,7 +132,8 @@ fn layout_with(
             &titles.subtitle,
             theme.plot_subtitle_margin_top,
         )
-        + legend_space.top;
+        + legend_space.top
+        + inset.top;
     let x_axis_band = tick_band(theme.axis_ticks_x, theme)
         + theme
             .axis_text_x
@@ -139,6 +141,7 @@ fn layout_with(
     let bottom = content.y + content.height
         - legend_space.bottom
         - band(theme.axis_title_x, &titles.x, 0.0)
+        - inset.bottom
         - x_axis_band;
     let panel_height = (bottom - top).max(PANEL_MIN_SIZE);
 
@@ -170,8 +173,10 @@ fn layout_with(
     let left = content.x
         + legend_space.left
         + band(theme.axis_title_y, &titles.y, theme.axis_title_spacing)
+        + inset.left
         + y_axis_width;
-    let panel_width = (content.x + content.width - legend_space.right - left).max(PANEL_MIN_SIZE);
+    let panel_width =
+        (content.x + content.width - legend_space.right - inset.right - left).max(PANEL_MIN_SIZE);
 
     // lets-plot lets x labels reach over the y axis on the left (geom area insets).
     let x_breaks = x_breaks.unwrap_or_else(|| {
@@ -235,7 +240,7 @@ pub fn legend_origin(
         LegendPosition::Right | LegendPosition::None => {
             (panel.x + panel.width + inset.right + spacing, along_y)
         }
-        LegendPosition::Left => (layout.content.x - inset.left, along_y),
+        LegendPosition::Left => (layout.content.x, along_y),
         LegendPosition::Top => (along_x, panel.y - layout.legend_space.top - inset.top),
         LegendPosition::Bottom => (
             along_x,
@@ -459,7 +464,7 @@ pub fn draw_axes_and_titles(
     if let (Some(style), Some(title)) = (theme.axis_title_x, present(&titles.x)) {
         // Below the x axis, not at the plot edge: they differ only when the panel is
         // at its minimum size and the axis runs past the plot (lets-plot does the same).
-        let y = bottom + layout.x_axis_band + text_band(style) / 2.0;
+        let y = bottom + layout.x_axis_band + theme.plot_inset.bottom + text_band(style) / 2.0;
         let x = justified_centre(panel.x, panel.width, title, style);
         titles_nodes.push(text_node(
             title,

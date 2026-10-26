@@ -254,3 +254,39 @@ def test_box_justification_applies_across_the_box(theme, expected):
     first = {"start": start[0], "centre": centre(*start), "end": sum(start)}[expected]
     second = {"start": extent[0], "centre": centre(*extent), "end": sum(extent)}[expected]
     assert first == pytest.approx(second, abs=0.01)
+
+
+def test_multi_line_legend_titles_are_drawn_line_by_line():
+    one = (plot(color="c") + gg.labs(color="line1")).to_svg()
+    two = (plot(color="c") + gg.labs(color="line1\nline2")).to_svg()
+    texts = re.findall(rf'<text x="{NUMBER}" y="{NUMBER}"[^>]*>(line\d)</text>', two)
+    assert [text for _, _, text in texts] == ["line1", "line2"]
+    assert float(texts[1][1]) > float(texts[0][1])
+
+    # Vertical legends: the keys sit one more title line below the title's top.
+    def key_gap(svg):
+        title = re.search(rf'<text x="{NUMBER}" y="{NUMBER}"[^>]*>line1</text>', svg).group(2)
+        key = re.search(rf'<text x="{NUMBER}" y="{NUMBER}"[^>]*>b</text>', svg).group(2)
+        return float(key) - float(title)
+
+    line = float(texts[1][1]) - float(texts[0][1])
+    assert key_gap(two) - key_gap(one) == pytest.approx(line, abs=0.01)
+
+
+def test_titles_stay_outside_the_plot_inset():
+    # lets-plot keeps plot and axis titles outside `plot_inset`; only the axes and the
+    # panel move in.
+    def positions(theme):
+        svg = (plot() + gg.labs(title="T", x="X", y="Y") + theme).to_svg()
+        pattern = rf'<text x="{NUMBER}" y="{NUMBER}"[^>]*>([TXY])</text>'
+        texts = {text: (float(x), float(y)) for x, y, text in re.findall(pattern, svg)}
+        return texts, panel(svg)
+
+    (plain, plain_panel), (inset, inset_panel) = (
+        positions(gg.theme()),
+        positions(gg.theme(plot_inset=[10, 20, 30, 40])),
+    )
+    assert inset["T"][1] == pytest.approx(plain["T"][1], abs=0.01)
+    assert inset["X"][1] == pytest.approx(plain["X"][1], abs=0.01)
+    assert inset["Y"][0] == pytest.approx(plain["Y"][0], abs=0.01)
+    assert inset_panel[1] == pytest.approx(plain_panel[1] + 10 - 3, abs=0.01)

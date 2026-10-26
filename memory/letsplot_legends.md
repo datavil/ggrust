@@ -66,3 +66,7 @@ Measured from lets-plot SVGs (`LegendBoxesLayoutUtil`, `PlotLegendsLayoutUtil`, 
   by key *position* in each aesthetic's entries; lists shorter than the keys repeat their
   last value, `None` keeps the scale value, `[]` overrides nothing; an aesthetic the legend
   does not map gets entries for the first aesthetic's labels.
+- Layout order from the outside in (lets-plot `PlotFigureLayouter`, `PlotSvgComponent.addAxisTitle`):
+  plot margin, plot title/subtitle, legends, axis titles, `plot_inset`, axes, panel. The inset
+  never moves titles or legends. Guide options: the scale's guide comes first, `guides()` last;
+  legend counts combine (last wins), colorbar options are the last whole `guide_colorbar`.

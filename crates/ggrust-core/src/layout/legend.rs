@@ -212,7 +212,7 @@ fn arrange_title(
 
 /// Measure the boxes and arrange them (lets-plot `LegendBoxesLayoutUtil`): stacked
 /// and left-justified, or side by side and top-justified with
-/// `legend_box="horizontal"`; `legend_box_just` overrides the justification.
+/// `legend_box="horizontal"`; `legend_box_just` changes the justification.
 /// `None` when there is nothing to show.
 pub fn measure_legends<'a>(
     boxes: &'a [LegendBox],
@@ -230,7 +230,7 @@ pub fn measure_legends<'a>(
         return Ok(None);
     }
     let side_by_side = theme.legend_box_horizontal;
-    let justification = theme.legend_box_just.unwrap_or(0.0);
+    let justification = theme.legend_box_justification();
     let across = |size: (f64, f64)| if side_by_side { size.1 } else { size.0 };
     let thickness = measured
         .iter()

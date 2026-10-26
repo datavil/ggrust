@@ -1202,10 +1202,12 @@ impl<'a> Guides<'a> {
     }
 
     /// `guide_legend(ncol, nrow, byrow)`, combined as lets-plot `LegendOptions.combine`
-    /// does: the last count given wins, `byrow` from any.
+    /// does over the scale's guide, then `guides()`: the last count given wins
+    /// (`guides()` over the scale), `byrow` from any.
     fn legend_grid(&self) -> Result<KeyGrid> {
         let mut grid = KeyGrid::default();
-        for (options, path) in self.options() {
+        let options: Vec<_> = self.options().collect();
+        for (options, path) in options.into_iter().rev() {
             let count = |value: Option<u32>, key: &str| -> Result<Option<usize>> {
                 match value {
                     Some(0) => Err(Error::InvalidSpec(format!(

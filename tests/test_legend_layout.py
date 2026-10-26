@@ -220,3 +220,37 @@ def test_zero_counts_are_rejected(key):
     built = plot(color="k") + gg.guides(color=gg.guide_legend(**{key: 0}))
     with pytest.raises(ValueError, match=rf"guides.color.{key}': expected a positive count"):
         built.to_svg()
+
+
+def test_guides_counts_win_over_the_scale_guide():
+    # lets-plot combines the scale's guide first, then guides(): the last count wins.
+    built = (
+        plot(color="k")
+        + gg.scale_color_hue(guide=gg.guide_legend(ncol=3))
+        + gg.guides(color=gg.guide_legend(ncol=2))
+    )
+    assert label_grid(built.to_svg(), LABELS) == grid_of([[0, 4], [1, 5], [2, 6], [3]])
+
+
+@pytest.mark.parametrize(
+    ("theme", "expected"),
+    [
+        # A stack honours left/right only, a row top/bottom only; other values centre.
+        ({"legend_box_just": "right"}, "end"),
+        ({"legend_box_just": "bottom"}, "centre"),
+        ({"legend_box_just": "top"}, "centre"),
+        ({"legend_box": "horizontal", "legend_box_just": "bottom"}, "end"),
+        ({"legend_box": "horizontal", "legend_box_just": "left"}, "centre"),
+        ({"legend_box": "horizontal"}, "start"),
+    ],
+)
+def test_box_justification_applies_across_the_box(theme, expected):
+    svg = (plot(color="v", size="c") + gg.theme(**theme)).to_svg()
+    (x1, y1, w1, h1), (x2, y2, w2, h2) = legend_boxes(svg)
+    if theme.get("legend_box") == "horizontal":
+        start, extent = (y1, h1), (y2, h2)
+    else:
+        start, extent = (x1, w1), (x2, w2)
+    first = {"start": start[0], "centre": centre(*start), "end": sum(start)}[expected]
+    second = {"start": extent[0], "centre": centre(*extent), "end": sum(extent)}[expected]
+    assert first == pytest.approx(second, abs=0.01)

@@ -127,6 +127,23 @@ pub enum LegendDirection {
     Vertical,
 }
 
+/// `legend_box_just` as given.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LegendBoxJust {
+    /// Left for a stack, top for a row.
+    Auto,
+    /// Left.
+    Left,
+    /// Right.
+    Right,
+    /// Top.
+    Top,
+    /// Bottom.
+    Bottom,
+    /// Centre.
+    Center,
+}
+
 /// Resolved theme. `None` means the element is blank (not drawn, takes no space).
 #[derive(Debug, Clone, PartialEq)]
 pub struct Theme {
@@ -208,9 +225,9 @@ pub struct Theme {
     pub legend_direction: LegendDirection,
     /// `legend_box`: several legends side by side (`true`) or stacked.
     pub legend_box_horizontal: bool,
-    /// `legend_box_just`: alignment of stacked legends, 0..1 across the stack
-    /// (`None`: lets-plot's auto, left for a stack, top for a row).
-    pub legend_box_just: Option<f64>,
+    /// `legend_box_just`: alignment of stacked legends (see
+    /// [`Theme::legend_box_justification`]).
+    pub legend_box_just: LegendBoxJust,
 }
 
 impl Default for Theme {
@@ -534,6 +551,19 @@ impl Resolver<'_> {
 }
 
 impl Theme {
+    /// Where legends of different sizes align across the box, 0..1 (lets-plot
+    /// `LegendBoxesLayoutUtil`): a stack honours left/right, a row top/bottom; other
+    /// values centre.
+    pub fn legend_box_justification(&self) -> f64 {
+        use LegendBoxJust::*;
+        match (self.legend_box_horizontal, self.legend_box_just) {
+            (false, Auto | Left) | (true, Auto | Top) => 0.0,
+            (false, Right) | (true, Bottom) => 1.0,
+            // lets-plot centres for values of the other axis.
+            _ => 0.5,
+        }
+    }
+
     /// Whether legend keys run in rows (lets-plot `LegendAssemblerUtil.legendDirection`):
     /// `legend_direction`, else horizontal at the top or bottom.
     pub fn legends_horizontal(&self) -> bool {
@@ -620,13 +650,15 @@ fn legend_direction(value: Option<&Value>) -> Result<LegendDirection> {
     }
 }
 
-fn legend_box_just(value: Option<&Value>) -> Result<Option<f64>> {
+fn legend_box_just(value: Option<&Value>) -> Result<LegendBoxJust> {
     match value {
-        None => Ok(None),
+        None => Ok(LegendBoxJust::Auto),
         Some(Value::String(name)) => match name.as_str() {
-            "left" | "top" => Ok(Some(0.0)),
-            "center" => Ok(Some(0.5)),
-            "right" | "bottom" => Ok(Some(1.0)),
+            "left" => Ok(LegendBoxJust::Left),
+            "right" => Ok(LegendBoxJust::Right),
+            "top" => Ok(LegendBoxJust::Top),
+            "bottom" => Ok(LegendBoxJust::Bottom),
+            "center" => Ok(LegendBoxJust::Center),
             _ => Err(Error::InvalidSpec(format!(
                 "at 'theme.legend_box_just': expected left, right, top, bottom or center, got \
                  '{name}'"

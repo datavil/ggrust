@@ -100,7 +100,15 @@ def scale_x_continuous(
     ----------
     name : str, optional
         Axis title (``labs(x=...)`` takes precedence).
-    breaks, break_width, labels, lablim, na_value, format, position
+    breaks : list of float, optional
+        Fixed break positions in data units; breaks outside the axis are dropped.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels). Ignored without
+        ``breaks``, as in lets-plot.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"e"``, ``"%"``) or a
+        template (``"{.1f} %"``, ``"{d} cells"``). ``labels`` take precedence.
+    break_width, lablim, na_value, position
         As in lets-plot; not drawn yet (ggrust warns).
     limits : list, optional
         ``[low, high]`` in data units; ``None`` leaves a side free.
@@ -240,7 +248,14 @@ def scale_x_discrete(
     ----------
     name : str, optional
         Axis title (``labs(x=...)`` takes precedence).
-    breaks, labels, lablim, na_value, format, position
+    breaks : list of str, optional
+        Only these categories get a tick and a label.
+    labels : list of str or dict, optional
+        Labels aligned with ``breaks`` (or the categories in axis order); missing
+        ones are empty. A dict maps categories to labels.
+    format : str, optional
+        Label template, e.g. ``"<{}>"``. ``labels`` take precedence.
+    lablim, na_value, position
         As in lets-plot; not drawn yet (ggrust warns).
     limits : list of str, optional
         The categories to show, in axis order; other categories are dropped.

@@ -3,6 +3,7 @@
 use super::Transform;
 use super::breaks::linear_breaks;
 use super::format::{Label, format_breaks, format_breaks_individually};
+use super::label_pattern::{LabelPattern, PatternValue};
 use crate::data::ContinuousColumn;
 
 /// Breaks of a scale: positions in transformed units with their labels.
@@ -30,6 +31,13 @@ pub struct ContinuousPositionScale {
     pub limits: [Option<f64>; 2],
     /// Transform applied to the data; decides how breaks are generated.
     pub transform: Transform,
+    /// `breaks=[...]` in data units (`None` items are skipped): fixed breaks
+    /// instead of generated ones.
+    pub fixed_breaks: Option<Vec<Option<f64>>>,
+    /// `labels=[...]`, one per fixed break.
+    pub labels: Option<Vec<String>>,
+    /// `format=...` for labels not given in `labels`.
+    pub format: Option<LabelPattern>,
 }
 
 impl Default for ContinuousPositionScale {
@@ -40,6 +48,9 @@ impl Default for ContinuousPositionScale {
             additive_expand: 0.0,
             limits: [None, None],
             transform: Transform::Identity,
+            fixed_breaks: None,
+            labels: None,
+            format: None,
         }
     }
 }
@@ -147,7 +158,58 @@ impl ContinuousPositionScale {
     /// `TransformedDomainBreaksGenerator`: linear in data units for identity and
     /// reverse; otherwise linear in transformed units (whole powers for log10 when
     /// that gives 3 or more), each labelled with the step to its neighbour.
+    /// With `breaks=[...]`, those inside the expanded domain instead (see
+    /// [`Self::fixed`]); `format` replaces the generated labels.
     pub fn breaks(&self, target_count: usize) -> ScaleBreaks {
+        if let Some(values) = &self.fixed_breaks {
+            return self.fixed(values);
+        }
+        let mut breaks = self.generated_breaks(target_count);
+        if let Some(format) = &self.format {
+            breaks.labels = breaks
+                .positions
+                .iter()
+                .map(|&position| {
+                    format.format(PatternValue::Number(self.transform.inverse(position)))
+                })
+                .collect();
+        }
+        breaks
+    }
+
+    /// `breaks=[...]` in their given order (lets-plot `ScaleBreaks.Fixed`): nulls,
+    /// values outside the transform's domain and positions outside the expanded
+    /// domain are dropped with their labels. Labels are `labels`, else `format`,
+    /// else lets-plot's default number format `{,~g}`.
+    fn fixed(&self, values: &[Option<f64>]) -> ScaleBreaks {
+        let (low, high) = self.expanded_domain();
+        let (low, high) = (low.min(high), low.max(high));
+        let default = LabelPattern::parse("{,~g}").ok();
+        let pattern = self.format.as_ref().or(default.as_ref());
+        let mut breaks = ScaleBreaks {
+            positions: Vec::new(),
+            labels: Vec::new(),
+        };
+        for (index, value) in values.iter().enumerate() {
+            let Some(value) = *value else { continue };
+            let Some(position) = self.transform.apply(value) else {
+                continue;
+            };
+            if !(low..=high).contains(&position) {
+                continue;
+            }
+            let label = match (&self.labels, pattern) {
+                (Some(labels), _) => Label::plain(labels.get(index).cloned().unwrap_or_default()),
+                (None, Some(pattern)) => pattern.format(PatternValue::Number(value)),
+                (None, None) => Label::plain(value.to_string()),
+            };
+            breaks.positions.push(position);
+            breaks.labels.push(label);
+        }
+        breaks
+    }
+
+    fn generated_breaks(&self, target_count: usize) -> ScaleBreaks {
         let (low, high) = self.expanded_domain();
         let transform = self.transform;
         let ordered = |a: f64, b: f64| if a <= b { (a, b) } else { (b, a) };

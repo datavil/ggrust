@@ -3,6 +3,7 @@
 //! Several calls for one aesthetic merge key by key, later ones winning, as in
 //! lets-plot (`PlotConfigUtil.mergeScaleOptions`).
 
+use super::label_pattern::LabelPattern;
 use super::{ContinuousPositionScale, DiscretePositionScale, PositionScale, Transform};
 use crate::spec::{Aesthetic, PlotSpec, ScaleSpec, Value};
 use crate::{Error, Result};
@@ -30,6 +31,9 @@ pub struct AxisScaleSpec {
     expand: Set<Vec<f64>>,
     discrete: Set<bool>,
     reverse: Set<bool>,
+    breaks: Set<Vec<Value>>,
+    labels: Set<Value>,
+    format: Set<String>,
 }
 
 impl AxisScaleSpec {
@@ -51,11 +55,45 @@ impl AxisScaleSpec {
                  a continuous axis; ignored"
             ));
         }
-        self.build_continuous().map(PositionScale::Continuous)
+        self.build_continuous(warnings)
+            .map(PositionScale::Continuous)
     }
 
-    fn build_continuous(&self) -> Result<ContinuousPositionScale> {
+    fn build_continuous(&self, warnings: &mut Vec<String>) -> Result<ContinuousPositionScale> {
         let mut scale = ContinuousPositionScale::default();
+        scale.format = self.label_format(warnings);
+        let labels = self.label_texts()?;
+        match (&self.breaks, labels) {
+            (Some((breaks, path)), labels) => {
+                let values = breaks
+                    .iter()
+                    .map(|value| match value {
+                        Value::Null => Ok(None),
+                        value => value.as_f64().filter(|value| value.is_finite()).map(Some).ok_or_else(|| {
+                            Error::InvalidSpec(format!(
+                                "at '{path}': breaks of a continuous axis are numbers, got {value}"
+                            ))
+                        }),
+                    })
+                    .collect::<Result<Vec<_>>>()?;
+                if let Some((labels, labels_path)) = &labels
+                    && labels.len() != values.len()
+                {
+                    // lets-plot fails the plot here too.
+                    return Err(Error::InvalidSpec(format!(
+                        "at '{labels_path}': {} labels for {} breaks; give one label per break",
+                        labels.len(),
+                        values.len()
+                    )));
+                }
+                scale.fixed_breaks = Some(values);
+                scale.labels = labels.map(|(labels, _)| labels);
+            }
+            (None, Some((_, path))) => warnings.push(format!(
+                "at '{path}': labels of a continuous axis need breaks (as in lets-plot); ignored"
+            )),
+            (None, None) => {}
+        }
         if let Some((name, path)) = &self.trans {
             scale.transform = Transform::parse(name, path)?;
         }
@@ -71,6 +109,17 @@ impl AxisScaleSpec {
 
     fn build_discrete(&self, warnings: &mut Vec<String>) -> Result<DiscretePositionScale> {
         let mut scale = DiscretePositionScale::default();
+        scale.format = self.label_format(warnings);
+        scale.labels = self.label_texts()?.map(|(labels, _)| labels);
+        if let Some((breaks, path)) = &self.breaks {
+            scale.break_levels = Some(
+                breaks
+                    .iter()
+                    .filter(|value| !value.is_null())
+                    .map(|value| category(value, path, "breaks"))
+                    .collect::<Result<_>>()?,
+            );
+        }
         // lets-plot ignores a transform on a discrete axis.
         if let Some((name, path)) = &self.trans
             && Transform::parse(name, path)? != Transform::Identity
@@ -100,6 +149,42 @@ impl AxisScaleSpec {
         }
         scale.reverse = self.reverse.as_ref().is_some_and(|(reverse, _)| *reverse);
         Ok(scale)
+    }
+
+    /// `format=...`; a pattern ggrust cannot format (datetime) is reported and ignored.
+    fn label_format(&self, warnings: &mut Vec<String>) -> Option<LabelPattern> {
+        let (pattern, path) = self.format.as_ref()?;
+        match LabelPattern::parse(pattern) {
+            Ok(pattern) => Some(pattern),
+            Err(message) => {
+                warnings.push(format!("at '{path}': {message}; ignored"));
+                None
+            }
+        }
+    }
+
+    /// `labels=[...]` as texts (numbers are written as given), with their path.
+    fn label_texts(&self) -> Result<Option<(Vec<String>, String)>> {
+        let Some((labels, path)) = &self.labels else {
+            return Ok(None);
+        };
+        let Value::Array(items) = labels else {
+            return Err(Error::InvalidSpec(format!(
+                "at '{path}': expected a list of labels, got {labels}"
+            )));
+        };
+        let texts = items
+            .iter()
+            .map(|item| match item {
+                Value::String(text) => Ok(text.clone()),
+                Value::Number(number) => Ok(number.to_string()),
+                Value::Null => Ok(String::new()),
+                other => Err(Error::InvalidSpec(format!(
+                    "at '{path}': labels are texts, got {other}"
+                ))),
+            })
+            .collect::<Result<_>>()?;
+        Ok(Some((texts, path.clone())))
     }
 
     /// `[multiplicative, additive]` from `expand`, each optional.
@@ -163,6 +248,27 @@ fn merge(target: &mut AxisScaleSpec, scale: &ScaleSpec, path: &str) {
     if let Some(reverse) = scale.reverse {
         target.reverse = Some((reverse, at("reverse")));
     }
+    if let Some(breaks) = &scale.breaks {
+        target.breaks = Some((breaks.clone(), at("breaks")));
+    }
+    if let Some(labels) = &scale.labels {
+        target.labels = Some((labels.clone(), at("labels")));
+    }
+    if let Some(format) = &scale.format {
+        target.format = Some((format.clone(), at("format")));
+    }
+}
+
+/// A category name in `breaks` of a discrete axis; numbers are written as given.
+fn category(value: &Value, path: &str, key: &str) -> Result<String> {
+    match value {
+        Value::String(text) => Ok(text.clone()),
+        Value::Number(number) => Ok(number.to_string()),
+        Value::Bool(flag) => Ok(flag.to_string()),
+        other => Err(Error::InvalidSpec(format!(
+            "at '{path}': {key} of a discrete axis are category names, got {other}"
+        ))),
+    }
 }
 
 /// `[low, high]` in data units -> limits in transformed units, as lenient as
@@ -202,9 +308,6 @@ fn transformed_limits(
 /// Warn about scale options that are parsed but not built yet.
 fn report_unbuilt(scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
     let present = [
-        ("breaks", scale.breaks.is_some()),
-        ("labels", scale.labels.is_some()),
-        ("format", scale.format.is_some()),
         ("na_value", scale.na_value.is_some()),
         ("guide", scale.guide.is_some()),
         ("position", scale.position.is_some()),
@@ -382,14 +485,14 @@ mod tests {
     fn unbuilt_options_and_other_aesthetics_warn() {
         let (_, warnings) = scales(
             r#"{"kind": "plot", "scales": [
-                {"aesthetic": "x", "breaks": [1, 2], "discrete": true, "reverse": false},
+                {"aesthetic": "x", "position": "top", "discrete": true, "reverse": false},
                 {"aesthetic": "shape", "solid": false}]}"#,
         )
         .unwrap();
         assert_eq!(
             warnings,
             [
-                "at 'scales[0].breaks': not supported yet; ignored",
+                "at 'scales[0].position': not supported yet; ignored",
                 "at 'scales[1]': scales for 'shape' are not supported yet; ignored",
             ]
         );

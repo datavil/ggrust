@@ -90,8 +90,8 @@ pub fn choose_breaks(
 ) -> AxisBreaks {
     let size = text.map_or(DEFAULT_LABEL_SIZE, |text| text.size);
     let face = text.map(|text| text.font.face).unwrap_or_default();
-    if scale.is_discrete() {
-        // lets-plot fixed breaks: every category is a break.
+    if scale.has_fixed_breaks() {
+        // lets-plot fixed breaks: every category (or given break) is a break.
         let breaks = scale.breaks(0);
         let mut breaks = AxisBreaks::new(breaks.positions, breaks.labels);
         if orientation == Orientation::Horizontal && text.is_some() {

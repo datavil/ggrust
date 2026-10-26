@@ -10,6 +10,7 @@ use std::collections::{HashMap, HashSet};
 
 use super::ScaleBreaks;
 use super::format::Label;
+use super::label_pattern::{LabelPattern, PatternValue};
 use crate::data::{ContinuousColumn, DiscreteColumn};
 
 /// Discrete position scale.
@@ -27,6 +28,13 @@ pub struct DiscretePositionScale {
     pub multiplicative_expand: f64,
     /// Units (categories) added on each side (lets-plot: 0.2).
     pub additive_expand: f64,
+    /// `breaks=[...]`: only these categories get a tick and label.
+    pub break_levels: Option<Vec<String>>,
+    /// `labels=[...]`, aligned with `breaks` (or the categories); missing ones are
+    /// empty.
+    pub labels: Option<Vec<String>>,
+    /// `format=...` for the category names.
+    pub format: Option<LabelPattern>,
 }
 
 impl Default for DiscretePositionScale {
@@ -39,6 +47,9 @@ impl Default for DiscretePositionScale {
             reverse: false,
             multiplicative_expand: 0.0,
             additive_expand: 0.2,
+            break_levels: None,
+            labels: None,
+            format: None,
         }
     }
 }
@@ -159,13 +170,35 @@ impl DiscretePositionScale {
         (value - low) / (high - low)
     }
 
-    /// One break per shown category, labelled with its name.
+    /// One break per shown category (lets-plot `DiscreteScale.createScaleBreaks`),
+    /// only those in `breaks` when given. Labels come from `labels`, aligned with
+    /// `breaks` or else with the categories in axis order (missing ones are empty),
+    /// otherwise from `format` or the category name.
     pub fn breaks(&self) -> ScaleBreaks {
         let levels = self.effective_levels();
-        ScaleBreaks {
-            positions: (0..levels.len()).map(|index| index as f64).collect(),
-            labels: levels.into_iter().map(Label::plain).collect(),
+        let mut breaks = ScaleBreaks {
+            positions: Vec::new(),
+            labels: Vec::new(),
+        };
+        for (position, &level) in levels.iter().enumerate() {
+            let label_index = match &self.break_levels {
+                Some(break_levels) => match break_levels.iter().position(|known| known == level) {
+                    Some(index) => index,
+                    None => continue,
+                },
+                None => position,
+            };
+            let label = match (&self.labels, &self.format) {
+                (Some(labels), _) => {
+                    Label::plain(labels.get(label_index).cloned().unwrap_or_default())
+                }
+                (None, Some(format)) => format.format(PatternValue::Text(level)),
+                (None, None) => Label::plain(level),
+            };
+            breaks.positions.push(position as f64);
+            breaks.labels.push(label);
         }
+        breaks
     }
 }
 

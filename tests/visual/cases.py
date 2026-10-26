@@ -191,6 +191,27 @@ def legend_inside_corner(m):
     )
 
 
+def labelled_axes(m):
+    random = np.random.default_rng(26)
+    genes = ["CD3E", "MS4A1", "NKG7", "LYZ", "FCGR3A", "PPBP"]
+    frame = pl.DataFrame(
+        {
+            "x": np.tile(np.arange(6.0), 5),
+            "y": np.repeat(np.arange(5.0), 6),
+            "mean": random.uniform(0, 3, 30),
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("x", "y", color="mean"))
+        + m.geom_point(size=7)
+        + m.scale_x_continuous(
+            breaks=list(range(6)), labels=genes, limits=[-0.5, 5.5], expand=[0, 0]
+        )
+        + m.scale_y_continuous(breaks=list(range(5)), labels=[f"cluster {i}" for i in range(5)])
+        + m.scale_color_viridis()
+    )
+
+
 CASES = {
     case.__name__: case
     for case in [
@@ -210,5 +231,6 @@ CASES = {
         legends_bottom_box,
         legend_two_columns,
         legend_inside_corner,
+        labelled_axes,
     ]
 }

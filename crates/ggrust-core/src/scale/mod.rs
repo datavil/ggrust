@@ -7,6 +7,8 @@ pub mod breaks;
 mod continuous;
 mod discrete;
 pub mod format;
+pub mod label_pattern;
+pub mod number_format;
 mod position;
 mod spec;
 pub mod style;

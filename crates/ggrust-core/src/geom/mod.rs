@@ -13,7 +13,7 @@ use crate::Result;
 use crate::coord::Panel;
 use crate::data::LayerData;
 use crate::parameters::Parameters;
-use crate::scene::Node;
+use crate::scene::{Node, Rect};
 use crate::spec::Aesthetic;
 use crate::style::{StyleDefault, Styles};
 
@@ -35,7 +35,8 @@ pub trait Geom: Sync {
     /// Position aesthetics that must be mapped.
     fn required_aesthetics(&self) -> &'static [Aesthetic];
 
-    /// Style aesthetics the geom draws with, and their defaults.
+    /// Style aesthetics the geom draws with, and their defaults, in lets-plot's
+    /// rendered order (legends follow it).
     fn style_defaults(&self) -> &'static [(Aesthetic, StyleDefault)];
 
     /// Layer options besides style aesthetics that the geom reads.
@@ -45,6 +46,19 @@ pub trait Geom: Sync {
 
     /// Draw the layer into scene nodes (in panel pixel space).
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>>;
+
+    /// Style defaults that differ in legend keys (lets-plot
+    /// `AestheticsDefaults.defaultsInLegend`, e.g. bigger points).
+    fn legend_defaults(&self) -> &'static [(Aesthetic, StyleDefault)] {
+        &[]
+    }
+
+    /// Smallest key cell (width, height) that fits a key drawn with `styles`
+    /// (one item per aesthetic), before lets-plot's rounding.
+    fn minimum_key_size(&self, styles: &Styles) -> Result<(f64, f64)>;
+
+    /// Draw one legend key filling `cell`, with one-item `styles`.
+    fn draw_key(&self, styles: &Styles, cell: Rect) -> Result<Vec<Node>>;
 }
 
 /// Every geom, in one place: lookup and names derive from it.

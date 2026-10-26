@@ -22,6 +22,12 @@ from ggrust.plot.scale import (
     xlim,
     ylim,
 )
+from ggrust.plot.scale_color import (
+    scale_color_hue,
+    scale_color_manual,
+    scale_fill_hue,
+    scale_fill_manual,
+)
 from ggrust.plot.tooltip import layer_tooltips
 
 __all__ = [
@@ -35,6 +41,10 @@ __all__ = [
     "layer",
     "layer_tooltips",
     "lims",
+    "scale_color_hue",
+    "scale_color_manual",
+    "scale_fill_hue",
+    "scale_fill_manual",
     "scale_x_continuous",
     "scale_x_discrete",
     "scale_x_discrete_reversed",

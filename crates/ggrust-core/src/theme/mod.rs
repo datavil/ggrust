@@ -122,6 +122,22 @@ pub struct Theme {
     pub panel_grid_major_y: Option<LineStyle>,
     /// Panel background fill.
     pub panel_background: Option<Color>,
+    /// Legend title (`legend_title`); `None` hides it.
+    pub legend_title: Option<TextStyle>,
+    /// Legend labels (`legend_text`); `None` hides them.
+    pub legend_text: Option<TextStyle>,
+    /// Legend box fill (`legend_background`; lets-plot draws no border).
+    pub legend_background: Option<Color>,
+    /// Inner padding of a legend box (`legend_margin`).
+    pub legend_margin: Margins,
+    /// Smallest key cell, square (`legend_key_size`).
+    pub legend_key_size: f64,
+    /// Space between key cells (`legend_key_spacing`), horizontal and vertical.
+    pub legend_key_spacing: (f64, f64),
+    /// Space between stacked legend boxes (`legend_spacing`).
+    pub legend_spacing: f64,
+    /// Space between the plot area and the legends (`legend_box_spacing`).
+    pub legend_box_spacing: f64,
 }
 
 impl Default for Theme {
@@ -170,6 +186,15 @@ impl Default for Theme {
             panel_grid_major_x: Some(grid_line),
             panel_grid_major_y: Some(grid_line),
             panel_background: None,
+            // lets-plot `ThemeValuesBase` legend defaults.
+            legend_title: Some(medium),
+            legend_text: Some(small),
+            legend_background: Some(Color::WHITE),
+            legend_margin: Margins::uniform(5.0),
+            legend_key_size: 23.0,
+            legend_key_spacing: (0.0, 0.0),
+            legend_spacing: 10.0,
+            legend_box_spacing: 0.0,
         }
     }
 }

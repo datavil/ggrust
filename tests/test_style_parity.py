@@ -48,6 +48,7 @@ FRAME = {
     "near_constant": [1.0 + index * 1e-14 for index in range(N)],
     "near_constant_negative": [-1.0 - index * 1e-14 for index in range(N)],
     "signed_zeros": [[0.0, -0.0, 1.0][index % 3] for index in range(N)],
+    "one": ["only"] * N,
     "digits": [str(index % 4) for index in range(N)],
     "integers": [index % 5 for index in range(N)],
 }
@@ -74,6 +75,26 @@ CASES = {
         + m.geom_point(m.aes(color="c3"))
         + m.geom_point(m.aes(color="c12"), size=1)
     ),
+    "hue_discrete": lambda m: scatter(m, color="c3") + m.scale_color_hue(),
+    "hue_twelve_options": lambda m: (
+        scatter(m, color="c12")
+        + m.scale_color_hue(h=[0, 360], c=60, l=50, h_start=90, direction=-1)
+    ),
+    "hue_continuous": lambda m: scatter(m, color="v") + m.scale_color_hue(),
+    "hue_one_level": lambda m: scatter(m, color="one") + m.scale_fill_hue() + m.scale_color_hue(),
+    "manual_cycle": lambda m: (
+        scatter(m, color="c12") + m.scale_color_manual(values=["red", "blue"])
+    ),
+    "manual_dict_breaks_order": lambda m: (
+        scatter(m, color="c3") + m.scale_color_manual(values={"NK": "red", "T": "#00ff00"})
+    ),
+    "manual_continuous": lambda m: (
+        scatter(m, color="vna") + m.scale_color_manual(values=["red", "blue", "green"])
+    ),
+    "limits_make_na": lambda m: (
+        scatter(m, color="c3") + m.scale_color_hue(limits=["B", "T"], na_value="orange")
+    ),
+    "size_na_value": lambda m: scatter(m, size="vna"),
     "discrete_then_continuous": lambda m: (
         m.ggplot(FRAME, m.aes("x", "y"))
         + m.geom_point(m.aes(color="digits"))

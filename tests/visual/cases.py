@@ -123,6 +123,23 @@ def umap_expression(m):
     return m.ggplot(frame, m.aes("UMAP1", "UMAP2", color="CD14")) + m.geom_point(size=1.5)
 
 
+def legends_hue_size(m):
+    random = np.random.default_rng(23)
+    frame = pl.DataFrame(
+        {
+            "UMAP1": random.normal(0, 3, 400),
+            "UMAP2": random.normal(0, 3, 400),
+            "cell_type": random.choice(["T cell", "B cell", "NK", "Monocyte"], 400),
+            "sample": random.choice(["donor A", "donor B"], 400),
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("UMAP1", "UMAP2", color="cell_type", size="sample"))
+        + m.geom_point(alpha=0.6)
+        + m.scale_color_hue(name="Cell type")
+    )
+
+
 CASES = {
     case.__name__: case
     for case in [
@@ -136,5 +153,6 @@ CASES = {
         discrete_genes,
         umap_clusters,
         umap_expression,
+        legends_hue_size,
     ]
 }

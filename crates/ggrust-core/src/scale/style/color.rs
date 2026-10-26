@@ -31,7 +31,11 @@ const SET1: [Color; 9] = [
 const MIN_SET_SIZE: usize = 3;
 
 /// The default mapper of `color` and `fill`.
-pub struct DefaultColorMapper;
+#[derive(Debug, Clone, PartialEq)]
+pub struct DefaultColorMapper {
+    /// Color of missing and out-of-domain values (`na_value`).
+    pub na: Color,
+}
 
 impl StyleMapper for DefaultColorMapper {
     fn name(&self) -> &'static str {
@@ -55,7 +59,7 @@ impl StyleMapper for DefaultColorMapper {
                     a: a(value),
                     b: b(value),
                 }),
-                _ => NA_COLOR,
+                _ => self.na,
             })
             .collect();
         StyleValues::Colors(PerItem::Varying(colors))
@@ -65,7 +69,7 @@ impl StyleMapper for DefaultColorMapper {
         let palette = discrete_palette(level_count);
         let colors = indices
             .iter()
-            .map(|index| index.map_or(NA_COLOR, |index| palette[index % palette.len()]))
+            .map(|index| index.map_or(self.na, |index| palette[index % palette.len()]))
             .collect();
         StyleValues::Colors(PerItem::Varying(colors))
     }
@@ -119,7 +123,7 @@ mod tests {
     fn gradient_ends_are_the_lets_plot_colors_and_outside_is_gray() {
         let column = ContinuousColumn::from_options(vec![Some(0.0), Some(1.0), Some(2.0), None]);
         let StyleValues::Colors(PerItem::Varying(colors)) =
-            DefaultColorMapper.map_continuous(&column, (0.0, 1.0))
+            DefaultColorMapper { na: NA_COLOR }.map_continuous(&column, (0.0, 1.0))
         else {
             panic!("expected varying colors");
         };

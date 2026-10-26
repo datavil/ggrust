@@ -145,10 +145,9 @@ fn unimplemented_features_and_unknown_options_warn() {
     let joined = built.warnings.join("\n");
     for expected in [
         "'theme' is not supported yet and was ignored",
-        "at 'guides.color': legends and guides are not supported yet",
+        "at 'guides.color': this guide option is not supported yet",
         "at 'layers[0]': 'tooltips' is not supported yet",
         "at 'layers[0].colr': geom_point does not support option 'colr'",
-        "'color' is mapped to data, but legends are not drawn yet",
     ] {
         assert!(
             joined.contains(expected),

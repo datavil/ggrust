@@ -14,10 +14,14 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::coord::{self, Coord, Panel};
 use crate::data::{Column, ContinuousColumn, DataFrame, LayerData, group_index};
 use crate::geom::{self, DrawLayer, Geom};
-use crate::layout::{Titles, draw_axes_and_titles, draw_panel_background, layout_plot};
+use crate::layout::{
+    KeyLayer, Legend, LegendKey, Titles, draw_axes_and_titles, draw_legends, draw_panel_background,
+    layout_plot, measure_legends,
+};
 use crate::parameters::Parameters;
 use crate::position::{self, Position};
-use crate::scale::style::{StyleScale, default_mapper};
+use crate::scale::style::spec::{StyleScaleSpec, style_scale_specs};
+use crate::scale::style::{LegendEntry, StyleScale, default_mapper};
 use crate::scale::{AxisScaleSpec, PositionScale, PositionScales, position_scales};
 use crate::scene::{Group, Node, Rect, Scene};
 use crate::spec::{
@@ -25,7 +29,7 @@ use crate::spec::{
     PlotSpec,
 };
 use crate::stat::{self, Stat};
-use crate::style::{Styles, parse_constant};
+use crate::style::{StyleValues, Styles, parse_constant};
 use crate::theme::Theme;
 use crate::{Error, Result};
 
@@ -140,7 +144,8 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
             Err(error) => return Err(error.with_notes(&warnings)),
         }
     }
-    let style_scales = train_style_scales(&computed, &mut warnings)
+    let style_specs = style_scale_specs(spec, &mut warnings);
+    let style_scales = train_style_scales(&computed, &style_specs, &mut warnings)
         .map_err(|error| error.with_notes(&warnings))?;
     let mut layers = Vec::with_capacity(computed.len());
     for layer in computed {
@@ -176,7 +181,19 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
         width,
         height,
     };
-    let layout = layout_plot(area, &theme, &titles, &x_scale, &y_scale);
+    let legends = assemble_legends(spec, &layers, &style_scales, &style_specs)
+        .map_err(|error| error.with_notes(&warnings))?;
+    let legend_block = measure_legends(&legends, &theme)?;
+    // lets-plot: legends sit at the right, inside the plot margin; the plot area
+    // gives up their width (+ `legend_box_spacing`).
+    let plot_area = match &legend_block {
+        Some(block) => Rect {
+            width: (area.width - block.size.0 - theme.legend_box_spacing).max(1.0),
+            ..area
+        },
+        None => area,
+    };
+    let layout = layout_plot(plot_area, &theme, &titles, &x_scale, &y_scale);
     let panel = Panel {
         rect: layout.panel,
         x_scale: &x_scale,
@@ -199,6 +216,14 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
         nodes: layer_nodes,
     }));
     nodes.extend(draw_axes_and_titles(&layout, &theme, &titles, &panel));
+    if let Some(block) = &legend_block {
+        // Centred on the panel (`legend_justification` 0.5).
+        let origin = (
+            area.x + area.width - theme.plot_margin.right - block.size.0,
+            layout.panel.y + (layout.panel.height - block.size.1) / 2.0,
+        );
+        nodes.extend(draw_legends(block, origin, &theme)?);
+    }
     let scene = Scene {
         width,
         height,
@@ -220,7 +245,7 @@ fn plot_titles(spec: &PlotSpec, scales: &PositionScales) -> Titles {
         };
         from_labs
             .or_else(|| scale_name.clone())
-            .unwrap_or_else(|| default_axis_title(spec, aesthetic))
+            .unwrap_or_else(|| default_scale_name(spec, aesthetic))
     };
     let title = spec.ggtitle.as_ref();
     Titles {
@@ -231,10 +256,10 @@ fn plot_titles(spec: &PlotSpec, scales: &PositionScales) -> Titles {
     }
 }
 
-/// lets-plot `PlotConfigUtil.defaultScaleName` for a position axis: the distinct
-/// columns mapped to it across layers, ignoring one named like the aesthetic; none
-/// or several -> the aesthetic name (`x`), exactly one -> that column.
-fn default_axis_title(spec: &PlotSpec, aesthetic: Aesthetic) -> String {
+/// lets-plot `PlotConfigUtil.defaultScaleName`: the distinct columns mapped to the
+/// aesthetic across layers, ignoring one named like the aesthetic. None -> the
+/// aesthetic name; several -> joined with ", " (the aesthetic name for x and y).
+fn default_scale_name(spec: &PlotSpec, aesthetic: Aesthetic) -> String {
     let mut labels: Vec<String> = Vec::new();
     for layer in &spec.layers {
         let (mapping, _) = merged_mapping(spec, layer);
@@ -246,8 +271,11 @@ fn default_axis_title(spec: &PlotSpec, aesthetic: Aesthetic) -> String {
         }
     }
     match labels.as_slice() {
-        [only] => only.clone(),
-        _ => aesthetic.as_str().to_owned(),
+        [] => aesthetic.as_str().to_owned(),
+        [_, _, ..] if matches!(aesthetic, Aesthetic::X | Aesthetic::Y) => {
+            aesthetic.as_str().to_owned()
+        }
+        _ => labels.join(", "),
     }
 }
 
@@ -257,14 +285,18 @@ fn is_axis_title_only(key: &str, guide: &GuideSpec) -> bool {
     let GuideSpec::Full(options) = guide else {
         return false;
     };
-    // Everything but the title (and keys reported as unsupported elsewhere) is at its
-    // default, so a new guide option cannot be missed here.
+    matches!(key, "x" | "y") && is_title_only(options)
+}
+
+/// Whether guide options hold only a title (and keys reported as unsupported
+/// elsewhere): every other option is at its default, so none can be missed.
+fn is_title_only(options: &GuideOptions) -> bool {
     let title_only = GuideOptions {
         title: options.title.clone(),
         unsupported: options.unsupported.clone(),
         ..GuideOptions::default()
     };
-    matches!(key, "x" | "y") && **options == title_only
+    *options == title_only
 }
 
 /// One layer after stat and position, ready to draw.
@@ -275,6 +307,8 @@ struct PreparedLayer {
     geom: &'static dyn Geom,
     data: LayerData,
     styles: Styles,
+    /// `show_legend` (default true).
+    show_legend: bool,
 }
 
 /// Stage 1 of a layer: look up geom/stat/position, validate options, fetch the
@@ -562,6 +596,7 @@ fn compute_layer(
         geom,
         data: layer_data,
         mapping_paths,
+        show_legend: spec.show_legend.unwrap_or(true),
         warnings,
     })
 }
@@ -575,6 +610,8 @@ struct ComputedLayer {
     data: LayerData,
     /// Where each mapped aesthetic was mapped, for error messages.
     mapping_paths: BTreeMap<Aesthetic, String>,
+    /// `show_legend` (default true).
+    show_legend: bool,
     /// Warnings of this stage.
     warnings: Vec<String>,
 }
@@ -606,6 +643,7 @@ fn style_layer(
             geom: layer.geom,
             data: layer.data,
             styles,
+            show_legend: layer.show_legend,
         },
         warnings,
     ))
@@ -822,10 +860,11 @@ fn validate_parameters(
     }
 }
 
-/// Style scales of mapped style aesthetics, trained over every layer (lets-plot
-/// default mappers; `scale_color_*()` options come in Phase 1).
+/// Style scales of mapped style aesthetics, trained over every layer (mapper and
+/// domain from the merged `scale_*()` calls, else lets-plot's defaults).
 fn train_style_scales(
     layers: &[ComputedLayer],
+    specs: &BTreeMap<Aesthetic, StyleScaleSpec>,
     warnings: &mut Vec<String>,
 ) -> Result<BTreeMap<Aesthetic, StyleScale>> {
     // Every (aesthetic, column, path) after stat and position, in layer order.
@@ -847,29 +886,186 @@ fn train_style_scales(
         .filter(|(_, column, _)| matches!(column, Column::Discrete(_)))
         .map(|(aesthetic, _, _)| *aesthetic)
         .collect();
+    let default_spec = StyleScaleSpec::default();
     let mut scales: BTreeMap<Aesthetic, StyleScale> = BTreeMap::new();
     for (aesthetic, column, path) in columns {
-        let Some(mapper) = default_mapper(aesthetic) else {
+        if default_mapper(aesthetic).is_none() {
             continue; // reported by `resolve_styles`
-        };
-        scales
-            .entry(aesthetic)
-            .or_insert_with(|| {
-                if discrete.contains(&aesthetic) {
-                    StyleScale::discrete(mapper)
+        }
+        let scale = match scales.entry(aesthetic) {
+            std::collections::btree_map::Entry::Occupied(entry) => entry.into_mut(),
+            std::collections::btree_map::Entry::Vacant(entry) => {
+                let spec = specs.get(&aesthetic).unwrap_or(&default_spec);
+                let mapper = spec.mapper(aesthetic, warnings)?;
+                let domain = spec.discrete_domain()?;
+                entry.insert(if discrete.contains(&aesthetic) {
+                    StyleScale::discrete(mapper, domain)
                 } else {
-                    StyleScale::new(mapper)
-                }
-            })
+                    StyleScale::new(mapper, domain)
+                })
+            }
+        };
+        scale
             .train(column)
             .map_err(|message| Error::InvalidSpec(format!("at '{path}': {message}")))?;
     }
-    for aesthetic in scales.keys() {
+    for (aesthetic, scale) in &scales {
+        if scale.is_discrete() {
+            continue;
+        }
         warnings.push(format!(
-            "'{aesthetic}' is mapped to data, but legends are not drawn yet"
+            "'{aesthetic}' is mapped to continuous data, but colorbars and continuous \
+             legends are not drawn yet"
         ));
+        if let Some(path) = specs
+            .get(aesthetic)
+            .and_then(StyleScaleSpec::has_domain_options)
+        {
+            warnings.push(format!(
+                "at '{path}': breaks, limits and labels of continuous style scales are not \
+                 supported yet; ignored"
+            ));
+        }
     }
     Ok(scales)
+}
+
+/// The legend entries of one aesthetic.
+type AestheticEntries = (Aesthetic, Vec<LegendEntry>);
+
+/// Discrete legends, lets-plot `PlotAssemblerUtil.createLegends`: per layer, the
+/// mapped style aesthetics with a discrete scale are grouped by scale name (the
+/// legend title); legends with the same title merge, and so do keys with the same
+/// label (one key part per layer).
+fn assemble_legends(
+    spec: &PlotSpec,
+    layers: &[PreparedLayer],
+    scales: &BTreeMap<Aesthetic, StyleScale>,
+    specs: &BTreeMap<Aesthetic, StyleScaleSpec>,
+) -> Result<Vec<Legend>> {
+    /// lets-plot `LegendAssembler.MAX_LEGEND_LABELS`: bigger scales get no legend.
+    const MAX_LEGEND_LABELS: usize = 200;
+    let mut legends: Vec<Legend> = Vec::new();
+    for layer in layers.iter().filter(|layer| layer.show_legend) {
+        // Scale name -> (aesthetic, its legend entries), in the geom's rendered order.
+        let mut by_title: Vec<(String, Vec<AestheticEntries>)> = Vec::new();
+        let mapped: Vec<Aesthetic> = layer.data.aesthetics().collect();
+        let rendered = layer
+            .geom
+            .style_defaults()
+            .iter()
+            .map(|(aesthetic, _)| *aesthetic);
+        for aesthetic in rendered.filter(|aesthetic| mapped.contains(aesthetic)) {
+            let Some(entries) = scales.get(&aesthetic).and_then(StyleScale::legend_entries) else {
+                continue;
+            };
+            if entries.len() > MAX_LEGEND_LABELS || legend_hidden(spec, aesthetic) {
+                continue;
+            }
+            let title = legend_title(spec, aesthetic, specs.get(&aesthetic));
+            match by_title.iter_mut().find(|(known, _)| *known == title) {
+                Some((_, group)) => group.push((aesthetic, entries)),
+                None => by_title.push((title, vec![(aesthetic, entries)])),
+            }
+        }
+        for (title, group) in by_title {
+            let index = match legends.iter().position(|legend| legend.title == title) {
+                Some(index) => index,
+                None => {
+                    legends.push(Legend {
+                        title,
+                        keys: Vec::new(),
+                    });
+                    legends.len() - 1
+                }
+            };
+            // lets-plot `applyOverrideAesLists`: labels of every aesthetic, distinct;
+            // per label, each aesthetic's last value with that label.
+            let mut labels: Vec<&str> = Vec::new();
+            for (_, entries) in &group {
+                for entry in entries {
+                    if !labels.contains(&entry.label.as_str()) {
+                        labels.push(&entry.label);
+                    }
+                }
+            }
+            for label in labels {
+                let values: Vec<(Aesthetic, &StyleValues)> = group
+                    .iter()
+                    .filter_map(|(aesthetic, entries)| {
+                        let entry = entries.iter().rev().find(|entry| entry.label == label)?;
+                        Some((*aesthetic, &entry.value))
+                    })
+                    .collect();
+                let key_layer = KeyLayer {
+                    geom: layer.geom,
+                    styles: key_styles(layer, &values)?,
+                };
+                let keys = &mut legends[index].keys;
+                match keys.iter_mut().find(|key| key.label == label) {
+                    Some(key) => key.layers.push(key_layer),
+                    None => keys.push(LegendKey {
+                        label: label.to_owned(),
+                        layers: vec![key_layer],
+                    }),
+                }
+            }
+        }
+    }
+    Ok(legends)
+}
+
+/// One-item styles of a legend key: the legend's values, else the layer's constant
+/// shape / color / fill (lets-plot derives only these from constants), else the
+/// geom's legend default, else its default.
+fn key_styles(layer: &PreparedLayer, values: &[(Aesthetic, &StyleValues)]) -> Result<Styles> {
+    let parameters = Parameters::new(&layer.options, &layer.path);
+    let mut styles = Styles::default();
+    for &(aesthetic, default) in layer.geom.style_defaults() {
+        let value = if let Some((_, value)) = values.iter().find(|(known, _)| *known == aesthetic) {
+            (*value).clone()
+        } else if let Some(constant) = parameters.value(aesthetic.as_str()).filter(|_| {
+            matches!(
+                aesthetic,
+                Aesthetic::Shape | Aesthetic::Color | Aesthetic::Fill
+            )
+        }) {
+            parse_constant(default.kind(), constant).map_err(|message| {
+                Error::InvalidSpec(format!(
+                    "at '{}': {message}",
+                    parameters.path_of(aesthetic.as_str())
+                ))
+            })?
+        } else if let Some((_, legend_default)) = layer
+            .geom
+            .legend_defaults()
+            .iter()
+            .find(|(known, _)| *known == aesthetic)
+        {
+            legend_default.uniform()
+        } else {
+            default.uniform()
+        };
+        styles.insert(aesthetic, value)?;
+    }
+    Ok(styles)
+}
+
+/// `guides(color="none")` hides the legend of an aesthetic.
+fn legend_hidden(spec: &PlotSpec, aesthetic: Aesthetic) -> bool {
+    matches!(spec.guides.get(aesthetic.as_str()), Some(GuideSpec::Name(name)) if name == "none")
+}
+
+/// Legend title: `labs()` / guide title, then the scale `name`, then lets-plot's
+/// default scale name.
+fn legend_title(spec: &PlotSpec, aesthetic: Aesthetic, scale: Option<&StyleScaleSpec>) -> String {
+    let from_guide = match spec.guides.get(aesthetic.as_str()) {
+        Some(GuideSpec::Full(options)) => options.title.clone(),
+        _ => None,
+    };
+    from_guide
+        .or_else(|| scale.and_then(|scale| scale.name.clone()))
+        .unwrap_or_else(|| default_scale_name(spec, aesthetic))
 }
 
 /// Style values per aesthetic: mapped column (through its style scale) -> constant
@@ -970,9 +1166,20 @@ fn unknown(kind: &str, path: &str, name: &str, supported: &[&str]) -> Error {
 /// silently dropped. Remove an entry when its phase (plan.md) implements it.
 fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
     for (key, guide) in &spec.guides {
-        if !is_axis_title_only(key, guide) {
+        // Built: axis titles, legend titles, `"none"` and `"legend"` for style
+        // aesthetics. Other guide options come in Phase 1.4.
+        let is_style = key
+            .parse::<Aesthetic>()
+            .is_ok_and(|aesthetic| default_mapper(aesthetic).is_some());
+        let built = is_axis_title_only(key, guide)
+            || (is_style
+                && match guide {
+                    GuideSpec::Name(name) => name == "none" || name == "legend",
+                    GuideSpec::Full(options) => is_title_only(options),
+                });
+        if !built {
             warnings.push(format!(
-                "at 'guides.{key}': legends and guides are not supported yet; ignored"
+                "at 'guides.{key}': this guide option is not supported yet; ignored"
             ));
         }
     }
@@ -1009,7 +1216,6 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
         };
         layer_ignored(layer.tooltips.is_some(), "tooltips");
         layer_ignored(layer.labels.is_some(), "labels");
-        layer_ignored(layer.show_legend.is_some(), "show_legend");
         layer_ignored(layer.manual_key.is_some(), "manual_key");
     }
     for path in spec.unsupported_options() {

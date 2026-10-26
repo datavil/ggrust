@@ -10,8 +10,10 @@
 //! Single panel only; facets and grids come in Phase 3.
 
 mod axis;
+mod legend;
 
 pub use axis::{AxisBreaks, LabelArrangement, Orientation, choose_breaks};
+pub use legend::{KeyLayer, Legend, LegendBlock, LegendKey, draw_legends, measure_legends};
 
 use axis::{LABELS_OVERFLOW, TILT_DEGREES};
 

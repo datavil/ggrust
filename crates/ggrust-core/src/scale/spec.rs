@@ -126,6 +126,8 @@ pub fn position_scales(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<Po
             let target = match aesthetic {
                 Aesthetic::X => &mut merged[0],
                 Aesthetic::Y => &mut merged[1],
+                // Style scales: see `style::spec`.
+                other if super::style::default_mapper(*other).is_some() => continue,
                 other => {
                     warnings.push(format!(
                         "at '{path}': scales for '{other}' are not supported yet; ignored"
@@ -381,14 +383,14 @@ mod tests {
         let (_, warnings) = scales(
             r#"{"kind": "plot", "scales": [
                 {"aesthetic": "x", "breaks": [1, 2], "discrete": true, "reverse": false},
-                {"aesthetic": "color", "palette": "Set1"}]}"#,
+                {"aesthetic": "shape", "solid": false}]}"#,
         )
         .unwrap();
         assert_eq!(
             warnings,
             [
                 "at 'scales[0].breaks': not supported yet; ignored",
-                "at 'scales[1]': scales for 'color' are not supported yet; ignored",
+                "at 'scales[1]': scales for 'shape' are not supported yet; ignored",
             ]
         );
     }

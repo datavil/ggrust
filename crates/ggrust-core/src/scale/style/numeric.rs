@@ -12,10 +12,12 @@ use crate::style::{StyleValues, ValueKind};
 const POINT_UNIT_SIZE: f64 = 2.2;
 
 /// Linear mapping onto `range`; missing values get `missing`.
+#[derive(Debug, Clone, PartialEq)]
 pub struct LinearMapper {
     name: &'static str,
     range: (f64, f64),
-    missing: f64,
+    /// Value of missing data (`na_value`).
+    pub missing: f64,
 }
 
 /// `size`: circle diameters 3..21 px; missing values 1 px.

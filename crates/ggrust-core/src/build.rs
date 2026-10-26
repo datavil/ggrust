@@ -21,7 +21,8 @@ use crate::scale::style::{StyleScale, default_mapper};
 use crate::scale::{AxisScaleSpec, PositionScale, PositionScales, position_scales};
 use crate::scene::{Group, Node, Rect, Scene};
 use crate::spec::{
-    Aesthetic, DataSource, GuideSpec, LayerSpec, Mapping, MappingValue, Options, PlotSpec,
+    Aesthetic, DataSource, GuideOptions, GuideSpec, LayerSpec, Mapping, MappingValue, Options,
+    PlotSpec,
 };
 use crate::stat::{self, Stat};
 use crate::style::{Styles, parse_constant};
@@ -204,6 +205,7 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
         background: theme.plot_background,
         nodes,
     };
+    scene.validate()?;
     Ok(BuiltPlot { scene, warnings })
 }
 
@@ -255,17 +257,14 @@ fn is_axis_title_only(key: &str, guide: &GuideSpec) -> bool {
     let GuideSpec::Full(options) = guide else {
         return false;
     };
-    matches!(key, "x" | "y")
-        && options.name.is_none()
-        && options.ncol.is_none()
-        && options.nrow.is_none()
-        && options.byrow.is_none()
-        && options.override_aes.is_none()
-        && options.barwidth.is_none()
-        && options.barheight.is_none()
-        && options.nbin.is_none()
-        && options.order.is_none()
-        && options.manual_key.is_none()
+    // Everything but the title (and keys reported as unsupported elsewhere) is at its
+    // default, so a new guide option cannot be missed here.
+    let title_only = GuideOptions {
+        title: options.title.clone(),
+        unsupported: options.unsupported.clone(),
+        ..GuideOptions::default()
+    };
+    matches!(key, "x" | "y") && **options == title_only
 }
 
 /// One layer after stat and position, ready to draw.
@@ -355,7 +354,8 @@ fn map_layer_into<'a>(
             ));
             continue;
         };
-        let column = frames.column(name, &mapping_path)?;
+        // Checked before the column is fetched: lets-plot ignores an unused
+        // aesthetic even when its column does not exist.
         if !geom_uses(geom, *aesthetic) {
             warnings.push(format!(
                 "at '{mapping_path}': geom_{} does not use aesthetic '{aesthetic}' (yet); \
@@ -364,6 +364,7 @@ fn map_layer_into<'a>(
             ));
             continue;
         }
+        let column = frames.column(name, &mapping_path)?;
         if matches!(column, Column::Discrete(_))
             && !aesthetic.is_x_position()
             && !aesthetic.is_y_position()
@@ -1135,6 +1136,22 @@ mod tests {
         let first = error.find("layers[0].foo").expect(&error);
         let second = error.find("layers[1].bar").expect(&error);
         assert!(first < second, "{error}");
+    }
+
+    #[test]
+    fn unused_aesthetic_with_a_missing_column_only_warns() {
+        let spec = plot(
+            r#"{"kind": "plot", "mapping": {"x": "x", "y": "y"},
+                "layers": [{"geom": "point", "mapping": {"linetype": "nope"}}]}"#,
+        );
+        let mut warnings = Vec::new();
+        prepare(&spec, &mut warnings).unwrap();
+        assert!(
+            warnings
+                .iter()
+                .any(|warning| warning.contains("does not use aesthetic 'linetype'")),
+            "{warnings:?}"
+        );
     }
 
     #[test]

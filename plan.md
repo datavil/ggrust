@@ -76,7 +76,7 @@ Steps inside a phase are ordered; each builds on the previous.
 - [x] **0.8 Test + visual + bench harness.** pytest suite, golden-image compare (pixel diff with tolerance, diff image on failure), side-by-side HTML report vs lets-plot, first benchmark (scatter 10k / 100k / 1M) with honest settings.
 - [x] **0.9 Foundation review.** Bug-hunt agents on the whole foundation. Ask user to review the architecture before building on it.
 
-- [ ] **0.10 Foundation v2 (from the 0.9 review; approved by the user).** Make "one file + one registry line" true for Phases 1-4:
+- [x] **0.10 Foundation v2 (from the 0.9 review; approved by the user).** Make "one file + one registry line" true for Phases 1-4:
   - [x] 0.10.1 Staged build: map all layers -> resolve scales from spec (transforms, discrete positions) -> stat -> position -> geom setup -> train positions + style scales -> guides -> layout -> draw. Steps return warnings (no `&mut Vec`), ready for rayon. Done: `map_layer` -> `compute_layer` (stat, position) -> style scales trained on computed data -> `style_layer`; geom setup and guides stages arrive with the first geom/legend that needs them.
   - [x] 0.10.2 Scales: 2a transforms, position scale specs, limits drop rows, nonlinear breaks; 2b discrete positions behind `PositionScale`, `scale_*_discrete`, staged map/scale/finish build, x label fallbacks; 2c `StyleMapper` trait + registry (`scale/style`), default color (Set1 + generated / LAB gradient), size, alpha, trained across layers. `scale_color_*` options, shapes, linetypes and legends: Phase 1.
   - [x] 0.10.3 `LayerData` v2: `Variable::{Aesthetic, Computed}` (stat variables, `..count..`), `group_index` (explicit + implicit discrete grouping), `panel_index`, `source_rows` (tooltips).
@@ -91,7 +91,7 @@ Steps inside a phase are ordered; each builds on the previous.
     - [x] Mixed discrete + continuous columns on one style aesthetic: matched lets-plot (scale is discrete, numbers become categories in first-appearance order; 2 != "2", -0.0 != 0.0).
     - Unconfirmed (pre-existing): axis breaks use a magnitude-based `is_beyond_precision`; lets-plot's is NaN for negative bases, so negative near-constant axes may differ. Check before Phase 1.5.
     - Not bugs: datetime columns cannot be mapped to style aesthetics yet (column conversion); continuous color costs ~120 ms per 1M points (a lookup table could cut it).
-  - [ ] 0.10.9 Small fixes from the review: ignored aesthetics checked before column fetch, `with_notes` keeps error kinds, batch consistency validated once, `is_axis_title_only` via defaults.
+  - [x] 0.10.9 Small fixes from the review: ignored aesthetics checked before column fetch, `with_notes` keeps error kinds, batch consistency validated once, `is_axis_title_only` via defaults.
 
 ### Phase 1: Scatter-class plots (cellestial `dimensional`, `umap`, `scatter`, `xyplot`)
 

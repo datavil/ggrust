@@ -106,6 +106,7 @@ impl DataFrame {
             (None, _) => Err(Error::MissingColumn {
                 name: name.to_owned(),
                 available: self.column_names().collect::<Vec<_>>().join(", "),
+                notes: String::new(),
             }),
         }
     }

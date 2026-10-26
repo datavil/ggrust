@@ -379,6 +379,7 @@ fn unsupported(name: &str, data_type: &DataType) -> Error {
     Error::UnsupportedColumnType {
         name: name.to_owned(),
         data_type: data_type.to_string(),
+        notes: String::new(),
     }
 }
 

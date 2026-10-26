@@ -45,6 +45,36 @@ pub enum Node {
     Text(Text),
 }
 
+impl Scene {
+    /// Check once that every batch's per-item values match its item count.
+    /// Renderers skip an inconsistent batch (a last-resort guard for hand-built
+    /// scenes); the builder calls this so a geom bug is an error, not a gap.
+    pub fn validate(&self) -> crate::Result<()> {
+        fn walk(nodes: &[Node], path: &str) -> crate::Result<()> {
+            for (index, node) in nodes.iter().enumerate() {
+                let consistent = match node {
+                    Node::Group(group) => {
+                        let role = group.role.unwrap_or("group");
+                        walk(&group.nodes, &format!("{path}/{role}[{index}]"))?;
+                        true
+                    }
+                    Node::Points(points) => points.is_consistent(),
+                    Node::Rects(rects) => rects.is_consistent(),
+                    Node::Path(_) | Node::Text(_) => true,
+                };
+                if !consistent {
+                    return Err(crate::Error::Render(format!(
+                        "scene node {path}[{index}] has per-item values that do not match \
+                         its item count (an engine bug; please report it)"
+                    )));
+                }
+            }
+            Ok(())
+        }
+        walk(&self.nodes, "")
+    }
+}
+
 /// Child nodes drawn together, optionally clipped to a rectangle.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Group {
@@ -277,4 +307,41 @@ pub struct Text {
     pub vertical: VerticalAlign,
     /// Rotation around the anchor, degrees counter-clockwise (ggplot convention).
     pub angle: f64,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validate_names_an_inconsistent_batch() {
+        let rects = |fill| {
+            Node::Rects(Rects {
+                rects: vec![Rect {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 1.0,
+                    height: 1.0,
+                }],
+                fill,
+                stroke: None,
+            })
+        };
+        let scene = |fill| Scene {
+            width: 10.0,
+            height: 10.0,
+            background: None,
+            nodes: vec![Node::Group(Group {
+                clip: None,
+                role: Some("panel"),
+                nodes: vec![rects(fill)],
+            })],
+        };
+        assert!(scene(PerItem::Varying(vec![None])).validate().is_ok());
+        let error = scene(PerItem::Varying(vec![None, None]))
+            .validate()
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("/panel[0][0]"), "{error}");
+    }
 }

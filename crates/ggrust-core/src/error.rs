@@ -9,22 +9,26 @@ pub enum Error {
     #[error("invalid plot specification: {0}")]
     InvalidSpec(String),
     /// A mapped column is not in the data.
-    #[error("column '{name}' not found in data; available columns: {available}")]
+    #[error("column '{name}' not found in data; available columns: {available}{notes}")]
     MissingColumn {
         /// The requested column.
         name: String,
         /// Comma-separated names of the columns that exist.
         available: String,
+        /// Notes appended by [`Error::with_notes`] (empty, or `\nnote: ...` lines).
+        notes: String,
     },
     /// A column has an Arrow type ggrust cannot plot.
     #[error(
-        "column '{name}' has unsupported type {data_type}; expected numbers, strings, booleans or categoricals"
+        "column '{name}' has unsupported type {data_type}; expected numbers, strings, booleans or categoricals{notes}"
     )]
     UnsupportedColumnType {
         /// The column.
         name: String,
         /// The Arrow data type, e.g. `Timestamp(ms)`.
         data_type: String,
+        /// Notes appended by [`Error::with_notes`] (empty, or `\nnote: ...` lines).
+        notes: String,
     },
     /// Rendering failed (e.g. an impossible image size).
     #[error("render failed: {0}")]
@@ -42,11 +46,29 @@ impl Error {
             return self;
         }
         let suffix: String = notes.iter().map(|note| format!("\nnote: {note}")).collect();
+        // Every kind is kept, so callers can still match on it.
         match self {
             Error::InvalidSpec(message) => Error::InvalidSpec(message + &suffix),
             Error::Render(message) => Error::Render(message + &suffix),
             Error::InvalidData(message) => Error::InvalidData(message + &suffix),
-            other => Error::InvalidData(format!("{other}{suffix}")),
+            Error::MissingColumn {
+                name,
+                available,
+                notes,
+            } => Error::MissingColumn {
+                name,
+                available,
+                notes: notes + &suffix,
+            },
+            Error::UnsupportedColumnType {
+                name,
+                data_type,
+                notes,
+            } => Error::UnsupportedColumnType {
+                name,
+                data_type,
+                notes: notes + &suffix,
+            },
         }
     }
 }
@@ -64,6 +86,22 @@ mod tests {
         assert_eq!(
             error.to_string(),
             "invalid plot specification: unknown geom 'pont'"
+        );
+    }
+
+    #[test]
+    fn notes_keep_the_error_kind() {
+        let error = Error::MissingColumn {
+            name: "x".into(),
+            available: "y".into(),
+            notes: String::new(),
+        }
+        .with_notes(&["one".into()])
+        .with_notes(&["two".into()]);
+        assert!(matches!(error, Error::MissingColumn { .. }));
+        assert_eq!(
+            error.to_string(),
+            "column 'x' not found in data; available columns: y\nnote: one\nnote: two"
         );
     }
 }

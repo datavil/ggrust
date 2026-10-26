@@ -156,6 +156,14 @@ CASES = {
         + m.geom_point()
     ),
     "scale_guide_none": lambda m: point(m, color="c", size="s") + m.scale_color_hue(guide="none"),
+    "size_continuous": lambda m: point(m, size="y"),
+    "alpha_continuous": lambda m: point(m, alpha="y"),
+    "color_continuous_as_legend": lambda m: point(m, color="y") + m.guides(color="legend"),
+    "viridis_discrete": lambda m: point(m, color="c") + m.scale_color_viridis(option="C"),
+    "gradient_discrete": lambda m: (
+        point(m, color="c") + m.scale_color_gradient(low="red", high="blue")
+    ),
+    "size_breaks_labels": lambda m: point(m, size="y") + m.guides(size="legend"),
     "guide_legend_title": lambda m: (
         point(m, color="c") + m.guides(color={"name": "legend", "title": "G"})
     ),

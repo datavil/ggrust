@@ -138,6 +138,11 @@ pub struct Theme {
     pub legend_spacing: f64,
     /// Space between the plot area and the legends (`legend_box_spacing`).
     pub legend_box_spacing: f64,
+    /// Colorbar ticks (`legend_ticks`; lets-plot colors them like the legend
+    /// background); `None` hides them.
+    pub legend_ticks: Option<LineStyle>,
+    /// Colorbar tick length (`legend_ticks_length`).
+    pub legend_ticks_length: f64,
 }
 
 impl Default for Theme {
@@ -195,6 +200,11 @@ impl Default for Theme {
             legend_key_spacing: (0.0, 0.0),
             legend_spacing: 10.0,
             legend_box_spacing: 0.0,
+            legend_ticks: Some(LineStyle {
+                color: Color::WHITE,
+                width: 1.0,
+            }),
+            legend_ticks_length: 4.0,
         }
     }
 }

@@ -15,11 +15,12 @@ use crate::coord::{self, Coord, Panel};
 use crate::data::{Column, ContinuousColumn, DataFrame, LayerData, group_index};
 use crate::geom::{self, DrawLayer, Geom};
 use crate::layout::{
-    KeyLayer, Legend, LegendKey, Titles, draw_axes_and_titles, draw_legends, draw_panel_background,
-    layout_plot, measure_legends,
+    Colorbar, DEFAULT_BINS, KeyLayer, Legend, LegendBox, LegendKey, Titles, draw_axes_and_titles,
+    draw_legends, draw_panel_background, layout_plot, measure_legends,
 };
 use crate::parameters::Parameters;
 use crate::position::{self, Position};
+use crate::scale::format::Label;
 use crate::scale::style::spec::{StyleScaleSpec, style_scale_specs};
 use crate::scale::style::{LegendEntry, StyleScale, default_mapper};
 use crate::scale::{AxisScaleSpec, PositionScale, PositionScales, position_scales};
@@ -901,34 +902,17 @@ fn train_style_scales(
                 let spec = specs.get(&aesthetic).unwrap_or(&default_spec);
                 let mapper = spec.mapper(aesthetic, warnings)?;
                 let domain = spec.discrete_domain()?;
-                entry.insert(if discrete.contains(&aesthetic) {
+                let scale = if discrete.contains(&aesthetic) {
                     StyleScale::discrete(mapper, domain)
                 } else {
                     StyleScale::new(mapper, domain)
-                })
+                };
+                entry.insert(scale.with_continuous(spec.continuous_domain()))
             }
         };
         scale
             .train(column)
             .map_err(|message| Error::InvalidSpec(format!("at '{path}': {message}")))?;
-    }
-    for (aesthetic, scale) in &scales {
-        if scale.is_discrete() {
-            continue;
-        }
-        warnings.push(format!(
-            "'{aesthetic}' is mapped to continuous data, but colorbars and continuous \
-             legends are not drawn yet"
-        ));
-        if let Some(path) = specs
-            .get(aesthetic)
-            .and_then(StyleScaleSpec::has_domain_options)
-        {
-            warnings.push(format!(
-                "at '{path}': breaks, limits and labels of continuous style scales are not \
-                 supported yet; ignored"
-            ));
-        }
     }
     Ok(scales)
 }
@@ -945,10 +929,11 @@ fn assemble_legends(
     layers: &[PreparedLayer],
     scales: &BTreeMap<Aesthetic, StyleScale>,
     specs: &BTreeMap<Aesthetic, StyleScaleSpec>,
-) -> Result<Vec<Legend>> {
+) -> Result<Vec<LegendBox>> {
     /// lets-plot `LegendAssembler.MAX_LEGEND_LABELS`: bigger scales get no legend.
     const MAX_LEGEND_LABELS: usize = 200;
     let mut legends: Vec<Legend> = Vec::new();
+    let mut colorbars: Vec<Colorbar> = Vec::new();
     for layer in layers.iter().filter(|layer| layer.show_legend) {
         // Scale name -> (aesthetic, its legend entries), in the geom's rendered order.
         let mut by_title: Vec<(String, Vec<AestheticEntries>)> = Vec::new();
@@ -959,19 +944,58 @@ fn assemble_legends(
             .iter()
             .map(|(aesthetic, _)| *aesthetic);
         for aesthetic in rendered.filter(|aesthetic| mapped.contains(aesthetic)) {
-            let Some(entries) = scales.get(&aesthetic).and_then(StyleScale::legend_entries) else {
+            let Some(scale) = scales.get(&aesthetic) else {
                 continue;
             };
             let hidden_by_scale = specs
                 .get(&aesthetic)
                 .is_some_and(StyleScaleSpec::hides_legend);
-            if entries.len() > MAX_LEGEND_LABELS
-                || legend_hidden(spec, aesthetic)
-                || hidden_by_scale
-            {
+            if legend_hidden(spec, aesthetic) || hidden_by_scale {
                 continue;
             }
             let title = legend_title(spec, aesthetic, specs.get(&aesthetic));
+            // lets-plot `fitsColorBar`: continuous colors get a colorbar unless a
+            // legend is asked for.
+            if let Some(guide) = scale.continuous_guide()
+                && matches!(aesthetic, Aesthetic::Color | Aesthetic::Fill)
+                && !legend_requested(spec, aesthetic, specs.get(&aesthetic))
+            {
+                let options = colorbar_options(spec, aesthetic);
+                let bins = options
+                    .and_then(|options| options.nbin)
+                    .map_or(DEFAULT_BINS, |bins| bins as usize);
+                let StyleValues::Colors(colors) =
+                    scale.map_numbers(&Colorbar::bin_values(guide.domain, bins))
+                else {
+                    continue;
+                };
+                let colors = (0..bins.max(2)).map(|index| colors.get(index)).collect();
+                let colorbar = Colorbar {
+                    title,
+                    domain: guide.domain,
+                    breaks: guide.breaks,
+                    colors,
+                    bar_width: options.and_then(|options| options.barwidth),
+                    bar_height: options.and_then(|options| options.barheight),
+                };
+                // lets-plot: an equal colorbar under the same title is shown once; a
+                // different one gets "title (aesthetic)".
+                match colorbars.iter().find(|known| known.title == colorbar.title) {
+                    Some(known) if same_colorbar(known, &colorbar) => {}
+                    Some(_) => colorbars.push(Colorbar {
+                        title: format!("{} ({aesthetic})", colorbar.title),
+                        ..colorbar
+                    }),
+                    None => colorbars.push(colorbar),
+                }
+                continue;
+            }
+            let Some(entries) = scale.legend_entries() else {
+                continue;
+            };
+            if entries.len() > MAX_LEGEND_LABELS {
+                continue;
+            }
             match by_title.iter_mut().find(|(known, _)| *known == title) {
                 Some((_, group)) => group.push((aesthetic, entries)),
                 None => by_title.push((title, vec![(aesthetic, entries)])),
@@ -990,10 +1014,10 @@ fn assemble_legends(
             };
             // lets-plot `applyOverrideAesLists`: labels of every aesthetic, distinct;
             // per label, each aesthetic's last value with that label.
-            let mut labels: Vec<&str> = Vec::new();
+            let mut labels: Vec<&Label> = Vec::new();
             for (_, entries) in &group {
                 for entry in entries {
-                    if !labels.contains(&entry.label.as_str()) {
+                    if !labels.contains(&&entry.label) {
                         labels.push(&entry.label);
                     }
                 }
@@ -1002,7 +1026,7 @@ fn assemble_legends(
                 let values: Vec<(Aesthetic, &StyleValues)> = group
                     .iter()
                     .filter_map(|(aesthetic, entries)| {
-                        let entry = entries.iter().rev().find(|entry| entry.label == label)?;
+                        let entry = entries.iter().rev().find(|entry| entry.label == *label)?;
                         Some((*aesthetic, &entry.value))
                     })
                     .collect();
@@ -1011,17 +1035,43 @@ fn assemble_legends(
                     styles: key_styles(layer, &values)?,
                 };
                 let keys = &mut legends[index].keys;
-                match keys.iter_mut().find(|key| key.label == label) {
+                match keys.iter_mut().find(|key| key.label == *label) {
                     Some(key) => key.layers.push(key_layer),
                     None => keys.push(LegendKey {
-                        label: label.to_owned(),
+                        label: label.clone(),
                         layers: vec![key_layer],
                     }),
                 }
             }
         }
     }
-    Ok(legends)
+    Ok(colorbars
+        .into_iter()
+        .map(LegendBox::Colorbar)
+        .chain(legends.into_iter().map(LegendBox::Keys))
+        .collect())
+}
+
+fn same_colorbar(left: &Colorbar, right: &Colorbar) -> bool {
+    left.domain == right.domain && left.breaks == right.breaks && left.colors == right.colors
+}
+
+/// `guide_colorbar(...)` options of an aesthetic, if any.
+fn colorbar_options(spec: &PlotSpec, aesthetic: Aesthetic) -> Option<&GuideOptions> {
+    match spec.guides.get(aesthetic.as_str()) {
+        Some(GuideSpec::Full(options)) => Some(options),
+        _ => None,
+    }
+}
+
+/// `guides(color="legend")`, `guide_legend()` or a scale's `guide="legend"`.
+fn legend_requested(spec: &PlotSpec, aesthetic: Aesthetic, scale: Option<&StyleScaleSpec>) -> bool {
+    let is_legend = |guide: &GuideSpec| match guide {
+        GuideSpec::Name(name) => name == "legend",
+        GuideSpec::Full(options) => options.name.as_deref() == Some("legend"),
+    };
+    spec.guides.get(aesthetic.as_str()).is_some_and(is_legend)
+        || scale.and_then(StyleScaleSpec::guide).is_some_and(is_legend)
 }
 
 /// One-item styles of a legend key: the legend's values, else the layer's constant
@@ -1183,12 +1233,24 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
         let built = is_axis_title_only(key, guide)
             || (is_style
                 && match guide {
-                    GuideSpec::Name(name) => name == "none" || name == "legend",
-                    // `guide_legend(title=...)` without other options.
-                    GuideSpec::Full(options) => is_title_only(&GuideOptions {
-                        name: options.name.clone().filter(|name| name != "legend"),
-                        ..(**options).clone()
-                    }),
+                    GuideSpec::Name(name) => {
+                        matches!(name.as_str(), "none" | "legend" | "colorbar")
+                    }
+                    // `guide_legend(title=...)`, `guide_colorbar(title=..., barwidth=...,
+                    // barheight=..., nbin=...)` without other options.
+                    GuideSpec::Full(options) => {
+                        let colorbar = options.name.as_deref() == Some("colorbar");
+                        is_title_only(&GuideOptions {
+                            name: options
+                                .name
+                                .clone()
+                                .filter(|name| name != "legend" && name != "colorbar"),
+                            barwidth: options.barwidth.filter(|_| !colorbar),
+                            barheight: options.barheight.filter(|_| !colorbar),
+                            nbin: options.nbin.filter(|_| !colorbar),
+                            ..(**options).clone()
+                        })
+                    }
                 });
         if !built {
             warnings.push(format!(

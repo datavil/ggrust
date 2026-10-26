@@ -140,6 +140,23 @@ def legends_hue_size(m):
     )
 
 
+def colorbar_viridis_size(m):
+    random = np.random.default_rng(24)
+    frame = pl.DataFrame(
+        {
+            "gene": np.repeat(["CD3E", "MS4A1", "NKG7", "LYZ", "FCGR3A"], 6),
+            "cluster": np.tile([f"c{index}" for index in range(6)], 5),
+            "expression": random.uniform(0, 3, 30),
+            "fraction": random.uniform(0, 100, 30),
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("cluster", "gene", color="expression", size="fraction"))
+        + m.geom_point()
+        + m.scale_color_viridis(option="magma", direction=-1)
+    )
+
+
 CASES = {
     case.__name__: case
     for case in [
@@ -154,5 +171,6 @@ CASES = {
         umap_clusters,
         umap_expression,
         legends_hue_size,
+        colorbar_viridis_size,
     ]
 }

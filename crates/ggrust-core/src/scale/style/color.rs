@@ -12,9 +12,9 @@ use crate::style::{StyleValues, ValueKind};
 /// lets-plot `ColorMapperDefaults.NA_VALUE` (`Color.GRAY`).
 pub const NA_COLOR: Color = Color::rgb(0x80, 0x80, 0x80);
 /// lets-plot `Gradient.DEF_LOW`.
-const GRADIENT_LOW: Color = Color::rgb(0x13, 0x2b, 0x43);
+pub const GRADIENT_LOW: Color = Color::rgb(0x13, 0x2b, 0x43);
 /// lets-plot `Gradient.DEF_HIGH`.
-const GRADIENT_HIGH: Color = Color::rgb(0x56, 0xb1, 0xf7);
+pub const GRADIENT_HIGH: Color = Color::rgb(0x56, 0xb1, 0xf7);
 /// ColorBrewer Set1 (9 colors); smaller sets are its prefixes.
 const SET1: [Color; 9] = [
     Color::rgb(0xe4, 0x1a, 0x1c),

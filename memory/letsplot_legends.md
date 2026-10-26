@@ -25,3 +25,14 @@ Kotlin sources: `plot-builder/.../assemble/LegendAssembler.kt`, `PlotAssemblerUt
 - Labels wrap at 30 characters by words (newlines break too); 5+ lines -> 5 + "...".
 - Placement is relative to the panel (right edge + inset): with a minimum-size panel the
   legend runs past the plot edge rather than covering the data.
+
+## Colorbars (Phase 1.2)
+- Every continuous color/fill scale gets a colorbar (even manual colors: a stepped bar)
+  unless a legend is asked for; continuous size/alpha get a key legend of ~5 breaks.
+- Bar 23 x 115 px (1 x 5 key sizes), or label font size x (breaks + 1) if longer: lets-plot
+  uses the *font size* here, not the line box. 20 bins, each rect runs to the bar bottom
+  (no seams), the first is 2 px longer; ticks 2 px from the ends, white, at both edges.
+- Colorbars come before key legends; an equal colorbar under the same title is shown once,
+  a different one is titled "name (aes)".
+- Continuous style limits: domain = data range within limits, widened to the limits;
+  values outside -> NA. Colormap tables are generated from lets-plot's `Cm*.kt`.

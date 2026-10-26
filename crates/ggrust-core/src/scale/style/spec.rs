@@ -8,7 +8,9 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use super::{
-    DiscreteDomain, HueMapper, Level, ManualColorMapper, NA_COLOR, StyleMapper, default_mapper,
+    COLORMAP_NAMES, ColormapMapper, ContinuousDomain, DiscreteDomain, GRADIENT_HIGH, GRADIENT_LOW,
+    GRADIENT2_HIGH, GRADIENT2_LOW, GRADIENT2_MID, Gradient2Mapper, GradientMapper, HueMapper,
+    Level, ManualColorMapper, NA_COLOR, StyleMapper, colormap, default_mapper,
 };
 use crate::scene::{Color, PerItem};
 use crate::spec::{Aesthetic, GuideSpec, PlotSpec, ScaleSpec, Value};
@@ -19,7 +21,23 @@ use crate::{Error, Result};
 type Set<T> = Option<(T, String)>;
 
 /// Mapper options read here; any other `parameters` key is reported.
-const MAPPER_OPTIONS: &[&str] = &["values", "h", "c", "l", "h_start", "direction"];
+const MAPPER_OPTIONS: &[&str] = &[
+    "values",
+    "h",
+    "c",
+    "l",
+    "h_start",
+    "direction",
+    "low",
+    "mid",
+    "high",
+    "midpoint",
+    "colors",
+    "alpha",
+    "begin",
+    "end",
+    "option",
+];
 
 /// Merged `scale_*()` options of one style aesthetic.
 #[derive(Debug, Clone, Default)]
@@ -94,7 +112,7 @@ fn report_unbuilt(scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
             scale
                 .guide
                 .as_ref()
-                .is_some_and(|guide| !matches!(guide, GuideSpec::Name(name) if name == "none" || name == "legend")),
+                .is_some_and(|guide| !matches!(guide, GuideSpec::Name(name) if matches!(name.as_str(), "none" | "legend" | "colorbar"))),
         ),
         ("trans", scale.trans.is_some()),
         ("expand", scale.expand.is_some()),
@@ -133,6 +151,15 @@ impl StyleScaleSpec {
                     .hue()
                     .map(|mapper| Arc::new(mapper) as Arc<dyn StyleMapper>);
             }
+            Some((kind, path)) if is_color && kind.starts_with("color_") => {
+                if let Some(mapper) = self.continuous_color(kind, path)? {
+                    return Ok(mapper);
+                }
+                warnings.push(format!(
+                    "at '{path}': '{kind}' scales for '{aesthetic}' are not supported yet; the \
+                     default scale was used"
+                ));
+            }
             Some((kind, path)) => warnings.push(format!(
                 "at '{path}': '{kind}' scales for '{aesthetic}' are not supported yet; the \
                  default scale was used"
@@ -159,6 +186,11 @@ impl StyleScaleSpec {
             ));
         }
         Ok(default)
+    }
+
+    /// The scale's own `guide`, if given.
+    pub fn guide(&self) -> Option<&GuideSpec> {
+        self.guide.as_ref().map(|(guide, _)| guide)
     }
 
     /// `guide="none"` on the scale hides its legend.
@@ -207,13 +239,163 @@ impl StyleScaleSpec {
         })
     }
 
-    /// Whether `breaks`, `limits` or `labels` were given (they apply to discrete
-    /// scales only for now).
-    pub fn has_domain_options(&self) -> Option<&str> {
-        [&self.breaks, &self.limits]
-            .into_iter()
-            .find_map(|set| set.as_ref().map(|(_, path)| path.as_str()))
-            .or_else(|| self.labels.as_ref().map(|(_, path)| path.as_str()))
+    /// `limits`, `breaks` and `labels` for a continuous scale. An error (as a
+    /// message with its path) when they are not numbers; it is reported only if the
+    /// scale turns out continuous.
+    pub fn continuous_domain(&self) -> std::result::Result<ContinuousDomain, String> {
+        let number = |value: &Value, path: &str| -> std::result::Result<Option<f64>, String> {
+            match value {
+                Value::Null => Ok(None),
+                Value::Number(number) => Ok(number.as_f64().filter(|value| value.is_finite())),
+                other => Err(format!(
+                    "at '{path}': limits and breaks of a continuous scale are numbers, got {other}"
+                )),
+            }
+        };
+        let mut domain = ContinuousDomain::default();
+        if let Some((limits, path)) = &self.limits {
+            let mut ends = [
+                limits
+                    .first()
+                    .map_or(Ok(None), |value| number(value, path))?,
+                limits
+                    .get(1)
+                    .map_or(Ok(None), |value| number(value, path))?,
+            ];
+            if let [Some(low), Some(high)] = ends
+                && low > high
+            {
+                ends = [Some(high), Some(low)];
+            }
+            domain.limits = ends;
+        }
+        if let Some((breaks, path)) = &self.breaks {
+            let mut values = Vec::new();
+            for value in breaks {
+                if let Some(value) = number(value, path)? {
+                    values.push(value);
+                }
+            }
+            domain.breaks = Some(values);
+        }
+        domain.labels = self
+            .discrete_domain()
+            .map_err(|error| error.to_string())?
+            .labels;
+        Ok(domain)
+    }
+
+    /// Gradient, gradient2, gradientn and color map scales; `None` for other kinds.
+    fn continuous_color(&self, kind: &str, path: &str) -> Result<Option<Arc<dyn StyleMapper>>> {
+        let na = self.na_color()?;
+        let color_option = |key: &str, default: Color| -> Result<Color> {
+            match self.options.get(key) {
+                None => Ok(default),
+                Some((value, path)) => color(value, path),
+            }
+        };
+        let mapper: Arc<dyn StyleMapper> = match kind {
+            "color_gradient" => Arc::new(GradientMapper {
+                name: "color_gradient",
+                colors: vec![
+                    color_option("low", GRADIENT_LOW)?,
+                    color_option("high", GRADIENT_HIGH)?,
+                ],
+                na,
+                opacity: 1.0,
+            }),
+            "color_gradient2" => Arc::new(Gradient2Mapper {
+                low: color_option("low", GRADIENT2_LOW)?,
+                mid: color_option("mid", GRADIENT2_MID)?,
+                high: color_option("high", GRADIENT2_HIGH)?,
+                midpoint: self.number("midpoint")?.unwrap_or(0.0),
+                na,
+            }),
+            "color_gradientn" => {
+                let Some((value, colors_path)) = self.options.get("colors") else {
+                    return Err(Error::InvalidSpec(format!(
+                        "at '{path}': scale_*_gradientn() needs 'colors' (two or more)"
+                    )));
+                };
+                let items = value.as_array().ok_or_else(|| {
+                    Error::InvalidSpec(format!(
+                        "at '{colors_path}': expected a list of colors, got {value}"
+                    ))
+                })?;
+                let colors = items
+                    .iter()
+                    .enumerate()
+                    .map(|(index, item)| color(item, &format!("{colors_path}[{index}]")))
+                    .collect::<Result<Vec<_>>>()?;
+                if colors.len() < 2 {
+                    return Err(Error::InvalidSpec(format!(
+                        "at '{colors_path}': a gradient needs two or more colors, got {}",
+                        colors.len()
+                    )));
+                }
+                Arc::new(GradientMapper {
+                    name: "color_gradientn",
+                    colors,
+                    na,
+                    opacity: 1.0,
+                })
+            }
+            "color_cmap" => {
+                let table = match self.options.get("option") {
+                    None => colormap("viridis"),
+                    Some((Value::String(name), option_path)) => {
+                        Some(colormap(name).ok_or_else(|| {
+                            Error::InvalidSpec(format!(
+                                "at '{option_path}': unknown color map \"{name}\"; use {COLORMAP_NAMES}"
+                            ))
+                        })?)
+                    }
+                    Some((other, option_path)) => {
+                        return Err(Error::InvalidSpec(format!(
+                            "at '{option_path}': expected a color map name, got {other}"
+                        )));
+                    }
+                };
+                let fraction = |key: &str, default: f64| -> Result<f64> {
+                    let value = self.number(key)?.unwrap_or(default);
+                    if (0.0..=1.0).contains(&value) {
+                        Ok(value)
+                    } else {
+                        Err(Error::InvalidSpec(format!(
+                            "at '{}': '{key}' should be in range [0..1], got {value}",
+                            self.options
+                                .get(key)
+                                .map_or(path, |(_, path)| path.as_str())
+                        )))
+                    }
+                };
+                Arc::new(ColormapMapper {
+                    table: table.unwrap_or_default(),
+                    opacity: fraction("alpha", 1.0)?,
+                    range: (fraction("begin", 0.0)?, fraction("end", 1.0)?),
+                    reversed: self
+                        .number("direction")?
+                        .is_some_and(|direction| direction < 0.0),
+                    na,
+                })
+            }
+            _ => return Ok(None),
+        };
+        Ok(Some(mapper))
+    }
+
+    /// A finite number option.
+    fn number(&self, key: &str) -> Result<Option<f64>> {
+        match self.options.get(key) {
+            None => Ok(None),
+            Some((value, path)) => value
+                .as_f64()
+                .filter(|number| number.is_finite())
+                .map(Some)
+                .ok_or_else(|| {
+                    Error::InvalidSpec(format!("at '{path}': expected a number, got {value}"))
+                }),
+        }
     }
 
     fn hue(&self) -> Result<HueMapper> {

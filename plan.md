@@ -96,7 +96,7 @@ Steps inside a phase are ordered; each builds on the previous.
 ### Phase 1: Scatter-class plots (cellestial `dimensional`, `umap`, `scatter`, `xyplot`)
 
 - [x] 1.1 Discrete scales + `scale_color_hue`, `scale_color_manual`; discrete legend. (Also `scale_fill_*`, `guides(x="none")`, scale `guide="none"`, `show_legend`, label wrapping. Not yet: manual values for size/alpha, continuous breaks/limits on style scales, `guide_legend` options. Known gap: boolean `breaks`/`limits` match text levels "true"/"false" because discrete columns do not keep their Arrow type; lets-plot keeps True and "true" apart.)
-- [ ] 1.2 Continuous color: `scale_color_gradient`, `gradient2`, `gradientn`, `viridis`, `continuous`; colorbar legend.
+- [x] 1.2 Continuous color: `scale_color_gradient`, `gradient2`, `gradientn`, `viridis`, `continuous`; colorbar legend. (Also `fill` variants, continuous `limits`/`breaks`/`labels` on style scales, continuous size/alpha legends, `guide_colorbar(barwidth, barheight, nbin)`, `guides(x="legend")` on continuous colors. Not yet: `trans` on style scales, horizontal colorbars.)
 - [ ] 1.3 `scale_*_brewer` palettes (all ColorBrewer sets lets-plot ships).
 - [ ] 1.4 `theme()` + `element_*`, `theme_classic`, `theme_bw`, `theme_void`; `legend_position` (right, bottom, none, inside), horizontal legends; `guides`/`guide_legend` (ncol, override_aes).
 - [ ] 1.5 `scale_size`, point shapes, alpha, stroke; `coord_fixed`, `coord_cartesian` limits; `scale_x/y_continuous` (limits, breaks, labels, expand, format), `scale_y_reverse`, `scale_y_log2`/`log10`.

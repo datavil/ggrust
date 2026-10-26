@@ -20,17 +20,18 @@ import lets_plot as lp  # noqa: E402
 def circles(svg: str) -> list[tuple[str, float, float]]:
     """(fill, radius, opacity) per circle; a fill set on a parent ``<g>`` is inherited."""
     result = []
-    group_fill = ""
+    group_fill, group_opacity = "", "1"
     for tag in re.findall(r"<g [^>]*>|<circle[^>]*>", svg):
         attributes = dict(re.findall(r'([\w-]+)="([^"]*)"', tag))
         if tag.startswith("<g "):
             group_fill = attributes.get("fill", group_fill)
+            group_opacity = attributes.get("fill-opacity", "1")
             continue
         fill = attributes.get("fill", group_fill)
         rgb = re.match(r"rgb\((\d+),(\d+),(\d+)\)", fill)
         if rgb:
             fill = "#{:02x}{:02x}{:02x}".format(*map(int, rgb.groups()))
-        opacity = float(attributes.get("fill-opacity", attributes.get("opacity", "1")))
+        opacity = float(attributes.get("fill-opacity", attributes.get("opacity", group_opacity)))
         result.append((fill.lower(), round(float(attributes["r"]), 3), opacity))
     return result
 
@@ -101,6 +102,21 @@ CASES = {
     ),
     "na_value_ignored_on_default_scales": lambda m: (
         scatter(m, color="vna") + m.scale_color_manual(values=None, na_value="red")
+    ),
+    "gradient_custom": lambda m: (
+        scatter(m, color="vna") + m.scale_color_gradient(low="white", high="red")
+    ),
+    "gradient2_default": lambda m: scatter(m, color="v") + m.scale_color_gradient2(midpoint=5),
+    "gradientn_discrete": lambda m: (
+        scatter(m, color="c12") + m.scale_color_gradientn(colors=["red", "green", "blue"])
+    ),
+    "viridis_continuous": lambda m: scatter(m, color="vna") + m.scale_color_viridis(),
+    "viridis_discrete_one": lambda m: scatter(m, color="one") + m.scale_color_viridis(option="B"),
+    "viridis_limits_na": lambda m: (
+        scatter(m, color="v") + m.scale_color_viridis(limits=[2, 6], na_value="red")
+    ),
+    "continuous_limits_widen": lambda m: (
+        scatter(m, color="v") + m.scale_color_continuous(limits=[-10, None])
     ),
     "discrete_then_continuous": lambda m: (
         m.ggplot(FRAME, m.aes("x", "y"))

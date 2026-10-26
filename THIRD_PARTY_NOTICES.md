@@ -36,3 +36,13 @@ SOFTWARE.
 
 `crates/ggrust-core/fonts/` contains Liberation Sans 2.1, licensed under the SIL Open Font
 License 1.1; see `crates/ggrust-core/fonts/OFL.txt`.
+
+## Color maps
+
+`crates/ggrust-core/src/scale/style/colormap_data.rs` holds color map tables taken from
+lets-plot (above), which credits them as follows. The color maps `viridis`, `magma`,
+`inferno` and `plasma` were created by Stéfan van der Walt and Nathaniel Smith. The color
+map `cividis` is a corrected version of `viridis`, developed by Jamie R. Nuñez,
+Christopher R. Anderton and Ryan S. Renslow. The color map `turbo` was developed by Anton
+Mikhailov. The color map `twilight` was created by Bastian Bechtold
+(https://github.com/bastibe/twilight).

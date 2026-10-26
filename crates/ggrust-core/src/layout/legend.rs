@@ -1,4 +1,4 @@
-//! Discrete legends: measure and draw (lets-plot `LegendComponentLayout`,
+//! Legends (key boxes and colorbars): measure and draw (lets-plot `LegendComponentLayout`,
 //! `LegendBreak`, `LegendBoxesLayoutUtil`).
 //!
 //! A [`Legend`] is a title plus keys; each key draws one entry per layer through
@@ -9,12 +9,14 @@
 //!
 //! What it does not do (yet): colorbars, horizontal legends, `guide_legend` options.
 
-use super::{text_band, text_node};
+use super::colorbar::{Colorbar, ColorbarLayout, draw_colorbar, layout_colorbar};
+use super::{label_node, text_band, text_node};
 use crate::Result;
 use crate::geom::Geom;
+use crate::scale::format::Label;
 use crate::scene::{Group, HorizontalAlign, Node, PerItem, Rect, Rects};
 use crate::style::Styles;
-use crate::text::measure;
+use crate::text::{measure, measure_label};
 use crate::theme::Theme;
 
 /// lets-plot `LegendAssembler.MAX_ROWS_PER_COL`.
@@ -35,7 +37,7 @@ pub struct KeyLayer {
 /// One legend entry: a label and the keys of every layer showing it.
 pub struct LegendKey {
     /// Label next to the key.
-    pub label: String,
+    pub label: Label,
     /// Keys drawn on top of each other, in layer order.
     pub layers: Vec<KeyLayer>,
 }
@@ -48,12 +50,42 @@ pub struct Legend {
     pub keys: Vec<LegendKey>,
 }
 
-/// A legend measured for drawing; positions relative to its box origin.
+/// A guide box: a key legend or a colorbar.
+pub enum LegendBox {
+    /// Keys with labels.
+    Keys(Legend),
+    /// A colorbar.
+    Colorbar(Colorbar),
+}
+
+impl LegendBox {
+    /// The title.
+    pub fn title(&self) -> &str {
+        match self {
+            LegendBox::Keys(legend) => &legend.title,
+            LegendBox::Colorbar(colorbar) => &colorbar.title,
+        }
+    }
+
+    fn is_empty(&self) -> bool {
+        match self {
+            LegendBox::Keys(legend) => legend.keys.is_empty(),
+            LegendBox::Colorbar(colorbar) => colorbar.breaks.is_empty(),
+        }
+    }
+}
+
+/// A box measured for drawing; positions relative to its box origin.
 struct MeasuredLegend<'a> {
-    legend: &'a Legend,
+    title: &'a str,
     size: (f64, f64),
+    content: Measured<'a>,
+}
+
+enum Measured<'a> {
     /// Per key: the key cell, the label anchor (left, vertical middle) and lines.
-    cells: Vec<(Rect, (f64, f64), Vec<String>)>,
+    Keys(&'a Legend, Vec<(Rect, (f64, f64), Vec<Label>)>),
+    Colorbar(&'a Colorbar, ColorbarLayout),
 }
 
 /// Legends stacked vertically, measured.
@@ -63,15 +95,30 @@ pub struct LegendBlock<'a> {
     pub size: (f64, f64),
 }
 
-/// Measure `legends` (lets-plot vertical arrangement, left-justified).
+/// Title width and height, and where the content starts below the title's top
+/// (lets-plot `LegendBoxLayout.graphOrigin`: half a title line between them).
+fn title_metrics(title: &str, theme: &Theme) -> (f64, f64) {
+    match theme.legend_title {
+        Some(style) if !title.trim().is_empty() => (
+            measure(title, style.size, style.face).width,
+            text_band(style) * 1.5,
+        ),
+        _ => (0.0, 0.0),
+    }
+}
+
+/// Measure the boxes (lets-plot vertical arrangement, left-justified).
 /// `None` when there is nothing to show.
 pub fn measure_legends<'a>(
-    legends: &'a [Legend],
+    boxes: &'a [LegendBox],
     theme: &Theme,
 ) -> Result<Option<LegendBlock<'a>>> {
     let mut measured = Vec::new();
-    for legend in legends.iter().filter(|legend| !legend.keys.is_empty()) {
-        measured.push(measure_legend(legend, theme)?);
+    for legend_box in boxes.iter().filter(|legend_box| !legend_box.is_empty()) {
+        measured.push(match legend_box {
+            LegendBox::Keys(legend) => measure_legend(legend, theme)?,
+            LegendBox::Colorbar(colorbar) => measure_colorbar(colorbar, theme),
+        });
     }
     if measured.is_empty() {
         return Ok(None);
@@ -88,21 +135,23 @@ pub fn measure_legends<'a>(
     }))
 }
 
+fn measure_colorbar<'a>(colorbar: &'a Colorbar, theme: &Theme) -> MeasuredLegend<'a> {
+    let margin = theme.legend_margin;
+    let (title_width, graph_top) = title_metrics(&colorbar.title, theme);
+    let layout = layout_colorbar(colorbar, (margin.left, margin.top + graph_top), theme);
+    MeasuredLegend {
+        title: &colorbar.title,
+        size: (
+            margin.left + title_width.max(layout.size.0) + margin.right,
+            margin.top + graph_top + layout.size.1 + margin.bottom,
+        ),
+        content: Measured::Colorbar(colorbar, layout),
+    }
+}
+
 fn measure_legend<'a>(legend: &'a Legend, theme: &Theme) -> Result<MeasuredLegend<'a>> {
     let margin = theme.legend_margin;
-    let (title_width, title_height) = match theme.legend_title {
-        Some(style) if !legend.title.trim().is_empty() => (
-            measure(&legend.title, style.size, style.face).width,
-            text_band(style),
-        ),
-        _ => (0.0, 0.0),
-    };
-    // lets-plot `LegendBoxLayout.graphOrigin`: half a title line between title and keys.
-    let graph_top = if title_height > 0.0 {
-        title_height * 1.5
-    } else {
-        0.0
-    };
+    let (title_width, graph_top) = title_metrics(&legend.title, theme);
 
     let (label_gap, label_extra) = match theme.legend_text {
         // lets-plot: half the width of "_" between key and label; a third of a line
@@ -113,20 +162,27 @@ fn measure_legend<'a>(legend: &'a Legend, theme: &Theme) -> Result<MeasuredLegen
         ),
         None => (0.0, 0.0),
     };
-    let label_size = |lines: &[String]| match theme.legend_text {
+    let label_size = |lines: &[Label]| match theme.legend_text {
         Some(style) => (
             lines
                 .iter()
-                .map(|line| measure(line, style.size, style.face).width)
+                .map(|line| {
+                    measure_label(
+                        &line.text,
+                        line.superscript.as_deref(),
+                        style.size,
+                        style.face,
+                    )
+                })
                 .fold(0.0, f64::max),
             text_band(style) * lines.len() as f64,
         ),
         None => (0.0, 0.0),
     };
-    let labels: Vec<Vec<String>> = legend
+    let labels: Vec<Vec<Label>> = legend
         .keys
         .iter()
-        .map(|key| wrap_label(&key.label))
+        .map(|key| label_lines(&key.label))
         .collect();
 
     let mut key_sizes = Vec::with_capacity(legend.keys.len());
@@ -191,10 +247,22 @@ fn measure_legend<'a>(legend: &'a Legend, theme: &Theme) -> Result<MeasuredLegen
         margin.top + graph_top + graph_height + margin.bottom,
     );
     Ok(MeasuredLegend {
-        legend,
+        title: &legend.title,
         size,
-        cells,
+        content: Measured::Keys(legend, cells),
     })
+}
+
+/// Lines of a label: plain labels wrap; a power label (`2·10` + superscript) stays
+/// on one line.
+fn label_lines(label: &Label) -> Vec<Label> {
+    if label.superscript.is_some() {
+        return vec![label.clone()];
+    }
+    wrap_label(&label.text)
+        .into_iter()
+        .map(Label::plain)
+        .collect()
 }
 
 /// Label lines, lets-plot `RichText.wrap(label, 30, 5)`: split at newlines, then
@@ -292,10 +360,10 @@ pub fn draw_legends(block: &LegendBlock, origin: (f64, f64), theme: &Theme) -> R
             }));
         }
         if let Some(style) = theme.legend_title
-            && !measured.legend.title.trim().is_empty()
+            && !measured.title.trim().is_empty()
         {
             legend_nodes.push(text_node(
-                &measured.legend.title,
+                measured.title,
                 style,
                 (
                     x + theme.legend_margin.left,
@@ -305,27 +373,47 @@ pub fn draw_legends(block: &LegendBlock, origin: (f64, f64), theme: &Theme) -> R
                 0.0,
             ));
         }
-        for (key, (cell, label_anchor, lines)) in measured.legend.keys.iter().zip(&measured.cells) {
-            let cell = Rect {
-                x: x + cell.x,
-                y: y + cell.y,
-                ..*cell
-            };
-            for layer in &key.layers {
-                legend_nodes.extend(layer.geom.draw_key(&layer.styles, cell)?);
+        match &measured.content {
+            Measured::Colorbar(colorbar, layout) => {
+                let moved = ColorbarLayout {
+                    bar: Rect {
+                        x: x + layout.bar.x,
+                        y: y + layout.bar.y,
+                        ..layout.bar
+                    },
+                    ticks: layout
+                        .ticks
+                        .iter()
+                        .map(|(tick, (label_x, label_y))| (y + tick, (x + label_x, y + label_y)))
+                        .collect(),
+                    size: layout.size,
+                };
+                legend_nodes.extend(draw_colorbar(colorbar, &moved, theme));
             }
-            if let Some(style) = theme.legend_text {
-                // Lines centred as a block on the key's middle.
-                let band = text_band(style);
-                let first = label_anchor.1 - band * (lines.len() as f64 - 1.0) / 2.0;
-                for (line_index, line) in lines.iter().enumerate() {
-                    legend_nodes.push(text_node(
-                        line,
-                        style,
-                        (x + label_anchor.0, y + first + band * line_index as f64),
-                        HorizontalAlign::Start,
-                        0.0,
-                    ));
+            Measured::Keys(legend, cells) => {
+                for (key, (cell, label_anchor, lines)) in legend.keys.iter().zip(cells) {
+                    let cell = Rect {
+                        x: x + cell.x,
+                        y: y + cell.y,
+                        ..*cell
+                    };
+                    for layer in &key.layers {
+                        legend_nodes.extend(layer.geom.draw_key(&layer.styles, cell)?);
+                    }
+                    if let Some(style) = theme.legend_text {
+                        // Lines centred as a block on the key's middle.
+                        let band = text_band(style);
+                        let first = label_anchor.1 - band * (lines.len() as f64 - 1.0) / 2.0;
+                        for (line_index, line) in lines.iter().enumerate() {
+                            legend_nodes.push(label_node(
+                                line,
+                                style,
+                                (x + label_anchor.0, y + first + band * line_index as f64),
+                                HorizontalAlign::Start,
+                                0.0,
+                            ));
+                        }
+                    }
                 }
             }
         }

@@ -1,17 +1,27 @@
-"""Color scales: ``scale_color_hue()``, ``scale_color_manual()``, ``fill`` variants.
+"""Color scales: hue, manual, gradients, viridis, continuous; ``fill`` variants.
 
 Ported from lets-plot's ``lets_plot/plot/scale.py`` (MIT, see THIRD_PARTY_NOTICES.md).
-Gradient, brewer and viridis scales come in later phases.
+Brewer scales come in a later phase.
 """
 
 from ggrust.plot.core import FeatureSpec
 from ggrust.plot.scale import _scale
 
 __all__ = [
+    "scale_color_continuous",
+    "scale_color_gradient",
+    "scale_color_gradient2",
+    "scale_color_gradientn",
     "scale_color_hue",
     "scale_color_manual",
+    "scale_color_viridis",
+    "scale_fill_continuous",
+    "scale_fill_gradient",
+    "scale_fill_gradient2",
+    "scale_fill_gradientn",
     "scale_fill_hue",
     "scale_fill_manual",
+    "scale_fill_viridis",
 ]
 
 
@@ -170,3 +180,296 @@ def _manual(aesthetic, *, values, breaks, limits, **options) -> FeatureSpec:
             else:
                 values = None
     return _scale(aesthetic, breaks=breaks, limits=limits, **options, values=values)
+
+
+def scale_color_gradient(
+    low=None,
+    high=None,
+    name=None,
+    breaks=None,
+    labels=None,
+    lablim=None,
+    limits=None,
+    na_value=None,
+    guide=None,
+    trans=None,
+    format=None,
+) -> FeatureSpec:
+    """Map ``color`` to a two-color gradient (in LAB space).
+
+    Parameters
+    ----------
+    low, high : str, default="#132B43", "#56B1F7"
+        Colors at the low and high end of the data.
+    name, breaks, labels, lablim, limits, na_value, guide, trans, format : optional
+        As in lets_plot.
+
+    Returns
+    -------
+    FeatureSpec
+        The scale.
+    """
+    return _scale("color", **locals(), scale_mapper_kind="color_gradient")
+
+
+def scale_fill_gradient(
+    low=None,
+    high=None,
+    name=None,
+    breaks=None,
+    labels=None,
+    lablim=None,
+    limits=None,
+    na_value=None,
+    guide=None,
+    trans=None,
+    format=None,
+) -> FeatureSpec:
+    """Map ``fill`` to a two-color gradient. See ``scale_color_gradient``.
+
+    Returns
+    -------
+    FeatureSpec
+        The scale.
+    """
+    return _scale("fill", **locals(), scale_mapper_kind="color_gradient")
+
+
+def scale_color_gradient2(
+    low=None,
+    mid=None,
+    high=None,
+    midpoint=0,
+    name=None,
+    breaks=None,
+    labels=None,
+    lablim=None,
+    limits=None,
+    na_value=None,
+    guide=None,
+    trans=None,
+    format=None,
+) -> FeatureSpec:
+    """Map ``color`` to a diverging gradient around ``midpoint`` (continuous data only).
+
+    Parameters
+    ----------
+    low, mid, high : str, default="#964540", "white", "#3B3D96"
+        Colors below, at and above the midpoint.
+    midpoint : float, default=0
+        Data value of the middle color.
+    name, breaks, labels, lablim, limits, na_value, guide, trans, format : optional
+        As in lets_plot.
+
+    Returns
+    -------
+    FeatureSpec
+        The scale.
+    """
+    return _scale("color", **locals(), scale_mapper_kind="color_gradient2")
+
+
+def scale_fill_gradient2(
+    low=None,
+    mid=None,
+    high=None,
+    midpoint=0,
+    name=None,
+    breaks=None,
+    labels=None,
+    lablim=None,
+    limits=None,
+    na_value=None,
+    guide=None,
+    trans=None,
+    format=None,
+) -> FeatureSpec:
+    """Map ``fill`` to a diverging gradient. See ``scale_color_gradient2``.
+
+    Returns
+    -------
+    FeatureSpec
+        The scale.
+    """
+    return _scale("fill", **locals(), scale_mapper_kind="color_gradient2")
+
+
+def scale_color_gradientn(
+    colors=None,
+    name=None,
+    breaks=None,
+    labels=None,
+    lablim=None,
+    limits=None,
+    na_value=None,
+    guide=None,
+    trans=None,
+    format=None,
+) -> FeatureSpec:
+    """Map ``color`` to a gradient through several colors, evenly spaced over the data.
+
+    Parameters
+    ----------
+    colors : list of str
+        Two or more colors.
+    name, breaks, labels, lablim, limits, na_value, guide, trans, format : optional
+        As in lets_plot.
+
+    Returns
+    -------
+    FeatureSpec
+        The scale.
+    """
+    return _scale("color", **locals(), scale_mapper_kind="color_gradientn")
+
+
+def scale_fill_gradientn(
+    colors=None,
+    name=None,
+    breaks=None,
+    labels=None,
+    lablim=None,
+    limits=None,
+    na_value=None,
+    guide=None,
+    trans=None,
+    format=None,
+) -> FeatureSpec:
+    """Map ``fill`` to a gradient through several colors. See ``scale_color_gradientn``.
+
+    Returns
+    -------
+    FeatureSpec
+        The scale.
+    """
+    return _scale("fill", **locals(), scale_mapper_kind="color_gradientn")
+
+
+def scale_color_viridis(
+    alpha=None,
+    begin=None,
+    end=None,
+    direction=None,
+    option=None,
+    name=None,
+    breaks=None,
+    labels=None,
+    lablim=None,
+    limits=None,
+    na_value=None,
+    guide=None,
+    trans=None,
+    format=None,
+) -> FeatureSpec:
+    """Map ``color`` with a viridis-family color map.
+
+    Parameters
+    ----------
+    alpha : float, default=1
+        Opacity.
+    begin, end : float, default=0, 1
+        Part of the color map to use.
+    direction : {1, -1}, default=1
+        -1 reverses the colors.
+    option : str, default="viridis"
+        "magma" ("A"), "inferno" ("B"), "plasma" ("C"), "viridis" ("D"),
+        "cividis" ("E"), "turbo" or "twilight".
+    name, breaks, labels, lablim, limits, na_value, guide, trans, format : optional
+        As in lets_plot.
+
+    Returns
+    -------
+    FeatureSpec
+        The scale.
+    """
+    return _scale("color", **locals(), scale_mapper_kind="color_cmap")
+
+
+def scale_fill_viridis(
+    alpha=None,
+    begin=None,
+    end=None,
+    direction=None,
+    option=None,
+    name=None,
+    breaks=None,
+    labels=None,
+    lablim=None,
+    limits=None,
+    na_value=None,
+    guide=None,
+    trans=None,
+    format=None,
+) -> FeatureSpec:
+    """Map ``fill`` with a viridis-family color map. See ``scale_color_viridis``.
+
+    Returns
+    -------
+    FeatureSpec
+        The scale.
+    """
+    return _scale("fill", **locals(), scale_mapper_kind="color_cmap")
+
+
+def scale_color_continuous(
+    name=None,
+    breaks=None,
+    labels=None,
+    lablim=None,
+    limits=None,
+    na_value=None,
+    guide=None,
+    trans=None,
+    format=None,
+    scale_mapper_kind=None,
+    **kwargs,
+) -> FeatureSpec:
+    """Map ``color`` continuously: a gradient unless ``scale_mapper_kind`` says otherwise.
+
+    Parameters
+    ----------
+    name, breaks, labels, lablim, limits, na_value, guide, trans, format : optional
+        As in lets_plot.
+    scale_mapper_kind : str, optional
+        Default ``"color_gradient"``.
+    **kwargs
+        Options of the chosen mapper (e.g. ``low``, ``high``).
+
+    Returns
+    -------
+    FeatureSpec
+        The scale.
+    """
+    return _continuous("color", locals())
+
+
+def scale_fill_continuous(
+    name=None,
+    breaks=None,
+    labels=None,
+    lablim=None,
+    limits=None,
+    na_value=None,
+    guide=None,
+    trans=None,
+    format=None,
+    scale_mapper_kind=None,
+    **kwargs,
+) -> FeatureSpec:
+    """Map ``fill`` continuously. See ``scale_color_continuous``.
+
+    Returns
+    -------
+    FeatureSpec
+        The scale.
+    """
+    return _continuous("fill", locals())
+
+
+def _continuous(aesthetic, options: dict) -> FeatureSpec:
+    """lets_plot ``scale_continuous``: color scales default to ``color_gradient``."""
+    options = dict(options)
+    kwargs = options.pop("kwargs")
+    if options["scale_mapper_kind"] is None:
+        options["scale_mapper_kind"] = "color_gradient"
+    return _scale(aesthetic, **options, expand=None, **kwargs)

@@ -11,6 +11,9 @@
 
 mod color;
 pub mod color_space;
+mod colormap;
+mod colormap_data;
+mod gradient;
 mod hue;
 mod manual;
 mod numeric;
@@ -19,11 +22,15 @@ pub mod spec;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
-pub use color::{DefaultColorMapper, NA_COLOR, discrete_palette};
+pub use color::{DefaultColorMapper, GRADIENT_HIGH, GRADIENT_LOW, NA_COLOR, discrete_palette};
+pub use colormap::{COLORMAP_NAMES, ColormapMapper, colormap};
+pub use gradient::{GRADIENT2_HIGH, GRADIENT2_LOW, GRADIENT2_MID, Gradient2Mapper, GradientMapper};
 pub use hue::HueMapper;
 pub use manual::ManualColorMapper;
 pub use numeric::{ALPHA, LinearMapper, SIZE};
 
+use super::breaks::linear_breaks;
+use super::format::{Label, format_breaks};
 use crate::data::{Column, ContinuousColumn};
 use crate::spec::{Aesthetic, Value};
 use crate::style::{StyleValues, ValueKind};
@@ -42,6 +49,11 @@ pub trait StyleMapper: Send + Sync {
     /// Values for discrete data: each row's index into the trained categories
     /// (`None`: missing or unknown).
     fn map_discrete(&self, indices: &[Option<usize>], level_count: usize) -> StyleValues;
+
+    /// Whether only continuous data can be mapped (`scale_*_gradient2()`).
+    fn continuous_only(&self) -> bool {
+        false
+    }
 }
 
 /// The mapper lets-plot uses for an aesthetic without a `scale_*()` call.
@@ -140,11 +152,31 @@ pub struct DiscreteDomain {
     pub labels: Option<Vec<String>>,
 }
 
-/// One legend entry of a discrete style scale.
+/// Continuous domain options from `scale_*()`: numeric `limits`, `breaks`, `labels`.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct ContinuousDomain {
+    /// `[low, high]`, either side open; values outside map to the NA value.
+    pub limits: [Option<f64>; 2],
+    /// Breaks shown in the legend (default: about 5 nice breaks).
+    pub breaks: Option<Vec<f64>>,
+    /// Labels aligned with the breaks.
+    pub labels: Option<Vec<String>>,
+}
+
+/// Breaks of a continuous style scale, for a colorbar or a legend.
+#[derive(Debug, Clone, PartialEq)]
+pub struct ContinuousGuide {
+    /// The domain the mapper uses.
+    pub domain: (f64, f64),
+    /// Break values with their labels, ascending.
+    pub breaks: Vec<(f64, Label)>,
+}
+
+/// One legend entry of a style scale.
 #[derive(Debug, Clone, PartialEq)]
 pub struct LegendEntry {
     /// Label shown next to the key.
-    pub label: String,
+    pub label: Label,
     /// The mapped value, as a single item.
     pub value: StyleValues,
 }
@@ -154,6 +186,9 @@ pub struct LegendEntry {
 pub struct StyleScale {
     mapper: Arc<dyn StyleMapper>,
     domain: DiscreteDomain,
+    /// Read only once the scale turns out continuous (string limits are fine on a
+    /// discrete scale): an error is reported then.
+    continuous: std::result::Result<ContinuousDomain, String>,
     trained: Trained,
 }
 
@@ -174,8 +209,18 @@ impl StyleScale {
         StyleScale {
             mapper,
             domain,
+            continuous: Ok(ContinuousDomain::default()),
             trained: Trained::Nothing,
         }
+    }
+
+    /// The same scale with continuous domain options (or the error reading them).
+    pub fn with_continuous(
+        mut self,
+        continuous: std::result::Result<ContinuousDomain, String>,
+    ) -> Self {
+        self.continuous = continuous;
+        self
     }
 
     /// An untrained discrete scale: continuous columns trained on it become
@@ -230,10 +275,27 @@ impl StyleScale {
             }
             _ => {}
         }
+        if self.is_discrete() && self.mapper.continuous_only() {
+            return Err(format!(
+                "'{}' scales map continuous data only, but discrete data is mapped",
+                self.mapper.name()
+            ));
+        }
+        let limits = match (&self.trained, &self.continuous) {
+            (Trained::Continuous(_), Ok(domain)) => domain.limits,
+            (Trained::Continuous(_), Err(message)) => return Err(message.clone()),
+            _ => [None, None],
+        };
+        let within = |value: f64| {
+            limits[0].is_none_or(|low| value >= low) && limits[1].is_none_or(|high| value <= high)
+        };
         match (&mut self.trained, column) {
             (Trained::Continuous(range), Column::Continuous(column)) => {
                 for row in 0..column.len() {
-                    if let Some(value) = column.get(row).filter(|value| value.is_finite()) {
+                    if let Some(value) = column
+                        .get(row)
+                        .filter(|value| value.is_finite() && within(*value))
+                    {
                         *range = Some(match *range {
                             Some((low, high)) => (low.min(value), high.max(value)),
                             None => (value, value),
@@ -287,9 +349,28 @@ impl StyleScale {
     /// Map a column with the trained domain.
     pub fn map(&self, column: &Column) -> Result<StyleValues, String> {
         match (&self.trained, column) {
-            (Trained::Continuous(range), Column::Continuous(column)) => Ok(self
-                .mapper
-                .map_continuous(column, applicable_domain(*range))),
+            (Trained::Continuous(_), Column::Continuous(column)) => {
+                let domain = self.continuous_domain();
+                let limits = self
+                    .continuous
+                    .as_ref()
+                    .map_or([None, None], |domain| domain.limits);
+                if limits == [None, None] {
+                    return Ok(self.mapper.map_continuous(column, domain));
+                }
+                // lets-plot: values outside the limits are missing.
+                let limited = ContinuousColumn::from_options(
+                    (0..column.len())
+                        .map(|row| {
+                            column.get(row).filter(|value| {
+                                limits[0].is_none_or(|low| *value >= low)
+                                    && limits[1].is_none_or(|high| *value <= high)
+                            })
+                        })
+                        .collect(),
+                );
+                Ok(self.mapper.map_continuous(&limited, domain))
+            }
             (Trained::Discrete { .. }, column) => {
                 let domain = self.effective_domain();
                 let index_by_level: HashMap<&Level, usize> = domain
@@ -329,10 +410,83 @@ impl StyleScale {
         }
     }
 
+    /// The domain continuous data is mapped over: the data range within the
+    /// limits, widened to the limits (lets-plot `rangeWithLimitsAfterTransform`),
+    /// then made applicable (never zero-width).
+    fn continuous_domain(&self) -> (f64, f64) {
+        let Trained::Continuous(range) = self.trained else {
+            return (-0.5, 0.5);
+        };
+        let limits = self
+            .continuous
+            .as_ref()
+            .map_or([None, None], |domain| domain.limits);
+        let mut ends: Vec<f64> = limits.iter().flatten().copied().collect();
+        if let Some((low, high)) = range {
+            ends.extend([low, high]);
+        }
+        let low = ends.iter().copied().fold(f64::INFINITY, f64::min);
+        let high = ends.iter().copied().fold(f64::NEG_INFINITY, f64::max);
+        applicable_domain((low <= high).then_some((low, high)))
+    }
+
+    /// Breaks of a continuous scale for its guide (`None` if discrete): the given
+    /// `breaks` or about 5 nice ones, labelled by `labels` or formatted.
+    pub fn continuous_guide(&self) -> Option<ContinuousGuide> {
+        if !matches!(self.trained, Trained::Continuous(_)) {
+            return None;
+        }
+        let domain = self.continuous_domain();
+        let options = self.continuous.as_ref().ok();
+        let values: Vec<f64> = match options.and_then(|options| options.breaks.clone()) {
+            Some(breaks) => breaks,
+            None => linear_breaks(domain.0, domain.1, 5),
+        };
+        let labels: Vec<Label> = match options.and_then(|options| options.labels.as_ref()) {
+            Some(labels) => align_labels(values.len(), labels)
+                .map(|label| Label::plain(label.clone()))
+                .collect(),
+            None => format_breaks(&values),
+        };
+        Some(ContinuousGuide {
+            domain,
+            breaks: values.into_iter().zip(labels).collect(),
+        })
+    }
+
+    /// Mapped values of numbers on a continuous scale (for guides).
+    pub fn map_numbers(&self, values: &[f64]) -> StyleValues {
+        let column = ContinuousColumn::from_values(values.to_vec());
+        self.mapper
+            .map_continuous(&column, self.continuous_domain())
+    }
+
+    /// Legend entries of a style scale: a discrete scale's categories, or a
+    /// continuous scale's breaks (lets-plot shows those in a legend, not a colorbar,
+    /// for sizes and alphas, and for colors when a legend is asked for).
+    pub fn legend_entries(&self) -> Option<Vec<LegendEntry>> {
+        if let Some(guide) = self.continuous_guide() {
+            let values: Vec<f64> = guide.breaks.iter().map(|(value, _)| *value).collect();
+            let mapped = self.map_numbers(&values);
+            return Some(
+                guide
+                    .breaks
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, (_, label))| LegendEntry {
+                        label,
+                        value: single(&mapped, index),
+                    })
+                    .collect(),
+            );
+        }
+        self.discrete_legend_entries()
+    }
+
     /// Legend entries of a discrete scale (lets-plot `DiscreteScale.createScaleBreaks`):
     /// the effective domain filtered by `breaks`, labelled by `labels`. `None` for a
     /// continuous scale.
-    pub fn legend_entries(&self) -> Option<Vec<LegendEntry>> {
+    fn discrete_legend_entries(&self) -> Option<Vec<LegendEntry>> {
         if !self.is_discrete() {
             return None;
         }
@@ -374,7 +528,7 @@ impl StyleScale {
                 .into_iter()
                 .enumerate()
                 .map(|(item, label)| LegendEntry {
-                    label,
+                    label: Label::plain(label),
                     value: single(&values, item),
                 })
                 .collect(),
@@ -484,7 +638,7 @@ mod tests {
                 .legend_entries()
                 .unwrap()
                 .into_iter()
-                .map(|entry| entry.label)
+                .map(|entry| entry.label.text)
                 .collect()
         };
         let mut with_breaks = StyleScale::new(

@@ -19,7 +19,7 @@ use crate::parameters::Parameters;
 use crate::position::{self, Position};
 use crate::scale::style::{StyleScale, default_mapper};
 use crate::scale::{AxisScaleSpec, PositionScale, PositionScales, position_scales};
-use crate::scene::{Group, Node, Scene};
+use crate::scene::{Group, Node, Rect, Scene};
 use crate::spec::{
     Aesthetic, DataSource, GuideSpec, LayerSpec, Mapping, MappingValue, Options, PlotSpec,
 };
@@ -169,7 +169,13 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
 
     let theme = Theme::default();
     let titles = plot_titles(spec, &scales);
-    let layout = layout_plot(width, height, &theme, &titles, &x_scale, &y_scale);
+    let area = Rect {
+        x: 0.0,
+        y: 0.0,
+        width,
+        height,
+    };
+    let layout = layout_plot(area, &theme, &titles, &x_scale, &y_scale);
     let panel = Panel {
         rect: layout.panel,
         x_scale: &x_scale,

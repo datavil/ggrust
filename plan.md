@@ -84,7 +84,7 @@ Steps inside a phase are ordered; each builds on the previous.
   - [x] 0.10.5 Python bridge v2: data objects replaced by `{"frame": i}` refs, frames deduplicated by identity (works for gggrid, enables caching); referenced columns computed once in Rust (`spec`), incl. tooltips/facets.
   - [x] 0.10.6 Typed style values: `Aesthetic::value_kind()` single source; `StyleValues` for color/number/shape/linetype/text; mismatch is an error.
   - [x] 0.10.7 Registries as one static list per kind (lookup + names derived, round-trip test).
-  - [ ] 0.10.8 Layout into an area `Rect` with measure-then-place (gggrid, legends); deterministic SVG ids (explicit prefix).
+  - [x] 0.10.8 Layout into an area `Rect` (`layout_plot(area, ...)`); deterministic SVG ids (content hash by default, explicit prefix optional). The measure step lands with its first users: legends (1.1) measure and shrink the area, `gggrid` (3.3) splits it into cells.
   - Known gaps (bug hunt 0.10.2, deferred): sqrt axis with a single value keeps all breaks where lets-plot thins labels; an Enum's level order does not carry over to the same column in other layers.
   - Open findings (bug hunt 0.10.2c, to fix):
     - [x] Style scales: near-constant data maps to the middle (`ensureApplicableDomain`, lets-plot's sign-unaware precision test).

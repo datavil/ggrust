@@ -59,37 +59,29 @@ pub struct PlotLayout {
     pub x_axis_band: f64,
 }
 
-/// Lay out a `width` x `height` plot.
+/// Lay out a plot inside `area` (the whole canvas for a single plot; a grid cell
+/// or the space left by a legend later).
 ///
 /// As lets-plot (`TopDownTileLayout.computeAxisInfos`): y axis for the estimated
 /// height, then x axis for the resulting width; if the x labels need a thicker band
 /// (tilted, two rows), the y axis is laid out again for the shorter panel while the
 /// x breaks and their arrangement are kept.
 pub fn layout_plot(
-    width: f64,
-    height: f64,
+    area: Rect,
     theme: &Theme,
     titles: &Titles,
     x_scale: &PositionScale,
     y_scale: &PositionScale,
 ) -> PlotLayout {
     let simple = theme.axis_text_x.map_or(0.0, text_band);
-    let first = layout_with(
-        (width, height),
-        theme,
-        titles,
-        x_scale,
-        y_scale,
-        simple,
-        None,
-    );
+    let first = layout_with(area, theme, titles, x_scale, y_scale, simple, None);
     let needed = x_labels_height(&first.x_breaks, theme);
     if needed <= simple {
         return first;
     }
     let x_breaks = first.x_breaks;
     layout_with(
-        (width, height),
+        area,
         theme,
         titles,
         x_scale,
@@ -101,7 +93,7 @@ pub fn layout_plot(
 
 /// One layout pass with an x label band `labels_height` px tall.
 fn layout_with(
-    (width, height): (f64, f64),
+    area: Rect,
     theme: &Theme,
     titles: &Titles,
     x_scale: &PositionScale,
@@ -110,15 +102,7 @@ fn layout_with(
     x_breaks: Option<AxisBreaks>,
 ) -> PlotLayout {
     let outer = theme.plot_margin.plus(theme.plot_inset);
-    let content = shrink(
-        Rect {
-            x: 0.0,
-            y: 0.0,
-            width,
-            height,
-        },
-        outer,
-    );
+    let content = shrink(area, outer);
 
     let top = content.y
         + band(theme.plot_title, &titles.title, 0.0)
@@ -496,4 +480,42 @@ fn text_node(
         vertical: VerticalAlign::Middle,
         angle,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::scale::ContinuousPositionScale;
+
+    #[test]
+    fn a_plot_laid_out_in_an_offset_area_is_translated() {
+        let mut scale = ContinuousPositionScale::default();
+        scale.train_range(0.0, 10.0);
+        let scale = PositionScale::Continuous(scale);
+        let theme = Theme::default();
+        let titles = Titles {
+            title: Some("Title".into()),
+            x: Some("x".into()),
+            y: Some("y".into()),
+            ..Titles::default()
+        };
+        let at = |x, y| {
+            let area = Rect {
+                x,
+                y,
+                width: 400.0,
+                height: 300.0,
+            };
+            layout_plot(area, &theme, &titles, &scale, &scale)
+        };
+        let (origin, moved) = (at(0.0, 0.0), at(250.0, 40.0));
+        assert_eq!(moved.panel.x, origin.panel.x + 250.0);
+        assert_eq!(moved.panel.y, origin.panel.y + 40.0);
+        assert_eq!(
+            (moved.panel.width, moved.panel.height),
+            (origin.panel.width, origin.panel.height)
+        );
+        assert_eq!(moved.x_breaks, origin.x_breaks);
+        assert_eq!(moved.y_breaks, origin.y_breaks);
+    }
 }

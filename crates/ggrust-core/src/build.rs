@@ -38,6 +38,10 @@ pub struct PlotData {
     pub layers: Vec<Option<DataFrame>>,
 }
 
+/// A layer stage's failure, with the warnings the stage collected before it; the
+/// caller appends them after earlier layers' warnings, so notes stay in order.
+type StageResult<T> = std::result::Result<T, (Error, Vec<String>)>;
+
 /// A built plot.
 #[derive(Debug, Clone)]
 pub struct BuiltPlot {
@@ -72,7 +76,10 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
                 warnings.append(&mut layer.warnings);
                 mapped.push(layer);
             }
-            Err(error) => return Err(error.with_notes(&warnings)),
+            Err((error, mut layer_warnings)) => {
+                warnings.append(&mut layer_warnings);
+                return Err(error.with_notes(&warnings));
+            }
         }
     }
     let axis_scales = axis_scale(
@@ -112,7 +119,10 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
                 warnings.append(&mut layer_warnings);
                 layers.push(layer);
             }
-            Err(error) => return Err(error.with_notes(&warnings)),
+            Err((error, mut layer_warnings)) => {
+                warnings.append(&mut layer_warnings);
+                return Err(error.with_notes(&warnings));
+            }
         }
     }
 
@@ -243,10 +253,9 @@ fn map_layer<'a>(
     spec: &'a LayerSpec,
     plot: &PlotSpec,
     data: &PlotData,
-) -> Result<MappedLayer<'a>> {
+) -> StageResult<MappedLayer<'a>> {
     let mut warnings = Vec::new();
-    map_layer_into(index, spec, plot, data, &mut warnings)
-        .map_err(|error| error.with_notes(&warnings))
+    map_layer_into(index, spec, plot, data, &mut warnings).map_err(|error| (error, warnings))
 }
 
 fn map_layer_into<'a>(
@@ -420,7 +429,7 @@ fn axis_scale(
 
 /// Stage 2 of a layer: scale the positions (lets-plot transforms data when mapping;
 /// values a scale drops become missing), add constant positions, then run the stat
-/// and position adjustment and resolve styles.
+/// and position adjustment.
 fn compute_layer(
     layer: MappedLayer,
     [x_scale, y_scale]: [&PositionScale; 2],
@@ -541,7 +550,7 @@ struct ComputedLayer {
 fn style_layer(
     layer: ComputedLayer,
     style_scales: &BTreeMap<Aesthetic, StyleScale>,
-) -> Result<(PreparedLayer, Vec<String>)> {
+) -> StageResult<(PreparedLayer, Vec<String>)> {
     let mut warnings = Vec::new();
     let parameters = Parameters::new(&layer.options, &layer.path);
     let styles = resolve_styles(
@@ -551,8 +560,11 @@ fn style_layer(
         &parameters,
         &layer.path,
         &mut warnings,
-    )
-    .map_err(|error| error.with_notes(&warnings))?;
+    );
+    let styles = match styles {
+        Ok(styles) => styles,
+        Err(error) => return Err((error, warnings)),
+    };
     Ok((
         PreparedLayer {
             options: layer.options,
@@ -986,11 +998,13 @@ mod tests {
         [x_scale, y_scale]: [&PositionScale; 2],
         warnings: &mut Vec<String>,
     ) -> Result<PreparedLayer> {
-        let mut mapped = map_layer(0, &spec.layers[0], spec, &cells())?;
+        let mut mapped =
+            map_layer(0, &spec.layers[0], spec, &cells()).map_err(|(error, _)| error)?;
         warnings.append(&mut mapped.warnings);
         let mut computed = compute_layer(mapped, [x_scale, y_scale])?;
         warnings.append(&mut computed.warnings);
-        let (layer, mut layer_warnings) = style_layer(computed, &BTreeMap::new())?;
+        let (layer, mut layer_warnings) =
+            style_layer(computed, &BTreeMap::new()).map_err(|(error, _)| error)?;
         warnings.append(&mut layer_warnings);
         Ok(layer)
     }
@@ -1075,6 +1089,19 @@ mod tests {
                             "mapping": {"x": "x", "y": "y", "group": []}}]}"#,
         );
         assert_eq!(index, None);
+    }
+
+    #[test]
+    fn error_notes_keep_layer_order() {
+        let spec = plot(
+            r#"{"kind": "plot", "mapping": {"x": "x", "y": "y"},
+                "layers": [{"geom": "point", "foo": 1},
+                           {"geom": "point", "mapping": {"color": "nope"}, "bar": 2}]}"#,
+        );
+        let error = build_plot(&spec, &cells()).err().unwrap().to_string();
+        let first = error.find("layers[0].foo").expect(&error);
+        let second = error.find("layers[1].bar").expect(&error);
+        assert!(first < second, "{error}");
     }
 
     #[test]

@@ -10,9 +10,7 @@ use std::collections::BTreeSet;
 
 use serde::Deserialize;
 
-use super::{
-    DataMeta, FacetSpec, Figure, LayerSpec, Mapping, MappingValue, PlotSpec, TooltipsSpec, Value,
-};
+use super::{DataMeta, Figure, LayerSpec, Mapping, MappingValue, PlotSpec, Value};
 
 /// A `data` key of a plot or layer.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
@@ -28,28 +26,33 @@ pub enum DataSource {
 impl TryFrom<Value> for DataSource {
     type Error = String;
 
+    /// A reference is an object whose only key is `frame` with a number. Anything
+    /// else is inline data (an inline frame may well have a column named `frame`,
+    /// but its values are a list).
     fn try_from(value: Value) -> std::result::Result<Self, Self::Error> {
-        let Some(object) = value
+        let reference = value
             .as_object()
-            .filter(|object| object.contains_key("frame"))
-        else {
+            .filter(|object| object.len() == 1)
+            .and_then(|object| object.get("frame"))
+            .filter(|frame| frame.is_number());
+        let Some(frame) = reference else {
             return Ok(DataSource::Inline);
         };
-        match (object.len(), object["frame"].as_u64()) {
-            (1, Some(index)) => usize::try_from(index)
-                .map(DataSource::Frame)
-                .map_err(|_| format!("at 'frame': index {index} is too large")),
-            _ => Err(format!(
-                "expected a frame reference {{\"frame\": <non-negative integer>}}, got {value}"
-            )),
-        }
+        frame
+            .as_u64()
+            .and_then(|index| usize::try_from(index).ok())
+            .map(DataSource::Frame)
+            .ok_or_else(|| {
+                format!("a frame reference needs a non-negative integer index, got {frame}")
+            })
     }
 }
 
 impl Figure {
-    /// Every column name the figure can read: mappings (plot and layers, group
-    /// lists), `as_discrete(order_by=...)`, facet variables and tooltip fields.
-    /// Nested figures are included.
+    /// Every column name the engine reads: mappings (plot and layers, group lists)
+    /// and `as_discrete(order_by=...)`, nested figures included. Features that are
+    /// parsed but not built yet (tooltips, facets) add their columns when they land:
+    /// exporting a column nothing reads can only fail the plot.
     pub fn referenced_columns(&self) -> BTreeSet<String> {
         let mut columns = BTreeSet::new();
         self.collect_columns(&mut columns);
@@ -72,9 +75,6 @@ impl PlotSpec {
     fn collect_columns(&self, columns: &mut BTreeSet<String>) {
         add_mapping(&self.mapping, columns);
         add_meta(&self.data_meta, columns);
-        if let Some(facet) = &self.facet {
-            add_facet(facet, columns);
-        }
         for layer in &self.layers {
             add_layer(layer, columns);
         }
@@ -84,20 +84,6 @@ impl PlotSpec {
 fn add_layer(layer: &LayerSpec, columns: &mut BTreeSet<String>) {
     add_mapping(&layer.mapping, columns);
     add_meta(&layer.data_meta, columns);
-    for tooltips in [&layer.tooltips, &layer.labels].into_iter().flatten() {
-        let TooltipsSpec::Lines(lines) = tooltips else {
-            continue;
-        };
-        let templates = lines.lines.iter().flatten().chain(&lines.title);
-        for template in templates {
-            columns.extend(template_fields(template));
-        }
-        for format in &lines.formats {
-            columns.extend(template_fields(&format.field));
-        }
-        let variables = lines.variables.iter().flatten();
-        columns.extend(variables.filter(|name| !is_stat_variable(name)).cloned());
-    }
 }
 
 fn add_mapping(mapping: &Mapping, columns: &mut BTreeSet<String>) {
@@ -118,55 +104,6 @@ fn add_meta(meta: &DataMeta, columns: &mut BTreeSet<String>) {
             columns.insert(order_by.clone());
         }
     }
-}
-
-fn add_facet(facet: &FacetSpec, columns: &mut BTreeSet<String>) {
-    columns.extend(
-        facet
-            .facets
-            .iter()
-            .flat_map(|facets| facets.as_slice())
-            .cloned(),
-    );
-    columns.extend(facet.x.iter().chain(&facet.y).cloned());
-}
-
-/// `..count..`: a stat variable, not a data column.
-fn is_stat_variable(name: &str) -> bool {
-    name.len() > 4 && name.starts_with("..") && name.ends_with("..")
-}
-
-/// Column names referenced by a lets-plot tooltip template: `@name` (letters,
-/// digits, `_`, `.`), `@{any name}`. `\@` is a literal `@`; `@..stat..` and
-/// `^aesthetic` are not columns.
-fn template_fields(template: &str) -> Vec<String> {
-    let mut fields = Vec::new();
-    let mut rest = template;
-    while let Some(at) = rest.find('@') {
-        let escaped = rest[..at].ends_with('\\');
-        rest = &rest[at + 1..];
-        if escaped {
-            continue;
-        }
-        let name = if let Some(braced) = rest.strip_prefix('{') {
-            let Some(end) = braced.find('}') else {
-                break;
-            };
-            rest = &braced[end + 1..];
-            &braced[..end]
-        } else {
-            let end = rest
-                .find(|character: char| !(character.is_alphanumeric() || "_.".contains(character)))
-                .unwrap_or(rest.len());
-            let name = &rest[..end];
-            rest = &rest[end..];
-            name
-        };
-        if !name.is_empty() && !is_stat_variable(name) {
-            fields.push(name.to_owned());
-        }
-    }
-    fields
 }
 
 #[cfg(test)]
@@ -196,15 +133,24 @@ mod tests {
             .unwrap_err()
             .to_string();
         assert!(
-            error.contains("at 'data'") && error.contains("frame reference"),
+            error.contains("at 'data'") && error.contains("non-negative integer"),
             "{error}"
         );
+        // lets_plot inline data with a column named `frame` is still inline data.
+        for inline in [r#"{"frame": [0, 1], "x": [1, 2]}"#, r#"{"frame": [0, 1]}"#] {
+            let Figure::Plot(plot) =
+                Figure::from_json(&format!(r#"{{"kind": "plot", "data": {inline}}}"#)).unwrap()
+            else {
+                panic!("expected a plot");
+            };
+            assert_eq!(plot.data, Some(DataSource::Inline), "{inline}");
+        }
     }
 
     #[test]
-    fn columns_come_from_mappings_annotations_facets_and_tooltips() {
+    fn columns_come_from_mappings_and_annotations_only() {
         let found = columns(
-            r#"{"kind": "subplots", "layout": {"name": "grid", "ncol": 2, "nrow": 1},
+            r#"{"kind": "subplots", "layout": {"name": "grid", "ncol": 3, "nrow": 1},
                 "figures": [
                   {"kind": "plot", "mapping": {"x": "UMAP1", "y": "UMAP2"},
                    "facet": {"name": "wrap", "facets": ["sample"]},
@@ -213,29 +159,16 @@ mod tests {
                                "data_meta": {"mapping_annotations": [{"aes": "color",
                                    "annotation": "as_discrete",
                                    "parameters": {"order_by": "rank"}}]},
-                               "tooltips": {"lines": ["@gene|@{cell type} \\@home @..count.."],
-                                            "title": "@title_col", "variables": ["score", "..density.."],
-                                            "formats": [{"field": "@pct", "format": ".1%"}]}}]},
+                               "tooltips": {"lines": ["@gene"]}}]},
                   null,
                   {"kind": "plot", "mapping": {"x": "other"}}
                 ]}"#,
         );
+        // Facets and tooltips are not built yet, so their columns are not read.
         assert_eq!(
             found,
             [
-                "UMAP1",
-                "UMAP2",
-                "batch",
-                "cell type",
-                "cluster",
-                "donor",
-                "gene",
-                "other",
-                "pct",
-                "rank",
-                "sample",
-                "score",
-                "title_col",
+                "UMAP1", "UMAP2", "batch", "cluster", "donor", "other", "rank"
             ]
         );
     }

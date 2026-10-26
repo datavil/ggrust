@@ -116,14 +116,14 @@ Steps inside a phase are ordered; each builds on the previous.
 ### Phase 3: Heatmaps and grids (`heatmap`, `dotplot`, `stacked_violin`, `annotated_heatmap`)
 
 - [ ] 3.1 `geom_tile`, `geom_raster`, `geom_rect`; discrete axes with many categories, label rotation.
-- [ ] 3.2 `facet_wrap` (shared/free scales, strip labels).
+- [ ] 3.2 `facet_wrap` (shared/free scales, strip labels). Add facet columns to `Figure::referenced_columns`.
 - [ ] 3.3 `gggrid`: ncol, widths/heights, hspace/vspace, `align`, shared `guides="collect"`; `SupPlotsSpec` + `+` on grids.
 - [ ] 3.4 Port check: cellestial heatmap, dotplot, annotated_heatmap tests; multi-plot `*s` functions.
 
 ### Phase 4: Interactivity and HTML
 
 - [ ] 4.1 HTML renderer: SVG + embedded JS runtime, notebook `_repr_html_`, `to_html`, `LetsPlot.setup_html` no-op compat.
-- [ ] 4.2 Tooltips: hit-testing index built in Rust (grid buckets), `layer_tooltips` (lines, format, title, anchor), default tooltips.
+- [ ] 4.2 Tooltips: hit-testing index built in Rust (grid buckets), `layer_tooltips` (lines, format, title, anchor), default tooltips. Add tooltip columns to `Figure::referenced_columns` here (removed in 0.10.5: exporting unread columns failed plots). Template syntax to verify against lets-plot: `@x^2` is one name, dots end a name (`@y.bad` = `y` + text), an unclosed `@{` must not hide later fields, format fields may omit `@`.
 - [ ] 4.3 `ggtb` zoom/pan: re-render axes on zoom (Rust-precomputed break candidates, or JS tick generation).
 - [ ] 4.4 Canvas point layer for dense scatter (>50k points); playwright tests for render + tooltip.
 

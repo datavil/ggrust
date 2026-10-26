@@ -52,7 +52,17 @@ def test_referenced_columns_come_from_rust():
             {"geom": "point", "mapping": {"color": "c"}, "tooltips": {"lines": ["@{cell type}"]}}
         ],
     }
-    assert referenced_columns(to_json(spec)) == ["c", "cell type", "sample", "x", "y"]
+    # Facets and tooltips are not built yet: their columns are not exported.
+    assert referenced_columns(to_json(spec)) == ["c", "x", "y"]
+
+
+def test_unconvertible_column_used_only_by_tooltips_does_not_fail():
+    pandas = pytest.importorskip("pandas")
+    data = pandas.DataFrame({"x": [1.0, 2.0], "y": [2.0, 1.0], "mixed": [1, "a"]})
+    plot = gg.ggplot(data, gg.aes("x", "y")) + gg.geom_point(
+        tooltips=gg.layer_tooltips().line("@mixed")
+    )
+    assert plot.to_svg().count("<circle") == 2
 
 
 def test_a_bad_frame_reference_names_the_path():

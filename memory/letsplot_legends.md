@@ -45,3 +45,20 @@ Kotlin sources: `plot-builder/.../assemble/LegendAssembler.kt`, `PlotAssemblerUt
   no palette -> Set1 for categories, Blues for continuous data (quantized into the largest
   set). More categories than the set has: qualitative generates, others interpolate (LAB),
   unless `overflow` says otherwise. Tables generated from lets-plot's `ColorSets.kt`.
+
+## Placement and grids (Phase 1.4b)
+Measured from lets-plot SVGs (`LegendBoxesLayoutUtil`, `PlotLegendsLayoutUtil`, `LegendBoxLayout`):
+- Outside legends sit at the plot margin edge (beyond `plot_inset`); right/left are justified
+  along the panel height, top/bottom along the panel width (`legend_justification`, default
+  centre). Top legends go below the title. The plot area gives up block + `legend_box_spacing`.
+- Inside (`legend_position=[x, y]`): the justification point of the block is placed at
+  (x, y) of the *panel* (0, 0 = bottom-left); takes no space; may run past the plot top.
+- `legend_direction` auto = horizontal at top/bottom. Horizontal boxes put the title at the
+  left (no gap), title and graph centred vertically on each other.
+- Several legends: stacked (left-justified) even at the bottom; `legend_box="horizontal"`
+  puts them side by side, top-justified; `legend_spacing` between them.
+- Grid (`computeLayoutGrid`): column-major unless `byrow`; defaults 15 rows per column
+  (vertical) or 5 columns per row (horizontal: rows = ceil(n / 5)). ncol/nrow capped at n.
+  Options of all aesthetics in one legend combine: last count wins, byrow from any.
+- Horizontal colorbar: 5 x 1 key sizes (or estimated label width x (breaks + 1)), low at the
+  left, labels a third of a line below, centred on ticks.

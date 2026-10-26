@@ -533,6 +533,21 @@ impl Resolver<'_> {
     }
 }
 
+impl Theme {
+    /// Whether legend keys run in rows (lets-plot `LegendAssemblerUtil.legendDirection`):
+    /// `legend_direction`, else horizontal at the top or bottom.
+    pub fn legends_horizontal(&self) -> bool {
+        match self.legend_direction {
+            LegendDirection::Horizontal => true,
+            LegendDirection::Vertical => false,
+            LegendDirection::Auto => matches!(
+                self.legend_position,
+                LegendPosition::Top | LegendPosition::Bottom
+            ),
+        }
+    }
+}
+
 fn pair(value: &Value, key: &str) -> Result<(f64, f64)> {
     let numbers = value
         .as_array()

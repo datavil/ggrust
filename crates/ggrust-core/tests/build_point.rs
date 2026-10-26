@@ -138,7 +138,7 @@ fn constant_options_and_png_render() {
 fn unimplemented_features_and_unknown_options_warn() {
     let built = build(
         r#"{"kind": "plot", "mapping": {"x": "UMAP1", "y": "UMAP2", "color": "cluster"},
-            "theme": {"name": "classic", "strip_text": {"size": 3, "blank": false}}, "guides": {"color": {"name": "legend", "ncol": 2}},
+            "theme": {"name": "classic", "strip_text": {"size": 3, "blank": false}}, "guides": {"color": {"name": "legend", "override_aes": {"size": 2}}},
             "layers": [{"geom": "point", "colr": "red", "tooltips": "none"}]}"#,
         cells(),
     );

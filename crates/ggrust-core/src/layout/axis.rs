@@ -263,7 +263,8 @@ fn overlaps(
     false
 }
 
-fn estimated_label_width(label: &Label, size: f64, face: crate::text::FontFace) -> f64 {
+/// lets-plot's estimated width of a label (with its superscript).
+pub(super) fn estimated_label_width(label: &Label, size: f64, face: crate::text::FontFace) -> f64 {
     estimated_width(&label.text, size, face)
         + label.superscript.as_deref().map_or(0.0, |superscript| {
             estimated_width(superscript, size * SUPERSCRIPT_SCALE, face)

@@ -3,11 +3,14 @@
 //!
 //! A [`Legend`] is a title plus keys; each key draws one entry per layer through
 //! its geom. Keys are at least `legend_key_size` square (lets-plot rounds a geom's
-//! minimum key size up to an odd number + 1). Up to 15 keys stack in one column,
-//! more fill further columns. Text is measured with the real font, as everywhere
+//! minimum key size up to an odd number + 1). Keys fill a grid: by default up to 15
+//! rows per column (vertical legends) or 5 columns per row (horizontal legends),
+//! or as `guide_legend(ncol, nrow, byrow)` asks. Horizontal legends put the title
+//! at the left. Several legends stack vertically, or side by side with
+//! `legend_box="horizontal"`. Text is measured with the real font, as everywhere
 //! in the layout.
 //!
-//! What it does not do (yet): colorbars, horizontal legends, `guide_legend` options.
+//! Where the block goes (`legend_position`) is decided by the plot builder.
 
 use super::colorbar::{Colorbar, ColorbarLayout, draw_colorbar, layout_colorbar};
 use super::{label_node, text_band, text_node};
@@ -21,6 +24,8 @@ use crate::theme::Theme;
 
 /// lets-plot `LegendAssembler.MAX_ROWS_PER_COL`.
 const MAX_ROWS_PER_COLUMN: usize = 15;
+/// lets-plot `LegendAssembler.MAX_COLS_PER_ROW`.
+const MAX_COLUMNS_PER_ROW: usize = 5;
 /// lets-plot `Legend.LINES_MAX_LENGTH`: labels wrap at this many characters.
 const LABEL_LINE_LENGTH: usize = 30;
 /// lets-plot `Legend.LINES_MAX_COUNT`.
@@ -46,8 +51,62 @@ pub struct LegendKey {
 pub struct Legend {
     /// Title; empty takes no space.
     pub title: String,
-    /// Entries, top to bottom (then left to right).
+    /// Entries, in grid order.
     pub keys: Vec<LegendKey>,
+    /// `guide_legend(ncol, nrow, byrow)`.
+    pub grid: KeyGrid,
+}
+
+/// How keys fill their grid (`guide_legend(ncol, nrow, byrow)`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct KeyGrid {
+    /// Columns asked for (at least 1).
+    pub columns: Option<usize>,
+    /// Rows asked for (at least 1).
+    pub rows: Option<usize>,
+    /// Fill row by row instead of column by column.
+    pub by_row: bool,
+}
+
+impl KeyGrid {
+    /// `self` with `other`'s counts where given; `by_row` if either asks.
+    pub fn combine(self, other: KeyGrid) -> KeyGrid {
+        KeyGrid {
+            columns: other.columns.or(self.columns),
+            rows: other.rows.or(self.rows),
+            by_row: self.by_row || other.by_row,
+        }
+    }
+
+    /// (columns, rows) for `count` keys (lets-plot `createLegendSpec.computeLayoutGrid`).
+    fn shape(self, count: usize, horizontal: bool) -> (usize, usize) {
+        let primary = |first: Option<usize>, second: Option<usize>| match (first, second) {
+            (Some(first), _) => first.min(count),
+            (None, Some(second)) => count.div_ceil(second),
+            (None, None) => match (horizontal, self.by_row) {
+                (true, true) => count.min(MAX_COLUMNS_PER_ROW),
+                (true, false) => count.div_ceil(MAX_COLUMNS_PER_ROW),
+                (false, true) => count.div_ceil(MAX_ROWS_PER_COLUMN),
+                (false, false) => count.min(MAX_ROWS_PER_COLUMN),
+            },
+        };
+        if self.by_row {
+            let columns = primary(self.columns, self.rows).max(1);
+            (columns, count.div_ceil(columns))
+        } else {
+            let rows = primary(self.rows, self.columns).max(1);
+            (count.div_ceil(rows), rows)
+        }
+    }
+
+    /// (column, row) of key `index` in a `columns` x `rows` grid.
+    fn position(self, index: usize, (columns, rows): (usize, usize)) -> (usize, usize) {
+        if self.by_row {
+            (index % columns, index / columns)
+        } else {
+            (index / rows, index % rows)
+        }
+    }
 }
 
 /// A guide box: a key legend or a colorbar.
@@ -78,6 +137,8 @@ impl LegendBox {
 /// A box measured for drawing; positions relative to its box origin.
 struct MeasuredLegend<'a> {
     title: &'a str,
+    /// Title anchor (left end, vertical middle).
+    title_anchor: (f64, f64),
     size: (f64, f64),
     content: Measured<'a>,
 }
@@ -88,71 +149,140 @@ enum Measured<'a> {
     Colorbar(&'a Colorbar, ColorbarLayout),
 }
 
-/// Legends stacked vertically, measured.
+/// Legends arranged in a block (stacked, or side by side), measured.
 pub struct LegendBlock<'a> {
-    legends: Vec<MeasuredLegend<'a>>,
-    /// Width and height of the whole stack.
+    /// Each legend with its offset from the block origin.
+    legends: Vec<(MeasuredLegend<'a>, (f64, f64))>,
+    /// Width and height of the whole block.
     pub size: (f64, f64),
 }
 
-/// Title width and height, and where the content starts below the title's top
-/// (lets-plot `LegendBoxLayout.graphOrigin`: half a title line between them).
-fn title_metrics(title: &str, theme: &Theme) -> (f64, f64) {
+/// Title width and height (zero when absent).
+fn title_size(title: &str, theme: &Theme) -> (f64, f64) {
     match theme.legend_title {
         Some(style) if !title.trim().is_empty() => (
             measure(title, style.size, style.font).width,
-            text_band(style) * 1.5,
+            text_band(style),
         ),
         _ => (0.0, 0.0),
     }
 }
 
-/// Measure the boxes (lets-plot vertical arrangement, left-justified).
+/// Place a title and a graph (keys or bar) in a box (lets-plot `LegendBoxLayout`):
+/// vertical legends put the title above, half a title line apart; horizontal ones
+/// put it at the left, both centred vertically. Returns the graph origin, the title
+/// anchor and the box size, margins included.
+fn arrange_title(
+    title: &str,
+    graph: (f64, f64),
+    horizontal: bool,
+    theme: &Theme,
+) -> ((f64, f64), (f64, f64), (f64, f64)) {
+    let margin = theme.legend_margin;
+    let (title_width, title_height) = title_size(title, theme);
+    let (graph_origin, content) = if horizontal {
+        let height = title_height.max(graph.1);
+        (
+            (title_width, (height - graph.1) / 2.0),
+            (title_width + graph.0, height),
+        )
+    } else {
+        // lets-plot `LegendBoxLayout.graphOrigin`: half a title line below the title.
+        let top = if title_height > 0.0 {
+            title_height * 1.5
+        } else {
+            0.0
+        };
+        ((0.0, top), (title_width.max(graph.0), top + graph.1))
+    };
+    let title_middle = if horizontal {
+        content.1 / 2.0
+    } else {
+        title_height / 2.0
+    };
+    (
+        (margin.left + graph_origin.0, margin.top + graph_origin.1),
+        (margin.left, margin.top + title_middle),
+        (
+            margin.left + content.0 + margin.right,
+            margin.top + content.1 + margin.bottom,
+        ),
+    )
+}
+
+/// Measure the boxes and arrange them (lets-plot `LegendBoxesLayoutUtil`): stacked
+/// and left-justified, or side by side and top-justified with
+/// `legend_box="horizontal"`; `legend_box_just` overrides the justification.
 /// `None` when there is nothing to show.
 pub fn measure_legends<'a>(
     boxes: &'a [LegendBox],
     theme: &Theme,
 ) -> Result<Option<LegendBlock<'a>>> {
+    let horizontal = theme.legends_horizontal();
     let mut measured = Vec::new();
     for legend_box in boxes.iter().filter(|legend_box| !legend_box.is_empty()) {
         measured.push(match legend_box {
-            LegendBox::Keys(legend) => measure_legend(legend, theme)?,
-            LegendBox::Colorbar(colorbar) => measure_colorbar(colorbar, theme),
+            LegendBox::Keys(legend) => measure_legend(legend, horizontal, theme)?,
+            LegendBox::Colorbar(colorbar) => measure_colorbar(colorbar, horizontal, theme),
         });
     }
     if measured.is_empty() {
         return Ok(None);
     }
-    let width = measured
+    let side_by_side = theme.legend_box_horizontal;
+    let justification = theme.legend_box_just.unwrap_or(0.0);
+    let across = |size: (f64, f64)| if side_by_side { size.1 } else { size.0 };
+    let thickness = measured
         .iter()
-        .map(|legend| legend.size.0)
+        .map(|legend| across(legend.size))
         .fold(0.0, f64::max);
-    let height = measured.iter().map(|legend| legend.size.1).sum::<f64>()
-        + theme.legend_spacing.1 * (measured.len() - 1) as f64;
-    Ok(Some(LegendBlock {
-        legends: measured,
-        size: (width, height),
-    }))
+    let spacing = if side_by_side {
+        theme.legend_spacing.0
+    } else {
+        theme.legend_spacing.1
+    };
+    let mut legends = Vec::with_capacity(measured.len());
+    let mut along = 0.0;
+    for legend in measured {
+        let shift = (thickness - across(legend.size)) * justification;
+        let (offset, extent) = if side_by_side {
+            ((along, shift), legend.size.0)
+        } else {
+            ((shift, along), legend.size.1)
+        };
+        along += extent + spacing;
+        legends.push((legend, offset));
+    }
+    let length = along - spacing;
+    let size = if side_by_side {
+        (length, thickness)
+    } else {
+        (thickness, length)
+    };
+    Ok(Some(LegendBlock { legends, size }))
 }
 
-fn measure_colorbar<'a>(colorbar: &'a Colorbar, theme: &Theme) -> MeasuredLegend<'a> {
-    let margin = theme.legend_margin;
-    let (title_width, graph_top) = title_metrics(&colorbar.title, theme);
-    let layout = layout_colorbar(colorbar, (margin.left, margin.top + graph_top), theme);
+fn measure_colorbar<'a>(
+    colorbar: &'a Colorbar,
+    horizontal: bool,
+    theme: &Theme,
+) -> MeasuredLegend<'a> {
+    let graph = layout_colorbar(colorbar, (0.0, 0.0), horizontal, theme);
+    let (origin, title_anchor, size) =
+        arrange_title(&colorbar.title, graph.size, horizontal, theme);
     MeasuredLegend {
         title: &colorbar.title,
-        size: (
-            margin.left + title_width.max(layout.size.0) + margin.right,
-            margin.top + graph_top + layout.size.1 + margin.bottom,
-        ),
-        content: Measured::Colorbar(colorbar, layout),
+        title_anchor,
+        size,
+        content: Measured::Colorbar(colorbar, graph.translated(origin)),
     }
 }
 
-fn measure_legend<'a>(legend: &'a Legend, theme: &Theme) -> Result<MeasuredLegend<'a>> {
-    let margin = theme.legend_margin;
-    let (title_width, graph_top) = title_metrics(&legend.title, theme);
-
+fn measure_legend<'a>(
+    legend: &'a Legend,
+    horizontal: bool,
+    theme: &Theme,
+) -> Result<MeasuredLegend<'a>> {
     let (label_gap, label_extra) = match theme.legend_text {
         // lets-plot: half the width of "_" between key and label; a third of a line
         // between labels.
@@ -195,20 +325,27 @@ fn measure_legend<'a>(legend: &'a Legend, theme: &Theme) -> Result<MeasuredLegen
         }
         key_sizes.push(size);
     }
-    // Vertical legend: every key as wide as the widest.
-    let key_width = key_sizes.iter().map(|size| size.0).fold(0.0, f64::max);
+    // lets-plot: every key as tall as the tallest in a horizontal legend, as wide as
+    // the widest in a vertical one.
+    if horizontal {
+        let height = key_sizes.iter().map(|size| size.1).fold(0.0, f64::max);
+        key_sizes.iter_mut().for_each(|size| size.1 = height);
+    } else {
+        let width = key_sizes.iter().map(|size| size.0).fold(0.0, f64::max);
+        key_sizes.iter_mut().for_each(|size| size.0 = width);
+    }
 
     let count = legend.keys.len();
-    let rows = count.min(MAX_ROWS_PER_COLUMN);
-    let columns = count.div_ceil(rows);
+    let shape = legend.grid.shape(count, horizontal);
+    let (columns, rows) = shape;
     let mut column_widths = vec![0.0_f64; columns];
     let mut row_heights = vec![0.0_f64; rows];
     let mut label_offsets = Vec::with_capacity(count);
     for index in 0..count {
-        let (column, row) = (index / rows, index % rows);
+        let (column, row) = legend.grid.position(index, shape);
         let extra = if row == rows - 1 { 0.0 } else { label_extra };
         let (label_width, label_height) = label_size(&labels[index]);
-        let key_height = key_sizes[index].1;
+        let (key_width, key_height) = key_sizes[index];
         let offset = (key_width + label_gap, key_height / 2.0);
         label_offsets.push(offset);
         column_widths[column] = column_widths[column].max(offset.0 + label_width);
@@ -221,35 +358,44 @@ fn measure_legend<'a>(legend: &'a Legend, theme: &Theme) -> Result<MeasuredLegen
     let column_x = running_offsets(&column_widths, spacing.0);
     let row_y = running_offsets(&row_heights, spacing.1);
 
-    let origin = (margin.left, margin.top + graph_top);
     let mut cells = Vec::with_capacity(count);
     let (mut graph_width, mut graph_height) = (0.0_f64, 0.0_f64);
     for index in 0..count {
-        let (column, row) = (index / rows, index % rows);
+        let (column, row) = legend.grid.position(index, shape);
         let (x, y) = (column_x[column], row_y[row]);
         graph_width = graph_width.max(x + column_widths[column]);
         graph_height = graph_height.max(y + row_heights[row]);
         // lets-plot centres each key (and its label) vertically in its row.
         let shift = (row_heights[row] - key_sizes[index].1) / 2.0;
         let cell = Rect {
-            x: origin.0 + x,
-            y: origin.1 + y + shift,
-            width: key_width,
+            x,
+            y: y + shift,
+            width: key_sizes[index].0,
             height: key_sizes[index].1,
         };
         let (dx, dy) = label_offsets[index];
-        cells.push((
-            cell,
-            (origin.0 + x + dx, origin.1 + y + shift + dy),
-            labels[index].clone(),
-        ));
+        cells.push((cell, (x + dx, y + shift + dy), labels[index].clone()));
     }
-    let size = (
-        margin.left + title_width.max(graph_width) + margin.right,
-        margin.top + graph_top + graph_height + margin.bottom,
+    let (origin, title_anchor, size) = arrange_title(
+        &legend.title,
+        (graph_width, graph_height),
+        horizontal,
+        theme,
     );
+    let cells = cells
+        .into_iter()
+        .map(|(cell, (x, y), lines)| {
+            let cell = Rect {
+                x: cell.x + origin.0,
+                y: cell.y + origin.1,
+                ..cell
+            };
+            (cell, (x + origin.0, y + origin.1), lines)
+        })
+        .collect();
     Ok(MeasuredLegend {
         title: &legend.title,
+        title_anchor,
         size,
         content: Measured::Keys(legend, cells),
     })
@@ -345,9 +491,8 @@ fn running_offsets(extents: &[f64], spacing: f64) -> Vec<f64> {
 /// Draw the block with its top-left corner at `origin`.
 pub fn draw_legends(block: &LegendBlock, origin: (f64, f64), theme: &Theme) -> Result<Vec<Node>> {
     let mut nodes = Vec::new();
-    let mut top = origin.1;
-    for measured in &block.legends {
-        let (x, y) = (origin.0, top);
+    for (measured, offset) in &block.legends {
+        let (x, y) = (origin.0 + offset.0, origin.1 + offset.1);
         let mut legend_nodes = Vec::new();
         if let Some(style) = theme.legend_background {
             let rect = Rect {
@@ -364,30 +509,14 @@ pub fn draw_legends(block: &LegendBlock, origin: (f64, f64), theme: &Theme) -> R
             legend_nodes.push(text_node(
                 measured.title,
                 style,
-                (
-                    x + theme.legend_margin.left,
-                    y + theme.legend_margin.top + text_band(style) / 2.0,
-                ),
+                (x + measured.title_anchor.0, y + measured.title_anchor.1),
                 HorizontalAlign::Start,
                 0.0,
             ));
         }
         match &measured.content {
             Measured::Colorbar(colorbar, layout) => {
-                let moved = ColorbarLayout {
-                    bar: Rect {
-                        x: x + layout.bar.x,
-                        y: y + layout.bar.y,
-                        ..layout.bar
-                    },
-                    ticks: layout
-                        .ticks
-                        .iter()
-                        .map(|(tick, (label_x, label_y))| (y + tick, (x + label_x, y + label_y)))
-                        .collect(),
-                    size: layout.size,
-                };
-                legend_nodes.extend(draw_colorbar(colorbar, &moved, theme));
+                legend_nodes.extend(draw_colorbar(colorbar, &layout.translated((x, y)), theme));
             }
             Measured::Keys(legend, cells) => {
                 for (key, (cell, label_anchor, lines)) in legend.keys.iter().zip(cells) {
@@ -424,7 +553,6 @@ pub fn draw_legends(block: &LegendBlock, origin: (f64, f64), theme: &Theme) -> R
             role: Some("legend"),
             nodes: legend_nodes,
         }));
-        top += measured.size.1 + theme.legend_spacing.1;
     }
     Ok(nodes)
 }
@@ -454,6 +582,52 @@ mod tests {
             wrap_label("1\n2\n3\n4\n5\n6"),
             ["1", "2", "3", "4", "5", "..."]
         );
+    }
+
+    #[test]
+    fn key_grids_follow_lets_plot() {
+        let grid = |columns, rows, by_row| KeyGrid {
+            columns,
+            rows,
+            by_row,
+        };
+        // Defaults: 15 rows per column (vertical), 5 columns per row (horizontal).
+        assert_eq!(KeyGrid::default().shape(7, false), (1, 7));
+        assert_eq!(KeyGrid::default().shape(20, false), (2, 15));
+        assert_eq!(KeyGrid::default().shape(7, true), (4, 2));
+        assert_eq!(grid(None, None, true).shape(7, true), (5, 2));
+        assert_eq!(grid(Some(2), None, false).shape(7, false), (2, 4));
+        assert_eq!(grid(None, Some(2), true).shape(7, false), (4, 2));
+        // Counts larger than the keys are capped.
+        assert_eq!(grid(Some(10), None, true).shape(3, false), (3, 1));
+        assert_eq!(grid(None, Some(10), false).shape(3, false), (1, 3));
+        let by_column = grid(Some(2), None, false);
+        assert_eq!(by_column.position(5, (2, 4)), (1, 1));
+        let by_row = grid(Some(2), None, true);
+        assert_eq!(by_row.position(5, (2, 4)), (1, 2));
+    }
+
+    #[test]
+    fn combined_grids_keep_the_last_counts_and_any_byrow() {
+        let first = KeyGrid {
+            columns: Some(2),
+            rows: None,
+            by_row: true,
+        };
+        let second = KeyGrid {
+            columns: Some(3),
+            rows: Some(1),
+            by_row: false,
+        };
+        assert_eq!(
+            first.combine(second),
+            KeyGrid {
+                columns: Some(3),
+                rows: Some(1),
+                by_row: true
+            }
+        );
+        assert_eq!(first.combine(KeyGrid::default()), first);
     }
 
     #[test]

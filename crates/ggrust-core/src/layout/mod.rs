@@ -7,6 +7,9 @@
 //! y breaks -> y label width -> panel width -> x breaks. When the x labels need a
 //! thicker band (tilted or two-row labels), the y axis is laid out once more.
 //!
+//! Legends take a band at the side `legend_position` names (inside the titles, outside
+//! the axes); [`legend_origin`] places them, relative to the panel as lets-plot does.
+//!
 //! Single panel only; facets and grids come in Phase 3.
 
 mod axis;
@@ -16,7 +19,7 @@ mod legend;
 pub use axis::{AxisBreaks, LabelArrangement, Orientation, choose_breaks};
 pub use colorbar::{Colorbar, DEFAULT_BINS};
 pub use legend::{
-    KeyLayer, Legend, LegendBlock, LegendBox, LegendKey, draw_legends, measure_legends,
+    KeyGrid, KeyLayer, Legend, LegendBlock, LegendBox, LegendKey, draw_legends, measure_legends,
 };
 
 use axis::{LABELS_OVERFLOW, TILT_DEGREES};
@@ -35,7 +38,7 @@ pub const PANEL_MIN_SIZE: f64 = 50.0;
 pub fn text_band(style: TextStyle) -> f64 {
     measure("", style.size, style.font).height()
 }
-use crate::theme::{LineStyle, Margins, RectStyle, TextStyle, Theme};
+use crate::theme::{LegendPosition, LineStyle, Margins, RectStyle, TextStyle, Theme};
 
 /// Plot-level texts. `None` or empty means absent (takes no space).
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -63,10 +66,12 @@ pub struct PlotLayout {
     pub y_breaks: AxisBreaks,
     /// Ticks, spacing and labels below the panel (px): the x title goes below it.
     pub x_axis_band: f64,
+    /// Space kept for legends on each side (see [`legend_space`]).
+    pub legend_space: Margins,
 }
 
 /// Lay out a plot inside `area` (the whole canvas for a single plot; a grid cell
-/// or the space left by a legend later).
+/// later), keeping `legend_space` free for legends.
 ///
 /// As lets-plot (`TopDownTileLayout.computeAxisInfos`): y axis for the estimated
 /// height, then x axis for the resulting width; if the x labels need a thicker band
@@ -78,9 +83,18 @@ pub fn layout_plot(
     titles: &Titles,
     x_scale: &PositionScale,
     y_scale: &PositionScale,
+    legend_space: Margins,
 ) -> PlotLayout {
     let simple = theme.axis_text_x.map_or(0.0, text_band);
-    let first = layout_with(area, theme, titles, x_scale, y_scale, simple, None);
+    let first = layout_with(
+        area,
+        theme,
+        titles,
+        (x_scale, y_scale),
+        legend_space,
+        simple,
+        None,
+    );
     let needed = x_labels_height(&first.x_breaks, theme);
     if needed <= simple {
         return first;
@@ -90,8 +104,8 @@ pub fn layout_plot(
         area,
         theme,
         titles,
-        x_scale,
-        y_scale,
+        (x_scale, y_scale),
+        legend_space,
         needed,
         Some(x_breaks),
     )
@@ -102,8 +116,8 @@ fn layout_with(
     area: Rect,
     theme: &Theme,
     titles: &Titles,
-    x_scale: &PositionScale,
-    y_scale: &PositionScale,
+    (x_scale, y_scale): (&PositionScale, &PositionScale),
+    legend_space: Margins,
     labels_height: f64,
     x_breaks: Option<AxisBreaks>,
 ) -> PlotLayout {
@@ -116,13 +130,16 @@ fn layout_with(
             theme.plot_subtitle,
             &titles.subtitle,
             theme.plot_subtitle_margin_top,
-        );
+        )
+        + legend_space.top;
     let x_axis_band = tick_band(theme.axis_ticks_x, theme)
         + theme
             .axis_text_x
             .map_or(0.0, |_| theme.axis_text_spacing + labels_height);
-    let bottom =
-        content.y + content.height - band(theme.axis_title_x, &titles.x, 0.0) - x_axis_band;
+    let bottom = content.y + content.height
+        - legend_space.bottom
+        - band(theme.axis_title_x, &titles.x, 0.0)
+        - x_axis_band;
     let panel_height = (bottom - top).max(PANEL_MIN_SIZE);
 
     let y_breaks = choose_breaks(
@@ -150,9 +167,11 @@ fn layout_with(
         + theme
             .axis_text_y
             .map_or(0.0, |_| theme.axis_text_spacing + y_label_width);
-    let left =
-        content.x + band(theme.axis_title_y, &titles.y, theme.axis_title_spacing) + y_axis_width;
-    let panel_width = (content.x + content.width - left).max(PANEL_MIN_SIZE);
+    let left = content.x
+        + legend_space.left
+        + band(theme.axis_title_y, &titles.y, theme.axis_title_spacing)
+        + y_axis_width;
+    let panel_width = (content.x + content.width - legend_space.right - left).max(PANEL_MIN_SIZE);
 
     // lets-plot lets x labels reach over the y axis on the left (geom area insets).
     let x_breaks = x_breaks.unwrap_or_else(|| {
@@ -175,6 +194,64 @@ fn layout_with(
         x_breaks,
         y_breaks,
         x_axis_band,
+        legend_space,
+    }
+}
+
+/// Space legends of `size` take on each side (lets-plot `PlotLegendsLayoutUtil`):
+/// the block plus `legend_box_spacing` at a fixed position, nothing inside the panel
+/// or without legends.
+pub fn legend_space(theme: &Theme, size: (f64, f64)) -> Margins {
+    let spacing = theme.legend_box_spacing;
+    let mut space = Margins::uniform(0.0);
+    match theme.legend_position {
+        LegendPosition::Right => space.right = size.0 + spacing,
+        LegendPosition::Left => space.left = size.0 + spacing,
+        LegendPosition::Top => space.top = size.1 + spacing,
+        LegendPosition::Bottom => space.bottom = size.1 + spacing,
+        LegendPosition::None | LegendPosition::Inside(..) => {}
+    }
+    space
+}
+
+/// Top-left corner of a legend block of `size` (lets-plot `LegendBoxesLayoutUtil`):
+/// at the side of the plot, justified along the panel by `legend_justification`, or
+/// inside the panel at `legend_position`. Outside legends sit at the plot margin
+/// (beyond the inset). Right and bottom legends are placed from the panel, so with a
+/// minimum-size panel they run past the plot edge instead of covering the data.
+pub fn legend_origin(
+    layout: &PlotLayout,
+    theme: &Theme,
+    titles: &Titles,
+    size: (f64, f64),
+) -> (f64, f64) {
+    let panel = layout.panel;
+    let inset = theme.plot_inset;
+    let spacing = theme.legend_box_spacing;
+    let (justify_x, justify_y) = theme.legend_justification;
+    let along_y = panel.y + (panel.height - size.1) * (1.0 - justify_y);
+    let along_x = panel.x + (panel.width - size.0) * justify_x;
+    match theme.legend_position {
+        LegendPosition::Right | LegendPosition::None => {
+            (panel.x + panel.width + inset.right + spacing, along_y)
+        }
+        LegendPosition::Left => (layout.content.x - inset.left, along_y),
+        LegendPosition::Top => (along_x, panel.y - layout.legend_space.top - inset.top),
+        LegendPosition::Bottom => (
+            along_x,
+            panel.y
+                + panel.height
+                + layout.x_axis_band
+                + band(theme.axis_title_x, &titles.x, 0.0)
+                + inset.bottom
+                + spacing,
+        ),
+        // [0, 0] is the bottom-left corner of the panel; justification picks the
+        // block's point placed there.
+        LegendPosition::Inside(x, y) => (
+            panel.x + panel.width * x - size.0 * justify_x,
+            panel.y + panel.height * (1.0 - y) - size.1 * (1.0 - justify_y),
+        ),
     }
 }
 
@@ -399,7 +476,7 @@ pub fn draw_axes_and_titles(
             title,
             style,
             (
-                content.x + text_band(style) / 2.0,
+                content.x + layout.legend_space.left + text_band(style) / 2.0,
                 panel.y + panel.height - along,
             ),
             HorizontalAlign::Middle,
@@ -575,7 +652,7 @@ mod tests {
                 width: 400.0,
                 height: 300.0,
             };
-            layout_plot(area, &theme, &titles, &scale, &scale)
+            layout_plot(area, &theme, &titles, &scale, &scale, Margins::uniform(0.0))
         };
         let (origin, moved) = (at(0.0, 0.0), at(250.0, 40.0));
         assert_eq!(moved.panel.x, origin.panel.x + 250.0);

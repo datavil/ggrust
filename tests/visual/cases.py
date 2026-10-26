@@ -175,6 +175,22 @@ def brewer_clusters(m):
     )
 
 
+def legends_bottom_box(m):
+    return colorbar_viridis_size(m) + m.theme(
+        legend_position="bottom", legend_box="horizontal", legend_direction="horizontal"
+    )
+
+
+def legend_two_columns(m):
+    return umap_clusters(m) + m.guides(color=m.guide_legend(ncol=2))
+
+
+def legend_inside_corner(m):
+    return legends_hue_size(m) + m.theme(
+        legend_position=[1, 1], legend_justification=[1, 1], legend_box="horizontal"
+    )
+
+
 CASES = {
     case.__name__: case
     for case in [
@@ -191,5 +207,8 @@ CASES = {
         legends_hue_size,
         colorbar_viridis_size,
         brewer_clusters,
+        legends_bottom_box,
+        legend_two_columns,
+        legend_inside_corner,
     ]
 }

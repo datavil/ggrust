@@ -15,8 +15,9 @@ use crate::coord::{self, Coord, Panel};
 use crate::data::{Column, ContinuousColumn, DataFrame, LayerData, group_index};
 use crate::geom::{self, DrawLayer, Geom};
 use crate::layout::{
-    Colorbar, DEFAULT_BINS, KeyLayer, Legend, LegendBox, LegendKey, Titles, draw_axes_and_titles,
-    draw_legends, draw_panel_background, draw_panel_border, layout_plot, measure_legends,
+    Colorbar, DEFAULT_BINS, KeyGrid, KeyLayer, Legend, LegendBox, LegendKey, Titles,
+    draw_axes_and_titles, draw_legends, draw_panel_background, draw_panel_border, layout_plot,
+    legend_origin, legend_space, measure_legends,
 };
 use crate::parameters::Parameters;
 use crate::position::{self, Position};
@@ -31,7 +32,7 @@ use crate::spec::{
 };
 use crate::stat::{self, Stat};
 use crate::style::{StyleValues, Styles, parse_constant};
-use crate::theme::Theme;
+use crate::theme::{LegendPosition, Margins, Theme};
 use crate::{Error, Result};
 
 /// Plot size when `ggsize` is not given (lets-plot default).
@@ -185,17 +186,17 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
     };
     let legends = assemble_legends(spec, &layers, &style_scales, &style_specs)
         .map_err(|error| error.with_notes(&warnings))?;
-    let legend_block = measure_legends(&legends, &theme)?;
-    // lets-plot: legends sit at the right, inside the plot margin; the plot area
-    // gives up their width (+ `legend_box_spacing`).
-    let plot_area = match &legend_block {
-        Some(block) => Rect {
-            width: (area.width - block.size.0 - theme.legend_box_spacing).max(1.0),
-            ..area
-        },
-        None => area,
+    let legend_block = if theme.legend_position == LegendPosition::None {
+        None
+    } else {
+        measure_legends(&legends, &theme)?
     };
-    let layout = layout_plot(plot_area, &theme, &titles, &x_scale, &y_scale);
+    let legend_space = legend_block
+        .as_ref()
+        .map_or(Margins::uniform(0.0), |block| {
+            legend_space(&theme, block.size)
+        });
+    let layout = layout_plot(area, &theme, &titles, &x_scale, &y_scale, legend_space);
     let panel = Panel {
         rect: layout.panel,
         x_scale: &x_scale,
@@ -220,14 +221,7 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
     nodes.extend(draw_panel_border(&layout, &theme));
     nodes.extend(draw_axes_and_titles(&layout, &theme, &titles, &panel));
     if let Some(block) = &legend_block {
-        // Right of the panel, centred on it (`legend_justification` 0.5). Normally
-        // that is the plot margin's right edge; when the panel keeps its minimum
-        // size, the legend runs past the plot edge (as in lets-plot) instead of
-        // covering the panel.
-        let origin = (
-            layout.panel.x + layout.panel.width + theme.plot_inset.right + theme.legend_box_spacing,
-            layout.panel.y + (layout.panel.height - block.size.1) / 2.0,
-        );
+        let origin = legend_origin(&layout, &theme, &titles, block.size);
         nodes.extend(draw_legends(block, origin, &theme)?);
     }
     let mut scene = Scene {
@@ -950,7 +944,7 @@ fn assemble_legends(
     let mut colorbars: Vec<Colorbar> = Vec::new();
     for layer in layers.iter().filter(|layer| layer.show_legend) {
         // Scale name -> (aesthetic, its legend entries), in the geom's rendered order.
-        let mut by_title: Vec<(String, Vec<AestheticEntries>)> = Vec::new();
+        let mut by_title: Vec<(String, Vec<AestheticEntries>, KeyGrid)> = Vec::new();
         let mapped: Vec<Aesthetic> = layer.data.aesthetics().collect();
         let rendered = layer
             .geom
@@ -1032,18 +1026,26 @@ fn assemble_legends(
             if entries.len() > MAX_LEGEND_LABELS {
                 continue;
             }
-            match by_title.iter_mut().find(|(known, _)| *known == title) {
-                Some((_, group)) => group.push((aesthetic, entries)),
-                None => by_title.push((title, vec![(aesthetic, entries)])),
+            let grid = guides.legend_grid()?;
+            match by_title.iter_mut().find(|(known, _, _)| *known == title) {
+                Some((_, group, known)) => {
+                    group.push((aesthetic, entries));
+                    *known = known.combine(grid);
+                }
+                None => by_title.push((title, vec![(aesthetic, entries)], grid)),
             }
         }
-        for (title, group) in by_title {
+        for (title, group, grid) in by_title {
             let index = match legends.iter().position(|legend| legend.title == title) {
-                Some(index) => index,
+                Some(index) => {
+                    legends[index].grid = legends[index].grid.combine(grid);
+                    index
+                }
                 None => {
                     legends.push(Legend {
                         title,
                         keys: Vec::new(),
+                        grid,
                     });
                     legends.len() - 1
                 }
@@ -1149,6 +1151,28 @@ impl<'a> Guides<'a> {
     fn title(&self) -> Option<String> {
         self.options()
             .find_map(|(options, _)| options.title.clone())
+    }
+
+    /// `guide_legend(ncol, nrow, byrow)`, combined as lets-plot `LegendOptions.combine`
+    /// does: the last count given wins, `byrow` from any.
+    fn legend_grid(&self) -> Result<KeyGrid> {
+        let mut grid = KeyGrid::default();
+        for (options, path) in self.options() {
+            let count = |value: Option<u32>, key: &str| -> Result<Option<usize>> {
+                match value {
+                    Some(0) => Err(Error::InvalidSpec(format!(
+                        "at '{path}.{key}': expected a positive count, got 0"
+                    ))),
+                    value => Ok(value.map(|value| value as usize)),
+                }
+            };
+            grid = grid.combine(KeyGrid {
+                columns: count(options.ncol, "ncol")?,
+                rows: count(options.nrow, "nrow")?,
+                by_row: options.byrow.unwrap_or(false),
+            });
+        }
+        Ok(grid)
     }
 
     /// `barwidth`, `barheight`, `nbin`: the first given of each, validated.
@@ -1329,7 +1353,7 @@ fn unknown(kind: &str, path: &str, name: &str, supported: &[&str]) -> Error {
 fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
     for (key, guide) in &spec.guides {
         // Built: axis titles, legend titles, `"none"` and `"legend"` for style
-        // aesthetics. Other guide options come in Phase 1.4.
+        // aesthetics, legend grids and colorbar sizes (see `is_built_style_guide`).
         let is_style = key
             .parse::<Aesthetic>()
             .is_ok_and(|aesthetic| default_mapper(aesthetic).is_some());

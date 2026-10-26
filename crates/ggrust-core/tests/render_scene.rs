@@ -60,7 +60,10 @@ fn showcase() -> Scene {
         shape: PerItem::Varying(vec![
             MarkerShape::Circle,
             MarkerShape::Square,
-            MarkerShape::Triangle,
+            MarkerShape::Triangle {
+                up: true,
+                centroid: true,
+            },
             MarkerShape::Diamond,
             MarkerShape::Circle,
             MarkerShape::Circle, // centre outside the panel: clipped

@@ -7,7 +7,7 @@
 //! `scale_*()` options in [`spec`]. Add a mapper = one file + one branch in
 //! [`spec::StyleScaleSpec::mapper`].
 //!
-//! Not here yet: gradient/brewer/viridis options, shapes and line types.
+//! Not here yet: line types.
 
 mod brewer;
 mod brewer_data;
@@ -19,6 +19,7 @@ mod gradient;
 mod hue;
 mod manual;
 mod numeric;
+mod shape;
 pub mod spec;
 
 use std::collections::{HashMap, HashSet};
@@ -33,6 +34,7 @@ pub use gradient::{GRADIENT2_HIGH, GRADIENT2_LOW, GRADIENT2_MID, Gradient2Mapper
 pub use hue::HueMapper;
 pub use manual::ManualColorMapper;
 pub use numeric::{ALPHA, LinearMapper, SIZE};
+pub use shape::{ALL_SHAPES, HOLLOW_SHAPES, NA_SHAPE, ShapeMapper};
 
 use super::breaks::linear_breaks;
 use super::format::{Label, format_breaks};
@@ -67,6 +69,7 @@ pub fn default_mapper(aesthetic: Aesthetic) -> Option<Arc<dyn StyleMapper>> {
         Aesthetic::Color | Aesthetic::Fill => Some(Arc::new(DefaultColorMapper { na: NA_COLOR })),
         Aesthetic::Size => Some(Arc::new(SIZE.clone())),
         Aesthetic::Alpha => Some(Arc::new(ALPHA.clone())),
+        Aesthetic::Shape => Some(Arc::new(ShapeMapper::all())),
         _ => None,
     }
 }

@@ -18,7 +18,7 @@ use crate::scene::geometry::{
     ClipBox, is_drawable_marker, is_drawable_rect, is_drawable_stroke, is_drawable_width,
 };
 use crate::scene::{
-    Color, Group, MarkerShape, Node, Path, Points, Rect, Rects, Scene, Stroke, Text,
+    Color, Group, MarkerPart, Node, Path, Points, Rect, Rects, Scene, Stroke, Text,
 };
 use crate::text::{FONT_FAMILY, Font, MONO_FONT_FAMILY};
 use crate::{Error, Result};
@@ -204,29 +204,37 @@ impl Canvas {
             if !is_drawable_marker(x, y, size) || !self.clip_box.contains(x, y) {
                 continue;
             }
-            let Some(path) = marker_path(points.shape.get(index), x, y, size) else {
-                continue;
-            };
-            if let Some(fill) = points.fill.get(index).filter(|fill| !fill.is_transparent()) {
-                fill_paint.set_color(skia_color(fill));
-                self.pixmap
-                    .fill_path(&path, &fill_paint, FillRule::Winding, self.transform, mask);
-            }
             let width = points.stroke_width.get(index);
-            if let Some(stroke) = points
+            let fill = points.fill.get(index).filter(|fill| !fill.is_transparent());
+            let stroke = points
                 .stroke
                 .get(index)
-                .filter(|stroke| !stroke.is_transparent())
-                && is_drawable_width(width)
-            {
-                stroke_paint.set_color(skia_color(stroke));
-                let style = tiny_skia::Stroke {
-                    width: width as f32,
-                    ..tiny_skia::Stroke::default()
+                .filter(|stroke| !stroke.is_transparent() && is_drawable_width(width));
+            let shape = points.shape.get(index);
+            shape.for_each_part(x, y, size, width, |part| {
+                let Some((path, closed)) = marker_path(&part) else {
+                    return;
                 };
-                self.pixmap
-                    .stroke_path(&path, &stroke_paint, &style, self.transform, mask);
-            }
+                if let Some(fill) = fill.filter(|_| closed) {
+                    fill_paint.set_color(skia_color(fill));
+                    self.pixmap.fill_path(
+                        &path,
+                        &fill_paint,
+                        FillRule::Winding,
+                        self.transform,
+                        mask,
+                    );
+                }
+                if let Some(stroke) = stroke {
+                    stroke_paint.set_color(skia_color(stroke));
+                    let style = tiny_skia::Stroke {
+                        width: width as f32,
+                        ..tiny_skia::Stroke::default()
+                    };
+                    self.pixmap
+                        .stroke_path(&path, &stroke_paint, &style, self.transform, mask);
+                }
+            });
         }
     }
 
@@ -341,43 +349,31 @@ impl Canvas {
     }
 }
 
-/// Marker outline in scene pixels, matching the SVG renderer's geometry.
-fn marker_path(shape: MarkerShape, x: f64, y: f64, size: f64) -> Option<tiny_skia::Path> {
-    let radius = size / 2.0;
-    let polygon = |vertices: &[(f64, f64)]| {
-        let mut builder = PathBuilder::new();
-        for (index, &(vertex_x, vertex_y)) in vertices.iter().enumerate() {
-            if index == 0 {
-                builder.move_to(vertex_x as f32, vertex_y as f32);
-            } else {
-                builder.line_to(vertex_x as f32, vertex_y as f32);
+/// A marker part as a path, and whether it is closed (fillable).
+fn marker_path(part: &MarkerPart) -> Option<(tiny_skia::Path, bool)> {
+    match part {
+        MarkerPart::Circle { x, y, radius } => {
+            PathBuilder::from_circle(*x as f32, *y as f32, *radius as f32).map(|path| (path, true))
+        }
+        MarkerPart::Rect(rect) => rect_path(rect).map(|path| (path, true)),
+        MarkerPart::Polygon(vertices) => {
+            let mut builder = PathBuilder::new();
+            for (index, &(vertex_x, vertex_y)) in vertices.iter().enumerate() {
+                if index == 0 {
+                    builder.move_to(vertex_x as f32, vertex_y as f32);
+                } else {
+                    builder.line_to(vertex_x as f32, vertex_y as f32);
+                }
             }
+            builder.close();
+            builder.finish().map(|path| (path, true))
         }
-        builder.close();
-        builder.finish()
-    };
-    match shape {
-        MarkerShape::Circle => PathBuilder::from_circle(x as f32, y as f32, radius as f32),
-        MarkerShape::Square => rect_path(&Rect {
-            x: x - radius,
-            y: y - radius,
-            width: size,
-            height: size,
-        }),
-        MarkerShape::Triangle => {
-            let height = size * 3f64.sqrt() / 2.0;
-            polygon(&[
-                (x, y - height * 2.0 / 3.0),
-                (x + radius, y + height / 3.0),
-                (x - radius, y + height / 3.0),
-            ])
+        MarkerPart::Line(start, end) => {
+            let mut builder = PathBuilder::new();
+            builder.move_to(start.0 as f32, start.1 as f32);
+            builder.line_to(end.0 as f32, end.1 as f32);
+            builder.finish().map(|path| (path, false))
         }
-        MarkerShape::Diamond => polygon(&[
-            (x, y - radius),
-            (x + radius, y),
-            (x, y + radius),
-            (x - radius, y),
-        ]),
     }
 }
 

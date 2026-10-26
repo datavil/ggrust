@@ -489,14 +489,14 @@ mod tests {
         let (_, warnings) = scales(
             r#"{"kind": "plot", "scales": [
                 {"aesthetic": "x", "position": "top", "discrete": true, "reverse": false},
-                {"aesthetic": "shape", "solid": false}]}"#,
+                {"aesthetic": "linetype"}]}"#,
         )
         .unwrap();
         assert_eq!(
             warnings,
             [
                 "at 'scales[0].position': not supported yet; ignored",
-                "at 'scales[1]': scales for 'shape' are not supported yet; ignored",
+                "at 'scales[1]': scales for 'linetype' are not supported yet; ignored",
             ]
         );
     }

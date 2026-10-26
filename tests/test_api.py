@@ -78,6 +78,18 @@ PARITY_CASES = {
     "layer function": lambda m: m.ggplot(FRAME) + m.layer("point", mapping=m.aes("x", "y")),
     "guides": lambda m: m.ggplot(FRAME, m.aes("x", "y")) + m.geom_point() + m.guides(color="none"),
     "layer plus aes": lambda m: m.ggplot(FRAME) + (m.geom_point() + m.aes("x", "y")),
+    "shape scales": lambda m: (
+        m.ggplot(FRAME, m.aes("x", "y", shape="c"))
+        + m.geom_point(shape=21, fill="red", stroke=2)
+        + m.scale_shape(solid=False, name="S")
+        + m.scale_shape_manual(values={"a": 1, "b": 22}, na_value=3, guide="none")
+    ),
+    "axis labels": lambda m: (
+        m.ggplot(FRAME, m.aes("x", "y"))
+        + m.geom_point()
+        + m.scale_x_continuous(breaks=[1, 2], labels=["a", "b"], format=".1f")
+        + m.scale_y_discrete(labels={"p": "P"})
+    ),
 }
 
 
@@ -169,8 +181,8 @@ def test_html_outputs():
 
 
 def test_unsupported_options_warn():
-    plot = gg.ggplot(FRAME, gg.aes("x", "y")) + gg.geom_point(shape=21)
-    with pytest.warns(gg.GgrustWarning, match="does not support option 'shape'"):
+    plot = gg.ggplot(FRAME, gg.aes("x", "y")) + gg.geom_point(angle=45)
+    with pytest.warns(gg.GgrustWarning, match="does not support option 'angle'"):
         plot.to_svg()
 
 

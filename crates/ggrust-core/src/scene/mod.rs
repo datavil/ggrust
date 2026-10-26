@@ -12,8 +12,10 @@
 mod color;
 mod color_names;
 pub mod geometry;
+mod marker;
 
 pub use color::Color;
+pub use marker::{MarkerPart, MarkerShape, MarkerStyle};
 
 use crate::text::Font;
 
@@ -165,19 +167,6 @@ impl Stroke {
     }
 }
 
-/// Marker geometry. Size is the marker's diameter / side in pixels.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum MarkerShape {
-    /// A circle.
-    Circle,
-    /// An axis-aligned square.
-    Square,
-    /// An upward-pointing triangle.
-    Triangle,
-    /// A square rotated 45 degrees.
-    Diamond,
-}
-
 /// A batch of markers.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Points {
@@ -187,7 +176,7 @@ pub struct Points {
     pub y: Vec<f64>,
     /// Geometry.
     pub shape: PerItem<MarkerShape>,
-    /// Diameter in pixels.
+    /// Full extent in pixels (outline included, see [`MarkerShape::parts`]).
     pub size: PerItem<f64>,
     /// Fill; `None` leaves the marker hollow.
     pub fill: PerItem<Option<Color>>,

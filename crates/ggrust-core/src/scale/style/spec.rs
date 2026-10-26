@@ -10,8 +10,9 @@ use std::sync::Arc;
 use super::{
     BrewerMapper, COLORMAP_NAMES, ColormapMapper, ContinuousDomain, DiscreteDomain, GRADIENT_HIGH,
     GRADIENT_LOW, GRADIENT2_HIGH, GRADIENT2_LOW, GRADIENT2_MID, Gradient2Mapper, GradientMapper,
-    HueMapper, Level, ManualColorMapper, NA_COLOR, Overflow, PaletteChoice, PaletteType,
-    StyleMapper, colormap, default_mapper, scheme_by_name, scheme_names,
+    HOLLOW_SHAPES, HueMapper, Level, ManualColorMapper, NA_COLOR, NA_SHAPE, Overflow,
+    PaletteChoice, PaletteType, ShapeMapper, StyleMapper, colormap, default_mapper, scheme_by_name,
+    scheme_names,
 };
 use crate::scene::{Color, PerItem};
 use crate::spec::{Aesthetic, GuideSpec, PlotSpec, ScaleSpec, Value};
@@ -41,6 +42,7 @@ const MAPPER_OPTIONS: &[&str] = &[
     "type",
     "palette",
     "overflow",
+    "solid",
 ];
 
 /// Merged `scale_*()` options of one style aesthetic.
@@ -149,6 +151,7 @@ impl StyleScaleSpec {
             )));
         };
         let is_color = default.value_kind() == ValueKind::Color;
+        let is_shape = default.value_kind() == ValueKind::Shape;
         match &self.kind {
             Some((kind, _)) if kind == "color_hue" && is_color => {
                 return self
@@ -176,10 +179,31 @@ impl StyleScaleSpec {
                     .manual_colors(values, path)
                     .map(|mapper| Arc::new(mapper) as Arc<dyn StyleMapper>);
             }
+            if is_shape {
+                return self
+                    .manual_shapes(values, path)
+                    .map(|mapper| Arc::new(mapper) as Arc<dyn StyleMapper>);
+            }
             warnings.push(format!(
                 "at '{path}': manual values for '{aesthetic}' are not supported yet; the \
                  default scale was used"
             ));
+        }
+        if is_shape && let Some((solid, path)) = self.options.get("solid") {
+            match solid {
+                Value::Bool(false) => {
+                    return Ok(Arc::new(ShapeMapper {
+                        shapes: HOLLOW_SHAPES.to_vec(),
+                        na: NA_SHAPE,
+                    }));
+                }
+                Value::Bool(true) => {}
+                other => {
+                    return Err(Error::InvalidSpec(format!(
+                        "at '{path}': expected true or false, got {other}"
+                    )));
+                }
+            }
         }
         if let Some((_, path)) = &self.na_value {
             // lets-plot passes `na_value` only to scales built from options (values,
@@ -544,6 +568,37 @@ impl StyleScaleSpec {
             colors,
             na: self.na_color()?,
         })
+    }
+
+    fn manual_shapes(&self, values: &Value, path: &str) -> Result<ShapeMapper> {
+        let items = values.as_array().ok_or_else(|| {
+            Error::InvalidSpec(format!(
+                "at '{path}': expected a list of shape codes, got {values}"
+            ))
+        })?;
+        let shape = |item: &Value, at: &str| match parse_constant(ValueKind::Shape, item) {
+            Ok(StyleValues::Shapes(PerItem::Uniform(code))) => Ok(code),
+            Ok(_) | Err(_) => Err(Error::InvalidSpec(format!(
+                "at '{at}': expected a shape code 0..25, got {item}"
+            ))),
+        };
+        // lets-plot skips null values (`filterNotNull`).
+        let shapes = items
+            .iter()
+            .enumerate()
+            .filter(|(_, item)| !item.is_null())
+            .map(|(index, item)| shape(item, &format!("{path}[{index}]")))
+            .collect::<Result<Vec<_>>>()?;
+        if shapes.is_empty() {
+            return Err(Error::InvalidSpec(format!(
+                "at '{path}': manual scales need at least one shape"
+            )));
+        }
+        let na = match &self.na_value {
+            None => NA_SHAPE,
+            Some((value, path)) => shape(value, path)?,
+        };
+        Ok(ShapeMapper { shapes, na })
     }
 
     fn na_color(&self) -> Result<Color> {

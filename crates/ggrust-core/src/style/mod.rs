@@ -192,6 +192,18 @@ impl Styles {
         Ok(())
     }
 
+    /// Whether an aesthetic has one value for every item (absent counts as uniform).
+    pub fn is_uniform(&self, aesthetic: Aesthetic) -> bool {
+        match self.values.get(&aesthetic) {
+            None => true,
+            Some(StyleValues::Colors(values)) => matches!(values, PerItem::Uniform(_)),
+            Some(StyleValues::Numbers(values)) => matches!(values, PerItem::Uniform(_)),
+            Some(StyleValues::Shapes(values)) => matches!(values, PerItem::Uniform(_)),
+            Some(StyleValues::Linetypes(values)) => matches!(values, PerItem::Uniform(_)),
+            Some(StyleValues::Texts(values)) => matches!(values, PerItem::Uniform(_)),
+        }
+    }
+
     /// Colors of a color aesthetic.
     pub fn colors(&self, aesthetic: Aesthetic) -> Result<&PerItem<Color>> {
         match self.values.get(&aesthetic) {

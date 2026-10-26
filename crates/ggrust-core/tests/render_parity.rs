@@ -126,7 +126,10 @@ fn non_positive_marker_sizes_draw_nothing() {
     for shape in [
         MarkerShape::Circle,
         MarkerShape::Square,
-        MarkerShape::Triangle,
+        MarkerShape::Triangle {
+            up: true,
+            centroid: true,
+        },
         MarkerShape::Diamond,
     ] {
         let points = Node::Points(Points {

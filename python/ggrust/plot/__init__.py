@@ -40,6 +40,7 @@ from ggrust.plot.scale_color import (
     scale_fill_manual,
     scale_fill_viridis,
 )
+from ggrust.plot.scale_shape import scale_shape, scale_shape_manual
 from ggrust.plot.theme import (
     element_blank,
     element_geom,
@@ -109,6 +110,8 @@ __all__ = [
     "scale_fill_hue",
     "scale_fill_manual",
     "scale_fill_viridis",
+    "scale_shape",
+    "scale_shape_manual",
     "scale_x_continuous",
     "scale_x_discrete",
     "scale_x_discrete_reversed",

@@ -193,14 +193,14 @@ fn unknown_position_options_warn() {
 #[test]
 fn unused_mapped_aesthetics_warn() {
     let built = build(
-        r#"{"kind": "plot", "mapping": {"x": "a", "y": "b", "shape": "a", "group": "a"},
+        r#"{"kind": "plot", "mapping": {"x": "a", "y": "b", "linetype": "a", "group": "a"},
             "layers": [{"geom": "point"}]}"#,
         Some(frame(&[("a", vec![1.0]), ("b", vec![1.0])])),
         vec![],
     );
     let joined = built.warnings.join("\n");
     assert!(
-        joined.contains("at 'mapping.shape': geom_point does not use aesthetic 'shape'"),
+        joined.contains("at 'mapping.linetype': geom_point does not use aesthetic 'linetype'"),
         "{joined}"
     );
     assert!(!joined.contains("'group'"), "{joined}");

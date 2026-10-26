@@ -10,7 +10,7 @@ use std::fmt::Write;
 
 use crate::scene::geometry::{ClipBox, is_drawable_marker, is_drawable_stroke, is_drawable_width};
 use crate::scene::{
-    Color, Group, HorizontalAlign, MarkerShape, Node, Path, PerItem, Points, Rect, Rects,
+    Color, Group, HorizontalAlign, MarkerPart, Node, Path, PerItem, Points, Rect, Rects,
     SUPERSCRIPT_RISE, SUPERSCRIPT_SCALE, Scene, Stroke, Text, VerticalAlign,
 };
 use crate::text::{CSS_FONT_FAMILY, FontFamily, measure, single_line};
@@ -203,49 +203,45 @@ impl SvgWriter {
             if !is_drawable_marker(x, y, size) || !self.clip_box.contains(x, y) {
                 continue;
             }
-            let radius = size / 2.0;
-            match points.shape.get(index) {
-                MarkerShape::Circle => {
-                    self.raw("<circle");
-                    self.attribute_number("cx", x);
-                    self.attribute_number("cy", y);
-                    self.attribute_precise("r", radius);
+            let stroke = marker_stroke(points.stroke.get(index), points.stroke_width.get(index));
+            let fill = match &points.fill {
+                PerItem::Varying(fills) => Some(fills[index]),
+                PerItem::Uniform(_) => None,
+            };
+            let per_item_stroke = uniform_stroke.is_none().then_some(stroke);
+            let shape = points.shape.get(index);
+            shape.for_each_part(x, y, size, points.stroke_width.get(index), |part| {
+                match part {
+                    MarkerPart::Circle { x, y, radius } => {
+                        self.raw("<circle");
+                        self.attribute_number("cx", x);
+                        self.attribute_number("cy", y);
+                        self.attribute_precise("r", radius);
+                    }
+                    MarkerPart::Rect(rect) => {
+                        self.raw("<rect");
+                        self.attribute_number("x", rect.x);
+                        self.attribute_number("y", rect.y);
+                        self.attribute_precise("width", rect.width);
+                        self.attribute_precise("height", rect.height);
+                    }
+                    MarkerPart::Polygon(vertices) => self.polygon_element(&vertices),
+                    MarkerPart::Line(start, end) => {
+                        self.raw("<line");
+                        self.attribute_number("x1", start.0);
+                        self.attribute_number("y1", start.1);
+                        self.attribute_number("x2", end.0);
+                        self.attribute_number("y2", end.1);
+                    }
                 }
-                MarkerShape::Square => {
-                    self.raw("<rect");
-                    self.attribute_number("x", x - radius);
-                    self.attribute_number("y", y - radius);
-                    self.attribute_precise("width", size);
-                    self.attribute_precise("height", size);
+                if let Some(fill) = fill {
+                    self.fill(fill);
                 }
-                MarkerShape::Triangle => {
-                    // Equilateral, side = size, centroid at (x, y).
-                    let height = size * 3f64.sqrt() / 2.0;
-                    self.polygon_element(&[
-                        (x, y - height * 2.0 / 3.0),
-                        (x + radius, y + height / 3.0),
-                        (x - radius, y + height / 3.0),
-                    ]);
+                if let Some(stroke) = per_item_stroke {
+                    self.marker_stroke(stroke);
                 }
-                MarkerShape::Diamond => {
-                    self.polygon_element(&[
-                        (x, y - radius),
-                        (x + radius, y),
-                        (x, y + radius),
-                        (x - radius, y),
-                    ]);
-                }
-            }
-            if let PerItem::Varying(fills) = &points.fill {
-                self.fill(fills[index]);
-            }
-            if uniform_stroke.is_none() {
-                self.marker_stroke(marker_stroke(
-                    points.stroke.get(index),
-                    points.stroke_width.get(index),
-                ));
-            }
-            self.raw("/>\n");
+                self.raw("/>\n");
+            });
         }
         self.raw("</g>\n");
     }

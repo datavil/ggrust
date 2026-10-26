@@ -212,6 +212,23 @@ def labelled_axes(m):
     )
 
 
+def point_shapes(m):
+    frame = pl.DataFrame(
+        {
+            "x": [float(code % 9) for code in range(26)],
+            "y": [float(code // 9) for code in range(26)],
+            "code": [str(code) for code in range(26)],
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("x", "y", shape="code"))
+        + m.geom_point(size=5, fill="#fdb462", color="#3f007d", stroke=1)
+        + m.scale_shape_manual(values=list(range(26)))
+        + m.guides(shape="none")
+        + m.ggsize(500, 300)
+    )
+
+
 CASES = {
     case.__name__: case
     for case in [
@@ -232,5 +249,6 @@ CASES = {
         legend_two_columns,
         legend_inside_corner,
         labelled_axes,
+        point_shapes,
     ]
 }

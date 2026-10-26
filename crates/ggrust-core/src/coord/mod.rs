@@ -49,4 +49,14 @@ impl Panel<'_> {
         self.coord
             .map(self.x_scale.map(x), self.y_scale.map(y), self.rect)
     }
+
+    /// Horizontal pixel of an x value (vertical grid lines, x ticks).
+    pub fn x_pixel(&self, x: f64) -> f64 {
+        self.coord.map(self.x_scale.map(x), 0.0, self.rect).0
+    }
+
+    /// Vertical pixel of a y value (horizontal grid lines, y ticks).
+    pub fn y_pixel(&self, y: f64) -> f64 {
+        self.coord.map(0.0, self.y_scale.map(y), self.rect).1
+    }
 }

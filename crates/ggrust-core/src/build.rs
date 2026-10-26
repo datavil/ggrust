@@ -156,15 +156,13 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
         };
         layer_nodes.extend(layer.geom.draw(&draw_layer, &panel)?);
     }
-    let mut nodes = draw_panel_background(&layout, &theme, &x_scale, &y_scale);
+    let mut nodes = draw_panel_background(&layout, &theme, &panel);
     nodes.push(Node::Group(Group {
         clip: Some(layout.panel),
         role: Some("panel"),
         nodes: layer_nodes,
     }));
-    nodes.extend(draw_axes_and_titles(
-        &layout, &theme, &titles, &x_scale, &y_scale,
-    ));
+    nodes.extend(draw_axes_and_titles(&layout, &theme, &titles, &panel));
     let scene = Scene {
         width,
         height,

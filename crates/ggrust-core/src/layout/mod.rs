@@ -15,6 +15,7 @@ pub use axis::{AxisBreaks, LabelArrangement, Orientation, choose_breaks};
 
 use axis::{LABELS_OVERFLOW, TILT_DEGREES};
 
+use crate::coord::Panel;
 use crate::scale::PositionScale;
 use crate::scale::format::Label;
 use crate::scene::{Group, HorizontalAlign, Node, Path, PerItem, Rect, Rects, Text, VerticalAlign};
@@ -227,12 +228,7 @@ fn row_gap(text: TextStyle) -> f64 {
 }
 
 /// Panel background and grid lines: drawn below the data.
-pub fn draw_panel_background(
-    layout: &PlotLayout,
-    theme: &Theme,
-    x_scale: &PositionScale,
-    y_scale: &PositionScale,
-) -> Vec<Node> {
+pub fn draw_panel_background(layout: &PlotLayout, theme: &Theme, mapper: &Panel) -> Vec<Node> {
     let panel = layout.panel;
     let mut nodes = Vec::new();
     if let Some(fill) = theme.panel_background {
@@ -245,13 +241,13 @@ pub fn draw_panel_background(
     let mut grid = Vec::new();
     if let Some(line) = theme.panel_grid_major_x {
         for &value in &layout.x_breaks.values {
-            let x = panel.x + x_scale.map(value) * panel.width;
+            let x = mapper.x_pixel(value);
             grid.push(segment((x, panel.y), (x, panel.y + panel.height), line));
         }
     }
     if let Some(line) = theme.panel_grid_major_y {
         for &value in &layout.y_breaks.values {
-            let y = panel.y + (1.0 - y_scale.map(value)) * panel.height;
+            let y = mapper.y_pixel(value);
             grid.push(segment((panel.x, y), (panel.x + panel.width, y), line));
         }
     }
@@ -270,8 +266,7 @@ pub fn draw_axes_and_titles(
     layout: &PlotLayout,
     theme: &Theme,
     titles: &Titles,
-    x_scale: &PositionScale,
-    y_scale: &PositionScale,
+    mapper: &Panel,
 ) -> Vec<Node> {
     let panel = layout.panel;
     let content = layout.content;
@@ -292,7 +287,7 @@ pub fn draw_axes_and_titles(
         .zip(&layout.x_breaks.labels)
         .enumerate()
     {
-        let x = panel.x + x_scale.map(*value) * panel.width;
+        let x = mapper.x_pixel(*value);
         if let Some(tick) = theme.axis_ticks_x {
             axis_x.push(segment(
                 (x, bottom),
@@ -317,7 +312,7 @@ pub fn draw_axes_and_titles(
     }
     let y_label_right = panel.x - tick_band(theme.axis_ticks_y, theme) - theme.axis_text_spacing;
     for (value, label) in layout.y_breaks.values.iter().zip(&layout.y_breaks.labels) {
-        let y = panel.y + (1.0 - y_scale.map(*value)) * panel.height;
+        let y = mapper.y_pixel(*value);
         if let Some(tick) = theme.axis_ticks_y {
             axis_y.push(segment(
                 (panel.x - theme.axis_ticks_length, y),

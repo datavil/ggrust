@@ -6,14 +6,17 @@ Lessons learned live in [memory/](memory/README.md).
 
 ## Vision
 
-ggrust is a grammar-of-graphics plotting engine **written in Rust, used from Python**.
+ggrust is a general-purpose grammar-of-graphics plotting library **written in Rust,
+used from Python**.
 
-- It exists so [cellestial](https://github.com/datavil/cellestial) can keep its
-  lets-plot based API after lets-plot stopped being maintained (Kotlin notebook sunset).
+- [cellestial](https://github.com/datavil/cellestial) is its first user: it needs to keep
+  its lets-plot based API after lets-plot stopped being maintained (Kotlin notebook sunset).
+  cellestial's needs set the roadmap order, not the scope of the library.
 - The Python API is a **lets_plot-compatible subset**: `aes`, `ggplot`, `geom_*`,
   `scale_*`, `theme`, `gggrid`, `ggtb`, `PlotSpec.as_dict()`, `+` composition.
   Porting cellestial should be (almost) an import swap: `lets_plot` -> `ggrust`.
-- Only what cellestial needs (and will plausibly need) is implemented. Not all of lets-plot.
+- Features follow cellestial's needs first, then general plotting needs. Not all of
+  lets-plot. Examples and docs use everyday data, not only single-cell data.
 - Rust does all the heavy work (stats, scales, layout, rendering). Python is a thin
   spec builder. Data crosses the boundary once, as Arrow, zero-copy where possible.
 - Outputs: SVG, PNG, interactive HTML (notebook `_repr_html_`). Interactivity

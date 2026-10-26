@@ -1,7 +1,6 @@
 """Python -> Rust bridge: frame references, deduplication and referenced columns."""
 
 import json
-import re
 
 import ggrust as gg
 import polars as pl
@@ -75,8 +74,5 @@ def test_shared_frame_renders_like_separate_frames():
     shared = gg.ggplot(FRAME, gg.aes("x", "y")) + gg.geom_point(data=FRAME, color="red")
     separate = gg.ggplot(FRAME, gg.aes("x", "y")) + gg.geom_point(data=FRAME.clone(), color="red")
 
-    # SVG ids still come from a global counter (plan 0.10.8): compare without them.
-    def strip(svg):
-        return re.sub(r"gg\d+-", "", svg)
-
-    assert strip(shared.to_svg()) == strip(separate.to_svg())
+    # SVG ids are a hash of the content, so equal plots give equal bytes.
+    assert shared.to_svg() == separate.to_svg()

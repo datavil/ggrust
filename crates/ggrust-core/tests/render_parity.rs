@@ -267,7 +267,7 @@ fn id_prefix_with_spaces_still_clips() {
     let svg = to_svg_with(
         &scene,
         &SvgOptions {
-            id_prefix: "my plot)".into(),
+            id_prefix: Some("my plot)".into()),
         },
     );
     let (_, range) = ink(&svg_to_png(&svg, 200.0, 100.0, 1.0).unwrap());

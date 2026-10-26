@@ -7,7 +7,6 @@
 //! `dominant-baseline`, which renderers implement inconsistently.
 
 use std::fmt::Write;
-use std::sync::atomic::{AtomicU64, Ordering};
 
 use crate::scene::geometry::{ClipBox, is_drawable_marker, is_drawable_stroke, is_drawable_width};
 use crate::scene::{
@@ -17,25 +16,20 @@ use crate::scene::{
 use crate::text::{CSS_FONT_FAMILY, measure, single_line};
 
 /// Options for [`to_svg_with`].
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct SvgOptions {
-    /// Prefix for element ids (clip paths). Must be unique per document when several
-    /// SVGs share one HTML page. Characters other than ASCII letters, digits, `-` and
-    /// `_` are replaced by `_`.
-    pub id_prefix: String,
+    /// Prefix for element ids (clip paths). It must be unique per document when
+    /// several SVGs share one HTML page. `None` (the default): `gg` + a hash of the
+    /// document, so the same plot always gives the same bytes and different plots
+    /// do not collide. Characters other than ASCII letters, digits, `-` and `_` are
+    /// replaced by `_`.
+    pub id_prefix: Option<String>,
 }
 
-impl Default for SvgOptions {
-    /// A process-unique prefix such as `gg7`.
-    fn default() -> Self {
-        static COUNTER: AtomicU64 = AtomicU64::new(0);
-        SvgOptions {
-            id_prefix: format!("gg{}", COUNTER.fetch_add(1, Ordering::Relaxed)),
-        }
-    }
-}
+/// Length of a content-hash prefix: `gg` + 12 hex digits.
+const HASH_PREFIX_LENGTH: usize = 14;
 
-/// Render a scene to SVG text with a process-unique id prefix.
+/// Render a scene to SVG text with a content-hash id prefix.
 pub fn to_svg(scene: &Scene) -> String {
     to_svg_with(scene, &SvgOptions::default())
 }
@@ -44,12 +38,44 @@ pub fn to_svg(scene: &Scene) -> String {
 pub fn to_svg_with(scene: &Scene, options: &SvgOptions) -> String {
     let mut writer = SvgWriter {
         output: String::with_capacity(4096),
-        id_prefix: sanitize_id(&options.id_prefix),
+        id_prefix: match &options.id_prefix {
+            Some(prefix) => sanitize_id(prefix),
+            None => "g".repeat(HASH_PREFIX_LENGTH),
+        },
+        id_positions: Vec::new(),
         clip_count: 0,
         clip_box: ClipBox::for_scene(scene.width, scene.height),
     };
     writer.document(scene);
+    if options.id_prefix.is_none() && !writer.id_positions.is_empty() {
+        // Hash the document with the placeholder in place, then write the prefix
+        // over it (same length, so recorded positions stay valid).
+        let prefix = format!("gg{:012x}", stable_hash(writer.output.as_bytes()) >> 16);
+        for &position in &writer.id_positions {
+            writer
+                .output
+                .replace_range(position..position + HASH_PREFIX_LENGTH, &prefix);
+        }
+    }
     writer.output
+}
+
+/// A fast hash that never changes between runs, platforms or Rust versions
+/// (8 bytes at a time, multiply and xor-shift).
+fn stable_hash(bytes: &[u8]) -> u64 {
+    const MULTIPLIER: u64 = 0x9e37_79b9_7f4a_7c15;
+    let mut hash = 0xcbf2_9ce4_8422_2325_u64 ^ bytes.len() as u64;
+    let mut chunks = bytes.chunks_exact(8);
+    for chunk in &mut chunks {
+        let mut word = [0; 8];
+        word.copy_from_slice(chunk);
+        hash = (hash ^ u64::from_le_bytes(word)).wrapping_mul(MULTIPLIER);
+        hash ^= hash >> 29;
+    }
+    let mut word = [0; 8];
+    word[..chunks.remainder().len()].copy_from_slice(chunks.remainder());
+    hash = (hash ^ u64::from_le_bytes(word)).wrapping_mul(MULTIPLIER);
+    hash ^ (hash >> 32)
 }
 
 /// A transparent SVG document containing only `texts`, positioned exactly as
@@ -58,6 +84,7 @@ pub(super) fn text_document(width: f64, height: f64, texts: &[&Text]) -> String 
     let mut writer = SvgWriter {
         output: String::with_capacity(256 * texts.len()),
         id_prefix: "text".into(),
+        id_positions: Vec::new(),
         clip_count: 0,
         clip_box: ClipBox::for_scene(width, height),
     };
@@ -72,6 +99,8 @@ pub(super) fn text_document(width: f64, height: f64, texts: &[&Text]) -> String 
 struct SvgWriter {
     output: String,
     id_prefix: String,
+    /// Byte offsets where `id_prefix` was written (rewritten by a content hash).
+    id_positions: Vec<usize>,
     clip_count: usize,
     clip_box: ClipBox,
 }
@@ -116,28 +145,37 @@ impl SvgWriter {
     }
 
     fn group(&mut self, group: &Group) {
-        let clip_id = group.clip.map(|clip| {
-            let id = format!("{}-clip{}", self.id_prefix, self.clip_count);
+        let clip_number = group.clip.map(|clip| {
+            let number = self.clip_count;
             self.clip_count += 1;
-            self.raw("<clipPath");
-            self.attribute("id", &id);
-            self.raw(">");
+            self.raw("<clipPath id=\"");
+            self.clip_id(number);
+            self.raw("\">");
             self.rect_element(&clip);
             self.raw("/></clipPath>\n");
-            id
+            number
         });
         self.raw("<g");
         if let Some(role) = group.role {
             self.attribute("class", role);
         }
-        if let Some(id) = clip_id {
-            self.attribute("clip-path", &format!("url(#{id})"));
+        if let Some(number) = clip_number {
+            self.raw(" clip-path=\"url(#");
+            self.clip_id(number);
+            self.raw(")\"");
         }
         self.raw(">\n");
         for node in &group.nodes {
             self.node(node);
         }
         self.raw("</g>\n");
+    }
+
+    /// `<prefix>-clip<number>`; the prefix is sanitized, so no escaping is needed.
+    fn clip_id(&mut self, number: usize) {
+        self.id_positions.push(self.output.len());
+        self.output.push_str(&self.id_prefix);
+        let _ = write!(self.output, "-clip{number}");
     }
 
     fn points(&mut self, points: &Points) {
@@ -539,6 +577,40 @@ mod tests {
         let mut output = String::new();
         push_decimal(&mut output, 0.5, 4);
         assert_eq!(output, "0.5");
+    }
+
+    #[test]
+    fn hash_prefixes_are_stable_and_follow_the_content() {
+        use crate::scene::{Group, Node, Rect};
+        let scene = |width: f64| Scene {
+            width,
+            height: 50.0,
+            background: None,
+            nodes: vec![Node::Group(Group {
+                clip: Some(Rect {
+                    x: 0.0,
+                    y: 0.0,
+                    width: 10.0,
+                    height: 10.0,
+                }),
+                role: None,
+                nodes: vec![],
+            })],
+        };
+        let first = to_svg(&scene(100.0));
+        assert_eq!(first, to_svg(&scene(100.0)));
+        assert_ne!(first, to_svg(&scene(101.0)));
+        let id = first
+            .split("id=\"")
+            .nth(1)
+            .unwrap()
+            .split('"')
+            .next()
+            .unwrap();
+        assert!(id.starts_with("gg") && id.ends_with("-clip0"), "{id}");
+        assert_eq!(id.len(), HASH_PREFIX_LENGTH + "-clip0".len());
+        assert!(first.contains(&format!("url(#{id})")), "{first}");
+        assert_eq!(stable_hash(b"ggrust"), stable_hash(b"ggrust"));
     }
 
     #[test]

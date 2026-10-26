@@ -203,7 +203,7 @@ fn render() -> (String, Pixmap) {
     let svg = to_svg_with(
         &scene,
         &SvgOptions {
-            id_prefix: "golden".into(),
+            id_prefix: Some("golden".into()),
         },
     );
     let png = to_png(&scene, 2.0).unwrap();

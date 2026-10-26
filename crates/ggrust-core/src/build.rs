@@ -1,8 +1,10 @@
 //! Plot builder: typed spec + Arrow data -> [`Scene`].
 //!
-//! Pipeline per layer: look up geom/stat/position, validate options, map columns
-//! to aesthetics, run stat and position, then train position scales across layers,
-//! lay out the panel, resolve styles and let each geom draw.
+//! Stages: map every layer ([`map_layer`]) -> resolve the position scales (kinds,
+//! discrete levels) -> stat and position per layer ([`compute_layer`]) -> train
+//! style scales on the computed data -> resolve styles ([`style_layer`]) -> train
+//! position scales -> layout -> draw. Layer stages own their warnings (no shared
+//! `&mut Vec`), so they can run in parallel later.
 //!
 //! Features parsed by `spec` but not built yet are reported as warnings by
 //! [`report_unimplemented`]; remove an entry there when its phase lands.
@@ -65,8 +67,11 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
 
     let mut mapped = Vec::with_capacity(spec.layers.len());
     for (index, layer) in spec.layers.iter().enumerate() {
-        match map_layer(index, layer, spec, data, &mut warnings) {
-            Ok(layer) => mapped.push(layer),
+        match map_layer(index, layer, spec, data) {
+            Ok(mut layer) => {
+                warnings.append(&mut layer.warnings);
+                mapped.push(layer);
+            }
             Err(error) => return Err(error.with_notes(&warnings)),
         }
     }
@@ -88,12 +93,25 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
         .map(|y| (x, y))
     });
     let (mut x_scale, mut y_scale) = axis_scales.map_err(|error| error.with_notes(&warnings))?;
-    let style_scales =
-        train_style_scales(&mapped, &mut warnings).map_err(|error| error.with_notes(&warnings))?;
-    let mut layers = Vec::with_capacity(mapped.len());
+    let mut computed = Vec::with_capacity(mapped.len());
     for layer in mapped {
-        match finish_layer(layer, [&x_scale, &y_scale], &style_scales, &mut warnings) {
-            Ok(prepared) => layers.push(prepared),
+        match compute_layer(layer, [&x_scale, &y_scale]) {
+            Ok(mut layer) => {
+                warnings.append(&mut layer.warnings);
+                computed.push(layer);
+            }
+            Err(error) => return Err(error.with_notes(&warnings)),
+        }
+    }
+    let style_scales = train_style_scales(&computed, &mut warnings)
+        .map_err(|error| error.with_notes(&warnings))?;
+    let mut layers = Vec::with_capacity(computed.len());
+    for layer in computed {
+        match style_layer(layer, &style_scales) {
+            Ok((layer, mut layer_warnings)) => {
+                warnings.append(&mut layer_warnings);
+                layers.push(layer);
+            }
             Err(error) => return Err(error.with_notes(&warnings)),
         }
     }
@@ -225,6 +243,17 @@ fn map_layer<'a>(
     spec: &'a LayerSpec,
     plot: &PlotSpec,
     data: &PlotData,
+) -> Result<MappedLayer<'a>> {
+    let mut warnings = Vec::new();
+    map_layer_into(index, spec, plot, data, &mut warnings)
+        .map_err(|error| error.with_notes(&warnings))
+}
+
+fn map_layer_into<'a>(
+    index: usize,
+    spec: &'a LayerSpec,
+    plot: &PlotSpec,
+    data: &PlotData,
     warnings: &mut Vec<String>,
 ) -> Result<MappedLayer<'a>> {
     let path = format!("layers[{index}]");
@@ -329,6 +358,7 @@ fn map_layer<'a>(
         } else {
             group_index(&grouping.iter().collect::<Vec<_>>())
         },
+        warnings: std::mem::take(warnings),
     })
 }
 
@@ -346,6 +376,8 @@ struct MappedLayer<'a> {
     /// Mapped columns with their mapping paths; positions not yet scaled.
     columns: Vec<(Aesthetic, Column, String)>,
     group_index: Option<Vec<u32>>,
+    /// Warnings of this stage.
+    warnings: Vec<String>,
 }
 
 /// The scale of one axis: discrete when `scale_*_discrete()` asks for it or any
@@ -389,12 +421,10 @@ fn axis_scale(
 /// Stage 2 of a layer: scale the positions (lets-plot transforms data when mapping;
 /// values a scale drops become missing), add constant positions, then run the stat
 /// and position adjustment and resolve styles.
-fn finish_layer(
+fn compute_layer(
     layer: MappedLayer,
     [x_scale, y_scale]: [&PositionScale; 2],
-    style_scales: &BTreeMap<Aesthetic, StyleScale>,
-    warnings: &mut Vec<String>,
-) -> Result<PreparedLayer> {
+) -> Result<ComputedLayer> {
     let MappedLayer {
         spec,
         path,
@@ -406,6 +436,7 @@ fn finish_layer(
         row_count,
         columns,
         group_index,
+        mut warnings,
     } = layer;
     let at = |key: &str| format!("{path}.{key}");
     let scale_of = |aesthetic: Aesthetic| {
@@ -418,6 +449,7 @@ fn finish_layer(
         }
     };
     let mut layer_data = LayerData::new(row_count);
+    let mut mapping_paths = BTreeMap::new();
     for (aesthetic, column, mapping_path) in columns {
         let column = match scale_of(aesthetic) {
             Some(scale) => scale
@@ -426,6 +458,7 @@ fn finish_layer(
             None => column,
         };
         layer_data.insert(aesthetic, column)?;
+        mapping_paths.insert(aesthetic, mapping_path);
     }
     layer_data.set_group_index(group_index)?;
 
@@ -478,23 +511,58 @@ fn finish_layer(
     )?;
 
     if !spec.na_rm.unwrap_or(false) {
-        report_missing_positions(geom, &layer_data, &path, warnings);
+        report_missing_positions(geom, &layer_data, &path, &mut warnings);
     }
-    let styles = resolve_styles(
-        geom,
-        &layer_data,
-        style_scales,
-        &parameters,
-        &path,
-        warnings,
-    )?;
-    Ok(PreparedLayer {
+    Ok(ComputedLayer {
         options,
         path,
         geom,
         data: layer_data,
-        styles,
+        mapping_paths,
+        warnings,
     })
+}
+
+/// A layer after [`compute_layer`]: positions scaled, stat and position applied.
+struct ComputedLayer {
+    /// Layer options with aliases normalised (`colour` -> `color`).
+    options: Options,
+    path: String,
+    geom: &'static dyn Geom,
+    data: LayerData,
+    /// Where each mapped aesthetic was mapped, for error messages.
+    mapping_paths: BTreeMap<Aesthetic, String>,
+    /// Warnings of this stage.
+    warnings: Vec<String>,
+}
+
+/// Last layer stage: style values from the trained style scales. Returns the
+/// stage's warnings next to the layer.
+fn style_layer(
+    layer: ComputedLayer,
+    style_scales: &BTreeMap<Aesthetic, StyleScale>,
+) -> Result<(PreparedLayer, Vec<String>)> {
+    let mut warnings = Vec::new();
+    let parameters = Parameters::new(&layer.options, &layer.path);
+    let styles = resolve_styles(
+        layer.geom,
+        &layer.data,
+        style_scales,
+        &parameters,
+        &layer.path,
+        &mut warnings,
+    )
+    .map_err(|error| error.with_notes(&warnings))?;
+    Ok((
+        PreparedLayer {
+            options: layer.options,
+            path: layer.path,
+            geom: layer.geom,
+            data: layer.data,
+            styles,
+        },
+        warnings,
+    ))
 }
 
 /// Layer mapping over the inherited plot mapping (unless `inherit_aes=False`), and
@@ -711,25 +779,37 @@ fn validate_parameters(
 /// Style scales of mapped style aesthetics, trained over every layer (lets-plot
 /// default mappers; `scale_color_*()` options come in Phase 1).
 fn train_style_scales(
-    layers: &[MappedLayer],
+    layers: &[ComputedLayer],
     warnings: &mut Vec<String>,
 ) -> Result<BTreeMap<Aesthetic, StyleScale>> {
-    // lets-plot: one discrete column makes the aesthetic's scale discrete.
-    let discrete: BTreeSet<Aesthetic> = layers
+    // Every (aesthetic, column, path) after stat and position, in layer order.
+    let columns: Vec<(Aesthetic, &Column, &str)> = layers
         .iter()
-        .flat_map(|layer| &layer.columns)
+        .flat_map(|layer| {
+            layer.data.aesthetics().filter_map(|aesthetic| {
+                let path = layer
+                    .mapping_paths
+                    .get(&aesthetic)
+                    .map_or(layer.path.as_str(), String::as_str);
+                Some((aesthetic, layer.data.get(aesthetic)?, path))
+            })
+        })
+        .collect();
+    // lets-plot: one discrete column makes the aesthetic's scale discrete.
+    let discrete: BTreeSet<Aesthetic> = columns
+        .iter()
         .filter(|(_, column, _)| matches!(column, Column::Discrete(_)))
         .map(|(aesthetic, _, _)| *aesthetic)
         .collect();
     let mut scales: BTreeMap<Aesthetic, StyleScale> = BTreeMap::new();
-    for (aesthetic, column, path) in layers.iter().flat_map(|layer| &layer.columns) {
-        let Some(mapper) = default_mapper(*aesthetic) else {
+    for (aesthetic, column, path) in columns {
+        let Some(mapper) = default_mapper(aesthetic) else {
             continue; // reported by `resolve_styles`
         };
         scales
-            .entry(*aesthetic)
+            .entry(aesthetic)
             .or_insert_with(|| {
-                if discrete.contains(aesthetic) {
+                if discrete.contains(&aesthetic) {
                     StyleScale::discrete(mapper)
                 } else {
                     StyleScale::new(mapper)
@@ -906,8 +986,13 @@ mod tests {
         [x_scale, y_scale]: [&PositionScale; 2],
         warnings: &mut Vec<String>,
     ) -> Result<PreparedLayer> {
-        let mapped = map_layer(0, &spec.layers[0], spec, &cells(), warnings)?;
-        finish_layer(mapped, [x_scale, y_scale], &BTreeMap::new(), warnings)
+        let mut mapped = map_layer(0, &spec.layers[0], spec, &cells())?;
+        warnings.append(&mut mapped.warnings);
+        let mut computed = compute_layer(mapped, [x_scale, y_scale])?;
+        warnings.append(&mut computed.warnings);
+        let (layer, mut layer_warnings) = style_layer(computed, &BTreeMap::new())?;
+        warnings.append(&mut layer_warnings);
+        Ok(layer)
     }
 
     fn prepare(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<PreparedLayer> {

@@ -11,7 +11,7 @@ import warnings
 from typing import Any
 
 from ggrust._data import as_arrow
-from ggrust._ggrust import render
+from ggrust._ggrust import referenced_columns, render
 
 DEFAULT_PNG_SCALE = 2.0  # lets-plot's default
 
@@ -39,14 +39,14 @@ def render_bytes(plot, output: str, scale: float = 1.0, size: tuple | None = Non
     bytes
         SVG (UTF-8) or PNG bytes.
     """
-    spec, plot_data, layer_data = split_data(plot.as_dict())
+    spec, frames = split_data(plot.as_dict())
     if size is not None:
         spec["ggsize"] = {"width": size[0], "height": size[1]}
-    columns = referenced_columns(spec)
+    spec_json = to_json(spec)
+    columns = set(referenced_columns(spec_json))
     encoded, messages = render(
-        to_json(spec),
-        _export(plot_data, columns, "data"),
-        [_export(data, columns, f"layers[{index}].data") for index, data in enumerate(layer_data)],
+        spec_json,
+        [_export(data, columns, path) for data, path in frames],
         output,
         float(scale),
     )
@@ -55,59 +55,52 @@ def render_bytes(plot, output: str, scale: float = 1.0, size: tuple | None = Non
     return encoded
 
 
-def split_data(spec: dict) -> tuple[dict, Any, list]:
-    """Separate inline data (sent as Arrow) from the spec (sent as JSON).
+def split_data(spec: dict) -> tuple[dict, list[tuple[Any, str]]]:
+    """Replace inline data with frame references (sent as JSON; data goes as Arrow).
+
+    Every ``data`` value of the figure (plot, layers, nested figures) becomes
+    ``{"frame": i}``. The same object used twice (by identity) is one frame, so a
+    ``gggrid`` of plots on one frame exports it once.
 
     Returns
     -------
     tuple
-        ``(spec without data, plot data or None, [layer data or None, ...])``.
+        ``(spec with references, [(data, path of its first use), ...])``.
     """
-    spec = dict(spec)
-    plot_data = spec.pop("data", None)
-    layers = []
-    layer_data = []
-    for layer in spec.get("layers", []):
-        layer = dict(layer)
-        layer_data.append(layer.pop("data", None))
-        layers.append(layer)
-    spec["layers"] = layers
-    return spec, plot_data, layer_data
+    frames: list[tuple[Any, str]] = []
+    index_by_id: dict[int, int] = {}
 
+    def reference(data: Any, path: str) -> dict:
+        index = index_by_id.get(id(data))
+        if index is None:
+            index = index_by_id[id(data)] = len(frames)
+            frames.append((data, path))
+        return {"frame": index}
 
-def referenced_columns(spec: dict) -> set[str]:
-    """Return the column names the plot can read.
+    def split(figure: dict, prefix: str) -> dict:
+        figure = dict(figure)
+        if figure.get("data") is not None:
+            figure["data"] = reference(figure["data"], f"{prefix}data")
+        layers = []
+        for index, layer in enumerate(figure.get("layers", [])):
+            layer = dict(layer)
+            if layer.get("data") is not None:
+                layer["data"] = reference(layer["data"], f"{prefix}layers[{index}].data")
+            layers.append(layer)
+        if "layers" in figure:
+            figure["layers"] = layers
+        if "figures" in figure:
+            figure["figures"] = [
+                None if child is None else split(child, f"{prefix}figures[{index}].")
+                for index, child in enumerate(figure["figures"])
+            ]
+        return figure
 
-    Every mapped column (plot and layers) and ``as_discrete(order_by=...)`` column.
-    Only these are exported to the engine.
-    """
-    columns: set[str] = set()
-
-    def add_mapping(mapping) -> None:
-        for value in (mapping or {}).values():
-            if isinstance(value, str):
-                columns.add(value)
-            elif isinstance(value, list | tuple):
-                columns.update(item for item in value if isinstance(item, str))
-
-    def add_meta(data_meta) -> None:
-        for annotation in (data_meta or {}).get("mapping_annotations", []):
-            order_by = annotation.get("parameters", {}).get("order_by")
-            if isinstance(order_by, str):
-                columns.add(order_by)
-
-    add_mapping(spec.get("mapping"))
-    add_meta(spec.get("data_meta"))
-    for layer in spec.get("layers", []):
-        add_mapping(layer.get("mapping"))
-        add_meta(layer.get("data_meta"))
-    return columns
+    return split(spec, ""), frames
 
 
 def _export(data: Any, columns: set[str], path: str):
-    """Arrow export of the referenced columns of ``data`` (None stays None)."""
-    if data is None:
-        return None
+    """Arrow export of the referenced columns of ``data``."""
     try:
         return as_arrow(_select(data, columns))
     except TypeError:

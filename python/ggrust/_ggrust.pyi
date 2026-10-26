@@ -2,7 +2,7 @@
 
 from typing import Any, TypedDict
 
-__all__ = ["describe_frame", "engine_version", "render", "validate_spec"]
+__all__ = ["describe_frame", "engine_version", "referenced_columns", "render", "validate_spec"]
 
 class ColumnSummary(TypedDict, total=False):
     """How ggrust reads one column."""
@@ -51,10 +51,29 @@ def describe_frame(data: Any) -> list[ColumnSummary]:
         kind ``"unsupported"`` and an ``error`` message.
     """
 
+def referenced_columns(spec_json: str) -> list[str]:
+    """Return the column names a spec can read, sorted.
+
+    Parameters
+    ----------
+    spec_json
+        Plot spec (lets_plot ``as_dict()`` with frame references) as JSON.
+
+    Returns
+    -------
+    list[str]
+        Columns referenced by mappings, ``as_discrete(order_by=...)``, facets and
+        tooltips (nested figures included). Only these need to be exported.
+
+    Raises
+    ------
+    ValueError
+        If the spec is invalid; the message names the offending path.
+    """
+
 def render(
     spec_json: str,
-    plot_data: Any | None,
-    layer_data: list[Any | None],
+    frames: list[Any],
     output: str,
     scale: float,
 ) -> tuple[bytes, list[str]]:
@@ -63,11 +82,10 @@ def render(
     Parameters
     ----------
     spec_json
-        Plot spec (lets_plot ``as_dict()`` without data) as JSON.
-    plot_data
-        Plot data exporting ``__arrow_c_stream__``, or None.
-    layer_data
-        One entry per layer: its own data, or None.
+        Plot spec (lets_plot ``as_dict()``) as JSON, each ``data`` replaced by a
+        frame reference ``{"frame": i}``.
+    frames
+        The referenced frames, each exporting ``__arrow_c_stream__``.
     output
         ``"svg"`` or ``"png"``.
     scale

@@ -76,31 +76,41 @@ mod _ggrust {
             .collect()
     }
 
+    /// Column names a spec can read (mappings, `order_by`, facets, tooltips),
+    /// sorted. Only these need to be exported as Arrow.
+    ///
+    /// Raises `ValueError` naming the offending path if the spec is invalid.
+    #[pyfunction]
+    fn referenced_columns(spec_json: &str) -> PyResult<Vec<String>> {
+        Figure::from_json(spec_json)
+            .map(|figure| figure.referenced_columns().into_iter().collect())
+            .map_err(to_value_error)
+    }
+
     fn to_value_error(error: ggrust_core::Error) -> PyErr {
         PyValueError::new_err(error.to_string())
     }
 
     /// Build and render a plot.
     ///
-    /// `spec_json` is the plot spec without inline data; `plot_data` and
-    /// `layer_data` are Arrow tables (any object exporting `__arrow_c_stream__`).
+    /// `spec_json` is the plot spec whose `data` keys are frame references
+    /// (`{"frame": i}`); `frames` are the Arrow tables they point to (any object
+    /// exporting `__arrow_c_stream__`).
     /// `output` is `"svg"` or `"png"`; `scale` multiplies PNG pixel size.
     /// Returns the encoded image (UTF-8 for SVG) and the build warnings.
     /// The GIL is released while building and rendering.
     #[pyfunction]
-    #[pyo3(signature = (spec_json, plot_data, layer_data, output, scale))]
+    #[pyo3(signature = (spec_json, frames, output, scale))]
     fn render<'py>(
         python: Python<'py>,
         spec_json: &str,
-        plot_data: Option<AnyRecordBatch>,
-        layer_data: Vec<Option<AnyRecordBatch>>,
+        frames: Vec<AnyRecordBatch>,
         output: &str,
         scale: f64,
     ) -> PyResult<(Bound<'py, PyBytes>, Vec<String>)> {
-        let plot = plot_data.map(to_frame).transpose()?;
-        let layers = layer_data
+        let frames = frames
             .into_iter()
-            .map(|frame| frame.map(to_frame).transpose())
+            .map(to_frame)
             .collect::<PyResult<Vec<_>>>()?;
         let spec_json = spec_json.to_owned();
         let output = output.to_owned();
@@ -112,7 +122,7 @@ mod _ggrust {
                         "gggrid (subplots) is not supported yet".into(),
                     ));
                 };
-                let built = build_plot(&spec, &PlotData { plot, layers })?;
+                let built = build_plot(&spec, &PlotData::from_frames(&spec, &frames)?)?;
                 let bytes = match output.as_str() {
                     "svg" => to_svg(&built.scene).into_bytes(),
                     "png" => to_png(&built.scene, scale)?,

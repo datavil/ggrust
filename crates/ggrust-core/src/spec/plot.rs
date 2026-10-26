@@ -3,11 +3,10 @@
 use std::collections::BTreeMap;
 
 use serde::Deserialize;
-use serde::de::IgnoredAny;
 
 use super::{
-    Aesthetic, CoordSpec, FacetSpec, GuideSpec, LayerSpec, Mapping, Options, ScaleSpec, ThemeSpec,
-    Value, guide_map, join_path, mapping, report_unsupported,
+    Aesthetic, CoordSpec, DataSource, FacetSpec, GuideSpec, LayerSpec, Mapping, Options, ScaleSpec,
+    ThemeSpec, Value, guide_map, join_path, mapping, report_unsupported,
 };
 
 /// Everything `PlotSpec.as_dict()` produces for one plot.
@@ -16,8 +15,8 @@ use super::{
 pub struct PlotSpec {
     /// Figure kind, always `plot`. Consumed by [`super::Figure`] dispatch.
     pub kind: String,
-    /// Inline data. Skipped: frames are passed separately as Arrow.
-    pub data: Option<IgnoredAny>,
+    /// Plot data: a reference to a frame passed separately as Arrow.
+    pub data: Option<DataSource>,
     /// Plot-level aesthetic mapping, inherited by layers.
     #[serde(deserialize_with = "mapping")]
     pub mapping: Mapping,

@@ -20,7 +20,9 @@ use crate::position::{self, Position};
 use crate::scale::style::{StyleScale, default_mapper};
 use crate::scale::{AxisScaleSpec, PositionScale, PositionScales, position_scales};
 use crate::scene::{Group, Node, Scene};
-use crate::spec::{Aesthetic, GuideSpec, LayerSpec, Mapping, MappingValue, Options, PlotSpec};
+use crate::spec::{
+    Aesthetic, DataSource, GuideSpec, LayerSpec, Mapping, MappingValue, Options, PlotSpec,
+};
 use crate::stat::{self, Stat};
 use crate::style::{Styles, parse_constant};
 use crate::theme::Theme;
@@ -36,6 +38,33 @@ pub struct PlotData {
     pub plot: Option<DataFrame>,
     /// `geom_*(data=...)`, by layer index; shorter than the layer list is fine.
     pub layers: Vec<Option<DataFrame>>,
+}
+
+impl PlotData {
+    /// Resolve the spec's frame references (`{"frame": i}`) against `frames`.
+    /// Frames are shared, not copied (Arrow buffers are reference counted).
+    pub fn from_frames(spec: &PlotSpec, frames: &[DataFrame]) -> Result<Self> {
+        let resolve = |source: Option<DataSource>, path: &str| match source {
+            Some(DataSource::Frame(index)) => {
+                frames.get(index).cloned().map(Some).ok_or_else(|| {
+                    Error::InvalidSpec(format!(
+                        "at '{path}': frame {index} was referenced but only {} were passed",
+                        frames.len()
+                    ))
+                })
+            }
+            Some(DataSource::Inline) | None => Ok(None),
+        };
+        Ok(PlotData {
+            plot: resolve(spec.data, "data")?,
+            layers: spec
+                .layers
+                .iter()
+                .enumerate()
+                .map(|(index, layer)| resolve(layer.data, &format!("layers[{index}].data")))
+                .collect::<Result<_>>()?,
+        })
+    }
 }
 
 /// A layer stage's failure, with the warnings the stage collected before it; the

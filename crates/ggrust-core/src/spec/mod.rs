@@ -3,8 +3,8 @@
 //! What it does: turns the spec emitted by the Python API into Rust types, with
 //! errors that name the exact path (`layers[2].position`) that failed.
 //!
-//! What it does not do: hold data. The `data` keys are skipped here; frames
-//! travel separately as Arrow (see the `data` module). It also does not check
+//! What it does not do: hold data. A `data` key is a frame reference
+//! ([`DataSource`]); frames travel separately as Arrow (see the `data` module). It also does not check
 //! geom/stat/scale specific options: those land in `parameters` maps and are
 //! validated by the component that consumes them.
 //!
@@ -14,6 +14,7 @@
 mod aesthetic;
 mod coord;
 mod facet;
+mod frames;
 mod guide;
 mod layer;
 mod plot;
@@ -29,6 +30,7 @@ use serde::{Deserialize, Deserializer};
 pub use aesthetic::{Aesthetic, AestheticKind, UnknownAesthetic};
 pub use coord::CoordSpec;
 pub use facet::FacetSpec;
+pub use frames::DataSource;
 pub use guide::{GuideOptions, GuideSpec};
 pub use layer::{LayerSpec, PositionSpec, TooltipFormat, TooltipLines, TooltipsSpec};
 pub use plot::{

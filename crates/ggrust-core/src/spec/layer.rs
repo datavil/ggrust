@@ -1,10 +1,10 @@
 //! A plot layer: geom + stat + position + mapping + geom-specific parameters.
 
 use serde::Deserialize;
-use serde::de::IgnoredAny;
 
 use super::{
-    DataMeta, Mapping, Options, Value, from_value_tracked, join_path, mapping, report_unsupported,
+    DataMeta, DataSource, Mapping, Options, Value, from_value_tracked, join_path, mapping,
+    report_unsupported,
 };
 
 /// One `geom_*()` layer.
@@ -24,9 +24,9 @@ pub struct LayerSpec {
     /// Column types and categorical ordering of the layer data.
     #[serde(default)]
     pub data_meta: DataMeta,
-    /// Inline data. Skipped: frames are passed separately as Arrow.
+    /// Layer data: a reference to a frame passed separately as Arrow.
     #[serde(default)]
-    pub data: Option<IgnoredAny>,
+    pub data: Option<DataSource>,
     /// Whether the layer contributes to legends.
     #[serde(default)]
     pub show_legend: Option<bool>,

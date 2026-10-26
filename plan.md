@@ -122,7 +122,7 @@ Steps inside a phase are ordered; each builds on the previous.
 
 ### Phase 4: Interactivity and HTML
 
-- [ ] 4.1 HTML renderer: SVG + embedded JS runtime, notebook `_repr_html_`, `to_html`, `LetsPlot.setup_html` no-op compat.
+- [ ] 4.1 HTML renderer: SVG + embedded JS runtime, notebook `_repr_html_`, `to_html`, `LetsPlot.setup_html` no-op compat. Pass an explicit per-display id prefix: content-hash ids repeat when one plot is shown twice on a page, which breaks once the runtime edits clips on zoom/pan.
 - [ ] 4.2 Tooltips: hit-testing index built in Rust (grid buckets), `layer_tooltips` (lines, format, title, anchor), default tooltips. Add tooltip columns to `Figure::referenced_columns` here (removed in 0.10.5: exporting unread columns failed plots). Template syntax to verify against lets-plot: `@x^2` is one name, dots end a name (`@y.bad` = `y` + text), an unclosed `@{` must not hide later fields, format fields may omit `@`.
 - [ ] 4.3 `ggtb` zoom/pan: re-render axes on zoom (Rust-precomputed break candidates, or JS tick generation).
 - [ ] 4.4 Canvas point layer for dense scatter (>50k points); playwright tests for render + tooltip.

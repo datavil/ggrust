@@ -87,8 +87,9 @@ Steps inside a phase are ordered; each builds on the previous.
   - [ ] 0.10.8 Layout into an area `Rect` with measure-then-place (gggrid, legends); deterministic SVG ids (explicit prefix).
   - Known gaps (bug hunt 0.10.2, deferred): sqrt axis with a single value keeps all breaks where lets-plot thins labels; an Enum's level order does not carry over to the same column in other layers.
   - Open findings (bug hunt 0.10.2c, to fix):
-    - [ ] Style scales: near-constant numeric data (e.g. `1 + i*1e-14`) is spread over the full color/size/alpha range; lets-plot maps it all to the middle. `applicable_domain` in `scale/style/mod.rs` must use the `is_degenerate_range` / `is_beyond_precision` test from `scale/breaks.rs` and widen +/- 0.5 around the upper end (`ensureApplicableDomain`).
-    - [ ] Mixed discrete + continuous columns on one style aesthetic: the error suggests `as_discrete`, which is not implemented yet. lets-plot does not error (draws both with a discrete palette). Decide: match lets-plot, or keep the error and drop the hint.
+    - [x] Style scales: near-constant data maps to the middle (`ensureApplicableDomain`, lets-plot's sign-unaware precision test).
+    - [x] Mixed discrete + continuous columns on one style aesthetic: matched lets-plot (scale is discrete, numbers become categories in first-appearance order; 2 != "2", -0.0 != 0.0).
+    - Unconfirmed (pre-existing): axis breaks use a magnitude-based `is_beyond_precision`; lets-plot's is NaN for negative bases, so negative near-constant axes may differ. Check before Phase 1.5.
     - Not bugs: datetime columns cannot be mapped to style aesthetics yet (column conversion); continuous color costs ~120 ms per 1M points (a lookup table could cut it).
   - [ ] 0.10.9 Small fixes from the review: ignored aesthetics checked before column fetch, `with_notes` keeps error kinds, batch consistency validated once, `is_axis_title_only` via defaults.
 

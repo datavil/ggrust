@@ -13,6 +13,11 @@ Verified point by point against lets-plot 4.11 (`tests/test_style_parity.py`).
   **alpha**: linear onto 0.1..1; NA 0 (invisible!). Linear maps extrapolate outside
   the domain; a zero-width domain maps to the middle (`Mappers.linear`), and a single
   value is widened to +/- 0.5 first (`ensureApplicableDomain`).
+- Near-constant ranges: lets-plot's `isBeyondPrecision` takes `log10(base)` of the raw
+  end, NaN for negatives, so only *positive* near-constant ranges collapse to the
+  middle. The style path copies that literally; axis breaks keep the magnitude test.
+- Mixed kinds on one aesthetic: any discrete layer makes the scale discrete; numbers
+  become categories in first-appearance order, keyed by f64 bits (2 != "2", -0.0 != 0.0).
 - Discrete outputs cycle (`index % size`); discrete -> continuous spreads indices
   0..n-1 over the range (one category: the middle).
 - lets-plot draws legend keys as extra `<circle>`s after the panel: compare only the

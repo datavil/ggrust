@@ -45,6 +45,11 @@ FRAME = {
     "c12": [f"c{index % 12:02d}" for index in range(N)],
     "v": VALUES,
     "vna": [*VALUES[:-3], None, float("nan"), 4.0],
+    "near_constant": [1.0 + index * 1e-14 for index in range(N)],
+    "near_constant_negative": [-1.0 - index * 1e-14 for index in range(N)],
+    "signed_zeros": [[0.0, -0.0, 1.0][index % 3] for index in range(N)],
+    "digits": [str(index % 4) for index in range(N)],
+    "integers": [index % 5 for index in range(N)],
 }
 
 
@@ -61,10 +66,28 @@ CASES = {
     "size_continuous": lambda m: scatter(m, size="v"),
     "size_discrete": lambda m: scatter(m, size="c3"),
     "alpha_continuous": lambda m: scatter(m, alpha="v"),
+    "color_near_constant": lambda m: scatter(m, color="near_constant"),
+    "size_near_constant": lambda m: scatter(m, size="near_constant"),
+    "color_near_constant_negative": lambda m: scatter(m, color="near_constant_negative"),
     "two_layers_join_categories": lambda m: (
         m.ggplot(FRAME, m.aes("x", "y"))
         + m.geom_point(m.aes(color="c3"))
         + m.geom_point(m.aes(color="c12"), size=1)
+    ),
+    "discrete_then_continuous": lambda m: (
+        m.ggplot(FRAME, m.aes("x", "y"))
+        + m.geom_point(m.aes(color="digits"))
+        + m.geom_point(m.aes(color="integers"), size=1)
+    ),
+    "signed_zeros_are_categories": lambda m: (
+        m.ggplot(FRAME, m.aes("x", "y"))
+        + m.geom_point(m.aes(color="c3"))
+        + m.geom_point(m.aes(color="signed_zeros"), size=1)
+    ),
+    "continuous_then_discrete": lambda m: (
+        m.ggplot(FRAME, m.aes("x", "y"))
+        + m.geom_point(m.aes(color="vna"))
+        + m.geom_point(m.aes(color="c3"), size=1)
     ),
 }
 

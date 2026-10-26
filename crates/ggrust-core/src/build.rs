@@ -714,6 +714,13 @@ fn train_style_scales(
     layers: &[MappedLayer],
     warnings: &mut Vec<String>,
 ) -> Result<BTreeMap<Aesthetic, StyleScale>> {
+    // lets-plot: one discrete column makes the aesthetic's scale discrete.
+    let discrete: BTreeSet<Aesthetic> = layers
+        .iter()
+        .flat_map(|layer| &layer.columns)
+        .filter(|(_, column, _)| matches!(column, Column::Discrete(_)))
+        .map(|(aesthetic, _, _)| *aesthetic)
+        .collect();
     let mut scales: BTreeMap<Aesthetic, StyleScale> = BTreeMap::new();
     for (aesthetic, column, path) in layers.iter().flat_map(|layer| &layer.columns) {
         let Some(mapper) = default_mapper(*aesthetic) else {
@@ -721,7 +728,13 @@ fn train_style_scales(
         };
         scales
             .entry(*aesthetic)
-            .or_insert_with(|| StyleScale::new(mapper))
+            .or_insert_with(|| {
+                if discrete.contains(aesthetic) {
+                    StyleScale::discrete(mapper)
+                } else {
+                    StyleScale::new(mapper)
+                }
+            })
             .train(column)
             .map_err(|message| Error::InvalidSpec(format!("at '{path}': {message}")))?;
     }

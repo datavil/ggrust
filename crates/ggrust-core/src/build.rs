@@ -16,7 +16,7 @@ use crate::data::{Column, ContinuousColumn, DataFrame, LayerData, group_index};
 use crate::geom::{self, DrawLayer, Geom};
 use crate::layout::{
     Colorbar, DEFAULT_BINS, KeyLayer, Legend, LegendBox, LegendKey, Titles, draw_axes_and_titles,
-    draw_legends, draw_panel_background, layout_plot, measure_legends,
+    draw_legends, draw_panel_background, draw_panel_border, layout_plot, measure_legends,
 };
 use crate::parameters::Parameters;
 use crate::position::{self, Position};
@@ -24,7 +24,7 @@ use crate::scale::format::Label;
 use crate::scale::style::spec::{StyleScaleSpec, style_scale_specs};
 use crate::scale::style::{LegendEntry, StyleScale, default_mapper};
 use crate::scale::{AxisScaleSpec, PositionScale, PositionScales, position_scales};
-use crate::scene::{Group, Node, Rect, Scene};
+use crate::scene::{Group, Node, PerItem, Rect, Rects, Scene};
 use crate::spec::{
     Aesthetic, DataSource, GuideOptions, GuideSpec, LayerSpec, Mapping, MappingValue, Options,
     PlotSpec,
@@ -174,7 +174,8 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
         }
     }
 
-    let theme = Theme::default();
+    let theme = Theme::from_spec(spec.theme.as_ref(), &mut warnings)
+        .map_err(|error| error.with_notes(&warnings))?;
     let titles = plot_titles(spec, &scales);
     let area = Rect {
         x: 0.0,
@@ -216,6 +217,7 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
         role: Some("panel"),
         nodes: layer_nodes,
     }));
+    nodes.extend(draw_panel_border(&layout, &theme));
     nodes.extend(draw_axes_and_titles(&layout, &theme, &titles, &panel));
     if let Some(block) = &legend_block {
         // Right of the panel, centred on it (`legend_justification` 0.5). Normally
@@ -228,12 +230,24 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
         );
         nodes.extend(draw_legends(block, origin, &theme)?);
     }
-    let scene = Scene {
+    let mut scene = Scene {
         width,
         height,
-        background: theme.plot_background,
+        background: theme.plot_background.map(|background| background.fill),
         nodes,
     };
+    // The plot background's border, drawn last over the whole plot (lets-plot
+    // `PlotSvgComponent.backgroundBorder`).
+    if let Some(border) = theme
+        .plot_background
+        .and_then(|background| background.border)
+    {
+        scene.nodes.push(Node::Rects(Rects {
+            rects: vec![area],
+            fill: PerItem::Uniform(None),
+            stroke: Some(border.stroke()),
+        }));
+    }
     scene.validate()?;
     Ok(BuiltPlot { scene, warnings })
 }
@@ -1331,7 +1345,6 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
             warnings.push(format!("'{feature}' is not supported yet and was ignored"));
         }
     };
-    ignored(spec.theme.is_some(), "theme");
     ignored(spec.facet.is_some(), "facet");
     ignored(spec.caption.is_some(), "caption");
     ignored(spec.ggtoolbar.is_some(), "ggtb");

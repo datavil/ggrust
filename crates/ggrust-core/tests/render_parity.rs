@@ -77,7 +77,7 @@ fn text(content: &str, x: f64, horizontal: HorizontalAlign) -> Text {
         x,
         y: 50.0,
         size: 20.0,
-        face: FontFace::Plain,
+        font: FontFace::Plain.into(),
         color: Color::BLACK,
         horizontal,
         vertical: VerticalAlign::Middle,

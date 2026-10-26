@@ -31,7 +31,7 @@ fn text(content: &str, x: f64, y: f64, size: f64) -> Text {
         x,
         y,
         size,
-        face: FontFace::Plain,
+        font: FontFace::Plain.into(),
         color: Color::BLACK,
         horizontal: HorizontalAlign::Start,
         vertical: VerticalAlign::Baseline,
@@ -156,11 +156,11 @@ fn showcase() -> Scene {
             ..text("UMAP2", 40.0, PANEL.y + PANEL.height / 2.0, 13.0)
         },
         Text {
-            face: FontFace::Bold,
+            font: FontFace::Bold.into(),
             ..text("Bold title", 380.0, 40.0, 16.0)
         },
         Text {
-            face: FontFace::Italic,
+            font: FontFace::Italic.into(),
             color: Color::rgb(120, 120, 120),
             ..text("italic subtitle", 380.0, 60.0, 11.0)
         },
@@ -173,7 +173,7 @@ fn showcase() -> Scene {
     ];
     // Measurement probe: text with a rect of exactly its measured width behind it.
     let probe = text("Measured", 380.0, 200.0, 20.0);
-    let width = measure(&probe.content, probe.size, probe.face).width;
+    let width = measure(&probe.content, probe.size, probe.font).width;
     nodes.push(Node::Rects(Rects {
         rects: vec![Rect {
             x: probe.x,

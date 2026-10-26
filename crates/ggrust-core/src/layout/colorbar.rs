@@ -84,7 +84,7 @@ pub(super) fn layout_colorbar(
                 .iter()
                 .map(|(_, label)| label_lines(label).len() as f64 * style.size)
                 .fold(0.0, f64::max),
-            measure("_", style.size, style.face).width / 2.0,
+            measure("_", style.size, style.font).width / 2.0,
             colorbar
                 .breaks
                 .iter()
@@ -94,7 +94,7 @@ pub(super) fn layout_colorbar(
                         &line.text,
                         line.superscript.as_deref(),
                         style.size,
-                        style.face,
+                        style.font,
                     )
                 })
                 .fold(0.0, f64::max),

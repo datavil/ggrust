@@ -20,7 +20,7 @@ use crate::scene::geometry::{
 use crate::scene::{
     Color, Group, MarkerShape, Node, Path, Points, Rect, Rects, Scene, Stroke, Text,
 };
-use crate::text::{FONT_FAMILY, FontFace};
+use crate::text::{FONT_FAMILY, Font, MONO_FONT_FAMILY};
 use crate::{Error, Result};
 
 /// Render a scene to PNG bytes. `scale` multiplies the pixel size (2.0 for retina).
@@ -409,9 +409,10 @@ fn skia_color(color: Color) -> tiny_skia::Color {
 
 static FONT_DATABASE: LazyLock<Arc<fontdb::Database>> = LazyLock::new(|| {
     let mut database = fontdb::Database::new();
-    for face in FontFace::ALL {
-        database.load_font_data(face.font_data().to_vec());
+    for font in Font::all() {
+        database.load_font_data(font.font_data().to_vec());
     }
     database.set_sans_serif_family(FONT_FAMILY);
+    database.set_monospace_family(MONO_FONT_FAMILY);
     Arc::new(database)
 });

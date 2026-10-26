@@ -33,9 +33,9 @@ pub const PANEL_MIN_SIZE: f64 = 50.0;
 
 /// Height of a text band: the real line box of the font at this size.
 pub fn text_band(style: TextStyle) -> f64 {
-    measure("", style.size, style.face).height()
+    measure("", style.size, style.font).height()
 }
-use crate::theme::{LineStyle, Margins, TextStyle, Theme};
+use crate::theme::{LineStyle, Margins, RectStyle, TextStyle, Theme};
 
 /// Plot-level texts. `None` or empty means absent (takes no space).
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -141,7 +141,7 @@ fn layout_with(
                     &label.text,
                     label.superscript.as_deref(),
                     text.size,
-                    text.face,
+                    text.font,
                 )
             })
             .fold(0.0, f64::max)
@@ -193,7 +193,7 @@ fn x_labels_height(breaks: &AxisBreaks, theme: &Theme) -> f64 {
                     &label.text,
                     label.superscript.as_deref(),
                     text.size,
-                    text.face,
+                    text.font,
                 )
             })
             .fold(0.0, f64::max)
@@ -221,14 +221,27 @@ fn row_gap(text: TextStyle) -> f64 {
 pub fn draw_panel_background(layout: &PlotLayout, theme: &Theme, mapper: &Panel) -> Vec<Node> {
     let panel = layout.panel;
     let mut nodes = Vec::new();
-    if let Some(fill) = theme.panel_background {
-        nodes.push(Node::Rects(Rects {
-            rects: vec![panel],
-            fill: PerItem::Uniform(Some(fill)),
-            stroke: None,
-        }));
+    if let Some(style) = theme.panel_background {
+        nodes.push(rect_node(panel, style));
     }
     let mut grid = Vec::new();
+    // Minor lines first (lets-plot `AxisUtil.minorDomainBreaks`), inside the panel.
+    if let Some(line) = theme.panel_grid_minor_x {
+        for value in minor_breaks(&layout.x_breaks.values) {
+            let x = mapper.x_pixel(value);
+            if x >= panel.x && x <= panel.x + panel.width {
+                grid.push(segment((x, panel.y), (x, panel.y + panel.height), line));
+            }
+        }
+    }
+    if let Some(line) = theme.panel_grid_minor_y {
+        for value in minor_breaks(&layout.y_breaks.values) {
+            let y = mapper.y_pixel(value);
+            if y >= panel.y && y <= panel.y + panel.height {
+                grid.push(segment((panel.x, y), (panel.x + panel.width, y), line));
+            }
+        }
+    }
     if let Some(line) = theme.panel_grid_major_x {
         for &value in &layout.x_breaks.values {
             let x = mapper.x_pixel(value);
@@ -249,6 +262,51 @@ pub fn draw_panel_background(layout: &PlotLayout, theme: &Theme, mapper: &Panel)
         }));
     }
     nodes
+}
+
+/// Centre of a justified text in `[start, start + span]` (lets-plot
+/// `TextJustification`: the text box moves by `(span - width) * hjust`).
+fn justified_centre(start: f64, span: f64, text: &str, style: TextStyle) -> f64 {
+    let width = measure(text, style.size, style.font).width;
+    let hjust = if style.hjust.is_finite() {
+        style.hjust
+    } else {
+        0.0
+    };
+    start + width / 2.0 + (span - width) * hjust
+}
+
+/// lets-plot `AxisUtil.minorDomainBreaks`: half a step before the first major break,
+/// then one step apart, one more than the majors (none for a single break).
+fn minor_breaks(major: &[f64]) -> Vec<f64> {
+    let [first, second, ..] = major else {
+        return Vec::new();
+    };
+    let step = second - first;
+    let start = first - step / 2.0;
+    (0..=major.len())
+        .map(|index| start + index as f64 * step)
+        .collect()
+}
+
+/// A rectangle element: fill and optional border.
+pub fn rect_node(rect: Rect, style: RectStyle) -> Node {
+    Node::Rects(Rects {
+        rects: vec![rect],
+        fill: PerItem::Uniform(Some(style.fill)),
+        stroke: style.border.map(LineStyle::stroke),
+    })
+}
+
+/// The panel border, drawn above the data (`panel_border_ontop`).
+pub fn draw_panel_border(layout: &PlotLayout, theme: &Theme) -> Vec<Node> {
+    theme.panel_border.map_or_else(Vec::new, |line| {
+        vec![Node::Rects(Rects {
+            rects: vec![layout.panel],
+            fill: PerItem::Uniform(None),
+            stroke: Some(line.stroke()),
+        })]
+    })
 }
 
 /// Axes (lines, ticks, labels) and titles: drawn above the data.
@@ -325,21 +383,24 @@ pub fn draw_axes_and_titles(
         // Below the x axis, not at the plot edge: they differ only when the panel is
         // at its minimum size and the axis runs past the plot (lets-plot does the same).
         let y = bottom + layout.x_axis_band + text_band(style) / 2.0;
+        let x = justified_centre(panel.x, panel.width, title, style);
         titles_nodes.push(text_node(
             title,
             style,
-            (panel.x + panel.width / 2.0, y),
+            (x, y),
             HorizontalAlign::Middle,
             0.0,
         ));
     }
     if let (Some(style), Some(title)) = (theme.axis_title_y, present(&titles.y)) {
+        // Rotated: hjust runs from the bottom of the panel up.
+        let along = justified_centre(0.0, panel.height, title, style);
         titles_nodes.push(text_node(
             title,
             style,
             (
                 content.x + text_band(style) / 2.0,
-                panel.y + panel.height / 2.0,
+                panel.y + panel.height - along,
             ),
             HorizontalAlign::Middle,
             90.0,
@@ -347,22 +408,24 @@ pub fn draw_axes_and_titles(
     }
     let mut top = content.y;
     if let (Some(style), Some(title)) = (theme.plot_title, present(&titles.title)) {
+        let x = justified_centre(panel.x, panel.width, title, style);
         titles_nodes.push(text_node(
             title,
             style,
-            (panel.x, top + text_band(style) / 2.0),
-            HorizontalAlign::Start,
+            (x, top + text_band(style) / 2.0),
+            HorizontalAlign::Middle,
             0.0,
         ));
         top += text_band(style);
     }
     if let (Some(style), Some(subtitle)) = (theme.plot_subtitle, present(&titles.subtitle)) {
         top += theme.plot_subtitle_margin_top;
+        let x = justified_centre(panel.x, panel.width, subtitle, style);
         titles_nodes.push(text_node(
             subtitle,
             style,
-            (panel.x, top + text_band(style) / 2.0),
-            HorizontalAlign::Start,
+            (x, top + text_band(style) / 2.0),
+            HorizontalAlign::Middle,
             0.0,
         ));
     }
@@ -480,7 +543,7 @@ fn text_node(
         x,
         y,
         size: style.size,
-        face: style.face,
+        font: style.font,
         color: style.color,
         horizontal,
         vertical: VerticalAlign::Middle,

@@ -89,7 +89,7 @@ pub fn choose_breaks(
     overflow: (f64, f64),
 ) -> AxisBreaks {
     let size = text.map_or(DEFAULT_LABEL_SIZE, |text| text.size);
-    let face = text.map(|text| text.face).unwrap_or_default();
+    let face = text.map(|text| text.font.face).unwrap_or_default();
     if scale.is_discrete() {
         // lets-plot fixed breaks: every category is a break.
         let breaks = scale.breaks(0);

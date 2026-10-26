@@ -13,7 +13,7 @@ use crate::scene::{
     Color, Group, HorizontalAlign, MarkerShape, Node, Path, PerItem, Points, Rect, Rects,
     SUPERSCRIPT_RISE, SUPERSCRIPT_SCALE, Scene, Stroke, Text, VerticalAlign,
 };
-use crate::text::{CSS_FONT_FAMILY, measure, single_line};
+use crate::text::{CSS_FONT_FAMILY, FontFamily, measure, single_line};
 
 /// Options for [`to_svg_with`].
 #[derive(Debug, Clone, Default)]
@@ -302,7 +302,7 @@ impl SvgWriter {
         if !drawable || !self.clip_box.contains(text.x, text.y) {
             return;
         }
-        let metrics = measure("", text.size, text.face);
+        let metrics = measure("", text.size, text.font);
         let baseline_offset = match text.vertical {
             VerticalAlign::Top => metrics.ascent,
             VerticalAlign::Middle => (metrics.ascent - metrics.descent) / 2.0,
@@ -315,10 +315,13 @@ impl SvgWriter {
         self.attribute_precise("font-size", text.size);
         // Keep spaces as measured: SVG collapses whitespace by default.
         self.raw(" xml:space=\"preserve\"");
-        if text.face.is_bold() {
+        if text.font.family == FontFamily::Mono {
+            self.attribute("font-family", text.font.family.css());
+        }
+        if text.font.face.is_bold() {
             self.raw(" font-weight=\"bold\"");
         }
-        if text.face.is_italic() {
+        if text.font.face.is_italic() {
             self.raw(" font-style=\"italic\"");
         }
         self.fill(Some(text.color));

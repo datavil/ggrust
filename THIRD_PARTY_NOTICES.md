@@ -32,9 +32,9 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-## Liberation Sans
+## Liberation Sans and Liberation Mono
 
-`crates/ggrust-core/fonts/` contains Liberation Sans 2.1, licensed under the SIL Open Font
+`crates/ggrust-core/fonts/` contains Liberation Sans and Liberation Mono 2.1.5, licensed under the SIL Open Font
 License 1.1; see `crates/ggrust-core/fonts/OFL.txt`.
 
 ## Color maps

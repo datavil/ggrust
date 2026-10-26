@@ -138,13 +138,13 @@ fn constant_options_and_png_render() {
 fn unimplemented_features_and_unknown_options_warn() {
     let built = build(
         r#"{"kind": "plot", "mapping": {"x": "UMAP1", "y": "UMAP2", "color": "cluster"},
-            "theme": {"name": "classic"}, "guides": {"color": {"name": "legend", "ncol": 2}},
+            "theme": {"name": "classic", "strip_text": {"size": 3, "blank": false}}, "guides": {"color": {"name": "legend", "ncol": 2}},
             "layers": [{"geom": "point", "colr": "red", "tooltips": "none"}]}"#,
         cells(),
     );
     let joined = built.warnings.join("\n");
     for expected in [
-        "'theme' is not supported yet and was ignored",
+        "at 'theme.strip_text': not supported yet; ignored",
         "at 'guides.color': this guide option is not supported yet",
         "at 'layers[0]': 'tooltips' is not supported yet",
         "at 'layers[0].colr': geom_point does not support option 'colr'",

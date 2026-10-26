@@ -14,7 +14,7 @@ use super::{label_node, text_band, text_node};
 use crate::Result;
 use crate::geom::Geom;
 use crate::scale::format::Label;
-use crate::scene::{Group, HorizontalAlign, Node, PerItem, Rect, Rects};
+use crate::scene::{Group, HorizontalAlign, Node, Rect};
 use crate::style::Styles;
 use crate::text::{measure, measure_label};
 use crate::theme::Theme;
@@ -100,7 +100,7 @@ pub struct LegendBlock<'a> {
 fn title_metrics(title: &str, theme: &Theme) -> (f64, f64) {
     match theme.legend_title {
         Some(style) if !title.trim().is_empty() => (
-            measure(title, style.size, style.face).width,
+            measure(title, style.size, style.font).width,
             text_band(style) * 1.5,
         ),
         _ => (0.0, 0.0),
@@ -128,7 +128,7 @@ pub fn measure_legends<'a>(
         .map(|legend| legend.size.0)
         .fold(0.0, f64::max);
     let height = measured.iter().map(|legend| legend.size.1).sum::<f64>()
-        + theme.legend_spacing * (measured.len() - 1) as f64;
+        + theme.legend_spacing.1 * (measured.len() - 1) as f64;
     Ok(Some(LegendBlock {
         legends: measured,
         size: (width, height),
@@ -157,7 +157,7 @@ fn measure_legend<'a>(legend: &'a Legend, theme: &Theme) -> Result<MeasuredLegen
         // lets-plot: half the width of "_" between key and label; a third of a line
         // between labels.
         Some(style) => (
-            measure("_", style.size, style.face).width / 2.0,
+            measure("_", style.size, style.font).width / 2.0,
             text_band(style) / 3.0,
         ),
         None => (0.0, 0.0),
@@ -171,7 +171,7 @@ fn measure_legend<'a>(legend: &'a Legend, theme: &Theme) -> Result<MeasuredLegen
                         &line.text,
                         line.superscript.as_deref(),
                         style.size,
-                        style.face,
+                        style.font,
                     )
                 })
                 .fold(0.0, f64::max),
@@ -229,16 +229,18 @@ fn measure_legend<'a>(legend: &'a Legend, theme: &Theme) -> Result<MeasuredLegen
         let (x, y) = (column_x[column], row_y[row]);
         graph_width = graph_width.max(x + column_widths[column]);
         graph_height = graph_height.max(y + row_heights[row]);
+        // lets-plot centres each key (and its label) vertically in its row.
+        let shift = (row_heights[row] - key_sizes[index].1) / 2.0;
         let cell = Rect {
             x: origin.0 + x,
-            y: origin.1 + y,
+            y: origin.1 + y + shift,
             width: key_width,
             height: key_sizes[index].1,
         };
         let (dx, dy) = label_offsets[index];
         cells.push((
             cell,
-            (origin.0 + x + dx, origin.1 + y + dy),
+            (origin.0 + x + dx, origin.1 + y + shift + dy),
             labels[index].clone(),
         ));
     }
@@ -347,17 +349,14 @@ pub fn draw_legends(block: &LegendBlock, origin: (f64, f64), theme: &Theme) -> R
     for measured in &block.legends {
         let (x, y) = (origin.0, top);
         let mut legend_nodes = Vec::new();
-        if let Some(fill) = theme.legend_background {
-            legend_nodes.push(Node::Rects(Rects {
-                rects: vec![Rect {
-                    x,
-                    y,
-                    width: measured.size.0,
-                    height: measured.size.1,
-                }],
-                fill: PerItem::Uniform(Some(fill)),
-                stroke: None,
-            }));
+        if let Some(style) = theme.legend_background {
+            let rect = Rect {
+                x,
+                y,
+                width: measured.size.0,
+                height: measured.size.1,
+            };
+            legend_nodes.push(super::rect_node(rect, style));
         }
         if let Some(style) = theme.legend_title
             && !measured.title.trim().is_empty()
@@ -397,6 +396,9 @@ pub fn draw_legends(block: &LegendBlock, origin: (f64, f64), theme: &Theme) -> R
                         y: y + cell.y,
                         ..*cell
                     };
+                    if let Some(style) = theme.legend_key_background {
+                        legend_nodes.push(super::rect_node(cell, style));
+                    }
                     for layer in &key.layers {
                         legend_nodes.extend(layer.geom.draw_key(&layer.styles, cell)?);
                     }
@@ -422,7 +424,7 @@ pub fn draw_legends(block: &LegendBlock, origin: (f64, f64), theme: &Theme) -> R
             role: Some("legend"),
             nodes: legend_nodes,
         }));
-        top += measured.size.1 + theme.legend_spacing;
+        top += measured.size.1 + theme.legend_spacing.1;
     }
     Ok(nodes)
 }

@@ -15,7 +15,7 @@ pub mod geometry;
 
 pub use color::Color;
 
-use crate::text::FontFace;
+use crate::text::Font;
 
 /// A complete drawing.
 #[derive(Debug, Clone, PartialEq)]
@@ -297,8 +297,8 @@ pub struct Text {
     pub y: f64,
     /// Font size in pixels.
     pub size: f64,
-    /// Weight and slant.
-    pub face: FontFace,
+    /// Family, weight and slant.
+    pub font: Font,
     /// Text color.
     pub color: Color,
     /// Horizontal placement.

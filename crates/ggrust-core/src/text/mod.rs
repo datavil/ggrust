@@ -1,8 +1,10 @@
 //! Fonts and text measurement.
 //!
-//! What it does: embeds Liberation Sans (SIL OFL 1.1, metric-compatible with
-//! Arial/Helvetica) and measures text with harfrust, the same shaper resvg uses,
-//! so layout widths match rendered PNGs exactly and browsers closely.
+//! What it does: embeds Liberation Sans and Liberation Mono (SIL OFL 1.1,
+//! metric-compatible with Arial/Helvetica and Courier New) and measures text with
+//! harfrust, the same shaper resvg uses, so layout widths match rendered PNGs
+//! exactly and browsers closely. Other font families map to these two
+//! ([`FontFamily::from_name`]).
 //!
 //! What it does not do: line wrapping or bidirectional text. Multi-line labels are
 //! split on `\n` by [`measure_lines`].
@@ -17,12 +19,121 @@ use std::sync::LazyLock;
 use harfrust::{FontRef, ShaperData, UnicodeBuffer};
 use read_fonts::TableProvider;
 
-/// Family name of the embedded font.
+/// Family name of the embedded sans font.
 pub const FONT_FAMILY: &str = "Liberation Sans";
+
+/// Family name of the embedded monospace font.
+pub const MONO_FONT_FAMILY: &str = "Liberation Mono";
 
 /// CSS `font-family` written into SVG: the embedded font first, then
 /// metric-compatible fallbacks so browsers lay text out the same way.
 pub const CSS_FONT_FAMILY: &str = "'Liberation Sans', Arial, Helvetica, sans-serif";
+
+/// CSS `font-family` of monospace text.
+pub const CSS_MONO_FONT_FAMILY: &str = "'Liberation Mono', 'Courier New', Courier, monospace";
+
+/// One of the embedded font families.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub enum FontFamily {
+    /// Liberation Sans (Arial metrics).
+    #[default]
+    Sans,
+    /// Liberation Mono (Courier New metrics).
+    Mono,
+}
+
+impl FontFamily {
+    /// The embedded family for a family name, case-insensitive: monospace names
+    /// (`mono`, `monospace`, `Courier`, `Courier New`, `Liberation Mono`, `Menlo`,
+    /// `Consolas`, ...) give Mono; sans names (`sans`, `sans-serif`, `Arial`,
+    /// `Helvetica`, `Liberation Sans`, ...) give Sans. Any other name gives Sans and
+    /// `false` (not embedded).
+    pub fn from_name(name: &str) -> (Self, bool) {
+        let name = name.trim().to_lowercase();
+        const MONO: &[&str] = &[
+            "mono",
+            "monospace",
+            "monospaced",
+            "courier",
+            "courier new",
+            "liberation mono",
+            "menlo",
+            "monaco",
+            "consolas",
+            "dejavu sans mono",
+            "lucida console",
+        ];
+        const SANS: &[&str] = &[
+            "sans",
+            "sans-serif",
+            "sans serif",
+            "arial",
+            "helvetica",
+            "liberation sans",
+            "lucida grande",
+            "verdana",
+        ];
+        if MONO.contains(&name.as_str()) {
+            (FontFamily::Mono, true)
+        } else {
+            (FontFamily::Sans, SANS.contains(&name.as_str()))
+        }
+    }
+
+    /// CSS `font-family` for SVG.
+    pub fn css(self) -> &'static str {
+        match self {
+            FontFamily::Sans => CSS_FONT_FAMILY,
+            FontFamily::Mono => CSS_MONO_FONT_FAMILY,
+        }
+    }
+}
+
+/// An embedded font: family and face. A bare [`FontFace`] means the sans family.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
+pub struct Font {
+    /// Family.
+    pub family: FontFamily,
+    /// Weight and slant.
+    pub face: FontFace,
+}
+
+impl From<FontFace> for Font {
+    fn from(face: FontFace) -> Self {
+        Font {
+            family: FontFamily::Sans,
+            face,
+        }
+    }
+}
+
+impl Font {
+    /// Every embedded font, in loading order.
+    pub fn all() -> impl Iterator<Item = Font> {
+        [FontFamily::Sans, FontFamily::Mono]
+            .into_iter()
+            .flat_map(|family| FontFace::ALL.map(|face| Font { family, face }))
+    }
+
+    /// Raw TrueType data.
+    pub fn font_data(self) -> &'static [u8] {
+        match self.family {
+            FontFamily::Sans => self.face.font_data(),
+            FontFamily::Mono => match self.face {
+                FontFace::Plain => include_bytes!("../../fonts/LiberationMono-Regular.ttf"),
+                FontFace::Bold => include_bytes!("../../fonts/LiberationMono-Bold.ttf"),
+                FontFace::Italic => include_bytes!("../../fonts/LiberationMono-Italic.ttf"),
+                FontFace::BoldItalic => {
+                    include_bytes!("../../fonts/LiberationMono-BoldItalic.ttf")
+                }
+            },
+        }
+    }
+
+    fn index(self) -> usize {
+        self.family as usize * FontFace::ALL.len() + self.face as usize
+    }
+}
 
 /// Line spacing as a multiple of the font size (lets-plot uses about 1.15).
 pub const LINE_HEIGHT: f64 = 1.15;
@@ -80,10 +191,6 @@ impl FontFace {
             FontFace::BoldItalic => include_bytes!("../../fonts/LiberationSans-BoldItalic.ttf"),
         }
     }
-
-    fn index(self) -> usize {
-        self as usize
-    }
 }
 
 /// Size of a single line of text, in pixels.
@@ -129,8 +236,8 @@ pub fn single_line(text: &str) -> Cow<'_, str> {
 }
 
 /// Measure one line of text at `size` pixels (see [`single_line`]).
-pub fn measure(text: &str, size: f64, face: FontFace) -> TextExtent {
-    let font = &FONTS[face.index()];
+pub fn measure(text: &str, size: f64, font: impl Into<Font>) -> TextExtent {
+    let font = &FONTS[font.into().index()];
     let scale = size / f64::from(font.units_per_em);
     let text = single_line(text);
     let width = if text.is_empty() {
@@ -156,7 +263,13 @@ pub fn measure(text: &str, size: f64, face: FontFace) -> TextExtent {
 }
 
 /// Width of a label with an optional superscript (see [`crate::scene::Text`]).
-pub fn measure_label(text: &str, superscript: Option<&str>, size: f64, face: FontFace) -> f64 {
+pub fn measure_label(
+    text: &str,
+    superscript: Option<&str>,
+    size: f64,
+    face: impl Into<Font>,
+) -> f64 {
+    let face = face.into();
     let scale = crate::scene::SUPERSCRIPT_SCALE;
     measure(text, size, face).width
         + superscript.map_or(0.0, |superscript| {
@@ -165,7 +278,8 @@ pub fn measure_label(text: &str, superscript: Option<&str>, size: f64, face: Fon
 }
 
 /// Measure text that may contain `\n` line breaks.
-pub fn measure_lines(text: &str, size: f64, face: FontFace) -> BlockExtent {
+pub fn measure_lines(text: &str, size: f64, face: impl Into<Font>) -> BlockExtent {
+    let face = face.into();
     let mut width: f64 = 0.0;
     let mut line_count = 0;
     for line in text.split('\n') {
@@ -190,8 +304,7 @@ struct LoadedFont {
 }
 
 static FONTS: LazyLock<Vec<LoadedFont>> = LazyLock::new(|| {
-    FontFace::ALL
-        .iter()
+    Font::all()
         .map(|face| {
             // The embedded fonts are known-good; a parse failure is a build defect.
             let font_ref = FontRef::new(face.font_data()).expect("embedded font parses");
@@ -252,6 +365,30 @@ mod tests {
         let separate =
             measure("A", 100.0, FontFace::Plain).width + measure("V", 100.0, FontFace::Plain).width;
         assert!(pair < separate, "{pair} vs {separate}");
+    }
+
+    #[test]
+    fn mono_has_courier_metrics() {
+        let mono = |text: &str| {
+            measure(
+                text,
+                1000.0,
+                Font {
+                    family: FontFamily::Mono,
+                    face: FontFace::Plain,
+                },
+            )
+            .width
+        };
+        // Every glyph is 600/1000 em wide.
+        assert!((mono("i") - 600.0).abs() < 1.0);
+        assert!((mono("MW") - 1200.0).abs() < 1.0);
+        assert_eq!(
+            FontFamily::from_name("Courier New"),
+            (FontFamily::Mono, true)
+        );
+        assert_eq!(FontFamily::from_name("Arial"), (FontFamily::Sans, true));
+        assert_eq!(FontFamily::from_name("Georgia"), (FontFamily::Sans, false));
     }
 
     #[test]

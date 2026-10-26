@@ -19,6 +19,10 @@ use crate::theme::Theme;
 
 /// lets-plot `LegendAssembler.MAX_ROWS_PER_COL`.
 const MAX_ROWS_PER_COLUMN: usize = 15;
+/// lets-plot `Legend.LINES_MAX_LENGTH`: labels wrap at this many characters.
+const LABEL_LINE_LENGTH: usize = 30;
+/// lets-plot `Legend.LINES_MAX_COUNT`.
+const LABEL_MAX_LINES: usize = 5;
 
 /// One layer's part of a legend key.
 pub struct KeyLayer {
@@ -48,8 +52,8 @@ pub struct Legend {
 struct MeasuredLegend<'a> {
     legend: &'a Legend,
     size: (f64, f64),
-    /// Per key: the key cell, and the label anchor (left, vertical middle).
-    cells: Vec<(Rect, (f64, f64))>,
+    /// Per key: the key cell, the label anchor (left, vertical middle) and lines.
+    cells: Vec<(Rect, (f64, f64), Vec<String>)>,
 }
 
 /// Legends stacked vertically, measured.
@@ -109,13 +113,21 @@ fn measure_legend<'a>(legend: &'a Legend, theme: &Theme) -> Result<MeasuredLegen
         ),
         None => (0.0, 0.0),
     };
-    let label_size = |label: &str| match theme.legend_text {
+    let label_size = |lines: &[String]| match theme.legend_text {
         Some(style) => (
-            measure(label, style.size, style.face).width,
-            text_band(style),
+            lines
+                .iter()
+                .map(|line| measure(line, style.size, style.face).width)
+                .fold(0.0, f64::max),
+            text_band(style) * lines.len() as f64,
         ),
         None => (0.0, 0.0),
     };
+    let labels: Vec<Vec<String>> = legend
+        .keys
+        .iter()
+        .map(|key| wrap_label(&key.label))
+        .collect();
 
     let mut key_sizes = Vec::with_capacity(legend.keys.len());
     for key in &legend.keys {
@@ -136,10 +148,10 @@ fn measure_legend<'a>(legend: &'a Legend, theme: &Theme) -> Result<MeasuredLegen
     let mut column_widths = vec![0.0_f64; columns];
     let mut row_heights = vec![0.0_f64; rows];
     let mut label_offsets = Vec::with_capacity(count);
-    for (index, key) in legend.keys.iter().enumerate() {
+    for index in 0..count {
         let (column, row) = (index / rows, index % rows);
         let extra = if row == rows - 1 { 0.0 } else { label_extra };
-        let (label_width, label_height) = label_size(&key.label);
+        let (label_width, label_height) = label_size(&labels[index]);
         let key_height = key_sizes[index].1;
         let offset = (key_width + label_gap, key_height / 2.0);
         label_offsets.push(offset);
@@ -168,7 +180,11 @@ fn measure_legend<'a>(legend: &'a Legend, theme: &Theme) -> Result<MeasuredLegen
             height: key_sizes[index].1,
         };
         let (dx, dy) = label_offsets[index];
-        cells.push((cell, (origin.0 + x + dx, origin.1 + y + dy)));
+        cells.push((
+            cell,
+            (origin.0 + x + dx, origin.1 + y + dy),
+            labels[index].clone(),
+        ));
     }
     let size = (
         margin.left + title_width.max(graph_width) + margin.right,
@@ -179,6 +195,65 @@ fn measure_legend<'a>(legend: &'a Legend, theme: &Theme) -> Result<MeasuredLegen
         size,
         cells,
     })
+}
+
+/// Label lines, lets-plot `RichText.wrap(label, 30, 5)`: split at newlines, then
+/// words fill lines of up to 30 characters (longer words are cut); 5 lines or
+/// more keep the first 5 and add a line "...".
+fn wrap_label(label: &str) -> Vec<String> {
+    let mut lines: Vec<String> = Vec::new();
+    for segment in label.split('\n') {
+        let mut line = String::new();
+        let mut length = 0;
+        for word in segment.split(' ').filter(|word| !word.is_empty()) {
+            let word_length = word.chars().count();
+            let needed = if length == 0 {
+                word_length
+            } else {
+                length + 1 + word_length
+            };
+            if needed <= LABEL_LINE_LENGTH {
+                if length > 0 {
+                    line.push(' ');
+                }
+                line.push_str(word);
+                length = needed;
+            } else if word_length <= LABEL_LINE_LENGTH {
+                lines.push(std::mem::take(&mut line));
+                line.push_str(word);
+                length = word_length;
+            } else {
+                // Cut the word: fill the current line, then whole chunks.
+                let mut characters: Vec<char> = word.chars().collect();
+                if length > 0 {
+                    let room = LABEL_LINE_LENGTH.saturating_sub(length + 1);
+                    if room > 0 {
+                        line.push(' ');
+                        line.extend(characters.drain(..room.min(characters.len())));
+                    }
+                    lines.push(std::mem::take(&mut line));
+                }
+                let chunks: Vec<String> = characters
+                    .chunks(LABEL_LINE_LENGTH)
+                    .map(|chunk| chunk.iter().collect())
+                    .collect();
+                let (last, full) = chunks
+                    .split_last()
+                    .map_or((String::new(), &[][..]), |(last, full)| {
+                        (last.clone(), full)
+                    });
+                lines.extend(full.iter().cloned());
+                length = last.chars().count();
+                line = last;
+            }
+        }
+        lines.push(line);
+    }
+    if lines.len() >= LABEL_MAX_LINES {
+        lines.truncate(LABEL_MAX_LINES);
+        lines.push("...".to_owned());
+    }
+    lines
 }
 
 /// lets-plot `LegendBreak.pretty`: round up to an odd number, plus a 1 px margin.
@@ -230,7 +305,7 @@ pub fn draw_legends(block: &LegendBlock, origin: (f64, f64), theme: &Theme) -> R
                 0.0,
             ));
         }
-        for (key, (cell, label_anchor)) in measured.legend.keys.iter().zip(&measured.cells) {
+        for (key, (cell, label_anchor, lines)) in measured.legend.keys.iter().zip(&measured.cells) {
             let cell = Rect {
                 x: x + cell.x,
                 y: y + cell.y,
@@ -240,13 +315,18 @@ pub fn draw_legends(block: &LegendBlock, origin: (f64, f64), theme: &Theme) -> R
                 legend_nodes.extend(layer.geom.draw_key(&layer.styles, cell)?);
             }
             if let Some(style) = theme.legend_text {
-                legend_nodes.push(text_node(
-                    &key.label,
-                    style,
-                    (x + label_anchor.0, y + label_anchor.1),
-                    HorizontalAlign::Start,
-                    0.0,
-                ));
+                // Lines centred as a block on the key's middle.
+                let band = text_band(style);
+                let first = label_anchor.1 - band * (lines.len() as f64 - 1.0) / 2.0;
+                for (line_index, line) in lines.iter().enumerate() {
+                    legend_nodes.push(text_node(
+                        line,
+                        style,
+                        (x + label_anchor.0, y + first + band * line_index as f64),
+                        HorizontalAlign::Start,
+                        0.0,
+                    ));
+                }
             }
         }
         nodes.push(Node::Group(Group {
@@ -268,6 +348,22 @@ mod tests {
         assert_eq!(pretty(13.0), 14.0);
         assert_eq!(pretty(14.0), 16.0);
         assert_eq!(pretty(21.0), 22.0);
+    }
+
+    #[test]
+    fn labels_wrap_like_lets_plot() {
+        assert_eq!(wrap_label("short"), ["short"]);
+        assert_eq!(
+            wrap_label("this is a fairly long label with spaces in it ok"),
+            ["this is a fairly long label", "with spaces in it ok"]
+        );
+        let long = "a".repeat(60);
+        assert_eq!(wrap_label(&long), ["a".repeat(30), "a".repeat(30)]);
+        assert_eq!(wrap_label("one\ntwo"), ["one", "two"]);
+        assert_eq!(
+            wrap_label("1\n2\n3\n4\n5\n6"),
+            ["1", "2", "3", "4", "5", "..."]
+        );
     }
 
     #[test]

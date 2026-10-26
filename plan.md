@@ -95,7 +95,7 @@ Steps inside a phase are ordered; each builds on the previous.
 
 ### Phase 1: Scatter-class plots (cellestial `dimensional`, `umap`, `scatter`, `xyplot`)
 
-- [x] 1.1 Discrete scales + `scale_color_hue`, `scale_color_manual`; discrete legend. (Also `scale_fill_*`, `na_value` on default scales, `guides(x="none")`, `show_legend`. Not yet: manual values for size/alpha, continuous breaks/limits on style scales, `guide_legend` options.)
+- [x] 1.1 Discrete scales + `scale_color_hue`, `scale_color_manual`; discrete legend. (Also `scale_fill_*`, `guides(x="none")`, scale `guide="none"`, `show_legend`, label wrapping. Not yet: manual values for size/alpha, continuous breaks/limits on style scales, `guide_legend` options. Known gap: boolean `breaks`/`limits` match text levels "true"/"false" because discrete columns do not keep their Arrow type; lets-plot keeps True and "true" apart.)
 - [ ] 1.2 Continuous color: `scale_color_gradient`, `gradient2`, `gradientn`, `viridis`, `continuous`; colorbar legend.
 - [ ] 1.3 `scale_*_brewer` palettes (all ColorBrewer sets lets-plot ships).
 - [ ] 1.4 `theme()` + `element_*`, `theme_classic`, `theme_bw`, `theme_void`; `legend_position` (right, bottom, none, inside), horizontal legends; `guides`/`guide_legend` (ncol, override_aes).

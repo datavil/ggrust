@@ -139,6 +139,26 @@ CASES = {
     ),
     "guides_none": lambda m: point(m, color="c", size="s") + m.guides(color="none"),
     "twenty_keys": lambda m: point(m, color="g20"),
+    "wrapped_labels": lambda m: (
+        m.ggplot(
+            {
+                "x": [1.0, 2.0, 3.0, 4.0],
+                "y": [1.0, 2.0, 3.0, 4.0],
+                "label": [
+                    "a" * 60,
+                    "short",
+                    "this is a fairly long label with spaces in it ok",
+                    "one\ntwo",
+                ],
+            },
+            m.aes("x", "y", color="label"),
+        )
+        + m.geom_point()
+    ),
+    "scale_guide_none": lambda m: point(m, color="c", size="s") + m.scale_color_hue(guide="none"),
+    "guide_legend_title": lambda m: (
+        point(m, color="c") + m.guides(color={"name": "legend", "title": "G"})
+    ),
 }
 
 
@@ -149,3 +169,24 @@ def test_legends_match_lets_plot(name):
         theirs = legends(CASES[name](lp).to_svg(), ours=False)
         ours = legends(CASES[name](gg).to_svg(), ours=True)
     assert ours == theirs
+
+
+def test_a_legend_never_covers_the_panel():
+    """A plot too narrow for its legend keeps the panel's minimum width; the legend
+    then runs past the plot edge (as in lets-plot) instead of covering the data."""
+    import re as regex
+
+    labels = [f"Cell type number {index:02d}" for index in range(45)]
+    plot = (
+        gg.ggplot(
+            {"x": list(range(45)), "y": list(range(45)), "c": labels}, gg.aes("x", "y", color="c")
+        )
+        + gg.geom_point()
+        + gg.ggsize(200, 300)
+    )
+    svg = plot.to_svg()
+    clip = regex.search(r'<clipPath[^>]*><rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)"', svg)
+    panel_right = float(clip.group(1)) + float(clip.group(2))
+    legend = svg[svg.find('<g class="legend">') :]
+    legend_left = float(regex.search(r'<rect x="([\d.-]+)"', legend).group(1))
+    assert legend_left >= panel_right

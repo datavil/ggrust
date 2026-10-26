@@ -8,11 +8,10 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use super::{
-    DefaultColorMapper, DiscreteDomain, HueMapper, Level, ManualColorMapper, NA_COLOR, StyleMapper,
-    default_mapper,
+    DiscreteDomain, HueMapper, Level, ManualColorMapper, NA_COLOR, StyleMapper, default_mapper,
 };
 use crate::scene::{Color, PerItem};
-use crate::spec::{Aesthetic, PlotSpec, ScaleSpec, Value};
+use crate::spec::{Aesthetic, GuideSpec, PlotSpec, ScaleSpec, Value};
 use crate::style::{StyleValues, ValueKind, parse_constant};
 use crate::{Error, Result};
 
@@ -32,6 +31,7 @@ pub struct StyleScaleSpec {
     limits: Set<Vec<Value>>,
     na_value: Set<Value>,
     kind: Set<String>,
+    guide: Set<GuideSpec>,
     options: BTreeMap<String, (Value, String)>,
 }
 
@@ -72,6 +72,9 @@ fn merge(target: &mut StyleScaleSpec, scale: &ScaleSpec, path: &str) {
     if let Some(na_value) = &scale.na_value {
         target.na_value = Some((na_value.clone(), at("na_value")));
     }
+    if let Some(guide) = &scale.guide {
+        target.guide = Some((guide.clone(), at("guide")));
+    }
     if let Some(kind) = &scale.scale_mapper_kind {
         target.kind = Some((kind.clone(), at("scale_mapper_kind")));
     }
@@ -86,7 +89,13 @@ fn merge(target: &mut StyleScaleSpec, scale: &ScaleSpec, path: &str) {
 fn report_unbuilt(scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
     let present = [
         ("format", scale.format.is_some()),
-        ("guide", scale.guide.is_some()),
+        (
+            "guide",
+            scale
+                .guide
+                .as_ref()
+                .is_some_and(|guide| !matches!(guide, GuideSpec::Name(name) if name == "none" || name == "legend")),
+        ),
         ("trans", scale.trans.is_some()),
         ("expand", scale.expand.is_some()),
         ("position", scale.position.is_some()),
@@ -105,8 +114,8 @@ fn report_unbuilt(scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
 
 impl StyleScaleSpec {
     /// The mapper the options ask for: `scale_mapper_kind` (lets-plot lets it win
-    /// over `values`), then manual `values`, then the aesthetic's default; each with
-    /// `na_value` when given.
+    /// over `values`), then manual `values`, then the aesthetic's default. `na_value`
+    /// applies to the first two only, as in lets-plot.
     pub fn mapper(
         &self,
         aesthetic: Aesthetic,
@@ -141,22 +150,20 @@ impl StyleScaleSpec {
                  default scale was used"
             ));
         }
-        match (&self.na_value, aesthetic) {
-            (None, _) => Ok(default),
-            (Some(_), Aesthetic::Color | Aesthetic::Fill) => Ok(Arc::new(DefaultColorMapper {
-                na: self.na_color()?,
-            })),
-            (Some(_), Aesthetic::Size | Aesthetic::Alpha) => {
-                let mut mapper = if aesthetic == Aesthetic::Size {
-                    super::SIZE.clone()
-                } else {
-                    super::ALPHA.clone()
-                };
-                mapper.missing = self.na_number()?;
-                Ok(Arc::new(mapper))
-            }
-            (Some(_), _) => Ok(default),
+        if let Some((_, path)) = &self.na_value {
+            // lets-plot passes `na_value` only to scales built from options (values,
+            // a mapper kind); the default mappers keep their own.
+            warnings.push(format!(
+                "at '{path}': na_value applies to hue and manual scales; ignored for the \
+                 default '{aesthetic}' scale (as in lets-plot)"
+            ));
         }
+        Ok(default)
+    }
+
+    /// `guide="none"` on the scale hides its legend.
+    pub fn hides_legend(&self) -> bool {
+        matches!(&self.guide, Some((GuideSpec::Name(name), _)) if name == "none")
     }
 
     /// `breaks`, `limits` and `labels` for a discrete scale.
@@ -270,19 +277,6 @@ impl StyleScaleSpec {
         match &self.na_value {
             None => Ok(NA_COLOR),
             Some((value, path)) => color(value, path),
-        }
-    }
-
-    fn na_number(&self) -> Result<f64> {
-        let Some((value, path)) = &self.na_value else {
-            return Ok(f64::NAN);
-        };
-        match parse_constant(ValueKind::Number, value) {
-            Ok(StyleValues::Numbers(PerItem::Uniform(number))) => Ok(number),
-            Ok(_) => Err(Error::InvalidSpec(format!(
-                "at '{path}': expected a number"
-            ))),
-            Err(message) => Err(Error::InvalidSpec(format!("at '{path}': {message}"))),
         }
     }
 }

@@ -217,9 +217,12 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
     }));
     nodes.extend(draw_axes_and_titles(&layout, &theme, &titles, &panel));
     if let Some(block) = &legend_block {
-        // Centred on the panel (`legend_justification` 0.5).
+        // Right of the panel, centred on it (`legend_justification` 0.5). Normally
+        // that is the plot margin's right edge; when the panel keeps its minimum
+        // size, the legend runs past the plot edge (as in lets-plot) instead of
+        // covering the panel.
         let origin = (
-            area.x + area.width - theme.plot_margin.right - block.size.0,
+            layout.panel.x + layout.panel.width + theme.plot_inset.right + theme.legend_box_spacing,
             layout.panel.y + (layout.panel.height - block.size.1) / 2.0,
         );
         nodes.extend(draw_legends(block, origin, &theme)?);
@@ -959,7 +962,13 @@ fn assemble_legends(
             let Some(entries) = scales.get(&aesthetic).and_then(StyleScale::legend_entries) else {
                 continue;
             };
-            if entries.len() > MAX_LEGEND_LABELS || legend_hidden(spec, aesthetic) {
+            let hidden_by_scale = specs
+                .get(&aesthetic)
+                .is_some_and(StyleScaleSpec::hides_legend);
+            if entries.len() > MAX_LEGEND_LABELS
+                || legend_hidden(spec, aesthetic)
+                || hidden_by_scale
+            {
                 continue;
             }
             let title = legend_title(spec, aesthetic, specs.get(&aesthetic));
@@ -1175,7 +1184,11 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
             || (is_style
                 && match guide {
                     GuideSpec::Name(name) => name == "none" || name == "legend",
-                    GuideSpec::Full(options) => is_title_only(options),
+                    // `guide_legend(title=...)` without other options.
+                    GuideSpec::Full(options) => is_title_only(&GuideOptions {
+                        name: options.name.clone().filter(|name| name != "legend"),
+                        ..(**options).clone()
+                    }),
                 });
         if !built {
             warnings.push(format!(

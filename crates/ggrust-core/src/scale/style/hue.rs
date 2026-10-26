@@ -37,8 +37,9 @@ impl HueMapper {
         }
     }
 
+    /// The hue range plus `h_start`, low end first (lets-plot `DoubleSpan` sorts).
     fn shifted_range(&self) -> (f64, f64) {
-        (
+        sorted(
             self.hue_range.0 + self.start_hue,
             self.hue_range.1 + self.start_hue,
         )
@@ -87,9 +88,9 @@ impl StyleMapper for HueMapper {
     fn map_discrete(&self, indices: &[Option<usize>], level_count: usize) -> StyleValues {
         // At least 2 steps; on a full circle the last color must not repeat the first.
         let n = level_count.max(2) as f64;
-        let (low, mut high) = self.shifted_range();
+        let (mut low, mut high) = self.shifted_range();
         if (high - low) % 360.0 < 1.0 {
-            high -= 360.0 / n;
+            (low, high) = sorted(low, high - 360.0 / n);
         }
         let step = (high - low) / (n - 1.0);
         let last = level_count.saturating_sub(1) as f64;
@@ -101,6 +102,14 @@ impl StyleMapper for HueMapper {
             .map(|index| index.map_or(self.na, |index| color(index as f64)))
             .collect();
         StyleValues::Colors(PerItem::Varying(colors))
+    }
+}
+
+fn sorted(first: f64, second: f64) -> (f64, f64) {
+    if first <= second {
+        (first, second)
+    } else {
+        (second, first)
     }
 }
 
@@ -121,6 +130,19 @@ mod tests {
         let mapper = HueMapper::default_with(NA_COLOR);
         let found = colors(mapper.map_discrete(&[Some(0), Some(1), Some(2), None], 3));
         let expected = ["#f8766d", "#00ba38", "#619cff", "#808080"];
+        for (color, hex) in found.iter().zip(expected) {
+            assert_eq!(*color, Color::from_hex(hex).unwrap(), "{hex}");
+        }
+    }
+
+    #[test]
+    fn a_reversed_range_is_sorted_like_lets_plot() {
+        let mapper = HueMapper {
+            hue_range: (200.0, 100.0),
+            ..HueMapper::default_with(NA_COLOR)
+        };
+        let found = colors(mapper.map_discrete(&[Some(0), Some(1), Some(2), Some(3)], 4));
+        let expected = ["#88ac00", "#00b931", "#00c08e", "#00becd"];
         for (color, hex) in found.iter().zip(expected) {
             assert_eq!(*color, Color::from_hex(hex).unwrap(), "{hex}");
         }

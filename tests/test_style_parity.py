@@ -95,6 +95,13 @@ CASES = {
         scatter(m, color="c3") + m.scale_color_hue(limits=["B", "T"], na_value="orange")
     ),
     "size_na_value": lambda m: scatter(m, size="vna"),
+    "hue_reversed_range": lambda m: scatter(m, color="c12") + m.scale_color_hue(h=[200, 100]),
+    "hue_reversed_continuous": lambda m: (
+        scatter(m, color="v") + m.scale_color_hue(h=[300, 0], direction=-1)
+    ),
+    "na_value_ignored_on_default_scales": lambda m: (
+        scatter(m, color="vna") + m.scale_color_manual(values=None, na_value="red")
+    ),
     "discrete_then_continuous": lambda m: (
         m.ggplot(FRAME, m.aes("x", "y"))
         + m.geom_point(m.aes(color="digits"))

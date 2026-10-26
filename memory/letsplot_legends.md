@@ -19,3 +19,9 @@ Kotlin sources: `plot-builder/.../assemble/LegendAssembler.kt`, `PlotAssemblerUt
 - **Layout**: key cell >= 23 px, label gap = width("_")/2, 15 rows per column, 5 px margin,
   white background without border, at the right inside the plot margin, centred on the panel.
 - Hue: n = max(levels, 2), full circle drops the last step; one level -> middle (#7cae00).
+  Hue ranges are sorted (`DoubleSpan`) after adding `h_start` and after the full-circle cut.
+- `na_value` only reaches scales built from options (values, a mapper kind); lets-plot's
+  default mappers ignore it.
+- Labels wrap at 30 characters by words (newlines break too); 5+ lines -> 5 + "...".
+- Placement is relative to the panel (right edge + inset): with a minimum-size panel the
+  legend runs past the plot edge rather than covering the data.

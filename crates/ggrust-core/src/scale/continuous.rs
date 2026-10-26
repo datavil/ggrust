@@ -164,14 +164,12 @@ impl ContinuousPositionScale {
         if let Some(values) = &self.fixed_breaks {
             return self.fixed(values);
         }
-        let mut breaks = self.generated_breaks(target_count);
+        let (values, mut breaks) = self.generated_breaks(target_count);
         if let Some(format) = &self.format {
-            breaks.labels = breaks
-                .positions
+            // The break values themselves: inverse(apply(1000)) is 999.999... on log axes.
+            breaks.labels = values
                 .iter()
-                .map(|&position| {
-                    format.format(PatternValue::Number(self.transform.inverse(position)))
-                })
+                .map(|&value| format.format(PatternValue::Number(value)))
                 .collect();
         }
         breaks
@@ -209,7 +207,8 @@ impl ContinuousPositionScale {
         breaks
     }
 
-    fn generated_breaks(&self, target_count: usize) -> ScaleBreaks {
+    /// Generated breaks with their values in data units.
+    fn generated_breaks(&self, target_count: usize) -> (Vec<f64>, ScaleBreaks) {
         let (low, high) = self.expanded_domain();
         let transform = self.transform;
         let ordered = |a: f64, b: f64| if a <= b { (a, b) } else { (b, a) };
@@ -221,14 +220,15 @@ impl ContinuousPositionScale {
                 .iter()
                 .map(|&value| transform.inverse(value))
                 .collect();
-            return ScaleBreaks { positions, labels };
+            return (values, ScaleBreaks { positions, labels });
         }
         let (Some(low), Some(high)) = (transform.apply(data_low), transform.apply(data_high))
         else {
-            return ScaleBreaks {
+            let empty = ScaleBreaks {
                 positions: Vec::new(),
                 labels: Vec::new(),
             };
+            return (Vec::new(), empty);
         };
         let (low, high) = ordered(low, high);
         let mut count = target_count;
@@ -248,7 +248,7 @@ impl ContinuousPositionScale {
             .iter()
             .map(|&value| transform.apply(value).unwrap_or(f64::NAN))
             .collect();
-        ScaleBreaks { positions, labels }
+        (values, ScaleBreaks { positions, labels })
     }
 
     /// Map a transformed value to 0..1 across the panel (outside for out-of-range values).

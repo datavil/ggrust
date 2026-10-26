@@ -22,6 +22,9 @@ enum Part {
     Value,
     /// `{.2f}`: the value as a formatted number.
     Number(NumberFormat),
+    /// A field after the first: lets-plot formats one value, so later fields keep
+    /// their placeholder text.
+    Unfilled(String),
 }
 
 /// What a label pattern formats.
@@ -84,7 +87,10 @@ impl LabelPattern {
                 parts.push(Part::Text(std::mem::take(&mut text)));
             }
             let inner: String = characters[index + 1..close].iter().collect();
-            parts.push(if inner.is_empty() {
+            let first = parts.iter().all(|part| matches!(part, Part::Text(_)));
+            parts.push(if !first {
+                Part::Unfilled(format!("{{{inner}}}"))
+            } else if inner.is_empty() {
                 Part::Value
             } else if let Some(format) = NumberFormat::parse(&inner) {
                 Part::Number(axis_style(format))
@@ -111,7 +117,7 @@ impl LabelPattern {
         let mut text = String::new();
         for part in &self.parts {
             match (part, value) {
-                (Part::Text(literal), _) => text.push_str(literal),
+                (Part::Text(literal) | Part::Unfilled(literal), _) => text.push_str(literal),
                 (Part::Value, PatternValue::Number(number)) => {
                     text.push_str(&kotlin_double(number))
                 }
@@ -121,9 +127,9 @@ impl LabelPattern {
                 }
                 // lets-plot formats strings that parse as numbers, others as they are.
                 (Part::Number(format), PatternValue::Text(category)) => {
-                    match category.trim().parse::<f64>() {
-                        Ok(number) => text.push_str(&format.apply(number)),
-                        Err(_) => text.push_str(category),
+                    match kotlin_to_double(category) {
+                        Some(number) => text.push_str(&format.apply(number)),
+                        None => text.push_str(category),
                     }
                 }
             }
@@ -143,19 +149,38 @@ fn unescape(characters: &[char]) -> String {
     text.replace("{{", "{").replace("}}", "}")
 }
 
-/// lets-plot's loose datetime check: a `%` directive such as `%Y`.
+/// lets-plot's loose datetime check: one of its `%` directives (`%Y`, `%d`, ...).
 fn is_datetime(pattern: &str) -> bool {
+    const DIRECTIVES: &str = "aAbBdejmwyYHIlMpPSf";
     let mut characters = pattern.chars().peekable();
     while let Some(character) = characters.next() {
         if character == '%'
             && characters
                 .peek()
-                .is_some_and(|next| next.is_ascii_alphabetic())
+                .is_some_and(|next| DIRECTIVES.contains(*next))
         {
             return true;
         }
     }
     false
+}
+
+/// Kotlin `String.toDoubleOrNull`: decimal numbers with an optional `f`/`d` suffix,
+/// `NaN` and `Infinity` (signed); not Rust's `inf` or `nan` spellings.
+fn kotlin_to_double(text: &str) -> Option<f64> {
+    let text = text.trim();
+    match text {
+        "NaN" | "+NaN" | "-NaN" => return Some(f64::NAN),
+        "Infinity" | "+Infinity" => return Some(f64::INFINITY),
+        "-Infinity" => return Some(f64::NEG_INFINITY),
+        _ => {}
+    }
+    let number = text.strip_suffix(['f', 'F', 'd', 'D']).unwrap_or(text);
+    let valid = number.chars().any(|c| c.is_ascii_digit())
+        && number
+            .chars()
+            .all(|c| c.is_ascii_digit() || matches!(c, '.' | 'e' | 'E' | '+' | '-'));
+    if valid { number.parse().ok() } else { None }
 }
 
 /// `x·\(10^{n}\)` at the end -> `x·10` with superscript `n` (minus as U+2212, as
@@ -256,6 +281,28 @@ mod tests {
     fn datetime_patterns_are_reported() {
         assert!(LabelPattern::parse("%Y-%m-%d").is_err());
         assert!(LabelPattern::parse("{%H:%M}").is_err());
+    }
+
+    #[test]
+    fn only_the_first_field_takes_the_value() {
+        assert_eq!(label("{.1f}{.2f}", -2.0), "-2.0{.2f}");
+        assert_eq!(label("{}{}", -2.0), "-2.0{}");
+        assert_eq!(label("{d} {%x}", -2.0), "-2 {%x}");
+    }
+
+    #[test]
+    fn only_lets_plot_directives_are_datetime() {
+        assert_eq!(label("50%off", 1.0), "50%off");
+        assert!(LabelPattern::parse("%d.%m").is_err());
+    }
+
+    #[test]
+    fn numbers_in_categories_parse_like_kotlin() {
+        assert_eq!(kotlin_to_double("1f"), Some(1.0));
+        assert_eq!(kotlin_to_double(" 2D "), Some(2.0));
+        assert_eq!(kotlin_to_double("inf"), None);
+        assert_eq!(kotlin_to_double("nan"), None);
+        assert_eq!(kotlin_to_double("Infinity"), Some(f64::INFINITY));
     }
 
     #[test]

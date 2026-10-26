@@ -75,6 +75,29 @@ CASES = {
     "discrete_reversed_labels": lambda m: (
         point(m, x="c") + m.scale_x_discrete_reversed(labels=["A", "B", "C", "D"])
     ),
+    # Bug hunt 1.5a.
+    "discrete_breaks_lead": lambda m: (
+        point(m, x="c") + m.scale_x_discrete(breaks=["d", "a"], labels=["D", "A"])
+    ),
+    "discrete_break_without_data": lambda m: (
+        point(m, x="c") + m.scale_x_discrete(breaks=["zz", "b"])
+    ),
+    "discrete_breaks_and_limits": lambda m: (
+        point(m, x="c") + m.scale_x_discrete(limits=["c", "a", "b"], breaks=["b", "c"])
+    ),
+    "template_two_fields": lambda m: point(m) + m.scale_y_continuous(format="{.1f}{.2f}"),
+    "template_two_values": lambda m: point(m, x="c") + m.scale_x_discrete(format="{}-{}"),
+    "percent_literal": lambda m: point(m) + m.scale_y_continuous(format="50%off"),
+    "log_value_format": lambda m: (
+        point(m, {"x": [1.0, 1e5], "y": [1.0, 2.0]}) + m.scale_x_log10(format="{}")
+    ),
+    "labels_without_breaks_ignore_format": lambda m: (
+        point(m) + m.scale_y_continuous(labels=["a", "b", "c"], format=".2f")
+    ),
+    "numeric_categories": lambda m: (
+        point(m, {"c": ["1", "2.5", "inf", "x"], "y": [1.0, 2.0, 3.0, 4.0]}, x="c")
+        + m.scale_x_discrete(format="{.1f}")
+    ),
     "cellestial_heatmap_axis": lambda m: (
         m.ggplot({"x": [0.0, 1.0, 2.0], "y": [0.0, 1.0, 2.0]}, m.aes("x", "y"))
         + m.geom_point()

@@ -28,8 +28,10 @@ pub struct DiscretePositionScale {
     pub multiplicative_expand: f64,
     /// Units (categories) added on each side (lets-plot: 0.2).
     pub additive_expand: f64,
-    /// `breaks=[...]`: only these categories get a tick and label.
-    pub break_levels: Option<Vec<String>>,
+    /// `breaks=[...]` without repeats (see [`Self::set_breaks`]).
+    break_levels: Option<Vec<String>>,
+    /// Breaks that are not trained levels: they take axis slots of their own.
+    extra_breaks: usize,
     /// `labels=[...]`, aligned with `breaks` (or the categories); missing ones are
     /// empty.
     pub labels: Option<Vec<String>>,
@@ -48,6 +50,7 @@ impl Default for DiscretePositionScale {
             multiplicative_expand: 0.0,
             additive_expand: 0.2,
             break_levels: None,
+            extra_breaks: 0,
             labels: None,
             format: None,
         }
@@ -73,6 +76,31 @@ impl DiscretePositionScale {
                 self.levels.push(level.clone());
             }
         }
+        self.count_extra_breaks();
+    }
+
+    /// `breaks=[...]` (repeats ignored): only these categories get a tick and a
+    /// label. Without `limits` they also lead the axis, as in lets-plot: the breaks
+    /// in their order (a break without data takes a slot too), then the other
+    /// categories.
+    pub fn set_breaks(&mut self, breaks: Vec<String>) {
+        let mut seen = HashSet::new();
+        self.break_levels = Some(
+            breaks
+                .into_iter()
+                .filter(|level| seen.insert(level.clone()))
+                .collect(),
+        );
+        self.count_extra_breaks();
+    }
+
+    fn count_extra_breaks(&mut self) {
+        self.extra_breaks = self.break_levels.as_ref().map_or(0, |breaks| {
+            breaks
+                .iter()
+                .filter(|level| !self.known.contains(*level))
+                .count()
+        });
     }
 
     /// Widen the numeric range to include every finite value of `column`.
@@ -94,18 +122,30 @@ impl DiscretePositionScale {
 
     /// Number of categories shown.
     fn level_count(&self) -> usize {
-        self.limits.as_ref().map_or(self.levels.len(), Vec::len)
+        self.limits
+            .as_ref()
+            .map_or(self.levels.len() + self.extra_breaks, Vec::len)
     }
 
     /// Categories shown on the axis, in axis order (position 0 first).
     pub fn effective_levels(&self) -> Vec<&str> {
-        let mut levels: Vec<&str> = self
-            .limits
-            .as_ref()
-            .unwrap_or(&self.levels)
-            .iter()
-            .map(String::as_str)
-            .collect();
+        let mut levels: Vec<&str> = match (&self.limits, &self.break_levels) {
+            (Some(limits), _) => limits.iter().map(String::as_str).collect(),
+            (None, Some(breaks)) => {
+                let leading: HashSet<&str> = breaks.iter().map(String::as_str).collect();
+                breaks
+                    .iter()
+                    .map(String::as_str)
+                    .chain(
+                        self.levels
+                            .iter()
+                            .map(String::as_str)
+                            .filter(|level| !leading.contains(level)),
+                    )
+                    .collect()
+            }
+            (None, None) => self.levels.iter().map(String::as_str).collect(),
+        };
         if self.reverse {
             levels.reverse();
         }

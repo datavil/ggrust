@@ -61,8 +61,11 @@ impl AxisScaleSpec {
 
     fn build_continuous(&self, warnings: &mut Vec<String>) -> Result<ContinuousPositionScale> {
         let mut scale = ContinuousPositionScale::default();
-        scale.format = self.label_format(warnings);
         let labels = self.label_texts()?;
+        // lets-plot ignores `format` too when `labels` come without `breaks`.
+        if self.breaks.is_some() || labels.is_none() {
+            scale.format = self.label_format(warnings);
+        }
         match (&self.breaks, labels) {
             (Some((breaks, path)), labels) => {
                 let values = breaks
@@ -112,7 +115,7 @@ impl AxisScaleSpec {
         scale.format = self.label_format(warnings);
         scale.labels = self.label_texts()?.map(|(labels, _)| labels);
         if let Some((breaks, path)) = &self.breaks {
-            scale.break_levels = Some(
+            scale.set_breaks(
                 breaks
                     .iter()
                     .filter(|value| !value.is_null())

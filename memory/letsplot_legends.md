@@ -62,3 +62,7 @@ Measured from lets-plot SVGs (`LegendBoxesLayoutUtil`, `PlotLegendsLayoutUtil`, 
   Options of all aesthetics in one legend combine: last count wins, byrow from any.
 - Horizontal colorbar: 5 x 1 key sizes (or estimated label width x (breaks + 1)), low at the
   left, labels a third of a line below, centred on ticks.
+- `override_aes` (1.4c): maps of all aesthetics in one legend merge (later wins); values apply
+  by key *position* in each aesthetic's entries; lists shorter than the keys repeat their
+  last value, `None` keeps the scale value, `[]` overrides nothing; an aesthetic the legend
+  does not map gets entries for the first aesthetic's labels.

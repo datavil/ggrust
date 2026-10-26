@@ -28,7 +28,7 @@ use crate::scale::{AxisScaleSpec, PositionScale, PositionScales, position_scales
 use crate::scene::{Group, Node, PerItem, Rect, Rects, Scene};
 use crate::spec::{
     Aesthetic, DataSource, GuideOptions, GuideSpec, LayerSpec, Mapping, MappingValue, Options,
-    PlotSpec,
+    PlotSpec, Value,
 };
 use crate::stat::{self, Stat};
 use crate::style::{StyleValues, Styles, parse_constant};
@@ -944,7 +944,7 @@ fn assemble_legends(
     let mut colorbars: Vec<Colorbar> = Vec::new();
     for layer in layers.iter().filter(|layer| layer.show_legend) {
         // Scale name -> (aesthetic, its legend entries), in the geom's rendered order.
-        let mut by_title: Vec<(String, Vec<AestheticEntries>, KeyGrid)> = Vec::new();
+        let mut by_title: Vec<(String, Vec<AestheticEntries>, KeyGrid, Overrides)> = Vec::new();
         let mapped: Vec<Aesthetic> = layer.data.aesthetics().collect();
         let rendered = layer
             .geom
@@ -1027,15 +1027,22 @@ fn assemble_legends(
                 continue;
             }
             let grid = guides.legend_grid()?;
-            match by_title.iter_mut().find(|(known, _, _)| *known == title) {
-                Some((_, group, known)) => {
+            let overrides = guides.override_aes()?;
+            match by_title.iter_mut().find(|(known, _, _, _)| *known == title) {
+                Some((_, group, known, known_overrides)) => {
                     group.push((aesthetic, entries));
                     *known = known.combine(grid);
+                    // lets-plot: the legend's maps merge; a later aesthetic's value wins.
+                    for (key, values) in overrides {
+                        known_overrides.retain(|(known, _)| *known != key);
+                        known_overrides.push((key, values));
+                    }
                 }
-                None => by_title.push((title, vec![(aesthetic, entries)], grid)),
+                None => by_title.push((title, vec![(aesthetic, entries)], grid, overrides)),
             }
         }
-        for (title, group, grid) in by_title {
+        for (title, mut group, grid, overrides) in by_title {
+            apply_override_aes(&mut group, &overrides);
             let index = match legends.iter().position(|legend| legend.title == title) {
                 Some(index) => {
                     legends[index].grid = legends[index].grid.combine(grid);
@@ -1088,6 +1095,47 @@ fn assemble_legends(
         .map(LegendBox::Colorbar)
         .chain(legends.into_iter().map(LegendBox::Keys))
         .collect())
+}
+
+/// `guide_legend(override_aes=...)` values per aesthetic: one per key position,
+/// `None` keeps the scale's value.
+type Overrides = Vec<(Aesthetic, Vec<Option<StyleValues>>)>;
+
+/// lets-plot `processOverrideAesValues`: override values apply by key position
+/// within each aesthetic's entries (a list shorter than the keys repeats its last
+/// value); an aesthetic the legend does not map gets entries for the first
+/// aesthetic's labels.
+fn apply_override_aes(group: &mut Vec<AestheticEntries>, overrides: &Overrides) {
+    let longest = group
+        .iter()
+        .map(|(_, entries)| entries.len())
+        .max()
+        .unwrap_or(0);
+    for (aesthetic, values) in overrides {
+        let mut values = values.clone();
+        if let Some(last) = values.last().cloned() {
+            values.resize(longest.max(values.len()), last);
+        }
+        if let Some((_, entries)) = group.iter_mut().find(|(known, _)| known == aesthetic) {
+            for (entry, value) in entries.iter_mut().zip(&values) {
+                if let Some(value) = value {
+                    entry.value = value.clone();
+                }
+            }
+        } else if let Some((_, first)) = group.first() {
+            let entries = first
+                .iter()
+                .zip(&values)
+                .filter_map(|(entry, value)| {
+                    Some(LegendEntry {
+                        label: entry.label.clone(),
+                        value: value.clone()?,
+                    })
+                })
+                .collect();
+            group.push((*aesthetic, entries));
+        }
+    }
 }
 
 fn same_colorbar(left: &Colorbar, right: &Colorbar) -> bool {
@@ -1173,6 +1221,53 @@ impl<'a> Guides<'a> {
             });
         }
         Ok(grid)
+    }
+
+    /// `guide_legend(override_aes=...)`: the first given, each value parsed as its
+    /// aesthetic's kind. A list gives one value per key (`None` keeps the key's
+    /// value); an empty list overrides nothing.
+    fn override_aes(&self) -> Result<Overrides> {
+        let Some((overrides, path)) = self
+            .options()
+            .find_map(|(options, path)| Some((options.override_aes.as_ref()?, path)))
+        else {
+            return Ok(Vec::new());
+        };
+        let mut parsed = Vec::new();
+        for (key, value) in overrides {
+            let at = format!("{path}.override_aes.{key}");
+            let (aesthetic, kind) = match key.parse::<Aesthetic>() {
+                Ok(aesthetic) => match aesthetic.kind().style() {
+                    Some(kind) => (aesthetic, kind),
+                    None => {
+                        return Err(Error::InvalidSpec(format!(
+                            "at '{at}': '{key}' is not a style aesthetic; legend keys take                              color, fill, size, shape, alpha, ..."
+                        )));
+                    }
+                },
+                Err(_) => {
+                    return Err(Error::InvalidSpec(format!(
+                        "at '{at}': unknown aesthetic '{key}'"
+                    )));
+                }
+            };
+            let parse = |item: &Value| -> Result<Option<StyleValues>> {
+                if item.is_null() {
+                    return Ok(None);
+                }
+                parse_constant(kind, item)
+                    .map(Some)
+                    .map_err(|message| Error::InvalidSpec(format!("at '{at}': {message}")))
+            };
+            let values = match value {
+                Value::Array(items) if items.is_empty() => vec![None],
+                Value::Array(items) => items.iter().map(parse).collect::<Result<_>>()?,
+                item => vec![parse(item)?],
+            };
+            parsed.retain(|(known, _)| *known != aesthetic);
+            parsed.push((aesthetic, values));
+        }
+        Ok(parsed)
     }
 
     /// `barwidth`, `barheight`, `nbin`: the first given of each, validated.

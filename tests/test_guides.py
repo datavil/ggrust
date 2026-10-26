@@ -54,8 +54,28 @@ def test_built_guide_options_do_not_warn_and_others_do():
         base + gg.scale_color_gradient(guide=gg.guide_colorbar(nbin=3)),
         base + gg.scale_color_gradient(guide=gg.guide_legend(title="X")),
         base + gg.guides(color=gg.guide_legend(ncol=2, nrow=3, byrow=True)),
+        base + gg.guides(color=gg.guide_legend(override_aes={"size": 3})),
     ]
     for plot in built:
         assert not [message for message in build_warnings(plot) if "guide" in message]
-    unbuilt = base + gg.guides(color=gg.guide_legend(override_aes={"size": 3}))
+    unbuilt = base + gg.guides(color={"name": "legend", "order": 1})
     assert any("not supported yet" in message for message in build_warnings(unbuilt))
+
+
+@pytest.mark.parametrize(
+    ("override", "message"),
+    [
+        ({"colr": "red"}, "override_aes.colr': unknown aesthetic 'colr'"),
+        ({"x": 1}, "override_aes.x': 'x' is not a style aesthetic"),
+        ({"size": "big"}, "override_aes.size': expected a finite number"),
+        ({"color": ["red", 3]}, "override_aes.color': expected a color string"),
+    ],
+)
+def test_override_aes_values_are_validated(override, message):
+    plot = (
+        gg.ggplot(FRAME, gg.aes("x", "y", color="v"))
+        + gg.geom_point()
+        + gg.guides(color=gg.guide_legend(override_aes=override))
+    )
+    with pytest.raises(ValueError, match=message):
+        plot.to_svg()

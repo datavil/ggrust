@@ -33,6 +33,7 @@ impl GuideSpec {
                     ncol: None,
                     nrow: None,
                     byrow: None,
+                    override_aes: None,
                     barwidth: options.barwidth.filter(|_| !colorbar),
                     barheight: options.barheight.filter(|_| !colorbar),
                     nbin: options.nbin.filter(|_| !colorbar),

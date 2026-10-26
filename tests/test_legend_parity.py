@@ -167,6 +167,32 @@ CASES = {
     "guide_legend_title": lambda m: (
         point(m, color="c") + m.guides(color={"name": "legend", "title": "G"})
     ),
+    "override_size": lambda m: (
+        point(m, color="c") + m.guides(color=m.guide_legend(override_aes={"size": 8}))
+    ),
+    "override_lists": lambda m: (
+        point(m, color="c")
+        + m.guides(
+            color=m.guide_legend(override_aes={"color": ["red", None, "blue"], "size": [2, 6]})
+        )
+    ),
+    "override_merged": lambda m: (
+        point(m, color="c", size="c")
+        + m.guides(
+            color=m.guide_legend(override_aes={"size": 2}),
+            size=m.guide_legend(override_aes={"alpha": 0.3}),
+        )
+    ),
+    "override_other_legend": lambda m: (
+        point(m, color="c", size="s")
+        + m.guides(size=m.guide_legend(override_aes={"color": "#4daf4a"}))
+    ),
+    "override_in_scale_guide": lambda m: (
+        point(m, color="c") + m.scale_color_hue(guide=m.guide_legend(override_aes={"alpha": 0.5}))
+    ),
+    "override_empty_list": lambda m: (
+        point(m, color="c") + m.guides(color=m.guide_legend(override_aes={"size": []}))
+    ),
 }
 
 

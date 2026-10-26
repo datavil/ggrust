@@ -70,6 +70,8 @@ OPTIONS = {
     "overflow_interpolate": dict(palette="Dark2", overflow="i"),
     "overflow_generate": dict(palette="Blues", overflow="generate"),
     "name_wins_over_type": dict(type="seq", palette="Set3"),
+    "type_ignored_with_a_name": dict(type="sequential", palette="Blues"),
+    "huge_index": dict(type="div", palette=2**31),
     "na_and_limits": dict(palette="Set2", limits=["g00", "g01"], na_value="black"),
 }
 

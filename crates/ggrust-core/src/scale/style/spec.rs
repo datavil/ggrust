@@ -406,7 +406,9 @@ impl StyleScaleSpec {
                 ))),
             }
         };
-        let kind = match text("type")? {
+        // lets-plot: a palette name picks the family and `type` is never read.
+        let named = matches!(self.options.get("palette"), Some((Value::String(_), _)));
+        let kind = match if named { None } else { text("type")? } {
             None => None,
             Some((name, path)) => Some(PaletteType::parse(name).ok_or_else(|| {
                 Error::InvalidSpec(format!(
@@ -435,7 +437,17 @@ impl StyleScaleSpec {
                          'qual'"
                     )));
                 }
-                PaletteChoice::Index(number.as_f64().map_or(0, |index| index as i64))
+                // Kotlin `toInt()`: truncates and saturates at the 32-bit range.
+                let index = number
+                    .as_f64()
+                    .unwrap_or(0.0)
+                    .clamp(0.0, f64::from(i32::MAX)) as i64;
+                if number.as_f64().is_some_and(|value| value < 0.0) {
+                    return Err(Error::InvalidSpec(format!(
+                        "at '{path}': a palette index is 0 or more, got {number}"
+                    )));
+                }
+                PaletteChoice::Index(index)
             }
             Some((other, path)) => {
                 return Err(Error::InvalidSpec(format!(

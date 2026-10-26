@@ -8,9 +8,10 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use super::{
-    COLORMAP_NAMES, ColormapMapper, ContinuousDomain, DiscreteDomain, GRADIENT_HIGH, GRADIENT_LOW,
-    GRADIENT2_HIGH, GRADIENT2_LOW, GRADIENT2_MID, Gradient2Mapper, GradientMapper, HueMapper,
-    Level, ManualColorMapper, NA_COLOR, StyleMapper, colormap, default_mapper,
+    BrewerMapper, COLORMAP_NAMES, ColormapMapper, ContinuousDomain, DiscreteDomain, GRADIENT_HIGH,
+    GRADIENT_LOW, GRADIENT2_HIGH, GRADIENT2_LOW, GRADIENT2_MID, Gradient2Mapper, GradientMapper,
+    HueMapper, Level, ManualColorMapper, NA_COLOR, Overflow, PaletteChoice, PaletteType,
+    StyleMapper, colormap, default_mapper, scheme_by_name, scheme_names,
 };
 use crate::scene::{Color, PerItem};
 use crate::spec::{Aesthetic, GuideSpec, PlotSpec, ScaleSpec, Value};
@@ -37,6 +38,9 @@ const MAPPER_OPTIONS: &[&str] = &[
     "begin",
     "end",
     "option",
+    "type",
+    "palette",
+    "overflow",
 ];
 
 /// Merged `scale_*()` options of one style aesthetic.
@@ -385,9 +389,78 @@ impl StyleScaleSpec {
                 }
                 Arc::new(mapper)
             }
+            "color_brewer" => Arc::new(self.brewer(na)?),
             _ => return Ok(None),
         };
         Ok(Some(mapper))
+    }
+
+    /// lets-plot `ColorBrewerMapperProvider` options, checked as it does.
+    fn brewer(&self, na: Color) -> Result<BrewerMapper> {
+        let text = |key: &str| -> Result<Option<(&str, &str)>> {
+            match self.options.get(key) {
+                None => Ok(None),
+                Some((Value::String(text), path)) => Ok(Some((text.as_str(), path.as_str()))),
+                Some((other, path)) => Err(Error::InvalidSpec(format!(
+                    "at '{path}': expected a text, got {other}"
+                ))),
+            }
+        };
+        let kind = match text("type")? {
+            None => None,
+            Some((name, path)) => Some(PaletteType::parse(name).ok_or_else(|| {
+                Error::InvalidSpec(format!(
+                    "at '{path}': palette type expected one of 'seq' (sequential), 'div' \
+                     (diverging) or 'qual' (qualitative), got '{name}'"
+                ))
+            })?),
+        };
+        let palette = match self.options.get("palette") {
+            None => PaletteChoice::Default,
+            Some((Value::String(name), path)) => {
+                PaletteChoice::Named(scheme_by_name(name).ok_or_else(|| {
+                    Error::InvalidSpec(format!(
+                        "at '{path}': brewer palette '{name}' was not found. Sequential: {}. \
+                         Diverging: {}. Qualitative: {}",
+                        scheme_names(PaletteType::Sequential),
+                        scheme_names(PaletteType::Diverging),
+                        scheme_names(PaletteType::Qualitative)
+                    ))
+                })?)
+            }
+            Some((Value::Number(number), path)) => {
+                if kind.is_none() {
+                    return Err(Error::InvalidSpec(format!(
+                        "at '{path}': a palette index needs a palette type: 'seq', 'div' or \
+                         'qual'"
+                    )));
+                }
+                PaletteChoice::Index(number.as_f64().map_or(0, |index| index as i64))
+            }
+            Some((other, path)) => {
+                return Err(Error::InvalidSpec(format!(
+                    "at '{path}': expected a palette name or index, got {other}"
+                )));
+            }
+        };
+        let overflow = match text("overflow")? {
+            None => Overflow::Auto,
+            Some((name, path)) => Overflow::parse(name).ok_or_else(|| {
+                Error::InvalidSpec(format!(
+                    "at '{path}': overflow expected one of 'interpolate' ('i'), 'cycle' ('c'), \
+                     'generate' ('g'), got '{name}'"
+                ))
+            })?,
+        };
+        Ok(BrewerMapper {
+            kind,
+            palette,
+            reversed: self
+                .number("direction")?
+                .is_some_and(|direction| direction < 0.0),
+            overflow,
+            na,
+        })
     }
 
     /// A finite number option.

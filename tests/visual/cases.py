@@ -157,6 +157,24 @@ def colorbar_viridis_size(m):
     )
 
 
+def brewer_clusters(m):
+    random = np.random.default_rng(25)
+    labels = random.integers(0, 10, 800)
+    centers = random.uniform(-8, 8, (10, 2))
+    frame = pl.DataFrame(
+        {
+            "UMAP1": centers[labels, 0] + random.normal(0, 0.8, 800),
+            "UMAP2": centers[labels, 1] + random.normal(0, 0.8, 800),
+            "leiden": [str(label) for label in labels],
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("UMAP1", "UMAP2", color="leiden"))
+        + m.geom_point(size=1)
+        + m.scale_color_brewer(palette="Paired")
+    )
+
+
 CASES = {
     case.__name__: case
     for case in [
@@ -172,5 +190,6 @@ CASES = {
         umap_expression,
         legends_hue_size,
         colorbar_viridis_size,
+        brewer_clusters,
     ]
 }

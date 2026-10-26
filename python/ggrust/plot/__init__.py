@@ -23,6 +23,7 @@ from ggrust.plot.scale import (
     ylim,
 )
 from ggrust.plot.scale_color import (
+    scale_color_brewer,
     scale_color_continuous,
     scale_color_gradient,
     scale_color_gradient2,
@@ -30,6 +31,7 @@ from ggrust.plot.scale_color import (
     scale_color_hue,
     scale_color_manual,
     scale_color_viridis,
+    scale_fill_brewer,
     scale_fill_continuous,
     scale_fill_gradient,
     scale_fill_gradient2,
@@ -53,6 +55,7 @@ __all__ = [
     "layer",
     "layer_tooltips",
     "lims",
+    "scale_color_brewer",
     "scale_color_continuous",
     "scale_color_gradient",
     "scale_color_gradient2",
@@ -60,6 +63,7 @@ __all__ = [
     "scale_color_hue",
     "scale_color_manual",
     "scale_color_viridis",
+    "scale_fill_brewer",
     "scale_fill_continuous",
     "scale_fill_gradient",
     "scale_fill_gradient2",

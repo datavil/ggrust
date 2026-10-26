@@ -1,13 +1,13 @@
-"""Color scales: hue, manual, gradients, viridis, continuous; ``fill`` variants.
+"""Color scales: hue, manual, gradients, viridis, brewer, continuous; ``fill`` variants.
 
 Ported from lets-plot's ``lets_plot/plot/scale.py`` (MIT, see THIRD_PARTY_NOTICES.md).
-Brewer scales come in a later phase.
 """
 
 from ggrust.plot.core import FeatureSpec
 from ggrust.plot.scale import _scale
 
 __all__ = [
+    "scale_color_brewer",
     "scale_color_continuous",
     "scale_color_gradient",
     "scale_color_gradient2",
@@ -15,6 +15,7 @@ __all__ = [
     "scale_color_hue",
     "scale_color_manual",
     "scale_color_viridis",
+    "scale_fill_brewer",
     "scale_fill_continuous",
     "scale_fill_gradient",
     "scale_fill_gradient2",
@@ -473,3 +474,67 @@ def _continuous(aesthetic, options: dict) -> FeatureSpec:
     if options["scale_mapper_kind"] is None:
         options["scale_mapper_kind"] = "color_gradient"
     return _scale(aesthetic, **options, expand=kwargs.pop("expand", None), **kwargs)
+
+
+def scale_color_brewer(
+    type=None,
+    palette=None,
+    direction=None,
+    overflow=None,
+    name=None,
+    breaks=None,
+    labels=None,
+    lablim=None,
+    limits=None,
+    na_value=None,
+    guide=None,
+    trans=None,
+    format=None,
+) -> FeatureSpec:
+    """Map ``color`` with a ColorBrewer palette.
+
+    Parameters
+    ----------
+    type : {"seq", "div", "qual"}, optional
+        Palette family; needed with a palette index.
+    palette : str or int, optional
+        Palette name (e.g. ``"Set2"``, ``"RdBu"``) or index within ``type``.
+        Default: ``Set1`` for categories, ``Blues`` for continuous data.
+    direction : {1, -1}, default=1
+        -1 reverses the colors.
+    overflow : {"interpolate", "cycle", "generate"}, optional
+        How to get more colors than the palette has (``"i"``, ``"c"``, ``"g"``).
+    name, breaks, labels, lablim, limits, na_value, guide, trans, format : optional
+        As in lets_plot.
+
+    Returns
+    -------
+    FeatureSpec
+        The scale.
+    """
+    return _scale("color", **locals(), scale_mapper_kind="color_brewer")
+
+
+def scale_fill_brewer(
+    type=None,
+    palette=None,
+    direction=None,
+    overflow=None,
+    name=None,
+    breaks=None,
+    labels=None,
+    lablim=None,
+    limits=None,
+    na_value=None,
+    guide=None,
+    trans=None,
+    format=None,
+) -> FeatureSpec:
+    """Map ``fill`` with a ColorBrewer palette. See ``scale_color_brewer``.
+
+    Returns
+    -------
+    FeatureSpec
+        The scale.
+    """
+    return _scale("fill", **locals(), scale_mapper_kind="color_brewer")

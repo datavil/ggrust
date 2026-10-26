@@ -9,6 +9,8 @@
 //!
 //! Not here yet: gradient/brewer/viridis options, shapes and line types.
 
+mod brewer;
+mod brewer_data;
 mod color;
 pub mod color_space;
 mod colormap;
@@ -22,6 +24,9 @@ pub mod spec;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 
+pub use brewer::{
+    BrewerMapper, Overflow, PaletteChoice, PaletteType, scheme_by_name, scheme_names,
+};
 pub use color::{DefaultColorMapper, GRADIENT_HIGH, GRADIENT_LOW, NA_COLOR, discrete_palette};
 pub use colormap::{COLORMAP_NAMES, ColormapMapper, colormap};
 pub use gradient::{GRADIENT2_HIGH, GRADIENT2_LOW, GRADIENT2_MID, Gradient2Mapper, GradientMapper};

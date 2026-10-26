@@ -87,7 +87,7 @@ pub fn discrete_palette(count: usize) -> Vec<Color> {
 
 /// lets-plot `PaletteUtil.generateColors`: extra colors cycle through the base hues
 /// with the HCL lightness moved by +/-15, +/-30, ... (wrapping within 10..90).
-fn generate_colors(base: &[Color], count: usize) -> Vec<Color> {
+pub(super) fn generate_colors(base: &[Color], count: usize) -> Vec<Color> {
     const MIN: f64 = 10.0;
     const RANGE: f64 = 80.0;
     const STEP: f64 = 15.0;

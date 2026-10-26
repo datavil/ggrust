@@ -41,3 +41,7 @@ Kotlin sources: `plot-builder/.../assemble/LegendAssembler.kt`, `PlotAssemblerUt
   in lets-plot's `checkFitsColorBar`. Colorbar labels split at newlines; the bar grows by
   lines x font size.
 - viridis `begin`/`end` are sorted (`DoubleSpan`).
+- Brewer: palette name picks the family (type ignored); an index needs `type` and wraps;
+  no palette -> Set1 for categories, Blues for continuous data (quantized into the largest
+  set). More categories than the set has: qualitative generates, others interpolate (LAB),
+  unless `overflow` says otherwise. Tables generated from lets-plot's `ColorSets.kt`.

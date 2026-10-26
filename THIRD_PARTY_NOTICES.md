@@ -46,3 +46,10 @@ map `cividis` is a corrected version of `viridis`, developed by Jamie R. Nuñez,
 Christopher R. Anderton and Ryan S. Renslow. The color map `turbo` was developed by Anton
 Mikhailov. The color map `twilight` was created by Bastian Bechtold
 (https://github.com/bastibe/twilight).
+
+## ColorBrewer
+
+`crates/ggrust-core/src/scale/style/brewer_data.rs` holds the ColorBrewer color schemes,
+taken from lets-plot (above). Copyright (c) 2002 Cynthia Brewer, Mark Harrower, and The
+Pennsylvania State University. Licensed under the Apache-Style Software License for
+ColorBrewer Color Schemes, Version 1.1. https://colorbrewer2.org

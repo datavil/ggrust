@@ -1,11 +1,11 @@
-"""Coordinate systems: ``coord_cartesian`` and ``coord_fixed``.
+"""Coordinate systems: ``coord_cartesian``, ``coord_fixed`` and ``coord_flip``.
 
 Ported from lets-plot's ``lets_plot/plot/coord.py`` (MIT, see THIRD_PARTY_NOTICES.md).
 """
 
 from ggrust.plot.core import FeatureSpec
 
-__all__ = ["coord_cartesian", "coord_fixed"]
+__all__ = ["coord_cartesian", "coord_fixed", "coord_flip"]
 
 
 def coord_cartesian(xlim=None, ylim=None, flip=False) -> FeatureSpec:
@@ -46,3 +46,19 @@ def coord_fixed(ratio=1.0, xlim=None, ylim=None, flip=False) -> FeatureSpec:
         The coordinate system.
     """
     return FeatureSpec("coord", name="fixed", ratio=ratio, xlim=xlim, ylim=ylim, flip=flip)
+
+
+def coord_flip(xlim=None, ylim=None) -> FeatureSpec:
+    """Swap the x and y axes (not drawn yet; ggrust warns and keeps them).
+
+    Parameters
+    ----------
+    xlim, ylim : list, optional
+        As in ``coord_cartesian``.
+
+    Returns
+    -------
+    FeatureSpec
+        The coordinate system.
+    """
+    return FeatureSpec("coord", name="flip", xlim=xlim, ylim=ylim, flip=True)

@@ -26,6 +26,10 @@ pub trait Position: Sync {
 /// Every position, in one place: lookup and names derive from it.
 pub static POSITIONS: &[&dyn Position] = &[&IdentityPosition];
 
+/// lets-plot positions the Python API builds but the engine does not apply yet
+/// (plan.md). Remove a name when its position joins [`POSITIONS`].
+pub static NOT_APPLIED_YET: &[&str] = &["dodge", "fill", "jitter", "jitterdodge", "nudge", "stack"];
+
 /// Look up a position by its lets-plot name.
 pub fn position(name: &str) -> Option<&'static dyn Position> {
     POSITIONS.iter().copied().find(|item| item.name() == name)
@@ -43,6 +47,7 @@ mod registry_tests {
     #[test]
     fn registry_names_round_trip() {
         for name in names() {
+            assert!(!NOT_APPLIED_YET.contains(&name), "{name} is applied");
             assert_eq!(position(name).map(|item| item.name()), Some(name));
         }
     }

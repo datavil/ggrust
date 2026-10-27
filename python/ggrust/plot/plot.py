@@ -1,4 +1,4 @@
-"""``ggplot()`` and ``ggsize()``.
+"""``ggplot()``, ``ggsize()`` and the deprecated ``GGBunch``.
 
 Ported from lets-plot's ``lets_plot/plot/plot.py`` (MIT, see THIRD_PARTY_NOTICES.md).
 """
@@ -8,7 +8,7 @@ import numbers
 from ggrust.plot.core import FeatureSpec, PlotSpec
 from ggrust.plot.util import as_annotated_data, key_int2str
 
-__all__ = ["ggplot", "ggsize"]
+__all__ = ["GGBunch", "ggplot", "ggsize"]
 
 # lets-plot's default limits for ggsize.
 MAX_WIDTH = 10_000
@@ -62,3 +62,14 @@ def ggsize(width, height) -> FeatureSpec:
     if not height <= MAX_HEIGHT:
         raise AssertionError(f"'height' must be less than or equal to {MAX_HEIGHT}")
     return FeatureSpec("ggsize", name=None, width=width, height=height)
+
+
+class GGBunch(FeatureSpec):
+    """lets_plot's deprecated free-layout bunch of plots. Not supported; use ``gggrid``.
+
+    Exported so code that names it (type hints, ``isinstance``) keeps importing.
+    """
+
+    def __init__(self):
+        message = "GGBunch is deprecated in lets_plot and not supported by ggrust; use gggrid()"
+        raise NotImplementedError(message)

@@ -1,23 +1,49 @@
 """lets_plot-compatible plot specification API."""
 
-from ggrust.plot.coord import coord_cartesian, coord_fixed
+from ggrust.plot.coord import coord_cartesian, coord_fixed, coord_flip
 from ggrust.plot.core import aes, layer
+from ggrust.plot.facet import facet_grid, facet_wrap
 from ggrust.plot.geom import (
+    geom_area_ridges,
+    geom_bar,
     geom_blank,
+    geom_boxplot,
+    geom_bracket,
+    geom_histogram,
     geom_hline,
+    geom_jitter,
     geom_label,
+    geom_label_repel,
     geom_line,
     geom_path,
     geom_point,
     geom_polygon,
+    geom_raster,
+    geom_rect,
     geom_segment,
+    geom_sina,
     geom_text,
+    geom_text_repel,
+    geom_tile,
+    geom_violin,
     geom_vline,
 )
 from ggrust.plot.geom_extras import arrow
+from ggrust.plot.geom_function import geom_function
+from ggrust.plot.geom_imshow import geom_imshow
+from ggrust.plot.gggrid import gggrid
+from ggrust.plot.ggtb import ggtb
 from ggrust.plot.guide import guide_colorbar, guide_legend, guides
 from ggrust.plot.label import ggtitle, labs, xlab, ylab
-from ggrust.plot.plot import ggplot, ggsize
+from ggrust.plot.plot import GGBunch, ggplot, ggsize
+from ggrust.plot.position import (
+    position_dodge,
+    position_fill,
+    position_jitter,
+    position_jitterdodge,
+    position_nudge,
+    position_stack,
+)
 from ggrust.plot.scale import (
     lims,
     scale_x_continuous,
@@ -68,6 +94,7 @@ from ggrust.plot.scale_size import (
     scale_size_area,
     scale_size_manual,
 )
+from ggrust.plot.subplots import SupPlotsSpec
 from ggrust.plot.theme import (
     element_blank,
     element_geom,
@@ -96,34 +123,56 @@ from ggrust.plot.theme import (
 from ggrust.plot.tooltip import layer_tooltips
 
 __all__ = [
+    "GGBunch",
+    "SupPlotsSpec",
     "aes",
     "arrow",
     "coord_cartesian",
     "coord_fixed",
+    "coord_flip",
     "element_blank",
     "element_geom",
     "element_line",
     "element_markdown",
     "element_rect",
     "element_text",
+    "facet_grid",
+    "facet_wrap",
     "flavor_darcula",
     "flavor_high_contrast_dark",
     "flavor_high_contrast_light",
     "flavor_solarized_dark",
     "flavor_solarized_light",
     "flavor_standard",
+    "geom_area_ridges",
+    "geom_bar",
     "geom_blank",
+    "geom_boxplot",
+    "geom_bracket",
+    "geom_function",
+    "geom_histogram",
     "geom_hline",
+    "geom_imshow",
+    "geom_jitter",
     "geom_label",
+    "geom_label_repel",
     "geom_line",
     "geom_path",
     "geom_point",
     "geom_polygon",
+    "geom_raster",
+    "geom_rect",
     "geom_segment",
+    "geom_sina",
     "geom_text",
+    "geom_text_repel",
+    "geom_tile",
+    "geom_violin",
     "geom_vline",
+    "gggrid",
     "ggplot",
     "ggsize",
+    "ggtb",
     "ggtitle",
     "guide_colorbar",
     "guide_legend",
@@ -133,6 +182,12 @@ __all__ = [
     "layer_tooltips",
     "lims",
     "margin",
+    "position_dodge",
+    "position_fill",
+    "position_jitter",
+    "position_jitterdodge",
+    "position_nudge",
+    "position_stack",
     "scale_alpha",
     "scale_alpha_identity",
     "scale_alpha_manual",

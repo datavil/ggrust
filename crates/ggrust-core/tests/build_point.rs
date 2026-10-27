@@ -139,10 +139,13 @@ fn unimplemented_features_and_unknown_options_warn() {
     let built = build(
         r#"{"kind": "plot", "mapping": {"x": "UMAP1", "y": "UMAP2", "color": "cluster"},
             "theme": {"name": "classic", "strip_text": {"size": 3, "blank": false}}, "guides": {"color": {"name": "legend", "order": 1}},
-            "layers": [{"geom": "point", "colr": "red", "tooltips": "none"}]}"#,
+            "layers": [{"geom": "point", "colr": "red", "tooltips": {"variables": ["cluster"]}},
+                       {"geom": "point", "tooltips": "none"}]}"#,
         cells(),
     );
     let joined = built.warnings.join("\n");
+    // `tooltips="none"` asks for what static output already does: no warning.
+    assert!(!joined.contains("at 'layers[1]'"), "{joined}");
     for expected in [
         "at 'theme.strip_text': not supported yet; ignored",
         "at 'guides.color': this guide option is not supported yet",
@@ -248,7 +251,7 @@ fn errors_name_the_path() {
         ),
         (
             r#"{"kind": "plot", "mapping": {"x": "UMAP1", "y": "UMAP2"}, "layers": [{"geom": "point", "stat": "count"}]}"#,
-            "at 'layers[0].stat': unknown stat 'count'",
+            "at 'layers[0].stat': stat 'count' is not supported by ggrust yet",
         ),
     ];
     for (json, expected) in cases {

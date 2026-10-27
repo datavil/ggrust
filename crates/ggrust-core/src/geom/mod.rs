@@ -93,6 +93,24 @@ pub static GEOMS: &[&dyn Geom] = &[
     &BlankGeom,
 ];
 
+/// lets-plot geoms the Python API builds but the engine does not draw yet (plan.md).
+/// Remove a name when its geom joins [`GEOMS`].
+pub static NOT_DRAWN_YET: &[&str] = &[
+    "area_ridges",
+    "bar",
+    "boxplot",
+    "bracket",
+    "histogram",
+    "jitter",
+    "label_repel",
+    "raster",
+    "rect",
+    "sina",
+    "text_repel",
+    "tile",
+    "violin",
+];
+
 /// Look up a geom by its lets-plot name.
 pub fn geom(name: &str) -> Option<&'static dyn Geom> {
     GEOMS.iter().copied().find(|geom| geom.name() == name)
@@ -120,6 +138,7 @@ mod tests {
     #[test]
     fn registry_names_round_trip() {
         for name in names() {
+            assert!(!NOT_DRAWN_YET.contains(&name), "{name} is drawn");
             assert_eq!(geom(name).map(|geom| geom.name()), Some(name));
         }
         let mut sorted = names();

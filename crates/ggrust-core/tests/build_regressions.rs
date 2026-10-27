@@ -328,3 +328,37 @@ fn the_panel_never_shrinks_below_lets_plots_minimum() {
         .unwrap();
     assert!(panel.height >= 50.0 && panel.width >= 50.0, "{panel:?}");
 }
+
+#[test]
+fn lets_plot_names_not_supported_yet_say_so() {
+    let data = || PlotData {
+        plot: Some(frame(&[("a", vec![1.0]), ("b", vec![1.0])])),
+        layers: vec![],
+    };
+    let error = |layer: &str| {
+        let json = format!(
+            r#"{{"kind": "plot", "mapping": {{"x": "a", "y": "b"}}, "layers": [{layer}]}}"#
+        );
+        match build_plot(&spec(&json), &data()) {
+            Ok(_) => panic!("{layer} built"),
+            Err(error) => error.to_string(),
+        }
+    };
+    let violin = error(r#"{"geom": "violin"}"#);
+    assert!(
+        violin.contains("at 'layers[0].geom': geom 'violin' is not supported by ggrust yet"),
+        "{violin}"
+    );
+    let dodge = error(r#"{"geom": "point", "position": {"name": "dodge"}}"#);
+    assert!(
+        dodge.contains("position 'dodge' is not supported by ggrust yet"),
+        "{dodge}"
+    );
+    let count = error(r#"{"geom": "point", "stat": "count"}"#);
+    assert!(
+        count.contains("stat 'count' is not supported by ggrust yet"),
+        "{count}"
+    );
+    let typo = error(r#"{"geom": "violn"}"#);
+    assert!(typo.contains("unknown geom 'violn'"), "{typo}");
+}

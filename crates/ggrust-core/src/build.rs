@@ -29,7 +29,7 @@ use crate::scale::{AxisScaleSpec, PositionScale, PositionScales, position_scales
 use crate::scene::{Group, Node, PerItem, Rect, Rects, Scene};
 use crate::spec::{
     Aesthetic, DataSource, GuideOptions, GuideSpec, LayerSpec, Mapping, MappingValue, Options,
-    PlotSpec, Value,
+    PlotSpec, TooltipsSpec, Value,
 };
 use crate::stat::{self, Stat};
 use crate::style::{StyleValues, Styles, parse_constant};
@@ -394,20 +394,26 @@ fn map_layer_into<'a>(
 ) -> Result<MappedLayer<'a>> {
     let path = format!("layers[{index}]");
     let at = |key: &str| format!("{path}.{key}");
-    let geom = geom::geom(&spec.geom)
-        .ok_or_else(|| unknown("geom", &at("geom"), &spec.geom, &geom::names()))?;
+    let geom = geom::geom(&spec.geom).ok_or_else(|| {
+        let planned = geom::NOT_DRAWN_YET.contains(&spec.geom.as_str());
+        unknown("geom", &at("geom"), &spec.geom, planned, &geom::names())
+    })?;
     let stat_name = spec.stat.as_deref().unwrap_or(geom.default_stat());
-    let stat = stat::stat(stat_name)
-        .ok_or_else(|| unknown("stat", &at("stat"), stat_name, &stat::names()))?;
+    let stat = stat::stat(stat_name).ok_or_else(|| {
+        let planned = stat::NOT_COMPUTED_YET.contains(&stat_name);
+        unknown("stat", &at("stat"), stat_name, planned, &stat::names())
+    })?;
     let (position_name, position_options) = match &spec.position {
         Some(position) => (position.name.as_str(), position.parameters.clone()),
         None => (geom.default_position(), Default::default()),
     };
     let position = position::position(position_name).ok_or_else(|| {
+        let planned = position::NOT_APPLIED_YET.contains(&position_name);
         unknown(
             "position",
             &at("position"),
             position_name,
+            planned,
             &position::names(),
         )
     })?;
@@ -1543,9 +1549,15 @@ fn resolve_coord(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<&'static
     }
 }
 
-fn unknown(kind: &str, path: &str, name: &str, supported: &[&str]) -> Error {
+/// `planned`: a lets-plot name that ggrust accepts in its API but does not support yet.
+fn unknown(kind: &str, path: &str, name: &str, planned: bool, supported: &[&str]) -> Error {
+    let problem = if planned {
+        format!("{kind} '{name}' is not supported by ggrust yet")
+    } else {
+        format!("unknown {kind} '{name}'")
+    };
     Error::InvalidSpec(format!(
-        "at '{path}': unknown {kind} '{name}'; supported: {}",
+        "at '{path}': {problem}; supported: {}",
         supported.join(", ")
     ))
 }
@@ -1583,8 +1595,11 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
     ignored(spec.facet.is_some(), "facet");
     ignored(spec.caption.is_some(), "caption");
     ignored(spec.ggtoolbar.is_some(), "ggtb");
+    // `coord_flip` itself is reported once by `resolve_coord`.
     ignored(
-        spec.coord.as_ref().is_some_and(|coord| coord.flip),
+        spec.coord
+            .as_ref()
+            .is_some_and(|coord| coord.flip && coord.name != "flip"),
         "coord flip",
     );
     ignored(
@@ -1603,7 +1618,11 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
                 ));
             }
         };
-        layer_ignored(layer.tooltips.is_some(), "tooltips");
+        // `tooltips="none"` asks for no tooltips: static output already has none.
+        layer_ignored(
+            matches!(layer.tooltips, Some(TooltipsSpec::Lines(_))),
+            "tooltips",
+        );
         layer_ignored(layer.labels.is_some(), "labels");
         layer_ignored(layer.manual_key.is_some(), "manual_key");
     }

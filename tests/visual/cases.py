@@ -463,6 +463,38 @@ def ridges_months(m):
     )
 
 
+def boxplot_brackets(m):
+    random = np.random.default_rng(73)
+    fertilisers = ["none", "compost", "nitrogen"]
+    means = [21.0, 25.0, 31.0]
+    frame = pl.DataFrame(
+        {
+            "fertiliser": np.repeat(fertilisers, 30),
+            "height_cm": np.concatenate([random.normal(mean, 3.0, 30) for mean in means]),
+        }
+    )
+    comparisons = {
+        "xmin": ["none", "compost", "none"],
+        "xmax": ["compost", "nitrogen", "nitrogen"],
+        "y": [38.5, 41.0, 44.0],
+        "label": ["**", "***", "p < 0.0001"],
+    }
+    return (
+        m.ggplot(frame, m.aes("fertiliser", "height_cm", fill="fertiliser"))
+        + m.geom_boxplot(alpha=0.6, show_legend=False)
+        + m.geom_bracket(
+            m.aes(xmin="xmin", xmax="xmax", y="y", label="label"),
+            data=comparisons,
+            size=6,
+            segment_size=0.5,
+            bracket_shorten=0.05,
+        )
+        + m.scale_fill_brewer(palette="Set2")
+        + m.ggtitle("Plant height after six weeks")
+        + m.ggsize(420, 380)
+    )
+
+
 def bars_flipped(m):
     frame = pl.DataFrame(
         {
@@ -514,5 +546,6 @@ CASES = {
         violin_jitterdodge,
         ridges_months,
         bars_flipped,
+        boxplot_brackets,
     ]
 }

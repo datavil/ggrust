@@ -137,19 +137,19 @@ impl Geom for LabelGeom {
 }
 
 /// Resolved look of one text.
-struct Look {
-    content: String,
-    size: f64,
+pub(super) struct Look {
+    pub(super) content: String,
+    pub(super) size: f64,
     font: Font,
     color: Color,
-    angle: f64,
+    pub(super) angle: f64,
     hjust: f64,
     vjust: f64,
     fill: Color,
     alpha: f64,
 }
 
-fn look(styles: &Styles, row: usize, label: bool) -> Result<Look> {
+pub(super) fn look(styles: &Styles, row: usize, label: bool) -> Result<Look> {
     let alpha = styles.numbers(Aesthetic::Alpha)?.get(row);
     let family = FontFamily::from_name(styles.texts(Aesthetic::Family)?.get_ref(row)).0;
     // lets-plot also reads `bold italic` and any letter case.
@@ -245,7 +245,7 @@ fn draw_texts(layer: &DrawLayer, panel: &Panel, label: bool) -> Result<Vec<Node>
 /// `vjust`) of the text block. Lines are one font size apart; `vjust` spans
 /// 0.7 em of the block's height (lets-plot's baseline placement). A power of ten
 /// in the text (`·\(10^{8}\)`) is drawn as a superscript.
-fn draw_one(
+pub(super) fn draw_one(
     look: &Look,
     point: (f64, f64),
     label: bool,

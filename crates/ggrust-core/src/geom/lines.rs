@@ -13,7 +13,7 @@ use crate::Result;
 use crate::parameters::Parameters;
 use crate::scene::{Color, Node, Path, Rect, Stroke};
 use crate::spec::{Aesthetic, Value};
-use crate::style::{StyleDefault, Styles};
+use crate::style::{LineType, StyleDefault, Styles};
 
 /// Style defaults of line geoms (lets-plot: color `#474747`, size 0.75, solid).
 pub(super) const LINE_STYLE_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
@@ -59,17 +59,22 @@ pub(super) fn stroke_with_alpha(
     };
     let width = styles.numbers(Aesthetic::Size)?.get(row) * POINT_UNIT_SIZE;
     let linetype = styles.linetypes(Aesthetic::Linetype)?.get_ref(row);
-    let color = color.with_opacity(alpha);
+    Ok(stroke(color.with_opacity(alpha), width, linetype))
+}
+
+/// A stroke of this color, width (px) and linetype; `None` when nothing is
+/// visible (width 0, blank linetype, transparent).
+pub(super) fn stroke(color: Color, width: f64, linetype: &LineType) -> Option<Stroke> {
     // lets-plot's "blank" linetype is the pattern [0, 1].
     let blank = linetype.0 == [0.0, 1.0];
     if blank || width <= 0.0 || color.alpha == 0 {
-        return Ok(None);
+        return None;
     }
-    Ok(Some(Stroke {
+    Some(Stroke {
         color,
         width,
         dash: linetype.0.iter().map(|length| length * width).collect(),
-    }))
+    })
 }
 
 /// A polyline whose rows have these strokes: consecutive rows with the same

@@ -1270,16 +1270,33 @@ def geom_bracket(
     na_rm=None,
     **other_args,
 ) -> LayerSpec:
-    """Labelled brackets between two x positions (significance marks). Not drawn yet.
+    """Labelled brackets from ``xmin`` to ``xmax`` at height ``y`` (significance marks).
+
+    Unlike most layers, the plot mapping is not inherited and no legend is shown
+    unless ``show_legend=True``, as in lets_plot.
 
     Parameters
     ----------
     mapping : FeatureSpec, optional
-        Aesthetic mapping from ``aes()``: ``xmin``, ``xmax``, ``y``, ``label``.
+        Aesthetic mapping from ``aes()``: ``xmin``, ``xmax``, ``y``, ``label``, and
+        ``color``/``alpha``. Tip lengths (``lenstart``, ``lenend``) and the bracket
+        line (``segment_color``, ``segment_size``, ``segment_alpha``) are constants
+        only in ggrust yet, e.g. ``segment_size=0.5``.
     data : DataFrame or dict, optional
         Layer data; inherits the plot data when None.
+    orientation : str, optional
+        Only ``"x"`` (horizontal brackets) is drawn by ggrust yet.
+    nudge_x, nudge_y : float, optional
+        Shift of the whole bracket in data units.
+    bracket_shorten : float, default 0
+        Pull both ends toward the middle: 0 keeps the full width, 1 collapses it.
+    tiplength_unit : {"size", "res", "identity", "px"}, default "size"
+        Unit of ``lenstart``/``lenend``: point size units (2.2 px), the y resolution,
+        data units, or pixels.
     **other_args
-        Constant aesthetics and the geom's options, as in lets_plot.
+        Constant aesthetics such as ``color="red"`` or ``segment_size=1``, and the
+        geom's options. As in lets_plot; options ggrust does not read yet are
+        reported as not supported.
 
     Returns
     -------

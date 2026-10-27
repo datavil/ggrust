@@ -9,6 +9,7 @@ mod area_ridges;
 mod bar;
 mod blank;
 mod boxplot;
+mod bracket;
 mod jitter;
 mod lines;
 mod path;
@@ -24,6 +25,7 @@ pub use area_ridges::AreaRidgesGeom;
 pub use bar::{BarGeom, HistogramGeom};
 pub use blank::BlankGeom;
 pub use boxplot::BoxplotGeom;
+pub use bracket::BracketGeom;
 pub use jitter::JitterGeom;
 pub use path::{LineGeom, PathGeom};
 pub use point::PointGeom;
@@ -55,6 +57,17 @@ pub trait Geom: Sync {
     /// Position used when the layer names none.
     fn default_position(&self) -> DefaultPosition {
         DefaultPosition::IDENTITY
+    }
+
+    /// Whether the layer takes the plot mapping when `inherit_aes` is not given
+    /// (lets-plot `GeomProto` defaults: false for brackets).
+    fn inherits_aes(&self) -> bool {
+        true
+    }
+
+    /// Whether the layer has legends when `show_legend` is not given.
+    fn shows_legend(&self) -> bool {
+        true
     }
 
     /// Position aesthetics that must be mapped.
@@ -135,12 +148,12 @@ pub static GEOMS: &[&dyn Geom] = &[
     &ViolinGeom,
     &JitterGeom,
     &AreaRidgesGeom,
+    &BracketGeom,
 ];
 
 /// lets-plot geoms the Python API builds but the engine does not draw yet (plan.md).
 /// Remove a name when its geom joins [`GEOMS`].
 pub static NOT_DRAWN_YET: &[&str] = &[
-    "bracket",
     "label_repel",
     "raster",
     "rect",

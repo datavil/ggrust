@@ -117,7 +117,7 @@ impl Aesthetic {
             Alpha | Size | Stroke | Linewidth | Stacksize | Width | Height | Binwidth
             | Violinwidth | Weight | Intercept | Slope | Quantile | Lineheight | Angle | Hjust
             | Vjust | Radius | Slice | Explode | SizeStart | SizeEnd | StrokeStart | StrokeEnd
-            | PointSize | PointStroke | SegmentSize | SegmentAlpha => {
+            | PointSize | PointStroke | SegmentSize | SegmentAlpha | Lenstart | Lenend => {
                 AestheticKind::Style(ValueKind::Number)
             }
             Group => AestheticKind::Group,

@@ -431,7 +431,7 @@ struct PreparedLayer {
     /// See [`ComputedLayer::y_span`].
     y_span: Option<(f64, f64)>,
     styles: Styles,
-    /// `show_legend` (default true).
+    /// `show_legend` (default: the geom's).
     show_legend: bool,
 }
 
@@ -825,7 +825,7 @@ fn compute_layer(
         x_span,
         y_span,
         mapping_paths,
-        show_legend: spec.show_legend.unwrap_or(true),
+        show_legend: spec.show_legend.unwrap_or(geom.shows_legend()),
         warnings,
     })
 }
@@ -844,7 +844,7 @@ struct ComputedLayer {
     y_span: Option<(f64, f64)>,
     /// Where each mapped aesthetic was mapped, for error messages.
     mapping_paths: BTreeMap<Aesthetic, String>,
-    /// `show_legend` (default true).
+    /// `show_legend` (default: the geom's).
     show_legend: bool,
     /// Warnings of this stage.
     warnings: Vec<String>,
@@ -888,7 +888,7 @@ fn style_layer(
 /// Layer mapping over the inherited plot mapping (unless `inherit_aes=False`), and
 /// which aesthetics came from the plot (for error paths).
 fn merged_mapping(plot: &PlotSpec, layer: &LayerSpec) -> (Mapping, BTreeSet<Aesthetic>) {
-    let mut mapping = if layer.inherit_aes.unwrap_or(true) {
+    let mut mapping = if inherits_aes(layer) {
         plot.mapping.clone()
     } else {
         Mapping::new()
@@ -897,6 +897,13 @@ fn merged_mapping(plot: &PlotSpec, layer: &LayerSpec) -> (Mapping, BTreeSet<Aest
     let inherited = mapping.keys().copied().collect();
     mapping.extend(layer.mapping.clone());
     (mapping, inherited)
+}
+
+/// `inherit_aes`, defaulting to the geom's (false for `geom_bracket`).
+fn inherits_aes(layer: &LayerSpec) -> bool {
+    layer
+        .inherit_aes
+        .unwrap_or_else(|| geom::geom(&layer.geom).is_none_or(|geom| geom.inherits_aes()))
 }
 
 /// Explicit `group` columns with their mapping paths: the plot's (when inherited)
@@ -912,7 +919,7 @@ fn explicit_grouping(
         (
             plot.mapping
                 .get(&Aesthetic::Group)
-                .filter(|_| layer.inherit_aes.unwrap_or(true)),
+                .filter(|_| inherits_aes(layer)),
             "mapping.group".to_owned(),
         ),
         (

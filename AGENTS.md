@@ -38,7 +38,8 @@ used from Python**.
 5. **Ask the user** when unsure or stuck on a choice. Do not guess on design decisions.
 6. **Bug-hunting sub agents.** After implementing a step, spin up sub agents whose
    duty is to assume the code is faulty, find the bug, and report back. Fix what they
-   confirm (surgically). Re-verify.
+   confirm (surgically). Re-verify. Use the `bug-hunter` agent
+   (`.claude/agents/bug-hunter.md`, runs on Sonnet) for these.
 7. **Record critical lessons** (an approach that works, or one that breaks things) as
    a file in `memory/` and add it to the index in [memory/README.md](memory/README.md).
 8. **Never cheat benchmarks.** Same data, same work, same output size on both sides.

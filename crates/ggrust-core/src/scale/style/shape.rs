@@ -19,6 +19,9 @@ pub const HOLLOW_SHAPES: [u8; 15] = [1, 2, 0, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 1
 /// lets-plot `ShapeMapper.NA_VALUE` (`TinyPointShape`): not a shape code, drawn as
 /// a 1 px dot.
 pub const NA_SHAPE: u8 = u8::MAX;
+/// Not a shape code: the point is not drawn (missing categories of identity scales,
+/// whose rows lets-plot drops).
+pub const HIDDEN_SHAPE: u8 = u8::MAX - 1;
 
 /// Shapes from a palette.
 #[derive(Debug, Clone, PartialEq)]

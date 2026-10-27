@@ -244,6 +244,8 @@ impl StyleScaleSpec {
                         "at '{path}': expected [low, high] numbers, got {range}"
                     ))
                 })?;
+            // lets-plot `DoubleSpan` sorts the ends: [5, 1] is 1..5.
+            let ends = (ends.0.min(ends.1), ends.0.max(ends.1));
             return Ok(Arc::new(
                 linear.with_range(ends, self.na_number(linear.missing())?),
             ));

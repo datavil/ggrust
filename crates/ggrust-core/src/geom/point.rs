@@ -117,6 +117,15 @@ impl Marker {
         let color = styles.colors(Aesthetic::Color)?.get(row);
         let fill = styles.colors(Aesthetic::Fill)?.get(row);
         let alpha = styles.numbers(Aesthetic::Alpha)?.get(row);
+        if code == crate::scale::style::HIDDEN_SHAPE {
+            return Ok(Marker {
+                shape: MarkerShape::Dot,
+                size: f64::NAN,
+                fill: None,
+                stroke: None,
+                stroke_width: 0.0,
+            });
+        }
         let Some((shape, style)) = MarkerShape::from_code(code) else {
             // lets-plot `TinyPointShape`: a 1 px dot in the color.
             return Ok(Marker {

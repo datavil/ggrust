@@ -25,14 +25,29 @@ FRAME = {
 
 
 def plot(m, mapping, scale):
-    return m.ggplot(FRAME, m.aes("x", "y", **mapping)) + m.geom_point() + scale(m)
+    frame = HUNT if set(mapping.values()) & {"sf", "s", "n", "v"} else FRAME
+    return m.ggplot(frame, m.aes("x", "y", **mapping)) + m.geom_point() + scale(m)
 
+
+HUNT = {
+    "x": [1.0, 2.0, 3.0],
+    "y": [1.0, 2.0, 3.0],
+    "sf": [2.7, 15.2, 21.9],
+    "s": ["2", "4", None],
+    "n": [255.0, 65280.0, 0.0],
+    "v": [-3.0, -2.0, -1.0],
+}
 
 CASES = {
     "color": ({"color": "col"}, lambda m: m.scale_color_identity()),
     "size": ({"size": "size"}, lambda m: m.scale_size_identity()),
     "alpha": ({"alpha": "alpha"}, lambda m: m.scale_alpha_identity()),
     "shape": ({"shape": "shape"}, lambda m: m.scale_shape_identity()),
+    # Bug hunt 1.5c.
+    "shape_floats": ({"shape": "sf"}, lambda m: m.scale_shape_identity()),
+    "size_missing_category": ({"size": "s"}, lambda m: m.scale_size_identity(na_value=8)),
+    "color_numbers": ({"color": "n"}, lambda m: m.scale_color_identity()),
+    "size_range_reversed": ({"size": "sf"}, lambda m: m.scale_size(range=[5, 1], guide="none")),
 }
 
 
@@ -77,3 +92,15 @@ def test_unconvertible_identity_values_fail_like_lets_plot():
     )
     with pytest.raises(ValueError, match="can't use 'nope' as a color"):
         plot.to_svg()
+
+
+def test_size_area_with_a_negative_maximum_draws_nothing_visible():
+    # lets-plot maps every value to a size of 0 or less (DoubleSpan sorts 0..max).
+    plot = (
+        gg.ggplot(HUNT, gg.aes("x", "y", size="v"))
+        + gg.geom_point()
+        + gg.scale_size_area(guide="none")
+    )
+    svg = plot.to_svg()
+    panel = svg[svg.find('<g class="panel"') :]
+    assert "<circle" not in panel[: panel.find('<g class="axis-x"')]

@@ -27,9 +27,12 @@ impl IdentityMapper {
             (ValueKind::Number | ValueKind::Shape, Value::String(text)) => {
                 serde_json::Number::from_f64(text.trim().parse().ok()?).map(Value::Number)?
             }
+            // lets-plot rounds data on a shape identity scale (2.7 is 3), unlike
+            // constants, which truncate.
             (ValueKind::Shape, Value::Number(number)) => {
-                let code = number.as_f64()?;
-                (code.fract() == 0.0 && (0.0..=25.0).contains(&code))
+                let code = number.as_f64()?.round();
+                (0.0..=25.0)
+                    .contains(&code)
                     .then(|| Value::from(code as u64))?
             }
             (_, value) => value.clone(),
@@ -93,6 +96,9 @@ impl StyleMapper for IdentityMapper {
     fn map_continuous(&self, column: &ContinuousColumn, _domain: (f64, f64)) -> StyleValues {
         self.batch((0..column.len()).map(|row| {
             let value = column.get(row).filter(|value| value.is_finite())?;
+            if self.kind == ValueKind::Color {
+                return rgb_integer(value);
+            }
             self.convert(&Value::Number(serde_json::Number::from_f64(value)?))
         }))
     }
@@ -128,12 +134,44 @@ impl StyleMapper for IdentityMapper {
                 }
             })
             .collect::<Result<Vec<_>, String>>()?;
-        Ok(self.batch(
-            indices
-                .iter()
-                .map(|index| index.and_then(|index| converted.get(index).cloned())),
-        ))
+        // lets-plot maps missing categories to null and drops those rows (its
+        // `na_value` is not used here): they get a value that is not drawn.
+        let hidden = self.hidden();
+        Ok(self.batch(indices.iter().map(|index| {
+            Some(
+                index
+                    .and_then(|index| converted.get(index).cloned())
+                    .unwrap_or_else(|| hidden.clone()),
+            )
+        })))
     }
+}
+
+impl IdentityMapper {
+    /// A value that hides the row: transparent, size 0 (NaN), no shape.
+    fn hidden(&self) -> StyleValues {
+        match self.kind {
+            ValueKind::Color => StyleValues::Colors(PerItem::Uniform(Color::TRANSPARENT)),
+            ValueKind::Number => StyleValues::Numbers(PerItem::Uniform(f64::NAN)),
+            ValueKind::Shape => StyleValues::Shapes(PerItem::Uniform(super::HIDDEN_SHAPE)),
+            ValueKind::Linetype | ValueKind::Text => self.na.clone(),
+        }
+    }
+}
+
+/// lets-plot `TypedContinuousIdentityMappers.COLOR`: a number is an RGB integer
+/// (`0xff0000` is red).
+fn rgb_integer(value: f64) -> Option<StyleValues> {
+    let value = value.trunc();
+    if !(0.0..=f64::from(0xff_ffff)).contains(&value) {
+        return None;
+    }
+    let rgb = value as u32;
+    Some(StyleValues::Colors(PerItem::Uniform(Color::rgb(
+        (rgb >> 16) as u8,
+        (rgb >> 8) as u8,
+        rgb as u8,
+    ))))
 }
 
 fn kind_name(kind: ValueKind) -> &'static str {
@@ -163,7 +201,8 @@ mod tests {
             panic!("expected colors");
         };
         assert_eq!(mapped[0], Color::rgb(255, 0, 0));
-        assert_eq!(mapped[1], Color::rgb(128, 128, 128));
+        // A missing category hides the row (lets-plot drops it).
+        assert_eq!(mapped[1], Color::TRANSPARENT);
         let error = colors
             .map_levels(&[Some(0)], &[Level::Text("nope".into())])
             .unwrap_err();
@@ -181,10 +220,16 @@ mod tests {
             kind: ValueKind::Shape,
             na: StyleValues::Shapes(PerItem::Uniform(super::super::NA_SHAPE)),
         };
-        let column = ContinuousColumn::from_options(vec![Some(21.0), Some(2.5)]);
+        // Float codes round; out of range is NA.
+        let column = ContinuousColumn::from_options(vec![Some(21.0), Some(2.5), Some(30.0)]);
         assert_eq!(
             shapes.map_continuous(&column, (0.0, 1.0)),
-            StyleValues::Shapes(PerItem::Varying(vec![21, super::super::NA_SHAPE]))
+            StyleValues::Shapes(PerItem::Varying(vec![21, 3, super::super::NA_SHAPE]))
+        );
+        // Numbers on colors are RGB integers.
+        assert_eq!(
+            colors.map_continuous(&ContinuousColumn::from_values(vec![255.0]), (0.0, 1.0)),
+            StyleValues::Colors(PerItem::Varying(vec![Color::rgb(0, 0, 255)]))
         );
     }
 }

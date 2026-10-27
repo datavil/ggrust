@@ -37,7 +37,7 @@ pub use identity::IdentityMapper;
 pub use manual::ManualColorMapper;
 pub use manual::ManualNumberMapper;
 pub use numeric::{ALPHA, LinearMapper, ProportionalMapper, SIZE, SIZE_AREA_MAX};
-pub use shape::{ALL_SHAPES, HOLLOW_SHAPES, NA_SHAPE, ShapeMapper};
+pub use shape::{ALL_SHAPES, HIDDEN_SHAPE, HOLLOW_SHAPES, NA_SHAPE, ShapeMapper};
 
 use super::breaks::linear_breaks;
 use super::format::{Label, format_breaks};

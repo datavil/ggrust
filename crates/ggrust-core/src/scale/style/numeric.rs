@@ -61,7 +61,9 @@ impl StyleMapper for ProportionalMapper {
     }
 
     fn map_continuous(&self, column: &ContinuousColumn, domain: (f64, f64)) -> StyleValues {
-        let map = linear((0.0, domain.1), (0.0, self.max));
+        // lets-plot `DoubleSpan(0, dataMax)` sorts its ends: a negative maximum
+        // maps it to 0 and smaller values below (nothing is drawn).
+        let map = linear((domain.1.min(0.0), domain.1.max(0.0)), (0.0, self.max));
         let values = (0..column.len())
             .map(|row| {
                 column

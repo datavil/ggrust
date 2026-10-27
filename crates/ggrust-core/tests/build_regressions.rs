@@ -349,15 +349,15 @@ fn lets_plot_names_not_supported_yet_say_so() {
         violin.contains("at 'layers[0].geom': geom 'violin' is not supported by ggrust yet"),
         "{violin}"
     );
-    let dodge = error(r#"{"geom": "point", "position": {"name": "dodge"}}"#);
+    let jitter = error(r#"{"geom": "point", "position": {"name": "jitter"}}"#);
     assert!(
-        dodge.contains("position 'dodge' is not supported by ggrust yet"),
-        "{dodge}"
+        jitter.contains("position 'jitter' is not supported by ggrust yet"),
+        "{jitter}"
     );
-    let count = error(r#"{"geom": "point", "stat": "count"}"#);
+    let ydensity = error(r#"{"geom": "point", "stat": "ydensity"}"#);
     assert!(
-        count.contains("stat 'count' is not supported by ggrust yet"),
-        "{count}"
+        ydensity.contains("stat 'ydensity' is not supported by ggrust yet"),
+        "{ydensity}"
     );
     let typo = error(r#"{"geom": "violn"}"#);
     assert!(typo.contains("unknown geom 'violn'"), "{typo}");

@@ -308,6 +308,70 @@ def annotations(m):
     )
 
 
+def bars_stacked(m):
+    random = np.random.default_rng(21)
+    frame = pl.DataFrame(
+        {
+            "cell_type": random.choice(
+                ["T cell", "B cell", "NK", "Monocyte"], 400, p=[0.4, 0.2, 0.1, 0.3]
+            ),
+            "sample": random.choice(["donor 1", "donor 2", "donor 3"], 400),
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("cell_type", fill="sample"))
+        + m.geom_bar()
+        + m.scale_fill_brewer(palette="Set2")
+        + m.theme_classic()
+        + m.ggsize(500, 350)
+    )
+
+
+def bars_dodged(m):
+    frame = pl.DataFrame(
+        {
+            "month": ["Jan", "Feb", "Mar", "Jan", "Feb", "Mar", "Jan", "Mar"],
+            "fruit": ["apple", "apple", "apple", "pear", "pear", "pear", "plum", "plum"],
+            "sold": [12.0, 18.0, 9.0, 7.0, 11.0, 15.0, 4.0, 6.0],
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("month", "sold", fill="fruit"))
+        + m.geom_bar(stat="identity", position="dodge", color="black", width=0.8)
+        + m.ggtitle("Fruit sold per month")
+    )
+
+
+def histogram_overlap(m):
+    random = np.random.default_rng(5)
+    frame = pl.DataFrame(
+        {
+            "height": np.concatenate([random.normal(165, 7, 300), random.normal(178, 8, 300)]),
+            "group": ["A"] * 300 + ["B"] * 300,
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("height", fill="group"))
+        + m.geom_histogram(binwidth=2.5, position="identity", alpha=0.5, color="white")
+        + m.ggsize(500, 320)
+    )
+
+
+def bars_signed(m):
+    frame = pl.DataFrame(
+        {
+            "year": [2018.0, 2019, 2020, 2021, 2022, 2023],
+            "anomaly": [0.4, -0.2, 0.7, -0.5, 0.1, 0.9],
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("year", "anomaly"))
+        + m.geom_bar(stat="identity", fill="#d95f02")
+        + m.geom_hline(yintercept=0)
+        + m.ggsize(400, 300)
+    )
+
+
 CASES = {
     case.__name__: case
     for case in [
@@ -333,5 +397,9 @@ CASES = {
         fixed_spatial,
         lines_by_group,
         annotations,
+        bars_stacked,
+        bars_dodged,
+        histogram_overlap,
+        bars_signed,
     ]
 }

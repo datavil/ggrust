@@ -600,7 +600,7 @@ def geom_bar(
     na_rm=None,
     **other_args,
 ) -> LayerSpec:
-    """Bars, by default the count of rows per x (``stat="count"``). Not drawn yet.
+    """Bars, by default the count of rows per x (``stat="count"``), stacked.
 
     Parameters
     ----------
@@ -660,7 +660,7 @@ def geom_histogram(
     na_rm=None,
     **other_args,
 ) -> LayerSpec:
-    """Histogram of binned x values (``stat="bin"``). Not drawn yet.
+    """Histogram of binned x values (``stat="bin"``), stacked.
 
     Parameters
     ----------

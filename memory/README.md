@@ -22,3 +22,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Axis labels follow lets-plot](letsplot_label_formats.md): format patterns, POW exponents, decimal rounding, fixed breaks, overlap dropping (open).
 - [Text and line geoms follow lets-plot](letsplot_text_and_lines.md): line width from `size` x 2.2, text 2 px per size, vjust 0.7 em, label box placement, `,~g` numeric labels.
 - [Port checks need a mirrored env](cellestial_port_check.md): worktree + import swap + poetry's exact versions; fresh resolves give false failures.
+- [Bars, stats and positions follow lets-plot](letsplot_bars_and_positions.md): per-group stats, `(low, high]` breaks, stack/dodge formulas, dry-run axis ranges, zero-based y.

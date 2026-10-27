@@ -1,6 +1,6 @@
 //! `stat="identity"`: data passes through unchanged.
 
-use super::Stat;
+use super::{Stat, StatContext};
 use crate::Result;
 use crate::data::LayerData;
 use crate::parameters::Parameters;
@@ -13,7 +13,12 @@ impl Stat for IdentityStat {
         "identity"
     }
 
-    fn compute(&self, data: LayerData, _parameters: &Parameters) -> Result<LayerData> {
+    fn compute(
+        &self,
+        data: LayerData,
+        _parameters: &Parameters,
+        _context: &StatContext,
+    ) -> Result<LayerData> {
         Ok(data)
     }
 }

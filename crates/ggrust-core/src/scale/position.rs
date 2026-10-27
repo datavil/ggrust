@@ -45,6 +45,38 @@ impl PositionScale {
         }))
     }
 
+    /// Positions already in axis units (e.g. a stat's bin centres) with values
+    /// outside the scale limits made missing, as [`Self::positions`] does.
+    pub fn within_limits(&self, column: ContinuousColumn) -> ContinuousColumn {
+        match self {
+            PositionScale::Continuous(scale) if scale.limits != [None, None] => {
+                column.map_values(|value| scale.within_limits(value).then_some(value))
+            }
+            _ => column,
+        }
+    }
+
+    /// Ends of the scale limits in axis units, where given and finite.
+    pub fn limits(&self) -> [Option<f64>; 2] {
+        match self {
+            PositionScale::Continuous(scale) => scale
+                .limits
+                .map(|limit| limit.filter(|value| value.is_finite())),
+            PositionScale::Discrete(_) => [None, None],
+        }
+    }
+
+    /// Widen the domain to include `[low, high]`, even past continuous limits
+    /// (a geom's width span).
+    pub fn train_span(&mut self, low: f64, high: f64) {
+        match self {
+            PositionScale::Continuous(scale) => scale.train_beyond_limits(low, high),
+            PositionScale::Discrete(scale) => {
+                scale.train_numbers(&ContinuousColumn::from_values(vec![low, high]))
+            }
+        }
+    }
+
     /// Widen the domain to include the positions of `column`.
     pub fn train(&mut self, column: &ContinuousColumn) {
         match self {
@@ -66,6 +98,13 @@ impl PositionScale {
         match self {
             PositionScale::Continuous(scale) => scale.map(value),
             PositionScale::Discrete(scale) => scale.map(value),
+        }
+    }
+
+    /// Include 0 without padding past it (bars). Continuous scales only.
+    pub fn set_include_zero(&mut self) {
+        if let PositionScale::Continuous(scale) = self {
+            scale.include_zero = true;
         }
     }
 

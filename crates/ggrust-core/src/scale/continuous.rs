@@ -41,6 +41,12 @@ pub struct ContinuousPositionScale {
     /// `coord_*(xlim=...)` in transformed units: replaces that side of the
     /// expanded domain (no expansion, no data dropped).
     pub coord_limits: [Option<f64>; 2],
+    /// Include 0 and do not pad past it (lets-plot `rangeIncludesZero`, bars).
+    /// Ignored when the limits exclude 0.
+    pub include_zero: bool,
+    /// Ranges that widen the domain even past the limits (bar width spans:
+    /// lets-plot starts from the limits and joins every layer's range).
+    beyond_limits: Option<(f64, f64)>,
 }
 
 impl Default for ContinuousPositionScale {
@@ -55,6 +61,8 @@ impl Default for ContinuousPositionScale {
             labels: None,
             format: None,
             coord_limits: [None, None],
+            include_zero: false,
+            beyond_limits: None,
         }
     }
 }
@@ -83,6 +91,14 @@ impl ContinuousPositionScale {
         });
     }
 
+    /// Widen the domain to include `[low, high]`, even past the limits.
+    pub fn train_beyond_limits(&mut self, low: f64, high: f64) {
+        self.beyond_limits = Some(match self.beyond_limits {
+            Some((current_low, current_high)) => (current_low.min(low), current_high.max(high)),
+            None => (low, high),
+        });
+    }
+
     /// Domain after limits, before expansion. Never empty, zero-width or infinite.
     ///
     /// Non-finite limits are ignored. A one-sided limit without data gives a
@@ -103,9 +119,13 @@ impl ContinuousPositionScale {
                 (low_limit.unwrap_or(low), high_limit.unwrap_or(high))
             }
             (None, Some(value), None) | (None, None, Some(value)) => (value, value),
-            (None, None, None) => return None,
+            (None, None, None) => return self.beyond_limits,
         };
-        Some((low.min(high), low.max(high)))
+        let (low, high) = (low.min(high), low.max(high));
+        Some(match self.beyond_limits {
+            Some((outer_low, outer_high)) => (low.min(outer_low), high.max(outer_high)),
+            None => (low, high),
+        })
     }
 
     /// Domain after limits and expansion: the panel spans exactly this range.
@@ -148,24 +168,36 @@ impl ContinuousPositionScale {
 
     /// The scale's own expanded domain (without coord limits).
     fn scale_domain(&self) -> (f64, f64) {
-        let Some((low, high)) = self.raw_domain() else {
+        let Some((mut low, mut high)) = self.raw_domain() else {
             return (-0.5, 0.5);
         };
+        let [low_limit, high_limit] = self
+            .limits
+            .map(|limit| limit.filter(|value| value.is_finite()));
+        let zero_based = self.include_zero
+            && low_limit.is_none_or(|limit| limit <= 0.0)
+            && high_limit.is_none_or(|limit| limit >= 0.0);
+        if zero_based {
+            low = low.min(0.0);
+            high = high.max(0.0);
+        }
         let transform = self.transform;
         let (low, high) = if transform == Transform::Identity {
             // Halves keep the arithmetic finite near f64::MAX; a span that overflows
             // f64 (e.g. -1e308..1e308) is fine.
             let padding =
                 (high / 2.0 - low / 2.0) * 2.0 * self.multiplicative_expand + self.additive_expand;
+            let (pad_low, pad_high) = zero_end_padding(zero_based, low, high, padding);
             (
-                (low - padding).max(-f64::MAX),
-                (high + padding).min(f64::MAX),
+                (low - pad_low).max(-f64::MAX),
+                (high + pad_high).min(f64::MAX),
             )
         } else {
             let (first, second) = (transform.inverse(low), transform.inverse(high));
             let (data_low, data_high) = (first.min(second), first.max(second));
             let padding =
                 self.additive_expand + (data_high - data_low) * self.multiplicative_expand;
+            let (pad_low, pad_high) = zero_end_padding(zero_based, data_low, data_high, padding);
             let end = |value: f64, fallback: f64| {
                 let transformed = transform.apply_unchecked(value);
                 if transformed.is_nan() {
@@ -174,7 +206,10 @@ impl ContinuousPositionScale {
                     transformed
                 }
             };
-            let (first, second) = (end(data_low - padding, low), end(data_high + padding, high));
+            let (first, second) = (
+                end(data_low - pad_low, low),
+                end(data_high + pad_high, high),
+            );
             (first.min(second), first.max(second))
         };
         widen_degenerate(low, high)
@@ -184,10 +219,14 @@ impl ContinuousPositionScale {
     /// transform's domain or the scale limits (lets-plot drops those rows).
     pub fn transform_value(&self, value: f64) -> Option<f64> {
         let transformed = self.transform.apply(value)?;
+        self.within_limits(transformed).then_some(transformed)
+    }
+
+    /// Whether a value in transformed units lies within the scale limits.
+    pub fn within_limits(&self, transformed: f64) -> bool {
         let [low, high] = self.limits;
-        let inside = low.is_none_or(|low| !low.is_finite() || transformed >= low)
-            && high.is_none_or(|high| !high.is_finite() || transformed <= high);
-        inside.then_some(transformed)
+        low.is_none_or(|low| !low.is_finite() || transformed >= low)
+            && high.is_none_or(|high| !high.is_finite() || transformed <= high)
     }
 
     /// About `target_count` breaks across the expanded domain, as lets-plot's
@@ -298,6 +337,17 @@ impl ContinuousPositionScale {
     }
 }
 
+/// Padding below and above a domain (in data units). Zero-based ranges (bars)
+/// are not padded on their zero end, as lets-plot `PlotUtil.rangeWithExpand`.
+fn zero_end_padding(zero_based: bool, low: f64, high: f64, padding: f64) -> (f64, f64) {
+    let same_side = low == 0.0 || high == 0.0 || low.signum() == high.signum();
+    match (zero_based && same_side, low >= 0.0) {
+        (false, _) => (padding, padding),
+        (true, true) => (0.0, padding),
+        (true, false) => (padding, 0.0),
+    }
+}
+
 /// A zero-width (or rounding-noise) range widened to +/- 0.5 around its low end
 /// (lets-plot `ensureApplicableRange`), or relatively for huge values where
 /// +/- 0.5 would be lost to rounding.
@@ -312,6 +362,17 @@ fn widen_degenerate(low: f64, high: f64) -> (f64, f64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn spans_widen_the_domain_past_limits() {
+        let mut scale = ContinuousPositionScale {
+            limits: [Some(1.5), Some(3.0)],
+            multiplicative_expand: 0.0,
+            ..ContinuousPositionScale::default()
+        };
+        scale.train_beyond_limits(1.55, 3.45);
+        assert_eq!(scale.expanded_domain(), (1.5, 3.45));
+    }
 
     #[test]
     fn trains_and_expands_like_lets_plot() {

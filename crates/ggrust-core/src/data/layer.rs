@@ -24,6 +24,10 @@ pub enum Computed {
     ProportionPercent,
     /// `..sum..`: sum of weights.
     Sum,
+    /// `..sumprop..`: share of the layer total at the location.
+    SumProportion,
+    /// `..sumpct..`: share of the layer total at the location, in percent.
+    SumPercent,
     /// `..scaled..`: density scaled to a maximum of 1 (violin).
     Scaled,
     /// `..violinwidth..`: violin width.
@@ -31,7 +35,7 @@ pub enum Computed {
 }
 
 impl Computed {
-    const ALL: [(Computed, &'static str); 9] = [
+    const ALL: [(Computed, &'static str); 11] = [
         (Computed::Count, "count"),
         (Computed::Density, "density"),
         (Computed::NormalizedCount, "ncount"),
@@ -39,6 +43,8 @@ impl Computed {
         (Computed::Proportion, "prop"),
         (Computed::ProportionPercent, "proppct"),
         (Computed::Sum, "sum"),
+        (Computed::SumProportion, "sumprop"),
+        (Computed::SumPercent, "sumpct"),
         (Computed::Scaled, "scaled"),
         (Computed::ViolinWidth, "violinwidth"),
     ];

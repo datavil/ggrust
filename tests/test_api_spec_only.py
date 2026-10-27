@@ -239,8 +239,8 @@ def test_geom_function_on_frames():
         (lambda: gg.geom_violin(), "geom 'violin' is not supported by ggrust yet"),
         (lambda: gg.geom_boxplot(), "geom 'boxplot' is not supported by ggrust yet"),
         (
-            lambda: gg.geom_point(position=gg.position_dodge()),
-            "position 'dodge' is not supported by ggrust yet",
+            lambda: gg.geom_point(position=gg.position_jitter()),
+            "position 'jitter' is not supported by ggrust yet",
         ),
     ],
 )

@@ -1,13 +1,27 @@
 //! Stats: transform a layer's data before drawing (counts, densities, boxplot
 //! statistics, ...). One file per stat; add it to [`STATS`].
 
+mod bin;
+mod count;
+pub(crate) mod groups;
 mod identity;
 
+pub use bin::{BinStat, bracketing_index};
+pub use count::CountStat;
 pub use identity::IdentityStat;
 
 use crate::Result;
-use crate::data::LayerData;
+use crate::data::{Computed, LayerData};
 use crate::parameters::Parameters;
+use crate::spec::Aesthetic;
+
+/// What a stat may know beyond its own layer (lets-plot `StatContext`).
+#[derive(Debug, Clone, Copy, Default, PartialEq)]
+pub struct StatContext {
+    /// x range over every layer's data, in axis units, with explicit scale
+    /// limits replacing its ends (lets-plot `ConfiguredStatContext.overallXRange`).
+    pub x_range: Option<(f64, f64)>,
+}
 
 /// A statistical transformation.
 pub trait Stat: Sync {
@@ -19,20 +33,40 @@ pub trait Stat: Sync {
         &[]
     }
 
-    /// Transform the layer data.
-    fn compute(&self, data: LayerData, parameters: &Parameters) -> Result<LayerData>;
+    /// Aesthetics the stat reads besides the geom's (e.g. `weight`).
+    fn aesthetics(&self) -> &'static [Aesthetic] {
+        &[]
+    }
+
+    /// Aesthetics that must be mapped (or constant) for the stat to run.
+    fn required_aesthetics(&self) -> &'static [Aesthetic] {
+        &[]
+    }
+
+    /// Computed variables drawn by default when the layer does not map the
+    /// aesthetic itself (lets-plot `Stat.getDefaultMapping`), e.g. y = `..count..`.
+    fn default_mapping(&self) -> &'static [(Aesthetic, Computed)] {
+        &[]
+    }
+
+    /// Transform the layer data. Positions are in axis units (transformed numbers,
+    /// category indices).
+    fn compute(
+        &self,
+        data: LayerData,
+        parameters: &Parameters,
+        context: &StatContext,
+    ) -> Result<LayerData>;
 }
 
 /// Every stat, in one place: lookup and names derive from it.
-pub static STATS: &[&dyn Stat] = &[&IdentityStat];
+pub static STATS: &[&dyn Stat] = &[&IdentityStat, &CountStat, &BinStat];
 
 /// lets-plot stats the Python API builds but the engine does not compute yet
 /// (plan.md). Remove a name when its stat joins [`STATS`].
 pub static NOT_COMPUTED_YET: &[&str] = &[
-    "bin",
     "boxplot",
     "boxplot_outlier",
-    "count",
     "densityridges",
     "sina",
     "ydensity",

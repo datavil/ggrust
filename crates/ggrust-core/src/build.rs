@@ -12,7 +12,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::coord::{self, Coord, Panel};
-use crate::data::{Column, ContinuousColumn, DataFrame, LayerData, group_index};
+use crate::data::{Column, Computed, ContinuousColumn, DataFrame, LayerData, group_index};
 use crate::geom::{self, DrawLayer, Geom};
 use crate::layout::{
     Colorbar, DEFAULT_BINS, KeyGrid, KeyLayer, Legend, LegendBox, LegendKey, Titles,
@@ -31,7 +31,7 @@ use crate::spec::{
     Aesthetic, DataSource, GuideOptions, GuideSpec, LayerSpec, Mapping, MappingValue, Options,
     PlotSpec, TooltipsSpec, Value,
 };
-use crate::stat::{self, Stat};
+use crate::stat::{self, Stat, StatContext};
 use crate::style::{StyleValues, Styles, parse_constant};
 use crate::theme::{LegendPosition, Margins, Theme};
 use crate::{Error, Result};
@@ -137,6 +137,9 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
         .map(|y| (x, y))
     });
     let (mut x_scale, mut y_scale) = axis_scales.map_err(|error| error.with_notes(&warnings))?;
+    if mapped.iter().any(|layer| layer.geom.includes_zero_y()) {
+        y_scale.set_include_zero();
+    }
     if let Some(coord_spec) = &spec.coord {
         for (limits, scale, key) in [
             (coord_spec.xlim, &mut x_scale, "xlim"),
@@ -166,9 +169,12 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
              shape"
         ));
     }
+    let context = StatContext {
+        x_range: overall_x_range(&mapped, &x_scale),
+    };
     let mut computed = Vec::with_capacity(mapped.len());
     for layer in mapped {
-        match compute_layer(layer, [&x_scale, &y_scale]) {
+        match compute_layer(layer, [&x_scale, &y_scale], &context) {
             Ok(mut layer) => {
                 warnings.append(&mut layer.warnings);
                 computed.push(layer);
@@ -194,7 +200,14 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
     }
 
     for layer in &layers {
+        if let Some((low, high)) = layer.x_span {
+            x_scale.train_span(low, high);
+        }
+        let setup = layer.geom.setup_aesthetics();
         for aesthetic in layer.data.aesthetics() {
+            if setup.contains(&aesthetic) {
+                continue;
+            }
             if let Some(column) = layer.data.continuous(aesthetic) {
                 if aesthetic.is_x_position() {
                     x_scale.train(column);
@@ -324,11 +337,27 @@ fn default_scale_name(spec: &PlotSpec, aesthetic: Aesthetic) -> String {
     let mut labels: Vec<String> = Vec::new();
     for layer in &spec.layers {
         let (mapping, _) = merged_mapping(spec, layer);
-        if let Some(name) = mapping.get(&aesthetic).and_then(MappingValue::as_column)
+        // A stat variable is labelled by its name (`..count..` -> `count`), also
+        // when the stat maps it by default (y of `geom_bar`).
+        let name: Option<String> = match mapping.get(&aesthetic) {
+            Some(value) => value
+                .as_column()
+                .map(|name| match Computed::from_mapping(name) {
+                    Some(computed) => computed.as_str().to_owned(),
+                    None => name.to_owned(),
+                }),
+            None => layer_stat(layer).and_then(|stat| {
+                stat.default_mapping()
+                    .iter()
+                    .find(|(mapped, _)| *mapped == aesthetic)
+                    .map(|(_, computed)| computed.as_str().to_owned())
+            }),
+        };
+        if let Some(name) = name
             && name != aesthetic.as_str()
-            && !labels.iter().any(|label| label == name)
+            && !labels.contains(&name)
         {
-            labels.push(name.to_owned());
+            labels.push(name);
         }
     }
     match labels.as_slice() {
@@ -338,6 +367,16 @@ fn default_scale_name(spec: &PlotSpec, aesthetic: Aesthetic) -> String {
         }
         _ => labels.join(", "),
     }
+}
+
+/// The stat a layer runs: its own, else its geom's default. `None` for unknown
+/// names (reported when the layer is mapped).
+fn layer_stat(layer: &LayerSpec) -> Option<&'static dyn Stat> {
+    let name = match &layer.stat {
+        Some(name) => name.as_str(),
+        None => geom::geom(&layer.geom)?.default_stat(),
+    };
+    stat::stat(name)
 }
 
 /// Whether a guide entry is only an axis title from `labs(x=...)` / `labs(y=...)`,
@@ -367,6 +406,8 @@ struct PreparedLayer {
     path: String,
     geom: &'static dyn Geom,
     data: LayerData,
+    /// See [`ComputedLayer::x_span`].
+    x_span: Option<(f64, f64)>,
     styles: Styles,
     /// `show_legend` (default true).
     show_legend: bool,
@@ -435,6 +476,7 @@ fn map_layer_into<'a>(
         plot: data.plot.as_ref(),
     };
     let mut columns = Vec::new();
+    let mut stat_mappings = Vec::new();
     // Discrete non-positional columns, the default grouping (lets-plot
     // `defaultGroupingVariables`), by column name.
     let mut default_grouping: Vec<(&str, Column)> = Vec::new();
@@ -457,7 +499,7 @@ fn map_layer_into<'a>(
         };
         // Checked before the column is fetched: lets-plot ignores an unused
         // aesthetic even when its column does not exist.
-        if !geom_uses(geom, *aesthetic) {
+        if !geom_uses(geom, stat, *aesthetic) {
             // Plot-level x/y are meant for the layers that read them (a
             // `geom_hline` over `ggplot(aes(x, y))` is the usual case): no warning.
             if inherited.contains(aesthetic)
@@ -470,6 +512,11 @@ fn map_layer_into<'a>(
                  the mapping was ignored",
                 geom.name()
             ));
+            continue;
+        }
+        // `..count..`: a variable the stat computes, filled in after the stat.
+        if let Some(computed) = Computed::from_mapping(name) {
+            stat_mappings.push((*aesthetic, computed, mapping_path));
             continue;
         }
         let column = frames.column(name, &mapping_path)?;
@@ -504,6 +551,7 @@ fn map_layer_into<'a>(
         // lets-plot drops the data of a layer with no mapped columns: one row.
         row_count: if unbound { 1 } else { frames.row_count() },
         columns,
+        stat_mappings,
         group_index: if unbound {
             None
         } else {
@@ -526,6 +574,8 @@ struct MappedLayer<'a> {
     row_count: usize,
     /// Mapped columns with their mapping paths; positions not yet scaled.
     columns: Vec<(Aesthetic, Column, String)>,
+    /// Aesthetics mapped to stat variables (`..count..`), with mapping paths.
+    stat_mappings: Vec<(Aesthetic, Computed, String)>,
     group_index: Option<Vec<u32>>,
     /// Warnings of this stage.
     warnings: Vec<String>,
@@ -575,6 +625,7 @@ fn axis_scale(
 fn compute_layer(
     layer: MappedLayer,
     [x_scale, y_scale]: [&PositionScale; 2],
+    context: &StatContext,
 ) -> Result<ComputedLayer> {
     let MappedLayer {
         spec,
@@ -586,6 +637,7 @@ fn compute_layer(
         options,
         row_count,
         columns,
+        stat_mappings,
         group_index,
         mut warnings,
     } = layer;
@@ -633,42 +685,114 @@ fn compute_layer(
         }
     }
 
-    let missing: Vec<&str> = geom
-        .required_aesthetics()
-        .iter()
-        .filter(|aesthetic| !layer_data.contains(**aesthetic))
-        .map(|aesthetic| aesthetic.as_str())
-        .collect();
-    if !missing.is_empty() {
-        return Err(Error::InvalidSpec(format!(
-            "at '{path}': geom_{} requires aesthetics {} (mapped to columns or given as \
-             constants); missing: {}",
-            geom.name(),
-            geom.required_aesthetics()
-                .iter()
-                .map(|aesthetic| aesthetic.as_str())
-                .collect::<Vec<_>>()
-                .join(", "),
-            missing.join(", ")
-        )));
-    }
-
     let parameters = Parameters::new(&options, &path);
-    let layer_data = stat.compute(layer_data, &parameters)?;
+    let is_identity = stat.name() == "identity";
+    if !is_identity {
+        require_aesthetics(
+            &format!("stat_{}", stat.name()),
+            stat.required_aesthetics(),
+            &layer_data,
+            &path,
+        )?;
+        if !spec.na_rm.unwrap_or(false) {
+            report_missing_values(
+                &format!("stat_{}", stat.name()),
+                stat.required_aesthetics(),
+                &layer_data,
+                &path,
+                &mut warnings,
+            );
+        }
+    }
+    let mut layer_data = stat.compute(layer_data, &parameters, context)?;
+    // Aesthetics drawn from stat variables, which are in data units.
+    let mut from_variables = BTreeSet::new();
+    // Stat variables: the layer's `..name..` mappings, then the stat's defaults
+    // for aesthetics the layer leaves to it (lets-plot replaces a mapped column
+    // there too).
+    for (aesthetic, computed, mapping_path) in stat_mappings.iter() {
+        let column = layer_data.get(*computed).cloned().ok_or_else(|| {
+            Error::InvalidSpec(format!(
+                "at '{mapping_path}': stat_{} does not compute '..{}..'",
+                stat.name(),
+                computed.as_str()
+            ))
+        })?;
+        layer_data.insert(*aesthetic, column)?;
+        mapping_paths.insert(*aesthetic, mapping_path.clone());
+        from_variables.insert(*aesthetic);
+    }
+    for (aesthetic, computed) in stat.default_mapping() {
+        if stat_mappings
+            .iter()
+            .any(|(mapped, _, _)| mapped == aesthetic)
+        {
+            continue;
+        }
+        if let Some(column) = layer_data.get(*computed).cloned() {
+            layer_data.insert(*aesthetic, column)?;
+            from_variables.insert(*aesthetic);
+        }
+    }
+    // Stat positions through the scales, as lets-plot maps stat output: variables
+    // (`..count..` on y) are transformed and limited; positions the stat made in
+    // axis units (bin centres) are only limited.
+    if !is_identity {
+        let positions: Vec<Aesthetic> = layer_data
+            .aesthetics()
+            .filter(|aesthetic| aesthetic.is_x_position() || aesthetic.is_y_position())
+            .collect();
+        for aesthetic in positions {
+            let (Some(scale), Some(column)) = (
+                scale_of(aesthetic),
+                layer_data.continuous(aesthetic).cloned(),
+            ) else {
+                continue;
+            };
+            let column = if from_variables.contains(&aesthetic) {
+                scale
+                    .positions(Column::Continuous(column))
+                    .map_err(|message| {
+                        let path = mapping_paths.get(&aesthetic).unwrap_or(&path);
+                        Error::InvalidSpec(format!("at '{path}': {message}"))
+                    })?
+            } else {
+                Column::Continuous(scale.within_limits(column))
+            };
+            layer_data.insert(aesthetic, column)?;
+        }
+    }
+    require_aesthetics(
+        &format!("geom_{}", geom.name()),
+        geom.required_aesthetics(),
+        &layer_data,
+        &path,
+    )?;
+    let layer_data = geom.setup(layer_data, &parameters)?;
+    let x_span = setup_span(geom, &layer_data);
     let position_path = at("position");
     let layer_data = position.adjust(
         layer_data,
         &Parameters::new(&position_options, &position_path),
     )?;
 
-    if !spec.na_rm.unwrap_or(false) {
-        report_missing_positions(geom, &layer_data, &path, &mut warnings);
+    // Missing stat output is deliberate (e.g. `threshold`); input rows the stat
+    // dropped were reported above.
+    if is_identity && !spec.na_rm.unwrap_or(false) {
+        report_missing_values(
+            &format!("geom_{}", geom.name()),
+            geom.required_aesthetics(),
+            &layer_data,
+            &path,
+            &mut warnings,
+        );
     }
     Ok(ComputedLayer {
         options,
         path,
         geom,
         data: layer_data,
+        x_span,
         mapping_paths,
         show_legend: spec.show_legend.unwrap_or(true),
         warnings,
@@ -682,6 +806,9 @@ struct ComputedLayer {
     path: String,
     geom: &'static dyn Geom,
     data: LayerData,
+    /// Range of the setup's x columns before the position adjustment (see
+    /// [`Geom::setup_aesthetics`]).
+    x_span: Option<(f64, f64)>,
     /// Where each mapped aesthetic was mapped, for error messages.
     mapping_paths: BTreeMap<Aesthetic, String>,
     /// `show_legend` (default true).
@@ -716,6 +843,7 @@ fn style_layer(
             path: layer.path,
             geom: layer.geom,
             data: layer.data,
+            x_span: layer.x_span,
             styles,
             show_legend: layer.show_legend,
         },
@@ -835,9 +963,89 @@ impl LayerFrames<'_> {
     }
 }
 
-/// Whether the geom reads an aesthetic (required positions, styles, or `group`).
-fn geom_uses(geom: &dyn Geom, aesthetic: Aesthetic) -> bool {
-    geom.required_aesthetics().contains(&aesthetic)
+/// lets-plot `ConfiguredStatContext.overallXRange`: the x range over every layer's
+/// mapped x (axis units), with finite scale limits replacing its ends.
+fn overall_x_range(layers: &[MappedLayer], x_scale: &PositionScale) -> Option<(f64, f64)> {
+    let mut range: Option<(f64, f64)> = None;
+    for (_, column, _) in layers
+        .iter()
+        .flat_map(|layer| &layer.columns)
+        .filter(|(aesthetic, _, _)| *aesthetic == Aesthetic::X)
+    {
+        let Ok(Column::Continuous(positions)) = x_scale.positions(column.clone()) else {
+            continue;
+        };
+        for row in 0..positions.len() {
+            if let Some(value) = positions.get(row).filter(|value| value.is_finite()) {
+                range = Some(range.map_or((value, value), |(low, high)| {
+                    (low.min(value), high.max(value))
+                }));
+            }
+        }
+    }
+    match (range, x_scale.limits()) {
+        (Some((low, high)), [low_limit, high_limit]) => {
+            Some((low_limit.unwrap_or(low), high_limit.unwrap_or(high)))
+        }
+        (None, [Some(low), Some(high)]) => Some((low, high)),
+        (None, _) => None,
+    }
+}
+
+/// Finite range of the geom's setup columns on the x axis.
+fn setup_span(geom: &dyn Geom, data: &LayerData) -> Option<(f64, f64)> {
+    let mut span: Option<(f64, f64)> = None;
+    for aesthetic in geom.setup_aesthetics() {
+        let Some(column) = data
+            .continuous(*aesthetic)
+            .filter(|_| aesthetic.is_x_position())
+        else {
+            continue;
+        };
+        for row in 0..column.len() {
+            if let Some(value) = column.get(row).filter(|value| value.is_finite()) {
+                span = Some(span.map_or((value, value), |(low, high)| {
+                    (low.min(value), high.max(value))
+                }));
+            }
+        }
+    }
+    span
+}
+
+/// Error unless every aesthetic in `required` has a column (mapped, constant or
+/// computed). `owner` names who needs them, e.g. `geom_bar`.
+fn require_aesthetics(
+    owner: &str,
+    required: &[Aesthetic],
+    data: &LayerData,
+    path: &str,
+) -> Result<()> {
+    let missing: Vec<&str> = required
+        .iter()
+        .filter(|aesthetic| !data.contains(**aesthetic))
+        .map(|aesthetic| aesthetic.as_str())
+        .collect();
+    if missing.is_empty() {
+        return Ok(());
+    }
+    Err(Error::InvalidSpec(format!(
+        "at '{path}': {owner} requires aesthetics {} (mapped to columns or given as \
+         constants); missing: {}",
+        required
+            .iter()
+            .map(|aesthetic| aesthetic.as_str())
+            .collect::<Vec<_>>()
+            .join(", "),
+        missing.join(", ")
+    )))
+}
+
+/// Whether the layer reads an aesthetic: the geom's (required positions, styles)
+/// or the stat's (e.g. `weight`).
+fn geom_uses(geom: &dyn Geom, stat: &dyn Stat, aesthetic: Aesthetic) -> bool {
+    stat.aesthetics().contains(&aesthetic)
+        || geom.required_aesthetics().contains(&aesthetic)
         || geom.optional_aesthetics().contains(&aesthetic)
         || geom
             .style_defaults()
@@ -1503,15 +1711,16 @@ fn label_texts(column: &Column) -> StyleValues {
     StyleValues::Texts(PerItem::Varying(texts))
 }
 
-/// Warn when rows cannot be drawn because a required position is missing.
-fn report_missing_positions(
-    geom: &dyn Geom,
+/// Warn when rows cannot be used because a required aesthetic is missing.
+/// `owner` names who needs them, e.g. `geom_point`.
+fn report_missing_values(
+    owner: &str,
+    required: &[Aesthetic],
     data: &LayerData,
     path: &str,
     warnings: &mut Vec<String>,
 ) {
-    let required: Vec<_> = geom
-        .required_aesthetics()
+    let required: Vec<_> = required
         .iter()
         .filter_map(|aesthetic| data.continuous(*aesthetic))
         .collect();
@@ -1525,8 +1734,7 @@ fn report_missing_positions(
     if removed > 0 {
         warnings.push(format!(
             "at '{path}': removed {removed} rows containing missing, non-finite or out-of-limits values \
-             (geom_{}); pass na_rm=True to silence",
-            geom.name()
+             ({owner}); pass na_rm=True to silence"
         ));
     }
 }
@@ -1649,7 +1857,7 @@ mod tests {
         let mut mapped =
             map_layer(0, &spec.layers[0], spec, &cells()).map_err(|(error, _)| error)?;
         warnings.append(&mut mapped.warnings);
-        let mut computed = compute_layer(mapped, [x_scale, y_scale])?;
+        let mut computed = compute_layer(mapped, [x_scale, y_scale], &StatContext::default())?;
         warnings.append(&mut computed.warnings);
         let (layer, mut layer_warnings) =
             style_layer(computed, &BTreeMap::new()).map_err(|(error, _)| error)?;

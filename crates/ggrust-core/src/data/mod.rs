@@ -10,6 +10,7 @@
 mod column;
 mod group;
 mod layer;
+mod resolution;
 
 use arrow_array::{RecordBatch, new_empty_array};
 use arrow_schema::{Schema, SchemaRef};
@@ -17,6 +18,7 @@ use arrow_schema::{Schema, SchemaRef};
 pub use column::{Column, ContinuousColumn, DiscreteColumn};
 pub use group::group_index;
 pub use layer::{Computed, LayerData, SourceRows, Variable};
+pub use resolution::resolution;
 
 use crate::{Error, Result};
 

@@ -264,6 +264,30 @@ impl DiscreteColumn {
         }
     }
 
+    /// A column with these codes into this column's levels (e.g. one value per
+    /// stat row). Levels no row uses are dropped; the rest keep their order.
+    pub fn with_codes(&self, codes: &[Option<u32>]) -> DiscreteColumn {
+        let mut used = vec![false; self.levels.len()];
+        for code in codes.iter().flatten() {
+            used[*code as usize] = true;
+        }
+        let mut remap = vec![0_u32; self.levels.len()];
+        let mut levels = Vec::new();
+        for (index, level) in self.levels.iter().enumerate() {
+            if used[index] {
+                remap[index] = levels.len() as u32;
+                levels.push(level.clone());
+            }
+        }
+        DiscreteColumn {
+            levels: levels.into(),
+            codes: codes
+                .iter()
+                .map(|code| code.map(|code| remap[code as usize]))
+                .collect(),
+        }
+    }
+
     /// Union of levels in first-seen order, with codes remapped.
     fn merge(columns: &[&DiscreteColumn]) -> Self {
         let mut level_index: HashMap<&str, u32> = HashMap::new();

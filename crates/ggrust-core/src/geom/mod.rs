@@ -5,6 +5,7 @@
 //! defaults, extra parameters); the build stage validates the layer against that,
 //! resolves styles (mapped -> constant -> default) and calls [`Geom::draw`].
 
+mod bar;
 mod blank;
 mod lines;
 mod path;
@@ -14,6 +15,7 @@ mod reference_line;
 mod segment;
 mod text;
 
+pub use bar::{BarGeom, HistogramGeom};
 pub use blank::BlankGeom;
 pub use path::{LineGeom, PathGeom};
 pub use point::PointGeom;
@@ -62,6 +64,26 @@ pub trait Geom: Sync {
         &[]
     }
 
+    /// Whether the y axis must include 0 and not pad past it (lets-plot
+    /// `rangeIncludesZero`, bars).
+    fn includes_zero_y(&self) -> bool {
+        false
+    }
+
+    /// Prepare the stat's output for the position adjustment, e.g. turn bars into
+    /// `xmin`/`xmax`/`ymin`/`ymax` (axis units).
+    fn setup(&self, data: LayerData, _parameters: &Parameters) -> Result<LayerData> {
+        Ok(data)
+    }
+
+    /// Position columns made by [`Self::setup`] (e.g. bar `xmin`/`xmax`/`ymin`/
+    /// `ymax`). As lets-plot's dry-run ranges, they do not train the axes after
+    /// the position adjustment; those on the x axis train before it (the bar's
+    /// width span), so dodged bars keep the undodged range.
+    fn setup_aesthetics(&self) -> &'static [Aesthetic] {
+        &[]
+    }
+
     /// Draw the layer into scene nodes (in panel pixel space).
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>>;
 
@@ -91,16 +113,16 @@ pub static GEOMS: &[&dyn Geom] = &[
     &TextGeom,
     &LabelGeom,
     &BlankGeom,
+    &BarGeom,
+    &HistogramGeom,
 ];
 
 /// lets-plot geoms the Python API builds but the engine does not draw yet (plan.md).
 /// Remove a name when its geom joins [`GEOMS`].
 pub static NOT_DRAWN_YET: &[&str] = &[
     "area_ridges",
-    "bar",
     "boxplot",
     "bracket",
-    "histogram",
     "jitter",
     "label_repel",
     "raster",

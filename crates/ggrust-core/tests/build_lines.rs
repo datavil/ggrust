@@ -333,3 +333,78 @@ fn blank_draws_nothing_but_trains_the_scales() {
         .any(|node| matches!(node, Node::Text(_) | Node::Group(_)));
     assert!(has_text);
 }
+
+#[test]
+fn arrow_on_a_line_with_varying_style_has_heads_only_at_the_ends() {
+    let built = build(
+        r#"{"geom": "path", "mapping": {"size": "y"},
+            "arrow": {"name": "arrow", "ends": "both"}}"#,
+        frame(
+            vec![1.0, 2.0, 3.0, 4.0],
+            vec![1.0, 1.0, 5.0, 5.0],
+            vec!["a"; 4],
+        ),
+    );
+    // Two styled pieces (size 1, size 5) plus one head per outer end; heads at
+    // the style change would add two more.
+    assert_eq!(paths(&built).len(), 4);
+}
+
+#[test]
+fn blank_with_a_color_mapping_keeps_its_legend() {
+    let built = build(r#"{"geom": "blank", "mapping": {"color": "g"}}"#, simple());
+    assert!(built.warnings.is_empty(), "{:?}", built.warnings);
+    let legend = built
+        .scene
+        .nodes
+        .iter()
+        .any(|node| matches!(node, Node::Group(group) if group.role == Some("legend")));
+    assert!(legend);
+}
+
+#[test]
+fn vjust_moves_the_baseline_by_lets_plots_span() {
+    let at = |vjust: f64| {
+        let built = build(
+            &format!(r#"{{"geom": "text", "label": "word", "size": 20, "vjust": {vjust}}}"#),
+            frame(vec![1.0], vec![1.0], vec!["a"]),
+        );
+        texts(&built)[0].y
+    };
+    // 0.7 em of a 40 px font between vjust 0 and 1 (lets-plot), text lower for 1.
+    assert!((at(1.0) - at(0.0) - 28.0).abs() < 1e-9);
+}
+
+#[test]
+fn bold_italic_with_a_space_is_read() {
+    let built = build(
+        r#"{"geom": "text", "label": "w", "fontface": "Bold Italic"}"#,
+        frame(vec![1.0], vec![1.0], vec!["a"]),
+    );
+    assert_eq!(
+        texts(&built)[0].font.face,
+        ggrust_core::text::FontFace::BoldItalic
+    );
+}
+
+#[test]
+fn label_vjust_one_hangs_the_box_from_the_point() {
+    let built = build(
+        r#"{"geom": "label", "label": "w", "vjust": 1}, {"geom": "point"}"#,
+        frame(vec![1.0], vec![1.0], vec!["a"]),
+    );
+    let top = paths(&built)[0]
+        .points
+        .iter()
+        .map(|point| point.1)
+        .fold(f64::MAX, f64::min);
+    let point_y = panel(&built)
+        .nodes
+        .iter()
+        .find_map(|node| match node {
+            Node::Points(points) => Some(points.y[0]),
+            _ => None,
+        })
+        .unwrap();
+    assert!((top - point_y).abs() < 1e-9, "{top} vs {point_y}");
+}

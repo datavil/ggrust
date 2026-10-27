@@ -185,7 +185,7 @@ fn kotlin_to_double(text: &str) -> Option<f64> {
 
 /// `x·\(10^{n}\) rest` -> `x·10` with superscript `n` (minus as U+2212, as
 /// lets-plot draws it) and `rest` after it; a second power stays as `10^n` text.
-fn power_label(text: String) -> Label {
+pub(crate) fn power_label(text: String) -> Label {
     const OPEN: &str = "\\(10^{";
     const CLOSE: &str = "}\\)";
     let Some(start) = text.find(OPEN) else {

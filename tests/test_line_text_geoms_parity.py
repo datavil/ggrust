@@ -167,3 +167,70 @@ def test_label_box_is_as_tall_as_lets_plot():
         return _plot(m, lambda m: m.geom_label(m.aes(label="g"), size=6))
 
     assert heights(build(gg).to_svg()) == heights(build(lp).to_svg())
+
+
+def _text_contents(svg: str) -> list[str]:
+    """Visible text of every label-sized <text> (tspans joined, powers as ^n)."""
+    found = []
+    for tag, body in re.findall(r"<text\b([^>]*)>(.*?)</text>", svg, re.S):
+        attributes = _attributes(tag)
+        size = attributes.get("font-size") or re.search(
+            r"font-size:([\d.]+)px", attributes.get("style", "")
+        )
+        size = float(size if isinstance(size, str) else size.group(1)) if size else 0
+        if size != 14.0:
+            continue
+        # lets-plot: tspans, the power in a 0.7em one; ggrust: text, then the
+        # power in a raised (negative dy) tspan.
+        text = ""
+        for piece in re.split(r"(<tspan[^>]*>.*?</tspan>)", body, flags=re.S):
+            match = re.fullmatch(r"<tspan([^>]*)>(.*?)</tspan>", piece, re.S)
+            if not match:
+                text += piece.strip()
+                continue
+            tspan, content = match.groups()
+            content = content.replace("\u200b", "")
+            if 'font-size="0.1em"' in tspan:
+                continue
+            raised = 'font-size="0.7em"' in tspan or re.search(r'dy="-', tspan)
+            text += ("^" + content) if raised and content else content
+        found.append(text.strip())
+    return found
+
+
+def test_numeric_labels_format_like_lets_plot():
+    values = [1.0, 0.1 + 0.2, 1e20, float("nan"), 1e-7, 123456789.0, 1234.5]
+    data = {"x": list(range(7)), "y": [0.0] * 7, "v": values}
+
+    def build(m):
+        return m.ggplot(data, m.aes("x", "y", label="v")) + m.geom_text()
+
+    ours = _text_contents(build(gg).to_svg())
+    reference = _text_contents(build(lp).to_svg())
+    assert ours == reference, (ours, reference)
+
+
+def test_newlines_make_separate_lines():
+    def build(m):
+        return _plot(m, lambda m: m.geom_text(label="a\nb", x=1, y=1), data={"x": [1], "y": [1]})
+
+    assert _text_contents(build(gg).to_svg()) == ["a", "b"]
+    assert _text_contents(build(lp).to_svg()) == ["a", "b"]
+
+
+@pytest.mark.parametrize("hjust", ["left", "middle", "center", "right"])
+def test_justification_names_are_accepted(hjust):
+    svg = _plot(gg, lambda m: m.geom_text(m.aes(label="g"), hjust=hjust, vjust="top")).to_svg()
+    assert _text_contents(svg)
+
+
+def test_label_alpha_fades_the_box_fill_only():
+    def opacities(svg):
+        texts = re.findall(r"<text\b([^>]*)>\s*(?:<tspan>)?a<", svg)
+        text_opacity = {round(float(_attributes(tag).get("fill-opacity", 1)), 2) for tag in texts}
+        return text_opacity
+
+    def build(m):
+        return _plot(m, lambda m: m.geom_label(label="a", x=1, y=1, alpha=0.5, fill="yellow"))
+
+    assert opacities(build(gg).to_svg()) == opacities(build(lp).to_svg()) == {1.0}

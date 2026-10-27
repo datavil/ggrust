@@ -22,6 +22,7 @@ use crate::layout::{
 use crate::parameters::Parameters;
 use crate::position::{self, Position};
 use crate::scale::format::Label;
+use crate::scale::number_format::{ExponentStyle, NumberFormat};
 use crate::scale::style::spec::{StyleScaleSpec, style_scale_specs};
 use crate::scale::style::{LegendEntry, StyleScale, default_mapper};
 use crate::scale::{AxisScaleSpec, PositionScale, PositionScales, position_scales};
@@ -854,10 +855,8 @@ fn normalize_options(options: &Options, path: &str, warnings: &mut Vec<String>) 
             "colour" | "col" => "color",
             other => other,
         };
-        if normalized
-            .insert(canonical.to_owned(), value.clone())
-            .is_some()
-        {
+        let value = justification_number(canonical, value).unwrap_or_else(|| value.clone());
+        if normalized.insert(canonical.to_owned(), value).is_some() {
             warnings.push(format!(
                 "at '{path}.{name}': '{canonical}' is given twice (as an alias too); the \
                  value of '{name}' was used"
@@ -865,6 +864,21 @@ fn normalize_options(options: &Options, path: &str, warnings: &mut Vec<String>) 
         }
     }
     normalized
+}
+
+/// `hjust`/`vjust` given by name, as lets-plot accepts them: `left`/`bottom` 0,
+/// `middle`/`center` 0.5, `right`/`top` 1. Other values are left as they are.
+fn justification_number(name: &str, value: &Value) -> Option<Value> {
+    let Value::String(text) = value else {
+        return None;
+    };
+    let number = match (name, text.as_str()) {
+        ("hjust", "left") | ("vjust", "bottom") => 0.0,
+        ("hjust" | "vjust", "middle" | "center") => 0.5,
+        ("hjust", "right") | ("vjust", "top") => 1.0,
+        _ => return None,
+    };
+    Some(Value::from(number))
 }
 
 /// Warn about position options the position does not read.
@@ -1456,21 +1470,29 @@ fn resolve_styles(
     Ok(styles)
 }
 
-/// A column's values as label texts: levels as they are, numbers without a
-/// trailing `.0`, missing values as empty text.
+/// A column's values as label texts: levels as they are, numbers formatted as
+/// lets-plot does.
 fn label_texts(column: &Column) -> StyleValues {
+    // lets-plot formats numeric labels as `,~g` with powers of ten (`1.23457·10⁸`)
+    // and writes missing values as `n/a`.
+    const MISSING: &str = "n/a";
     let texts = match column {
         Column::Discrete(column) => (0..column.len())
-            .map(|row| column.label(row).unwrap_or_default().to_owned())
+            .map(|row| column.label(row).unwrap_or(MISSING).to_owned())
             .collect(),
-        Column::Continuous(column) => (0..column.len())
-            .map(|row| {
-                column
-                    .get(row)
-                    .map(|value| value.to_string())
-                    .unwrap_or_default()
-            })
-            .collect(),
+        Column::Continuous(column) => {
+            let format = NumberFormat::parse(",~g").map(|mut format| {
+                format.exponent_style = ExponentStyle::Power;
+                format
+            });
+            (0..column.len())
+                .map(|row| match (column.get(row), &format) {
+                    (Some(value), Some(format)) if value.is_finite() => format.apply(value),
+                    (Some(value), None) if value.is_finite() => value.to_string(),
+                    _ => MISSING.to_owned(),
+                })
+                .collect()
+        }
     };
     StyleValues::Texts(PerItem::Varying(texts))
 }

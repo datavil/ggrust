@@ -152,9 +152,15 @@ fn draw_paths(layer: &DrawLayer, panel: &Panel, sort_by_x: bool) -> Result<Vec<N
                         .iter()
                         .map(|&row| lines::stroke_at(layer.styles, row))
                         .collect::<Result<Vec<Option<Stroke>>>>()?;
-                    for mut path in lines::styled_paths(run_points, &strokes) {
+                    let pieces = lines::styled_paths(run_points, &strokes);
+                    let piece_count = pieces.len();
+                    for (index, mut path) in pieces.into_iter().enumerate() {
                         if let (Some(arrow), Some(stroke)) = (arrow, path.stroke.clone()) {
-                            let heads = arrow.apply(&mut path.points, &stroke);
+                            // Heads only at the outer ends of the whole line.
+                            let at_start = index == 0 && path.points[0] == run_points[0];
+                            let at_end =
+                                index + 1 == piece_count && path.points.last() == run_points.last();
+                            let heads = arrow.apply_at(&mut path.points, &stroke, at_start, at_end);
                             nodes.push(Node::Path(path));
                             nodes.extend(heads);
                         } else {

@@ -160,19 +160,37 @@ impl Arrow {
     /// Draw heads at the requested ends of `points` and pull those ends back by
     /// the line width so the line does not poke through the tip (as lets-plot).
     pub(super) fn apply(&self, points: &mut [(f64, f64)], stroke: &Stroke) -> Vec<Node> {
+        self.apply_at(points, stroke, true, true)
+    }
+
+    /// [`Arrow::apply`] limited to the ends that are ends of the whole line:
+    /// a line split into styled pieces gets heads only at its outer ends.
+    pub(super) fn apply_at(
+        &self,
+        points: &mut [(f64, f64)],
+        stroke: &Stroke,
+        at_start: bool,
+        at_end: bool,
+    ) -> Vec<Node> {
         let mut heads = Vec::new();
         if points.len() < 2 {
             return heads;
         }
+        // Both heads are aimed from the original vertices, before any pull-back.
+        let original = points.to_vec();
         let last = points.len() - 1;
         if self.last
-            && let Some(head) = self.head(points, last, last - 1, stroke)
+            && at_end
+            && let Some((head, pulled)) = self.head(&original, last, last - 1, stroke)
         {
+            points[last] = pulled;
             heads.push(head);
         }
         if self.first
-            && let Some(head) = self.head(points, 0, 1, stroke)
+            && at_start
+            && let Some((head, pulled)) = self.head(&original, 0, 1, stroke)
         {
+            points[0] = pulled;
             heads.push(head);
         }
         heads
@@ -180,11 +198,11 @@ impl Arrow {
 
     fn head(
         &self,
-        points: &mut [(f64, f64)],
+        points: &[(f64, f64)],
         tip_index: usize,
         neighbour_index: usize,
         stroke: &Stroke,
-    ) -> Option<Node> {
+    ) -> Option<(Node, (f64, f64))> {
         let (tip_x, tip_y) = points[tip_index];
         let (neighbour_x, neighbour_y) = points[neighbour_index];
         let (dx, dy) = (neighbour_x - tip_x, neighbour_y - tip_y);
@@ -201,16 +219,16 @@ impl Arrow {
             )
         };
         let tip = (tip_x, tip_y);
-        points[tip_index] = (
-            tip_x + back_x * stroke.width.min(distance),
-            tip_y + back_y * stroke.width.min(distance),
-        );
-        Some(Node::Path(Path {
+        // At most half the line, so pulling back both ends cannot cross over.
+        let pull = stroke.width.min(distance / 2.0);
+        let pulled = (tip_x + back_x * pull, tip_y + back_y * pull);
+        let head = Node::Path(Path {
             points: vec![barb(1.0), tip, barb(-1.0)],
             closed: self.closed,
             fill: self.closed.then_some(stroke.color),
             stroke: Some(Stroke::solid(stroke.color, stroke.width)),
-        }))
+        });
+        Some((head, pulled))
     }
 }
 

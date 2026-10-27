@@ -8,11 +8,14 @@
 //! turns it counter-clockwise, `nudge_x`/`nudge_y` shift it in data units.
 //!
 //! What it does not do (yet): `label_format`, `na_text`, `check_overlap`,
-//! `halo_*`, multi-line `lineheight`, `size_unit`.
+//! `halo_*`, `lineheight` (lines are one font size apart), `size_unit`,
+//! `hjust`/`vjust` `inward`/`outward`.
 
 use super::{DrawLayer, Geom};
 use crate::Result;
 use crate::coord::Panel;
+use crate::scale::format::Label;
+use crate::scale::label_pattern::power_label;
 use crate::scene::{Color, HorizontalAlign, Node, Path, Rect, Stroke, Text, VerticalAlign};
 use crate::spec::Aesthetic;
 use crate::style::{StyleDefault, Styles};
@@ -25,6 +28,8 @@ const LABEL_RADIUS: f64 = 0.15;
 const LABEL_BORDER: f64 = 1.0;
 /// Segments per rounded corner.
 const CORNER_STEPS: usize = 6;
+/// lets-plot moves the baseline 0.7 em from `vjust = 0` to `vjust = 1`.
+const VJUST_SPAN: f64 = 0.7;
 
 const TEXT_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
     (Aesthetic::Label, StyleDefault::Text("")),
@@ -147,16 +152,25 @@ struct Look {
 fn look(styles: &Styles, row: usize, label: bool) -> Result<Look> {
     let alpha = styles.numbers(Aesthetic::Alpha)?.get(row);
     let family = FontFamily::from_name(styles.texts(Aesthetic::Family)?.get_ref(row)).0;
-    let face =
-        FontFace::from_name(styles.texts(Aesthetic::Fontface)?.get_ref(row)).unwrap_or_default();
+    // lets-plot also reads `bold italic` and any letter case.
+    let face_name = styles
+        .texts(Aesthetic::Fontface)?
+        .get_ref(row)
+        .trim()
+        .to_lowercase()
+        .replace(' ', "_");
+    let face = FontFace::from_name(&face_name).unwrap_or_default();
+    let color = styles.colors(Aesthetic::Color)?.get(row);
     Ok(Look {
         content: styles.texts(Aesthetic::Label)?.get_ref(row).clone(),
         size: styles.numbers(Aesthetic::Size)?.get(row) * TEXT_UNIT_SIZE,
         font: Font { family, face },
-        color: styles
-            .colors(Aesthetic::Color)?
-            .get(row)
-            .with_opacity(alpha),
+        // A label's alpha applies to its box fill only (lets-plot).
+        color: if label {
+            color
+        } else {
+            color.with_opacity(alpha)
+        },
         angle: styles.numbers(Aesthetic::Angle)?.get(row),
         hjust: styles.numbers(Aesthetic::Hjust)?.get(row),
         vjust: styles.numbers(Aesthetic::Vjust)?.get(row),
@@ -228,7 +242,9 @@ fn draw_texts(layer: &DrawLayer, panel: &Panel, label: bool) -> Result<Vec<Node>
 }
 
 /// The text (and box) of one row, placed so that the point sits at (`hjust`,
-/// `vjust`) of the text box.
+/// `vjust`) of the text block. Lines are one font size apart; `vjust` spans
+/// 0.7 em of the block's height (lets-plot's baseline placement). A power of ten
+/// in the text (`·\(10^{8}\)`) is drawn as a superscript.
 fn draw_one(
     look: &Look,
     point: (f64, f64),
@@ -237,43 +253,82 @@ fn draw_one(
     padding: f64,
     radius: f64,
 ) -> Vec<Node> {
-    let width = text::measure(&look.content, look.size, look.font).width;
+    let lines: Vec<Label> = look
+        .content
+        .split('\n')
+        .map(|line| power_label(line.to_owned()))
+        .collect();
+    let widths: Vec<f64> = lines
+        .iter()
+        .map(|line| {
+            text::measure_label(
+                &line.text,
+                line.superscript.as_deref(),
+                line.suffix.as_deref(),
+                look.size,
+                look.font,
+            )
+        })
+        .collect();
+    let width = widths.iter().copied().fold(0.0, f64::max);
+    let line_count = lines.len() as f64;
     let (sin, cos) = look.angle.to_radians().sin_cos();
-    // Offset of the text centre from the point, in the text's own frame (y down).
-    let local = ((0.5 - look.hjust) * width, (look.vjust - 0.5) * look.size);
+    // Offset of the block centre from the point, in the text's own frame (y down).
+    let block_height = line_count * look.size;
+    let pad = if label { padding * look.size } else { 0.0 };
+    // A label is placed by its box (its top at the point for vjust = 1, as
+    // lets-plot); plain text by its baselines.
+    let centre_offset = if label {
+        (
+            (0.5 - look.hjust) * (width + 2.0 * pad),
+            (look.vjust - 0.5) * (block_height + 2.0 * pad),
+        )
+    } else {
+        (
+            (0.5 - look.hjust) * width,
+            (look.vjust - 0.5) * VJUST_SPAN * look.size
+                - (1.0 - look.vjust) * (line_count - 1.0) * look.size
+                + (line_count - 1.0) * look.size / 2.0,
+        )
+    };
     let rotate =
         |(dx, dy): (f64, f64)| (point.0 + dx * cos + dy * sin, point.1 - dx * sin + dy * cos);
-    let centre = rotate(local);
     let mut nodes = Vec::new();
     if label {
-        let pad = padding * look.size;
-        let (half_width, half_height) = (width / 2.0 + pad, look.size / 2.0 + pad);
+        let (half_width, half_height) = (width / 2.0 + pad, block_height / 2.0 + pad);
         let ring = rounded_box(half_width, half_height, radius * 2.0 * half_height);
         let points = ring
             .into_iter()
-            .map(|(dx, dy)| rotate((local.0 + dx, local.1 + dy)))
+            .map(|(dx, dy)| rotate((centre_offset.0 + dx, centre_offset.1 + dy)))
             .collect();
         let fill = look.fill.with_opacity(look.alpha);
         nodes.push(Node::Path(Path {
             points,
             closed: true,
             fill: (fill.alpha > 0).then_some(fill),
-            stroke: (border > 0.0).then(|| Stroke::solid(look.color.with_opacity(1.0), border)),
+            stroke: (border > 0.0).then(|| Stroke::solid(look.color, border)),
         }));
     }
-    nodes.push(Node::Text(Text {
-        content: look.content.clone(),
-        superscript: None,
-        suffix: None,
-        x: centre.0,
-        y: centre.1,
-        size: look.size,
-        font: look.font,
-        color: look.color,
-        horizontal: HorizontalAlign::Middle,
-        vertical: VerticalAlign::Middle,
-        angle: look.angle,
-    }));
+    for (index, (line, line_width)) in lines.into_iter().zip(widths).enumerate() {
+        // Line centres, one font size apart, around the block centre.
+        let line_offset = (index as f64 - (line_count - 1.0) / 2.0) * look.size;
+        // Each line aligned within the block by hjust (left-aligned for 0).
+        let line_shift = (look.hjust - 0.5) * (width - line_width);
+        let (x, y) = rotate((centre_offset.0 + line_shift, centre_offset.1 + line_offset));
+        nodes.push(Node::Text(Text {
+            content: line.text,
+            superscript: line.superscript,
+            suffix: line.suffix,
+            x,
+            y,
+            size: look.size,
+            font: look.font,
+            color: look.color,
+            horizontal: HorizontalAlign::Middle,
+            vertical: VerticalAlign::Middle,
+            angle: look.angle,
+        }));
+    }
     nodes
 }
 

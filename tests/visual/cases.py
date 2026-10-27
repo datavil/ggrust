@@ -263,6 +263,51 @@ def fixed_spatial(m):
     )
 
 
+def lines_by_group(m):
+    random = np.random.default_rng(29)
+    days = np.arange(30, dtype=float)
+    frame = pl.DataFrame(
+        {
+            "day": np.concatenate([days, days, days]),
+            "temperature": np.concatenate(
+                [
+                    12 + 6 * np.sin(days / 5) + random.normal(0, 0.8, 30),
+                    18 + 4 * np.sin(days / 6) + random.normal(0, 0.8, 30),
+                    8 + 3 * np.cos(days / 4) + random.normal(0, 0.8, 30),
+                ]
+            ),
+            "city": ["Oslo"] * 30 + ["Rome"] * 30 + ["Reykjavik"] * 30,
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("day", "temperature", color="city"))
+        + m.geom_line(size=1)
+        + m.geom_hline(yintercept=10, linetype="dashed", color="grey")
+        + m.geom_vline(xintercept=15, linetype="dotted")
+        + m.ggtitle("Daily temperature")
+    )
+
+
+def annotations(m):
+    shapes = pl.DataFrame(
+        {
+            "x": [1.0, 3.0, 2.0, 4.0, 6.0, 5.0],
+            "y": [1.0, 1.0, 3.0, 2.0, 2.0, 4.5],
+            "shape": ["left", "left", "left", "right", "right", "right"],
+        }
+    )
+    notes = pl.DataFrame({"x": [2.0, 5.0], "y": [3.4, 4.9], "note": ["peak A", "peak B"]})
+    return (
+        m.ggplot(shapes, m.aes("x", "y"))
+        + m.geom_polygon(m.aes(fill="shape"), alpha=0.6, color="black")
+        + m.geom_segment(x=3.5, y=4.5, xend=2.2, yend=3.2, arrow=m.arrow(type="closed"), size=0.8)
+        + m.geom_label(m.aes(label="note"), data=notes, size=6)
+        + m.geom_text(x=3.5, y=0.6, label="baseline", fontface="italic", hjust=0)
+        + m.geom_path(m.aes(x="x", y="y"), data=notes, linetype="longdash")
+        + m.geom_blank(m.aes(x="x", y="y"), data=pl.DataFrame({"x": [0.0, 7.0], "y": [0.0, 5.5]}))
+    )
+
+
 CASES = {
     case.__name__: case
     for case in [
@@ -286,5 +331,7 @@ CASES = {
         point_shapes,
         size_scales,
         fixed_spatial,
+        lines_by_group,
+        annotations,
     ]
 }

@@ -5,9 +5,22 @@
 //! defaults, extra parameters); the build stage validates the layer against that,
 //! resolves styles (mapped -> constant -> default) and calls [`Geom::draw`].
 
+mod blank;
+mod lines;
+mod path;
 mod point;
+mod polygon;
+mod reference_line;
+mod segment;
+mod text;
 
+pub use blank::BlankGeom;
+pub use path::{LineGeom, PathGeom};
 pub use point::PointGeom;
+pub use polygon::PolygonGeom;
+pub use reference_line::{HorizontalLineGeom, VerticalLineGeom};
+pub use segment::SegmentGeom;
+pub use text::{LabelGeom, TextGeom};
 
 use crate::Result;
 use crate::coord::Panel;
@@ -34,6 +47,11 @@ pub trait Geom: Sync {
 
     /// Position aesthetics that must be mapped.
     fn required_aesthetics(&self) -> &'static [Aesthetic];
+
+    /// Position aesthetics the geom accepts but does not need (`geom_blank`).
+    fn optional_aesthetics(&self) -> &'static [Aesthetic] {
+        &[]
+    }
 
     /// Style aesthetics the geom draws with, and their defaults, in lets-plot's
     /// rendered order (legends follow it).
@@ -62,7 +80,18 @@ pub trait Geom: Sync {
 }
 
 /// Every geom, in one place: lookup and names derive from it.
-pub static GEOMS: &[&dyn Geom] = &[&PointGeom];
+pub static GEOMS: &[&dyn Geom] = &[
+    &PointGeom,
+    &PathGeom,
+    &LineGeom,
+    &SegmentGeom,
+    &PolygonGeom,
+    &VerticalLineGeom,
+    &HorizontalLineGeom,
+    &TextGeom,
+    &LabelGeom,
+    &BlankGeom,
+];
 
 /// Look up a geom by its lets-plot name.
 pub fn geom(name: &str) -> Option<&'static dyn Geom> {

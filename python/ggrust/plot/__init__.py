@@ -2,7 +2,19 @@
 
 from ggrust.plot.coord import coord_cartesian, coord_fixed
 from ggrust.plot.core import aes, layer
-from ggrust.plot.geom import geom_point
+from ggrust.plot.geom import (
+    geom_blank,
+    geom_hline,
+    geom_label,
+    geom_line,
+    geom_path,
+    geom_point,
+    geom_polygon,
+    geom_segment,
+    geom_text,
+    geom_vline,
+)
+from ggrust.plot.geom_extras import arrow
 from ggrust.plot.guide import guide_colorbar, guide_legend, guides
 from ggrust.plot.label import ggtitle, labs, xlab, ylab
 from ggrust.plot.plot import ggplot, ggsize
@@ -85,6 +97,7 @@ from ggrust.plot.tooltip import layer_tooltips
 
 __all__ = [
     "aes",
+    "arrow",
     "coord_cartesian",
     "coord_fixed",
     "element_blank",
@@ -99,7 +112,16 @@ __all__ = [
     "flavor_solarized_dark",
     "flavor_solarized_light",
     "flavor_standard",
+    "geom_blank",
+    "geom_hline",
+    "geom_label",
+    "geom_line",
+    "geom_path",
     "geom_point",
+    "geom_polygon",
+    "geom_segment",
+    "geom_text",
+    "geom_vline",
     "ggplot",
     "ggsize",
     "ggtitle",

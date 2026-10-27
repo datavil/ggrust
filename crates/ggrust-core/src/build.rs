@@ -451,6 +451,13 @@ fn map_layer_into<'a>(
         // Checked before the column is fetched: lets-plot ignores an unused
         // aesthetic even when its column does not exist.
         if !geom_uses(geom, *aesthetic) {
+            // Plot-level x/y are meant for the layers that read them (a
+            // `geom_hline` over `ggplot(aes(x, y))` is the usual case): no warning.
+            if inherited.contains(aesthetic)
+                && (aesthetic.is_x_position() || aesthetic.is_y_position())
+            {
+                continue;
+            }
             warnings.push(format!(
                 "at '{mapping_path}': geom_{} does not use aesthetic '{aesthetic}' (yet); \
                  the mapping was ignored",
@@ -824,6 +831,7 @@ impl LayerFrames<'_> {
 /// Whether the geom reads an aesthetic (required positions, styles, or `group`).
 fn geom_uses(geom: &dyn Geom, aesthetic: Aesthetic) -> bool {
     geom.required_aesthetics().contains(&aesthetic)
+        || geom.optional_aesthetics().contains(&aesthetic)
         || geom
             .style_defaults()
             .iter()
@@ -1419,6 +1427,8 @@ fn resolve_styles(
     for &(aesthetic, default) in geom.style_defaults() {
         let mapped = data.get(aesthetic);
         let values = match (mapped, style_scales.get(&aesthetic)) {
+            // Text labels are the column's values, not a scale's output.
+            (Some(column), _) if aesthetic == Aesthetic::Label => label_texts(column),
             (Some(column), Some(scale)) => scale.map(column).map_err(|message| {
                 Error::InvalidSpec(format!("at '{path}.mapping.{aesthetic}': {message}"))
             })?,
@@ -1444,6 +1454,25 @@ fn resolve_styles(
         styles.insert(aesthetic, values)?;
     }
     Ok(styles)
+}
+
+/// A column's values as label texts: levels as they are, numbers without a
+/// trailing `.0`, missing values as empty text.
+fn label_texts(column: &Column) -> StyleValues {
+    let texts = match column {
+        Column::Discrete(column) => (0..column.len())
+            .map(|row| column.label(row).unwrap_or_default().to_owned())
+            .collect(),
+        Column::Continuous(column) => (0..column.len())
+            .map(|row| {
+                column
+                    .get(row)
+                    .map(|value| value.to_string())
+                    .unwrap_or_default()
+            })
+            .collect(),
+    };
+    StyleValues::Texts(PerItem::Varying(texts))
 }
 
 /// Warn when rows cannot be drawn because a required position is missing.

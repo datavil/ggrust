@@ -3,8 +3,10 @@
 //! One file per coordinate system; add it to [`COORDS`].
 
 mod cartesian;
+mod fixed;
 
 pub use cartesian::Cartesian;
+pub use fixed::Fixed;
 
 use crate::scale::PositionScale;
 use crate::scene::Rect;
@@ -16,10 +18,15 @@ pub trait Coord: Sync {
 
     /// Pixel position of a point whose scaled coordinates are `x`, `y` in 0..1.
     fn map(&self, x: f64, y: f64, panel: Rect) -> (f64, f64);
+
+    /// Whether the panel keeps a fixed aspect ratio (`coord_fixed(ratio=...)`).
+    fn fixes_aspect(&self) -> bool {
+        false
+    }
 }
 
 /// Every coordinate system, in one place: lookup and names derive from it.
-pub static COORDS: &[&dyn Coord] = &[&Cartesian];
+pub static COORDS: &[&dyn Coord] = &[&Cartesian, &Fixed];
 
 /// Look up a coordinate system by its lets-plot name.
 pub fn coord(name: &str) -> Option<&'static dyn Coord> {

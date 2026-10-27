@@ -15,6 +15,8 @@ from ggrust._render import GgrustWarning
 from ggrust.mapping import as_discrete
 from ggrust.plot import (
     aes,
+    coord_cartesian,
+    coord_fixed,
     element_blank,
     element_geom,
     element_line,
@@ -103,6 +105,8 @@ __all__ = [
     "__version__",
     "aes",
     "as_discrete",
+    "coord_cartesian",
+    "coord_fixed",
     "element_blank",
     "element_geom",
     "element_line",

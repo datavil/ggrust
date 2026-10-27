@@ -246,6 +246,23 @@ def size_scales(m):
     )
 
 
+def fixed_spatial(m):
+    random = np.random.default_rng(28)
+    frame = pl.DataFrame(
+        {
+            "x": random.uniform(0, 1000, 500),
+            "y": random.uniform(0, 600, 500),
+            "cluster": [f"c{index}" for index in random.integers(0, 4, 500)],
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("x", "y", color="cluster"))
+        + m.geom_point(size=1.5)
+        + m.coord_fixed(xlim=[0, 1000], ylim=[0, 600])
+        + m.ggtitle("Spatial spots")
+    )
+
+
 CASES = {
     case.__name__: case
     for case in [
@@ -268,5 +285,6 @@ CASES = {
         labelled_axes,
         point_shapes,
         size_scales,
+        fixed_spatial,
     ]
 }

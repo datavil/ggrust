@@ -1,5 +1,6 @@
 """lets_plot-compatible plot specification API."""
 
+from ggrust.plot.coord import coord_cartesian, coord_fixed
 from ggrust.plot.core import aes, layer
 from ggrust.plot.geom import geom_point
 from ggrust.plot.guide import guide_colorbar, guide_legend, guides
@@ -84,6 +85,8 @@ from ggrust.plot.tooltip import layer_tooltips
 
 __all__ = [
     "aes",
+    "coord_cartesian",
+    "coord_fixed",
     "element_blank",
     "element_geom",
     "element_line",

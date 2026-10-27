@@ -136,6 +136,29 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
         .map(|y| (x, y))
     });
     let (mut x_scale, mut y_scale) = axis_scales.map_err(|error| error.with_notes(&warnings))?;
+    if let Some(coord_spec) = &spec.coord {
+        for (limits, scale, key) in [
+            (coord_spec.xlim, &mut x_scale, "xlim"),
+            (coord_spec.ylim, &mut y_scale, "ylim"),
+        ] {
+            let Some(limits) = limits else { continue };
+            // lets-plot rejects reversed coord limits ("Invalid coord ylim").
+            if let [Some(low), Some(high)] = limits
+                && low > high
+            {
+                return Err(Error::InvalidSpec(format!(
+                    "at 'coord.{key}': expected [low, high] with low <= high, got [{low}, {high}]"
+                ))
+                .with_notes(&warnings));
+            }
+            scale.set_coord_limits(limits);
+        }
+    }
+    let aspect = spec
+        .coord
+        .as_ref()
+        .filter(|_| coord.fixes_aspect())
+        .map(|coord_spec| coord_spec.ratio.unwrap_or(1.0));
     let mut computed = Vec::with_capacity(mapped.len());
     for layer in mapped {
         match compute_layer(layer, [&x_scale, &y_scale]) {
@@ -196,7 +219,15 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
         .map_or(Margins::uniform(0.0), |block| {
             legend_space(&theme, block.size)
         });
-    let layout = layout_plot(area, &theme, &titles, &x_scale, &y_scale, legend_space);
+    let layout = layout_plot(
+        area,
+        &theme,
+        &titles,
+        &x_scale,
+        &y_scale,
+        legend_space,
+        aspect,
+    );
     let panel = Panel {
         rect: layout.panel,
         x_scale: &x_scale,
@@ -1467,6 +1498,15 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
             ));
         }
     }
+    if let Some(coord) = &spec.coord
+        && coord.ratio.is_some()
+        && coord.name != "fixed"
+    {
+        warnings.push(format!(
+            "at 'coord.ratio': only coord_fixed has a ratio; ignored for coord_{}",
+            coord.name
+        ));
+    }
     let mut ignored = |present: bool, feature: &str| {
         if present {
             warnings.push(format!("'{feature}' is not supported yet and was ignored"));
@@ -1476,10 +1516,8 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
     ignored(spec.caption.is_some(), "caption");
     ignored(spec.ggtoolbar.is_some(), "ggtb");
     ignored(
-        spec.coord.as_ref().is_some_and(|coord| {
-            coord.xlim.is_some() || coord.ylim.is_some() || coord.ratio.is_some() || coord.flip
-        }),
-        "coord limits / ratio / flip",
+        spec.coord.as_ref().is_some_and(|coord| coord.flip),
+        "coord flip",
     );
     ignored(
         !spec.data_meta.mapping_annotations.is_empty()

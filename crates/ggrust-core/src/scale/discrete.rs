@@ -37,6 +37,9 @@ pub struct DiscretePositionScale {
     pub labels: Option<Vec<String>>,
     /// `format=...` for the category names.
     pub format: Option<LabelPattern>,
+    /// `coord_*(xlim=...)` in positions (category 0, 1, ...): replaces that side
+    /// of the expanded domain.
+    pub coord_limits: [Option<f64>; 2],
 }
 
 impl Default for DiscretePositionScale {
@@ -53,6 +56,7 @@ impl Default for DiscretePositionScale {
             extra_breaks: 0,
             labels: None,
             format: None,
+            coord_limits: [None, None],
         }
     }
 }
@@ -183,7 +187,24 @@ impl DiscretePositionScale {
 
     /// Domain after expansion (in position units), like lets-plot: categories span
     /// 0..n-1 joined with any numbers, plus the expansion; zero-width widens to +/- 0.5.
+    ///
+    /// Coord limits then replace their sides exactly.
     pub fn expanded_domain(&self) -> (f64, f64) {
+        let (low, high) = self.scale_domain();
+        let [coord_low, coord_high] = self.coord_limits;
+        if coord_low.is_none() && coord_high.is_none() {
+            return (low, high);
+        }
+        let (low, high) = (coord_low.unwrap_or(low), coord_high.unwrap_or(high));
+        let (low, high) = (low.min(high), low.max(high));
+        if high - low < 1e-50 {
+            return (low - 0.5, low + 0.5);
+        }
+        (low, high)
+    }
+
+    /// The scale's own expanded domain (without coord limits).
+    fn scale_domain(&self) -> (f64, f64) {
         let count = self.level_count();
         let categories = (count > 0).then(|| (0.0, (count - 1) as f64));
         let range = match (categories, self.numeric_range) {
@@ -220,7 +241,13 @@ impl DiscretePositionScale {
             positions: Vec::new(),
             labels: Vec::new(),
         };
+        // Categories outside the domain (zoomed out by coord limits) get no break.
+        let (low, high) = self.expanded_domain();
+        let tolerance = (high - low) * 1e-9;
         for (position, &level) in levels.iter().enumerate() {
+            if !(low - tolerance..=high + tolerance).contains(&(position as f64)) {
+                continue;
+            }
             let label_index = match &self.break_levels {
                 Some(break_levels) => match break_levels.iter().position(|known| known == level) {
                     Some(index) => index,

@@ -38,6 +38,9 @@ pub struct ContinuousPositionScale {
     pub labels: Option<Vec<String>>,
     /// `format=...` for labels not given in `labels`.
     pub format: Option<LabelPattern>,
+    /// `coord_*(xlim=...)` in transformed units: replaces that side of the
+    /// expanded domain (no expansion, no data dropped).
+    pub coord_limits: [Option<f64>; 2],
 }
 
 impl Default for ContinuousPositionScale {
@@ -51,6 +54,7 @@ impl Default for ContinuousPositionScale {
             fixed_breaks: None,
             labels: None,
             format: None,
+            coord_limits: [None, None],
         }
     }
 }
@@ -111,7 +115,34 @@ impl ContinuousPositionScale {
     /// expansion is computed in data units (`PlotUtil.rangeWithExpand`): ends that
     /// cannot be transformed back (e.g. a padded log axis reaching below 0) stay
     /// unexpanded.
+    ///
+    /// Coord limits then replace their sides exactly (lets-plot zooms the panel
+    /// to them without expansion).
     pub fn expanded_domain(&self) -> (f64, f64) {
+        let (low, high) = self.scale_domain();
+        match self.coord_limits {
+            [None, None] => (low, high),
+            [coord_low, coord_high] => {
+                let (low, high) = (coord_low.unwrap_or(low), coord_high.unwrap_or(high));
+                widen_degenerate(low.min(high), low.max(high))
+            }
+        }
+    }
+
+    /// Set coord limits given in data units (transformed here; a side outside the
+    /// transform's domain stays open).
+    pub fn set_coord_limits(&mut self, limits: [Option<f64>; 2]) {
+        let [low, high] = limits.map(|limit| limit.and_then(|value| self.transform.apply(value)));
+        self.coord_limits = match (low, high) {
+            (Some(low), Some(high)) => [Some(low.min(high)), Some(low.max(high))],
+            // Reverse runs the other way: a lower data limit is an upper position.
+            _ if self.transform == Transform::Reverse => [high, low],
+            _ => [low, high],
+        };
+    }
+
+    /// The scale's own expanded domain (without coord limits).
+    fn scale_domain(&self) -> (f64, f64) {
         let Some((low, high)) = self.raw_domain() else {
             return (-0.5, 0.5);
         };

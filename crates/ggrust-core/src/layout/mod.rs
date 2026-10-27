@@ -72,13 +72,59 @@ pub struct PlotLayout {
 }
 
 /// Lay out a plot inside `area` (the whole canvas for a single plot; a grid cell
-/// later), keeping `legend_space` free for legends.
+/// later), keeping `legend_space` free for legends. With an `aspect` ratio
+/// (`coord_fixed`: one y unit is `aspect` x units on screen) the panel shrinks to
+/// keep it, and the plot (panel, axes, axis titles) is centred in `area`, as in
+/// lets-plot.
 ///
 /// As lets-plot (`TopDownTileLayout.computeAxisInfos`): y axis for the estimated
 /// height, then x axis for the resulting width; if the x labels need a thicker band
 /// (tilted, two rows), the y axis is laid out again for the shorter panel while the
 /// x breaks and their arrangement are kept.
 pub fn layout_plot(
+    area: Rect,
+    theme: &Theme,
+    titles: &Titles,
+    x_scale: &PositionScale,
+    y_scale: &PositionScale,
+    legend_space: Margins,
+    aspect: Option<f64>,
+) -> PlotLayout {
+    let layout = layout_free(area, theme, titles, x_scale, y_scale, legend_space);
+    let Some(ratio) = aspect.filter(|ratio| ratio.is_finite() && *ratio > 0.0) else {
+        return layout;
+    };
+    let span = |scale: &PositionScale| {
+        let (low, high) = scale.expanded_domain();
+        high - low
+    };
+    let (x_span, y_span) = (span(x_scale), span(y_scale));
+    let (width, height) = (layout.panel.width, layout.panel.height);
+    // Pixels per unit: y must be `ratio` times x.
+    let wanted_height = ratio * width / x_span * y_span;
+    let shrunk = if wanted_height < height {
+        let cut = height - wanted_height;
+        Rect {
+            y: area.y + cut / 2.0,
+            height: area.height - cut,
+            ..area
+        }
+    } else {
+        let cut = width - height * x_span / (ratio * y_span);
+        Rect {
+            x: area.x + cut / 2.0,
+            width: area.width - cut,
+            ..area
+        }
+    };
+    if !(shrunk.width > 0.0 && shrunk.height > 0.0) || shrunk == area {
+        return layout;
+    }
+    layout_free(shrunk, theme, titles, x_scale, y_scale, legend_space)
+}
+
+/// [`layout_plot`] without an aspect ratio: the panel takes the space left.
+fn layout_free(
     area: Rect,
     theme: &Theme,
     titles: &Titles,
@@ -657,7 +703,15 @@ mod tests {
                 width: 400.0,
                 height: 300.0,
             };
-            layout_plot(area, &theme, &titles, &scale, &scale, Margins::uniform(0.0))
+            layout_plot(
+                area,
+                &theme,
+                &titles,
+                &scale,
+                &scale,
+                Margins::uniform(0.0),
+                None,
+            )
         };
         let (origin, moved) = (at(0.0, 0.0), at(250.0, 40.0));
         assert_eq!(moved.panel.x, origin.panel.x + 250.0);

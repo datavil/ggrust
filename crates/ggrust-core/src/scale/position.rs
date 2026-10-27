@@ -69,6 +69,15 @@ impl PositionScale {
         }
     }
 
+    /// `coord_*(xlim=...)`: zoom to these data limits (either side open).
+    pub fn set_coord_limits(&mut self, limits: [Option<f64>; 2]) {
+        let finite = limits.map(|limit| limit.filter(|value| value.is_finite()));
+        match self {
+            PositionScale::Continuous(scale) => scale.set_coord_limits(finite),
+            PositionScale::Discrete(scale) => scale.coord_limits = finite,
+        }
+    }
+
     /// Whether the breaks are fixed (every category, or `breaks=[...]`): the axis
     /// shows all of them instead of choosing a count.
     pub fn has_fixed_breaks(&self) -> bool {

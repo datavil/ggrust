@@ -16,6 +16,7 @@ use std::collections::HashMap;
 
 use super::bar::{draw_key, key_size};
 use super::lines;
+use super::quantiles::{quantile_line_rows, split_by_band};
 use super::{DrawLayer, Geom};
 use crate::coord::Panel;
 use crate::data::{Column, ContinuousColumn, LayerData, resolution};
@@ -68,6 +69,10 @@ impl Geom for ViolinGeom {
     }
 
     fn setup_aesthetics(&self) -> &'static [Aesthetic] {
+        &[Aesthetic::Xmin, Aesthetic::Xmax]
+    }
+
+    fn span_aesthetics(&self) -> &'static [Aesthetic] {
         &[Aesthetic::Xmin, Aesthetic::Xmax]
     }
 
@@ -213,67 +218,4 @@ impl Geom for ViolinGeom {
     fn draw_key(&self, styles: &Styles, cell: Rect) -> Result<Vec<Node>> {
         draw_key(styles, cell)
     }
-}
-
-/// Rows sorted by (band, y), split where the band changes (lets-plot
-/// `QuantilesHelper.splitByQuantiles`); a missing band joins its run.
-fn split_by_band(
-    rows: &[usize],
-    band_of: impl Fn(usize) -> f64,
-    y: &ContinuousColumn,
-) -> Vec<Vec<usize>> {
-    let mut sorted = rows.to_vec();
-    sorted.sort_by(|left, right| {
-        band_of(*left).total_cmp(&band_of(*right)).then(
-            y.get(*left)
-                .unwrap_or(0.0)
-                .total_cmp(&y.get(*right).unwrap_or(0.0)),
-        )
-    });
-    let mut runs: Vec<Vec<usize>> = Vec::new();
-    for (index, &row) in sorted.iter().enumerate() {
-        let joins = index > 0 && {
-            let (previous, current) = (band_of(sorted[index - 1]), band_of(row));
-            !(previous.is_finite() && current.is_finite()) || previous == current
-        };
-        match runs.last_mut() {
-            Some(run) if joins => run.push(row),
-            _ => runs.push(vec![row]),
-        }
-    }
-    runs
-}
-
-/// lets-plot `QuantilesHelper.getQuantileLineElements`: from the top, the first
-/// point of each quantile band (quantiles descending) carries its line.
-fn quantile_line_rows(
-    rows: &[usize],
-    band_of: impl Fn(usize) -> f64,
-    y: &ContinuousColumn,
-    quantiles: &[f64],
-) -> Vec<usize> {
-    let mut sorted = rows.to_vec();
-    sorted.sort_by(|left, right| {
-        band_of(*left).total_cmp(&band_of(*right)).then(
-            y.get(*left)
-                .unwrap_or(0.0)
-                .total_cmp(&y.get(*right).unwrap_or(0.0)),
-        )
-    });
-    sorted.reverse();
-    let mut descending = quantiles.to_vec();
-    descending.sort_by(|left, right| right.total_cmp(left));
-    let mut found = Vec::new();
-    let mut index = 0;
-    for quantile in descending {
-        while index < sorted.len() {
-            let row = sorted[index];
-            index += 1;
-            if band_of(row) == quantile {
-                found.push(row);
-                break;
-            }
-        }
-    }
-    found
 }

@@ -301,6 +301,19 @@ const BUILT_OPTIONS: &[&str] = &[
 ];
 
 impl Theme {
+    /// The theme with every x and y axis element swapped (`coord_flip`: lets-plot
+    /// keeps elements with their aesthetic, so x's go to the vertical axis).
+    pub fn flipped(&self) -> Theme {
+        let mut theme = self.clone();
+        std::mem::swap(&mut theme.axis_title_x, &mut theme.axis_title_y);
+        std::mem::swap(&mut theme.axis_text_x, &mut theme.axis_text_y);
+        std::mem::swap(&mut theme.axis_ticks_x, &mut theme.axis_ticks_y);
+        std::mem::swap(&mut theme.axis_line_x, &mut theme.axis_line_y);
+        std::mem::swap(&mut theme.panel_grid_major_x, &mut theme.panel_grid_major_y);
+        std::mem::swap(&mut theme.panel_grid_minor_x, &mut theme.panel_grid_minor_y);
+        theme
+    }
+
     /// The theme of a spec (named theme + `theme(...)` options + flavor). Options and
     /// element properties ggrust does not draw yet are reported in `warnings`.
     pub fn from_spec(spec: Option<&ThemeSpec>, warnings: &mut Vec<String>) -> Result<Theme> {

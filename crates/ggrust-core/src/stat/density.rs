@@ -9,9 +9,13 @@
 //!
 //! What it does not do: weighted bandwidths (weights only scale the kernels).
 
+use std::collections::HashMap;
 use std::f64::consts::PI;
 
+use rayon::prelude::*;
+
 use super::boxplot::quantile;
+use crate::data::ContinuousColumn;
 use crate::parameters::Parameters;
 use crate::spec::Value;
 use crate::{Error, Result};
@@ -250,6 +254,73 @@ pub fn estimate(
         grid,
         count,
     }
+}
+
+/// Finite (value, weight) pairs of `rows` per finite bin, bins in first
+/// appearance (lets-plot `handleBinnedData`). Without a bin column every row is in
+/// bin 0; without weights every weight is 1.
+pub fn collect_bins(
+    rows: &[usize],
+    bin: Option<&ContinuousColumn>,
+    value: &ContinuousColumn,
+    weight: Option<&ContinuousColumn>,
+) -> Vec<(f64, Vec<(f64, f64)>)> {
+    let mut bins: Vec<(f64, Vec<(f64, f64)>)> = Vec::new();
+    let mut slot_by_bin: HashMap<u64, usize> = HashMap::new();
+    for &row in rows {
+        let location = bin.map_or(Some(0.0), |bin| bin.get(row));
+        let weight = weight.map_or(Some(1.0), |weight| weight.get(row));
+        let (Some(location), Some(value), Some(weight)) = (location, value.get(row), weight) else {
+            continue;
+        };
+        if !(location.is_finite() && value.is_finite() && weight.is_finite()) {
+            continue;
+        }
+        let slot = *slot_by_bin.entry(location.to_bits()).or_insert_with(|| {
+            bins.push((location, Vec::new()));
+            bins.len() - 1
+        });
+        bins[slot].1.push((value, weight));
+    }
+    bins
+}
+
+/// The densities of every bin (in parallel, joined in bin order) as columns bin,
+/// grid value, density, count, scaled, quantile band (lets-plot `binnedStat`).
+pub fn estimate_bins(
+    bins: Vec<(f64, Vec<(f64, f64)>)>,
+    options: &DensityOptions,
+    quantiles: &[f64],
+    overall: (f64, f64),
+) -> [Vec<f64>; 6] {
+    let per_bin: Vec<[Vec<f64>; 6]> = bins
+        .into_par_iter()
+        .map(|(location, mut pairs)| {
+            pairs.sort_by(|left, right| left.0.total_cmp(&right.0));
+            let (values, weights): (Vec<f64>, Vec<f64>) = pairs.into_iter().unzip();
+            let estimate = estimate(&values, &weights, options, overall);
+            let bands = quantile_bands(&estimate.grid, &estimate.count, quantiles);
+            let mut bin = vec![
+                estimate.grid,
+                bands,
+                estimate.density,
+                estimate.count,
+                estimate.scaled,
+            ];
+            expand_band_ends(&mut bin, 1);
+            let [grid, bands, density, count, scaled] =
+                <[Vec<f64>; 5]>::try_from(bin).expect("five columns");
+            let locations = vec![location; grid.len()];
+            [locations, grid, density, count, scaled, bands]
+        })
+        .collect();
+    let mut columns: [Vec<f64>; 6] = Default::default();
+    for bin in per_bin {
+        for (column, values) in columns.iter_mut().zip(bin) {
+            column.extend(values);
+        }
+    }
+    columns
 }
 
 /// lets-plot `createStepValues`: `n` points from low to high (a zero-width range

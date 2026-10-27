@@ -5,6 +5,7 @@ mod bin;
 mod boxplot;
 mod count;
 mod density;
+mod densityridges;
 pub(crate) mod groups;
 mod identity;
 mod ydensity;
@@ -12,6 +13,7 @@ mod ydensity;
 pub use bin::{BinStat, bracketing_index};
 pub use boxplot::{BoxplotOutlierStat, BoxplotStat};
 pub use count::CountStat;
+pub use densityridges::DensityRidgesStat;
 pub use identity::IdentityStat;
 pub use ydensity::{YDensityStat, quantiles as ydensity_quantiles};
 
@@ -80,11 +82,12 @@ pub static STATS: &[&dyn Stat] = &[
     &BoxplotStat,
     &BoxplotOutlierStat,
     &YDensityStat,
+    &DensityRidgesStat,
 ];
 
 /// lets-plot stats the Python API builds but the engine does not compute yet
 /// (plan.md). Remove a name when its stat joins [`STATS`].
-pub static NOT_COMPUTED_YET: &[&str] = &["densityridges", "sina"];
+pub static NOT_COMPUTED_YET: &[&str] = &["sina"];
 
 /// Look up a stat by its lets-plot name.
 pub fn stat(name: &str) -> Option<&'static dyn Stat> {

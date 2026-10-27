@@ -78,6 +78,10 @@ impl Geom for BoxplotGeom {
         &[Aesthetic::Xmin, Aesthetic::Xmax]
     }
 
+    fn span_aesthetics(&self) -> &'static [Aesthetic] {
+        &[Aesthetic::Xmin, Aesthetic::Xmax]
+    }
+
     fn setup(&self, mut data: LayerData, parameters: &Parameters) -> Result<LayerData> {
         if let Some(unit) = parameters.string("width_unit")?
             && unit != "res"

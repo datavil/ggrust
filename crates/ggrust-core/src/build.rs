@@ -204,6 +204,9 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
         if let Some((low, high)) = layer.x_span {
             x_scale.train_span(low, high);
         }
+        if let Some((low, high)) = layer.y_span {
+            y_scale.train_span(low, high);
+        }
         let setup = layer.geom.setup_aesthetics();
         for aesthetic in layer.data.aesthetics() {
             if setup.contains(&aesthetic) {
@@ -251,20 +254,36 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
         .map_or(Margins::uniform(0.0), |block| {
             legend_space(&theme, block.size)
         });
+    // coord_flip: the screen axes take the other scale, title and theme elements.
+    let flipped = spec
+        .coord
+        .as_ref()
+        .is_some_and(|coord| coord.flip || coord.name == "flip");
+    let (theme, titles, horizontal, vertical) = if flipped {
+        let titles = Titles {
+            x: titles.y.clone(),
+            y: titles.x.clone(),
+            ..titles
+        };
+        (theme.flipped(), titles, &y_scale, &x_scale)
+    } else {
+        (theme, titles, &x_scale, &y_scale)
+    };
     let layout = layout_plot(
         area,
         &theme,
         &titles,
-        &x_scale,
-        &y_scale,
+        horizontal,
+        vertical,
         legend_space,
         aspect,
     );
     let panel = Panel {
         rect: layout.panel,
-        x_scale: &x_scale,
-        y_scale: &y_scale,
+        x_scale: horizontal,
+        y_scale: vertical,
         coord,
+        flipped,
     };
     let mut layer_nodes = Vec::new();
     for layer in &layers {
@@ -409,6 +428,8 @@ struct PreparedLayer {
     data: LayerData,
     /// See [`ComputedLayer::x_span`].
     x_span: Option<(f64, f64)>,
+    /// See [`ComputedLayer::y_span`].
+    y_span: Option<(f64, f64)>,
     styles: Styles,
     /// `show_legend` (default true).
     show_legend: bool,
@@ -781,7 +802,8 @@ fn compute_layer(
         &path,
     )?;
     let layer_data = geom.setup(layer_data, &parameters)?;
-    let x_span = setup_span(geom, &layer_data);
+    let x_span = setup_span(geom, &layer_data, Aesthetic::is_x_position);
+    let y_span = setup_span(geom, &layer_data, Aesthetic::is_y_position);
     let layer_data = apply_positions(layer_data, &positions)?;
 
     // Missing stat output is deliberate (e.g. `threshold`); input rows the stat
@@ -801,6 +823,7 @@ fn compute_layer(
         geom,
         data: layer_data,
         x_span,
+        y_span,
         mapping_paths,
         show_legend: spec.show_legend.unwrap_or(true),
         warnings,
@@ -817,6 +840,8 @@ struct ComputedLayer {
     /// Range of the setup's x columns before the position adjustment (see
     /// [`Geom::setup_aesthetics`]).
     x_span: Option<(f64, f64)>,
+    /// The same for y (ridge heights).
+    y_span: Option<(f64, f64)>,
     /// Where each mapped aesthetic was mapped, for error messages.
     mapping_paths: BTreeMap<Aesthetic, String>,
     /// `show_legend` (default true).
@@ -852,6 +877,7 @@ fn style_layer(
             geom: layer.geom,
             data: layer.data,
             x_span: layer.x_span,
+            y_span: layer.y_span,
             styles,
             show_legend: layer.show_legend,
         },
@@ -1005,14 +1031,15 @@ fn overall_range(
     }
 }
 
-/// Finite range of the geom's setup columns on the x axis.
-fn setup_span(geom: &dyn Geom, data: &LayerData) -> Option<(f64, f64)> {
+/// Finite range of the geom's setup columns on one axis.
+fn setup_span(
+    geom: &dyn Geom,
+    data: &LayerData,
+    on_axis: fn(Aesthetic) -> bool,
+) -> Option<(f64, f64)> {
     let mut span: Option<(f64, f64)> = None;
-    for aesthetic in geom.setup_aesthetics() {
-        let Some(column) = data
-            .continuous(*aesthetic)
-            .filter(|_| aesthetic.is_x_position())
-        else {
+    for aesthetic in geom.span_aesthetics() {
+        let Some(column) = data.continuous(*aesthetic).filter(|_| on_axis(*aesthetic)) else {
             continue;
         };
         for row in 0..column.len() {
@@ -1911,13 +1938,6 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
     ignored(spec.facet.is_some(), "facet");
     ignored(spec.caption.is_some(), "caption");
     ignored(spec.ggtoolbar.is_some(), "ggtb");
-    // `coord_flip` itself is reported once by `resolve_coord`.
-    ignored(
-        spec.coord
-            .as_ref()
-            .is_some_and(|coord| coord.flip && coord.name != "flip"),
-        "coord flip",
-    );
     ignored(
         !spec.data_meta.mapping_annotations.is_empty()
             || spec

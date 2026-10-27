@@ -34,10 +34,12 @@ pub enum Computed {
     ViolinWidth,
     /// `..quantile..`: quantile band of a density point (violins).
     Quantile,
+    /// `..height..`: ridge height, density scaled to the layer's largest.
+    Height,
 }
 
 impl Computed {
-    const ALL: [(Computed, &'static str); 12] = [
+    const ALL: [(Computed, &'static str); 13] = [
         (Computed::Count, "count"),
         (Computed::Density, "density"),
         (Computed::NormalizedCount, "ncount"),
@@ -50,6 +52,7 @@ impl Computed {
         (Computed::Scaled, "scaled"),
         (Computed::ViolinWidth, "violinwidth"),
         (Computed::Quantile, "quantile"),
+        (Computed::Height, "height"),
     ];
 
     /// lets-plot name without dots, e.g. `count`.

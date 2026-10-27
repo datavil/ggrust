@@ -444,6 +444,42 @@ def violin_jitterdodge(m):
     )
 
 
+def ridges_months(m):
+    random = np.random.default_rng(61)
+    months = ["Jan", "Mar", "May", "Jul", "Sep", "Nov"]
+    means = [2.0, 8.0, 16.0, 23.0, 17.0, 6.0]
+    frame = pl.DataFrame(
+        {
+            "month": np.repeat(months, 90),
+            "temperature": np.concatenate([random.normal(mean, 3.5, 90) for mean in means]),
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("temperature", "month", fill="month"))
+        + m.geom_area_ridges(scale=1.4, alpha=0.7, quantile_lines=True, show_legend=False)
+        + m.scale_fill_brewer(palette="Spectral")
+        + m.ggtitle("Daily temperature by month")
+        + m.ggsize(480, 380)
+    )
+
+
+def bars_flipped(m):
+    frame = pl.DataFrame(
+        {
+            "gene": ["CD3E", "CD3E", "MS4A1", "MS4A1", "NKG7", "NKG7", "LYZ", "LYZ"],
+            "condition": ["control", "treated"] * 4,
+            "mean_expression": [2.4, 1.8, 3.1, 3.3, 0.9, 2.2, 4.0, 3.2],
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("gene", "mean_expression", fill="condition"))
+        + m.geom_bar(stat="identity", position="dodge", width=0.7)
+        + m.coord_flip()
+        + m.theme_classic()
+        + m.ggsize(460, 300)
+    )
+
+
 CASES = {
     case.__name__: case
     for case in [
@@ -476,5 +512,7 @@ CASES = {
         boxplot_dodged,
         violins_quantiles,
         violin_jitterdodge,
+        ridges_months,
+        bars_flipped,
     ]
 }

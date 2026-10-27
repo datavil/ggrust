@@ -5,6 +5,7 @@
 //! defaults, extra parameters); the build stage validates the layer against that,
 //! resolves styles (mapped -> constant -> default) and calls [`Geom::draw`].
 
+mod area_ridges;
 mod bar;
 mod blank;
 mod boxplot;
@@ -13,11 +14,13 @@ mod lines;
 mod path;
 mod point;
 mod polygon;
+mod quantiles;
 mod reference_line;
 mod segment;
 mod text;
 mod violin;
 
+pub use area_ridges::AreaRidgesGeom;
 pub use bar::{BarGeom, HistogramGeom};
 pub use blank::BlankGeom;
 pub use boxplot::BoxplotGeom;
@@ -85,9 +88,15 @@ pub trait Geom: Sync {
 
     /// Position columns made by [`Self::setup`] (e.g. bar `xmin`/`xmax`/`ymin`/
     /// `ymax`). As lets-plot's dry-run ranges, they do not train the axes after
-    /// the position adjustment; those on the x axis train before it (the bar's
-    /// width span), so dodged bars keep the undodged range.
+    /// the position adjustment.
     fn setup_aesthetics(&self) -> &'static [Aesthetic] {
+        &[]
+    }
+
+    /// The setup columns that train the axes before the position adjustment:
+    /// lets-plot's width span (bars: `xmin`/`xmax`, so dodged bars keep the
+    /// undodged range) or height span (ridges: `ymin`/`ymax`).
+    fn span_aesthetics(&self) -> &'static [Aesthetic] {
         &[]
     }
 
@@ -125,12 +134,12 @@ pub static GEOMS: &[&dyn Geom] = &[
     &BoxplotGeom,
     &ViolinGeom,
     &JitterGeom,
+    &AreaRidgesGeom,
 ];
 
 /// lets-plot geoms the Python API builds but the engine does not draw yet (plan.md).
 /// Remove a name when its geom joins [`GEOMS`].
 pub static NOT_DRAWN_YET: &[&str] = &[
-    "area_ridges",
     "bracket",
     "label_repel",
     "raster",

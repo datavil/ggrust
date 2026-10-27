@@ -27,3 +27,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Boxplots follow lets-plot, with ggplot2 corrections](letsplot_boxplots.md): two layers, NaN outlier placeholders, dodge 0.95, type 7 quartiles, coef on outliers, overridden mappings still group.
 - [Violins follow lets-plot, bandwidth follows R](letsplot_violins.md): per-x KDE, layer-wide violinwidth, band edges repeated, R bw.nrd0, rayon per group/bin.
 - [Jitter follows lets-plot bit for bit](letsplot_jitter.md): Kotlin XorWow port, offset formula, jitterdodge around the unjittered x, fixed default seed.
+- [coord_flip and ridgelines follow lets-plot](letsplot_flip_and_ridges.md): flip in Panel, theme follows the aesthetic, ridge heights, lets-plot DP weights, span vs setup columns.

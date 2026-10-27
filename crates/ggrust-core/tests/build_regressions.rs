@@ -354,9 +354,9 @@ fn lets_plot_names_not_supported_yet_say_so() {
         nudge.contains("position 'nudge' is not supported by ggrust yet"),
         "{nudge}"
     );
-    let ridges = error(r#"{"geom": "point", "stat": "densityridges"}"#);
+    let ridges = error(r#"{"geom": "point", "stat": "sina"}"#);
     assert!(
-        ridges.contains("stat 'densityridges' is not supported by ggrust yet"),
+        ridges.contains("stat 'sina' is not supported by ggrust yet"),
         "{ridges}"
     );
     let typo = error(r#"{"geom": "violn"}"#);

@@ -13,12 +13,7 @@
 //!
 //! What it does not do: `orientation="y"`.
 
-use std::collections::HashMap;
-
-use rayon::prelude::*;
-
-use super::count::row_weight;
-use super::density::{DensityOptions, estimate, expand_band_ends, quantile_bands};
+use super::density::{DensityOptions, collect_bins, estimate_bins};
 use super::groups::per_group;
 use super::{Stat, StatContext};
 use crate::data::{Column, Computed, ContinuousColumn, LayerData, Variable};
@@ -82,59 +77,9 @@ impl Stat for YDensityStat {
         let x = data.continuous(Aesthetic::X);
         let weight = data.continuous(Aesthetic::Weight);
         let mut result = per_group(&data, |rows| {
-            // Finite (y, weight) per finite x, x in first appearance.
-            let mut bins: Vec<(f64, Vec<(f64, f64)>)> = Vec::new();
-            let mut slot_by_x: HashMap<u64, usize> = HashMap::new();
-            for &row in rows {
-                let location = x.map_or(Some(0.0), |x| x.get(row));
-                let value = y.get(row);
-                let weight = match weight {
-                    Some(weight) => weight.get(row),
-                    None => Some(row_weight(None, row)),
-                };
-                let (Some(location), Some(value), Some(weight)) = (location, value, weight) else {
-                    continue;
-                };
-                if !(location.is_finite() && value.is_finite() && weight.is_finite()) {
-                    continue;
-                }
-                let slot = *slot_by_x.entry(location.to_bits()).or_insert_with(|| {
-                    bins.push((location, Vec::new()));
-                    bins.len() - 1
-                });
-                bins[slot].1.push((value, weight));
-            }
-            // Each x bin on its own thread; columns x, y, density, count, scaled,
-            // quantile, joined in bin order.
-            let per_bin: Vec<[Vec<f64>; 6]> = bins
-                .into_par_iter()
-                .map(|(location, mut pairs)| {
-                    pairs.sort_by(|left, right| left.0.total_cmp(&right.0));
-                    let (values, weights): (Vec<f64>, Vec<f64>) = pairs.into_iter().unzip();
-                    let estimate = estimate(&values, &weights, &options, overall);
-                    let bands = quantile_bands(&estimate.grid, &estimate.count, &quantiles);
-                    let mut bin = vec![
-                        estimate.grid,
-                        bands,
-                        estimate.density,
-                        estimate.count,
-                        estimate.scaled,
-                    ];
-                    expand_band_ends(&mut bin, 1);
-                    let [grid, bands, density, count, scaled] =
-                        <[Vec<f64>; 5]>::try_from(bin).expect("five columns");
-                    let x = vec![location; grid.len()];
-                    [x, grid, density, count, scaled, bands]
-                })
-                .collect();
-            let mut columns: Vec<Vec<f64>> = vec![Vec::new(); 6];
-            for bin in per_bin {
-                for (column, values) in columns.iter_mut().zip(bin) {
-                    column.extend(values);
-                }
-            }
+            let bins = collect_bins(rows, x, y, weight);
             let [x, y, density, count, scaled, quantile] =
-                <[Vec<f64>; 6]>::try_from(columns).expect("six columns");
+                estimate_bins(bins, &options, &quantiles, overall);
             Ok(vec![
                 (Variable::Aesthetic(Aesthetic::X), x),
                 (Variable::Aesthetic(Aesthetic::Y), y),

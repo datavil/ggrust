@@ -83,6 +83,8 @@ fn draw_lines(
     let mut nodes = Vec::new();
     for row in 0..layer.data.row_count() {
         let value = values.get(row).unwrap_or(f64::NAN);
+        // A data x line is horizontal on screen when the coord is flipped.
+        let vertical = vertical != panel.flipped;
         let position = if vertical {
             panel.x_pixel(value)
         } else {

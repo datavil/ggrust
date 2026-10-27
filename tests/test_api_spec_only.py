@@ -266,7 +266,6 @@ def test_rendering_ignored_features_warns():
     for feature, message in [
         (gg.ggtb(), "ggtb"),
         (gg.facet_wrap("c"), "facet"),
-        (gg.coord_flip(), "coord_flip"),
     ]:
         with pytest.warns(gg.GgrustWarning, match=message) as caught:
             (plot + feature).to_svg()

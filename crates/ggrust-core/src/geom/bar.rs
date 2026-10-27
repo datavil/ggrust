@@ -94,6 +94,10 @@ impl Geom for BarGeom {
         RECTANGLE_AESTHETICS
     }
 
+    fn span_aesthetics(&self) -> &'static [Aesthetic] {
+        &[Aesthetic::Xmin, Aesthetic::Xmax]
+    }
+
     fn setup(&self, data: LayerData, parameters: &Parameters) -> Result<LayerData> {
         let width = parameters.number("width")?.unwrap_or(0.9);
         rectangles(data, width, &[])
@@ -146,6 +150,10 @@ impl Geom for HistogramGeom {
 
     fn setup_aesthetics(&self) -> &'static [Aesthetic] {
         RECTANGLE_AESTHETICS
+    }
+
+    fn span_aesthetics(&self) -> &'static [Aesthetic] {
+        &[Aesthetic::Xmin, Aesthetic::Xmax]
     }
 
     fn setup(&self, data: LayerData, parameters: &Parameters) -> Result<LayerData> {

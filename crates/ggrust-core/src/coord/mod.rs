@@ -4,9 +4,11 @@
 
 mod cartesian;
 mod fixed;
+mod flip;
 
 pub use cartesian::Cartesian;
 pub use fixed::Fixed;
+pub use flip::Flip;
 
 use crate::scale::PositionScale;
 use crate::scene::Rect;
@@ -26,7 +28,7 @@ pub trait Coord: Sync {
 }
 
 /// Every coordinate system, in one place: lookup and names derive from it.
-pub static COORDS: &[&dyn Coord] = &[&Cartesian, &Fixed];
+pub static COORDS: &[&dyn Coord] = &[&Cartesian, &Fixed, &Flip];
 
 /// Look up a coordinate system by its lets-plot name.
 pub fn coord(name: &str) -> Option<&'static dyn Coord> {
@@ -42,19 +44,25 @@ pub fn names() -> Vec<&'static str> {
 pub struct Panel<'a> {
     /// Panel rectangle in scene pixels.
     pub rect: Rect,
-    /// Horizontal position scale.
+    /// Horizontal position scale (the y scale when flipped).
     pub x_scale: &'a PositionScale,
-    /// Vertical position scale.
+    /// Vertical position scale (the x scale when flipped).
     pub y_scale: &'a PositionScale,
     /// Coordinate system.
     pub coord: &'a dyn Coord,
+    /// `coord_flip`: data x runs vertically, data y horizontally.
+    pub flipped: bool,
 }
 
 impl Panel<'_> {
-    /// Pixel position of a data point. Missing values give NaN.
+    /// Pixel position of a data point (data x, data y). Missing values give NaN.
     pub fn map(&self, x: f64, y: f64) -> (f64, f64) {
-        self.coord
-            .map(self.x_scale.map(x), self.y_scale.map(y), self.rect)
+        let (horizontal, vertical) = if self.flipped { (y, x) } else { (x, y) };
+        self.coord.map(
+            self.x_scale.map(horizontal),
+            self.y_scale.map(vertical),
+            self.rect,
+        )
     }
 
     /// Horizontal pixel of an x value (vertical grid lines, x ticks).

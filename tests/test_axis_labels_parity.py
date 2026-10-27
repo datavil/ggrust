@@ -98,6 +98,14 @@ CASES = {
         point(m, {"c": ["1", "2.5", "inf", "x"], "y": [1.0, 2.0, 3.0, 4.0]}, x="c")
         + m.scale_x_discrete(format="{.1f}")
     ),
+    # Decided with the user: powers inside a label stay superscripts.
+    "power_then_text": lambda m: point(m, WIDE) + m.scale_y_continuous(format="{.1e} m"),
+    "power_in_brackets": lambda m: point(m, WIDE) + m.scale_y_continuous(format="[{.1e}]"),
+    # Spec numbers parse exactly (serde_json float_roundtrip).
+    "exact_spec_numbers": lambda m: (
+        point(m, {"x": [0.0, 1e30], "y": [1.0, 2.0]})
+        + m.scale_x_continuous(breaks=[1e30, 5e29], format=",d")
+    ),
     "cellestial_heatmap_axis": lambda m: (
         m.ggplot({"x": [0.0, 1.0, 2.0], "y": [0.0, 1.0, 2.0]}, m.aes("x", "y"))
         + m.geom_point()
@@ -121,14 +129,17 @@ def labels(module, name):
 
 
 # lets-plot drops a label (with its tick) that would overlap one drawn before it
-# (`AxisUtil.TickLabelsMap`); ggrust keeps every fixed break. Open question for the user.
+# (`AxisUtil.TickLabelsMap`). ggrust keeps every break, as ggplot2 does by default
+# (`guide_axis(check.overlap = FALSE)`): decided with the user.
 DROPS_OVERLAPPING = {"default_fixed_labels"}
 
 
 @pytest.mark.parametrize(
     "name",
     [
-        pytest.param(name, marks=pytest.mark.xfail(reason="overlapping labels", strict=True))
+        pytest.param(
+            name, marks=pytest.mark.xfail(reason="ggplot2 keeps overlapping labels", strict=True)
+        )
         if name in DROPS_OVERLAPPING
         else name
         for name in CASES

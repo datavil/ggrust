@@ -200,6 +200,7 @@ pub(super) fn layout_colorbar(
             measure_label(
                 &line.text,
                 line.superscript.as_deref(),
+                line.suffix.as_deref(),
                 style.size,
                 style.font,
             )

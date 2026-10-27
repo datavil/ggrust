@@ -228,6 +228,7 @@ fn layout_with(
                 measure_label(
                     &label.text,
                     label.superscript.as_deref(),
+                    label.suffix.as_deref(),
                     text.size,
                     text.font,
                 )
@@ -342,6 +343,7 @@ fn x_labels_height(breaks: &AxisBreaks, theme: &Theme) -> f64 {
                 measure_label(
                     &label.text,
                     label.superscript.as_deref(),
+                    label.suffix.as_deref(),
                     text.size,
                     text.font,
                 )
@@ -676,6 +678,7 @@ fn label_node(
     let mut node = text_node(&label.text, style, anchor, horizontal, angle);
     if let Node::Text(text) = &mut node {
         text.superscript = label.superscript.clone();
+        text.suffix = label.suffix.clone();
     }
     node
 }
@@ -690,6 +693,7 @@ fn text_node(
     Node::Text(Text {
         content: content.to_owned(),
         superscript: None,
+        suffix: None,
         x,
         y,
         size: style.size,

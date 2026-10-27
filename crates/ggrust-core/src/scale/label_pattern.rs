@@ -183,8 +183,8 @@ fn kotlin_to_double(text: &str) -> Option<f64> {
     if valid { number.parse().ok() } else { None }
 }
 
-/// `x·\(10^{n}\)` at the end -> `x·10` with superscript `n` (minus as U+2212, as
-/// lets-plot draws it); a power elsewhere stays as `10^n` text.
+/// `x·\(10^{n}\) rest` -> `x·10` with superscript `n` (minus as U+2212, as
+/// lets-plot draws it) and `rest` after it; a second power stays as `10^n` text.
 fn power_label(text: String) -> Label {
     const OPEN: &str = "\\(10^{";
     const CLOSE: &str = "}\\)";
@@ -196,16 +196,17 @@ fn power_label(text: String) -> Label {
         return Label::plain(text);
     };
     let degree = after[..end].replace('-', "\u{2212}");
-    let rest = &after[end + CLOSE.len()..];
-    let base = format!("{}10", &text[..start]);
-    if rest.is_empty() {
-        Label {
-            text: base,
-            superscript: Some(degree),
-        }
-    } else {
-        power_label(format!("{base}^{degree}{rest}"))
+    let rest = flatten_powers(&after[end + CLOSE.len()..]);
+    Label {
+        text: format!("{}10", &text[..start]),
+        superscript: Some(degree),
+        suffix: (!rest.is_empty()).then_some(rest),
     }
+}
+
+/// Further powers as plain `10^n` text (a label has one superscript).
+fn flatten_powers(text: &str) -> String {
+    text.replace("\\(10^{", "10^").replace("}\\)", "")
 }
 
 /// A double as Kotlin's `toString()` writes it (`2.0`, `1.5`, `1.0E7`).
@@ -258,6 +259,12 @@ mod tests {
         assert_eq!(label("abc", 2.0), "abc");
         assert_eq!(label("{.1f}%", 2.5), "2.5%");
         assert_eq!(label(".2e", 1.5e6), "1.50·10^6");
+        assert_eq!(label("{.1e} m", 5e8), "5.0·10^8 m");
+        let pattern = LabelPattern::parse("[{.1e}]").unwrap();
+        let power = pattern.format(PatternValue::Number(5e8));
+        assert_eq!(power.text, "[5.0·10");
+        assert_eq!(power.superscript.as_deref(), Some("8"));
+        assert_eq!(power.suffix.as_deref(), Some("]"));
         assert_eq!(label("g", 3e-9), "3.00000·10^\u{2212}9");
     }
 

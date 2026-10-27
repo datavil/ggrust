@@ -8,13 +8,16 @@ const MIN_EXPONENT: i32 = -7;
 /// lets-plot `NumericBreakFormatter.DEF_MAX_EXP`.
 const MAX_EXPONENT: i32 = 6;
 
-/// A tick label: text, plus an exponent drawn as a superscript after it.
+/// A tick label: text, plus an exponent drawn as a superscript after it, plus
+/// text after the exponent (`5.0·10` + `8` + ` m`).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Label {
     /// Main text, e.g. `2·10` or `1,500`.
     pub text: String,
     /// Superscript exponent, e.g. `6` or `−9`.
     pub superscript: Option<String>,
+    /// Text after the superscript, at the base size (`format="{.1e} m"`).
+    pub suffix: Option<String>,
 }
 
 impl Label {
@@ -23,17 +26,19 @@ impl Label {
         Label {
             text: text.into(),
             superscript: None,
+            suffix: None,
         }
     }
 }
 
 impl std::fmt::Display for Label {
-    /// `text` or `text^superscript`.
+    /// `text`, `text^superscript` or `text^superscript suffix`.
     fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self.superscript {
-            Some(superscript) => write!(formatter, "{}^{superscript}", self.text),
-            None => formatter.write_str(&self.text),
+        formatter.write_str(&self.text)?;
+        if let Some(superscript) = &self.superscript {
+            write!(formatter, "^{superscript}")?;
         }
+        formatter.write_str(self.suffix.as_deref().unwrap_or(""))
     }
 }
 
@@ -131,6 +136,7 @@ fn format_general(value: f64, precision: i32) -> Label {
         Label {
             text,
             superscript: Some(exponent.to_string().replace('-', "\u{2212}")),
+            suffix: None,
         }
     }
 }

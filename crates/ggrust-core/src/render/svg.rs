@@ -345,6 +345,15 @@ impl SvgWriter {
             self.raw(">");
             escape_into(&mut self.output, &single_line(superscript));
             self.raw("</tspan>");
+            if let Some(suffix) = &text.suffix {
+                // Back to the base size and baseline.
+                self.raw("<tspan");
+                self.attribute_precise("font-size", text.size);
+                self.attribute_precise("dy", text.size * SUPERSCRIPT_RISE);
+                self.raw(">");
+                escape_into(&mut self.output, &single_line(suffix));
+                self.raw("</tspan>");
+            }
         }
         self.raw("</text>\n");
     }

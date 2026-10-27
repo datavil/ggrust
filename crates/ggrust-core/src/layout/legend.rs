@@ -310,6 +310,7 @@ fn measure_legend<'a>(
                     measure_label(
                         &line.text,
                         line.superscript.as_deref(),
+                        line.suffix.as_deref(),
                         style.size,
                         style.font,
                     )

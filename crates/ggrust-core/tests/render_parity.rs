@@ -74,6 +74,7 @@ fn text(content: &str, x: f64, horizontal: HorizontalAlign) -> Text {
     Text {
         content: content.into(),
         superscript: None,
+        suffix: None,
         x,
         y: 50.0,
         size: 20.0,

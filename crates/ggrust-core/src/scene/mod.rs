@@ -280,6 +280,8 @@ pub struct Text {
     /// Exponent drawn after `content` at [`SUPERSCRIPT_SCALE`] x size, raised by
     /// [`SUPERSCRIPT_RISE`] em (lets-plot's power labels: `2·10` + `6`).
     pub superscript: Option<String>,
+    /// Text after the superscript, at the base size and baseline.
+    pub suffix: Option<String>,
     /// Anchor x.
     pub x: f64,
     /// Anchor y.

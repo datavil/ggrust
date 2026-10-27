@@ -266,6 +266,7 @@ pub fn measure(text: &str, size: f64, font: impl Into<Font>) -> TextExtent {
 pub fn measure_label(
     text: &str,
     superscript: Option<&str>,
+    suffix: Option<&str>,
     size: f64,
     face: impl Into<Font>,
 ) -> f64 {
@@ -275,6 +276,7 @@ pub fn measure_label(
         + superscript.map_or(0.0, |superscript| {
             measure(superscript, size * scale, face).width
         })
+        + suffix.map_or(0.0, |suffix| measure(suffix, size, face).width)
 }
 
 /// Measure text that may contain `\n` line breaks.

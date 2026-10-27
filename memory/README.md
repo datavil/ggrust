@@ -23,3 +23,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Text and line geoms follow lets-plot](letsplot_text_and_lines.md): line width from `size` x 2.2, text 2 px per size, vjust 0.7 em, label box placement, `,~g` numeric labels.
 - [Port checks need a mirrored env](cellestial_port_check.md): worktree + import swap + poetry's exact versions; fresh resolves give false failures.
 - [Bars, stats and positions follow lets-plot](letsplot_bars_and_positions.md): per-group stats, `(low, high]` breaks, stack/dodge formulas, dry-run axis ranges, zero-based y.
+- [When lets-plot looks wrong, ggplot2 decides](deviate_from_lets_plot_via_ggplot2.md): parity by default; quirks follow ggplot2, recorded in plan.md.

@@ -19,7 +19,8 @@ Measured against `to_svg()`; parity tests in `tests/test_bar_parity.py`.
 - Draw rows in reverse; zero-size rects become 0.1 px; alpha fades the fill only.
   Bar: fill #118ED8, outline white, size 0.75. Histogram: fill and outline #474747, size 0.5.
   Key: cell 23, rect inset 1 px + half the outline.
-- **Discrete axis order with a stat** (open, see plan.md 2.1): lets-plot orders levels by
-  first appearance in the STAT OUTPUT (groups concatenated), not the input data.
+- **Discrete axis order with a stat: deliberate difference.** lets-plot orders levels by
+  first appearance in the STAT OUTPUT (groups concatenated), so adding `fill` reorders x.
+  ggrust keeps the data's level order, as ggplot2 does (levels trained before the stat).
 
 **How to apply:** read before touching boxplot/violin/jitter positions or any stat.

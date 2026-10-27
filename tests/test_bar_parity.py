@@ -229,3 +229,12 @@ def test_empty_data_draws_an_empty_plot(geom):
     """lets-plot draws no bars; its y title on empty data ("y") is not matched."""
     expected_svg, actual_svg = _both(lambda m: m.ggplot(EMPTY, m.aes("x")) + getattr(m, geom)())
     assert _lets_plot_bars(expected_svg)[0] == _ggrust_bars(actual_svg) == []
+
+
+def test_discrete_order_ignores_the_stat_grouping():
+    """Deliberate difference: lets-plot orders x by the stat output (first sample's
+    order: b, a); ggrust keeps the data's order (a, b), as ggplot2 does."""
+    data = {"x": ["a", "b", "b", "a"], "fill": ["s2", "s1", "s2", "s2"]}
+    svg = (gg.ggplot(data, gg.aes("x", fill="fill")) + gg.geom_bar()).to_svg()
+    labels = [text for text in _texts(svg) if text in ("a", "b")]
+    assert labels == ["a", "b"]

@@ -107,6 +107,17 @@ def test_boxplot_adds_the_outlier_layer_like_lets_plot():
     assert gg.geom_boxplot(stat="identity").as_dict() == lp.geom_boxplot(stat="identity").as_dict()
 
 
+def test_boxplot_coef_reaches_the_outlier_layer():
+    """Deliberate difference: lets_plot drops `coef` from the outlier layer."""
+
+    def layers(spec):
+        return [item["layer"] for item in spec.as_dict()["feature-list"]]
+
+    box, outliers = layers(gg.geom_boxplot(coef=0.5))
+    assert box["coef"] == outliers["coef"] == 0.5
+    assert "coef" not in layers(gg.geom_boxplot())[1]
+
+
 def test_violin_rejects_draw_quantiles():
     with pytest.raises(ValueError, match="draw_quantiles"):
         gg.geom_violin(draw_quantiles=[0.5])
@@ -237,7 +248,7 @@ def test_geom_function_on_frames():
     ("layer", "message"),
     [
         (lambda: gg.geom_violin(), "geom 'violin' is not supported by ggrust yet"),
-        (lambda: gg.geom_boxplot(), "geom 'boxplot' is not supported by ggrust yet"),
+        (lambda: gg.geom_tile(), "geom 'tile' is not supported by ggrust yet"),
         (
             lambda: gg.geom_point(position=gg.position_jitter()),
             "position 'jitter' is not supported by ggrust yet",

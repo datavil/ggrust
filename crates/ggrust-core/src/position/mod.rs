@@ -13,6 +13,43 @@ pub use stack::StackPosition;
 use crate::Result;
 use crate::data::LayerData;
 use crate::parameters::Parameters;
+use crate::spec::{Options, Value};
+
+/// The position a layer gets when it names none (lets-plot `GeomProto` defaults).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DefaultPosition {
+    /// Position name, e.g. `stack`.
+    pub name: &'static str,
+    /// `width` option (dodge).
+    pub width: Option<f64>,
+}
+
+impl DefaultPosition {
+    /// No adjustment.
+    pub const IDENTITY: DefaultPosition = DefaultPosition::named("identity");
+
+    /// A position without options.
+    pub const fn named(name: &'static str) -> Self {
+        DefaultPosition { name, width: None }
+    }
+
+    /// `position_dodge(width)`.
+    pub const fn dodge(width: f64) -> Self {
+        DefaultPosition {
+            name: "dodge",
+            width: Some(width),
+        }
+    }
+
+    /// The position's options.
+    pub fn options(&self) -> Options {
+        let mut options = Options::new();
+        if let Some(width) = self.width {
+            options.insert("width".to_owned(), Value::from(width));
+        }
+        options
+    }
+}
 
 /// A position adjustment.
 pub trait Position: Sync {

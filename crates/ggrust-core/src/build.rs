@@ -446,7 +446,12 @@ fn map_layer_into<'a>(
     })?;
     let (position_name, position_options) = match &spec.position {
         Some(position) => (position.name.as_str(), position.parameters.clone()),
-        None => (geom.default_position(), Default::default()),
+        None => {
+            let default = stat
+                .default_position()
+                .unwrap_or_else(|| geom.default_position());
+            (default.name, default.options())
+        }
     };
     let position = position::position(position_name).ok_or_else(|| {
         let planned = position::NOT_APPLIED_YET.contains(&position_name);
@@ -464,13 +469,18 @@ fn map_layer_into<'a>(
     validate_position_options(position, &position_options, &at("position"), warnings);
 
     let (mut mapping, inherited) = merged_mapping(plot, spec);
-    // lets-plot (`DataConfigUtil`): an aesthetic given as a constant wins over its
-    // mapping, and the mapped column is not even looked up.
-    mapping.retain(|aesthetic, _| {
+    // An aesthetic given as a constant wins over its mapping (lets-plot
+    // `DataConfigUtil`). Unlike lets-plot, but as ggplot2, the mapping still
+    // groups (below): `geom_boxplot(aes(fill=g), outlier_fill="white")` keeps
+    // outliers per box, `geom_line(aes(color=g), color="black")` one line per g.
+    let has_constant = |aesthetic: &Aesthetic| {
         options
             .get(aesthetic.as_str())
-            .is_none_or(|value| value.is_null())
-    });
+            .is_some_and(|value| !value.is_null())
+    };
+    let mut overridden = mapping.clone();
+    overridden.retain(|aesthetic, _| has_constant(aesthetic));
+    mapping.retain(|aesthetic, _| !has_constant(aesthetic));
     let frames = LayerFrames {
         layer: data.layers.get(index).and_then(Option::as_ref),
         plot: data.plot.as_ref(),
@@ -528,6 +538,25 @@ fn map_layer_into<'a>(
             default_grouping.push((name, column.clone()));
         }
         columns.push((*aesthetic, column, mapping_path));
+    }
+    for (aesthetic, value) in &overridden {
+        let Some(name) = value.as_column() else {
+            continue;
+        };
+        if aesthetic.is_x_position()
+            || aesthetic.is_y_position()
+            || *aesthetic == Aesthetic::Group
+            || Computed::from_mapping(name).is_some()
+            || !geom_uses(geom, stat, *aesthetic)
+            || default_grouping.iter().any(|(seen, _)| *seen == name)
+        {
+            continue;
+        }
+        // A missing column only groups nothing: the constant is what is drawn.
+        let mapping_path = format!("mapping.{aesthetic}");
+        if let Ok(column @ Column::Discrete(_)) = frames.column(name, &mapping_path) {
+            default_grouping.push((name, column));
+        }
     }
     let grouping = match explicit_grouping(plot, spec, &path, warnings) {
         Some(names) => names

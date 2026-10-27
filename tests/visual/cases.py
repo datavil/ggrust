@@ -372,6 +372,29 @@ def bars_signed(m):
     )
 
 
+def boxplot_dodged(m):
+    random = np.random.default_rng(31)
+    frame = pl.DataFrame(
+        {
+            "cluster": np.repeat(["C0", "C1", "C2", "C3"], 60),
+            "condition": np.tile(np.repeat(["control", "treated"], 30), 4),
+            "expression": np.concatenate(
+                [
+                    random.lognormal(mean, 0.5, 30)
+                    for mean in [0.5, 0.9, 1.2, 1.1, 0.2, 0.3, 0.8, 1.6]
+                ]
+            ),
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("cluster", "expression", fill="condition"))
+        + m.geom_boxplot(outlier_shape=21, outlier_fill="white")
+        + m.scale_fill_brewer(palette="Pastel1")
+        + m.theme_classic()
+        + m.ggsize(520, 340)
+    )
+
+
 CASES = {
     case.__name__: case
     for case in [
@@ -401,5 +424,6 @@ CASES = {
         bars_dodged,
         histogram_overlap,
         bars_signed,
+        boxplot_dodged,
     ]
 }

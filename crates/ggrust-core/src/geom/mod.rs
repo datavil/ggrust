@@ -7,6 +7,7 @@
 
 mod bar;
 mod blank;
+mod boxplot;
 mod lines;
 mod path;
 mod point;
@@ -17,6 +18,7 @@ mod text;
 
 pub use bar::{BarGeom, HistogramGeom};
 pub use blank::BlankGeom;
+pub use boxplot::BoxplotGeom;
 pub use path::{LineGeom, PathGeom};
 pub use point::PointGeom;
 pub use polygon::PolygonGeom;
@@ -28,6 +30,7 @@ use crate::Result;
 use crate::coord::Panel;
 use crate::data::LayerData;
 use crate::parameters::Parameters;
+use crate::position::DefaultPosition;
 use crate::scene::{Node, Rect};
 use crate::spec::Aesthetic;
 use crate::style::{StyleDefault, Styles};
@@ -43,8 +46,8 @@ pub trait Geom: Sync {
     }
 
     /// Position used when the layer names none.
-    fn default_position(&self) -> &'static str {
-        "identity"
+    fn default_position(&self) -> DefaultPosition {
+        DefaultPosition::IDENTITY
     }
 
     /// Position aesthetics that must be mapped.
@@ -115,13 +118,13 @@ pub static GEOMS: &[&dyn Geom] = &[
     &BlankGeom,
     &BarGeom,
     &HistogramGeom,
+    &BoxplotGeom,
 ];
 
 /// lets-plot geoms the Python API builds but the engine does not draw yet (plan.md).
 /// Remove a name when its geom joins [`GEOMS`].
 pub static NOT_DRAWN_YET: &[&str] = &[
     "area_ridges",
-    "boxplot",
     "bracket",
     "jitter",
     "label_repel",

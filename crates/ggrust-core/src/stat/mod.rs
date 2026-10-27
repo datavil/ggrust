@@ -2,11 +2,13 @@
 //! statistics, ...). One file per stat; add it to [`STATS`].
 
 mod bin;
+mod boxplot;
 mod count;
 pub(crate) mod groups;
 mod identity;
 
 pub use bin::{BinStat, bracketing_index};
+pub use boxplot::{BoxplotOutlierStat, BoxplotStat};
 pub use count::CountStat;
 pub use identity::IdentityStat;
 
@@ -49,6 +51,12 @@ pub trait Stat: Sync {
         &[]
     }
 
+    /// Position for layers that name none, over the geom's (lets-plot gives the
+    /// outlier points of a boxplot the boxes' dodge).
+    fn default_position(&self) -> Option<crate::position::DefaultPosition> {
+        None
+    }
+
     /// Transform the layer data. Positions are in axis units (transformed numbers,
     /// category indices).
     fn compute(
@@ -60,17 +68,17 @@ pub trait Stat: Sync {
 }
 
 /// Every stat, in one place: lookup and names derive from it.
-pub static STATS: &[&dyn Stat] = &[&IdentityStat, &CountStat, &BinStat];
+pub static STATS: &[&dyn Stat] = &[
+    &IdentityStat,
+    &CountStat,
+    &BinStat,
+    &BoxplotStat,
+    &BoxplotOutlierStat,
+];
 
 /// lets-plot stats the Python API builds but the engine does not compute yet
 /// (plan.md). Remove a name when its stat joins [`STATS`].
-pub static NOT_COMPUTED_YET: &[&str] = &[
-    "boxplot",
-    "boxplot_outlier",
-    "densityridges",
-    "sina",
-    "ydensity",
-];
+pub static NOT_COMPUTED_YET: &[&str] = &["densityridges", "sina", "ydensity"];
 
 /// Look up a stat by its lets-plot name.
 pub fn stat(name: &str) -> Option<&'static dyn Stat> {

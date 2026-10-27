@@ -728,10 +728,11 @@ def geom_boxplot(
     na_rm=None,
     **other_args,
 ) -> LayerSpec | FeatureSpecArray:
-    """Box and whiskers plot. Not drawn yet.
+    """Box and whiskers plot, dodged by group.
 
     With the default stat, a second point layer (``stat="boxplot_outlier"``) draws
-    the outliers, as in lets_plot.
+    the outliers, as in lets_plot. Unlike lets_plot, ``coef`` also reaches the
+    outlier layer, so points beyond shortened whiskers are not lost.
 
     Parameters
     ----------
@@ -797,6 +798,8 @@ def geom_boxplot(
             shape=outlier_parameter("shape", outlier_shape),
             size=size,
             stroke=outlier_parameter("stroke", outlier_stroke),
+            # lets_plot leaves `coef` out here, so its outliers use the default 1.5.
+            coef=other_args.get("coef"),
             color_by=color_by,
             fill_by=fill_by,
             na_rm=True,

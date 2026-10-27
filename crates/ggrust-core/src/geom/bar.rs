@@ -16,6 +16,7 @@ use super::{DrawLayer, Geom};
 use crate::coord::Panel;
 use crate::data::{Column, ContinuousColumn, LayerData, resolution};
 use crate::parameters::Parameters;
+use crate::position::DefaultPosition;
 use crate::scene::{Color, Node, PerItem, Rect, Rects, Stroke};
 use crate::spec::{Aesthetic, Value};
 use crate::stat::bracketing_index;
@@ -69,8 +70,8 @@ impl Geom for BarGeom {
         "count"
     }
 
-    fn default_position(&self) -> &'static str {
-        "stack"
+    fn default_position(&self) -> DefaultPosition {
+        DefaultPosition::named("stack")
     }
 
     fn required_aesthetics(&self) -> &'static [Aesthetic] {
@@ -123,8 +124,8 @@ impl Geom for HistogramGeom {
         "bin"
     }
 
-    fn default_position(&self) -> &'static str {
-        "stack"
+    fn default_position(&self) -> DefaultPosition {
+        DefaultPosition::named("stack")
     }
 
     fn required_aesthetics(&self) -> &'static [Aesthetic] {

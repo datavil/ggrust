@@ -395,6 +395,28 @@ def boxplot_dodged(m):
     )
 
 
+def violins_quantiles(m):
+    random = np.random.default_rng(41)
+    frame = pl.DataFrame(
+        {
+            "species": np.repeat(["setosa", "versicolor", "virginica"], 80),
+            "petal_length": np.concatenate(
+                [
+                    random.normal(1.5, 0.2, 80),
+                    random.normal(4.3, 0.5, 80),
+                    random.normal(5.6, 0.55, 80),
+                ]
+            ),
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("species", "petal_length", fill="species"))
+        + m.geom_violin(quantile_lines=True, alpha=0.7, show_legend=False)
+        + m.scale_fill_brewer(palette="Set2")
+        + m.ggsize(480, 340)
+    )
+
+
 CASES = {
     case.__name__: case
     for case in [
@@ -425,5 +447,6 @@ CASES = {
         histogram_overlap,
         bars_signed,
         boxplot_dodged,
+        violins_quantiles,
     ]
 }

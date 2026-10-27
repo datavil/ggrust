@@ -32,10 +32,12 @@ pub enum Computed {
     Scaled,
     /// `..violinwidth..`: violin width.
     ViolinWidth,
+    /// `..quantile..`: quantile band of a density point (violins).
+    Quantile,
 }
 
 impl Computed {
-    const ALL: [(Computed, &'static str); 11] = [
+    const ALL: [(Computed, &'static str); 12] = [
         (Computed::Count, "count"),
         (Computed::Density, "density"),
         (Computed::NormalizedCount, "ncount"),
@@ -47,6 +49,7 @@ impl Computed {
         (Computed::SumPercent, "sumpct"),
         (Computed::Scaled, "scaled"),
         (Computed::ViolinWidth, "violinwidth"),
+        (Computed::Quantile, "quantile"),
     ];
 
     /// lets-plot name without dots, e.g. `count`.

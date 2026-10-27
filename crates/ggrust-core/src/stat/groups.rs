@@ -7,6 +7,8 @@
 //! What it does not do: reorder groups (`order_by`), or keep source rows (stat rows
 //! summarise many input rows).
 
+use rayon::prelude::*;
+
 use crate::Result;
 use crate::data::{Column, ContinuousColumn, LayerData, SourceRows, Variable};
 
@@ -38,11 +40,12 @@ pub fn rows_by_group_id(data: &LayerData) -> Vec<Vec<usize>> {
     groups
 }
 
-/// Apply `compute` to the rows of every group and merge the results. Columns of
-/// `data` the stat does not produce are carried over (mean / first value).
+/// Apply `compute` to the rows of every group (in parallel) and merge the results
+/// in group order. Columns of `data` the stat does not produce are carried over
+/// (mean / first value).
 pub fn per_group(
     data: &LayerData,
-    compute: impl Fn(&[usize]) -> Result<GroupColumns>,
+    compute: impl Fn(&[usize]) -> Result<GroupColumns> + Sync,
 ) -> Result<LayerData> {
     let mut groups = rows_by_group(data);
     if groups.is_empty() {
@@ -51,8 +54,9 @@ pub fn per_group(
     }
     let mut stat_columns: Vec<(Variable, Vec<f64>)> = Vec::new();
     let mut sizes: Vec<usize> = Vec::with_capacity(groups.len());
-    for rows in &groups {
-        let columns = compute(rows)?;
+    let computed: Vec<Result<GroupColumns>> = groups.par_iter().map(|rows| compute(rows)).collect();
+    for columns in computed {
+        let columns = columns?;
         let size = columns.first().map_or(0, |(_, values)| values.len());
         for (variable, values) in columns {
             match stat_columns

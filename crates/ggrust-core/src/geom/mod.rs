@@ -15,6 +15,7 @@ mod polygon;
 mod reference_line;
 mod segment;
 mod text;
+mod violin;
 
 pub use bar::{BarGeom, HistogramGeom};
 pub use blank::BlankGeom;
@@ -25,6 +26,7 @@ pub use polygon::PolygonGeom;
 pub use reference_line::{HorizontalLineGeom, VerticalLineGeom};
 pub use segment::SegmentGeom;
 pub use text::{LabelGeom, TextGeom};
+pub use violin::ViolinGeom;
 
 use crate::Result;
 use crate::coord::Panel;
@@ -119,6 +121,7 @@ pub static GEOMS: &[&dyn Geom] = &[
     &BarGeom,
     &HistogramGeom,
     &BoxplotGeom,
+    &ViolinGeom,
 ];
 
 /// lets-plot geoms the Python API builds but the engine does not draw yet (plan.md).
@@ -133,7 +136,6 @@ pub static NOT_DRAWN_YET: &[&str] = &[
     "sina",
     "text_repel",
     "tile",
-    "violin",
 ];
 
 /// Look up a geom by its lets-plot name.

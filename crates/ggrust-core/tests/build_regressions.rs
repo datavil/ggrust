@@ -344,20 +344,20 @@ fn lets_plot_names_not_supported_yet_say_so() {
             Err(error) => error.to_string(),
         }
     };
-    let violin = error(r#"{"geom": "violin"}"#);
+    let tile = error(r#"{"geom": "tile"}"#);
     assert!(
-        violin.contains("at 'layers[0].geom': geom 'violin' is not supported by ggrust yet"),
-        "{violin}"
+        tile.contains("at 'layers[0].geom': geom 'tile' is not supported by ggrust yet"),
+        "{tile}"
     );
     let jitter = error(r#"{"geom": "point", "position": {"name": "jitter"}}"#);
     assert!(
         jitter.contains("position 'jitter' is not supported by ggrust yet"),
         "{jitter}"
     );
-    let ydensity = error(r#"{"geom": "point", "stat": "ydensity"}"#);
+    let ridges = error(r#"{"geom": "point", "stat": "densityridges"}"#);
     assert!(
-        ydensity.contains("stat 'ydensity' is not supported by ggrust yet"),
-        "{ydensity}"
+        ridges.contains("stat 'densityridges' is not supported by ggrust yet"),
+        "{ridges}"
     );
     let typo = error(r#"{"geom": "violn"}"#);
     assert!(typo.contains("unknown geom 'violn'"), "{typo}");

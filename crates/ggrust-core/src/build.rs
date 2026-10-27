@@ -170,7 +170,8 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
         ));
     }
     let context = StatContext {
-        x_range: overall_x_range(&mapped, &x_scale),
+        x_range: overall_range(&mapped, Aesthetic::X, &x_scale),
+        y_range: overall_range(&mapped, Aesthetic::Y, &y_scale),
     };
     let mut computed = Vec::with_capacity(mapped.len());
     for layer in mapped {
@@ -992,16 +993,21 @@ impl LayerFrames<'_> {
     }
 }
 
-/// lets-plot `ConfiguredStatContext.overallXRange`: the x range over every layer's
-/// mapped x (axis units), with finite scale limits replacing its ends.
-fn overall_x_range(layers: &[MappedLayer], x_scale: &PositionScale) -> Option<(f64, f64)> {
+/// lets-plot `ConfiguredStatContext.overallRange`: the range of `aesthetic` (x or
+/// y) over every layer's mapped column (axis units), with finite scale limits
+/// replacing its ends.
+fn overall_range(
+    layers: &[MappedLayer],
+    aesthetic: Aesthetic,
+    scale: &PositionScale,
+) -> Option<(f64, f64)> {
     let mut range: Option<(f64, f64)> = None;
     for (_, column, _) in layers
         .iter()
         .flat_map(|layer| &layer.columns)
-        .filter(|(aesthetic, _, _)| *aesthetic == Aesthetic::X)
+        .filter(|(mapped, _, _)| *mapped == aesthetic)
     {
-        let Ok(Column::Continuous(positions)) = x_scale.positions(column.clone()) else {
+        let Ok(Column::Continuous(positions)) = scale.positions(column.clone()) else {
             continue;
         };
         for row in 0..positions.len() {
@@ -1012,7 +1018,7 @@ fn overall_x_range(layers: &[MappedLayer], x_scale: &PositionScale) -> Option<(f
             }
         }
     }
-    match (range, x_scale.limits()) {
+    match (range, scale.limits()) {
         (Some((low, high)), [low_limit, high_limit]) => {
             Some((low_limit.unwrap_or(low), high_limit.unwrap_or(high)))
         }

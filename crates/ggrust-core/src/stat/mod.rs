@@ -4,13 +4,16 @@
 mod bin;
 mod boxplot;
 mod count;
+mod density;
 pub(crate) mod groups;
 mod identity;
+mod ydensity;
 
 pub use bin::{BinStat, bracketing_index};
 pub use boxplot::{BoxplotOutlierStat, BoxplotStat};
 pub use count::CountStat;
 pub use identity::IdentityStat;
+pub use ydensity::{YDensityStat, quantiles as ydensity_quantiles};
 
 use crate::Result;
 use crate::data::{Computed, LayerData};
@@ -23,6 +26,8 @@ pub struct StatContext {
     /// x range over every layer's data, in axis units, with explicit scale
     /// limits replacing its ends (lets-plot `ConfiguredStatContext.overallXRange`).
     pub x_range: Option<(f64, f64)>,
+    /// The same for y (`overallYRange`).
+    pub y_range: Option<(f64, f64)>,
 }
 
 /// A statistical transformation.
@@ -74,11 +79,12 @@ pub static STATS: &[&dyn Stat] = &[
     &BinStat,
     &BoxplotStat,
     &BoxplotOutlierStat,
+    &YDensityStat,
 ];
 
 /// lets-plot stats the Python API builds but the engine does not compute yet
 /// (plan.md). Remove a name when its stat joins [`STATS`].
-pub static NOT_COMPUTED_YET: &[&str] = &["densityridges", "sina", "ydensity"];
+pub static NOT_COMPUTED_YET: &[&str] = &["densityridges", "sina"];
 
 /// Look up a stat by its lets-plot name.
 pub fn stat(name: &str) -> Option<&'static dyn Stat> {

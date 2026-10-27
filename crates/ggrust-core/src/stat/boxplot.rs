@@ -233,7 +233,7 @@ impl Summary {
 
 /// R type 7 quantile of sorted values: linear between the order statistics around
 /// `p * (n - 1)`. NaN when empty.
-fn quantile(sorted: &[f64], p: f64) -> f64 {
+pub(super) fn quantile(sorted: &[f64], p: f64) -> f64 {
     let Some(last) = sorted.len().checked_sub(1) else {
         return f64::NAN;
     };

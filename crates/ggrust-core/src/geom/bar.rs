@@ -296,14 +296,14 @@ fn rects_node((stroke, rects, fills): Batch) -> Node {
     })
 }
 
-fn key_size(styles: &Styles) -> Result<(f64, f64)> {
+pub(super) fn key_size(styles: &Styles) -> Result<(f64, f64)> {
     let side = styles.numbers(Aesthetic::Size)?.get(0).max(0.0) * POINT_UNIT_SIZE + 2.0;
     Ok((side, side))
 }
 
 /// lets-plot's rect key: the cell inset by a pixel (so neighbouring keys do not
 /// touch) and half the outline width.
-fn draw_key(styles: &Styles, cell: Rect) -> Result<Vec<Node>> {
+pub(super) fn draw_key(styles: &Styles, cell: Rect) -> Result<Vec<Node>> {
     let alpha = styles.numbers(Aesthetic::Alpha)?.get(0);
     let fill = styles.colors(Aesthetic::Fill)?.get(0).with_opacity(alpha);
     let stroke = lines::stroke_with_alpha(styles, 0, false)?;

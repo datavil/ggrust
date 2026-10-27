@@ -250,8 +250,8 @@ fn errors_name_the_path() {
             "at 'layers[0].size': expected a finite number",
         ),
         (
-            r#"{"kind": "plot", "mapping": {"x": "UMAP1", "y": "UMAP2"}, "layers": [{"geom": "point", "stat": "ydensity"}]}"#,
-            "at 'layers[0].stat': stat 'ydensity' is not supported by ggrust yet",
+            r#"{"kind": "plot", "mapping": {"x": "UMAP1", "y": "UMAP2"}, "layers": [{"geom": "point", "stat": "densityridges"}]}"#,
+            "at 'layers[0].stat': stat 'densityridges' is not supported by ggrust yet",
         ),
     ];
     for (json, expected) in cases {

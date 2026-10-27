@@ -78,6 +78,20 @@ impl PositionScale {
         }
     }
 
+    /// Whether one coord limit is given and lies beyond the other (open) end of the
+    /// scale's own domain, which lets-plot rejects.
+    pub fn coord_limit_beyond_data(&self) -> bool {
+        let (limits, (low, high)) = match self {
+            PositionScale::Continuous(scale) => (scale.coord_limits, scale.own_domain()),
+            PositionScale::Discrete(scale) => (scale.coord_limits, scale.own_domain()),
+        };
+        match limits {
+            [Some(limit), None] => limit > high,
+            [None, Some(limit)] => limit < low,
+            _ => false,
+        }
+    }
+
     /// Whether the breaks are fixed (every category, or `breaks=[...]`): the axis
     /// shows all of them instead of choosing a count.
     pub fn has_fixed_breaks(&self) -> bool {

@@ -39,6 +39,16 @@ CASES = {
     "fixed_ratio": lambda m: point(m) + m.coord_fixed(ratio=2),
     "fixed_tall": lambda m: point(m) + m.coord_fixed(ratio=0.2),
     "fixed_limits": lambda m: point(m) + m.coord_fixed(xlim=[0, 5], ylim=[0, 5]),
+    # Bug hunt 1.5d: the height shrinks (ratio exact after the re-layout).
+    "fixed_narrow": lambda m: point(m) + m.coord_fixed() + m.ggsize(300, 700),
+    "fixed_bottom_legend": lambda m: (
+        m.ggplot(FRAME, m.aes("x", "y", color="c"))
+        + m.geom_point()
+        + m.coord_fixed()
+        + m.ggsize(200, 500)
+        + m.theme(legend_position="bottom")
+    ),
+    "fixed_tall_title": lambda m: point(m) + m.coord_fixed(ratio=0.2) + m.ggtitle("T"),
     "fixed_with_legend": lambda m: (
         m.ggplot(FRAME, m.aes("x", "y", color="c")) + m.geom_point() + m.coord_fixed()
     ),
@@ -98,6 +108,10 @@ def render(module, name):
 # at the right edge (x = 3 with xlim=[2, 3]) falls outside and is not drawn; ggrust
 # draws it. Pixel quirk, not emulated.
 EDGE_BREAK = {"cartesian_xlim", "cartesian_and_scale_limits"}
+# Real-font y labels make ggrust's narrow panel 13 px shorter here (127 vs 140 px),
+# across lets-plot's break-count threshold: y breaks 2, 4 vs 1..4. Aspect matches
+# (checked in test_narrow_fixed_ratio_is_exact).
+NEAR_TIE = {"fixed_bottom_legend"}
 
 
 @pytest.mark.parametrize(
@@ -105,6 +119,8 @@ EDGE_BREAK = {"cartesian_xlim", "cartesian_and_scale_limits"}
     [
         pytest.param(name, marks=pytest.mark.xfail(reason="edge break", strict=True))
         if name in EDGE_BREAK
+        else pytest.param(name, marks=pytest.mark.xfail(reason="near-tie", strict=True))
+        if name in NEAR_TIE
         else name
         for name in CASES
     ],
@@ -120,7 +136,7 @@ def test_coords_match_lets_plot(name):
         assert ours_point == pytest.approx(their_point, abs=0.005)
     if name.startswith("fixed"):
         aspect = lambda panel: panel[2] / panel[3]  # noqa: E731
-        assert aspect(our_panel) == pytest.approx(aspect(their_panel), rel=0.03)
+        assert aspect(our_panel) == pytest.approx(aspect(their_panel), rel=0.002)
         centre = lambda panel: panel[0] + panel[2] / 2  # noqa: E731
         assert centre(our_panel) == pytest.approx(centre(their_panel), abs=8)
 
@@ -144,3 +160,45 @@ def test_points_and_edge_breaks_otherwise_match():
 def test_reversed_limits_fail_like_lets_plot():
     with pytest.raises(ValueError, match=r"coord.ylim': expected \[low, high\]"):
         (point(gg) + gg.coord_fixed(ylim=[3, -1])).to_svg()
+
+
+def test_extreme_ratios_go_below_the_minimum_panel_size():
+    svg = (
+        gg.ggplot({"x": [3.0], "y": [100.0]}, gg.aes("x", "y"))
+        + gg.geom_point()
+        + gg.coord_fixed(ylim=[None, 200])
+    ).to_svg()
+    _, _, width, height = ggrust_panel(svg)
+    their = lets_plot_panel(
+        (
+            lp.ggplot({"x": [3.0], "y": [100.0]}, lp.aes("x", "y"))
+            + lp.geom_point()
+            + lp.coord_fixed(ylim=[None, 200])
+        ).to_svg()
+    )
+    assert width / height == pytest.approx(their[2] / their[3], rel=0.01)
+
+
+@pytest.mark.parametrize(
+    ("coord", "message"),
+    [
+        (lambda: gg.coord_cartesian(xlim=[2, 2]), "low < high"),
+        (lambda: gg.coord_cartesian(xlim=[10, None]), "beyond the other end"),
+        (lambda: gg.coord_cartesian(xlim=[None, -10]), "beyond the other end"),
+    ],
+)
+def test_invalid_limits_fail_like_lets_plot(coord, message):
+    with pytest.raises(ValueError, match=message):
+        (point(gg) + coord()).to_svg()
+
+
+def test_non_positive_ratios_warn():
+    with pytest.warns(gg.GgrustWarning, match="coord.ratio': expected a positive number"):
+        (point(gg) + gg.coord_fixed(ratio=0)).to_svg()
+
+
+def test_narrow_fixed_ratio_is_exact():
+    for name in NEAR_TIE:
+        theirs = lets_plot_panel(render(lp, name))
+        ours = ggrust_panel(render(gg, name))
+        assert ours[2] / ours[3] == pytest.approx(theirs[2] / theirs[3], rel=0.002)

@@ -142,12 +142,12 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
             (coord_spec.ylim, &mut y_scale, "ylim"),
         ] {
             let Some(limits) = limits else { continue };
-            // lets-plot rejects reversed coord limits ("Invalid coord ylim").
+            // lets-plot rejects reversed or equal coord limits ("Invalid coord ylim").
             if let [Some(low), Some(high)] = limits
-                && low > high
+                && low >= high
             {
                 return Err(Error::InvalidSpec(format!(
-                    "at 'coord.{key}': expected [low, high] with low <= high, got [{low}, {high}]"
+                    "at 'coord.{key}': expected [low, high] with low < high, got [{low}, {high}]"
                 ))
                 .with_notes(&warnings));
             }
@@ -159,6 +159,12 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
         .as_ref()
         .filter(|_| coord.fixes_aspect())
         .map(|coord_spec| coord_spec.ratio.unwrap_or(1.0));
+    if let Some(ratio) = aspect.filter(|ratio| !(ratio.is_finite() && *ratio > 0.0)) {
+        warnings.push(format!(
+            "at 'coord.ratio': expected a positive number, got {ratio}; the panel keeps its \
+             shape"
+        ));
+    }
     let mut computed = Vec::with_capacity(mapped.len());
     for layer in mapped {
         match compute_layer(layer, [&x_scale, &y_scale]) {
@@ -198,6 +204,17 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
         }
     }
 
+    // lets-plot: a single coord limit beyond the other end of the data range is an
+    // error ("Incompatible x-limits and the data range").
+    for (scale, key) in [(&x_scale, "xlim"), (&y_scale, "ylim")] {
+        if scale.coord_limit_beyond_data() {
+            return Err(Error::InvalidSpec(format!(
+                "at 'coord.{key}': the given limit lies beyond the other end of the data \
+                 range; give both limits"
+            ))
+            .with_notes(&warnings));
+        }
+    }
     let theme = Theme::from_spec(spec.theme.as_ref(), &mut warnings)
         .map_err(|error| error.with_notes(&warnings))?;
     let titles = plot_titles(spec, &scales);

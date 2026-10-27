@@ -141,6 +141,11 @@ impl ContinuousPositionScale {
         };
     }
 
+    /// The scale's own expanded domain, without coord limits.
+    pub fn own_domain(&self) -> (f64, f64) {
+        self.scale_domain()
+    }
+
     /// The scale's own expanded domain (without coord limits).
     fn scale_domain(&self) -> (f64, f64) {
         let Some((low, high)) = self.raw_domain() else {

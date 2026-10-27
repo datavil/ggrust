@@ -117,10 +117,32 @@ pub fn layout_plot(
             ..area
         }
     };
-    if !(shrunk.width > 0.0 && shrunk.height > 0.0) || shrunk == area {
-        return layout;
+    let relaid = if shrunk.width > 0.0 && shrunk.height > 0.0 && shrunk != area {
+        layout_free(shrunk, theme, titles, x_scale, y_scale, legend_space)
+    } else {
+        layout
+    };
+    // The re-layout picks breaks for the new size, which can change the axis
+    // bands a little: fit the panel exactly (lets-plot `adjustGeomSize`), centred
+    // in its space, even below the minimum panel size.
+    fit_ratio(relaid, ratio, x_span, y_span)
+}
+
+/// Shrink the panel of `layout` to the exact `ratio`, centred where it was.
+fn fit_ratio(mut layout: PlotLayout, ratio: f64, x_span: f64, y_span: f64) -> PlotLayout {
+    let panel = &mut layout.panel;
+    let wanted_height = ratio * panel.width / x_span * y_span;
+    if wanted_height < panel.height {
+        panel.y += (panel.height - wanted_height) / 2.0;
+        panel.height = wanted_height;
+    } else {
+        let wanted_width = panel.height * x_span / (ratio * y_span);
+        if wanted_width.is_finite() {
+            panel.x += (panel.width - wanted_width) / 2.0;
+            panel.width = wanted_width;
+        }
     }
-    layout_free(shrunk, theme, titles, x_scale, y_scale, legend_space)
+    layout
 }
 
 /// [`layout_plot`] without an aspect ratio: the panel takes the space left.

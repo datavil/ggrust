@@ -445,29 +445,13 @@ fn map_layer_into<'a>(
         let planned = stat::NOT_COMPUTED_YET.contains(&stat_name);
         unknown("stat", &at("stat"), stat_name, planned, &stat::names())
     })?;
-    let (position_name, position_options) = match &spec.position {
-        Some(position) => (position.name.as_str(), position.parameters.clone()),
-        None => {
-            let default = stat
-                .default_position()
-                .unwrap_or_else(|| geom.default_position());
-            (default.name, default.options())
-        }
-    };
-    let position = position::position(position_name).ok_or_else(|| {
-        let planned = position::NOT_APPLIED_YET.contains(&position_name);
-        unknown(
-            "position",
-            &at("position"),
-            position_name,
-            planned,
-            &position::names(),
-        )
-    })?;
+    let positions = layer_positions(geom, stat, spec, &path)?;
 
     let options = normalize_options(&spec.parameters, &path, warnings);
     validate_parameters(geom, stat, &options, &path, warnings);
-    validate_position_options(position, &position_options, &at("position"), warnings);
+    for (position, position_options, position_path) in &positions {
+        validate_position_options(*position, position_options, position_path, warnings);
+    }
 
     let (mut mapping, inherited) = merged_mapping(plot, spec);
     // An aesthetic given as a constant wins over its mapping (lets-plot
@@ -575,8 +559,7 @@ fn map_layer_into<'a>(
         path,
         geom,
         stat,
-        position,
-        position_options,
+        positions,
         options,
         // lets-plot drops the data of a layer with no mapped columns: one row.
         row_count: if unbound { 1 } else { frames.row_count() },
@@ -597,8 +580,8 @@ struct MappedLayer<'a> {
     path: String,
     geom: &'static dyn Geom,
     stat: &'static dyn Stat,
-    position: &'static dyn Position,
-    position_options: Options,
+    /// Positions applied in order, with their options and option paths.
+    positions: Vec<(&'static dyn Position, Options, String)>,
     /// Layer options with aliases normalised (`colour` -> `color`).
     options: Options,
     row_count: usize,
@@ -662,8 +645,7 @@ fn compute_layer(
         path,
         geom,
         stat,
-        position,
-        position_options,
+        positions,
         options,
         row_count,
         columns,
@@ -800,11 +782,7 @@ fn compute_layer(
     )?;
     let layer_data = geom.setup(layer_data, &parameters)?;
     let x_span = setup_span(geom, &layer_data);
-    let position_path = at("position");
-    let layer_data = position.adjust(
-        layer_data,
-        &Parameters::new(&position_options, &position_path),
-    )?;
+    let layer_data = apply_positions(layer_data, &positions)?;
 
     // Missing stat output is deliberate (e.g. `threshold`); input rows the stat
     // dropped were reported above.
@@ -1046,6 +1024,101 @@ fn setup_span(geom: &dyn Geom, data: &LayerData) -> Option<(f64, f64)> {
         }
     }
     span
+}
+
+/// Apply a layer's positions. A later position (lets-plot `CompositionPos`, only
+/// geom_jitter's own jitter) reads the original data, as lets-plot's resolution
+/// does, and its offsets are added to the earlier result.
+fn apply_positions(
+    data: LayerData,
+    positions: &[(&'static dyn Position, Options, String)],
+) -> Result<LayerData> {
+    let Some(((first, first_options, first_path), later)) = positions.split_first() else {
+        return Ok(data);
+    };
+    let mut result = first.adjust(data.clone(), &Parameters::new(first_options, first_path))?;
+    for (position, options, option_path) in later {
+        let moved = position.adjust(data.clone(), &Parameters::new(options, option_path))?;
+        let aesthetics: Vec<Aesthetic> = result
+            .aesthetics()
+            .filter(|aesthetic| aesthetic.is_x_position() || aesthetic.is_y_position())
+            .collect();
+        for aesthetic in aesthetics {
+            let (Some(current), Some(before), Some(after)) = (
+                result.continuous(aesthetic),
+                data.continuous(aesthetic),
+                moved.continuous(aesthetic),
+            ) else {
+                continue;
+            };
+            let shifted = (0..current.len())
+                .map(|row| {
+                    let offset = after.get(row).unwrap_or(0.0) - before.get(row).unwrap_or(0.0);
+                    current.get(row).map(|value| value + offset)
+                })
+                .collect();
+            result.insert(
+                aesthetic,
+                Column::Continuous(ContinuousColumn::from_options(shifted)),
+            )?;
+        }
+    }
+    Ok(result)
+}
+
+/// The positions of a layer, as lets-plot `LayerConfigUtil.positionAdjustmentOptions`:
+/// the geom's (or stat's) preferred position without `position=`; both, the given
+/// one first, when the geom has its own positioning options (`geom_jitter(width=)`);
+/// one merged position when the names agree (`geom_jitter(seed=3,
+/// position="jitter")`); else the given one.
+fn layer_positions(
+    geom: &dyn Geom,
+    stat: &dyn Stat,
+    spec: &LayerSpec,
+    path: &str,
+) -> Result<Vec<(&'static dyn Position, Options, String)>> {
+    let preferred = stat
+        .default_position()
+        .unwrap_or_else(|| geom.default_position());
+    let preferred_options = preferred.options(&spec.parameters);
+    // lets-plot `hasOwnPositionAdjustmentOptions`: geom_jitter's width or height.
+    let own = preferred.from_layer.iter().any(|name| {
+        *name != "seed"
+            && spec
+                .parameters
+                .get(*name)
+                .is_some_and(|value| !value.is_null())
+    });
+    let given_path = format!("{path}.position");
+    let chain: Vec<(&str, Options, String)> = match &spec.position {
+        None => vec![(preferred.name, preferred_options, path.to_owned())],
+        Some(given) if own => vec![
+            (given.name.as_str(), given.parameters.clone(), given_path),
+            (preferred.name, preferred_options, path.to_owned()),
+        ],
+        Some(given) if given.name == preferred.name => {
+            let mut merged = preferred_options;
+            merged.extend(given.parameters.clone());
+            vec![(preferred.name, merged, given_path)]
+        }
+        Some(given) => vec![(given.name.as_str(), given.parameters.clone(), given_path)],
+    };
+    chain
+        .into_iter()
+        .map(|(name, options, option_path)| {
+            let position = position::position(name).ok_or_else(|| {
+                let planned = position::NOT_APPLIED_YET.contains(&name);
+                unknown(
+                    "position",
+                    &format!("{path}.position"),
+                    name,
+                    planned,
+                    &position::names(),
+                )
+            })?;
+            Ok((position, options, option_path))
+        })
+        .collect()
 }
 
 /// Error unless every aesthetic in `required` has a column (mapped, constant or

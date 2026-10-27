@@ -8,6 +8,7 @@
 mod bar;
 mod blank;
 mod boxplot;
+mod jitter;
 mod lines;
 mod path;
 mod point;
@@ -20,6 +21,7 @@ mod violin;
 pub use bar::{BarGeom, HistogramGeom};
 pub use blank::BlankGeom;
 pub use boxplot::BoxplotGeom;
+pub use jitter::JitterGeom;
 pub use path::{LineGeom, PathGeom};
 pub use point::PointGeom;
 pub use polygon::PolygonGeom;
@@ -122,6 +124,7 @@ pub static GEOMS: &[&dyn Geom] = &[
     &HistogramGeom,
     &BoxplotGeom,
     &ViolinGeom,
+    &JitterGeom,
 ];
 
 /// lets-plot geoms the Python API builds but the engine does not draw yet (plan.md).
@@ -129,7 +132,6 @@ pub static GEOMS: &[&dyn Geom] = &[
 pub static NOT_DRAWN_YET: &[&str] = &[
     "area_ridges",
     "bracket",
-    "jitter",
     "label_repel",
     "raster",
     "rect",

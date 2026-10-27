@@ -3,11 +3,14 @@
 
 mod dodge;
 mod identity;
+mod jitter;
+mod random;
 mod shift;
 mod stack;
 
 pub use dodge::DodgePosition;
 pub use identity::IdentityPosition;
+pub use jitter::{JitterDodgePosition, JitterPosition};
 pub use stack::StackPosition;
 
 use crate::Result;
@@ -22,6 +25,9 @@ pub struct DefaultPosition {
     pub name: &'static str,
     /// `width` option (dodge).
     pub width: Option<f64>,
+    /// Layer options passed on to the position under the same name (`geom_jitter`'s
+    /// `width`, `height`, `seed`).
+    pub from_layer: &'static [&'static str],
 }
 
 impl DefaultPosition {
@@ -30,7 +36,11 @@ impl DefaultPosition {
 
     /// A position without options.
     pub const fn named(name: &'static str) -> Self {
-        DefaultPosition { name, width: None }
+        DefaultPosition {
+            name,
+            width: None,
+            from_layer: &[],
+        }
     }
 
     /// `position_dodge(width)`.
@@ -38,14 +48,20 @@ impl DefaultPosition {
         DefaultPosition {
             name: "dodge",
             width: Some(width),
+            from_layer: &[],
         }
     }
 
-    /// The position's options.
-    pub fn options(&self) -> Options {
+    /// The position's options, with [`Self::from_layer`] taken from `layer`.
+    pub fn options(&self, layer: &Options) -> Options {
         let mut options = Options::new();
         if let Some(width) = self.width {
             options.insert("width".to_owned(), Value::from(width));
+        }
+        for name in self.from_layer {
+            if let Some(value) = layer.get(*name).filter(|value| !value.is_null()) {
+                options.insert((*name).to_owned(), value.clone());
+            }
         }
         options
     }
@@ -66,11 +82,17 @@ pub trait Position: Sync {
 }
 
 /// Every position, in one place: lookup and names derive from it.
-pub static POSITIONS: &[&dyn Position] = &[&IdentityPosition, &StackPosition, &DodgePosition];
+pub static POSITIONS: &[&dyn Position] = &[
+    &IdentityPosition,
+    &StackPosition,
+    &DodgePosition,
+    &JitterPosition,
+    &JitterDodgePosition,
+];
 
 /// lets-plot positions the Python API builds but the engine does not apply yet
 /// (plan.md). Remove a name when its position joins [`POSITIONS`].
-pub static NOT_APPLIED_YET: &[&str] = &["fill", "jitter", "jitterdodge", "nudge"];
+pub static NOT_APPLIED_YET: &[&str] = &["fill", "nudge"];
 
 /// Look up a position by its lets-plot name.
 pub fn position(name: &str) -> Option<&'static dyn Position> {

@@ -349,10 +349,10 @@ fn lets_plot_names_not_supported_yet_say_so() {
         tile.contains("at 'layers[0].geom': geom 'tile' is not supported by ggrust yet"),
         "{tile}"
     );
-    let jitter = error(r#"{"geom": "point", "position": {"name": "jitter"}}"#);
+    let nudge = error(r#"{"geom": "point", "position": {"name": "nudge"}}"#);
     assert!(
-        jitter.contains("position 'jitter' is not supported by ggrust yet"),
-        "{jitter}"
+        nudge.contains("position 'nudge' is not supported by ggrust yet"),
+        "{nudge}"
     );
     let ridges = error(r#"{"geom": "point", "stat": "densityridges"}"#);
     assert!(

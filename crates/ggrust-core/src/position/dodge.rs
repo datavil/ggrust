@@ -32,41 +32,51 @@ impl Position for DodgePosition {
     }
 
     fn adjust(&self, data: LayerData, parameters: &Parameters) -> Result<LayerData> {
-        let width = parameters.number("width")?;
-        let Some(x) = data.continuous(Aesthetic::X).cloned() else {
-            return Ok(data);
-        };
-        if !dodging_needed(&data) {
-            return Ok(data);
-        }
-        let group_count = (0..data.row_count())
-            .map(|row| data.group_of(row))
-            .collect::<HashSet<_>>()
-            .len() as f64;
-        let median = (group_count - 1.0) / 2.0;
-        let resolution = resolution(&x);
-        let widths = data.continuous(Aesthetic::Width).cloned();
-        let groups: Vec<f64> = (0..data.row_count())
-            .map(|row| data.group_of(row) as f64)
-            .collect();
-        shift_positions(data, Aesthetic::is_x_position, |row, value| {
-            let size = width
-                .or_else(|| {
-                    widths
-                        .as_ref()
-                        .map(|widths| widths.get(row).unwrap_or(f64::NAN))
-                })
-                .unwrap_or(1.0);
-            let Some(center) = x.get(row).filter(|center| center.is_finite()) else {
-                return value;
-            };
-            if !size.is_finite() {
-                return value;
-            }
-            let offset = (groups[row] - median) * resolution * size;
-            (value + offset - center) / group_count + center
-        })
+        dodge(data, parameters.number("width")?, None)
     }
+}
+
+/// Dodge `data` (lets-plot `BaseDodgePos.translate`). `jitter` adds a per-row x
+/// offset before dodging, around the unjittered x (jitterdodge).
+pub(super) fn dodge(
+    data: LayerData,
+    width: Option<f64>,
+    jitter: Option<&[f64]>,
+) -> Result<LayerData> {
+    let Some(x) = data.continuous(Aesthetic::X).cloned() else {
+        return Ok(data);
+    };
+    let jittered = |row: usize, value: f64| value + jitter.map_or(0.0, |jitter| jitter[row]);
+    if !dodging_needed(&data) {
+        return shift_positions(data, Aesthetic::is_x_position, jittered);
+    }
+    let group_count = (0..data.row_count())
+        .map(|row| data.group_of(row))
+        .collect::<HashSet<_>>()
+        .len() as f64;
+    let median = (group_count - 1.0) / 2.0;
+    let resolution = resolution(&x);
+    let widths = data.continuous(Aesthetic::Width).cloned();
+    let groups: Vec<f64> = (0..data.row_count())
+        .map(|row| data.group_of(row) as f64)
+        .collect();
+    shift_positions(data, Aesthetic::is_x_position, |row, value| {
+        let size = width
+            .or_else(|| {
+                widths
+                    .as_ref()
+                    .map(|widths| widths.get(row).unwrap_or(f64::NAN))
+            })
+            .unwrap_or(1.0);
+        let Some(center) = x.get(row).filter(|center| center.is_finite()) else {
+            return jittered(row, value);
+        };
+        if !size.is_finite() {
+            return jittered(row, value);
+        }
+        let offset = (groups[row] - median) * resolution * size;
+        (jittered(row, value) + offset - center) / group_count + center
+    })
 }
 
 /// lets-plot `isDodgingNeeded`: some x holds rows of more than one group.

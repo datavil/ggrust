@@ -417,6 +417,33 @@ def violins_quantiles(m):
     )
 
 
+def violin_jitterdodge(m):
+    random = np.random.default_rng(51)
+    frame = pl.DataFrame(
+        {
+            "cell_type": np.repeat(["B", "NK", "T"], 60),
+            "sample": np.tile(np.repeat(["day 0", "day 7"], 30), 3),
+            "score": np.concatenate(
+                [random.normal(mean, 0.6, 30) for mean in [1.0, 1.6, 2.4, 2.0, 0.6, 1.4]]
+            ),
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("cell_type", "score", fill="sample"))
+        + m.geom_violin(alpha=0.4)
+        + m.geom_point(
+            m.aes(color="sample"),
+            position=m.position_jitterdodge(jitter_width=0.15, seed=3),
+            size=1.5,
+            alpha=0.7,
+        )
+        + m.scale_fill_brewer(palette="Dark2")
+        + m.scale_color_brewer(palette="Dark2")
+        + m.theme_classic()
+        + m.ggsize(520, 340)
+    )
+
+
 CASES = {
     case.__name__: case
     for case in [
@@ -448,5 +475,6 @@ CASES = {
         bars_signed,
         boxplot_dodged,
         violins_quantiles,
+        violin_jitterdodge,
     ]
 }

@@ -250,8 +250,8 @@ def test_geom_function_on_frames():
         (lambda: gg.geom_raster(), "geom 'raster' is not supported by ggrust yet"),
         (lambda: gg.geom_tile(), "geom 'tile' is not supported by ggrust yet"),
         (
-            lambda: gg.geom_point(position=gg.position_jitter()),
-            "position 'jitter' is not supported by ggrust yet",
+            lambda: gg.geom_point(position=gg.position_nudge()),
+            "position 'nudge' is not supported by ggrust yet",
         ),
     ],
 )

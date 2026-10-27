@@ -4,6 +4,7 @@
 //! `scale_shape_manual(values=...)` its own list.
 
 use super::StyleMapper;
+use super::manual::{cycle, quantize};
 use crate::data::ContinuousColumn;
 use crate::scene::PerItem;
 use crate::style::{StyleValues, ValueKind};
@@ -48,29 +49,16 @@ impl StyleMapper for ShapeMapper {
     }
 
     fn map_continuous(&self, column: &ContinuousColumn, domain: (f64, f64)) -> StyleValues {
-        // lets-plot `continuousToDiscrete` (`QuantizeScale`): equal buckets, clamped.
-        let count = self.shapes.len();
-        let bucket = (domain.1 - domain.0) / count as f64;
-        let shapes = (0..column.len())
-            .map(
-                |row| match column.get(row).filter(|value| value.is_finite()) {
-                    Some(value) => {
-                        let index = ((value - domain.0) / bucket) as i64;
-                        self.shapes[index.clamp(0, count as i64 - 1) as usize]
-                    }
-                    None => self.na,
-                },
-            )
-            .collect();
-        StyleValues::Shapes(PerItem::Varying(shapes))
+        StyleValues::Shapes(PerItem::Varying(quantize(
+            &self.shapes,
+            self.na,
+            column,
+            domain,
+        )))
     }
 
     fn map_discrete(&self, indices: &[Option<usize>], _level_count: usize) -> StyleValues {
-        let shapes = indices
-            .iter()
-            .map(|index| index.map_or(self.na, |index| self.shapes[index % self.shapes.len()]))
-            .collect();
-        StyleValues::Shapes(PerItem::Varying(shapes))
+        StyleValues::Shapes(PerItem::Varying(cycle(&self.shapes, self.na, indices)))
     }
 }
 

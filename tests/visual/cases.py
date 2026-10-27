@@ -229,6 +229,23 @@ def point_shapes(m):
     )
 
 
+def size_scales(m):
+    random = np.random.default_rng(27)
+    frame = pl.DataFrame(
+        {
+            "UMAP1": random.normal(0, 3, 300),
+            "UMAP2": random.normal(0, 3, 300),
+            "pct": random.uniform(0, 100, 300),
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("UMAP1", "UMAP2", size="pct", alpha="pct"))
+        + m.geom_point(color="#3f007d")
+        + m.scale_size(trans="sqrt", breaks=[25, 50, 75, 100], range=[0.5, 6])
+        + m.scale_alpha(range=[0.3, 0.9])
+    )
+
+
 CASES = {
     case.__name__: case
     for case in [
@@ -250,5 +267,6 @@ CASES = {
         legend_inside_corner,
         labelled_axes,
         point_shapes,
+        size_scales,
     ]
 }

@@ -121,6 +121,9 @@ CASES = {
         point(m, color="e") + m.guides(color=m.guide_colorbar(barheight=200, nbin=6))
     ),
     "colorbar_and_legend": lambda m: point(m, color="v", size="c"),
+    "log10_colorbar": lambda m: point(m, color="e") + m.scale_color_continuous(trans="log10"),
+    "sqrt_colorbar": lambda m: point(m, color="e") + m.scale_color_gradient(trans="sqrt"),
+    "reverse_colorbar": lambda m: point(m, color="e") + m.scale_color_viridis(trans="reverse"),
 }
 
 

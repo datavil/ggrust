@@ -8,12 +8,14 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use super::{
-    BrewerMapper, COLORMAP_NAMES, ColormapMapper, ContinuousDomain, DiscreteDomain, GRADIENT_HIGH,
-    GRADIENT_LOW, GRADIENT2_HIGH, GRADIENT2_LOW, GRADIENT2_MID, Gradient2Mapper, GradientMapper,
-    HOLLOW_SHAPES, HueMapper, Level, ManualColorMapper, NA_COLOR, NA_SHAPE, Overflow,
-    PaletteChoice, PaletteType, ShapeMapper, StyleMapper, colormap, default_mapper, scheme_by_name,
-    scheme_names,
+    ALPHA, BrewerMapper, COLORMAP_NAMES, ColormapMapper, ContinuousDomain, DiscreteDomain,
+    GRADIENT_HIGH, GRADIENT_LOW, GRADIENT2_HIGH, GRADIENT2_LOW, GRADIENT2_MID, Gradient2Mapper,
+    GradientMapper, HOLLOW_SHAPES, HueMapper, IdentityMapper, Level, ManualColorMapper,
+    ManualNumberMapper, NA_COLOR, NA_SHAPE, Overflow, PaletteChoice, PaletteType,
+    ProportionalMapper, SIZE, SIZE_AREA_MAX, ShapeMapper, StyleMapper, colormap, default_mapper,
+    scheme_by_name, scheme_names,
 };
+use crate::scale::Transform;
 use crate::scene::{Color, PerItem};
 use crate::spec::{Aesthetic, GuideSpec, PlotSpec, ScaleSpec, Value};
 use crate::style::{StyleValues, ValueKind, parse_constant};
@@ -43,6 +45,8 @@ const MAPPER_OPTIONS: &[&str] = &[
     "palette",
     "overflow",
     "solid",
+    "range",
+    "max_size",
 ];
 
 /// Merged `scale_*()` options of one style aesthetic.
@@ -55,6 +59,7 @@ pub struct StyleScaleSpec {
     limits: Set<Vec<Value>>,
     na_value: Set<Value>,
     kind: Set<String>,
+    trans: Set<String>,
     guide: Set<GuideSpec>,
     options: BTreeMap<String, (Value, String)>,
 }
@@ -102,6 +107,9 @@ fn merge(target: &mut StyleScaleSpec, scale: &ScaleSpec, path: &str) {
     if let Some(kind) = &scale.scale_mapper_kind {
         target.kind = Some((kind.clone(), at("scale_mapper_kind")));
     }
+    if let Some(trans) = &scale.trans {
+        target.trans = Some((trans.clone(), at("trans")));
+    }
     for (key, value) in &scale.parameters {
         if MAPPER_OPTIONS.contains(&key.as_str()) && !value.is_null() {
             target.options.insert(key.clone(), (value.clone(), at(key)));
@@ -120,7 +128,6 @@ fn report_unbuilt(scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
                 .as_ref()
                 .is_some_and(|guide| !guide.is_built_style_guide()),
         ),
-        ("trans", scale.trans.is_some()),
         ("expand", scale.expand.is_some()),
         ("position", scale.position.is_some()),
         ("discrete", scale.discrete.is_some()),
@@ -150,9 +157,32 @@ impl StyleScaleSpec {
                 "'{aesthetic}' has no style scale"
             )));
         };
-        let is_color = default.value_kind() == ValueKind::Color;
-        let is_shape = default.value_kind() == ValueKind::Shape;
+        let kind = default.value_kind();
+        let is_color = kind == ValueKind::Color;
+        let is_shape = kind == ValueKind::Shape;
+        let is_number = kind == ValueKind::Number;
         match &self.kind {
+            Some((name, _)) if name == "identity" => {
+                return Ok(Arc::new(IdentityMapper {
+                    kind,
+                    na: self.na_value(aesthetic, &default)?,
+                }));
+            }
+            Some((name, path)) if name == "size_area" => {
+                let max = match self.options.get("max_size") {
+                    None => SIZE_AREA_MAX,
+                    Some((value, path)) => positive_number(value, path)?,
+                };
+                if aesthetic != Aesthetic::Size {
+                    return Err(Error::InvalidSpec(format!(
+                        "at '{path}': size_area applies to 'size', not '{aesthetic}'"
+                    )));
+                }
+                return Ok(Arc::new(ProportionalMapper {
+                    max,
+                    missing: self.na_number(SIZE.missing())?,
+                }));
+            }
             Some((kind, _)) if kind == "color_hue" && is_color => {
                 return self
                     .hue()
@@ -184,9 +214,38 @@ impl StyleScaleSpec {
                     .manual_shapes(values, path)
                     .map(|mapper| Arc::new(mapper) as Arc<dyn StyleMapper>);
             }
+            if is_number {
+                return self
+                    .manual_numbers(aesthetic, values, path)
+                    .map(|mapper| Arc::new(mapper) as Arc<dyn StyleMapper>);
+            }
             warnings.push(format!(
                 "at '{path}': manual values for '{aesthetic}' are not supported yet; the \
                  default scale was used"
+            ));
+        }
+        if let Some((range, path)) = self.options.get("range") {
+            let linear = match aesthetic {
+                Aesthetic::Size => &SIZE,
+                Aesthetic::Alpha => &ALPHA,
+                _ => {
+                    return Err(Error::InvalidSpec(format!(
+                        "at '{path}': range applies to size and alpha scales, not '{aesthetic}'"
+                    )));
+                }
+            };
+            let ends = range
+                .as_array()
+                .filter(|items| items.len() == 2)
+                .and_then(|items| Some((items[0].as_f64()?, items[1].as_f64()?)))
+                .filter(|(low, high)| low.is_finite() && high.is_finite())
+                .ok_or_else(|| {
+                    Error::InvalidSpec(format!(
+                        "at '{path}': expected [low, high] numbers, got {range}"
+                    ))
+                })?;
+            return Ok(Arc::new(
+                linear.with_range(ends, self.na_number(linear.missing())?),
             ));
         }
         if is_shape && let Some((solid, path)) = self.options.get("solid") {
@@ -307,6 +366,9 @@ impl StyleScaleSpec {
             .discrete_domain()
             .map_err(|error| error.to_string())?
             .labels;
+        if let Some((name, path)) = &self.trans {
+            domain.transform = Transform::parse(name, path).map_err(|error| error.to_string())?;
+        }
         Ok(domain)
     }
 
@@ -601,6 +663,84 @@ impl StyleScaleSpec {
         Ok(ShapeMapper { shapes, na })
     }
 
+    fn manual_numbers(
+        &self,
+        aesthetic: Aesthetic,
+        values: &Value,
+        path: &str,
+    ) -> Result<ManualNumberMapper> {
+        let items = values.as_array().ok_or_else(|| {
+            Error::InvalidSpec(format!(
+                "at '{path}': expected a list of numbers, got {values}"
+            ))
+        })?;
+        // lets-plot skips null values (`filterNotNull`).
+        let numbers = items
+            .iter()
+            .enumerate()
+            .filter(|(_, item)| !item.is_null())
+            .map(|(index, item)| {
+                item.as_f64()
+                    .filter(|value| value.is_finite())
+                    .ok_or_else(|| {
+                        Error::InvalidSpec(format!(
+                            "at '{path}[{index}]': expected a number, got {item}"
+                        ))
+                    })
+            })
+            .collect::<Result<Vec<_>>>()?;
+        if numbers.is_empty() {
+            return Err(Error::InvalidSpec(format!(
+                "at '{path}': manual scales need at least one value"
+            )));
+        }
+        let default_na = match aesthetic {
+            Aesthetic::Alpha => ALPHA.missing(),
+            _ => SIZE.missing(),
+        };
+        Ok(ManualNumberMapper {
+            numbers,
+            na: self.na_number(default_na)?,
+        })
+    }
+
+    /// `na_value` as a number, else `default`.
+    fn na_number(&self, default: f64) -> Result<f64> {
+        match &self.na_value {
+            None => Ok(default),
+            Some((value, path)) => {
+                value
+                    .as_f64()
+                    .filter(|value| value.is_finite())
+                    .ok_or_else(|| {
+                        Error::InvalidSpec(format!("at '{path}': expected a number, got {value}"))
+                    })
+            }
+        }
+    }
+
+    /// `na_value` as a one-item value of the scale's kind, else the default
+    /// mapper's NA (its value for a missing category).
+    fn na_value(
+        &self,
+        aesthetic: Aesthetic,
+        default: &Arc<dyn StyleMapper>,
+    ) -> Result<StyleValues> {
+        match &self.na_value {
+            Some((value, path)) => parse_constant(default.value_kind(), value).map_err(|message| {
+                Error::InvalidSpec(format!("at '{path}': {message} ('{aesthetic}' na_value)"))
+            }),
+            None => Ok(match default.map_discrete(&[None], 1) {
+                StyleValues::Colors(colors) => StyleValues::Colors(PerItem::Uniform(colors.get(0))),
+                StyleValues::Numbers(numbers) => {
+                    StyleValues::Numbers(PerItem::Uniform(numbers.get(0)))
+                }
+                StyleValues::Shapes(shapes) => StyleValues::Shapes(PerItem::Uniform(shapes.get(0))),
+                other => other,
+            }),
+        }
+    }
+
     fn na_color(&self) -> Result<Color> {
         match &self.na_value {
             None => Ok(NA_COLOR),
@@ -615,4 +755,16 @@ fn color(value: &Value, path: &str) -> Result<Color> {
         Ok(_) => Err(Error::InvalidSpec(format!("at '{path}': expected a color"))),
         Err(message) => Err(Error::InvalidSpec(format!("at '{path}': {message}"))),
     }
+}
+
+/// A positive finite number option.
+fn positive_number(value: &Value, path: &str) -> Result<f64> {
+    value
+        .as_f64()
+        .filter(|value| value.is_finite() && *value > 0.0)
+        .ok_or_else(|| {
+            Error::InvalidSpec(format!(
+                "at '{path}': expected a positive number, got {value}"
+            ))
+        })
 }

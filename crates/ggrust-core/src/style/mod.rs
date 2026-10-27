@@ -88,9 +88,11 @@ pub fn parse_constant(kind: ValueKind, value: &Value) -> std::result::Result<Sty
             .filter(|number| number.is_finite())
             .map(|number| StyleValues::Numbers(PerItem::Uniform(number)))
             .ok_or_else(|| format!("expected a finite number, got {value}")),
+        // lets-plot truncates fractional codes (21.0 and 21.7 are 21).
         ValueKind::Shape => value
-            .as_u64()
-            .filter(|code| *code <= 25)
+            .as_f64()
+            .map(f64::trunc)
+            .filter(|code| (0.0..=25.0).contains(code))
             .map(|code| StyleValues::Shapes(PerItem::Uniform(code as u8)))
             .ok_or_else(|| format!("expected a shape code 0..25, got {value}")),
         ValueKind::Linetype => LineType::parse(value)

@@ -56,7 +56,9 @@ def legends(svg: str, *, ours: bool) -> list:
             if len(groups) > 1:
                 groups.pop()
         elif tag.startswith("<circle"):
-            keys.append(_key_style(tag, groups[-1]))
+            # A zero-size key is invisible: lets-plot writes it, ggrust does not.
+            if float(_attributes(tag)["r"]) > 0:
+                keys.append(_key_style(tag, groups[-1]))
         else:
             kind, text = match.group(1), match.group(2)
             if kind is None:  # ggrust: the title is the 15 px text, labels 13 px
@@ -80,6 +82,8 @@ FRAME = {
     "s": [f"s{index % 2}" for index in range(N)],
     "z": [[0.0, -0.0, 1.0][index % 3] for index in range(N)],
     "g20": [f"g{index % 20:02d}" for index in range(N)],
+    "p": [float(index) * 3.5 for index in range(N)],
+    "w": [10 ** (index / 6) for index in range(N)],
 }
 
 
@@ -167,6 +171,23 @@ CASES = {
     "guide_legend_title": lambda m: (
         point(m, color="c") + m.guides(color={"name": "legend", "title": "G"})
     ),
+    # Phase 1.5c: size and alpha scales.
+    "size_sqrt": lambda m: point(m, size="p") + m.scale_size(trans="sqrt"),
+    "size_sqrt_breaks": lambda m: (
+        point(m, size="p") + m.scale_size(trans="sqrt", breaks=[25, 50, 75, 100])
+    ),
+    "size_log10": lambda m: point(m, size="w") + m.scale_size(trans="log10"),
+    "size_reverse": lambda m: point(m, size="p") + m.scale_size(trans="reverse"),
+    "size_range": lambda m: point(m, size="p") + m.scale_size(range=[1, 4]),
+    "size_range_discrete": lambda m: point(m, size="c") + m.scale_size(range=[2, 6]),
+    "size_area": lambda m: point(m, size="p") + m.scale_size_area(max_size=8),
+    "size_area_default": lambda m: point(m, size="p") + m.scale_size_area(),
+    "alpha_range": lambda m: point(m, alpha="p") + m.scale_alpha(range=[0.5, 0.9]),
+    "size_manual": lambda m: point(m, size="c") + m.scale_size_manual(values=[2, 4, 8]),
+    "alpha_manual": lambda m: (
+        point(m, alpha="c") + m.scale_alpha_manual(values={"a": 0.2, "b": 0.6, "c": 1})
+    ),
+    "size_limits_trans": lambda m: point(m, size="p") + m.scale_size(trans="sqrt", limits=[10, 90]),
     "override_size": lambda m: (
         point(m, color="c") + m.guides(color=m.guide_legend(override_aes={"size": 8}))
     ),

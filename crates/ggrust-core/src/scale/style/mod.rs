@@ -17,6 +17,7 @@ mod colormap;
 mod colormap_data;
 mod gradient;
 mod hue;
+mod identity;
 mod manual;
 mod numeric;
 mod shape;
@@ -32,12 +33,15 @@ pub use color::{DefaultColorMapper, GRADIENT_HIGH, GRADIENT_LOW, NA_COLOR, discr
 pub use colormap::{COLORMAP_NAMES, ColormapMapper, colormap};
 pub use gradient::{GRADIENT2_HIGH, GRADIENT2_LOW, GRADIENT2_MID, Gradient2Mapper, GradientMapper};
 pub use hue::HueMapper;
+pub use identity::IdentityMapper;
 pub use manual::ManualColorMapper;
-pub use numeric::{ALPHA, LinearMapper, SIZE};
+pub use manual::ManualNumberMapper;
+pub use numeric::{ALPHA, LinearMapper, ProportionalMapper, SIZE, SIZE_AREA_MAX};
 pub use shape::{ALL_SHAPES, HOLLOW_SHAPES, NA_SHAPE, ShapeMapper};
 
 use super::breaks::linear_breaks;
 use super::format::{Label, format_breaks};
+use super::{ContinuousPositionScale, Transform};
 use crate::data::{Column, ContinuousColumn};
 use crate::spec::{Aesthetic, Value};
 use crate::style::{StyleValues, ValueKind};
@@ -56,6 +60,17 @@ pub trait StyleMapper: Send + Sync {
     /// Values for discrete data: each row's index into the trained categories
     /// (`None`: missing or unknown).
     fn map_discrete(&self, indices: &[Option<usize>], level_count: usize) -> StyleValues;
+
+    /// Values for discrete data given the categories themselves; mappers that need
+    /// the values (identity scales) override this, others map by index. Errors
+    /// name a category that cannot be used.
+    fn map_levels(
+        &self,
+        indices: &[Option<usize>],
+        levels: &[Level],
+    ) -> std::result::Result<StyleValues, String> {
+        Ok(self.map_discrete(indices, levels.len()))
+    }
 
     /// Whether only continuous data can be mapped (`scale_*_gradient2()`).
     fn continuous_only(&self) -> bool {
@@ -169,14 +184,16 @@ pub struct ContinuousDomain {
     pub breaks: Option<Vec<f64>>,
     /// Labels aligned with the breaks.
     pub labels: Option<Vec<String>>,
+    /// `trans=...`: values are mapped (and breaks generated) in transformed units.
+    pub transform: Transform,
 }
 
 /// Breaks of a continuous style scale, for a colorbar or a legend.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ContinuousGuide {
-    /// The domain the mapper uses.
+    /// The domain the mapper uses (transformed units).
     pub domain: (f64, f64),
-    /// Break values with their labels, ascending.
+    /// Break values (transformed units) with their labels, in data order.
     pub breaks: Vec<(f64, Label)>,
 }
 
@@ -297,12 +314,14 @@ impl StyleScale {
         let within = |value: f64| {
             limits[0].is_none_or(|low| value >= low) && limits[1].is_none_or(|high| value <= high)
         };
+        let transform = self.transform();
         match (&mut self.trained, column) {
             (Trained::Continuous(range), Column::Continuous(column)) => {
                 for row in 0..column.len() {
                     if let Some(value) = column
                         .get(row)
                         .filter(|value| value.is_finite() && within(*value))
+                        .and_then(|value| transform.apply(value))
                     {
                         *range = Some(match *range {
                             Some((low, high)) => (low.min(value), high.max(value)),
@@ -363,17 +382,22 @@ impl StyleScale {
                     .continuous
                     .as_ref()
                     .map_or([None, None], |domain| domain.limits);
-                if limits == [None, None] {
+                let transform = self.transform();
+                if limits == [None, None] && transform == Transform::Identity {
                     return Ok(self.mapper.map_continuous(column, domain));
                 }
-                // lets-plot: values outside the limits are missing.
+                // lets-plot: values outside the limits (or the transform's domain)
+                // are missing.
                 let limited = ContinuousColumn::from_options(
                     (0..column.len())
                         .map(|row| {
-                            column.get(row).filter(|value| {
-                                limits[0].is_none_or(|low| *value >= low)
-                                    && limits[1].is_none_or(|high| *value <= high)
-                            })
+                            column
+                                .get(row)
+                                .filter(|value| {
+                                    limits[0].is_none_or(|low| *value >= low)
+                                        && limits[1].is_none_or(|high| *value <= high)
+                                })
+                                .and_then(|value| transform.apply(value))
                         })
                         .collect(),
                 );
@@ -412,7 +436,7 @@ impl StyleScale {
                         })
                         .collect(),
                 };
-                Ok(self.mapper.map_discrete(&indices, domain.len()))
+                self.mapper.map_levels(&indices, domain)
             }
             _ => Err("the scale was not trained on a column of this kind".to_owned()),
         }
@@ -429,7 +453,12 @@ impl StyleScale {
             .continuous
             .as_ref()
             .map_or([None, None], |domain| domain.limits);
-        let mut ends: Vec<f64> = limits.iter().flatten().copied().collect();
+        let transform = self.transform();
+        let mut ends: Vec<f64> = limits
+            .iter()
+            .flatten()
+            .filter_map(|limit| transform.apply(*limit))
+            .collect();
         if let Some((low, high)) = range {
             ends.extend([low, high]);
         }
@@ -446,23 +475,58 @@ impl StyleScale {
         }
         let domain = self.continuous_domain();
         let options = self.continuous.as_ref().ok();
-        let values: Vec<f64> = match options.and_then(|options| options.breaks.clone()) {
-            Some(breaks) => breaks,
-            None => linear_breaks(domain.0, domain.1, 5),
-        };
-        let labels: Vec<Label> = match options.and_then(|options| options.labels.as_ref()) {
-            Some(labels) => align_labels(values.len(), labels)
+        let transform = self.transform();
+        // Given breaks (data units; those outside the transform's domain dropped),
+        // else about 5 generated as on an axis (lets-plot
+        // `TransformedDomainBreaksGenerator`): linear in data units for linear
+        // transforms, else linear in transformed units, labelled one by one.
+        let (positions, mut labels): (Vec<f64>, Vec<Label>) =
+            match options.and_then(|options| options.breaks.as_ref()) {
+                Some(breaks) => {
+                    let kept: Vec<f64> = breaks
+                        .iter()
+                        .copied()
+                        .filter(|value| transform.apply(*value).is_some())
+                        .collect();
+                    let positions = kept
+                        .iter()
+                        .filter_map(|value| transform.apply(*value))
+                        .collect();
+                    (positions, format_breaks(&kept))
+                }
+                None if transform == Transform::Identity => {
+                    let values = linear_breaks(domain.0, domain.1, 5);
+                    let labels = format_breaks(&values);
+                    (values, labels)
+                }
+                None => {
+                    let mut axis = ContinuousPositionScale::default();
+                    axis.transform = transform;
+                    axis.multiplicative_expand = 0.0;
+                    axis.train_range(domain.0, domain.1);
+                    let breaks = axis.breaks(5);
+                    (breaks.positions, breaks.labels)
+                }
+            };
+        if let Some(given) = options.and_then(|options| options.labels.as_ref()) {
+            labels = align_labels(positions.len(), given)
                 .map(|label| Label::plain(label.clone()))
-                .collect(),
-            None => format_breaks(&values),
-        };
+                .collect();
+        }
         Some(ContinuousGuide {
             domain,
-            breaks: values.into_iter().zip(labels).collect(),
+            breaks: positions.into_iter().zip(labels).collect(),
         })
     }
 
-    /// Mapped values of numbers on a continuous scale (for guides).
+    /// `trans=...` of a continuous scale (identity otherwise).
+    fn transform(&self) -> Transform {
+        self.continuous
+            .as_ref()
+            .map_or(Transform::Identity, |domain| domain.transform)
+    }
+
+    /// Mapped values of transformed numbers on a continuous scale (for guides).
     pub fn map_numbers(&self, values: &[f64]) -> StyleValues {
         let column = ContinuousColumn::from_values(values.to_vec());
         self.mapper
@@ -530,7 +594,7 @@ impl StyleScale {
             (Some(labels), _) => align_labels(breaks.len(), labels).cloned().collect(),
         };
         let indices: Vec<Option<usize>> = breaks.iter().map(|(index, _)| Some(*index)).collect();
-        let values = self.mapper.map_discrete(&indices, domain.len());
+        let values = self.mapper.map_levels(&indices, domain).ok()?;
         Some(
             labels
                 .into_iter()

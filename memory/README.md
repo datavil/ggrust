@@ -29,3 +29,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Jitter follows lets-plot bit for bit](letsplot_jitter.md): Kotlin XorWow port, offset formula, jitterdodge around the unjittered x, fixed default seed.
 - [coord_flip and ridgelines follow lets-plot](letsplot_flip_and_ridges.md): flip in Panel, theme follows the aesthetic, ridge heights, lets-plot DP weights, span vs setup columns.
 - [Brackets follow lets-plot](letsplot_brackets.md): no inherited mapping/legend by default, tips below the bar, segment paint fallbacks, label lifted half its height.
+- [Lists in a mapping are data](letsplot_mapping_vectors.md): `aes(x=[..])` becomes column `x`/`x1`.. (not column names, except `group`); frame references carry every column name for naming.

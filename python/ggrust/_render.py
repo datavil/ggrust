@@ -59,8 +59,10 @@ def split_data(spec: dict) -> tuple[dict, list[tuple[Any, str]]]:
     """Replace inline data with frame references (sent as JSON; data goes as Arrow).
 
     Every ``data`` value of the figure (plot, layers, nested figures) becomes
-    ``{"frame": i}``. The same object used twice (by identity) is one frame, so a
-    ``gggrid`` of plots on one frame exports it once.
+    ``{"frame": i, "columns": [...]}``. The same object used twice (by identity) is
+    one frame, so a ``gggrid`` of plots on one frame exports it once. ``columns``
+    names every column of the data (only referenced ones are exported): the engine
+    names list mappings (``aes(x=[1, 2])``) around them, as lets-plot does.
 
     Returns
     -------
@@ -75,7 +77,7 @@ def split_data(spec: dict) -> tuple[dict, list[tuple[Any, str]]]:
         if index is None:
             index = index_by_id[id(data)] = len(frames)
             frames.append((data, path))
-        return {"frame": index}
+        return {"frame": index, "columns": _column_names(data)}
 
     def split(figure: dict, prefix: str) -> dict:
         figure = dict(figure)
@@ -97,6 +99,25 @@ def split_data(spec: dict) -> tuple[dict, list[tuple[Any, str]]]:
         return figure
 
     return split(spec, ""), frames
+
+
+def _column_names(data: Any) -> list[str]:
+    """Names of every column of ``data``, without reading any values."""
+    import polars as pl
+
+    pandas = sys.modules.get("pandas")
+    pyarrow = sys.modules.get("pyarrow")
+    if isinstance(data, pl.DataFrame | pl.LazyFrame):
+        names = data.collect_schema().names()
+    elif pandas is not None and isinstance(data, pandas.DataFrame):
+        names = data.columns
+    elif pyarrow is not None and isinstance(data, pyarrow.Table):
+        names = data.column_names
+    elif isinstance(data, dict):
+        names = data
+    else:
+        return []
+    return [str(name) for name in names]
 
 
 def _export(data: Any, columns: set[str], path: str):

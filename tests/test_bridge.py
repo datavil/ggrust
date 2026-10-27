@@ -20,10 +20,11 @@ def test_data_becomes_frame_references_deduplicated_by_identity():
         + gg.geom_point()
     )
     spec, frames = split_data(plot.as_dict())
-    assert spec["data"] == {"frame": 0}
+    names = ["x", "y", "c"]
+    assert spec["data"] == {"frame": 0, "columns": names}
     assert [layer.get("data") for layer in spec["layers"]] == [
-        {"frame": 0},
-        {"frame": 1},
+        {"frame": 0, "columns": names},
+        {"frame": 1, "columns": names},
         None,
     ]
     assert [path for _, path in frames] == ["data", "layers[1].data"]
@@ -37,7 +38,7 @@ def test_nested_figures_share_frames():
     spec, frames = split_data(grid)
     assert len(frames) == 1
     assert spec["figures"][1] is None
-    assert [figure["data"] for figure in spec["figures"][::2]] == [{"frame": 0}] * 2
+    assert [figure["data"]["frame"] for figure in spec["figures"][::2]] == [0, 0]
     assert frames[0][1] == "figures[0].data"
 
 

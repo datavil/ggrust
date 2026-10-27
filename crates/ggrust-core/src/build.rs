@@ -12,7 +12,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::coord::{self, Coord, Panel};
-use crate::data::{Column, Computed, ContinuousColumn, DataFrame, LayerData, group_index};
+use crate::data::{Column, Computed, ContinuousColumn, DataFrame, LayerData, group_index, inline};
 use crate::geom::{self, DrawLayer, Geom};
 use crate::layout::{
     Colorbar, DEFAULT_BINS, KeyGrid, KeyLayer, Legend, LegendBox, LegendKey, Titles,
@@ -52,9 +52,9 @@ impl PlotData {
     /// Resolve the spec's frame references (`{"frame": i}`) against `frames`.
     /// Frames are shared, not copied (Arrow buffers are reference counted).
     pub fn from_frames(spec: &PlotSpec, frames: &[DataFrame]) -> Result<Self> {
-        let resolve = |source: Option<DataSource>, path: &str| match source {
-            Some(DataSource::Frame(index)) => {
-                frames.get(index).cloned().map(Some).ok_or_else(|| {
+        let resolve = |source: &Option<DataSource>, path: &str| match source {
+            Some(DataSource::Frame { index, .. }) => {
+                frames.get(*index).cloned().map(Some).ok_or_else(|| {
                     Error::InvalidSpec(format!(
                         "at '{path}': frame {index} was referenced but only {} were passed",
                         frames.len()
@@ -64,12 +64,12 @@ impl PlotData {
             Some(DataSource::Inline) | None => Ok(None),
         };
         Ok(PlotData {
-            plot: resolve(spec.data, "data")?,
+            plot: resolve(&spec.data, "data")?,
             layers: spec
                 .layers
                 .iter()
                 .enumerate()
-                .map(|(index, layer)| resolve(layer.data, &format!("layers[{index}].data")))
+                .map(|(index, layer)| resolve(&layer.data, &format!("layers[{index}].data")))
                 .collect::<Result<_>>()?,
         })
     }
@@ -90,6 +90,68 @@ pub struct BuiltPlot {
 
 /// Build a single plot.
 pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
+    match inline_mapping_vectors(spec, data)? {
+        Some((spec, data)) => build_columns(&spec, &data),
+        None => build_columns(spec, data),
+    }
+}
+
+/// `aes(x=[1, 2, 3])`: the plot and layer mappings with their data vectors turned
+/// into columns of their data (see [`crate::data::inline`]). `None` when no
+/// mapping holds one.
+fn inline_mapping_vectors(
+    spec: &PlotSpec,
+    data: &PlotData,
+) -> Result<Option<(PlotSpec, PlotData)>> {
+    let has_vector = |mapping: &crate::spec::Mapping| {
+        mapping
+            .iter()
+            .any(|(aesthetic, value)| inline::is_vector(*aesthetic, value))
+    };
+    if !has_vector(&spec.mapping) && !spec.layers.iter().any(|layer| has_vector(&layer.mapping)) {
+        return Ok(None);
+    }
+    // Every data column name, sent or not (lets-plot avoids them all).
+    let source_columns = std::iter::once(&spec.data)
+        .chain(spec.layers.iter().map(|layer| &layer.data))
+        .flat_map(|source| match source {
+            Some(DataSource::Frame { columns, .. }) => columns.as_slice(),
+            _ => &[],
+        });
+    let mut used_names: BTreeSet<String> = data
+        .plot
+        .iter()
+        .chain(data.layers.iter().flatten())
+        .flat_map(|frame| frame.column_names().map(str::to_owned))
+        .chain(source_columns.cloned())
+        .collect();
+    let mut spec = spec.clone();
+    let mut data = data.clone();
+    if let Some(frame) = inline::inline_vectors(
+        &mut spec.mapping,
+        data.plot.as_ref(),
+        &mut used_names,
+        "mapping",
+    )? {
+        data.plot = Some(frame);
+    }
+    for (index, layer) in spec.layers.iter_mut().enumerate() {
+        let path = format!("layers[{index}].mapping");
+        let frame = data.layers.get(index).and_then(Option::as_ref);
+        if let Some(frame) =
+            inline::inline_vectors(&mut layer.mapping, frame, &mut used_names, &path)?
+        {
+            if data.layers.len() <= index {
+                data.layers.resize(index + 1, None);
+            }
+            data.layers[index] = Some(frame);
+        }
+    }
+    Ok(Some((spec, data)))
+}
+
+/// [`build_plot`] once every mapping names columns.
+fn build_columns(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
     let mut warnings = Vec::new();
     report_unimplemented(spec, &mut warnings);
     let (width, height) = match &spec.ggsize {

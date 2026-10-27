@@ -9,6 +9,7 @@
 
 mod column;
 mod group;
+pub mod inline;
 mod layer;
 mod resolution;
 

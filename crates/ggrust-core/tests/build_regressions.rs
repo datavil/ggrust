@@ -222,20 +222,26 @@ fn colour_option_is_an_alias() {
 }
 
 #[test]
-fn list_mappings_warn_once_without_debug_output() {
-    let built = build(
-        r#"{"kind": "plot", "mapping": {"x": "a", "y": "b", "color": ["a", "b"]},
-            "layers": [{"geom": "point"}]}"#,
-        Some(frame(&[("a", vec![1.0]), ("b", vec![1.0])])),
-        vec![],
+fn list_mappings_are_data_vectors_with_a_readable_length_error() {
+    // lets-plot reads a list (except for `group`) as data, so two values cannot
+    // colour one row; lets-plot draws nothing, ggrust says why.
+    let error = build_plot(
+        &spec(
+            r#"{"kind": "plot", "mapping": {"x": "a", "y": "b", "color": ["a", "b"]},
+                "layers": [{"geom": "point"}]}"#,
+        ),
+        &PlotData {
+            plot: Some(frame(&[("a", vec![1.0]), ("b", vec![1.0])])),
+            layers: vec![],
+        },
+    )
+    .err()
+    .unwrap()
+    .to_string();
+    assert_eq!(
+        error,
+        "invalid plot specification: at 'mapping.color': the list has 2 values but the data has 1 rows"
     );
-    let relevant: Vec<_> = built
-        .warnings
-        .iter()
-        .filter(|warning| warning.contains("mapping.color"))
-        .collect();
-    assert_eq!(relevant.len(), 1, "{relevant:?}");
-    assert!(relevant[0].contains("columns [a, b]"), "{relevant:?}");
 }
 
 fn axis_titles(built: &BuiltPlot) -> Vec<String> {

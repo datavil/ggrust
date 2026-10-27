@@ -114,7 +114,8 @@ def test_colliding_and_deep_values_are_type_errors():
 
 
 def test_errors_carry_the_warnings_that_explain_them():
-    plot = gg.ggplot({"y": [1.0, 2.0]}, gg.aes(x=[1.0, 2.0], y="y")) + gg.geom_point()
+    # A constant in aes() is not supported yet (lists are: they become data columns).
+    plot = gg.ggplot({"y": [1.0, 2.0]}, gg.aes(x=1.0, y="y")) + gg.geom_point()
     with pytest.raises(ValueError, match=r"missing: x(.|\n)*note: .*mapping 'x' to the value"):
         plot.to_svg()
 

@@ -1,7 +1,9 @@
 //! Where a figure's data lives and which of its columns the engine reads.
 //!
 //! The Python bridge replaces every `data` object with a frame reference
-//! (`{"frame": i}`, deduplicated by identity) and sends the frames as Arrow.
+//! (`{"frame": i, "columns": [...]}`, deduplicated by identity) and sends the
+//! frames as Arrow. `columns` names every column of the source data, exported or
+//! not, so data vectors in mappings are named as lets-plot names them.
 //! [`Figure::referenced_columns`] is the single list of columns worth exporting.
 //!
 //! What it does not do: resolve references to frames (see `build::PlotData`).
@@ -13,11 +15,18 @@ use serde::Deserialize;
 use super::{DataMeta, Figure, LayerSpec, Mapping, MappingValue, PlotSpec, Value};
 
 /// A `data` key of a plot or layer.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 #[serde(try_from = "Value")]
 pub enum DataSource {
-    /// `{"frame": i}`: the i-th Arrow frame sent next to the spec.
-    Frame(usize),
+    /// `{"frame": i, "columns": [...]}`: the i-th Arrow frame sent next to the
+    /// spec, and the names of all columns of its source (`columns` is optional;
+    /// only the referenced columns are sent as Arrow).
+    Frame {
+        /// Index into the frames.
+        index: usize,
+        /// Every column name of the source data.
+        columns: Vec<String>,
+    },
     /// Inline data as lets_plot writes it (e.g. a frame's text in `as_dict()`).
     /// ggrust's Python API never sends it; it is skipped.
     Inline,
@@ -26,25 +35,43 @@ pub enum DataSource {
 impl TryFrom<Value> for DataSource {
     type Error = String;
 
-    /// A reference is an object whose only key is `frame` with a number. Anything
-    /// else is inline data (an inline frame may well have a column named `frame`,
-    /// but its values are a list).
+    /// A reference is an object with a number at `frame` and, optionally, a list of
+    /// names at `columns`, and no other key. Anything else is inline data (an inline
+    /// frame may well have a column named `frame`, but its values are a list).
     fn try_from(value: Value) -> std::result::Result<Self, Self::Error> {
-        let reference = value
-            .as_object()
-            .filter(|object| object.len() == 1)
-            .and_then(|object| object.get("frame"))
-            .filter(|frame| frame.is_number());
-        let Some(frame) = reference else {
+        let reference = value.as_object().filter(|object| {
+            object.get("frame").is_some_and(Value::is_number)
+                && object.keys().all(|key| key == "frame" || key == "columns")
+        });
+        let Some(object) = reference else {
             return Ok(DataSource::Inline);
         };
-        frame
+        let frame = &object["frame"];
+        let index = frame
             .as_u64()
             .and_then(|index| usize::try_from(index).ok())
-            .map(DataSource::Frame)
             .ok_or_else(|| {
                 format!("a frame reference needs a non-negative integer index, got {frame}")
-            })
+            })?;
+        let columns = match object.get("columns") {
+            None => Vec::new(),
+            Some(Value::Array(names)) => names
+                .iter()
+                .map(|name| name.as_str().map(str::to_owned))
+                .collect::<Option<Vec<_>>>()
+                .ok_or_else(|| {
+                    format!(
+                        "a frame reference's columns must be texts, got {}",
+                        Value::Array(names.clone())
+                    )
+                })?,
+            Some(other) => {
+                return Err(format!(
+                    "a frame reference's columns must be a list of texts, got {other}"
+                ));
+            }
+        };
+        Ok(DataSource::Frame { index, columns })
     }
 }
 
@@ -87,7 +114,12 @@ fn add_layer(layer: &LayerSpec, columns: &mut BTreeSet<String>) {
 }
 
 fn add_mapping(mapping: &Mapping, columns: &mut BTreeSet<String>) {
-    for value in mapping.values() {
+    for (aesthetic, value) in mapping {
+        if crate::data::inline::is_vector(*aesthetic, value) {
+            // A data vector (`aes(x=[1, 2])`) names no column; the engine avoids
+            // every name of the frame references' `columns` when naming it.
+            continue;
+        }
         match value {
             MappingValue::Column(name) => {
                 columns.insert(name.clone());
@@ -119,6 +151,33 @@ mod tests {
     }
 
     #[test]
+    fn frame_references_carry_column_names_and_vectors_reference_nothing() {
+        let Figure::Plot(plot) = Figure::from_json(
+            r#"{"kind": "plot", "data": {"frame": 0, "columns": ["a", "x"]},
+                "mapping": {"x": [1, 2], "y": "a", "group": ["g", "h"]}}"#,
+        )
+        .unwrap() else {
+            panic!("expected a plot");
+        };
+        assert_eq!(
+            plot.data,
+            Some(DataSource::Frame {
+                index: 0,
+                columns: vec!["a".into(), "x".into()]
+            })
+        );
+        assert_eq!(
+            columns(r#"{"kind": "plot", "mapping": {"x": ["p", "q"], "y": "a", "group": ["g"]}}"#),
+            ["a", "g"]
+        );
+        let error = Figure::from_json(r#"{"kind": "plot", "data": {"frame": 0, "columns": [1]}}"#)
+            .err()
+            .unwrap()
+            .to_string();
+        assert!(error.contains("columns must be texts"), "{error}");
+    }
+
+    #[test]
     fn frame_references_parse_and_inline_data_is_skipped() {
         let Figure::Plot(plot) = Figure::from_json(
             r#"{"kind": "plot", "data": {"frame": 2},
@@ -127,7 +186,13 @@ mod tests {
         .unwrap() else {
             panic!("expected a plot");
         };
-        assert_eq!(plot.data, Some(DataSource::Frame(2)));
+        assert_eq!(
+            plot.data,
+            Some(DataSource::Frame {
+                index: 2,
+                columns: Vec::new()
+            })
+        );
         assert_eq!(plot.layers[0].data, Some(DataSource::Inline));
         let error = Figure::from_json(r#"{"kind": "plot", "data": {"frame": -1}}"#)
             .unwrap_err()

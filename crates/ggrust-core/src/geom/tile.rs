@@ -13,7 +13,7 @@
 use super::bar::{draw_key, draw_rectangles, key_size};
 use super::{DrawLayer, Geom};
 use crate::coord::Panel;
-use crate::data::{Column, ContinuousColumn, LayerData, resolution};
+use crate::data::{Column, ContinuousColumn, LayerData};
 use crate::parameters::Parameters;
 use crate::scene::{Color, Node, Rect};
 use crate::spec::Aesthetic;
@@ -111,8 +111,13 @@ fn spans(
     name: &str,
 ) -> Result<(Vec<f64>, Vec<f64>)> {
     let unit_option = format!("{name}_unit");
+    let axis = if size == Aesthetic::Width {
+        Aesthetic::X
+    } else {
+        Aesthetic::Y
+    };
     let unit = match parameters.string(&unit_option)?.unwrap_or("res") {
-        "res" => resolution(location),
+        "res" => data.resolution(axis),
         "identity" => 1.0,
         other => {
             return Err(Error::InvalidSpec(format!(

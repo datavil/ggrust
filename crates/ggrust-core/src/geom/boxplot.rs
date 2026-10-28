@@ -14,7 +14,7 @@ use super::lines;
 use super::point::POINT_UNIT_SIZE;
 use super::{DrawLayer, Geom};
 use crate::coord::Panel;
-use crate::data::{Column, ContinuousColumn, LayerData, resolution};
+use crate::data::{Column, ContinuousColumn, LayerData};
 use crate::parameters::Parameters;
 use crate::position::DefaultPosition;
 use crate::scene::{Color, Node, Path, PerItem, Rect, Rects, Stroke};
@@ -101,7 +101,7 @@ impl Geom for BoxplotGeom {
             Some(widths) => widths.get(row).unwrap_or(f64::NAN),
             None => constant,
         };
-        let resolution = resolution(&x);
+        let resolution = data.resolution(Aesthetic::X);
         let half = |row: usize| width_of(row) * resolution / 2.0;
         let location = |row: usize| x.get(row).unwrap_or(f64::NAN);
         let left = (0..x.len()).map(|row| location(row) - half(row)).collect();

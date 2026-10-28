@@ -109,7 +109,30 @@ def _both(build):
     return [(build(m) + m.theme(legend_position="none")).to_svg() for m in (lp, gg)]
 
 
+# Categories T and NK only, B between them on the axis: the resolution stays 1.
+# Five values per box: R type 7 and lets-plot quartiles agree.
+GAPPED = {
+    "g": ["T"] * 10 + ["NK"] * 10,
+    "h": (["r"] * 5 + ["s"] * 5) * 2,
+    "y": [1.0, 2, 3, 4, 5, 2, 3, 4, 5, 6, 3, 4, 5, 6, 7, 1, 3, 5, 7, 9],
+}
+LIMITS = ["T", "B", "NK"]
+
+
 CASES = {
+    "gap": lambda m: (
+        m.ggplot(
+            {"g": ["T"] * 5 + ["NK"] * 5, "y": [1.0, 2, 3, 4, 5, 2, 3, 4, 5, 6]},
+            m.aes("g", "y"),
+        )
+        + m.geom_boxplot()
+        + m.scale_x_discrete(limits=LIMITS)
+    ),
+    "gap_dodged": lambda m: (
+        m.ggplot(GAPPED, m.aes("g", "y", fill="h"))
+        + m.geom_boxplot()
+        + m.scale_x_discrete(limits=LIMITS)
+    ),
     "basic": lambda m: m.ggplot(DATA, m.aes("g", "y")) + m.geom_boxplot(),
     "dodged": lambda m: m.ggplot(DODGE, m.aes("g", "y", fill="h")) + m.geom_boxplot(),
     "styled": lambda m: (

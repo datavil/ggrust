@@ -117,7 +117,24 @@ def _both(build):
     return rendered
 
 
+# Categories T and NK only, B between them on the axis: the resolution stays 1.
+GAPPED = {
+    "g": ["T", "T", "T", "NK", "NK", "NK", "T", "NK"],
+    "h": ["r", "s", "r", "s", "r", "s", "s", "r"],
+    "y": [1.0, 2.0, 3.0, 2.0, 4.0, 5.0, 2.5, 3.5],
+}
+LIMITS = ["T", "B", "NK"]
+
+
 CASES = {
+    "gap_stack": lambda m: (
+        m.ggplot(GAPPED, m.aes("g", fill="h")) + m.geom_bar() + m.scale_x_discrete(limits=LIMITS)
+    ),
+    "gap_dodge": lambda m: (
+        m.ggplot(GAPPED, m.aes("g", fill="h"))
+        + m.geom_bar(position="dodge")
+        + m.scale_x_discrete(limits=LIMITS)
+    ),
     "count": lambda m: m.ggplot(DATA, m.aes("g")) + m.geom_bar(),
     "stack": lambda m: m.ggplot(DATA, m.aes("g", fill="h")) + m.geom_bar(),
     "dodge": lambda m: m.ggplot(DATA, m.aes("g", fill="h")) + m.geom_bar(position="dodge"),

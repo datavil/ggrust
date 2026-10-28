@@ -19,7 +19,7 @@ use super::lines;
 use super::quantiles::{quantile_line_rows, split_by_band};
 use super::{DrawLayer, Geom};
 use crate::coord::Panel;
-use crate::data::{Column, ContinuousColumn, LayerData, resolution};
+use crate::data::{Column, ContinuousColumn, LayerData};
 use crate::parameters::Parameters;
 use crate::position::DefaultPosition;
 use crate::scene::{Color, Node, Path, Rect};
@@ -81,7 +81,7 @@ impl Geom for ViolinGeom {
             return Ok(data);
         };
         let width = parameters.number("width")?.unwrap_or(1.0);
-        let half = width * resolution(&x) / 2.0;
+        let half = width * data.resolution(Aesthetic::X) / 2.0;
         let continuous = |values| Column::Continuous(ContinuousColumn::from_values(values));
         let location = |row: usize| x.get(row).unwrap_or(f64::NAN);
         let row_count = data.row_count();

@@ -15,7 +15,7 @@ use std::collections::HashSet;
 use super::Position;
 use super::shift::shift_positions;
 use crate::Result;
-use crate::data::{LayerData, resolution};
+use crate::data::LayerData;
 use crate::parameters::Parameters;
 use crate::spec::Aesthetic;
 
@@ -55,7 +55,7 @@ pub(super) fn dodge(
         .collect::<HashSet<_>>()
         .len() as f64;
     let median = (group_count - 1.0) / 2.0;
-    let resolution = resolution(&x);
+    let resolution = data.resolution(Aesthetic::X);
     let widths = data.continuous(Aesthetic::Width).cloned();
     let groups: Vec<f64> = (0..data.row_count())
         .map(|row| data.group_of(row) as f64)

@@ -24,3 +24,10 @@ Measured against `to_svg()`; parity tests in `tests/test_bar_parity.py`.
   ggrust keeps the data's level order, as ggplot2 does (levels trained before the stat).
 
 **How to apply:** read before touching boxplot/violin/jitter positions or any stat.
+
+## Resolution on discrete axes is 1
+lets-plot (`PlotUtil.createLayerAesthetics`) sets the resolution of every aesthetic with a
+discrete scale to 1. ggrust: `LayerData::resolution(aesthetic)` (axes flagged after the
+stat in `compute_layer`). Never call `resolution(column)` from a geom or position: a
+missing middle category (facet panel, `scale_x_discrete(limits=...)`) makes the smallest
+code gap 2 and doubles widths.

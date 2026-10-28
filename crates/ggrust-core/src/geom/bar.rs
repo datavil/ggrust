@@ -14,7 +14,7 @@ use super::lines;
 use super::point::POINT_UNIT_SIZE;
 use super::{DrawLayer, Geom};
 use crate::coord::Panel;
-use crate::data::{Column, ContinuousColumn, LayerData, resolution};
+use crate::data::{Column, ContinuousColumn, LayerData};
 use crate::parameters::Parameters;
 use crate::position::DefaultPosition;
 use crate::scene::{Color, Node, PerItem, Rect, Rects, Stroke};
@@ -198,7 +198,7 @@ fn rectangles(mut data: LayerData, width: f64, breaks: &[f64]) -> Result<LayerDa
     ) else {
         return Ok(data);
     };
-    let resolution = resolution(&x);
+    let resolution = data.resolution(Aesthetic::X);
     let mut left = Vec::with_capacity(x.len());
     let mut right = Vec::with_capacity(x.len());
     for row in 0..x.len() {

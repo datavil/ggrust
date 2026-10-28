@@ -164,6 +164,18 @@ CASES = {
         + m.scale_color_manual(values=["red", "green", "blue"], breaks=["NK", "B"])
         + m.facet_wrap("g")
     ),
+    "dodge_missing_middle_category": lambda m: (
+        m.ggplot(
+            {
+                "c": ["T"] * 4 + ["NK"] * 4 + ["B"],
+                "s": list("rrss") * 2 + ["r"],
+                "g": ["b"] * 8 + ["a"],
+            },
+            m.aes("c", fill="s"),
+        )
+        + m.geom_bar(position="dodge")
+        + m.facet_wrap("g")
+    ),
     "theme_bw": lambda m: (
         m.ggplot(POINTS, m.aes("x", "y")) + m.geom_point() + m.facet_wrap("h") + m.theme_bw()
     ),

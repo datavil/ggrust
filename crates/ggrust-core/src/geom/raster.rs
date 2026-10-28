@@ -12,7 +12,7 @@
 
 use super::{DrawLayer, Geom};
 use crate::coord::Panel;
-use crate::data::{Column, ContinuousColumn, LayerData, resolution};
+use crate::data::{Column, ContinuousColumn, LayerData};
 use crate::parameters::Parameters;
 use crate::scene::{Color, Image, Node, PerItem, Rect, Rects};
 use crate::spec::Aesthetic;
@@ -79,7 +79,7 @@ impl Geom for RasterGeom {
             let Some(location) = data.continuous(center).cloned() else {
                 continue;
             };
-            let half = resolution(&location) / 2.0;
+            let half = data.resolution(center) / 2.0;
             let edge = |offset: f64| {
                 let values = (0..location.len())
                     .map(|row| location.get(row).unwrap_or(f64::NAN) + offset)
@@ -115,7 +115,10 @@ impl Geom for RasterGeom {
         };
         let (x0, x1) = bounds(&mut rows.iter().map(|&(_, x, _)| x));
         let (y0, y1) = bounds(&mut rows.iter().map(|&(_, _, y)| y));
-        let (step_x, step_y) = (resolution(x), resolution(y));
+        let (step_x, step_y) = (
+            layer.data.resolution(Aesthetic::X),
+            layer.data.resolution(Aesthetic::Y),
+        );
         if !(step_x > TINY_STEP && step_y > TINY_STEP) {
             return Err(Error::InvalidData(format!(
                 "geom_raster: the x or y step is too small ({step_x}, {step_y})"

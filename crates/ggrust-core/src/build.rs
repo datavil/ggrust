@@ -1216,6 +1216,7 @@ fn compute_layer(
             .collect()
     });
     let mut layer_data = stat.compute(layer_data, &parameters, context)?;
+    layer_data.set_discrete_axes(x_scale.is_discrete(), y_scale.is_discrete());
     if let (Some(visited), Some(rank)) = (&visited, &group_rank) {
         regroup_by_rank(&mut layer_data, visited, rank)?;
     }

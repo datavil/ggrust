@@ -21,7 +21,7 @@ use super::point::POINT_UNIT_SIZE;
 use super::text;
 use super::{DrawLayer, Geom};
 use crate::coord::Panel;
-use crate::data::{ContinuousColumn, resolution};
+use crate::data::{ContinuousColumn, LayerData};
 use crate::parameters::Parameters;
 use crate::scene::{Color, Node, Path, Rect, Stroke};
 use crate::spec::Aesthetic;
@@ -98,7 +98,7 @@ impl Geom for BracketGeom {
         ) else {
             return Ok(Vec::new());
         };
-        let options = Options::parse(&layer.parameters, y)?;
+        let options = Options::parse(&layer.parameters, layer.data)?;
         let value = |column: &ContinuousColumn, row: usize| column.get(row).unwrap_or(f64::NAN);
         let mut brackets = Vec::new();
         let mut labels = Vec::new();
@@ -161,7 +161,7 @@ enum TipUnit {
 }
 
 impl Options {
-    fn parse(parameters: &Parameters, y: &ContinuousColumn) -> Result<Self> {
+    fn parse(parameters: &Parameters, data: &LayerData) -> Result<Self> {
         let tip_unit = match parameters.string("tiplength_unit")? {
             None | Some("size") => TipUnit::Size,
             Some("res") => TipUnit::Resolution,
@@ -191,7 +191,7 @@ impl Options {
             shorten: parameters.number("bracket_shorten")?.unwrap_or(0.0),
             tip_unit,
             y_resolution: if tip_unit == TipUnit::Resolution {
-                resolution(y)
+                data.resolution(Aesthetic::Y)
             } else {
                 1.0
             },

@@ -46,6 +46,11 @@ def _ggrust_points(svg):
 
 
 CASES = {
+    "gap": lambda m: (
+        m.ggplot({**DATA, "g": [{"b": "c"}.get(g, g) for g in DATA["g"]]}, m.aes("g", "y"))
+        + m.geom_point(position=m.position_jitter(seed=42))
+        + m.scale_x_discrete(limits=sorted(set(DATA["g"]) | {"b", "c"}))
+    ),
     "geom_jitter_named_position": lambda m: (
         m.ggplot(DATA, m.aes("g", "y")) + m.geom_jitter(seed=3, position="jitter")
     ),

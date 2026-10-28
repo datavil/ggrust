@@ -14,7 +14,7 @@ use super::dodge::dodge;
 use super::random::{DEFAULT_SEED, KotlinRandom};
 use super::shift::shift_positions;
 use crate::Result;
-use crate::data::{LayerData, resolution};
+use crate::data::LayerData;
 use crate::parameters::Parameters;
 use crate::spec::Aesthetic;
 
@@ -87,8 +87,8 @@ fn offsets(
     let (Some(x), Some(y)) = (data.continuous(Aesthetic::X), data.continuous(Aesthetic::Y)) else {
         return (vec![0.0; rows], vec![0.0; rows]);
     };
-    let horizontal = width.unwrap_or(DEFAULT_SIZE) * resolution(x);
-    let vertical = height.unwrap_or(DEFAULT_SIZE) * resolution(y);
+    let horizontal = width.unwrap_or(DEFAULT_SIZE) * data.resolution(Aesthetic::X);
+    let vertical = height.unwrap_or(DEFAULT_SIZE) * data.resolution(Aesthetic::Y);
     let mut random = KotlinRandom::new(seed);
     let finite = |column: &crate::data::ContinuousColumn, row: usize| {
         column.get(row).is_some_and(f64::is_finite)

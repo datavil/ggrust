@@ -18,7 +18,7 @@ use super::lines;
 use super::quantiles::{quantile_line_rows, split_by_band};
 use super::{DrawLayer, Geom};
 use crate::coord::Panel;
-use crate::data::{Column, ContinuousColumn, LayerData, resolution};
+use crate::data::{Column, ContinuousColumn, LayerData};
 use crate::parameters::Parameters;
 use crate::scene::{Color, Node, Path, Rect};
 use crate::spec::Aesthetic;
@@ -90,7 +90,7 @@ impl Geom for AreaRidgesGeom {
         };
         let scale = parameters.number("scale")?.unwrap_or(1.0);
         let min_height = parameters.number("min_height")?.unwrap_or(0.0);
-        let step = resolution(&y) * scale;
+        let step = data.resolution(Aesthetic::Y) * scale;
         let base = |row: usize| y.get(row).unwrap_or(f64::NAN);
         // lets-plot `heightSpan`: points below `min_height` span nothing.
         let top = |row: usize| match height.get(row) {

@@ -77,7 +77,21 @@ def _both(build):
     return [(build(m) + m.theme(legend_position="none")).to_svg() for m in (lp, gg)]
 
 
+# Categories T and NK only, B between them on the axis: the resolution stays 1.
+GAPPED = {
+    "g": ["T", "T", "T", "NK", "NK", "NK", "T", "NK"],
+    "h": ["r", "s", "r", "s", "r", "s", "s", "r"],
+    "y": [1.0, 2.0, 3.0, 2.0, 4.0, 5.0, 2.5, 3.5],
+}
+LIMITS = ["T", "B", "NK"]
+
+
 CASES = {
+    "gap": lambda m: (
+        m.ggplot(GAPPED, m.aes("g", "y"))
+        + m.geom_violin(bw=0.8)
+        + m.scale_x_discrete(limits=LIMITS)
+    ),
     "basic": lambda m: m.ggplot(DATA, m.aes("g", "y")) + m.geom_violin(bw=0.8),
     "quantile_lines": lambda m: (
         m.ggplot(DATA, m.aes("g", "y"))

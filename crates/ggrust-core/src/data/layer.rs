@@ -126,6 +126,8 @@ pub struct LayerData {
     /// `None`: one panel.
     panel_index: Option<Vec<u32>>,
     source_rows: SourceRows,
+    /// Whether the x and y position scales are discrete (see [`Self::resolution`]).
+    discrete_axes: (bool, bool),
 }
 
 impl LayerData {
@@ -140,6 +142,23 @@ impl LayerData {
     /// Number of rows.
     pub fn row_count(&self) -> usize {
         self.row_count
+    }
+
+    /// Mark the x and y position scales as discrete or not.
+    pub fn set_discrete_axes(&mut self, x: bool, y: bool) {
+        self.discrete_axes = (x, y);
+    }
+
+    /// Resolution of a position aesthetic (bar widths, dodging, tile sizes): 1 on a
+    /// discrete axis, as lets-plot (`PlotUtil.createLayerAesthetics`), else the
+    /// smallest gap between the column's values (1 without a column).
+    pub fn resolution(&self, aesthetic: Aesthetic) -> f64 {
+        let discrete = (aesthetic.is_x_position() && self.discrete_axes.0)
+            || (aesthetic.is_y_position() && self.discrete_axes.1);
+        match self.continuous(aesthetic) {
+            Some(column) if !discrete => super::resolution(column),
+            _ => 1.0,
+        }
     }
 
     /// Add or replace a column. Its length must equal [`Self::row_count`].

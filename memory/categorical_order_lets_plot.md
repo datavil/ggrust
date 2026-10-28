@@ -15,3 +15,12 @@ dictionary. This is a behavior difference from lets-plot (likely an improvement 
 cellestial, which uses polars). Ask the user before deciding which order wins
 when `factor_levels` and the Arrow dictionary disagree.
 Fixtures `pandas_categorical`, `polars_enum` and `umap_categorical` pin the lets_plot behavior.
+
+**Measured 2026-10-28 (polars 1.41 and 2.1, lets-plot 4.11):** polars exports a plain
+`Categorical` with a compacted dictionary of the values present, in first-appearance order of
+the exported rows, so ggrust's dictionary rule gives lets-plot's order for polars. Only pandas
+*unordered* categoricals (and hand-built Arrow dictionaries) differ: ggrust takes the category
+order, lets-plot first appearance. ggplot2 also uses factor levels, ordered or not.
+A colour order that changes between runs is a data problem upstream (e.g. cellestial's
+`mode().first()` on ties), not this rule: check `unique(maintain_order=True)` of the frame first.
+

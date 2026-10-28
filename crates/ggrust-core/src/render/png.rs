@@ -18,7 +18,7 @@ use crate::scene::geometry::{
     ClipBox, is_drawable_marker, is_drawable_rect, is_drawable_stroke, is_drawable_width,
 };
 use crate::scene::{
-    Color, Group, MarkerPart, Node, Path, Points, Rect, Rects, Scene, Stroke, Text,
+    Color, Group, Image, MarkerPart, Node, Path, Points, Rect, Rects, Scene, Stroke, Text,
 };
 use crate::text::{FONT_FAMILY, Font, MONO_FONT_FAMILY};
 use crate::{Error, Result};
@@ -86,6 +86,24 @@ fn new_pixmap(width: f64, height: f64, scale: f64) -> Result<Pixmap> {
         .ok_or_else(|| Error::Render("could not allocate the image".into()))
 }
 
+/// The bitmap of an [`Image`] (`None` if it is inconsistent).
+fn image_pixmap(image: &Image) -> Option<Pixmap> {
+    if !image.is_consistent() {
+        return None;
+    }
+    let mut pixmap = Pixmap::new(image.columns, image.rows)?;
+    for (pixel, color) in pixmap.pixels_mut().iter_mut().zip(&image.pixels) {
+        *pixel = tiny_skia::ColorU8::from_rgba(color.red, color.green, color.blue, color.alpha)
+            .premultiply();
+    }
+    Some(pixmap)
+}
+
+/// An [`Image`]'s bitmap as PNG bytes, for the SVG writer.
+pub(super) fn image_png(image: &Image) -> Option<Vec<u8>> {
+    image_pixmap(image)?.encode_png().ok()
+}
+
 fn encode(pixmap: &Pixmap) -> Result<Vec<u8>> {
     pixmap
         .encode_png()
@@ -135,6 +153,7 @@ impl Canvas {
                 Node::Points(points) => self.points(points, mask),
                 Node::Path(path) => self.path(path, mask),
                 Node::Rects(rects) => self.rects(rects, mask),
+                Node::Image(image) => self.image(image, mask),
                 Node::Text(_) => {}
             }
         }
@@ -298,6 +317,31 @@ impl Canvas {
                 self.stroke(&geometry, stroke, mask);
             }
         }
+    }
+
+    fn image(&mut self, image: &Image, mask: Option<&Mask>) {
+        let rect = image.rect;
+        let drawable = [rect.x, rect.y, rect.width, rect.height]
+            .iter()
+            .all(|value| value.is_finite())
+            && rect.width > 0.0
+            && rect.height > 0.0;
+        let Some(bitmap) = image_pixmap(image).filter(|_| drawable) else {
+            return;
+        };
+        let transform = self
+            .transform
+            .pre_translate(rect.x as f32, rect.y as f32)
+            .pre_scale(
+                (rect.width / f64::from(image.columns)) as f32,
+                (rect.height / f64::from(image.rows)) as f32,
+            );
+        let paint = tiny_skia::PixmapPaint {
+            quality: tiny_skia::FilterQuality::Nearest,
+            ..tiny_skia::PixmapPaint::default()
+        };
+        self.pixmap
+            .draw_pixmap(0, 0, bitmap.as_ref(), &paint, transform, mask);
     }
 
     fn stroke(&mut self, geometry: &tiny_skia::Path, stroke: &Stroke, mask: Option<&Mask>) {

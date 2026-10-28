@@ -11,8 +11,8 @@ use std::path::{Path as FilePath, PathBuf};
 
 use ggrust_core::render::{SvgOptions, svg_to_png, to_png, to_svg_with};
 use ggrust_core::scene::{
-    Color, Group, HorizontalAlign, MarkerShape, Node, Path, PerItem, Points, Rect, Rects, Scene,
-    Stroke, Text, VerticalAlign,
+    Color, Group, HorizontalAlign, Image, MarkerShape, Node, Path, PerItem, Points, Rect, Rects,
+    Scene, Stroke, Text, VerticalAlign,
 };
 use ggrust_core::text::{FontFace, measure};
 use resvg::tiny_skia::Pixmap;
@@ -347,5 +347,53 @@ fn direct_png_matches_resvg_rendering_of_the_svg() {
     assert!(
         differing_pixels * 1000 < pixel_count,
         "{differing_pixels} of {pixel_count} pixels differ noticeably"
+    );
+}
+
+#[test]
+fn images_are_drawn_cell_by_cell_without_smoothing() {
+    // 2 x 2 bitmap over 40 x 20 px: red, transparent / blue, green.
+    let pixels = vec![
+        Color::rgb(255, 0, 0),
+        Color::TRANSPARENT,
+        Color::rgb(0, 0, 255),
+        Color::rgb(0, 128, 0),
+    ];
+    let scene = Scene {
+        width: 60.0,
+        height: 40.0,
+        background: Some(Color::WHITE),
+        nodes: vec![Node::Image(Image {
+            rect: Rect {
+                x: 10.0,
+                y: 10.0,
+                width: 40.0,
+                height: 20.0,
+            },
+            columns: 2,
+            rows: 2,
+            pixels,
+        })],
+    };
+    scene.validate().unwrap();
+    let png = Pixmap::decode_png(&to_png(&scene, 2.0).unwrap()).unwrap();
+    assert_eq!(pixel(&png, 11.0, 11.0), [255, 0, 0, 255]);
+    assert_eq!(
+        pixel(&png, 29.6, 19.6),
+        [255, 0, 0, 255],
+        "no blending at the edge"
+    );
+    assert_eq!(pixel(&png, 40.0, 15.0), [255, 255, 255, 255]);
+    assert_eq!(pixel(&png, 20.0, 25.0), [0, 0, 255, 255]);
+    assert_eq!(pixel(&png, 40.0, 25.0), [0, 128, 0, 255]);
+    assert_eq!(pixel(&png, 5.0, 5.0), [255, 255, 255, 255]);
+    let svg = to_svg_with(&scene, &SvgOptions::default());
+    assert!(
+        svg.contains(r#"<image preserveAspectRatio="none" x="10" y="10" width="40" height="20""#),
+        "{svg}"
+    );
+    assert!(
+        svg.contains("href=\"data:image/png;base64,iVBORw0KGgo"),
+        "{svg}"
     );
 }

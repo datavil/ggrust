@@ -10,7 +10,7 @@ use std::fmt::Write;
 
 use crate::scene::geometry::{ClipBox, is_drawable_marker, is_drawable_stroke, is_drawable_width};
 use crate::scene::{
-    Color, Group, HorizontalAlign, MarkerPart, Node, Path, PerItem, Points, Rect, Rects,
+    Color, Group, HorizontalAlign, Image, MarkerPart, Node, Path, PerItem, Points, Rect, Rects,
     SUPERSCRIPT_RISE, SUPERSCRIPT_SCALE, Scene, Stroke, Text, VerticalAlign,
 };
 use crate::text::{CSS_FONT_FAMILY, FontFamily, measure, single_line};
@@ -141,6 +141,7 @@ impl SvgWriter {
             Node::Path(path) => self.path(path),
             Node::Rects(rects) => self.rects(rects),
             Node::Text(text) => self.text(text),
+            Node::Image(image) => self.image(image),
         }
     }
 
@@ -291,6 +292,29 @@ impl SvgWriter {
             self.raw("/>\n");
         }
         self.raw("</g>\n");
+    }
+
+    /// An `<image>` holding the bitmap as an embedded PNG, scaled without
+    /// smoothing (lets-plot `SvgImageElementEx`).
+    fn image(&mut self, image: &Image) {
+        let rect = image.rect;
+        let drawable = [rect.x, rect.y, rect.width, rect.height]
+            .iter()
+            .all(|value| value.is_finite())
+            && rect.width > 0.0
+            && rect.height > 0.0;
+        let Some(png) = super::png::image_png(image).filter(|_| drawable) else {
+            return;
+        };
+        self.raw("<image preserveAspectRatio=\"none\"");
+        self.attribute_number("x", rect.x);
+        self.attribute_number("y", rect.y);
+        self.attribute_number("width", rect.width);
+        self.attribute_number("height", rect.height);
+        self.raw(" style=\"image-rendering: optimizeSpeed; image-rendering: pixelated\"");
+        self.raw(" href=\"data:image/png;base64,");
+        push_base64(&mut self.output, &png);
+        self.raw("\"/>\n");
     }
 
     fn text(&mut self, text: &Text) {
@@ -459,6 +483,25 @@ impl SvgWriter {
     }
 }
 
+/// Standard base64 (RFC 4648, padded).
+fn push_base64(output: &mut String, bytes: &[u8]) {
+    const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    output.reserve(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let triple = chunk.iter().enumerate().fold(0u32, |acc, (index, &byte)| {
+            acc | u32::from(byte) << (16 - 8 * index)
+        });
+        for index in 0..4 {
+            if index <= chunk.len() {
+                let sextet = (triple >> (18 - 6 * index)) & 0x3f;
+                output.push(char::from(ALPHABET[sextet as usize]));
+            } else {
+                output.push('=');
+            }
+        }
+    }
+}
+
 /// The visible stroke of a marker: a non-transparent color with a drawable width.
 fn marker_stroke(color: Option<Color>, width: f64) -> Option<(Color, f64)> {
     color
@@ -544,6 +587,21 @@ fn is_xml_character(character: char) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn base64_pads_like_rfc_4648() {
+        for (input, expected) in [
+            ("", ""),
+            ("f", "Zg=="),
+            ("fo", "Zm8="),
+            ("foo", "Zm9v"),
+            ("foobar", "Zm9vYmFy"),
+        ] {
+            let mut output = String::new();
+            push_base64(&mut output, input.as_bytes());
+            assert_eq!(output, expected);
+        }
+    }
 
     fn number(value: f64) -> String {
         let mut output = String::new();

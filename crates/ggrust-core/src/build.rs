@@ -220,11 +220,12 @@ fn build_columns(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
             scale.set_coord_limits(limits);
         }
     }
-    let aspect = spec
-        .coord
-        .as_ref()
-        .filter(|_| coord.fixes_aspect())
-        .map(|coord_spec| coord_spec.ratio.unwrap_or(1.0));
+    let aspect = coord.fixes_aspect().then(|| {
+        spec.coord
+            .as_ref()
+            .and_then(|coord_spec| coord_spec.ratio)
+            .unwrap_or(1.0)
+    });
     if let Some(ratio) = aspect.filter(|ratio| !(ratio.is_finite() && *ratio > 0.0)) {
         warnings.push(format!(
             "at 'coord.ratio': expected a positive number, got {ratio}; the panel keeps its \
@@ -1945,7 +1946,13 @@ fn report_missing_values(
 
 fn resolve_coord(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<&'static dyn Coord> {
     let Some(coord_spec) = &spec.coord else {
-        return Ok(&coord::Cartesian);
+        // lets-plot: the first layer whose geom prefers a coord (rasters: fixed).
+        let preferred = spec
+            .layers
+            .iter()
+            .find_map(|layer| geom::geom(&layer.geom)?.default_coord())
+            .and_then(coord::coord);
+        return Ok(preferred.unwrap_or(&coord::Cartesian));
     };
     match coord::coord(&coord_spec.name) {
         Some(coord) => Ok(coord),

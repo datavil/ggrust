@@ -45,6 +45,8 @@ pub enum Node {
     Rects(Rects),
     /// A line of text.
     Text(Text),
+    /// A bitmap stretched over a rectangle.
+    Image(Image),
 }
 
 impl Scene {
@@ -62,6 +64,7 @@ impl Scene {
                     }
                     Node::Points(points) => points.is_consistent(),
                     Node::Rects(rects) => rects.is_consistent(),
+                    Node::Image(image) => image.is_consistent(),
                     Node::Path(_) | Node::Text(_) => true,
                 };
                 if !consistent {
@@ -237,6 +240,29 @@ impl Rects {
     /// Whether the fill matches the number of rectangles.
     pub fn is_consistent(&self) -> bool {
         self.fill.fits(self.rects.len())
+    }
+}
+
+/// A bitmap stretched over `rect`, drawn without smoothing (one data cell per
+/// pixel, as lets-plot's raster image).
+#[derive(Debug, Clone, PartialEq)]
+pub struct Image {
+    /// Where the bitmap is drawn.
+    pub rect: Rect,
+    /// Pixels per row.
+    pub columns: u32,
+    /// Number of rows.
+    pub rows: u32,
+    /// Row-major colors, top row first; transparent where nothing is drawn.
+    pub pixels: Vec<Color>,
+}
+
+impl Image {
+    /// Whether the bitmap is non-empty and has `columns` x `rows` pixels.
+    pub fn is_consistent(&self) -> bool {
+        self.columns > 0
+            && self.rows > 0
+            && self.pixels.len() as u64 == u64::from(self.columns) * u64::from(self.rows)
     }
 }
 

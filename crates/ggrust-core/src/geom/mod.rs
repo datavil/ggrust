@@ -16,6 +16,7 @@ mod path;
 mod point;
 mod polygon;
 mod quantiles;
+mod raster;
 mod rect;
 mod reference_line;
 mod segment;
@@ -32,6 +33,7 @@ pub use jitter::JitterGeom;
 pub use path::{LineGeom, PathGeom};
 pub use point::PointGeom;
 pub use polygon::PolygonGeom;
+pub use raster::RasterGeom;
 pub use rect::RectGeom;
 pub use reference_line::{HorizontalLineGeom, VerticalLineGeom};
 pub use segment::SegmentGeom;
@@ -61,6 +63,13 @@ pub trait Geom: Sync {
     /// Position used when the layer names none.
     fn default_position(&self) -> DefaultPosition {
         DefaultPosition::IDENTITY
+    }
+
+    /// Coordinate system used when the plot names none (lets-plot
+    /// `GeomProto.preferredCoordinateSystem`: `fixed` for rasters); the first
+    /// layer that has one decides.
+    fn default_coord(&self) -> Option<&'static str> {
+        None
     }
 
     /// Whether the layer takes the plot mapping when `inherit_aes` is not given
@@ -155,11 +164,12 @@ pub static GEOMS: &[&dyn Geom] = &[
     &BracketGeom,
     &TileGeom,
     &RectGeom,
+    &RasterGeom,
 ];
 
 /// lets-plot geoms the Python API builds but the engine does not draw yet (plan.md).
 /// Remove a name when its geom joins [`GEOMS`].
-pub static NOT_DRAWN_YET: &[&str] = &["label_repel", "raster", "sina", "text_repel"];
+pub static NOT_DRAWN_YET: &[&str] = &["label_repel", "sina", "text_repel"];
 
 /// Look up a geom by its lets-plot name.
 pub fn geom(name: &str) -> Option<&'static dyn Geom> {

@@ -350,10 +350,10 @@ fn lets_plot_names_not_supported_yet_say_so() {
             Err(error) => error.to_string(),
         }
     };
-    let tile = error(r#"{"geom": "tile"}"#);
+    let sina = error(r#"{"geom": "sina"}"#);
     assert!(
-        tile.contains("at 'layers[0].geom': geom 'tile' is not supported by ggrust yet"),
-        "{tile}"
+        sina.contains("at 'layers[0].geom': geom 'sina' is not supported by ggrust yet"),
+        "{sina}"
     );
     let nudge = error(r#"{"geom": "point", "position": {"name": "nudge"}}"#);
     assert!(

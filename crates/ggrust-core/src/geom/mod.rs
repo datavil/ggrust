@@ -16,9 +16,11 @@ mod path;
 mod point;
 mod polygon;
 mod quantiles;
+mod rect;
 mod reference_line;
 mod segment;
 mod text;
+mod tile;
 mod violin;
 
 pub use area_ridges::AreaRidgesGeom;
@@ -30,9 +32,11 @@ pub use jitter::JitterGeom;
 pub use path::{LineGeom, PathGeom};
 pub use point::PointGeom;
 pub use polygon::PolygonGeom;
+pub use rect::RectGeom;
 pub use reference_line::{HorizontalLineGeom, VerticalLineGeom};
 pub use segment::SegmentGeom;
 pub use text::{LabelGeom, TextGeom};
+pub use tile::TileGeom;
 pub use violin::ViolinGeom;
 
 use crate::Result;
@@ -149,18 +153,13 @@ pub static GEOMS: &[&dyn Geom] = &[
     &JitterGeom,
     &AreaRidgesGeom,
     &BracketGeom,
+    &TileGeom,
+    &RectGeom,
 ];
 
 /// lets-plot geoms the Python API builds but the engine does not draw yet (plan.md).
 /// Remove a name when its geom joins [`GEOMS`].
-pub static NOT_DRAWN_YET: &[&str] = &[
-    "label_repel",
-    "raster",
-    "rect",
-    "sina",
-    "text_repel",
-    "tile",
-];
+pub static NOT_DRAWN_YET: &[&str] = &["label_repel", "raster", "sina", "text_repel"];
 
 /// Look up a geom by its lets-plot name.
 pub fn geom(name: &str) -> Option<&'static dyn Geom> {

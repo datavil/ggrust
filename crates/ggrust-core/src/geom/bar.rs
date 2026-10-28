@@ -104,7 +104,7 @@ impl Geom for BarGeom {
     }
 
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
-        draw_rectangles(layer, panel)
+        draw_rectangles(layer, panel, true)
     }
 
     fn minimum_key_size(&self, styles: &Styles) -> Result<(f64, f64)> {
@@ -162,7 +162,7 @@ impl Geom for HistogramGeom {
     }
 
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
-        draw_rectangles(layer, panel)
+        draw_rectangles(layer, panel, true)
     }
 
     fn minimum_key_size(&self, styles: &Styles) -> Result<(f64, f64)> {
@@ -227,7 +227,13 @@ fn rectangles(mut data: LayerData, width: f64, breaks: &[f64]) -> Result<LayerDa
 /// Consecutive bars sharing an outline: one `Rects` node.
 type Batch = (Option<Stroke>, Vec<Rect>, Vec<Option<Color>>);
 
-fn draw_rectangles(layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
+/// Draw `xmin`/`xmax`/`ymin`/`ymax` rectangles; `reverse`: last row first
+/// (lets-plot bars), else in row order (tiles, rects).
+pub(super) fn draw_rectangles(
+    layer: &DrawLayer,
+    panel: &Panel,
+    reverse: bool,
+) -> Result<Vec<Node>> {
     let columns = [
         Aesthetic::Xmin,
         Aesthetic::Xmax,
@@ -237,7 +243,7 @@ fn draw_rectangles(layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
     .map(|aesthetic| layer.data.continuous(aesthetic));
     let [Some(xmin), Some(xmax), Some(ymin), Some(ymax)] = columns else {
         return Err(Error::InvalidData(
-            "bar rectangles were not set up (missing xmin, xmax, ymin or ymax)".to_owned(),
+            "rectangles were not set up (missing xmin, xmax, ymin or ymax)".to_owned(),
         ));
     };
     let fills = layer.styles.colors(Aesthetic::Fill)?;
@@ -245,7 +251,13 @@ fn draw_rectangles(layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
     let mut nodes: Vec<Node> = Vec::new();
     let mut batch: Option<Batch> = None;
     // lets-plot draws bars in reverse order (the first row ends up on top).
-    for row in (0..layer.data.row_count()).rev() {
+    let row_count = layer.data.row_count();
+    let rows: Box<dyn Iterator<Item = usize>> = if reverse {
+        Box::new((0..row_count).rev())
+    } else {
+        Box::new(0..row_count)
+    };
+    for row in rows {
         let corners = [xmin.get(row), ymin.get(row), xmax.get(row), ymax.get(row)];
         let [Some(x0), Some(y0), Some(x1), Some(y1)] = corners else {
             continue;

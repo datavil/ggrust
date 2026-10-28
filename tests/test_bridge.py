@@ -5,7 +5,7 @@ import json
 import ggrust as gg
 import polars as pl
 import pytest
-from ggrust._ggrust import referenced_columns
+from ggrust._ggrust import referenced_columns, tooltip_columns
 from ggrust._render import split_data, to_json
 
 FRAME = pl.DataFrame({"x": [1.0, 2.0, 3.0], "y": [3.0, 1.0, 2.0], "c": ["a", "b", "a"]})
@@ -52,8 +52,9 @@ def test_referenced_columns_come_from_rust():
             {"geom": "point", "mapping": {"color": "c"}, "tooltips": {"lines": ["@{cell type}"]}}
         ],
     }
-    # Tooltips are not built yet: their columns are not exported.
+    # Tooltip columns are listed apart: only HTML output exports them.
     assert referenced_columns(to_json(spec)) == ["c", "sample", "x", "y"]
+    assert tooltip_columns(to_json(spec)) == ["cell type"]
 
 
 def test_unconvertible_column_used_only_by_tooltips_does_not_fail():
@@ -63,6 +64,9 @@ def test_unconvertible_column_used_only_by_tooltips_does_not_fail():
         tooltips=gg.layer_tooltips().line("@mixed")
     )
     assert plot.to_svg().count("<circle") == 2
+    with pytest.warns(gg.GgrustWarning, match="tooltip column 'mixed' could not be read"):
+        html = plot._repr_html_()
+    assert "ggrust-plot" in html
 
 
 def test_a_bad_frame_reference_names_the_path():

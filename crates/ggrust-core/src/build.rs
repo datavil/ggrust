@@ -12,7 +12,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::coord::{self, Coord, Panel};
-use crate::data::{Column, Computed, ContinuousColumn, DataFrame, LayerData, group_index, inline};
+use crate::data::{
+    Column, Computed, ContinuousColumn, DataFrame, LayerData, SourceRows, group_index, inline,
+};
 use crate::facet::{Facets, LayerFacetColumns};
 use crate::geom::{self, DrawLayer, Geom};
 use crate::layout::facet::{FacetGrid, FacetLayout, FacetPanel, draw_strips, layout_facets};
@@ -37,6 +39,8 @@ use crate::stat::groups::rows_by_group;
 use crate::stat::{self, Stat, StatContext};
 use crate::style::{StyleValues, Styles, parse_constant};
 use crate::theme::{LegendPosition, Margins, Theme};
+use crate::tooltip::content::{ContentSource, layer_content};
+use crate::tooltip::{Interaction, LayerInteraction};
 use crate::{Error, Result};
 
 /// Plot size when `ggsize` is not given (lets-plot default).
@@ -87,12 +91,19 @@ type StageResult<T> = std::result::Result<T, (Error, Vec<String>)>;
 pub struct BuiltPlot {
     /// The drawing.
     pub scene: Scene,
+    /// Hover tooltips, when asked for (HTML output).
+    pub interaction: Option<Interaction>,
     /// Things the user should know: ignored options, removed rows, ...
     pub warnings: Vec<String>,
 }
 
 /// Build a single plot at its own size (`ggsize`, or the default).
 pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
+    build_plot_with(spec, data, false)
+}
+
+/// [`build_plot`], with the hover tooltips of HTML output when `interactive`.
+pub fn build_plot_with(spec: &PlotSpec, data: &PlotData, interactive: bool) -> Result<BuiltPlot> {
     let plot = prepare_plot(spec, data)?;
     let (width, height) = plot.size;
     let area = Rect {
@@ -101,7 +112,8 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
         width,
         height,
     };
-    let nodes = plot.draw(&plot.arrange(area)?)?;
+    let arrangement = plot.arrange(area)?;
+    let nodes = plot.draw(&arrangement)?;
     let scene = Scene {
         width,
         height,
@@ -109,9 +121,18 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
         nodes,
     };
     scene.validate()?;
+    let mut warnings = plot.warnings.clone();
+    let interaction = if interactive {
+        let mut interaction = Interaction::default();
+        plot.interaction(&arrangement, &mut interaction, &mut warnings)?;
+        Some(interaction)
+    } else {
+        None
+    };
     Ok(BuiltPlot {
         scene,
-        warnings: plot.warnings,
+        interaction,
+        warnings,
     })
 }
 
@@ -443,6 +464,7 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         .collect();
     let legends = assemble_legends(spec, &legend_layers, &style_scales, &style_specs)
         .map_err(|error| error.with_notes(&warnings))?;
+    let tooltip_setups = tooltip_setups(spec, &titles, &style_specs);
     // coord_flip: the screen axes take the other scale, title and theme elements.
     let flipped = spec
         .coord
@@ -468,6 +490,7 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         flipped,
         legends,
         size: (width, height),
+        tooltip_setups,
         warnings,
     })
 }
@@ -491,8 +514,91 @@ pub struct PreparedPlot {
     pub legends: Vec<LegendBox>,
     /// `ggsize`, or the default size.
     pub size: (f64, f64),
+    /// Per layer: what its tooltips read from the spec.
+    tooltip_setups: Vec<LayerTooltipSetup>,
     /// Things the user should know: ignored options, removed rows, ...
     pub warnings: Vec<String>,
+}
+
+/// What a layer's tooltips read from the spec (the same in every panel).
+struct LayerTooltipSetup {
+    tooltips: Option<TooltipsSpec>,
+    /// Variable bound to each aesthetic: a column name or `..stat..`.
+    bindings: BTreeMap<Aesthetic, String>,
+    /// Scale name of bound positions and style aesthetics (axis title, legend title).
+    labels: BTreeMap<Aesthetic, String>,
+}
+
+/// lets-plot tooltip anchors (`TooltipConfig.readAnchor`).
+const TOOLTIP_ANCHORS: [&str; 9] = [
+    "top_left",
+    "top_center",
+    "top_right",
+    "middle_left",
+    "middle_center",
+    "middle_right",
+    "bottom_left",
+    "bottom_center",
+    "bottom_right",
+];
+
+/// The tooltip setup of every layer: bound variables (mapped columns, then the
+/// stat's default mappings) and their labels.
+fn tooltip_setups(
+    spec: &PlotSpec,
+    titles: &Titles,
+    style_specs: &BTreeMap<Aesthetic, StyleScaleSpec>,
+) -> Vec<LayerTooltipSetup> {
+    spec.layers
+        .iter()
+        .map(|layer| {
+            let (mapping, _) = merged_mapping(spec, layer);
+            let mut bindings = BTreeMap::new();
+            for (aesthetic, value) in &mapping {
+                let constant = layer
+                    .parameters
+                    .get(aesthetic.as_str())
+                    .is_some_and(|value| !value.is_null());
+                if *aesthetic == Aesthetic::Group || constant {
+                    continue;
+                }
+                if let Some(name) = value.as_column() {
+                    bindings.insert(*aesthetic, name.to_owned());
+                }
+            }
+            if let Some(stat) = layer_stat(layer) {
+                for (aesthetic, computed) in stat.default_mapping() {
+                    bindings
+                        .entry(*aesthetic)
+                        .or_insert_with(|| format!("..{}..", computed.as_str()));
+                }
+            }
+            let labels = bindings
+                .keys()
+                .filter_map(|&aesthetic| {
+                    // lets-plot scale name: guide title (`labs`), then `name`, then default.
+                    let guide_title = match spec.guides.get(aesthetic.as_str()) {
+                        Some(GuideSpec::Full(options)) => options.title.clone(),
+                        _ => None,
+                    };
+                    let label = match aesthetic {
+                        Aesthetic::X => titles.x.clone(),
+                        Aesthetic::Y => titles.y.clone(),
+                        _ if aesthetic.kind().style().is_some() => guide_title.or_else(|| {
+                            Some(legend_title(spec, aesthetic, style_specs.get(&aesthetic)))
+                        }),
+                        _ => None,
+                    };
+                    label.map(|label| (aesthetic, label))
+                })
+                .collect();
+            LayerTooltipSetup {
+                tooltips: layer.tooltips.clone(),
+                bindings,
+                labels,
+            }
+        })
+        .collect()
 }
 
 /// Where a plot's panels, axes and titles go (from [`PreparedPlot::arrange`]).
@@ -663,6 +769,114 @@ impl PreparedPlot {
         Ok(arrangement)
     }
 
+    /// The hover tooltips of the plot as laid out by `arrangement`: one entry per
+    /// layer and panel with targets and text (see [`crate::tooltip`]). Problems
+    /// with tooltip options go to `warnings` (once each).
+    pub fn interaction(
+        &self,
+        arrangement: &Arrangement,
+        interaction: &mut Interaction,
+        warnings: &mut Vec<String>,
+    ) -> Result<()> {
+        let panels: Vec<(Rect, usize)> = match &arrangement.layout {
+            Arranged::Single(layout) => vec![(layout.panel, 0)],
+            Arranged::Facets(layout) => layout
+                .tiles
+                .iter()
+                .enumerate()
+                .map(|(index, tile)| (tile.layout.panel, index))
+                .collect(),
+        };
+        let axis_labels = (
+            self.theme.axis_text_x.is_some(),
+            self.theme.axis_text_y.is_some(),
+        );
+        let mut notes = Vec::new();
+        for (rect, tile) in panels {
+            let Some((layers, tile_x, tile_y)) = self.tiles.get(tile) else {
+                continue;
+            };
+            let (horizontal, vertical) = self.screen_scales(tile_x, tile_y);
+            let panel = Panel {
+                rect,
+                x_scale: horizontal,
+                y_scale: vertical,
+                coord: self.coord,
+                flipped: self.flipped,
+            };
+            for (layer, setup) in layers.iter().zip(&self.tooltip_setups) {
+                let behavior = layer.geom.tooltip_behavior();
+                let Some(lookup) = behavior.lookup else {
+                    continue;
+                };
+                let draw_layer = DrawLayer {
+                    data: &layer.data,
+                    styles: &layer.styles,
+                    parameters: Parameters::new(&layer.options, &layer.path),
+                };
+                let Some(targets) = layer.geom.hover_targets(&draw_layer, &panel)? else {
+                    continue;
+                };
+                if targets.is_empty() {
+                    continue;
+                }
+                let source = ContentSource {
+                    tooltips: setup.tooltips.as_ref(),
+                    behavior,
+                    data: &layer.unadjusted,
+                    styles: &layer.styles,
+                    x_scale: tile_x,
+                    y_scale: tile_y,
+                    bindings: &setup.bindings,
+                    labels: &setup.labels,
+                    columns: &layer.tooltip_columns,
+                    flipped: self.flipped,
+                    axis_labels,
+                };
+                let content = layer_content(&source, &layer.path, &mut notes);
+                if content.is_empty() {
+                    continue;
+                }
+                let (anchor, min_width) = match &setup.tooltips {
+                    Some(TooltipsSpec::Lines(lines)) => {
+                        let anchor = lines.tooltip_anchor.clone().filter(|anchor| {
+                            let known = TOOLTIP_ANCHORS.contains(&anchor.as_str());
+                            if !known {
+                                notes.push(format!(
+                                    "at '{}.tooltips.tooltip_anchor': unknown anchor \
+                                     '{anchor}'; expected one of {}; the tooltip follows \
+                                     the cursor",
+                                    layer.path,
+                                    TOOLTIP_ANCHORS.join(", ")
+                                ));
+                            }
+                            known
+                        });
+                        let min_width = lines
+                            .tooltip_min_width
+                            .filter(|width| width.is_finite() && *width > 0.0);
+                        (anchor, min_width)
+                    }
+                    _ => (None, None),
+                };
+                interaction.layers.push(LayerInteraction {
+                    panel: LayerInteraction::panel_of(rect),
+                    lookup,
+                    targets,
+                    content,
+                    anchor,
+                    min_width,
+                });
+            }
+        }
+        for note in notes {
+            if !warnings.contains(&note) {
+                warnings.push(note);
+            }
+        }
+        Ok(())
+    }
+
     /// Draw the plot as laid out by `arrangement`: everything but the background
     /// fill (the scene's, or the grid cell's), with the background border last.
     pub fn draw(&self, arrangement: &Arrangement) -> Result<Vec<Node>> {
@@ -823,6 +1037,11 @@ fn split_layer<'a>(layer: &MappedLayer<'a>, rows: &[u32]) -> MappedLayer<'a> {
         group_index,
         group_rank,
         facet_columns: Vec::new(),
+        tooltip_columns: layer
+            .tooltip_columns
+            .iter()
+            .map(|(name, column)| (name.clone(), column.take(rows)))
+            .collect(),
         warnings: Vec::new(),
     }
 }
@@ -1038,6 +1257,10 @@ struct PreparedLayer {
     path: String,
     geom: &'static dyn Geom,
     data: LayerData,
+    /// See [`ComputedLayer::unadjusted`].
+    unadjusted: LayerData,
+    /// See [`ComputedLayer::tooltip_columns`].
+    tooltip_columns: Vec<(String, Column)>,
     /// See [`ComputedLayer::x_span`].
     x_span: Option<(f64, f64)>,
     /// See [`ComputedLayer::y_span`].
@@ -1203,6 +1426,35 @@ fn map_layer_into<'a>(
     } else {
         group_index(&grouping.iter().collect::<Vec<_>>())
     };
+    let mut tooltip_columns = Vec::new();
+    if let Some(TooltipsSpec::Lines(lines)) = &spec.tooltips
+        && !unbound
+    {
+        for name in crate::tooltip::referenced_variables(lines) {
+            let mapped = mapping
+                .values()
+                .any(|value| value.as_column() == Some(&name));
+            if mapped || !frames.has(&name) {
+                continue;
+            }
+            match frames.column(&name, &at("tooltips")) {
+                Ok(column) => tooltip_columns.push((name, column)),
+                Err(error) => {
+                    let reason = match error {
+                        Error::InvalidSpec(message) => message,
+                        other => other.to_string(),
+                    };
+                    warnings.push(format!("{reason}; tooltips cannot show it yet"));
+                    // All missing: its lines are left out without a second warning.
+                    let missing = vec![None; frames.row_count()];
+                    tooltip_columns.push((
+                        name,
+                        Column::Continuous(ContinuousColumn::from_options(missing)),
+                    ));
+                }
+            }
+        }
+    }
     Ok(MappedLayer {
         spec,
         path,
@@ -1217,6 +1469,7 @@ fn map_layer_into<'a>(
         group_index,
         group_rank: None,
         facet_columns,
+        tooltip_columns,
         warnings: std::mem::take(warnings),
     })
 }
@@ -1242,6 +1495,8 @@ struct MappedLayer<'a> {
     group_rank: Option<Vec<u32>>,
     /// The layer's faceting columns (see [`Facets::rows_by_tile`]).
     facet_columns: LayerFacetColumns,
+    /// Unmapped columns `layer_tooltips()` reads, by name.
+    tooltip_columns: Vec<(String, Column)>,
     /// Warnings of this stage.
     warnings: Vec<String>,
 }
@@ -1304,6 +1559,7 @@ fn compute_layer(
         stat_mappings,
         group_index,
         group_rank,
+        tooltip_columns,
         mut warnings,
         ..
     } = layer;
@@ -1448,6 +1704,14 @@ fn compute_layer(
     let layer_data = geom.setup(layer_data, &parameters)?;
     let x_span = setup_span(geom, &layer_data, Aesthetic::is_x_position);
     let y_span = setup_span(geom, &layer_data, Aesthetic::is_y_position);
+    // Tooltips show values before the position adjustment (lets-plot adjusts
+    // positions while drawing). Columns are shared, so this costs no copy.
+    let unadjusted = layer_data.clone();
+    // Data columns line up with the layer rows only when the stat kept them.
+    let tooltip_columns = match (is_identity, unadjusted.source_rows()) {
+        (true, SourceRows::All) => tooltip_columns,
+        _ => Vec::new(),
+    };
     let layer_data = apply_positions(layer_data, &positions)?;
 
     // Missing stat output is deliberate (e.g. `threshold`); input rows the stat
@@ -1466,6 +1730,8 @@ fn compute_layer(
         path,
         geom,
         data: layer_data,
+        unadjusted,
+        tooltip_columns,
         x_span,
         y_span,
         mapping_paths,
@@ -1481,6 +1747,10 @@ struct ComputedLayer {
     path: String,
     geom: &'static dyn Geom,
     data: LayerData,
+    /// The data before the position adjustment (tooltip values).
+    unadjusted: LayerData,
+    /// Unmapped columns the tooltips read, one value per layer row.
+    tooltip_columns: Vec<(String, Column)>,
     /// Range of the setup's x columns before the position adjustment (see
     /// [`Geom::setup_aesthetics`]).
     x_span: Option<(f64, f64)>,
@@ -1520,6 +1790,8 @@ fn style_layer(
             path: layer.path,
             geom: layer.geom,
             data: layer.data,
+            unadjusted: layer.unadjusted,
+            tooltip_columns: layer.tooltip_columns,
             x_span: layer.x_span,
             y_span: layer.y_span,
             styles,
@@ -2632,11 +2904,6 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
                 ));
             }
         };
-        // `tooltips="none"` asks for no tooltips: static output already has none.
-        layer_ignored(
-            matches!(layer.tooltips, Some(TooltipsSpec::Lines(_))),
-            "tooltips",
-        );
         layer_ignored(layer.labels.is_some(), "labels");
         layer_ignored(layer.manual_key.is_some(), "manual_key");
     }

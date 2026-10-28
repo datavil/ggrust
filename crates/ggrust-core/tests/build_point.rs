@@ -144,12 +144,12 @@ fn unimplemented_features_and_unknown_options_warn() {
         cells(),
     );
     let joined = built.warnings.join("\n");
-    // `tooltips="none"` asks for what static output already does: no warning.
+    // Tooltips are HTML features: static output ignores them without a warning.
     assert!(!joined.contains("at 'layers[1]'"), "{joined}");
+    assert!(!joined.contains("tooltips"), "{joined}");
     for expected in [
         "at 'theme.strip_text_y': not supported yet; ignored",
         "at 'guides.color': this guide option is not supported yet",
-        "at 'layers[0]': 'tooltips' is not supported yet",
         "at 'layers[0].colr': geom_point does not support option 'colr'",
     ] {
         assert!(

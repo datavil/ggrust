@@ -12,7 +12,7 @@ import warnings
 from typing import Any
 
 from ggrust._data import as_arrow
-from ggrust._ggrust import referenced_columns, render
+from ggrust._ggrust import referenced_columns, render, tooltip_columns
 
 DEFAULT_PNG_SCALE = 2.0  # lets-plot's default
 
@@ -46,9 +46,18 @@ def render_bytes(plot, output: str, scale: float = 1.0, size: tuple | None = Non
         spec["ggsize"] = {"width": size[0], "height": size[1]}
     spec_json = to_json(spec)
     columns = set(referenced_columns(spec_json))
+    html = output.startswith("html")
+    extra = set(tooltip_columns(spec_json)) - columns if html else set()
+    exported = []
+    for data, path in frames:
+        arrow, dropped = _export_with_tooltips(data, columns, extra, path)
+        exported.append(arrow)
+        for name in dropped:
+            message = f"at '{path}': the tooltip column {name!r} could not be read and is not shown"
+            warnings.warn(message, GgrustWarning, stacklevel=3)
     encoded, messages = render(
         spec_json,
-        [_export(data, columns, path) for data, path in frames],
+        exported,
         output,
         float(scale),
         _display_id() if output.startswith("html") else None,
@@ -126,6 +135,30 @@ def _column_names(data: Any) -> list[str]:
     else:
         return []
     return [str(name) for name in names]
+
+
+def _export_with_tooltips(
+    data: Any, columns: set[str], extra: set[str], path: str
+) -> tuple[Any, list[str]]:
+    """Export the referenced columns plus the tooltip columns ``extra`` (HTML only).
+
+    A tooltip column that cannot be exported never fails the plot: it is left out
+    and returned in the dropped names (the tooltip line then warns as unknown).
+    """
+    present = extra & set(_column_names(data))
+    if not present:
+        return _export(data, columns, path), []
+    try:
+        return as_arrow(_select(data, columns | present)), []
+    except Exception:
+        dropped = []
+        for name in sorted(present):
+            try:
+                as_arrow(_select(data, {name}))
+            except Exception:
+                dropped.append(name)
+        kept = columns | (present - set(dropped))
+        return _export(data, kept, path), dropped
 
 
 def _export(data: Any, columns: set[str], path: str):

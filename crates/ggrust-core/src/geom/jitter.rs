@@ -14,6 +14,18 @@ use crate::style::{StyleDefault, Styles};
 pub struct JitterGeom;
 
 impl Geom for JitterGeom {
+    fn tooltip_behavior(&self) -> crate::tooltip::TooltipBehavior {
+        crate::tooltip::TooltipBehavior::NEAREST_XY
+    }
+
+    fn hover_targets(
+        &self,
+        layer: &DrawLayer,
+        panel: &Panel,
+    ) -> Result<Option<crate::tooltip::HoverTargets>> {
+        PointGeom.hover_targets(layer, panel)
+    }
+
     fn name(&self) -> &'static str {
         "jitter"
     }

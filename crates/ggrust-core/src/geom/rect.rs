@@ -37,6 +37,30 @@ const STYLE_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
 pub struct RectGeom;
 
 impl Geom for RectGeom {
+    fn tooltip_behavior(&self) -> crate::tooltip::TooltipBehavior {
+        crate::tooltip::TooltipBehavior {
+            hidden: &[
+                Aesthetic::Xmin,
+                Aesthetic::Ymin,
+                Aesthetic::Xmax,
+                Aesthetic::Ymax,
+            ],
+            ..crate::tooltip::TooltipBehavior::AREA
+        }
+    }
+
+    fn hover_targets(
+        &self,
+        layer: &DrawLayer,
+        panel: &Panel,
+    ) -> Result<Option<crate::tooltip::HoverTargets>> {
+        Ok(super::hover::rectangles(
+            layer,
+            panel,
+            (Aesthetic::Ymin, Aesthetic::Ymax),
+        ))
+    }
+
     fn name(&self) -> &'static str {
         "rect"
     }

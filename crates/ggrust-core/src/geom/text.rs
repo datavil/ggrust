@@ -76,7 +76,26 @@ pub struct TextGeom;
 /// Text in a rounded box.
 pub struct LabelGeom;
 
+/// Reach of a text or label hover target around its anchor, in pixels.
+const TEXT_HOVER_RADIUS: f64 = 4.0;
+
 impl Geom for TextGeom {
+    /// lets-plot: text layers have tooltips only when `layer_tooltips()` gives lines.
+    fn tooltip_behavior(&self) -> crate::tooltip::TooltipBehavior {
+        crate::tooltip::TooltipBehavior {
+            needs_lines: true,
+            ..crate::tooltip::TooltipBehavior::NEAREST_XY
+        }
+    }
+
+    fn hover_targets(
+        &self,
+        layer: &DrawLayer,
+        panel: &Panel,
+    ) -> Result<Option<crate::tooltip::HoverTargets>> {
+        Ok(super::hover::circles(layer, panel, |_| TEXT_HOVER_RADIUS))
+    }
+
     fn name(&self) -> &'static str {
         "text"
     }
@@ -107,6 +126,22 @@ impl Geom for TextGeom {
 }
 
 impl Geom for LabelGeom {
+    /// lets-plot: text layers have tooltips only when `layer_tooltips()` gives lines.
+    fn tooltip_behavior(&self) -> crate::tooltip::TooltipBehavior {
+        crate::tooltip::TooltipBehavior {
+            needs_lines: true,
+            ..crate::tooltip::TooltipBehavior::NEAREST_XY
+        }
+    }
+
+    fn hover_targets(
+        &self,
+        layer: &DrawLayer,
+        panel: &Panel,
+    ) -> Result<Option<crate::tooltip::HoverTargets>> {
+        Ok(super::hover::circles(layer, panel, |_| TEXT_HOVER_RADIUS))
+    }
+
     fn name(&self) -> &'static str {
         "label"
     }

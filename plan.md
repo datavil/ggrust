@@ -15,6 +15,8 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Lessons: [memory/](memory/README.md
 | Spec transfer | Spec (without data) crosses as a JSON string parsed by serde_json: tiny, one parser for fixtures and live calls, no pythonize/pyo3 version lock |
 | Fonts | One embedded open font so text measurement and PNGs are identical on every machine |
 | Categorical level order | From the Arrow data: dictionary order, so polars `Categorical` = first appearance (as lets-plot), `Enum`/ordered pandas = category order. Unordered pandas categoricals keep their category order (ggplot2), a recorded deviation from lets-plot's first appearance (decided 2026-10-28) |
+| Tooltip scope (4.2) | General tooltips + axis tooltips as lets-plot; boxplot statistics are lines of the general tooltip (lets-plot `disable_splitting` look), not separate side boxes. No tooltip theme elements, `tooltip_group` or crosshair modes (decided 2026-10-28) |
+| Tooltip runtime (4.2) | Rust computes targets (scene pixels) and every row's text; the JS runtime builds the grid-bucket hit index at mount (no index in the payload) and draws tooltips as HTML divs over the SVG (decided 2026-10-28) |
 
 ## Scope: what cellestial actually uses
 
@@ -141,7 +143,7 @@ Steps inside a phase are ordered; each builds on the previous.
 ### Phase 4: Interactivity and HTML
 
 - [x] 4.1 HTML renderer: SVG + embedded JS runtime, notebook `_repr_html_`, `to_html`, `LetsPlot.setup_html` no-op compat. Pass an explicit per-display id prefix: content-hash ids repeat when one plot is shown twice on a page, which breaks once the runtime edits clips on zoom/pan.
-- [ ] 4.2 Tooltips: hit-testing index built in Rust (grid buckets), `layer_tooltips` (lines, format, title, anchor), default tooltips. Add tooltip columns to `Figure::referenced_columns` here (removed in 0.10.5: exporting unread columns failed plots). Template syntax to verify against lets-plot: `@x^2` is one name, dots end a name (`@y.bad` = `y` + text), an unclosed `@{` must not hide later fields, format fields may omit `@`.
+- [x] 4.2 Tooltips: hit targets and text in Rust, grid-bucket index in the JS runtime (decided with the user), `layer_tooltips` (lines, variables, format, title, anchor, min_width), default tooltips, axis tooltips. Tooltip columns are listed apart (`Figure::tooltip_columns`) and exported for HTML only; an unconvertible one is dropped with a warning (exporting unread columns failed plots in 0.10.5). Template syntax follows lets-plot's `SOURCE_RE_PATTERN`: `@x^2` is one name, dots end a name (`@y.bad` = `y` + text), an unclosed `@{` does not hide later fields, format fields may omit `@`. Not yet: polygon/segment/rect-only targets for vline/hline, side tooltips as separate boxes, datetime formats.
 - [ ] 4.3 `ggtb` zoom/pan: re-render axes on zoom (Rust-precomputed break candidates, or JS tick generation).
 - [ ] 4.4 Canvas point layer for dense scatter (>50k points); playwright tests for render + tooltip.
 

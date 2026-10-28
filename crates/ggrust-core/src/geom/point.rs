@@ -44,6 +44,20 @@ const LEGEND_DEFAULTS: &[(Aesthetic, StyleDefault)] =
 pub struct PointGeom;
 
 impl Geom for PointGeom {
+    fn tooltip_behavior(&self) -> crate::tooltip::TooltipBehavior {
+        crate::tooltip::TooltipBehavior::NEAREST_XY
+    }
+
+    fn hover_targets(
+        &self,
+        layer: &DrawLayer,
+        panel: &Panel,
+    ) -> Result<Option<crate::tooltip::HoverTargets>> {
+        Ok(super::hover::circles(layer, panel, |row| {
+            hover_radius(layer.styles, row)
+        }))
+    }
+
     fn name(&self) -> &'static str {
         "point"
     }
@@ -96,6 +110,16 @@ impl Geom for PointGeom {
         points.y = vec![cell.y + cell.height / 2.0];
         Ok(vec![Node::Points(points)])
     }
+}
+
+/// Radius of a marker for hover lookups (lets-plot `PointGeom`: half the shape's
+/// size with its stroke).
+pub(super) fn hover_radius(styles: &Styles, row: usize) -> f64 {
+    Marker::of(styles, row)
+        .map(|marker| (marker.size + marker.stroke_width) / 2.0)
+        .ok()
+        .filter(|radius| radius.is_finite())
+        .unwrap_or(0.0)
 }
 
 /// One marker's geometry and paint.

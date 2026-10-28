@@ -44,6 +44,55 @@ const STYLE_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
 pub struct ViolinGeom;
 
 impl Geom for ViolinGeom {
+    fn tooltip_behavior(&self) -> crate::tooltip::TooltipBehavior {
+        crate::tooltip::TooltipBehavior {
+            hidden: &[Aesthetic::Quantile],
+            ..crate::tooltip::TooltipBehavior::NEAREST_XY
+        }
+    }
+
+    /// Both outline points of every row (lets-plot `ViolinGeom` targets).
+    fn hover_targets(
+        &self,
+        layer: &DrawLayer,
+        panel: &Panel,
+    ) -> Result<Option<crate::tooltip::HoverTargets>> {
+        let columns = [
+            Aesthetic::X,
+            Aesthetic::Y,
+            Aesthetic::Xmin,
+            Aesthetic::Xmax,
+            Aesthetic::Violinwidth,
+        ]
+        .map(|aesthetic| layer.data.continuous(aesthetic));
+        let [Some(x), Some(y), Some(xmin), Some(xmax), Some(width)] = columns else {
+            return Ok(None);
+        };
+        let mut targets = super::hover::VertexBuilder::default();
+        for row in 0..layer.data.row_count() {
+            let values = [x, y, xmin, xmax, width].map(|column| column.get(row));
+            let [
+                Some(center),
+                Some(value_y),
+                Some(low),
+                Some(high),
+                Some(width),
+            ] = values
+            else {
+                continue;
+            };
+            let half = (high - low) / 2.0 * width;
+            for offset in [-half, half] {
+                targets.push(
+                    panel.map(center + offset, value_y),
+                    layer.data.group_of(row),
+                    row,
+                );
+            }
+        }
+        Ok(Some(targets.finish()))
+    }
+
     fn name(&self) -> &'static str {
         "violin"
     }

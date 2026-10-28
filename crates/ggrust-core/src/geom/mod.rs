@@ -10,6 +10,7 @@ mod bar;
 mod blank;
 mod boxplot;
 mod bracket;
+mod hover;
 mod jitter;
 mod lines;
 mod path;
@@ -49,6 +50,7 @@ use crate::position::DefaultPosition;
 use crate::scene::{Node, Rect};
 use crate::spec::Aesthetic;
 use crate::style::{StyleDefault, Styles};
+use crate::tooltip::{HoverTargets, TooltipBehavior};
 
 /// A geometric object.
 pub trait Geom: Sync {
@@ -128,6 +130,18 @@ pub trait Geom: Sync {
 
     /// Draw the layer into scene nodes (in panel pixel space).
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>>;
+
+    /// What the layer's tooltips show and how their targets are found (lets-plot
+    /// `DefaultTooltipBehaviorFactory`). Default: no tooltips.
+    fn tooltip_behavior(&self) -> TooltipBehavior {
+        TooltipBehavior::NONE
+    }
+
+    /// Hover targets of the layer in panel pixel space (see [`crate::tooltip`]);
+    /// `None` without tooltips.
+    fn hover_targets(&self, _layer: &DrawLayer, _panel: &Panel) -> Result<Option<HoverTargets>> {
+        Ok(None)
+    }
 
     /// Style defaults that differ in legend keys (lets-plot
     /// `AestheticsDefaults.defaultsInLegend`, e.g. bigger points).

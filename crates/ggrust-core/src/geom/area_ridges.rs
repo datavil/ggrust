@@ -53,6 +53,37 @@ const SIMPLIFY_PIXELS: f64 = 0.25;
 pub struct AreaRidgesGeom;
 
 impl Geom for AreaRidgesGeom {
+    /// lets-plot: nearest ridge point, only the x axis tooltip.
+    fn tooltip_behavior(&self) -> crate::tooltip::TooltipBehavior {
+        crate::tooltip::TooltipBehavior {
+            axis: (true, false),
+            hidden: &[Aesthetic::Quantile],
+            ..crate::tooltip::TooltipBehavior::NEAREST_XY
+        }
+    }
+
+    /// The top of every ridge point.
+    fn hover_targets(
+        &self,
+        layer: &DrawLayer,
+        panel: &Panel,
+    ) -> Result<Option<crate::tooltip::HoverTargets>> {
+        let (Some(x), Some(top)) = (
+            layer.data.continuous(Aesthetic::X),
+            layer.data.continuous(Aesthetic::Ymax),
+        ) else {
+            return Ok(None);
+        };
+        let mut targets = super::hover::VertexBuilder::default();
+        for row in 0..layer.data.row_count() {
+            let (Some(value_x), Some(value_top)) = (x.get(row), top.get(row)) else {
+                continue;
+            };
+            targets.push(panel.map(value_x, value_top), layer.data.group_of(row), row);
+        }
+        Ok(Some(targets.finish()))
+    }
+
     fn name(&self) -> &'static str {
         "area_ridges"
     }

@@ -69,6 +69,13 @@ pub fn format_breaks_individually(breaks: &[f64]) -> Vec<Label> {
         .collect()
 }
 
+/// A value formatted as a break label among breaks `step` apart around magnitude
+/// `reference` (lets-plot `NumericBreakFormatter`; tooltips use the step of 100
+/// breaks across the domain).
+pub fn format_with_step(value: f64, reference: f64, step: f64) -> Label {
+    format_general(value, precision(reference, step))
+}
+
 /// Significant digits needed to tell the breaks apart (lets-plot logic).
 fn break_precision(breaks: &[f64]) -> i32 {
     let (reference, step) = match breaks {

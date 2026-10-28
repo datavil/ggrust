@@ -22,6 +22,23 @@ pub struct PathGeom;
 pub struct LineGeom;
 
 impl Geom for PathGeom {
+    /// lets-plot `bivariateFunction(area = true)`: hover near the path.
+    fn tooltip_behavior(&self) -> crate::tooltip::TooltipBehavior {
+        crate::tooltip::TooltipBehavior {
+            lookup: Some(crate::tooltip::Lookup::Nearest),
+            marker_is_stroke: true,
+            ..crate::tooltip::TooltipBehavior::NONE
+        }
+    }
+
+    fn hover_targets(
+        &self,
+        layer: &DrawLayer,
+        panel: &Panel,
+    ) -> Result<Option<crate::tooltip::HoverTargets>> {
+        Ok(super::hover::vertices(layer, panel))
+    }
+
     fn name(&self) -> &'static str {
         "path"
     }
@@ -52,6 +69,21 @@ impl Geom for PathGeom {
 }
 
 impl Geom for LineGeom {
+    fn tooltip_behavior(&self) -> crate::tooltip::TooltipBehavior {
+        crate::tooltip::TooltipBehavior {
+            marker_is_stroke: true,
+            ..crate::tooltip::TooltipBehavior::ALONG_X
+        }
+    }
+
+    fn hover_targets(
+        &self,
+        layer: &DrawLayer,
+        panel: &Panel,
+    ) -> Result<Option<crate::tooltip::HoverTargets>> {
+        Ok(super::hover::vertices(layer, panel))
+    }
+
     fn name(&self) -> &'static str {
         "line"
     }

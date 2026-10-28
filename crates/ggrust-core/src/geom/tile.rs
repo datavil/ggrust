@@ -43,6 +43,26 @@ const RECTANGLE_AESTHETICS: &[Aesthetic] = &[
 pub struct TileGeom;
 
 impl Geom for TileGeom {
+    /// lets-plot `bivariateFunction(area = true)` with axis tooltips.
+    fn tooltip_behavior(&self) -> crate::tooltip::TooltipBehavior {
+        crate::tooltip::TooltipBehavior {
+            axis: (true, true),
+            ..crate::tooltip::TooltipBehavior::AREA
+        }
+    }
+
+    fn hover_targets(
+        &self,
+        layer: &DrawLayer,
+        panel: &Panel,
+    ) -> Result<Option<crate::tooltip::HoverTargets>> {
+        Ok(super::hover::rectangles(
+            layer,
+            panel,
+            (Aesthetic::Ymin, Aesthetic::Ymax),
+        ))
+    }
+
     fn name(&self) -> &'static str {
         "tile"
     }

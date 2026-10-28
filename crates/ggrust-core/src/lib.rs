@@ -21,6 +21,7 @@ pub mod stat;
 pub mod style;
 pub mod text;
 pub mod theme;
+pub mod tooltip;
 
 pub use error::{Error, Result};
 

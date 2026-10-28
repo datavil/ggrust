@@ -11,7 +11,7 @@
 //! What it does not do (warned): shared axes (`sharex`/`sharey`), captions, tags and
 //! grid-level `guides(...)`.
 
-use crate::build::{Arrangement, BuiltPlot, DEFAULT_SIZE, PlotData, PreparedPlot, build_plot};
+use crate::build::{Arrangement, BuiltPlot, DEFAULT_SIZE, PlotData, PreparedPlot, build_plot_with};
 use crate::data::DataFrame;
 use crate::layout::grid::{DEFAULT_SPACING, cell_rects, shrink_to_aspect};
 use crate::layout::{
@@ -21,12 +21,25 @@ use crate::layout::{
 use crate::scene::{Color, Group, Node, PerItem, Rect, Rects, Scene};
 use crate::spec::{ElementSpec, Figure, SubplotsSpec, ThemeSpec, ThemeValue};
 use crate::theme::{LegendPosition, Margins, Theme};
+use crate::tooltip::Interaction;
 use crate::{Error, Result};
 
 /// Build a figure: a single plot, or a grid of figures.
 pub fn build_figure(figure: &Figure, frames: &[DataFrame]) -> Result<BuiltPlot> {
+    build_figure_with(figure, frames, false)
+}
+
+/// [`build_figure`], with the hover tooltips of every plot when `interactive`
+/// (HTML output).
+pub fn build_figure_with(
+    figure: &Figure,
+    frames: &[DataFrame],
+    interactive: bool,
+) -> Result<BuiltPlot> {
     match figure {
-        Figure::Plot(spec) => build_plot(spec, &PlotData::from_frames(spec, frames)?),
+        Figure::Plot(spec) => {
+            build_plot_with(spec, &PlotData::from_frames(spec, frames)?, interactive)
+        }
         Figure::Subplots(spec) => {
             let mut warnings = Vec::new();
             let context = GridContext {
@@ -44,7 +57,8 @@ pub fn build_figure(figure: &Figure, frames: &[DataFrame]) -> Result<BuiltPlot> 
                 width,
                 height,
             };
-            let nodes = grid.draw(bounds, false)?;
+            let mut collected = interactive.then(|| (Interaction::default(), Vec::new()));
+            let nodes = grid.draw(bounds, false, collected.as_mut())?;
             let scene = Scene {
                 width,
                 height,
@@ -52,7 +66,19 @@ pub fn build_figure(figure: &Figure, frames: &[DataFrame]) -> Result<BuiltPlot> 
                 nodes,
             };
             scene.validate()?;
-            Ok(BuiltPlot { scene, warnings })
+            let interaction = collected.map(|(interaction, notes)| {
+                for note in notes {
+                    if !warnings.contains(&note) {
+                        warnings.push(note);
+                    }
+                }
+                interaction
+            });
+            Ok(BuiltPlot {
+                scene,
+                interaction,
+                warnings,
+            })
         }
     }
 }
@@ -298,8 +324,14 @@ impl<'s> PreparedGrid<'s> {
     }
 
     /// Lay the grid out in `bounds` and draw it. `fill_background`: draw the
-    /// background fill (a nested grid; the top grid's is the scene's).
-    fn draw(&self, bounds: Rect, fill_background: bool) -> Result<Vec<Node>> {
+    /// background fill (a nested grid; the top grid's is the scene's). With
+    /// `interaction`, also collect every plot's tooltips and their warnings.
+    fn draw(
+        &self,
+        bounds: Rect,
+        fill_background: bool,
+        mut interaction: Option<&mut (Interaction, Vec<String>)>,
+    ) -> Result<Vec<Node>> {
         let theme = &self.theme;
         let layout = &self.spec.layout;
         let mut nodes = Vec::new();
@@ -381,8 +413,13 @@ impl<'s> PreparedGrid<'s> {
                         }));
                     }
                     figure_nodes.extend(plot.draw(arrangement)?);
+                    if let Some((collected, notes)) = interaction.as_deref_mut() {
+                        plot.interaction(arrangement, collected, notes)?;
+                    }
                 }
-                Placed::Grid(grid, bounds) => figure_nodes.extend(grid.draw(*bounds, true)?),
+                Placed::Grid(grid, bounds) => {
+                    figure_nodes.extend(grid.draw(*bounds, true, interaction.as_deref_mut())?)
+                }
             }
             nodes.push(Node::Group(Group {
                 clip: None,

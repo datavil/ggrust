@@ -78,13 +78,39 @@ impl TryFrom<Value> for DataSource {
 impl Figure {
     /// Every column name the engine reads: mappings (plot and layers, group lists),
     /// `as_discrete(order_by=...)` and `facet_wrap` columns, nested figures
-    /// included. Features that are parsed but not built yet (tooltips, `facet_grid`)
+    /// included. Tooltip columns are separate ([`Self::tooltip_columns`]): only HTML
+    /// output reads them. Features that are parsed but not built yet (`facet_grid`)
     /// add their columns when they land: exporting a column nothing reads can only
     /// fail the plot.
     pub fn referenced_columns(&self) -> BTreeSet<String> {
         let mut columns = BTreeSet::new();
         self.collect_columns(&mut columns);
         columns
+    }
+
+    /// Data variables of every `layer_tooltips()` (nested figures included): read
+    /// only by HTML output, for its tooltips.
+    pub fn tooltip_columns(&self) -> BTreeSet<String> {
+        let mut columns = BTreeSet::new();
+        self.collect_tooltip_columns(&mut columns);
+        columns
+    }
+
+    fn collect_tooltip_columns(&self, columns: &mut BTreeSet<String>) {
+        match self {
+            Figure::Plot(plot) => {
+                for layer in &plot.layers {
+                    if let Some(crate::spec::TooltipsSpec::Lines(lines)) = &layer.tooltips {
+                        columns.extend(crate::tooltip::referenced_variables(lines));
+                    }
+                }
+            }
+            Figure::Subplots(subplots) => {
+                for figure in subplots.figures.iter().flatten() {
+                    figure.collect_tooltip_columns(columns);
+                }
+            }
+        }
     }
 
     fn collect_columns(&self, columns: &mut BTreeSet<String>) {
@@ -223,6 +249,21 @@ mod tests {
     }
 
     #[test]
+    fn tooltip_columns_are_listed_apart() {
+        let figure = Figure::from_json(
+            r#"{"kind": "subplots", "layout": {"name": "grid", "ncol": 1, "nrow": 1},
+                "figures": [{"kind": "plot", "layers": [{"geom": "point",
+                  "tooltips": {"lines": ["@gene|@..count.. @{cell type}"],
+                               "variables": ["donor"], "title": "@sample^2"}}]}]}"#,
+        );
+        let found: Vec<String> = figure
+            .map(|figure| figure.tooltip_columns().into_iter().collect())
+            .unwrap_or_default();
+        // Labels (before `|`) and stat variables (`@..count..`) are not data columns.
+        assert_eq!(found, ["cell type", "donor", "sample^2"]);
+    }
+
+    #[test]
     fn columns_come_from_mappings_and_annotations_only() {
         let found = columns(
             r#"{"kind": "subplots", "layout": {"name": "grid", "ncol": 3, "nrow": 1},
@@ -234,12 +275,14 @@ mod tests {
                                "data_meta": {"mapping_annotations": [{"aes": "color",
                                    "annotation": "as_discrete",
                                    "parameters": {"order_by": "rank"}}]},
-                               "tooltips": {"lines": ["@gene"]}}]},
+                               "tooltips": {"lines": ["@gene|@..count.. @{cell type}"],
+                                            "variables": ["donor"],
+                                            "title": "@sample^2"}}]},
                   null,
                   {"kind": "plot", "mapping": {"x": "other"}}
                 ]}"#,
         );
-        // Tooltips are not built yet, so their columns are not read.
+        // Only HTML output reads tooltip columns: they are listed apart.
         assert_eq!(
             found,
             [

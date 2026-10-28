@@ -43,6 +43,35 @@ const DEFAULT_WHISKER_WIDTH: f64 = 0.5;
 pub struct BoxplotGeom;
 
 impl Geom for BoxplotGeom {
+    /// lets-plot: boxes under the cursor, the x axis tooltip; the statistics are
+    /// side tooltips there and the first lines of the tooltip here.
+    fn tooltip_behavior(&self) -> crate::tooltip::TooltipBehavior {
+        crate::tooltip::TooltipBehavior {
+            axis: (true, false),
+            hidden: &[Aesthetic::Y],
+            side: &[
+                Aesthetic::Ymax,
+                Aesthetic::Upper,
+                Aesthetic::Middle,
+                Aesthetic::Lower,
+                Aesthetic::Ymin,
+            ],
+            ..crate::tooltip::TooltipBehavior::AREA
+        }
+    }
+
+    fn hover_targets(
+        &self,
+        layer: &DrawLayer,
+        panel: &Panel,
+    ) -> Result<Option<crate::tooltip::HoverTargets>> {
+        Ok(super::hover::rectangles(
+            layer,
+            panel,
+            (Aesthetic::Ymin, Aesthetic::Ymax),
+        ))
+    }
+
     fn name(&self) -> &'static str {
         "boxplot"
     }

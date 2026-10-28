@@ -62,6 +62,22 @@ const RECTANGLE_AESTHETICS: &[Aesthetic] = &[
 pub struct BarGeom;
 
 impl Geom for BarGeom {
+    fn tooltip_behavior(&self) -> crate::tooltip::TooltipBehavior {
+        crate::tooltip::TooltipBehavior::ALONG_X
+    }
+
+    fn hover_targets(
+        &self,
+        layer: &DrawLayer,
+        panel: &Panel,
+    ) -> Result<Option<crate::tooltip::HoverTargets>> {
+        Ok(super::hover::rectangles(
+            layer,
+            panel,
+            (Aesthetic::Ymin, Aesthetic::Ymax),
+        ))
+    }
+
     fn name(&self) -> &'static str {
         "bar"
     }
@@ -120,6 +136,22 @@ impl Geom for BarGeom {
 pub struct HistogramGeom;
 
 impl Geom for HistogramGeom {
+    fn tooltip_behavior(&self) -> crate::tooltip::TooltipBehavior {
+        crate::tooltip::TooltipBehavior::ALONG_X
+    }
+
+    fn hover_targets(
+        &self,
+        layer: &DrawLayer,
+        panel: &Panel,
+    ) -> Result<Option<crate::tooltip::HoverTargets>> {
+        Ok(super::hover::rectangles(
+            layer,
+            panel,
+            (Aesthetic::Ymin, Aesthetic::Ymax),
+        ))
+    }
+
     fn name(&self) -> &'static str {
         "histogram"
     }

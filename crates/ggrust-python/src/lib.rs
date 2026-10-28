@@ -9,7 +9,7 @@ use pyo3::prelude::*;
 mod _ggrust {
     use super::*;
     use ggrust_core::data::{Column, DataFrame};
-    use ggrust_core::grid::build_figure;
+    use ggrust_core::grid::build_figure_with;
     use ggrust_core::render::{HtmlDocument, HtmlOptions, to_html, to_png, to_svg};
     use ggrust_core::spec::Figure;
     use pyo3::exceptions::PyValueError;
@@ -76,14 +76,24 @@ mod _ggrust {
             .collect()
     }
 
-    /// Column names a spec can read (mappings, `order_by`, facets, tooltips),
-    /// sorted. Only these need to be exported as Arrow.
+    /// Column names a spec reads in every output (mappings, `order_by`, facets),
+    /// sorted. Only these (plus [`tooltip_columns`] for HTML) are exported as Arrow.
     ///
     /// Raises `ValueError` naming the offending path if the spec is invalid.
     #[pyfunction]
     fn referenced_columns(spec_json: &str) -> PyResult<Vec<String>> {
         Figure::from_json(spec_json)
             .map(|figure| figure.referenced_columns().into_iter().collect())
+            .map_err(to_value_error)
+    }
+
+    /// Column names `layer_tooltips()` reads, sorted: exported for HTML output only.
+    ///
+    /// Raises `ValueError` naming the offending path if the spec is invalid.
+    #[pyfunction]
+    fn tooltip_columns(spec_json: &str) -> PyResult<Vec<String>> {
+        Figure::from_json(spec_json)
+            .map(|figure| figure.tooltip_columns().into_iter().collect())
             .map_err(to_value_error)
     }
 
@@ -141,9 +151,11 @@ mod _ggrust {
                     (None, _) => None,
                 };
                 let figure = Figure::from_json(&spec_json)?;
-                let built = build_figure(&figure, &frames)?;
+                let built = build_figure_with(&figure, &frames, html.is_some())?;
                 let bytes = match html {
-                    Some(options) => to_html(&built.scene, &options).into_bytes(),
+                    Some(options) => {
+                        to_html(&built.scene, built.interaction.as_ref(), &options).into_bytes()
+                    }
                     None if output == "png" => to_png(&built.scene, scale)?,
                     None => to_svg(&built.scene).into_bytes(),
                 };

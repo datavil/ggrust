@@ -3,10 +3,13 @@
 //!
 //! Ids are explicit (one per display), never the content hash of [`to_svg`]: the
 //! same plot shown twice on one page must not share clip-path ids once the runtime
-//! edits them. Interactivity (tooltips, zoom/pan) lives in the runtime, not here.
+//! edits them. Interactivity lives in the runtime; the tooltips' targets and text
+//! ([`Interaction`]) ride along as JSON in a `<script type="application/json">`
+//! inside the root element.
 
 use super::svg::{SvgOptions, sanitize_id, to_svg_with};
 use crate::scene::Scene;
+use crate::tooltip::Interaction;
 
 /// The runtime: one JavaScript function expression called with the engine version.
 const RUNTIME: &str = include_str!("../../../../js/ggrust.js");
@@ -34,8 +37,8 @@ pub struct HtmlOptions {
     pub document: HtmlDocument,
 }
 
-/// Render a scene to HTML.
-pub fn to_html(scene: &Scene, options: &HtmlOptions) -> String {
+/// Render a scene to HTML, with the hover tooltips of `interaction` if given.
+pub fn to_html(scene: &Scene, interaction: Option<&Interaction>, options: &HtmlOptions) -> String {
     let id = sanitize_id(&options.id);
     let svg = to_svg_with(
         scene,
@@ -43,11 +46,21 @@ pub fn to_html(scene: &Scene, options: &HtmlOptions) -> String {
             id_prefix: Some(id.clone()),
         },
     );
+    // Escaped so that it cannot end its script element (see `to_script_json`).
+    let data = interaction
+        .filter(|interaction| !interaction.layers.is_empty())
+        .map(|interaction| {
+            format!(
+                "<script type=\"application/json\" class=\"ggrust-tooltips\">{}</script>\n",
+                interaction.to_script_json()
+            )
+        })
+        .unwrap_or_default();
     // `id` is sanitized to [A-Za-z0-9_-], so it needs no escaping in HTML or JS.
     let fragment = format!(
         "<div id=\"{id}\" class=\"ggrust-plot\" \
          style=\"display:inline-block;position:relative;line-height:0;vertical-align:top\">\n\
-         {svg}</div>\n\
+         {svg}{data}</div>\n\
          <script type=\"text/javascript\">\n\
          {RUNTIME}(\"{version}\");\n\
          window.ggrust.mount(\"{id}\");\n\
@@ -120,6 +133,7 @@ mod tests {
     fn render(id: &str, document: HtmlDocument) -> String {
         to_html(
             &clipped_scene(),
+            None,
             &HtmlOptions {
                 id: id.into(),
                 document,

@@ -2,7 +2,14 @@
 
 from typing import Any, TypedDict
 
-__all__ = ["describe_frame", "engine_version", "referenced_columns", "render", "validate_spec"]
+__all__ = [
+    "describe_frame",
+    "engine_version",
+    "referenced_columns",
+    "render",
+    "tooltip_columns",
+    "validate_spec",
+]
 
 class ColumnSummary(TypedDict, total=False):
     """How ggrust reads one column."""
@@ -62,8 +69,29 @@ def referenced_columns(spec_json: str) -> list[str]:
     Returns
     -------
     list[str]
-        Columns referenced by mappings, ``as_discrete(order_by=...)``, facets and
-        tooltips (nested figures included). Only these need to be exported.
+        Columns referenced by mappings, ``as_discrete(order_by=...)`` and facets
+        (nested figures included). Only these, plus ``tooltip_columns`` for HTML
+        output, need to be exported.
+
+    Raises
+    ------
+    ValueError
+        If the spec is invalid; the message names the offending path.
+    """
+
+def tooltip_columns(spec_json: str) -> list[str]:
+    """Return the data columns ``layer_tooltips()`` reads, sorted (HTML output only).
+
+    Parameters
+    ----------
+    spec_json
+        Plot spec (lets_plot ``as_dict()`` with frame references) as JSON.
+
+    Returns
+    -------
+    list[str]
+        Variables of tooltip lines, titles and ``variables`` lists; stat variables
+        (``@..count..``) are not columns and are left out.
 
     Raises
     ------

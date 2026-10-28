@@ -80,7 +80,10 @@ impl Stat for BinStat {
                     Some((value, row_weight(weight, row)))
                 })
                 .collect();
-            let mut bins = if !breaks.is_empty() {
+            // A layer without rows (e.g. in a facet panel) has no bins, as in lets-plot.
+            let mut bins = if data.row_count() == 0 {
+                Bins::default()
+            } else if !breaks.is_empty() {
                 bins_between_breaks(&values, &breaks)
             } else if let Some(range) = range {
                 let (count, width, start) = binning_parameters(range, &options);

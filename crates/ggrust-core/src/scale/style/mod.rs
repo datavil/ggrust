@@ -284,9 +284,11 @@ impl StyleScale {
     }
 
     /// Put trained text categories in the order of `reference` (facet panels can
-    /// train them in another order); categories not in it keep their order after
-    /// those that are. Continuous scales are unchanged.
+    /// train them in another order), after the `breaks`, which lead the domain;
+    /// categories in neither keep their order after the rest. Continuous scales are
+    /// unchanged.
     pub fn order_levels_by(&mut self, reference: &[String]) {
+        let breaks = self.domain.breaks.as_deref().unwrap_or_default();
         let Trained::Discrete {
             levels,
             index_by_level,
@@ -294,15 +296,16 @@ impl StyleScale {
         else {
             return;
         };
-        let rank: HashMap<&str, usize> = reference
+        let mut rank: HashMap<Level, usize> = HashMap::new();
+        for level in breaks
             .iter()
-            .enumerate()
-            .map(|(index, level)| (level.as_str(), index))
-            .collect();
-        let key = |level: &Level| match level {
-            Level::Text(text) => rank.get(text.as_str()).copied().unwrap_or(usize::MAX),
-            Level::Number(_) => usize::MAX,
-        };
+            .cloned()
+            .chain(reference.iter().map(|level| Level::Text(level.clone())))
+        {
+            let next = rank.len();
+            rank.entry(level).or_insert(next);
+        }
+        let key = |level: &Level| rank.get(level).copied().unwrap_or(usize::MAX);
         levels.sort_by_key(key);
         *index_by_level = levels
             .iter()

@@ -16,7 +16,7 @@ warnings.filterwarnings("ignore", category=SyntaxWarning)
 
 import ggrust as gg  # noqa: E402
 import lets_plot as lp  # noqa: E402
-from test_bar_parity import _attributes  # noqa: E402
+from test_bar_parity import _attributes, _hex  # noqa: E402
 
 RANDOM = np.random.default_rng(7)
 N = 120
@@ -150,6 +150,20 @@ CASES = {
     "flipped": lambda m: (
         m.ggplot(POINTS, m.aes("cell", "x")) + m.geom_point() + m.coord_flip() + m.facet_wrap("h")
     ),
+    "histogram_in_some_panels": lambda m: (
+        m.ggplot(POINTS, m.aes("x", "y"))
+        + m.geom_point()
+        + m.geom_histogram(
+            m.aes(y="..count.."), data={"x": [0.0, 0.5, 1.0], "h": ["p"] * 3}, bins=3
+        )
+        + m.facet_wrap("h")
+    ),
+    "color_breaks_lead": lambda m: (
+        m.ggplot(POINTS, m.aes("x", "y", color="cell"))
+        + m.geom_point()
+        + m.scale_color_manual(values=["red", "green", "blue"], breaks=["NK", "B"])
+        + m.facet_wrap("g")
+    ),
     "theme_bw": lambda m: (
         m.ggplot(POINTS, m.aes("x", "y")) + m.geom_point() + m.facet_wrap("h") + m.theme_bw()
     ),
@@ -215,3 +229,18 @@ def test_errors_name_the_facet_option():
         (plot + gg.facet_wrap("missing")).to_svg()
     with pytest.raises(ValueError, match=r"facet\.scales"):
         (plot + gg.facet_wrap("g", scales="loose")).to_svg()
+
+
+def _fills(svg: str) -> list[str]:
+    """Circle fills in drawing order (a fill set on the enclosing group counts)."""
+    fills = []
+    for group, body in re.findall(r"<g([^>]*)>((?:\s*<circle [^>]*>(?:\s*</circle>)?)+)", svg):
+        shared = _attributes(group).get("fill")
+        for circle in re.findall(r"<circle [^>]*>", body):
+            fills.append(_hex(_attributes(circle).get("fill", shared)))
+    return fills
+
+
+def test_breaks_lead_the_color_domain_in_every_panel():
+    expected_svg, actual_svg = _both(CASES["color_breaks_lead"])
+    assert _fills(actual_svg) == _fills(expected_svg)

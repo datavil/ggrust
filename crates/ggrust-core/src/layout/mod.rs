@@ -71,6 +71,9 @@ pub struct PlotLayout {
     pub x_axis_band: f64,
     /// Space kept for legends on each side (see [`legend_space`]).
     pub legend_space: Margins,
+    /// Space above the panel taken by facet strips (0 without facets): a top
+    /// legend goes above it.
+    pub top_band: f64,
 }
 
 /// Lay out a plot inside `area` (the whole canvas for a single plot; a grid cell
@@ -250,6 +253,7 @@ fn layout_with(
         y_breaks,
         x_axis_band,
         legend_space,
+        top_band: 0.0,
     }
 }
 
@@ -315,7 +319,10 @@ pub fn legend_origin(
             (panel.x + panel.width + inset.right + spacing, along_y)
         }
         LegendPosition::Left => (layout.content.x, along_y),
-        LegendPosition::Top => (along_x, panel.y - layout.legend_space.top - inset.top),
+        LegendPosition::Top => (
+            along_x,
+            panel.y - layout.top_band - layout.legend_space.top - inset.top,
+        ),
         LegendPosition::Bottom => (
             along_x,
             panel.y

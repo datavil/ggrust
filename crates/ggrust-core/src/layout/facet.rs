@@ -287,6 +287,7 @@ fn layout_grid(
                         x_breaks,
                         y_breaks,
                         legend_space,
+                        top_band: strip,
                     },
                     axes: (panel.x_axis, panel.y_axis),
                     labels: panel.labels.to_vec(),
@@ -306,6 +307,7 @@ fn layout_grid(
                 .unwrap_or_else(|| AxisBreaks::new(Vec::new(), Vec::new())),
             x_axis_band: row_bands.last().copied().unwrap_or(0.0),
             legend_space,
+            top_band: strip,
         };
         return FacetLayout { plot, tiles };
     }
@@ -542,6 +544,25 @@ mod tests {
             let panel = tile.layout.panel;
             assert!((panel.width - panel.height).abs() < 1e-6, "{panel:?}");
         }
+    }
+
+    #[test]
+    fn a_top_legend_goes_above_the_strips() {
+        let scales = [scale(10.0)];
+        let labels = [Label::plain("a")];
+        let theme = Theme {
+            legend_position: LegendPosition::Top,
+            ..Theme::default()
+        };
+        let grid = panels(&scales, &labels, 1, 1, false);
+        let space = legend_space(&theme, (50.0, 20.0));
+        let layout = layout_facets(area(), &theme, &Titles::default(), &grid, space, None);
+        let (_, legend_y) = legend_origin(&layout.plot, &theme, &Titles::default(), (50.0, 20.0));
+        let strip_top = layout.plot.panel.y - strips_height(&theme, 1);
+        assert!(
+            legend_y + 20.0 <= strip_top + 1e-9,
+            "{legend_y} vs {strip_top}"
+        );
     }
 
     #[test]

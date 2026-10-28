@@ -30,3 +30,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [coord_flip and ridgelines follow lets-plot](letsplot_flip_and_ridges.md): flip in Panel, theme follows the aesthetic, ridge heights, lets-plot DP weights, span vs setup columns.
 - [Brackets follow lets-plot](letsplot_brackets.md): no inherited mapping/legend by default, tips below the bar, segment paint fallbacks, label lifted half its height.
 - [Lists in a mapping are data](letsplot_mapping_vectors.md): `aes(x=[..])` becomes column `x`/`x1`.. (not column names, except `group`); frame references carry every column name for naming.
+- [Tiles, rasters, rotated labels follow lets-plot](letsplot_tiles_rasters_rotation.md): geom-theme defaults, raster bitmap + default coord_fixed, straight-alpha PNG, rotateLabels on any of angle/hjust/vjust.

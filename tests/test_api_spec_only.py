@@ -271,9 +271,9 @@ def test_rendering_ignored_features_warns():
         (plot + gg.facet_grid(x="c")).to_svg()
 
 
-def test_rendering_a_grid_says_so():
-    with pytest.raises(ValueError, match="gggrid"):
-        gg.gggrid(plots(gg)).to_svg()
+def test_rendering_a_grid_draws_every_figure():
+    svg = gg.gggrid(plots(gg)).to_svg()
+    assert svg.count('<g class="figure">') == 2  # the third cell is empty
 
 
 def test_ggsave_writes_by_extension(tmp_path):

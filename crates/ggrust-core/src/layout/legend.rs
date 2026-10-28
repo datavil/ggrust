@@ -126,6 +126,35 @@ impl LegendBox {
         }
     }
 
+    /// Whether two boxes look the same (lets-plot `hasSameContent`): a grid that
+    /// collects legends draws such boxes once.
+    pub fn same_content(&self, other: &LegendBox) -> bool {
+        match (self, other) {
+            (LegendBox::Keys(left), LegendBox::Keys(right)) => {
+                left.title == right.title
+                    && left.grid == right.grid
+                    && left.keys.len() == right.keys.len()
+                    && left.keys.iter().zip(&right.keys).all(|(left, right)| {
+                        left.label == right.label
+                            && left.layers.len() == right.layers.len()
+                            && left.layers.iter().zip(&right.layers).all(|(left, right)| {
+                                left.geom.name() == right.geom.name()
+                                    && left.styles.same_values(&right.styles)
+                            })
+                    })
+            }
+            (LegendBox::Colorbar(left), LegendBox::Colorbar(right)) => {
+                left.title == right.title
+                    && left.domain == right.domain
+                    && left.breaks == right.breaks
+                    && left.colors == right.colors
+                    && left.bar_width == right.bar_width
+                    && left.bar_height == right.bar_height
+            }
+            _ => false,
+        }
+    }
+
     fn is_empty(&self) -> bool {
         match self {
             LegendBox::Keys(legend) => legend.keys.is_empty(),

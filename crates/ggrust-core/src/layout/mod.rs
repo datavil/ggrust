@@ -10,11 +10,12 @@
 //! Legends take a band at the side `legend_position` names (inside the titles, outside
 //! the axes); [`legend_origin`] places them, relative to the panel as lets-plot does.
 //!
-//! Faceted plots are laid out by [`facet`]; grids of plots come in Phase 3.3.
+//! Faceted plots are laid out by [`facet`]; the cells of a grid of plots by [`grid`].
 
 mod axis;
 mod colorbar;
 pub mod facet;
+pub mod grid;
 mod legend;
 mod rotated;
 
@@ -198,15 +199,7 @@ fn layout_with(
     let inset = theme.plot_inset;
     let content = shrink(area, theme.plot_margin);
 
-    let top = content.y
-        + band(theme.plot_title, &titles.title, 0.0)
-        + band(
-            theme.plot_subtitle,
-            &titles.subtitle,
-            theme.plot_subtitle_margin_top,
-        )
-        + legend_space.top
-        + inset.top;
+    let top = content.y + headings_band(theme, titles) + legend_space.top + inset.top;
     let x_axis_band = x_axis_band(labels_height, theme);
     let bottom = content.y + content.height
         - legend_space.bottom
@@ -634,10 +627,38 @@ pub fn draw_titles(layout: &PlotLayout, theme: &Theme, titles: &Titles) -> Node 
             90.0,
         ));
     }
-    let mut top = content.y;
+    titles_nodes.extend(heading_nodes(
+        content.y,
+        (panel.x, panel.width),
+        theme,
+        titles,
+    ));
+    role_group("titles", titles_nodes)
+}
+
+/// Height of the title and subtitle bands at the top of a figure.
+pub fn headings_band(theme: &Theme, titles: &Titles) -> f64 {
+    band(theme.plot_title, &titles.title, 0.0)
+        + band(
+            theme.plot_subtitle,
+            &titles.subtitle,
+            theme.plot_subtitle_margin_top,
+        )
+}
+
+/// The title and subtitle, from `top` down, justified along `(start, width)` (the
+/// panels of a plot, the cells of a grid).
+pub fn heading_nodes(
+    top: f64,
+    (start, width): (f64, f64),
+    theme: &Theme,
+    titles: &Titles,
+) -> Vec<Node> {
+    let mut nodes = Vec::new();
+    let mut top = top;
     if let (Some(style), Some(title)) = (theme.plot_title, present(&titles.title)) {
-        let x = justified_centre(panel.x, panel.width, title, style);
-        titles_nodes.push(text_node(
+        let x = justified_centre(start, width, title, style);
+        nodes.push(text_node(
             title,
             style,
             (x, top + text_band(style) / 2.0),
@@ -648,8 +669,8 @@ pub fn draw_titles(layout: &PlotLayout, theme: &Theme, titles: &Titles) -> Node 
     }
     if let (Some(style), Some(subtitle)) = (theme.plot_subtitle, present(&titles.subtitle)) {
         top += theme.plot_subtitle_margin_top;
-        let x = justified_centre(panel.x, panel.width, subtitle, style);
-        titles_nodes.push(text_node(
+        let x = justified_centre(start, width, subtitle, style);
+        nodes.push(text_node(
             subtitle,
             style,
             (x, top + text_band(style) / 2.0),
@@ -657,7 +678,7 @@ pub fn draw_titles(layout: &PlotLayout, theme: &Theme, titles: &Titles) -> Node 
             0.0,
         ));
     }
-    role_group("titles", titles_nodes)
+    nodes
 }
 
 fn role_group(role: &'static str, nodes: Vec<Node>) -> Node {
@@ -738,7 +759,8 @@ fn tick_band(ticks: Option<LineStyle>, theme: &Theme) -> f64 {
     ticks.map_or(0.0, |_| theme.axis_ticks_length)
 }
 
-fn shrink(rect: Rect, margins: Margins) -> Rect {
+/// `rect` without `margins` (at least 1 px left each way).
+pub fn shrink(rect: Rect, margins: Margins) -> Rect {
     Rect {
         x: rect.x + margins.left,
         y: rect.y + margins.top,

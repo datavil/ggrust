@@ -1,8 +1,8 @@
 """``SupPlotsSpec``: a figure made of several plots (``gggrid``).
 
 Ported from lets-plot's ``lets_plot/plot/subplots.py`` (MIT, see THIRD_PARTY_NOTICES.md)
-with identical ``as_dict()`` output and ``+`` semantics. The engine does not lay out
-grids yet (plan.md step 3.3); rendering one reports that.
+with identical ``as_dict()`` output and ``+`` semantics. The engine lays grids out
+(``crates/ggrust-core/src/grid.rs``).
 """
 
 from __future__ import annotations

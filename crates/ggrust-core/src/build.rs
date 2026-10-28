@@ -15,10 +15,10 @@ use crate::coord::{self, Coord, Panel};
 use crate::data::{Column, Computed, ContinuousColumn, DataFrame, LayerData, group_index, inline};
 use crate::facet::{Facets, LayerFacetColumns};
 use crate::geom::{self, DrawLayer, Geom};
-use crate::layout::facet::{FacetGrid, FacetPanel, draw_strips, layout_facets};
+use crate::layout::facet::{FacetGrid, FacetLayout, FacetPanel, draw_strips, layout_facets};
 use crate::layout::{
-    Colorbar, DEFAULT_BINS, KeyGrid, KeyLayer, Legend, LegendBox, LegendKey, Titles, draw_axes,
-    draw_legends, draw_panel_background, draw_panel_border, draw_titles, layout_plot,
+    Colorbar, DEFAULT_BINS, KeyGrid, KeyLayer, Legend, LegendBox, LegendKey, PlotLayout, Titles,
+    draw_axes, draw_legends, draw_panel_background, draw_panel_border, draw_titles, layout_plot,
     legend_origin, legend_space, measure_legends,
 };
 use crate::parameters::Parameters;
@@ -91,11 +91,35 @@ pub struct BuiltPlot {
     pub warnings: Vec<String>,
 }
 
-/// Build a single plot.
+/// Build a single plot at its own size (`ggsize`, or the default).
 pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
+    let plot = prepare_plot(spec, data)?;
+    let (width, height) = plot.size;
+    let area = Rect {
+        x: 0.0,
+        y: 0.0,
+        width,
+        height,
+    };
+    let nodes = plot.draw(&plot.arrange(area)?)?;
+    let scene = Scene {
+        width,
+        height,
+        background: plot.background(),
+        nodes,
+    };
+    scene.validate()?;
+    Ok(BuiltPlot {
+        scene,
+        warnings: plot.warnings,
+    })
+}
+
+/// Map, compute and style a plot: everything but its layout (see [`PreparedPlot`]).
+pub fn prepare_plot(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     match inline_mapping_vectors(spec, data)? {
-        Some((spec, data)) => build_columns(&spec, &data),
-        None => build_columns(spec, data),
+        Some((spec, data)) => prepare_columns(&spec, &data),
+        None => prepare_columns(spec, data),
     }
 }
 
@@ -153,8 +177,8 @@ fn inline_mapping_vectors(
     Ok(Some((spec, data)))
 }
 
-/// [`build_plot`] once every mapping names columns.
-fn build_columns(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
+/// [`prepare_plot`] once every mapping names columns.
+fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     let mut warnings = Vec::new();
     report_unimplemented(spec, &mut warnings);
     let coord = resolve_coord(spec, &mut warnings)?;
@@ -405,12 +429,6 @@ fn build_columns(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
     let theme = Theme::from_spec(spec.theme.as_ref(), &mut warnings)
         .map_err(|error| error.with_notes(&warnings))?;
     let titles = plot_titles(spec, &scales);
-    let area = Rect {
-        x: 0.0,
-        y: 0.0,
-        width,
-        height,
-    };
     // Legends: each layer once, from the first panel where it has rows.
     let legend_layers: Vec<&PreparedLayer> = (0..spec.layers.len())
         .filter_map(|index| {
@@ -425,16 +443,6 @@ fn build_columns(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
         .collect();
     let legends = assemble_legends(spec, &legend_layers, &style_scales, &style_specs)
         .map_err(|error| error.with_notes(&warnings))?;
-    let legend_block = if theme.legend_position == LegendPosition::None {
-        None
-    } else {
-        measure_legends(&legends, &theme)?
-    };
-    let legend_space = legend_block
-        .as_ref()
-        .map_or(Margins::uniform(0.0), |block| {
-            legend_space(&theme, block.size)
-        });
     // coord_flip: the screen axes take the other scale, title and theme elements.
     let flipped = spec
         .coord
@@ -450,75 +458,124 @@ fn build_columns(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
     } else {
         (theme, titles)
     };
-    let screen_scales = |x: &'_ PositionScale, y: &'_ PositionScale| -> (_, _) {
-        if flipped {
-            (y.clone(), x.clone())
+    Ok(PreparedPlot {
+        tiles: prepared_tiles,
+        facets,
+        theme,
+        titles,
+        coord,
+        aspect,
+        flipped,
+        legends,
+        size: (width, height),
+        warnings,
+    })
+}
+
+/// A plot with its stats, scales and legends computed, ready to be laid out at any
+/// size and drawn. A grid lays a plot out in its cell, and may lay it out again
+/// around an aligned panel ([`PreparedPlot::arrange_panel`]) without recomputing
+/// anything (see [`crate::grid`]).
+pub struct PreparedPlot {
+    /// Per panel: its layers and its x and y scales (data axes, not screen axes).
+    tiles: Vec<(Vec<PreparedLayer>, PositionScale, PositionScale)>,
+    facets: Option<Facets>,
+    /// Screen theme and titles (swapped under `coord_flip`).
+    theme: Theme,
+    titles: Titles,
+    coord: &'static dyn Coord,
+    aspect: Option<f64>,
+    flipped: bool,
+    /// Legend boxes. A grid collecting legends (`guides="collect"`) takes them out,
+    /// and the plot then keeps no space for them.
+    pub legends: Vec<LegendBox>,
+    /// `ggsize`, or the default size.
+    pub size: (f64, f64),
+    /// Things the user should know: ignored options, removed rows, ...
+    pub warnings: Vec<String>,
+}
+
+/// Where a plot's panels, axes and titles go (from [`PreparedPlot::arrange`]).
+pub struct Arrangement {
+    area: Rect,
+    layout: Arranged,
+}
+
+enum Arranged {
+    Single(PlotLayout),
+    Facets(FacetLayout),
+}
+
+impl Arrangement {
+    /// The area the plot fills.
+    pub fn area(&self) -> Rect {
+        self.area
+    }
+
+    /// The data panel (the union of the panels of a faceted plot).
+    pub fn panel_bounds(&self) -> Rect {
+        self.plot_layout().panel
+    }
+
+    fn plot_layout(&self) -> &PlotLayout {
+        match &self.layout {
+            Arranged::Single(layout) => layout,
+            Arranged::Facets(layout) => &layout.plot,
+        }
+    }
+}
+
+/// Moves of the area smaller than this (px) end [`PreparedPlot::arrange_panel`].
+const ALIGN_TOLERANCE: f64 = 0.01;
+
+/// Re-layouts [`PreparedPlot::arrange_panel`] tries before it gives up converging.
+const ALIGN_PASSES: usize = 4;
+
+impl PreparedPlot {
+    /// The screen theme (legend position and justification for a grid collecting
+    /// legends).
+    pub fn theme(&self) -> &Theme {
+        &self.theme
+    }
+
+    /// The plot background fill (`None`: transparent or blank).
+    pub fn background(&self) -> Option<crate::scene::Color> {
+        self.theme.plot_background.map(|background| background.fill)
+    }
+
+    fn legend_block(&self) -> Result<Option<crate::layout::LegendBlock<'_>>> {
+        if self.theme.legend_position == LegendPosition::None {
+            Ok(None)
         } else {
-            (x.clone(), y.clone())
+            measure_legends(&self.legends, &self.theme)
         }
-    };
-    let mut nodes = Vec::new();
-    let draw_layers = |layers: &[PreparedLayer], panel: &Panel| -> Result<Vec<Node>> {
-        let mut layer_nodes = Vec::new();
-        for layer in layers {
-            let draw_layer = DrawLayer {
-                data: &layer.data,
-                styles: &layer.styles,
-                parameters: Parameters::new(&layer.options, &layer.path),
-            };
-            layer_nodes.extend(layer.geom.draw(&draw_layer, panel)?);
-        }
-        Ok(layer_nodes)
-    };
-    let plot_layout = match &facets {
-        None => {
-            let (layers, tile_x, tile_y) = &prepared_tiles[0];
-            let (horizontal, vertical) = screen_scales(tile_x, tile_y);
-            let layout = layout_plot(
-                area,
-                &theme,
-                &titles,
-                &horizontal,
-                &vertical,
-                legend_space,
-                aspect,
-            );
-            let panel = Panel {
-                rect: layout.panel,
-                x_scale: &horizontal,
-                y_scale: &vertical,
-                coord,
-                flipped,
-            };
-            let layer_nodes = draw_layers(layers, &panel)?;
-            nodes.extend(draw_panel_background(&layout, &theme, &panel));
-            nodes.push(Node::Group(Group {
-                clip: Some(layout.panel),
-                role: Some("panel"),
-                nodes: layer_nodes,
-            }));
-            nodes.extend(draw_panel_border(&layout, &theme));
-            nodes.extend(draw_axes(&layout, &theme, &panel, (true, true)));
-            layout
-        }
-        Some(facets) => {
-            let screen: Vec<(PositionScale, PositionScale)> = prepared_tiles
+    }
+
+    /// Screen scales of a panel: swapped under `coord_flip`.
+    fn screen_scales<'s>(
+        &self,
+        x: &'s PositionScale,
+        y: &'s PositionScale,
+    ) -> (&'s PositionScale, &'s PositionScale) {
+        if self.flipped { (y, x) } else { (x, y) }
+    }
+
+    fn facet_grid<'s>(&'s self, facets: &'s Facets) -> FacetGrid<'s> {
+        let (shared_x, shared_y) = if self.flipped {
+            (!facets.free_y, !facets.free_x)
+        } else {
+            (!facets.free_x, !facets.free_y)
+        };
+        FacetGrid {
+            columns: facets.columns,
+            rows: facets.rows,
+            panels: facets
+                .tiles
                 .iter()
-                .map(|(_, tile_x, tile_y)| screen_scales(tile_x, tile_y))
-                .collect();
-            let (shared_x, shared_y) = if flipped {
-                (!facets.free_y, !facets.free_x)
-            } else {
-                (!facets.free_x, !facets.free_y)
-            };
-            let grid = FacetGrid {
-                columns: facets.columns,
-                rows: facets.rows,
-                panels: facets
-                    .tiles
-                    .iter()
-                    .zip(&screen)
-                    .map(|(tile, (horizontal, vertical))| FacetPanel {
+                .zip(&self.tiles)
+                .map(|(tile, (_, tile_x, tile_y))| {
+                    let (horizontal, vertical) = self.screen_scales(tile_x, tile_y);
+                    FacetPanel {
                         x_scale: horizontal,
                         y_scale: vertical,
                         labels: &tile.labels,
@@ -527,61 +584,166 @@ fn build_columns(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
                         x_axis: tile.has_x_axis,
                         y_axis: tile.has_y_axis,
                         is_bottom: tile.is_bottom,
-                    })
-                    .collect(),
-                shared_x,
-                shared_y,
-            };
-            let layout = layout_facets(area, &theme, &titles, &grid, legend_space, aspect);
-            for ((tile, (layers, _, _)), (horizontal, vertical)) in
-                layout.tiles.iter().zip(&prepared_tiles).zip(&screen)
+                    }
+                })
+                .collect(),
+            shared_x,
+            shared_y,
+        }
+    }
+
+    /// Lay the plot out to fill `area`.
+    pub fn arrange(&self, area: Rect) -> Result<Arrangement> {
+        let legend_space = self.legend_block()?.map_or(Margins::uniform(0.0), |block| {
+            legend_space(&self.theme, block.size)
+        });
+        let layout = match &self.facets {
+            None => {
+                let (_, tile_x, tile_y) = &self.tiles[0];
+                let (horizontal, vertical) = self.screen_scales(tile_x, tile_y);
+                Arranged::Single(layout_plot(
+                    area,
+                    &self.theme,
+                    &self.titles,
+                    horizontal,
+                    vertical,
+                    legend_space,
+                    self.aspect,
+                ))
+            }
+            Some(facets) => Arranged::Facets(layout_facets(
+                area,
+                &self.theme,
+                &self.titles,
+                &self.facet_grid(facets),
+                legend_space,
+                self.aspect,
+            )),
+        };
+        Ok(Arrangement { area, layout })
+    }
+
+    /// Lay the plot out with its panel bounds at `target` (lets-plot
+    /// `layoutByGeomSize`, for `gggrid(align=True)`). Starting from `area`, the area
+    /// is moved and resized by the panel's distance from `target` until it fits
+    /// (breaks, and so axis widths, change with the size); a single panel without a
+    /// fixed aspect ratio then takes `target` exactly.
+    pub fn arrange_panel(&self, area: Rect, target: Rect) -> Result<Arrangement> {
+        let mut area = area;
+        let mut arrangement = self.arrange(area)?;
+        for _ in 0..ALIGN_PASSES {
+            let panel = arrangement.panel_bounds();
+            let left = target.x - panel.x;
+            let top = target.y - panel.y;
+            let right = (target.x + target.width) - (panel.x + panel.width);
+            let bottom = (target.y + target.height) - (panel.y + panel.height);
+            if [left, top, right, bottom]
+                .iter()
+                .all(|distance| distance.abs() < ALIGN_TOLERANCE)
             {
+                break;
+            }
+            let moved = Rect {
+                x: area.x + left,
+                y: area.y + top,
+                width: area.width + right - left,
+                height: area.height + bottom - top,
+            };
+            if !(moved.width > 0.0 && moved.height > 0.0) {
+                break;
+            }
+            area = moved;
+            arrangement = self.arrange(area)?;
+        }
+        if self.aspect.is_none()
+            && let Arranged::Single(layout) = &mut arrangement.layout
+        {
+            layout.panel = target;
+        }
+        Ok(arrangement)
+    }
+
+    /// Draw the plot as laid out by `arrangement`: everything but the background
+    /// fill (the scene's, or the grid cell's), with the background border last.
+    pub fn draw(&self, arrangement: &Arrangement) -> Result<Vec<Node>> {
+        let theme = &self.theme;
+        let draw_layers = |layers: &[PreparedLayer], panel: &Panel| -> Result<Vec<Node>> {
+            let mut layer_nodes = Vec::new();
+            for layer in layers {
+                let draw_layer = DrawLayer {
+                    data: &layer.data,
+                    styles: &layer.styles,
+                    parameters: Parameters::new(&layer.options, &layer.path),
+                };
+                layer_nodes.extend(layer.geom.draw(&draw_layer, panel)?);
+            }
+            Ok(layer_nodes)
+        };
+        let mut nodes = Vec::new();
+        match &arrangement.layout {
+            Arranged::Single(layout) => {
+                let (layers, tile_x, tile_y) = &self.tiles[0];
+                let (horizontal, vertical) = self.screen_scales(tile_x, tile_y);
                 let panel = Panel {
-                    rect: tile.layout.panel,
+                    rect: layout.panel,
                     x_scale: horizontal,
                     y_scale: vertical,
-                    coord,
-                    flipped,
+                    coord: self.coord,
+                    flipped: self.flipped,
                 };
                 let layer_nodes = draw_layers(layers, &panel)?;
-                nodes.extend(draw_panel_background(&tile.layout, &theme, &panel));
+                nodes.extend(draw_panel_background(layout, theme, &panel));
                 nodes.push(Node::Group(Group {
-                    clip: Some(tile.layout.panel),
+                    clip: Some(layout.panel),
                     role: Some("panel"),
                     nodes: layer_nodes,
                 }));
-                nodes.extend(draw_panel_border(&tile.layout, &theme));
-                nodes.extend(draw_axes(&tile.layout, &theme, &panel, tile.axes));
-                nodes.extend(draw_strips(tile, &theme));
+                nodes.extend(draw_panel_border(layout, theme));
+                nodes.extend(draw_axes(layout, theme, &panel, (true, true)));
             }
-            layout.plot
+            Arranged::Facets(layout) => {
+                for (tile, (layers, tile_x, tile_y)) in layout.tiles.iter().zip(&self.tiles) {
+                    let (horizontal, vertical) = self.screen_scales(tile_x, tile_y);
+                    let panel = Panel {
+                        rect: tile.layout.panel,
+                        x_scale: horizontal,
+                        y_scale: vertical,
+                        coord: self.coord,
+                        flipped: self.flipped,
+                    };
+                    let layer_nodes = draw_layers(layers, &panel)?;
+                    nodes.extend(draw_panel_background(&tile.layout, theme, &panel));
+                    nodes.push(Node::Group(Group {
+                        clip: Some(tile.layout.panel),
+                        role: Some("panel"),
+                        nodes: layer_nodes,
+                    }));
+                    nodes.extend(draw_panel_border(&tile.layout, theme));
+                    nodes.extend(draw_axes(&tile.layout, theme, &panel, tile.axes));
+                    nodes.extend(draw_strips(tile, theme));
+                }
+            }
         }
-    };
-    nodes.push(draw_titles(&plot_layout, &theme, &titles));
-    if let Some(block) = &legend_block {
-        let origin = legend_origin(&plot_layout, &theme, &titles, block.size);
-        nodes.extend(draw_legends(block, origin, &theme)?);
+        let plot_layout = arrangement.plot_layout();
+        nodes.push(draw_titles(plot_layout, theme, &self.titles));
+        if let Some(block) = &self.legend_block()? {
+            let origin = legend_origin(plot_layout, theme, &self.titles, block.size);
+            nodes.extend(draw_legends(block, origin, theme)?);
+        }
+        // The plot background's border, drawn last over the whole plot (lets-plot
+        // `PlotSvgComponent.backgroundBorder`).
+        if let Some(border) = theme
+            .plot_background
+            .and_then(|background| background.border)
+        {
+            nodes.push(Node::Rects(Rects {
+                rects: vec![arrangement.area],
+                fill: PerItem::Uniform(None),
+                stroke: Some(border.stroke()),
+            }));
+        }
+        Ok(nodes)
     }
-    let mut scene = Scene {
-        width,
-        height,
-        background: theme.plot_background.map(|background| background.fill),
-        nodes,
-    };
-    // The plot background's border, drawn last over the whole plot (lets-plot
-    // `PlotSvgComponent.backgroundBorder`).
-    if let Some(border) = theme
-        .plot_background
-        .and_then(|background| background.border)
-    {
-        scene.nodes.push(Node::Rects(Rects {
-            rects: vec![area],
-            fill: PerItem::Uniform(None),
-            stroke: Some(border.stroke()),
-        }));
-    }
-    scene.validate()?;
-    Ok(BuiltPlot { scene, warnings })
 }
 
 /// Train the position scales on prepared layers: spans of the geom setup, then

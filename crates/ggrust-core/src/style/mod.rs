@@ -194,6 +194,36 @@ impl Styles {
         Ok(())
     }
 
+    /// Whether both hold the same values, counting NaN (an unset number, e.g. alpha)
+    /// as equal to NaN.
+    pub fn same_values(&self, other: &Styles) -> bool {
+        let same_number =
+            |left: f64, right: f64| left == right || (left.is_nan() && right.is_nan());
+        self.values.len() == other.values.len()
+            && self.values.iter().zip(&other.values).all(
+                |((aesthetic, left), (other_aesthetic, right))| {
+                    aesthetic == other_aesthetic
+                        && match (left, right) {
+                            (
+                                StyleValues::Numbers(PerItem::Uniform(left)),
+                                StyleValues::Numbers(PerItem::Uniform(right)),
+                            ) => same_number(*left, *right),
+                            (
+                                StyleValues::Numbers(PerItem::Varying(left)),
+                                StyleValues::Numbers(PerItem::Varying(right)),
+                            ) => {
+                                left.len() == right.len()
+                                    && left
+                                        .iter()
+                                        .zip(right)
+                                        .all(|(left, right)| same_number(*left, *right))
+                            }
+                            _ => left == right,
+                        }
+                },
+            )
+    }
+
     /// Whether an aesthetic has one value for every item (absent counts as uniform).
     pub fn is_uniform(&self, aesthetic: Aesthetic) -> bool {
         match self.values.get(&aesthetic) {
@@ -261,6 +291,30 @@ fn missing(aesthetic: Aesthetic, wanted: ValueKind, found: Option<&StyleValues>)
 mod tests {
     use super::*;
     use serde_json::json;
+
+    #[test]
+    fn same_values_counts_unset_numbers_as_equal() {
+        let styles = |alpha: f64, size: f64| {
+            let mut styles = Styles::default();
+            styles
+                .insert(
+                    Aesthetic::Alpha,
+                    StyleValues::Numbers(PerItem::Uniform(alpha)),
+                )
+                .expect("alpha takes numbers");
+            styles
+                .insert(
+                    Aesthetic::Size,
+                    StyleValues::Numbers(PerItem::Varying(vec![size, f64::NAN])),
+                )
+                .expect("size takes numbers");
+            styles
+        };
+        assert!(styles(f64::NAN, 2.0).same_values(&styles(f64::NAN, 2.0)));
+        assert!(!styles(f64::NAN, 2.0).same_values(&styles(f64::NAN, 3.0)));
+        assert!(!styles(0.5, 2.0).same_values(&styles(f64::NAN, 2.0)));
+        assert!(!styles(0.5, 2.0).same_values(&Styles::default()));
+    }
 
     #[test]
     fn line_types_follow_lets_plot() {

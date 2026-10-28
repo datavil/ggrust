@@ -554,6 +554,43 @@ def facet_free_temperatures(m):
     )
 
 
+def grid_sales_dashboard(m):
+    random = np.random.default_rng(41)
+    days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    hours = [f"{hour}:00" for hour in range(7, 19)]
+    frame = pl.DataFrame(
+        {
+            "day": [day for day in days for _ in hours],
+            "hour": hours * len(days),
+            "sales": random.gamma(4, 30, len(days) * len(hours)).round(),
+        }
+    )
+    totals = frame.group_by("day", maintain_order=True).agg(pl.col("sales").sum())
+    heatmap = (
+        m.ggplot(frame, m.aes("hour", "day", fill="sales"))
+        + m.geom_tile()
+        + m.theme(axis_text_x=m.element_text(angle=90))
+    )
+    bars = (
+        m.ggplot(totals, m.aes("day", "sales"))
+        + m.geom_bar(stat="identity", fill="#377eb8")
+        + m.coord_flip()
+        + m.theme(axis_title_y="blank", axis_title_x="blank", axis_text_x="blank")
+    )
+    scatter = (
+        m.ggplot(frame, m.aes("hour", "sales", color="day"))
+        + m.geom_point()
+        + m.theme(axis_text_x=m.element_text(angle=90))
+    )
+    return (
+        m.gggrid(
+            [heatmap, bars, scatter, None], ncol=2, widths=[3, 1], align=True, guides="collect"
+        )
+        + m.ggtitle("Coffee sales")
+        + m.ggsize(800, 600)
+    )
+
+
 CASES = {
     case.__name__: case
     for case in [
@@ -591,5 +628,6 @@ CASES = {
         boxplot_brackets,
         facet_samples,
         facet_free_temperatures,
+        grid_sales_dashboard,
     ]
 }

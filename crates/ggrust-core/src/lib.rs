@@ -9,6 +9,7 @@ pub mod data;
 pub mod error;
 pub mod facet;
 pub mod geom;
+pub mod grid;
 pub mod layout;
 pub mod parameters;
 pub mod position;

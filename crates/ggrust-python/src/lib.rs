@@ -8,8 +8,8 @@ use pyo3::prelude::*;
 #[pymodule]
 mod _ggrust {
     use super::*;
-    use ggrust_core::build::{PlotData, build_plot};
     use ggrust_core::data::{Column, DataFrame};
+    use ggrust_core::grid::build_figure;
     use ggrust_core::render::{to_png, to_svg};
     use ggrust_core::spec::Figure;
     use pyo3::exceptions::PyValueError;
@@ -91,7 +91,7 @@ mod _ggrust {
         PyValueError::new_err(error.to_string())
     }
 
-    /// Build and render a plot.
+    /// Build and render a figure (a plot, or a `gggrid` of figures).
     ///
     /// `spec_json` is the plot spec whose `data` keys are frame references
     /// (`{"frame": i}`); `frames` are the Arrow tables they point to (any object
@@ -117,12 +117,7 @@ mod _ggrust {
         let (bytes, warnings) = python
             .detach(move || -> ggrust_core::Result<(Vec<u8>, Vec<String>)> {
                 let figure = Figure::from_json(&spec_json)?;
-                let Figure::Plot(spec) = figure else {
-                    return Err(ggrust_core::Error::InvalidSpec(
-                        "gggrid (subplots) is not supported yet".into(),
-                    ));
-                };
-                let built = build_plot(&spec, &PlotData::from_frames(&spec, &frames)?)?;
+                let built = build_figure(&figure, &frames)?;
                 let bytes = match output.as_str() {
                     "svg" => to_svg(&built.scene).into_bytes(),
                     "png" => to_png(&built.scene, scale)?,

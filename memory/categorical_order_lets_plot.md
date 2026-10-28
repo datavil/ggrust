@@ -24,3 +24,7 @@ order, lets-plot first appearance. ggplot2 also uses factor levels, ordered or n
 A colour order that changes between runs is a data problem upstream (e.g. cellestial's
 `mode().first()` on ties), not this rule: check `unique(maintain_order=True)` of the frame first.
 
+**Decided by the user (2026-10-28):** keep the rule. Unordered pandas categoricals use their
+category order (ggplot2), a recorded deviation from lets-plot. Do not "fix" it toward
+first appearance.
+

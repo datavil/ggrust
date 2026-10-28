@@ -14,6 +14,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Lessons: [memory/](memory/README.md
 | Data transfer | Arrow PyCapsule interface (polars, pandas, pyarrow, dict of numpy), zero-copy where possible. No JSON for data |
 | Spec transfer | Spec (without data) crosses as a JSON string parsed by serde_json: tiny, one parser for fixtures and live calls, no pythonize/pyo3 version lock |
 | Fonts | One embedded open font so text measurement and PNGs are identical on every machine |
+| Categorical level order | From the Arrow data: dictionary order, so polars `Categorical` = first appearance (as lets-plot), `Enum`/ordered pandas = category order. Unordered pandas categoricals keep their category order (ggplot2), a recorded deviation from lets-plot's first appearance (decided 2026-10-28) |
 
 ## Scope: what cellestial actually uses
 

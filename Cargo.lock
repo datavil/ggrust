@@ -455,6 +455,7 @@ dependencies = [
  "arrow-schema",
  "arrow-select",
  "harfrust",
+ "png",
  "rayon",
  "read-fonts",
  "resvg",

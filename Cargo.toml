@@ -16,6 +16,7 @@ arrow-schema = "59.3"
 arrow-select = "59.3"
 ggrust-core = { path = "crates/ggrust-core" }
 harfrust = "0.12"
+png = "0.18"
 pyo3 = { version = "0.30", features = ["abi3-py311"] }
 pyo3-arrow = "0.20"
 rayon = "1.10"

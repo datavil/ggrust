@@ -1945,15 +1945,21 @@ fn report_missing_values(
 }
 
 fn resolve_coord(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<&'static dyn Coord> {
+    // lets-plot: the first layer whose geom prefers a coord (rasters: fixed);
+    // `coord_flip()` flips that default.
+    let preferred = spec
+        .layers
+        .iter()
+        .find_map(|layer| geom::geom(&layer.geom)?.default_coord())
+        .and_then(coord::coord);
     let Some(coord_spec) = &spec.coord else {
-        // lets-plot: the first layer whose geom prefers a coord (rasters: fixed).
-        let preferred = spec
-            .layers
-            .iter()
-            .find_map(|layer| geom::geom(&layer.geom)?.default_coord())
-            .and_then(coord::coord);
         return Ok(preferred.unwrap_or(&coord::Cartesian));
     };
+    if coord_spec.name == "flip"
+        && let Some(preferred) = preferred
+    {
+        return Ok(preferred);
+    }
     match coord::coord(&coord_spec.name) {
         Some(coord) => Ok(coord),
         None => {

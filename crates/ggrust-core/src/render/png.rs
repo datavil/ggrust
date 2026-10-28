@@ -99,9 +99,25 @@ fn image_pixmap(image: &Image) -> Option<Pixmap> {
     Some(pixmap)
 }
 
-/// An [`Image`]'s bitmap as PNG bytes, for the SVG writer.
+/// An [`Image`]'s bitmap as straight-alpha RGBA PNG bytes, for the SVG writer
+/// (no premultiplied round trip, which would shift faint colors).
 pub(super) fn image_png(image: &Image) -> Option<Vec<u8>> {
-    image_pixmap(image)?.encode_png().ok()
+    if !image.is_consistent() {
+        return None;
+    }
+    let mut bytes = Vec::new();
+    let mut encoder = ::png::Encoder::new(&mut bytes, image.columns, image.rows);
+    encoder.set_color(::png::ColorType::Rgba);
+    encoder.set_depth(::png::BitDepth::Eight);
+    let data: Vec<u8> = image
+        .pixels
+        .iter()
+        .flat_map(|color| [color.red, color.green, color.blue, color.alpha])
+        .collect();
+    let mut writer = encoder.write_header().ok()?;
+    writer.write_image_data(&data).ok()?;
+    writer.finish().ok()?;
+    Some(bytes)
 }
 
 fn encode(pixmap: &Pixmap) -> Result<Vec<u8>> {

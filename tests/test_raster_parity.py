@@ -80,6 +80,9 @@ CASES = {
     "reverse_x": lambda m: (
         m.ggplot(SMALL, m.aes("x", "y", fill="v")) + m.geom_raster() + m.scale_x_reverse()
     ),
+    "faint_alpha": lambda m: (
+        m.ggplot(SMALL, m.aes("x", "y", fill="g", alpha="x")) + m.geom_raster()
+    ),
     "cartesian": lambda m: (
         m.ggplot(SMALL, m.aes("x", "y", fill="v")) + m.geom_raster() + m.coord_cartesian()
     ),
@@ -97,8 +100,8 @@ def test_rasters_match_lets_plot(name):
     actual_box, actual = _ggrust_image(actual_svg)
     assert actual_box == pytest.approx(expected_box, abs=1e-3)
     assert actual.shape == expected.shape
-    # Opaque pixels equal; alpha within PNG premultiplication rounding.
-    assert np.abs(actual - expected).max() <= 2, (actual, expected)
+    # Straight-alpha pixels, exactly.
+    assert (actual == expected).all(), (actual, expected)
     assert sorted(_texts(actual_svg)) == sorted(_texts(expected_svg))
 
 
@@ -112,3 +115,11 @@ def test_flipped_raster_keeps_cells_at_their_data_positions():
     assert painted[:, 3].tolist() == [False, False, True]
     assert painted[:, 2].tolist() == [False, False, False]
     assert painted[:, :2].all()
+
+
+def test_flipped_raster_keeps_square_cells():
+    # lets-plot: coord_flip flips the raster's default coord_fixed.
+    square = {"x": [0.0, 1, 2], "y": [0.0, 1, 2], "f": [1.0, 2, 3]}
+    plot = gg.ggplot(square, gg.aes("x", "y", fill="f")) + gg.geom_raster() + gg.coord_flip()
+    attributes, _ = _image(plot.to_svg())
+    assert float(attributes["width"]) == pytest.approx(float(attributes["height"]))

@@ -283,6 +283,34 @@ impl StyleScale {
         };
     }
 
+    /// Put trained text categories in the order of `reference` (facet panels can
+    /// train them in another order); categories not in it keep their order after
+    /// those that are. Continuous scales are unchanged.
+    pub fn order_levels_by(&mut self, reference: &[String]) {
+        let Trained::Discrete {
+            levels,
+            index_by_level,
+        } = &mut self.trained
+        else {
+            return;
+        };
+        let rank: HashMap<&str, usize> = reference
+            .iter()
+            .enumerate()
+            .map(|(index, level)| (level.as_str(), index))
+            .collect();
+        let key = |level: &Level| match level {
+            Level::Text(text) => rank.get(text.as_str()).copied().unwrap_or(usize::MAX),
+            Level::Number(_) => usize::MAX,
+        };
+        levels.sort_by_key(key);
+        *index_by_level = levels
+            .iter()
+            .enumerate()
+            .map(|(index, level)| (level.clone(), index))
+            .collect();
+    }
+
     /// Learn the domain from a column. A discrete column cannot be trained on a scale
     /// that is already continuous: create it with [`StyleScale::discrete`] instead.
     pub fn train(&mut self, column: &Column) -> Result<(), String> {

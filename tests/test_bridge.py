@@ -52,8 +52,8 @@ def test_referenced_columns_come_from_rust():
             {"geom": "point", "mapping": {"color": "c"}, "tooltips": {"lines": ["@{cell type}"]}}
         ],
     }
-    # Facets and tooltips are not built yet: their columns are not exported.
-    assert referenced_columns(to_json(spec)) == ["c", "x", "y"]
+    # Tooltips are not built yet: their columns are not exported.
+    assert referenced_columns(to_json(spec)) == ["c", "sample", "x", "y"]
 
 
 def test_unconvertible_column_used_only_by_tooltips_does_not_fail():

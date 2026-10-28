@@ -10,10 +10,11 @@
 //! Legends take a band at the side `legend_position` names (inside the titles, outside
 //! the axes); [`legend_origin`] places them, relative to the panel as lets-plot does.
 //!
-//! Single panel only; facets and grids come in Phase 3.
+//! Faceted plots are laid out by [`facet`]; grids of plots come in Phase 3.3.
 
 mod axis;
 mod colorbar;
+pub mod facet;
 mod legend;
 mod rotated;
 
@@ -203,10 +204,7 @@ fn layout_with(
         )
         + legend_space.top
         + inset.top;
-    let x_axis_band = tick_band(theme.axis_ticks_x, theme)
-        + theme
-            .axis_text_x
-            .map_or(0.0, |_| theme.axis_text_spacing + labels_height);
+    let x_axis_band = x_axis_band(labels_height, theme);
     let bottom = content.y + content.height
         - legend_space.bottom
         - band(theme.axis_title_x, &titles.x, 0.0)
@@ -221,18 +219,7 @@ fn layout_with(
         theme.axis_text_y,
         (0.0, 0.0),
     );
-    let y_label_width = theme.axis_text_y.map_or(0.0, |text| {
-        let sizes = label_sizes(&y_breaks.labels, text);
-        if rotated::rotates(text) {
-            rotated::left(&sizes, text).1
-        } else {
-            sizes.iter().map(|(width, _)| *width).fold(0.0, f64::max)
-        }
-    });
-    let y_axis_width = tick_band(theme.axis_ticks_y, theme)
-        + theme
-            .axis_text_y
-            .map_or(0.0, |_| theme.axis_text_spacing + y_label_width);
+    let y_axis_width = y_axis_width(&y_breaks, theme);
     let left = content.x
         + legend_space.left
         + band(theme.axis_title_y, &titles.y, theme.axis_title_spacing)
@@ -264,6 +251,30 @@ fn layout_with(
         x_axis_band,
         legend_space,
     }
+}
+
+/// Ticks, spacing and labels below a panel, with labels `labels_height` px tall.
+fn x_axis_band(labels_height: f64, theme: &Theme) -> f64 {
+    tick_band(theme.axis_ticks_x, theme)
+        + theme
+            .axis_text_x
+            .map_or(0.0, |_| theme.axis_text_spacing + labels_height)
+}
+
+/// Ticks, spacing and labels left of a panel with these y breaks.
+fn y_axis_width(y_breaks: &AxisBreaks, theme: &Theme) -> f64 {
+    let y_label_width = theme.axis_text_y.map_or(0.0, |text| {
+        let sizes = label_sizes(&y_breaks.labels, text);
+        if rotated::rotates(text) {
+            rotated::left(&sizes, text).1
+        } else {
+            sizes.iter().map(|(width, _)| *width).fold(0.0, f64::max)
+        }
+    });
+    tick_band(theme.axis_ticks_y, theme)
+        + theme
+            .axis_text_y
+            .map_or(0.0, |_| theme.axis_text_spacing + y_label_width)
 }
 
 /// Space legends of `size` take on each side (lets-plot `PlotLegendsLayoutUtil`):
@@ -480,8 +491,20 @@ pub fn draw_axes_and_titles(
     titles: &Titles,
     mapper: &Panel,
 ) -> Vec<Node> {
+    let mut nodes = draw_axes(layout, theme, mapper, (true, true));
+    nodes.push(draw_titles(layout, theme, titles));
+    nodes
+}
+
+/// The x and y axes of a panel (lines, ticks, labels), each only when `shown`
+/// (`(x, y)`): facet panels inside the grid draw none.
+pub fn draw_axes(
+    layout: &PlotLayout,
+    theme: &Theme,
+    mapper: &Panel,
+    (show_x, show_y): (bool, bool),
+) -> Vec<Node> {
     let panel = layout.panel;
-    let content = layout.content;
     let bottom = panel.y + panel.height;
     let mut axis_x = Vec::new();
     if let Some(line) = theme.axis_line_x {
@@ -560,6 +583,22 @@ pub fn draw_axes_and_titles(
             });
         }
     }
+    let mut nodes = Vec::new();
+    if show_x {
+        nodes.push(role_group("axis-x", axis_x));
+    }
+    if show_y {
+        nodes.push(role_group("axis-y", axis_y));
+    }
+    nodes
+}
+
+/// Plot title, subtitle and axis titles, placed around `layout.panel` (the union of
+/// all panels in a faceted plot).
+pub fn draw_titles(layout: &PlotLayout, theme: &Theme, titles: &Titles) -> Node {
+    let panel = layout.panel;
+    let content = layout.content;
+    let bottom = panel.y + panel.height;
     let mut titles_nodes = Vec::new();
     if let (Some(style), Some(title)) = (theme.axis_title_x, present(&titles.x)) {
         // Below the x axis, not at the plot edge: they differ only when the panel is
@@ -611,18 +650,15 @@ pub fn draw_axes_and_titles(
             0.0,
         ));
     }
-    let group = |role, nodes| {
-        Node::Group(Group {
-            clip: None,
-            role: Some(role),
-            nodes,
-        })
-    };
-    vec![
-        group("axis-x", axis_x),
-        group("axis-y", axis_y),
-        group("titles", titles_nodes),
-    ]
+    role_group("titles", titles_nodes)
+}
+
+fn role_group(role: &'static str, nodes: Vec<Node>) -> Node {
+    Node::Group(Group {
+        clip: None,
+        role: Some(role),
+        nodes,
+    })
 }
 
 /// An x tick label placed by its arrangement; `top` is the top of the label band.

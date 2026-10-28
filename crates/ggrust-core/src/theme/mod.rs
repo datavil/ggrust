@@ -6,9 +6,9 @@
 //! element resolved through lets-plot's inheritance chains (`axis_text_x` <-
 //! `axis_text` <- `text` ...). Layout and drawing read only this struct.
 //!
-//! What it does not do (yet): line types, text margins, text angles and vertical
-//! justification other than on axis labels, and facet strips; options that set them
-//! are reported as warnings.
+//! What it does not do (yet): line types, text margins other than on strips, text
+//! angles and vertical justification other than on axis labels, and the vertical
+//! strips of `facet_grid`; options that set them are reported as warnings.
 
 mod values;
 
@@ -233,6 +233,16 @@ pub struct Theme {
     /// `legend_box_just`: alignment of stacked legends (see
     /// [`Theme::legend_box_justification`]).
     pub legend_box_just: LegendBoxJust,
+    /// Facet strip labels above the panels (`strip_text_x`); `None` hides the strips.
+    pub strip_text: Option<TextStyle>,
+    /// Space around a strip label (`strip_text_x` margins).
+    pub strip_margin: Margins,
+    /// Strip background (`strip_background_x`), drawn only with the strip text.
+    pub strip_background: Option<RectStyle>,
+    /// Space between strips and their panel (`strip_spacing_y`).
+    pub strip_spacing: f64,
+    /// Space between facet panels (`panel_spacing_x`, `panel_spacing_y`).
+    pub panel_spacing: (f64, f64),
 }
 
 impl Default for Theme {
@@ -302,6 +312,15 @@ const BUILT_OPTIONS: &[&str] = &[
     "legend_box_spacing",
     "legend_ticks",
     "legend_ticks_length",
+    "strip_text",
+    "strip_text_x",
+    "strip_background",
+    "strip_background_x",
+    "strip_spacing",
+    "strip_spacing_y",
+    "panel_spacing",
+    "panel_spacing_x",
+    "panel_spacing_y",
     "flavor",
 ];
 
@@ -352,9 +371,11 @@ fn report_unbuilt(spec: &ThemeSpec, warnings: &mut Vec<String>) {
         };
         // Axis labels read angle and vjust (layout/rotated.rs); other text does not yet.
         let axis_text = matches!(key.as_str(), "axis_text" | "axis_text_x" | "axis_text_y");
+        // Strip labels read their margins (layout/facet.rs).
+        let strip_text = matches!(key.as_str(), "strip_text" | "strip_text_x");
         let unbuilt = [
             ("linetype", element.linetype.is_some()),
-            ("margin", element.margin.is_some()),
+            ("margin", element.margin.is_some() && !strip_text),
             ("vjust", element.vjust.is_some() && !axis_text),
             ("angle", element.angle.is_some() && !axis_text),
             ("lineheight", element.lineheight.is_some()),
@@ -450,8 +471,8 @@ impl Resolver<'_> {
         })
     }
 
-    fn margins(&self, key: &str, default: f64) -> Margins {
-        let margin = self.values.element_props(&[key]).margin;
+    fn margins(&self, keys: &[&str], default: f64) -> Margins {
+        let margin = self.values.element_props(keys).margin;
         let side = |index: usize| margin[index].unwrap_or(default);
         Margins {
             top: side(0),
@@ -508,9 +529,10 @@ impl Resolver<'_> {
         let subtitle_margin = self
             .values
             .element_props(&["plot_subtitle", "title", "text"]);
+        let strip_text = self.text(&["strip_text_x", "strip_text", "text"]);
         Ok(Theme {
-            plot_margin: self.margins("plot_margin", 3.0),
-            plot_inset: self.margins("plot_inset", 3.0),
+            plot_margin: self.margins(&["plot_margin"], 3.0),
+            plot_inset: self.margins(&["plot_inset"], 3.0),
             plot_background: self.rect(&["plot_background", "rect"]),
             plot_title: self.text(&["plot_title", "title", "text"]),
             plot_subtitle: self.text(&["plot_subtitle", "title", "text"]),
@@ -544,7 +566,7 @@ impl Resolver<'_> {
                         border: None,
                     })
             }),
-            legend_margin: self.margins("legend_margin", 5.0),
+            legend_margin: self.margins(&["legend_margin"], 5.0),
             legend_key_size: self.number(&["legend_key_size"], 23.0)?,
             legend_key_spacing: (
                 self.number(&["legend_key_spacing_x", "legend_key_spacing"], 0.0)?,
@@ -573,6 +595,16 @@ impl Resolver<'_> {
                 }
             },
             legend_box_just: legend_box_just(self.values.value_of(&["legend_box_just"]))?,
+            strip_text,
+            strip_margin: self.margins(&["strip_text_x", "strip_text"], 3.0),
+            // lets-plot `showStripBackground`: only with the strip text.
+            strip_background: strip_text
+                .and_then(|_| self.rect(&["strip_background_x", "strip_background", "rect"])),
+            strip_spacing: self.number(&["strip_spacing_y", "strip_spacing"], 0.0)?,
+            panel_spacing: (
+                self.number(&["panel_spacing_x", "panel_spacing"], 10.0)?,
+                self.number(&["panel_spacing_y", "panel_spacing"], 10.0)?,
+            ),
         })
     }
 }
@@ -825,7 +857,7 @@ mod tests {
         assert!(error.contains("theme.legend_position"), "{error}");
         let mut warnings = Vec::new();
         Theme::from_spec(
-            Some(&spec(r#"{"strip_text": {"size": 3, "blank": false}, "axis_title_x": {"angle": 45, "blank": false}}"#)),
+            Some(&spec(r#"{"strip_text_y": {"size": 3, "blank": false}, "axis_title_x": {"angle": 45, "blank": false}}"#)),
             &mut warnings,
         )
         .unwrap();
@@ -833,7 +865,7 @@ mod tests {
             warnings,
             [
                 "at 'theme.axis_title_x.angle': not supported yet; ignored",
-                "at 'theme.strip_text': not supported yet; ignored"
+                "at 'theme.strip_text_y': not supported yet; ignored"
             ]
         );
     }

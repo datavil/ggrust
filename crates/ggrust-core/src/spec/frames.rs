@@ -76,10 +76,11 @@ impl TryFrom<Value> for DataSource {
 }
 
 impl Figure {
-    /// Every column name the engine reads: mappings (plot and layers, group lists)
-    /// and `as_discrete(order_by=...)`, nested figures included. Features that are
-    /// parsed but not built yet (tooltips, facets) add their columns when they land:
-    /// exporting a column nothing reads can only fail the plot.
+    /// Every column name the engine reads: mappings (plot and layers, group lists),
+    /// `as_discrete(order_by=...)` and `facet_wrap` columns, nested figures
+    /// included. Features that are parsed but not built yet (tooltips, `facet_grid`)
+    /// add their columns when they land: exporting a column nothing reads can only
+    /// fail the plot.
     pub fn referenced_columns(&self) -> BTreeSet<String> {
         let mut columns = BTreeSet::new();
         self.collect_columns(&mut columns);
@@ -102,6 +103,15 @@ impl PlotSpec {
     fn collect_columns(&self, columns: &mut BTreeSet<String>) {
         add_mapping(&self.mapping, columns);
         add_meta(&self.data_meta, columns);
+        if let Some(facet) = self.facet.as_ref().filter(|facet| facet.name == "wrap") {
+            columns.extend(
+                facet
+                    .facets
+                    .iter()
+                    .flat_map(|facets| facets.as_slice())
+                    .cloned(),
+            );
+        }
         for layer in &self.layers {
             add_layer(layer, columns);
         }
@@ -229,11 +239,11 @@ mod tests {
                   {"kind": "plot", "mapping": {"x": "other"}}
                 ]}"#,
         );
-        // Facets and tooltips are not built yet, so their columns are not read.
+        // Tooltips are not built yet, so their columns are not read.
         assert_eq!(
             found,
             [
-                "UMAP1", "UMAP2", "batch", "cluster", "donor", "other", "rank"
+                "UMAP1", "UMAP2", "batch", "cluster", "donor", "other", "rank", "sample"
             ]
         );
     }

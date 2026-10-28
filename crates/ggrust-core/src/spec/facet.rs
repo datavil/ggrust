@@ -30,6 +30,9 @@ pub struct FacetSpec {
     /// Level order per faceting column: `1` ascending, `-1` descending, null default.
     #[serde(default)]
     pub order: Option<OneOrMany<Option<i64>>>,
+    /// Whether level combinations without data get no panel (default true).
+    #[serde(default)]
+    pub drop: Option<bool>,
     /// Fill direction: `h` or `v`.
     #[serde(default)]
     pub dir: Option<String>,

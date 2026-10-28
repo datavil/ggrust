@@ -33,6 +33,20 @@ impl Column {
         self.len() == 0
     }
 
+    /// The given rows, in order (a facet panel's rows). Discrete columns keep every
+    /// level, also those no taken row uses, so panels share one level order.
+    pub fn take(&self, rows: &[u32]) -> Column {
+        match self {
+            Column::Continuous(column) => Column::Continuous(ContinuousColumn {
+                values: rows.iter().map(|&row| column.get(row as usize)).collect(),
+            }),
+            Column::Discrete(column) => Column::Discrete(DiscreteColumn {
+                levels: column.levels.clone(),
+                codes: rows.iter().map(|&row| column.code(row as usize)).collect(),
+            }),
+        }
+    }
+
     /// Convert an Arrow array. `name` is only used in error messages.
     ///
     /// - floats pass through without copying; integers and decimals are cast to `f64`
@@ -198,7 +212,8 @@ impl DiscreteColumn {
         self.codes.is_empty()
     }
 
-    /// Levels in their default order. Every level is used by at least one row.
+    /// Levels in their default order. Every level is used by at least one row,
+    /// except in a facet panel's rows (see [`Column::take`]).
     pub fn levels(&self) -> &[String] {
         &self.levels
     }

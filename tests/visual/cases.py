@@ -512,6 +512,48 @@ def bars_flipped(m):
     )
 
 
+def facet_samples(m):
+    random = np.random.default_rng(32)
+    frame = pl.DataFrame(
+        {
+            "UMAP1": random.normal(0, 3, 500),
+            "UMAP2": random.normal(0, 2, 500),
+            "sample": random.choice(["donor 1", "donor 2", "donor 3", "donor 4", "donor 5"], 500),
+            "condition": random.choice(["control", "treated"], 500),
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("UMAP1", "UMAP2", color="condition"))
+        + m.geom_point(size=1.5)
+        + m.facet_wrap("sample", ncol=3)
+        + m.theme_bw()
+        + m.ggtitle("Cells per donor")
+    )
+
+
+def facet_free_temperatures(m):
+    months = list(range(1, 13))
+    frame = pl.DataFrame(
+        {
+            "month": months * 3,
+            "temperature": [
+                *[-8.0, -6, -1, 6, 13, 17, 19, 17, 12, 6, 0, -5],
+                *[24.0, 25, 26, 27, 28, 28, 28, 28, 28, 27, 26, 25],
+                *[3.0, 4, 7, 10, 14, 17, 19, 19, 16, 12, 7, 4],
+            ],
+            "city": ["Moscow"] * 12 + ["Singapore"] * 12 + ["London"] * 12,
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("month", "temperature"))
+        + m.geom_line(color="#377eb8", size=1)
+        + m.geom_point()
+        + m.facet_wrap("city", ncol=3, scales="free_y", order=0)
+        + m.theme_grey()
+        + m.ggsize(700, 280)
+    )
+
+
 CASES = {
     case.__name__: case
     for case in [
@@ -547,5 +589,7 @@ CASES = {
         ridges_months,
         bars_flipped,
         boxplot_brackets,
+        facet_samples,
+        facet_free_temperatures,
     ]
 }

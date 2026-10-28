@@ -83,6 +83,16 @@ impl DiscretePositionScale {
         self.count_extra_breaks();
     }
 
+    /// The scale with only the trained levels in `used`, in their order (a free
+    /// facet axis: each panel shows its own categories).
+    pub fn restricted_to(&self, used: &std::collections::BTreeSet<String>) -> Self {
+        let mut scale = self.clone();
+        scale.levels.retain(|level| used.contains(level));
+        scale.known = scale.levels.iter().cloned().collect();
+        scale.count_extra_breaks();
+        scale
+    }
+
     /// `breaks=[...]` (repeats ignored): only these categories get a tick and a
     /// label. Without `limits` they also lead the axis, as in lets-plot: the breaks
     /// in their order (a break without data takes a slot too), then the other

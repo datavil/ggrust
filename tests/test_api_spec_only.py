@@ -263,13 +263,12 @@ def test_rendering_spec_only_parts_says_so(layer, message):
 
 def test_rendering_ignored_features_warns():
     plot = gg.ggplot(FRAME, gg.aes("x", "y")) + gg.geom_point()
-    for feature, message in [
-        (gg.ggtb(), "ggtb"),
-        (gg.facet_wrap("c"), "facet"),
-    ]:
-        with pytest.warns(gg.GgrustWarning, match=message) as caught:
-            (plot + feature).to_svg()
-        assert len(caught) == 1, [str(item.message) for item in caught]
+    with pytest.warns(gg.GgrustWarning, match="ggtb") as caught:
+        (plot + gg.ggtb()).to_svg()
+    assert len(caught) == 1, [str(item.message) for item in caught]
+    # facet_grid also reports the grid options it does not read yet.
+    with pytest.warns(gg.GgrustWarning, match="'facet_grid' is not supported yet"):
+        (plot + gg.facet_grid(x="c")).to_svg()
 
 
 def test_rendering_a_grid_says_so():

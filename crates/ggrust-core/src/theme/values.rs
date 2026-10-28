@@ -21,8 +21,7 @@ pub enum Symbol {
     Black,
     /// `panel_grid`.
     Grey1,
-    /// Facet strip background (used once facets land, Phase 3.2).
-    #[allow(dead_code)]
+    /// Facet strip background.
     Grey2,
     /// `panel_background` (grey theme).
     Grey3,
@@ -323,6 +322,16 @@ fn base() -> Values {
     values.value("axis_ticks_length", Value::from(4.0));
     values.element("axis_minor_ticks", blank());
     values.element(
+        "strip_text",
+        Props {
+            hjust: Some(0.5),
+            margin: margins(3.0),
+            ..Props::default()
+        },
+    );
+    values.value("panel_spacing", Value::from(10.0));
+    values.value("strip_spacing", Value::from(0.0));
+    values.element(
         "axis_text",
         Props {
             margin: margins(0.0),
@@ -423,6 +432,14 @@ fn named(name: &str) -> Option<(Values, Option<Flavor>)> {
             grid(&mut values, Symbol::Grey1);
             values.element("axis_line_y", blank());
             values.element("axis_ticks_y", blank());
+            values.element(
+                "strip_background",
+                Props {
+                    blank: Some(true),
+                    fill: symbol(Symbol::Grey2),
+                    ..Props::default()
+                },
+            );
             common
         }
         "classic" => {
@@ -468,6 +485,14 @@ fn named(name: &str) -> Option<(Values, Option<Flavor>)> {
                     ..Props::default()
                 },
             );
+            values.element(
+                "strip_background",
+                Props {
+                    color: symbol(Symbol::Grey4),
+                    fill: symbol(Symbol::Grey2),
+                    ..Props::default()
+                },
+            );
             Some(Flavor::base(
                 GREY85,
                 Color::WHITE,
@@ -506,6 +531,14 @@ fn named(name: &str) -> Option<(Values, Option<Flavor>)> {
                     ..Props::default()
                 },
             );
+            values.element(
+                "strip_background",
+                Props {
+                    size: Some(0.0),
+                    fill: symbol(Symbol::Grey2),
+                    ..Props::default()
+                },
+            );
             Some(Flavor::base(
                 GREY85,
                 Color::rgb(0xEB, 0xEB, 0xEB),
@@ -529,6 +562,14 @@ fn named(name: &str) -> Option<(Values, Option<Flavor>)> {
                     ..Props::default()
                 },
             );
+            values.element(
+                "strip_background",
+                Props {
+                    size: Some(0.0),
+                    fill: symbol(Symbol::Grey2),
+                    ..Props::default()
+                },
+            );
             Some(Flavor::base(
                 GREY85,
                 Color::WHITE,
@@ -540,6 +581,14 @@ fn named(name: &str) -> Option<(Values, Option<Flavor>)> {
             grid(&mut values, Symbol::Grey1);
             values.element("axis_line", blank());
             values.element("axis_ticks", blank());
+            values.element(
+                "strip_background",
+                Props {
+                    blank: Some(true),
+                    fill: symbol(Symbol::Grey2),
+                    ..Props::default()
+                },
+            );
             common
         }
         "none" => {

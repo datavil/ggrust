@@ -138,7 +138,7 @@ fn constant_options_and_png_render() {
 fn unimplemented_features_and_unknown_options_warn() {
     let built = build(
         r#"{"kind": "plot", "mapping": {"x": "UMAP1", "y": "UMAP2", "color": "cluster"},
-            "theme": {"name": "classic", "strip_text": {"size": 3, "blank": false}}, "guides": {"color": {"name": "legend", "order": 1}},
+            "theme": {"name": "classic", "strip_text_y": {"size": 3, "blank": false}}, "guides": {"color": {"name": "legend", "order": 1}},
             "layers": [{"geom": "point", "colr": "red", "tooltips": {"variables": ["cluster"]}},
                        {"geom": "point", "tooltips": "none"}]}"#,
         cells(),
@@ -147,7 +147,7 @@ fn unimplemented_features_and_unknown_options_warn() {
     // `tooltips="none"` asks for what static output already does: no warning.
     assert!(!joined.contains("at 'layers[1]'"), "{joined}");
     for expected in [
-        "at 'theme.strip_text': not supported yet; ignored",
+        "at 'theme.strip_text_y': not supported yet; ignored",
         "at 'guides.color': this guide option is not supported yet",
         "at 'layers[0]': 'tooltips' is not supported yet",
         "at 'layers[0].colr': geom_point does not support option 'colr'",

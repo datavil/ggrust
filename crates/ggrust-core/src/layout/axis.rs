@@ -58,7 +58,7 @@ pub struct AxisBreaks {
 }
 
 impl AxisBreaks {
-    fn new(values: Vec<f64>, labels: Vec<Label>) -> Self {
+    pub(super) fn new(values: Vec<f64>, labels: Vec<Label>) -> Self {
         AxisBreaks {
             values,
             labels,

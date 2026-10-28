@@ -385,15 +385,20 @@ impl Resolver<'_> {
     fn text(&mut self, keys: &[&str]) -> Option<TextStyle> {
         let props = self.props(keys)?;
         let face = match props.face.as_deref() {
-            None | Some("plain") | Some("normal") => FontFace::Plain,
-            Some(name) => FontFace::from_name(name).unwrap_or_else(|| {
-                self.warnings.push(format!(
-                    "at 'theme.{}.face': unknown font face '{name}'; expected plain, bold, \
-                     italic or bold_italic; plain was used",
-                    keys[0]
-                ));
-                FontFace::Plain
-            }),
+            None => FontFace::Plain,
+            Some(name) => {
+                let face = FontFace::from_name(name);
+                let unknown = FontFace::unknown_words(name);
+                if !unknown.is_empty() {
+                    self.warnings.push(format!(
+                        "at 'theme.{}.face': unknown word(s) {unknown:?} in font face '{name}' \
+                         were ignored (case-sensitive); expected plain, bold, italic or \
+                         bold_italic; {face:?} was used",
+                        keys[0]
+                    ));
+                }
+                face
+            }
         };
         let family = match props.family.as_deref() {
             None => FontFamily::Sans,

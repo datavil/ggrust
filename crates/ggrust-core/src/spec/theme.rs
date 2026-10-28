@@ -106,7 +106,7 @@ pub struct ElementSpec {
     pub hjust: Option<f64>,
     /// Vertical justification, 0..1.
     pub vjust: Option<f64>,
-    /// Font face: `plain`, `bold`, `italic`, `bold_italic`.
+    /// Font face: `plain`, `bold`, `italic`, `bold_italic` (parsed by `FontFace::from_name`).
     pub face: Option<String>,
     /// Font family.
     pub family: Option<String>,

@@ -152,14 +152,7 @@ pub(super) struct Look {
 pub(super) fn look(styles: &Styles, row: usize, label: bool) -> Result<Look> {
     let alpha = styles.numbers(Aesthetic::Alpha)?.get(row);
     let family = FontFamily::from_name(styles.texts(Aesthetic::Family)?.get_ref(row)).0;
-    // lets-plot also reads `bold italic` and any letter case.
-    let face_name = styles
-        .texts(Aesthetic::Fontface)?
-        .get_ref(row)
-        .trim()
-        .to_lowercase()
-        .replace(' ', "_");
-    let face = FontFace::from_name(&face_name).unwrap_or_default();
+    let face = FontFace::from_name(styles.texts(Aesthetic::Fontface)?.get_ref(row));
     let color = styles.colors(Aesthetic::Color)?.get(row);
     Ok(Look {
         content: styles.texts(Aesthetic::Label)?.get_ref(row).clone(),

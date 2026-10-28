@@ -234,3 +234,42 @@ def test_label_alpha_fades_the_box_fill_only():
         return _plot(m, lambda m: m.geom_label(label="a", x=1, y=1, alpha=0.5, fill="yellow"))
 
     assert opacities(build(gg).to_svg()) == opacities(build(lp).to_svg()) == {1.0}
+
+
+FACES = ["bold", "bold italic", "italic-bold", "plain bold", "Bold", "Bold Italic", "bolditalic"]
+
+
+def _ggrust_face(svg: str, content: str) -> tuple[bool, bool]:
+    tag = re.search(rf"<text\b([^>]*)>{content}<", svg).group(1)
+    return 'font-weight="bold"' in tag, 'font-style="italic"' in tag
+
+
+def _lets_plot_text_face(svg: str) -> tuple[bool, bool]:
+    position = svg.find(">w<")
+    style = svg[max(0, position - 400) : position]
+    return "font-weight:bold" in style, "font-style:italic" in style
+
+
+def _lets_plot_title_face(svg: str) -> tuple[bool, bool]:
+    css = re.search(r"\.legend-title \{[^}]*\}", svg).group(0)
+    return "font-weight: bold" in css, "font-style: italic" in css
+
+
+@pytest.mark.parametrize("face", FACES)
+def test_font_faces_parse_like_lets_plot(face):
+    """lets-plot splits on space, `_`, `.`, `-` and matches `bold`/`italic` by case."""
+
+    def build(module):
+        return (
+            module.ggplot({"x": [1.0], "c": ["a"]})
+            + module.geom_point(module.aes("x", "x", color="c"))
+            + module.geom_text(x=1, y=1, label="w", fontface=face)
+            + module.theme(legend_title=module.element_text(face=face))
+        )
+
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        ours = build(gg).to_svg()
+    theirs = build(lp).to_svg()
+    assert _ggrust_face(ours, "w") == _lets_plot_text_face(theirs)
+    assert _ggrust_face(ours, "c") == _lets_plot_title_face(theirs)

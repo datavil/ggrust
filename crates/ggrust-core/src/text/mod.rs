@@ -161,15 +161,30 @@ impl FontFace {
         FontFace::BoldItalic,
     ];
 
-    /// Parse a lets-plot `face` value: `plain`, `bold`, `italic`, `bold_italic`.
-    pub fn from_name(name: &str) -> Option<Self> {
-        match name {
-            "plain" => Some(FontFace::Plain),
-            "bold" => Some(FontFace::Bold),
-            "italic" => Some(FontFace::Italic),
-            "bold_italic" | "bolditalic" | "bold.italic" => Some(FontFace::BoldItalic),
-            _ => None,
+    /// Parse a lets-plot `face` value as lets-plot does: split on ` `, `_`, `.` and `-`,
+    /// then look for the words `bold` and `italic` (case-sensitive, so `Bold` is plain).
+    /// Other words are ignored: `bold italic`, `italic-bold` and `plain bold` all parse.
+    pub fn from_name(name: &str) -> Self {
+        let has = |word: &str| Self::words(name).any(|part| part == word);
+        match (has("bold"), has("italic")) {
+            (false, false) => FontFace::Plain,
+            (true, false) => FontFace::Bold,
+            (false, true) => FontFace::Italic,
+            (true, true) => FontFace::BoldItalic,
         }
+    }
+
+    /// Words of a `face` value that lets-plot ignores (anything but `plain`, `normal`,
+    /// `bold` and `italic`), for warnings.
+    pub fn unknown_words(name: &str) -> Vec<&str> {
+        Self::words(name)
+            .filter(|word| !["plain", "normal", "bold", "italic"].contains(word))
+            .collect()
+    }
+
+    fn words(name: &str) -> impl Iterator<Item = &str> {
+        name.split([' ', '_', '.', '-'])
+            .filter(|word| !word.is_empty())
     }
 
     /// Whether the face is bold.
@@ -428,10 +443,37 @@ mod tests {
 
     #[test]
     fn face_names() {
-        assert_eq!(
-            FontFace::from_name("bold_italic"),
-            Some(FontFace::BoldItalic)
-        );
-        assert_eq!(FontFace::from_name("heavy"), None);
+        // Expected faces measured on lets-plot 4.x SVG output (theme and geom_text agree).
+        let cases = [
+            ("plain", FontFace::Plain),
+            ("bold", FontFace::Bold),
+            ("italic", FontFace::Italic),
+            ("bold_italic", FontFace::BoldItalic),
+            ("bold.italic", FontFace::BoldItalic),
+            ("bold-italic", FontFace::BoldItalic),
+            ("bold italic", FontFace::BoldItalic),
+            ("italic bold", FontFace::BoldItalic),
+            ("bold  italic", FontFace::BoldItalic),
+            ("bold._italic", FontFace::BoldItalic),
+            (" bold", FontFace::Bold),
+            ("plain bold", FontFace::Bold),
+            ("bold Italic", FontFace::Bold),
+            ("Bold", FontFace::Plain),
+            ("BOLD", FontFace::Plain),
+            ("Italic", FontFace::Plain),
+            ("Bold Italic", FontFace::Plain),
+            ("bolditalic", FontFace::Plain),
+            ("bold,italic", FontFace::Plain),
+            ("bold\titalic", FontFace::Plain),
+            ("boldx", FontFace::Plain),
+            ("heavy", FontFace::Plain),
+            ("", FontFace::Plain),
+        ];
+        for (name, face) in cases {
+            assert_eq!(FontFace::from_name(name), face, "{name:?}");
+        }
+        assert!(FontFace::unknown_words("plain bold-italic").is_empty());
+        assert!(FontFace::unknown_words("normal").is_empty());
+        assert_eq!(FontFace::unknown_words("Bold italic"), ["Bold"]);
     }
 }

@@ -377,14 +377,16 @@ fn vjust_moves_the_baseline_by_lets_plots_span() {
 
 #[test]
 fn bold_italic_with_a_space_is_read() {
-    let built = build(
-        r#"{"geom": "text", "label": "w", "fontface": "Bold Italic"}"#,
-        frame(vec![1.0], vec![1.0], vec!["a"]),
-    );
-    assert_eq!(
-        texts(&built)[0].font.face,
-        ggrust_core::text::FontFace::BoldItalic
-    );
+    let face = |name: &str| {
+        let built = build(
+            &format!(r#"{{"geom": "text", "label": "w", "fontface": "{name}"}}"#),
+            frame(vec![1.0], vec![1.0], vec!["a"]),
+        );
+        texts(&built)[0].font.face
+    };
+    assert_eq!(face("bold italic"), ggrust_core::text::FontFace::BoldItalic);
+    // Case-sensitive, as lets-plot: `Bold Italic` is plain.
+    assert_eq!(face("Bold Italic"), ggrust_core::text::FontFace::Plain);
 }
 
 #[test]

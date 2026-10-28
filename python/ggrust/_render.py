@@ -6,6 +6,7 @@ import datetime
 import json
 import math
 import os
+import secrets
 import sys
 import warnings
 from typing import Any
@@ -21,14 +22,15 @@ class GgrustWarning(UserWarning):
 
 
 def render_bytes(plot, output: str, scale: float = 1.0, size: tuple | None = None) -> bytes:
-    """Build ``plot`` in Rust and return the encoded image.
+    """Build ``plot`` in Rust and return the encoded output.
 
     Parameters
     ----------
     plot : PlotSpec
         The plot.
-    output : {"svg", "png"}
-        Output format.
+    output : {"svg", "png", "html", "html_page", "html_iframe"}
+        Output format. HTML outputs get a fresh element id on every call, so one plot
+        displayed twice on a page keeps its ids apart.
     scale : float
         PNG pixel scale.
     size : tuple of float, optional
@@ -37,7 +39,7 @@ def render_bytes(plot, output: str, scale: float = 1.0, size: tuple | None = Non
     Returns
     -------
     bytes
-        SVG (UTF-8) or PNG bytes.
+        SVG or HTML (UTF-8), or PNG bytes.
     """
     spec, frames = split_data(plot.as_dict())
     if size is not None:
@@ -49,10 +51,16 @@ def render_bytes(plot, output: str, scale: float = 1.0, size: tuple | None = Non
         [_export(data, columns, path) for data, path in frames],
         output,
         float(scale),
+        _display_id() if output.startswith("html") else None,
     )
     for message in messages:
         warnings.warn(message, GgrustWarning, stacklevel=4)
     return encoded
+
+
+def _display_id() -> str:
+    """Return a fresh root element id for one HTML display (48 random bits)."""
+    return f"ggrust-{secrets.token_hex(6)}"
 
 
 def split_data(spec: dict) -> tuple[dict, list[tuple[Any, str]]]:
@@ -265,18 +273,12 @@ def export_png(plot, path, scale=None, w=None, h=None, unit=None, dpi=None) -> s
     return _write(path, png)
 
 
-def export_html(plot, path=None) -> str | None:
+def export_html(plot, path=None, iframe: bool | None = None) -> str | None:
     """See ``PlotSpec.to_html``."""
-    svg = render_bytes(plot, "svg").decode()
-    page = (
-        '<!DOCTYPE html>\n<html lang="en">\n<head>\n<meta charset="UTF-8">\n'
-        "<title>ggrust plot</title>\n</head>\n<body>\n"
-        f'<div class="ggrust-plot">{svg}</div>\n</body>\n</html>\n'
-    )
+    page = render_bytes(plot, "html_iframe" if iframe else "html_page").decode()
     return page if path is None else _write(path, page)
 
 
 def render_notebook_html(plot) -> str:
-    """HTML for Jupyter's ``_repr_html_``: the SVG inline (interactivity in Phase 4)."""
-    svg = render_bytes(plot, "svg").decode()
-    return f'<div class="ggrust-plot">{svg}</div>'
+    """HTML for Jupyter's ``_repr_html_``: the plot's root ``<div>`` and runtime script."""
+    return render_bytes(plot, "html").decode()

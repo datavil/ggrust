@@ -42,7 +42,7 @@ python-source = "python"
 
 [tool.uv]
 # Rebuild the extension whenever Rust or Python sources change.
-cache-keys = [{ file = "pyproject.toml" }, { file = "Cargo.toml" }, { file = "Cargo.lock" }, { file = "crates/**/*.rs" }, { file = "crates/**/Cargo.toml" }]
+cache-keys = [{ file = "pyproject.toml" }, { file = "Cargo.toml" }, { file = "Cargo.lock" }, { file = "crates/**/*.rs" }, { file = "crates/**/Cargo.toml" }, { file = "js/**/*.js" }]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

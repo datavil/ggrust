@@ -283,6 +283,9 @@ def test_ggsave_writes_by_extension(tmp_path):
         assert written == str(tmp_path / "out" / name.strip())
     assert (tmp_path / "out" / "plot.svg").read_text().startswith("<svg")
     assert (tmp_path / "out" / "plot.png").read_bytes()[:4] == b"\x89PNG"
+    assert (tmp_path / "out" / "plot.html").read_text().startswith("<iframe ")  # as lets_plot
+    gg.ggsave(plot, "page.html", path=str(tmp_path / "out"), iframe=False)
+    assert (tmp_path / "out" / "page.html").read_text().startswith("<!DOCTYPE html>")
     for name, message in [
         ("plot", "Missing file extension"),
         ("  ", "Malformed filename"),

@@ -39,7 +39,7 @@ def ggsave(
     path : str, optional
         Directory; ``./lets-plot-images`` when None (as lets_plot).
     iframe : bool, default True
-        Accepted for lets_plot compatibility; ignored.
+        HTML only: write an ``<iframe srcdoc>`` sized to the plot (as lets_plot).
     scale : float, optional
         PNG pixel scale.
     w, h : float, optional
@@ -72,7 +72,7 @@ def ggsave(
     if extension == "svg":
         return export_svg(plot, pathname, w=w, h=h, unit=unit)
     if extension in ["html", "htm"]:
-        return export_html(plot, pathname)
+        return export_html(plot, pathname, iframe)
     if extension == "png":
         return export_png(plot, pathname, scale=scale, w=w, h=h, unit=unit, dpi=dpi)
     message = f"Unsupported file extension: '{extension}'. Use one of: 'svg', 'png', 'html', 'htm'."

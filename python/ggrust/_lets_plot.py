@@ -6,4 +6,4 @@ class LetsPlot:
 
     @classmethod
     def setup_html(cls, *args, **kwargs) -> None:
-        """No-op: ggrust renders inline SVG without a JavaScript library."""
+        """No-op: every ggrust HTML output embeds its own small runtime; nothing to load."""

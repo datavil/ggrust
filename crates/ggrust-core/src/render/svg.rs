@@ -542,7 +542,7 @@ fn push_decimal(output: &mut String, value: f64, decimals: u32) {
 }
 
 /// Ids keep only `[A-Za-z0-9_-]` and start with a letter, so `url(#id)` always works.
-fn sanitize_id(prefix: &str) -> String {
+pub(super) fn sanitize_id(prefix: &str) -> String {
     let cleaned: String = prefix
         .chars()
         .map(|character| {

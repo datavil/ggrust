@@ -33,3 +33,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Tiles, rasters, rotated labels follow lets-plot](letsplot_tiles_rasters_rotation.md): geom-theme defaults, raster bitmap + default coord_fixed, straight-alpha PNG, rotateLabels on any of angle/hjust/vjust.
 - [facet_wrap follows lets-plot](letsplot_facets.md): per-panel stats with plot-wide group and level order, shared stat context, grid layout rules, default faceted size.
 - [gggrid follows lets-plot](letsplot_grids.md): prepare once/lay out many, partial theme inheritance, collected legends keep figure theme, NaN-aware dedupe.
+- [HTML output: explicit ids, inlined runtime](html_renderer.md): per-display id prefix (not the content hash), runtime is a function expression without trailing `;`, `vertical-align:top` on the root.

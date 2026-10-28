@@ -274,14 +274,15 @@ class PlotSpec(FeatureSpec):
         return export_png(self, path, scale=scale, w=w, h=h, unit=unit, dpi=dpi)
 
     def to_html(self, path=None, iframe: bool | None = None) -> str | None:
-        """Render to a standalone HTML page (static SVG for now).
+        """Render to a standalone HTML page (inline SVG + the interactive runtime).
 
         Parameters
         ----------
         path : str or file-like, optional
             Where to write. When None, the HTML text is returned.
         iframe : bool, optional
-            Accepted for lets_plot compatibility; ignored.
+            Return an ``<iframe srcdoc>`` sized to the plot instead of a page, as
+            lets_plot. Default False.
 
         Returns
         -------
@@ -290,7 +291,7 @@ class PlotSpec(FeatureSpec):
         """
         from ggrust._render import export_html
 
-        return export_html(self, path)
+        return export_html(self, path, iframe)
 
 
 class LayerSpec(FeatureSpec):

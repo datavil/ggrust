@@ -10,7 +10,7 @@ mod _ggrust {
     use super::*;
     use ggrust_core::data::{Column, DataFrame};
     use ggrust_core::grid::build_figure;
-    use ggrust_core::render::{to_png, to_svg};
+    use ggrust_core::render::{HtmlDocument, HtmlOptions, to_html, to_png, to_svg};
     use ggrust_core::spec::Figure;
     use pyo3::exceptions::PyValueError;
     use pyo3::types::{PyBytes, PyDict};
@@ -96,17 +96,20 @@ mod _ggrust {
     /// `spec_json` is the plot spec whose `data` keys are frame references
     /// (`{"frame": i}`); `frames` are the Arrow tables they point to (any object
     /// exporting `__arrow_c_stream__`).
-    /// `output` is `"svg"` or `"png"`; `scale` multiplies PNG pixel size.
-    /// Returns the encoded image (UTF-8 for SVG) and the build warnings.
+    /// `output` is `"svg"`, `"png"`, `"html"` (notebook fragment), `"html_page"`
+    /// or `"html_iframe"`; `scale` multiplies PNG pixel size; `html_id` is the
+    /// root element id of HTML outputs, unique per display (required for them).
+    /// Returns the encoded output (UTF-8 for text) and the build warnings.
     /// The GIL is released while building and rendering.
     #[pyfunction]
-    #[pyo3(signature = (spec_json, frames, output, scale))]
+    #[pyo3(signature = (spec_json, frames, output, scale, html_id=None))]
     fn render<'py>(
         python: Python<'py>,
         spec_json: &str,
         frames: Vec<AnyRecordBatch>,
         output: &str,
         scale: f64,
+        html_id: Option<String>,
     ) -> PyResult<(Bound<'py, PyBytes>, Vec<String>)> {
         let frames = frames
             .into_iter()
@@ -116,16 +119,33 @@ mod _ggrust {
         let output = output.to_owned();
         let (bytes, warnings) = python
             .detach(move || -> ggrust_core::Result<(Vec<u8>, Vec<String>)> {
-                let figure = Figure::from_json(&spec_json)?;
-                let built = build_figure(&figure, &frames)?;
-                let bytes = match output.as_str() {
-                    "svg" => to_svg(&built.scene).into_bytes(),
-                    "png" => to_png(&built.scene, scale)?,
+                let document = match output.as_str() {
+                    "svg" | "png" => None,
+                    "html" => Some(HtmlDocument::Fragment),
+                    "html_page" => Some(HtmlDocument::Page),
+                    "html_iframe" => Some(HtmlDocument::Iframe),
                     other => {
                         return Err(ggrust_core::Error::Render(format!(
-                            "unknown output format '{other}'; expected 'svg' or 'png'"
+                            "unknown output format '{other}'; expected 'svg', 'png', \
+                             'html', 'html_page' or 'html_iframe'"
                         )));
                     }
+                };
+                let html = match (document, html_id) {
+                    (Some(document), Some(id)) => Some(HtmlOptions { id, document }),
+                    (Some(_), None) => {
+                        return Err(ggrust_core::Error::Render(format!(
+                            "output '{output}' needs 'html_id' (unique per display)"
+                        )));
+                    }
+                    (None, _) => None,
+                };
+                let figure = Figure::from_json(&spec_json)?;
+                let built = build_figure(&figure, &frames)?;
+                let bytes = match html {
+                    Some(options) => to_html(&built.scene, &options).into_bytes(),
+                    None if output == "png" => to_png(&built.scene, scale)?,
+                    None => to_svg(&built.scene).into_bytes(),
                 };
                 Ok((bytes, built.warnings))
             })

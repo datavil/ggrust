@@ -1,6 +1,7 @@
 """lets_plot-compatible API: as_dict() parity with real lets_plot, + semantics, exports."""
 
 import io
+import re
 import warnings
 
 import numpy as np
@@ -174,10 +175,37 @@ def test_svg_size_override_and_units():
         scatter().to_png(io.BytesIO(), dpi=300)
 
 
+def root_id(html: str) -> str:
+    return re.search(r'<div id="([^"]+)" class="ggrust-plot"', html).group(1)
+
+
 def test_html_outputs():
-    assert "<svg" in scatter()._repr_html_()
+    fragment = scatter()._repr_html_()
+    assert fragment.startswith('<div id="ggrust-') and "<svg" in fragment
+    assert "<!DOCTYPE" not in fragment
+    assert f'window.ggrust.mount("{root_id(fragment)}");' in fragment
+    assert f'("{gg.engine_version()}");' in fragment
     page = scatter().to_html()
-    assert page.startswith("<!DOCTYPE html>") and "<svg" in page
+    assert page.startswith("<!DOCTYPE html>") and "<svg" in page and "window.ggrust" in page
+    iframe = scatter().to_html(iframe=True)
+    assert iframe.startswith("<iframe ") and 'width="600" height="400"' in iframe
+    assert "&lt;!DOCTYPE html&gt;" in iframe and "<svg" not in iframe
+    grid = gg.gggrid([scatter(), scatter()])
+    assert "window.ggrust.mount" in grid._repr_html_() and grid.to_html().startswith("<!DOCTYPE")
+
+
+def test_each_html_display_gets_its_own_ids():
+    """One plot shown twice on a page must not share root or clip-path ids."""
+    plot = scatter()
+    first, second = plot._repr_html_(), plot._repr_html_()
+    assert root_id(first) != root_id(second)
+    first_ids = set(re.findall(r' id="([^"]+)"', first))
+    second_ids = set(re.findall(r' id="([^"]+)"', second))
+    assert any(id_.endswith("-clip0") for id_ in first_ids)
+    assert all(id_.startswith(root_id(first)) for id_ in first_ids)
+    assert not first_ids & second_ids
+    # SVG stays deterministic (content-hash ids).
+    assert plot.to_svg() == plot.to_svg()
 
 
 def test_unsupported_options_warn():

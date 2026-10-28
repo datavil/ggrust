@@ -76,6 +76,7 @@ def render(
     frames: list[Any],
     output: str,
     scale: float,
+    html_id: str | None = None,
 ) -> tuple[bytes, list[str]]:
     """Build and render a plot.
 
@@ -87,14 +88,18 @@ def render(
     frames
         The referenced frames, each exporting ``__arrow_c_stream__``.
     output
-        ``"svg"`` or ``"png"``.
+        ``"svg"``, ``"png"``, ``"html"`` (notebook fragment: root ``<div>`` and the
+        runtime ``<script>``), ``"html_page"`` or ``"html_iframe"``.
     scale
         PNG pixel scale.
+    html_id
+        Id of the root element of HTML outputs; prefixes every id in the SVG.
+        Must be unique on the page (one per display). Required for HTML outputs.
 
     Returns
     -------
     tuple[bytes, list[str]]
-        Encoded image (UTF-8 for SVG) and build warnings.
+        Encoded output (UTF-8 for SVG and HTML) and build warnings.
 
     Raises
     ------

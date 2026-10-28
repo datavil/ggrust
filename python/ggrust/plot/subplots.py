@@ -118,4 +118,4 @@ class SupPlotsSpec(FeatureSpec):
         """Render to standalone HTML; parameters as ``PlotSpec.to_html``."""
         from ggrust._render import export_html
 
-        return export_html(self, path)
+        return export_html(self, path, iframe)

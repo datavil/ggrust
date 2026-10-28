@@ -15,6 +15,7 @@
 mod axis;
 mod colorbar;
 mod legend;
+mod rotated;
 
 pub use axis::{AxisBreaks, LabelArrangement, Orientation, choose_breaks};
 pub use colorbar::{Colorbar, DEFAULT_BINS};
@@ -221,19 +222,12 @@ fn layout_with(
         (0.0, 0.0),
     );
     let y_label_width = theme.axis_text_y.map_or(0.0, |text| {
-        y_breaks
-            .labels
-            .iter()
-            .map(|label| {
-                measure_label(
-                    &label.text,
-                    label.superscript.as_deref(),
-                    label.suffix.as_deref(),
-                    text.size,
-                    text.font,
-                )
-            })
-            .fold(0.0, f64::max)
+        let sizes = label_sizes(&y_breaks.labels, text);
+        if rotated::rotates(text) {
+            rotated::left(&sizes, text).1
+        } else {
+            sizes.iter().map(|(width, _)| *width).fold(0.0, f64::max)
+        }
     });
     let y_axis_width = tick_band(theme.axis_ticks_y, theme)
         + theme
@@ -329,6 +323,23 @@ pub fn legend_origin(
     }
 }
 
+/// Unrotated size of each label (real font metrics; height = the line box).
+fn label_sizes(labels: &[Label], text: TextStyle) -> Vec<(f64, f64)> {
+    labels
+        .iter()
+        .map(|label| {
+            let width = measure_label(
+                &label.text,
+                label.superscript.as_deref(),
+                label.suffix.as_deref(),
+                text.size,
+                text.font,
+            );
+            (width, text_band(text))
+        })
+        .collect()
+}
+
 /// Height the x labels need in their arrangement (real font metrics).
 fn x_labels_height(breaks: &AxisBreaks, theme: &Theme) -> f64 {
     let Some(text) = theme.axis_text_x else {
@@ -361,6 +372,7 @@ fn x_labels_height(breaks: &AxisBreaks, theme: &Theme) -> f64 {
             widest() * sin + line * cos
         }
         LabelArrangement::Vertical => widest(),
+        LabelArrangement::Rotated => rotated::bottom(&label_sizes(&breaks.labels, text), text).1,
     }
 }
 
@@ -480,6 +492,12 @@ pub fn draw_axes_and_titles(
         ));
     }
     let x_label_top = bottom + tick_band(theme.axis_ticks_x, theme) + theme.axis_text_spacing;
+    let x_rotated = match (theme.axis_text_x, &layout.x_breaks.arrangement) {
+        (Some(text), LabelArrangement::Rotated) => {
+            rotated::bottom(&label_sizes(&layout.x_breaks.labels, text), text).0
+        }
+        _ => Vec::new(),
+    };
     for (index, (value, label)) in layout
         .x_breaks
         .values
@@ -496,14 +514,17 @@ pub fn draw_axes_and_titles(
             ));
         }
         if let Some(text) = theme.axis_text_x {
-            axis_x.push(x_label_node(
-                label,
-                text,
-                index,
-                x,
-                x_label_top,
-                &layout.x_breaks.arrangement,
-            ));
+            axis_x.push(match x_rotated.get(index) {
+                Some(placement) => placed_label_node(label, text, (x, x_label_top), placement),
+                None => x_label_node(
+                    label,
+                    text,
+                    index,
+                    x,
+                    x_label_top,
+                    &layout.x_breaks.arrangement,
+                ),
+            });
         }
     }
     let mut axis_y = Vec::new();
@@ -511,7 +532,19 @@ pub fn draw_axes_and_titles(
         axis_y.push(segment((panel.x, panel.y), (panel.x, bottom), line));
     }
     let y_label_right = panel.x - tick_band(theme.axis_ticks_y, theme) - theme.axis_text_spacing;
-    for (value, label) in layout.y_breaks.values.iter().zip(&layout.y_breaks.labels) {
+    let y_rotated = match theme.axis_text_y {
+        Some(text) if rotated::rotates(text) => {
+            rotated::left(&label_sizes(&layout.y_breaks.labels, text), text).0
+        }
+        _ => Vec::new(),
+    };
+    for (index, (value, label)) in layout
+        .y_breaks
+        .values
+        .iter()
+        .zip(&layout.y_breaks.labels)
+        .enumerate()
+    {
         let y = mapper.y_pixel(*value);
         if let Some(tick) = theme.axis_ticks_y {
             axis_y.push(segment(
@@ -521,13 +554,10 @@ pub fn draw_axes_and_titles(
             ));
         }
         if let Some(text) = theme.axis_text_y {
-            axis_y.push(label_node(
-                label,
-                text,
-                (y_label_right, y),
-                HorizontalAlign::End,
-                0.0,
-            ));
+            axis_y.push(match y_rotated.get(index) {
+                Some(placement) => placed_label_node(label, text, (y_label_right, y), placement),
+                None => label_node(label, text, (y_label_right, y), HorizontalAlign::End, 0.0),
+            });
         }
     }
     let mut titles_nodes = Vec::new();
@@ -606,7 +636,8 @@ fn x_label_node(
 ) -> Node {
     let line = text_band(text);
     let (anchor, horizontal, vertical, angle) = match arrangement {
-        LabelArrangement::Simple => (
+        // Rotated labels are placed by `placed_label_node`.
+        LabelArrangement::Simple | LabelArrangement::Rotated => (
             (x, top + line / 2.0),
             HorizontalAlign::Middle,
             VerticalAlign::Middle,
@@ -629,6 +660,21 @@ fn x_label_node(
     let mut node = label_node(label, text, anchor, horizontal, angle);
     if let Node::Text(text) = &mut node {
         text.vertical = vertical;
+    }
+    node
+}
+
+/// A tick label placed by the rotated layout from its reference point.
+fn placed_label_node(
+    label: &Label,
+    text: TextStyle,
+    (x, y): (f64, f64),
+    placement: &rotated::Placement,
+) -> Node {
+    let anchor = (x + placement.offset.0, y + placement.offset.1);
+    let mut node = label_node(label, text, anchor, placement.horizontal, placement.angle);
+    if let Node::Text(text) = &mut node {
+        text.vertical = placement.vertical;
     }
     node
 }

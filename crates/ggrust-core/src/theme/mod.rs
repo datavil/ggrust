@@ -6,8 +6,9 @@
 //! element resolved through lets-plot's inheritance chains (`axis_text_x` <-
 //! `axis_text` <- `text` ...). Layout and drawing read only this struct.
 //!
-//! What it does not do (yet): line types, text margins, axis label angles and facet
-//! strips; options that set them are reported as warnings.
+//! What it does not do (yet): line types, text margins, text angles and vertical
+//! justification other than on axis labels, and facet strips; options that set them
+//! are reported as warnings.
 
 mod values;
 
@@ -35,8 +36,12 @@ pub struct TextStyle {
     pub color: Color,
     /// Family, weight and slant.
     pub font: Font,
-    /// Horizontal justification 0..1 (titles); NaN: the element's default.
+    /// Horizontal justification 0..1 (titles, axis labels); NaN: the element's default.
     pub hjust: f64,
+    /// Vertical justification 0..1 (axis labels); NaN: the element's default.
+    pub vjust: f64,
+    /// Counter-clockwise angle in degrees (axis labels); NaN: unset.
+    pub angle: f64,
 }
 
 /// Style of a line element.
@@ -345,11 +350,13 @@ fn report_unbuilt(spec: &ThemeSpec, warnings: &mut Vec<String>) {
         let ThemeValue::Element(element) = value else {
             continue;
         };
+        // Axis labels read angle and vjust (layout/rotated.rs); other text does not yet.
+        let axis_text = matches!(key.as_str(), "axis_text" | "axis_text_x" | "axis_text_y");
         let unbuilt = [
             ("linetype", element.linetype.is_some()),
             ("margin", element.margin.is_some()),
-            ("vjust", element.vjust.is_some()),
-            ("angle", element.angle.is_some()),
+            ("vjust", element.vjust.is_some() && !axis_text),
+            ("angle", element.angle.is_some() && !axis_text),
             ("lineheight", element.lineheight.is_some()),
         ];
         for (property, present) in unbuilt {
@@ -418,6 +425,8 @@ impl Resolver<'_> {
             color: self.color(props.color).unwrap_or(INK),
             font: Font { family, face },
             hjust: props.hjust.unwrap_or(f64::NAN),
+            vjust: props.vjust.unwrap_or(f64::NAN),
+            angle: props.angle.unwrap_or(f64::NAN),
         })
     }
 
@@ -704,6 +713,8 @@ mod tests {
             color: INK,
             font: Font::default(),
             hjust: f64::NAN,
+            vjust: f64::NAN,
+            angle: f64::NAN,
         };
         let ink = LineStyle {
             color: INK,
@@ -814,14 +825,14 @@ mod tests {
         assert!(error.contains("theme.legend_position"), "{error}");
         let mut warnings = Vec::new();
         Theme::from_spec(
-            Some(&spec(r#"{"strip_text": {"size": 3, "blank": false}, "axis_text_x": {"angle": 45, "blank": false}}"#)),
+            Some(&spec(r#"{"strip_text": {"size": 3, "blank": false}, "axis_title_x": {"angle": 45, "blank": false}}"#)),
             &mut warnings,
         )
         .unwrap();
         assert_eq!(
             warnings,
             [
-                "at 'theme.axis_text_x.angle': not supported yet; ignored",
+                "at 'theme.axis_title_x.angle': not supported yet; ignored",
                 "at 'theme.strip_text': not supported yet; ignored"
             ]
         );

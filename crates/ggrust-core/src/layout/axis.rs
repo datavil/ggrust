@@ -5,6 +5,7 @@
 //! Break *counts* are decided with lets-plot's text width estimator so ggrust picks
 //! the same breaks as lets-plot; labels are then drawn with real font metrics.
 
+use super::rotated::{self, rotated_size};
 use crate::scale::PositionScale;
 use crate::scale::format::Label;
 use crate::scene::SUPERSCRIPT_SCALE;
@@ -41,6 +42,8 @@ pub enum LabelArrangement {
     Tilted,
     /// Rotated by 90 degrees, ending at the tick.
     Vertical,
+    /// The theme's angle, hjust and vjust ([`super::rotated`]).
+    Rotated,
 }
 
 /// Breaks of one axis with their labels.
@@ -90,11 +93,26 @@ pub fn choose_breaks(
 ) -> AxisBreaks {
     let size = text.map_or(DEFAULT_LABEL_SIZE, |text| text.size);
     let face = text.map(|text| text.font.face).unwrap_or_default();
+    // lets-plot `rotateLabels`: labels with a theme angle/hjust/vjust count and
+    // overlap by their rotated boxes (estimated width x font size).
+    let rotation = text
+        .filter(|text| rotated::rotates(*text))
+        .map(rotated::angle);
+    let extent = |width: f64| match (rotation, orientation) {
+        (None, Orientation::Horizontal) => width,
+        (None, Orientation::Vertical) => size,
+        (Some(angle), Orientation::Horizontal) => rotated_size((width, size), angle).0,
+        (Some(angle), Orientation::Vertical) => rotated_size((width, size), angle).1,
+    };
     if scale.has_fixed_breaks() {
         // lets-plot fixed breaks: every category (or given break) is a break.
         let breaks = scale.breaks(0);
         let mut breaks = AxisBreaks::new(breaks.positions, breaks.labels);
         if orientation == Orientation::Horizontal && text.is_some() {
+            if rotation.is_some() {
+                breaks.arrangement = LabelArrangement::Rotated;
+                return breaks;
+            }
             let ticks: Vec<f64> = breaks
                 .values
                 .iter()
@@ -111,31 +129,33 @@ pub fn choose_breaks(
         return breaks;
     }
     let breaks_for = |count: usize| {
-        let breaks = scale.breaks(count);
-        AxisBreaks::new(breaks.positions, breaks.labels)
+        let scale_breaks = scale.breaks(count);
+        let mut breaks = AxisBreaks::new(scale_breaks.positions, scale_breaks.labels);
+        if rotation.is_some() && orientation == Orientation::Horizontal {
+            breaks.arrangement = LabelArrangement::Rotated;
+        }
+        breaks
     };
     let count_for = |label_extent: f64| {
         ((axis_length / (label_extent + LABEL_DISTANCE_FOR_COUNT)).floor() as usize).max(1)
     };
-    match orientation {
-        // lets-plot: a label line box is font-size tall; no overlap re-check.
-        Orientation::Vertical => flex_breaks(&breaks_for, count_for(size)),
-        Orientation::Horizontal => {
-            let width = |label: &Label| estimated_label_width(label, size, face);
-            let mut target = count_for(estimated_width(INITIAL_TICK_LABEL, size, face));
-            let mut breaks = flex_breaks(&breaks_for, target);
-            while text.is_some() && overlaps(&breaks, scale, axis_length, &width) {
-                let widest = breaks.labels.iter().map(&width).fold(0.0, f64::max);
-                let next = count_for(widest);
-                if next >= target {
-                    break;
-                }
-                target = next;
-                breaks = flex_breaks(&breaks_for, target);
-            }
-            breaks
-        }
+    // lets-plot: an unrotated y label is font-size tall and never re-checked.
+    if orientation == Orientation::Vertical && rotation.is_none() {
+        return flex_breaks(&breaks_for, count_for(size));
     }
+    let label_extent = |label: &Label| extent(estimated_label_width(label, size, face));
+    let mut target = count_for(extent(estimated_width(INITIAL_TICK_LABEL, size, face)));
+    let mut breaks = flex_breaks(&breaks_for, target);
+    while text.is_some() && overlaps(&breaks, scale, axis_length, &label_extent) {
+        let widest = breaks.labels.iter().map(&label_extent).fold(0.0, f64::max);
+        let next = count_for(widest);
+        if next >= target {
+            break;
+        }
+        target = next;
+        breaks = flex_breaks(&breaks_for, target);
+    }
+    breaks
 }
 
 /// lets-plot `HorizontalFixedBreaksLabelsLayout`: the first of simple, two rows,

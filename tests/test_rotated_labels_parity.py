@@ -1,6 +1,7 @@
 """Axis labels with a theme angle/hjust/vjust must match lets-plot: same breaks,
 rotation, text anchors, and a panel within 10 px (the label band is measured
-with real font metrics in ggrust, estimated in lets-plot).
+with real font metrics in ggrust, estimated in lets-plot). Also: which axes get
+tick marks under the default theme's precedence.
 """
 
 import re
@@ -104,3 +105,42 @@ def test_rotated_labels_match_lets_plot(name):
     # up to ~8 px shorter, 90 degree y labels sit ~6 px further from the title.
     assert actual_width == pytest.approx(width, abs=10)
     assert actual_height == pytest.approx(height, abs=10)
+
+
+def _tick_counts(svg: str, ours: bool) -> tuple[int, int]:
+    """(x, y) tick marks drawn: 4 px lines below the panel / left of it."""
+    if ours:
+        counts = []
+        for axis in ("axis-x", "axis-y"):
+            group = svg[svg.index(f'<g class="{axis}"') :]
+            group = group[: group.index("</g>")]
+            ticks = 0
+            for x0, y0, x1, y1 in re.findall(
+                r'<path d="M([\d.]+) ([\d.]+)L([\d.]+) ([\d.]+)"', group
+            ):
+                length = abs(float(x1) - float(x0)) + abs(float(y1) - float(y0))
+                ticks += abs(length - 4.0) < 1e-6  # not the axis line
+            counts.append(ticks)
+        return counts[0], counts[1]
+    return (
+        len(re.findall(r'<line[^>]*y2="4\.0"', svg)),
+        len(re.findall(r'<line[^>]*x1="-4\.0"|<line [^>]*x2="-4', svg)),
+    )
+
+
+@pytest.mark.parametrize(
+    "theme",
+    [
+        lambda m: m.theme(),
+        # minimal2 sets axis_ticks_y blank itself, so the general element does not
+        # bring y ticks back (lets-plot ThemeValuesLPMinimal2); axis_ticks_y does.
+        lambda m: m.theme(axis_ticks=m.element_line()),
+        lambda m: m.theme(axis_ticks_y=m.element_line()),
+    ],
+)
+def test_axis_ticks_follow_lets_plot_theme_precedence(theme):
+    data = {"x": [1.0, 2, 3], "y": [1.0, 2, 3]}
+    expected, actual = (
+        (m.ggplot(data, m.aes("x", "y")) + m.geom_point() + theme(m)).to_svg() for m in (lp, gg)
+    )
+    assert _tick_counts(actual, True) == _tick_counts(expected, False)

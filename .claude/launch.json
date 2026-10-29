@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "visual-output",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": ["run", "python", "-m", "http.server", "8765", "--bind", "127.0.0.1", "--directory", "tests/visual/output"],
+      "port": 8765
+    }
+  ]
+}

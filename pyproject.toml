@@ -16,7 +16,11 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Visualization",
 ]
 dynamic = ["version"]
-dependencies = ["polars>=1.30"]
+dependencies = [
+    "framex>=1.0.3",
+    "ipykernel>=7.4.0",
+    "polars>=1.30",
+]
 
 [project.urls]
 Repository = "https://github.com/datavil/ggrust"

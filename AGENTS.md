@@ -61,7 +61,7 @@ lets-plot's sparse type hints, docstrings and error messages are not the bar (se
    a file in `memory/` and add it to the index in [memory/README.md](memory/README.md).
 8. **Never cheat benchmarks.** Same data, same work, same output size on both sides.
    Note lets-plot's silent default sampling (see memory index). Report honestly.
-9. **Commit each significant step on `main`.** Run `cargo fmt --all` (and `ruff format`,
+9. **Commit each significant step on `main`, then push.** Run `cargo fmt --all` (and `ruff format`,
    `ruff check --fix` for Python) before every commit. Tests must pass at each commit.
 10. Mindset of an industry lead: elegant yet robust. Robustness over flexibility.
 11. **Share progress visually.** At each visual milestone, send the user a rendered PNG
@@ -188,7 +188,7 @@ Tokens are a budget. Spend them on design and verification, not on re-reading or
    follow "Parity with lets-plot" above (note, check ggplot2, ask).
 5. Spin bug-hunting sub agents. Fix confirmed bugs surgically.
 6. Benchmark if the step touches a hot path.
-7. `cargo fmt --all`, `ruff format`, run all tests, commit on `main`, tick the box in `plan.md`.
+7. `cargo fmt --all`, `ruff format`, run all tests, commit on `main`, push, tick the box in `plan.md`.
 
 ## Commands
 

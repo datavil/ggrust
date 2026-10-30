@@ -8,6 +8,8 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Lessons: [memory/](memory/README.md
 | Topic | Decision |
 |---|---|
 | Python API | lets_plot-compatible subset. cellestial port = import swap |
+| Parity | Visual and logical parity with lets-plot by default. Apparent lets-plot bugs (legend/geom overflow etc.) are noted, checked against ggplot2, and asked about when unclear; deviations recorded here (decided 2026-10-30) |
+| Code quality | Not lets-plot's bar: comprehensive type hints (`ty`), NumPy docstrings, first-class solution-oriented errors. May be finished in step 7.0 after features (decided 2026-10-30) |
 | Interactivity | Rust renders everything; tiny embedded vanilla-JS runtime for tooltips + zoom/pan; canvas for dense point layers |
 | Build | maturin (PyO3 wheel) + uv |
 | Repo | `datavil/ggrust`, import name `ggrust` |
@@ -165,6 +167,7 @@ Steps inside a phase are ordered; each builds on the previous.
 
 ### Phase 7: Release
 
+- [ ] 7.0 Code quality pass (after the features are complete; see AGENTS.md "Errors are first-class"). Comprehensive type hints on all Python code, `ty check` clean and added to `make lint`; NumPy docstrings on every public function/class (cellestial style); errors audited end to end: typed Rust `thiserror` variants, specific Python exception classes, every message says what, where, what is accepted and how to fix it (close-match suggestions for typos). Tests assert error types and messages.
 - [ ] 7.1 Docs (API reference from docstrings, migration note for cellestial), CI, wheels for linux/macos/windows.
 - [ ] 7.2 cellestial switches dependency `lets-plot` -> `ggrust` (with user approval).
 
@@ -180,5 +183,4 @@ Steps inside a phase are ordered; each builds on the previous.
 
 ## Open questions (ask when the step comes up)
 
-- Exact visual parity with lets-plot vs "close and clean"? (Phase 0.8)
 - Is `GGBunch` still needed or can cellestial drop it? (Phase 5.3)

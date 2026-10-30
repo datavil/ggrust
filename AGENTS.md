@@ -25,6 +25,23 @@ used from Python**.
 - Performance target: match and exceed lets-plot on equal work. Memory usage matters too.
 - The library is maintained by agents. Optimise for agent-friendliness (see below).
 
+## Parity with lets-plot (and when not to copy it)
+
+The default is **parity with lets-plot, visually and logically**: same defaults, same
+layout, same stat results, same spec semantics. But lets-plot has bugs and unintended
+behavior (for example legends or geoms overflowing the plot area, clipped labels).
+Do not copy those blindly. When something in the lets-plot output looks wrong:
+
+1. **Note it first.** Write down what looks wrong and how to reproduce it (in your
+   step notes, and as a `memory/` entry if it is a lasting decision).
+2. **Check ggplot2.** See how ggplot2 (the reference grammar) behaves for the same
+   spec. If ggplot2 clearly does the right thing, that is the candidate behavior.
+3. **Still unsure? Ask the user.** Do not decide a deviation on your own when it is
+   not obvious. Recorded deviations go in the `plan.md` decisions table.
+
+Parity covers rendering and semantics only. It does **not** cover code quality:
+lets-plot's sparse type hints, docstrings and error messages are not the bar (see below).
+
 ## Golden rules
 
 1. **Test everything before handing over. Not just smoke tests.** You have computer
@@ -58,9 +75,36 @@ used from Python**.
   (`aes`, `geom_point`, `ggsize`), because compatibility is the point.
 - Rust: `cargo fmt`, `cargo clippy -- -D warnings`. Errors via `thiserror`, no `unwrap()`
   on user-controlled input. Functions return one type (use `Result`/enums, not shape-shifting).
-- Python: ruff formatting and import sorting, NumPy docstrings, type hints, polars over pandas.
-  Functions return a single type.
+- Python: ruff formatting and import sorting, polars over pandas. Functions return a
+  single type.
+- Python type hints are **comprehensive**: every public and private function, parameter
+  and return value, using precise types (`Literal[...]`, `X | None`, typed containers),
+  not `Any` unless truly unavoidable. Do not match lets-plot's sparse hints.
+  Checked with `ty` (`uv run ty check python/`) and `ruff`.
+- Python docstrings are **NumPy style** on every public function and class: summary,
+  `Parameters` (with `type, default=...`), `Returns`, `Raises`, and `Examples` where
+  useful. Follow cellestial (`../cellestial/cellestial/layers/stream.py` is a good model).
 - No em dashes in code, docs, or comments.
+
+## Errors are first-class
+
+Errors are part of the API, Rust style: typed, informative and solution-oriented.
+
+- Every error says **what** was wrong, **where** (which parameter, layer, column or
+  spec path), **what was accepted**, and **how to fix it** (a suggestion, a close
+  match for typos: `unknown geom 'piont'; did you mean 'point'?`).
+- Rust: one `thiserror` enum per module boundary, variants with structured fields,
+  no stringly-typed catch-alls. Never panic or `unwrap()` on user input.
+- Python: specific exception classes (subclassing the matching builtin, e.g.
+  `ValueError`, `TypeError`), each with a docstring, as in
+  `../cellestial/cellestial/util/errors.py`. Rust errors map to these at the PyO3 boundary.
+  Fail early, at spec-building time, when the problem is detectable in Python.
+- Tests assert on the error type and the key parts of the message.
+
+**Order of work:** implement and verify the feature first. Type hints, docstrings and
+error polish may follow after the implementation is complete (see the polish step in
+`plan.md`), but new code must not make that pass larger: write hints and clear errors
+as you go where it is cheap.
 
 ## Architecture (keep it this way)
 
@@ -113,6 +157,26 @@ editing many unrelated files, the foundation is wrong: stop and tell the user.
   `tests/visual/golden/`). Update them only on purpose (`GGRUST_BLESS=1`), and say so in
   the commit message. Rendered outputs for inspection go to `tests/visual/output/` (ignored).
 
+## Cost discipline
+
+Tokens are a budget. Spend them on design and verification, not on re-reading or noise.
+
+- **End the session at the end of a step.** After committing a step and ticking
+  plan.md, stop. Do not start the next step in the same session. Tell the user the
+  step is done and the next one should start in a fresh session.
+- **Read narrowly.** Search before reading. Read the line range you need, not whole
+  files. Do not re-read a file you just edited.
+- **Test narrowly while iterating.** Run targeted tests (`cargo test -q <name>`,
+  `pytest -q -k <name>`) while working. Run the full `make check` once, before each commit.
+- **Keep output short.** Pipe long command output through `tail` or `grep`. Never dump
+  full SVG, HTML or JSON into the context. Inspect slices.
+- **Cheap sub agents for cheap work.** Searches and mechanical checks go to sub agents
+  on a cheaper model (Sonnet or Haiku). Do not spawn a sub agent for something a few
+  tool calls settle.
+- **No open-ended loops.** Before a performance or polish step, ask the user for a stop
+  condition (a target number or a time box). If a fix fails twice the same way, stop
+  and ask instead of trying a third variant.
+
 ## Workflow per step
 
 1. Read `plan.md`, pick the next unchecked step. Read relevant `memory/` entries.
@@ -120,7 +184,8 @@ editing many unrelated files, the foundation is wrong: stop and tell the user.
    `plot-stem`; Python API in `python-package/lets_plot`). If lets-plot lacks it, check
    other ggplot implementations (ggplot2, plotnine) for the solution.
 3. Implement minimally. Write unit tests (Rust) and integration tests (Python).
-4. Render and look at the output. Compare with lets-plot.
+4. Render and look at the output. Compare with lets-plot. If lets-plot looks wrong,
+   follow "Parity with lets-plot" above (note, check ggplot2, ask).
 5. Spin bug-hunting sub agents. Fix confirmed bugs surgically.
 6. Benchmark if the step touches a hot path.
 7. `cargo fmt --all`, `ruff format`, run all tests, commit on `main`, tick the box in `plan.md`.
@@ -133,6 +198,7 @@ make develop             # force rebuild + reinstall of the extension
 make format              # cargo fmt + ruff format + ruff check --fix
 make check               # lint + cargo test + pytest (run before every commit)
 uv run pytest            # Python tests only (rebuilds the extension if Rust changed)
+uv run ty check python/  # Python type check
 ```
 ```
 

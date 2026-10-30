@@ -62,3 +62,29 @@ Side-by-side figure: `python benchmarks/compare_images.py <images dir>`.
 | size_alpha | 100,000 | png | 0.9072 | 11.6295 | 13x | 71 | 1314 | 18.6x |
 | titled_themed | 100,000 | svg | 0.0373 | 1.1731 | 31x | 53 | 474 | 8.9x |
 | titled_themed | 100,000 | png | 0.3049 | 5.2960 | 17x | 67 | 1423 | 21.1x |
+
+## cellestial docstring examples: 2026-10-29, macOS arm64 (Apple M4 Pro), Python 3.14, lets-plot 4.11
+
+`benchmarks/cellestial_examples.py`: nine plots copied from cellestial's docstring `Examples`,
+on its pbmc3k dataset (17,041 cells, under every lets-plot sampling limit, so both draw every row).
+The same cellestial code runs in two environments: the `ggrust-port` worktree (imports swapped,
+see `memory/cellestial_port_check.md`) and the poetry env on real lets_plot, same package versions.
+Fresh process per case, warm = median of 5 after a cold call. `build` is the cellestial call
+(its own frame building, identical on both sides). svg / png time the render of a built plot
+(PNG at scale 2). Render MB = peak memory of both renders above the build peak.
+
+| case | build (s) | svg ggrust (s) | svg lets-plot (s) | svg speed-up | png ggrust (s) | png lets-plot (s) | png speed-up | render MB ggrust | render MB lets-plot |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| dimensional_categorical | 0.0021 | 0.0054 | 0.2053 | 38x | 0.0560 | error | | 30 | 96 (svg only) |
+| dimensional_continuous | 0.0202 | 0.0067 | 0.1827 | 27x | 0.0502 | 0.9131 | 18x | 19 | 413 |
+| dimensionals_grid | 0.0238 | 0.0244 | 0.9940 | 41x | 0.1819 | 3.8562 | 21x | 75 | 1419 |
+| scatter | 0.0020 | 0.0032 | 0.4119 | 129x | 0.1005 | 1.5648 | 16x | 31 | 445 |
+| violin | 0.0198 | 0.0035 | 0.0619 | 18x | 0.0273 | 0.6513 | 24x | 18 | 254 |
+| dotplot | 0.0237 | 0.0006 | 0.0035 | 6x | 0.0089 | 0.3034 | 34x | 23 | 196 |
+| stacked_violin | 0.0386 | 0.0014 | 0.0230 | 17x | 0.0121 | 0.3471 | 29x | 35 | 211 |
+| heatmap | 0.0345 | 0.0030 | 0.0586 | 20x | 0.0115 | 0.3500 | 30x | 24 | 222 |
+| volcano | 0.0028 | error | 4.9661 | | error | 11.4221 | | error | 204 |
+
+Errors: lets-plot cannot export the on-data legend to PNG ("Unsupported color value: none");
+ggrust has no `geom_text_repel` yet (plan step 5.1), which volcano needs. lets-plot SVGs are
+2-4x larger for the point-heavy cases (1.2 MB vs 2.9 MB for one UMAP).

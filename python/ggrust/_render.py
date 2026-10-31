@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from ggrust._data import as_arrow
 from ggrust._ggrust import referenced_columns, render, tooltip_columns
+from ggrust.errors import DataError, ExportError, UnsupportedValueError, did_you_mean
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
@@ -195,7 +196,7 @@ def _export(data: object, columns: set[str], path: str) -> ArrowStreamExportable
         raise
     except Exception as error:
         message = f"at '{path}': could not read the data columns {sorted(columns)}: {error}"
-        raise ValueError(message) from error
+        raise DataError(message) from error
 
 
 def _select(data: object, columns: set[str]) -> object:
@@ -255,13 +256,13 @@ def to_json(spec: dict[str, Any]) -> str:
     TypeError
         If a value cannot be sent to the engine; the message names its spec path.
     """
-    return json.dumps(_plain(spec, "spec", 0), allow_nan=False)
+    return json.dumps(_plain(spec, "", 0), allow_nan=False)
 
 
 def _plain(value: object, path: str, depth: int) -> object:
     if depth > MAX_DEPTH:
-        message = f"at '{path}': value is nested more than {MAX_DEPTH} levels deep"
-        raise TypeError(message)
+        reason = f"value is nested more than {MAX_DEPTH} levels deep"
+        raise UnsupportedValueError(f"at '{path}': {reason}", path=path, reason=reason)
     if value is None or isinstance(value, bool | int | str):
         return value
     if isinstance(value, float):
@@ -271,9 +272,9 @@ def _plain(value: object, path: str, depth: int) -> object:
         for key, item in value.items():
             name = str(key)
             if name in plain:
-                message = f"at '{path}': keys {key!r} and {name!r} collide as JSON keys"
-                raise TypeError(message)
-            plain[name] = _plain(item, f"{path}.{key}", depth + 1)
+                reason = f"keys {key!r} and {name!r} collide as JSON keys; rename one"
+                raise UnsupportedValueError(f"at '{path}': {reason}", path=path, reason=reason)
+            plain[name] = _plain(item, f"{path}.{key}" if path else name, depth + 1)
         return plain
     if isinstance(value, list | tuple):
         return [_plain(item, f"{path}[{index}]", depth + 1) for index, item in enumerate(value)]
@@ -289,8 +290,11 @@ def _plain(value: object, path: str, depth: int) -> object:
             return float(value.astype("timedelta64[us]").astype("int64")) / 1000.0
         if isinstance(value, numpy.generic):
             return _plain(value.item(), path, depth + 1)
-    message = f"at '{path}': cannot send a value of type {type(value).__name__} to the engine"
-    raise TypeError(message)
+    reason = (
+        f"cannot send a value of type {type(value).__name__} to the engine; use numbers, "
+        "texts, booleans, lists, dicts or dates"
+    )
+    raise UnsupportedValueError(f"at '{path}': {reason}", path=path, reason=reason)
 
 
 def _epoch_milliseconds(value: datetime.date | datetime.timedelta) -> float:
@@ -310,8 +314,12 @@ def _unit(unit: str | None) -> str | None:
         return None
     normalized = str(unit).strip().lower()
     if normalized not in (*INCHES_PER_UNIT, "px"):
-        message = f"Unsupported unit: {unit!r}. Use one of: 'in', 'cm', 'mm', 'px'."
-        raise ValueError(message)
+        units = ["in", "cm", "mm", "px"]
+        message = (
+            f"unsupported unit {unit!r}; use one of 'in', 'cm', 'mm', 'px'"
+            f"{did_you_mean(normalized, units)}"
+        )
+        raise ExportError(message)
     return normalized
 
 
@@ -322,19 +330,19 @@ def _given_size(
     if w is None and h is None:
         return None
     if w is None or h is None:
-        message = "give both 'w' and 'h', or neither"
-        raise ValueError(message)
+        message = f"give both 'w' and 'h', or neither; got w={w}, h={h}"
+        raise ExportError(message)
     w, h = float(w), float(h)
     if not (math.isfinite(w) and math.isfinite(h) and w > 0 and h > 0):
         message = f"'w' and 'h' must be positive numbers, got w={w}, h={h}"
-        raise ValueError(message)
+        raise ExportError(message)
     if unit is None:
         if max(w, h) >= MAX_UNITLESS_SIZE:
             message = (
                 "The image size was interpreted as inches, but it seems unusually large. "
                 "Please specify the size unit explicitly (px, cm, mm, in)."
             )
-            raise ValueError(message)
+            raise ExportError(message)
         unit = "in"
     return w, h, unit
 
@@ -359,10 +367,10 @@ def _raster_options(
     unit = _unit(unit)
     if dpi is not None and not (math.isfinite(float(dpi)) and float(dpi) > 0):
         message = f"'dpi' must be a positive number, got {dpi}"
-        raise ValueError(message)
+        raise ExportError(message)
     if scale is not None and not (math.isfinite(float(scale)) and float(scale) > 0):
         message = f"'scale' must be a positive number, got {scale}"
-        raise ValueError(message)
+        raise ExportError(message)
     given = _given_size(w, h, unit)
     if given is not None:
         w, h, unit = given

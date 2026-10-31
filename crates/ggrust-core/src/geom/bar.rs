@@ -274,7 +274,7 @@ pub(super) fn draw_rectangles(
     ]
     .map(|aesthetic| layer.data.continuous(aesthetic));
     let [Some(xmin), Some(xmax), Some(ymin), Some(ymax)] = columns else {
-        return Err(Error::InvalidData(
+        return Err(Error::data(
             "rectangles were not set up (missing xmin, xmax, ymin or ymax)".to_owned(),
         ));
     };

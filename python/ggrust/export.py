@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import os
 
+from ggrust.errors import ExportError, did_you_mean
 from ggrust.plot.core import PlotSpec
 from ggrust.plot.subplots import SupPlotsSpec
 
@@ -18,9 +19,9 @@ _DEFAULT_EXPORT_DIRECTORY = "lets-plot-images"  # lets_plot's default, kept for 
 
 def ggsave(
     plot: PlotSpec | SupPlotsSpec,
-    filename: str,
+    filename: str | os.PathLike[str],
     *,
-    path: str | None = None,
+    path: str | os.PathLike[str] | None = None,
     iframe: bool = True,
     scale: float | None = None,
     w: float | None = None,
@@ -57,16 +58,22 @@ def ggsave(
     from ggrust._render import export_html, export_pdf, export_png, export_svg
 
     if not isinstance(plot, PlotSpec | SupPlotsSpec):
-        message = f"PlotSpec or SupPlotsSpec expected but was: {type(plot)}"
-        raise ValueError(message)
-    filename = filename.strip()
+        message = (
+            f"ggsave(): 'plot' must be a PlotSpec or SupPlotsSpec (from ggplot() or gggrid()), "
+            f"got {type(plot).__name__}"
+        )
+        raise ExportError(message)
+    filename = os.fspath(filename).strip()
     name, extension = os.path.splitext(filename)
     if not name:
-        message = f"Malformed filename: '{filename}'."
-        raise ValueError(message)
+        message = f"ggsave(): filename {filename!r} has no name; pass e.g. 'plot.png'"
+        raise ExportError(message)
     if not extension:
-        message = f"Missing file extension: '{filename}'."
-        raise ValueError(message)
+        message = (
+            f"ggsave(): filename {filename!r} has no extension; add one of "
+            "'.svg', '.png', '.pdf', '.html' (e.g. 'plot.png')"
+        )
+        raise ExportError(message)
     pathname = os.path.join(path or os.path.join(os.getcwd(), _DEFAULT_EXPORT_DIRECTORY), filename)
     extension = extension[1:].lower()
     if extension == "svg":
@@ -78,9 +85,10 @@ def ggsave(
     elif extension == "pdf":
         export_pdf(plot, pathname, scale=scale, w=w, h=h, unit=unit, dpi=dpi)
     else:
+        extensions = ["svg", "png", "pdf", "html", "htm"]
         message = (
-            f"Unsupported file extension: '{extension}'. "
-            "Use one of: 'svg', 'png', 'pdf', 'html', 'htm'."
+            f"ggsave(): unsupported file extension {extension!r}; use one of 'svg', 'png', "
+            f"'pdf', 'html', 'htm'{did_you_mean(extension, extensions)}"
         )
-        raise ValueError(message)
+        raise ExportError(message)
     return os.path.abspath(pathname)

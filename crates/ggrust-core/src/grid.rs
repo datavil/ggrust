@@ -119,10 +119,11 @@ impl Guides {
             None | Some("auto") => Ok(Guides::Auto),
             Some("collect") => Ok(Guides::Collect),
             Some("keep") => Ok(Guides::Keep),
-            Some(other) => Err(Error::InvalidSpec(nest(
-                path,
-                &format!("at 'layout.guides': expected 'auto', 'collect' or 'keep', got '{other}'"),
-            ))),
+            Some(other) => Err(Error::spec(
+                "layout.guides",
+                format!("expected 'auto', 'collect' or 'keep', got '{other}'"),
+            )
+            .nested(path)),
         }
     }
 }
@@ -216,28 +217,27 @@ impl<'s> PreparedGrid<'s> {
         let layout = &spec.layout;
         let (columns, rows) = (layout.ncol as usize, layout.nrow as usize);
         if columns == 0 || rows == 0 || spec.figures.len() != columns * rows {
-            return Err(Error::InvalidSpec(nest(
-                path,
-                &format!(
-                    "at 'layout': {} figures do not fill a grid of {} columns and {} rows",
+            return Err(Error::spec(
+                "layout",
+                format!(
+                    "{} figures do not fill a grid of {} columns and {} rows",
                     spec.figures.len(),
                     layout.ncol,
                     layout.nrow
                 ),
-            )));
+            )
+            .nested(path));
         }
         for (key, sizes) in [("widths", &layout.widths), ("heights", &layout.heights)] {
             let Some(sizes) = sizes else { continue };
             let valid = sizes.iter().all(|size| size.is_finite() && *size >= 0.0)
                 && sizes.iter().sum::<f64>() > 0.0;
             if !valid {
-                return Err(Error::InvalidSpec(nest(
-                    path,
-                    &format!(
-                        "at 'layout.{key}': expected relative sizes >= 0 with a positive sum, \
-                         got {sizes:?}"
-                    ),
-                )));
+                return Err(Error::spec(
+                    format!("layout.{key}"),
+                    format!("expected relative sizes >= 0 with a positive sum, got {sizes:?}"),
+                )
+                .nested(path));
             }
         }
         report_grid_unsupported(spec, path, warnings);
@@ -254,13 +254,14 @@ impl<'s> PreparedGrid<'s> {
         let size = match &spec.ggsize {
             Some(size) if size.width > 0.0 && size.height > 0.0 => (size.width, size.height),
             Some(size) => {
-                return Err(Error::InvalidSpec(nest(
-                    path,
-                    &format!(
-                        "at 'ggsize': width and height must be positive, got {} x {}",
+                return Err(Error::spec(
+                    "ggsize",
+                    format!(
+                        "width and height must be positive, got {} x {}",
                         size.width, size.height
                     ),
-                )));
+                )
+                .nested(path));
             }
             // lets-plot `CompositeFigureGridLayoutBase.defaultSize`.
             None => (
@@ -817,11 +818,7 @@ fn nest(path: &str, message: &str) -> String {
 
 /// [`nest`] for errors: specification errors take the path, others a note.
 fn nest_error(error: Error, path: &str) -> Error {
-    match error {
-        Error::InvalidSpec(message) => Error::InvalidSpec(nest(path, &message)),
-        other if path.trim_end_matches('.').is_empty() => other,
-        other => other.with_notes(&[format!("in '{}'", path.trim_end_matches('.'))]),
-    }
+    error.nested(path)
 }
 
 #[cfg(test)]

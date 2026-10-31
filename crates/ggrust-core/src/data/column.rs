@@ -100,7 +100,7 @@ impl Column {
         if parts.len() == 1 {
             return Ok(parts.remove(0));
         }
-        let mismatch = || Error::InvalidData(format!("column '{name}': chunks differ in kind"));
+        let mismatch = || Error::data(format!("column '{name}': chunks differ in kind"));
         match parts.first() {
             Some(Column::Continuous(_)) => {
                 let arrays = parts
@@ -111,7 +111,7 @@ impl Column {
                     })
                     .collect::<Result<Vec<_>>>()?;
                 let values = arrow_select::concat::concat(&arrays)
-                    .map_err(|error| Error::InvalidData(error.to_string()))?;
+                    .map_err(|error| Error::data(error.to_string()))?;
                 Ok(Column::Continuous(ContinuousColumn {
                     values: values.as_primitive().clone(),
                 }))
@@ -126,7 +126,7 @@ impl Column {
                     .collect::<Result<Vec<_>>>()?;
                 Ok(Column::Discrete(DiscreteColumn::merge(&columns)))
             }
-            None => Err(Error::InvalidData(format!("column '{name}' has no chunks"))),
+            None => Err(Error::data(format!("column '{name}' has no chunks"))),
         }
     }
 }
@@ -343,7 +343,7 @@ impl DiscreteColumn {
         let mut used = vec![false; values.len()];
         for key in keys.iter().flatten() {
             let slot = used.get_mut(key as usize).ok_or_else(|| {
-                Error::InvalidData(format!(
+                Error::data(format!(
                     "column '{name}': dictionary key {key} out of range for {} values",
                     values.len()
                 ))
@@ -386,7 +386,7 @@ fn is_label_type(data_type: &DataType) -> bool {
 fn dictionary_keys(name: &str, keys: &dyn Array) -> Result<UInt32Array> {
     let converted = cast(name, keys, &DataType::UInt32)?;
     if converted.null_count() != keys.null_count() {
-        return Err(Error::InvalidData(format!(
+        return Err(Error::data(format!(
             "column '{name}': dictionary keys must be non-negative and fit in u32"
         )));
     }
@@ -418,6 +418,7 @@ fn unsupported(name: &str, data_type: &DataType) -> Error {
     Error::UnsupportedColumnType {
         name: name.to_owned(),
         data_type: data_type.to_string(),
+        path: String::new(),
         notes: String::new(),
     }
 }

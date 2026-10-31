@@ -14,6 +14,7 @@ warnings.filterwarnings("ignore", category=SyntaxWarning)  # lets_plot's own doc
 
 import ggrust as gg  # noqa: E402
 import lets_plot as lp  # noqa: E402
+from ggrust.errors import ExportError  # noqa: E402
 from ggrust.plot.core import FeatureSpec, FeatureSpecArray, LayerSpec, PlotSpec  # noqa: E402
 
 FRAME = pl.DataFrame({"x": [1.0, 2.0, 3.0], "y": [3.0, 1.0, 2.0], "c": ["a", "b", "a"]})
@@ -175,7 +176,7 @@ def test_svg_size_override_and_units():
     assert 'width="3.0in" height="2.0in"' in scatter().to_svg(w=3, h=2)
     with pytest.raises(ValueError, match="unusually large"):
         scatter().to_svg(w=300, h=200)
-    with pytest.raises(ValueError, match="Unsupported unit: 'ft'"):
+    with pytest.raises(ExportError, match="unsupported unit 'ft'; use one of 'in'"):
         scatter().to_png(io.BytesIO(), w=3, h=2, unit="ft")
     with pytest.raises(ValueError, match="give both 'w' and 'h'"):
         scatter().to_svg(w=3)
@@ -234,7 +235,7 @@ def test_numpy_values_and_nan_options_are_sent_safely():
     )
     svg = plot.to_svg()
     assert 'r="4.4"' in svg  # size 4 x 2.2 / 2
-    with pytest.raises(TypeError, match=r"at 'spec.layers\[0\].color'"):
+    with pytest.raises(TypeError, match=r"at 'layers\[0\].color'"):
         (gg.ggplot(FRAME, gg.aes("x", "y")) + gg.geom_point(color=object())).to_svg()
 
 

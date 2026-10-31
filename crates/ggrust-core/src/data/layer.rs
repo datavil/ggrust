@@ -262,7 +262,7 @@ impl LayerData {
         if length == self.row_count {
             return Ok(());
         }
-        Err(Error::InvalidData(format!(
+        Err(Error::data(format!(
             "{what} has {length} rows, expected {}",
             self.row_count
         )))

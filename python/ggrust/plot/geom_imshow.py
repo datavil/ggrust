@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, Literal
 
+from ggrust.errors import SpecError
 from ggrust.plot.core import FeatureSpec, LayerSpec, aes
 from ggrust.plot.geom import _geom
 from ggrust.plot.scale import _scale
@@ -57,7 +58,7 @@ def _parse_rgb_rgba_color(color: str, alpha: float | None = None) -> numpy.ndarr
         channels.append(int(color_alpha * alpha / 255 + 0.5) if alpha is not None else color_alpha)
     else:
         message = f"Invalid rgb/rgba format: {color}"
-        raise ValueError(message)
+        raise SpecError(message)
     return numpy.array(channels, dtype=numpy.uint8)
 
 
@@ -69,7 +70,7 @@ def _parse_color(color: str, alpha: float | None = None) -> numpy.ndarray:
     if color.startswith("rgb"):
         return _parse_rgb_rgba_color(color, alpha)
     message = f"Unsupported color format: {color}. Expected hex (#RRGGBB), rgb(), or rgba()"
-    raise ValueError(message)
+    raise SpecError(message)
 
 
 def _normalize_2d(
@@ -91,7 +92,7 @@ def _normalize_2d(
     vmax = float(vmax if vmax is not None else numpy.nanmax(image_data))
     if vmin > vmax:
         message = f"vmin value must be less than vmax value, was: {vmin} > {vmax}"
-        raise ValueError(message)
+        raise SpecError(message)
     if _as_boolean(norm, default=True):
         if vmin == vmax:
             image_data = numpy.copy(image_data)
@@ -122,7 +123,7 @@ def _palettable_map(name: str, size: int) -> list[str]:
             "Can't process `cmap`: please install 'Palettable' "
             "(https://pypi.org/project/palettable/) to your Python environment."
         )
-        raise ValueError(message) from error
+        raise SpecError(message) from error
     return palettable.matplotlib.get_map(f"{name}_{size}").hex_colors
 
 
@@ -211,24 +212,24 @@ def geom_imshow(
 
     if not isinstance(image_data, numpy.ndarray):
         message = f"Invalid image_data: ndarray is expected but was {type(image_data)}"
-        raise ValueError(message)
+        raise SpecError(message)
     if image_data.ndim not in (2, 3):
         message = (
             f"Invalid image_data: 2d or 3d array is expected but was {image_data.ndim}-dimensional"
         )
-        raise ValueError(message)
+        raise SpecError(message)
     if image_data.shape[0] == 0 or image_data.shape[1] == 0:
         message = (
             f"Invalid image_data: expected at least 1 x 1 pixels but the shape was "
             f"{image_data.shape}"
         )
-        raise ValueError(message)
+        raise SpecError(message)
     if alpha is not None and not 0 <= alpha <= 1:
         message = f"Invalid alpha: expected float in range [0..1] but was {alpha}"
-        raise ValueError(message)
+        raise SpecError(message)
     if compression is not None and not 0 <= compression <= 9:
         message = f"Invalid compression: expected integer in range [0..9] but was {compression}"
-        raise ValueError(message)
+        raise SpecError(message)
 
     greyscale = image_data.ndim == 2
     cmap_list = isinstance(cmap, list)
@@ -245,7 +246,7 @@ def geom_imshow(
         if cmap and not cmap_list and not cmap_palettable:
             kind = type(cmap).__name__
             message = f"cmap must be a string (colormap name) or a list of colors, but was {kind}"
-            raise ValueError(message)
+            raise SpecError(message)
         if cmap:
             alpha_channel = 255 if alpha is None else 255 * alpha
             size = 255 if has_nan else 256
@@ -257,7 +258,7 @@ def geom_imshow(
                 n_colors = len(cmap)
                 if n_colors == 0:
                     message = "cmap list must contain at least one color"
-                    raise ValueError(message)
+                    raise SpecError(message)
                 palette = [
                     _parse_color(cmap[min(index * n_colors // size, n_colors - 1)], alpha_channel)
                     for index in range(size)
@@ -290,7 +291,7 @@ def geom_imshow(
             message = (
                 f"Invalid image_data: 3 (RGB) or 4 (RGBA) channels expected but was {channel_count}"
             )
-            raise ValueError(message)
+            raise SpecError(message)
 
     image_data.clip(0, 255, out=image_data)
 
@@ -300,7 +301,7 @@ def geom_imshow(
             ext_x0, ext_x1, ext_y0, ext_y1 = (float(value) for value in extent)
         except (TypeError, ValueError) as error:
             message = f"Invalid `extent`: list of 4 numbers expected: {error}"
-            raise ValueError(message) from error
+            raise SpecError(message) from error
     if ext_x0 > ext_x1:
         image_data = numpy.flip(image_data, axis=1)
         ext_x0, ext_x1 = ext_x1, ext_x0

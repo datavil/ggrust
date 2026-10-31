@@ -39,6 +39,9 @@ pub struct DataFrame {
     /// conversion failed). Columns are Arrow-backed, so handing out a cached one
     /// is a reference count bump.
     columns: Arc<[OnceLock<Option<Column>>]>,
+    /// Every column name of the source data, when only some were sent (see
+    /// [`Self::with_source_columns`]); empty: the schema's names.
+    source_columns: Arc<[String]>,
 }
 
 impl DataFrame {
@@ -50,7 +53,7 @@ impl DataFrame {
             .iter()
             .find(|batch| describe_fields(&batch.schema()) != expected)
         {
-            return Err(Error::InvalidData(format!(
+            return Err(Error::data(format!(
                 "record batch columns [{}] do not match frame columns [{}]",
                 describe_fields(&batch.schema()),
                 expected
@@ -63,7 +66,15 @@ impl DataFrame {
             batches,
             row_count,
             columns,
+            source_columns: Arc::from([]),
         })
+    }
+
+    /// The same frame, knowing every column name of its source (Python sends only
+    /// the referenced columns), so a missing column error lists them all.
+    pub fn with_source_columns(mut self, names: &[String]) -> Self {
+        self.source_columns = names.into();
+        self
     }
 
     /// Number of rows.
@@ -125,13 +136,18 @@ impl DataFrame {
             .map(|(index, _)| index);
         match (matches.next(), matches.count()) {
             (Some(index), 0) => Ok(index),
-            (Some(_), duplicates) => Err(Error::InvalidData(format!(
+            (Some(_), duplicates) => Err(Error::data(format!(
                 "column '{name}' appears {} times; column names must be unique",
                 duplicates + 1
             ))),
             (None, _) => Err(Error::MissingColumn {
                 name: name.to_owned(),
-                available: self.column_names().collect::<Vec<_>>().join(", "),
+                available: if self.source_columns.is_empty() {
+                    self.column_names().map(str::to_owned).collect()
+                } else {
+                    self.source_columns.iter().cloned().collect()
+                },
+                path: String::new(),
                 notes: String::new(),
             }),
         }

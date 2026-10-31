@@ -179,9 +179,7 @@ impl StyleScaleSpec {
         warnings: &mut Vec<String>,
     ) -> Result<Arc<dyn StyleMapper>> {
         let Some(default) = default_mapper(aesthetic) else {
-            return Err(Error::InvalidSpec(format!(
-                "'{aesthetic}' has no style scale"
-            )));
+            return Err(Error::spec("", format!("'{aesthetic}' has no style scale")));
         };
         let kind = default.value_kind();
         let is_color = kind == ValueKind::Color;
@@ -200,9 +198,10 @@ impl StyleScaleSpec {
                     Some((value, path)) => positive_number(value, path)?,
                 };
                 if aesthetic != Aesthetic::Size {
-                    return Err(Error::InvalidSpec(format!(
-                        "at '{path}': size_area applies to 'size', not '{aesthetic}'"
-                    )));
+                    return Err(Error::spec(
+                        path,
+                        format!("size_area applies to 'size', not '{aesthetic}'"),
+                    ));
                 }
                 return Ok(Arc::new(ProportionalMapper {
                     max,
@@ -255,9 +254,10 @@ impl StyleScaleSpec {
                 Aesthetic::Size => &SIZE,
                 Aesthetic::Alpha => &ALPHA,
                 _ => {
-                    return Err(Error::InvalidSpec(format!(
-                        "at '{path}': range applies to size and alpha scales, not '{aesthetic}'"
-                    )));
+                    return Err(Error::spec(
+                        path,
+                        format!("range applies to size and alpha scales, not '{aesthetic}'"),
+                    ));
                 }
             };
             let ends = range
@@ -266,9 +266,7 @@ impl StyleScaleSpec {
                 .and_then(|items| Some((items[0].as_f64()?, items[1].as_f64()?)))
                 .filter(|(low, high)| low.is_finite() && high.is_finite())
                 .ok_or_else(|| {
-                    Error::InvalidSpec(format!(
-                        "at '{path}': expected [low, high] numbers, got {range}"
-                    ))
+                    Error::spec(path, format!("expected [low, high] numbers, got {range}"))
                 })?;
             // lets-plot `DoubleSpan` sorts the ends: [5, 1] is 1..5.
             let ends = (ends.0.min(ends.1), ends.0.max(ends.1));
@@ -286,9 +284,10 @@ impl StyleScaleSpec {
                 }
                 Value::Bool(true) => {}
                 other => {
-                    return Err(Error::InvalidSpec(format!(
-                        "at '{path}': expected true or false, got {other}"
-                    )));
+                    return Err(Error::spec(
+                        path,
+                        format!("expected true or false, got {other}"),
+                    ));
                 }
             }
         }
@@ -332,16 +331,15 @@ impl StyleScaleSpec {
                         Value::String(text) => Ok(text.clone()),
                         Value::Number(number) => Ok(number.to_string()),
                         Value::Null => Ok(String::new()),
-                        other => Err(Error::InvalidSpec(format!(
-                            "at '{path}': labels are texts, got {other}"
-                        ))),
+                        other => Err(Error::spec(path, format!("labels are texts, got {other}"))),
                     })
                     .collect::<Result<Vec<_>>>()?,
             ),
             Some((other, path)) => {
-                return Err(Error::InvalidSpec(format!(
-                    "at '{path}': expected a list of labels, got {other}"
-                )));
+                return Err(Error::spec(
+                    path,
+                    format!("expected a list of labels, got {other}"),
+                ));
             }
         };
         Ok(DiscreteDomain {
@@ -431,14 +429,16 @@ impl StyleScaleSpec {
             }),
             "color_gradientn" => {
                 let Some((value, colors_path)) = self.options.get("colors") else {
-                    return Err(Error::InvalidSpec(format!(
-                        "at '{path}': scale_*_gradientn() needs 'colors' (two or more)"
-                    )));
+                    return Err(Error::spec(
+                        path,
+                        "scale_*_gradientn() needs 'colors' (two or more)",
+                    ));
                 };
                 let items = value.as_array().ok_or_else(|| {
-                    Error::InvalidSpec(format!(
-                        "at '{colors_path}': expected a list of colors, got {value}"
-                    ))
+                    Error::spec(
+                        colors_path,
+                        format!("expected a list of colors, got {value}"),
+                    )
                 })?;
                 let colors = items
                     .iter()
@@ -446,10 +446,10 @@ impl StyleScaleSpec {
                     .map(|(index, item)| color(item, &format!("{colors_path}[{index}]")))
                     .collect::<Result<Vec<_>>>()?;
                 if colors.len() < 2 {
-                    return Err(Error::InvalidSpec(format!(
-                        "at '{colors_path}': a gradient needs two or more colors, got {}",
-                        colors.len()
-                    )));
+                    return Err(Error::spec(
+                        colors_path,
+                        format!("a gradient needs two or more colors, got {}", colors.len()),
+                    ));
                 }
                 Arc::new(GradientMapper {
                     name: "color_gradientn",
@@ -463,15 +463,23 @@ impl StyleScaleSpec {
                     None => colormap("viridis"),
                     Some((Value::String(name), option_path)) => {
                         Some(colormap(name).ok_or_else(|| {
-                            Error::InvalidSpec(format!(
-                                "at '{option_path}': unknown color map \"{name}\"; use {COLORMAP_NAMES}"
-                            ))
+                            Error::spec(
+                                option_path,
+                                format!(
+                                    "unknown color map \"{name}\"; use {COLORMAP_NAMES}{}",
+                                    crate::suggest::did_you_mean(
+                                        name,
+                                        crate::suggest::quoted(COLORMAP_NAMES)
+                                    )
+                                ),
+                            )
                         })?)
                     }
                     Some((other, option_path)) => {
-                        return Err(Error::InvalidSpec(format!(
-                            "at '{option_path}': expected a color map name, got {other}"
-                        )));
+                        return Err(Error::spec(
+                            option_path,
+                            format!("expected a color map name, got {other}"),
+                        ));
                     }
                 };
                 let fraction = |key: &str, default: f64| -> Result<f64> {
@@ -479,12 +487,12 @@ impl StyleScaleSpec {
                     if (0.0..=1.0).contains(&value) {
                         Ok(value)
                     } else {
-                        Err(Error::InvalidSpec(format!(
-                            "at '{}': '{key}' should be in range [0..1], got {value}",
+                        Err(Error::spec(
                             self.options
                                 .get(key)
-                                .map_or(path, |(_, path)| path.as_str())
-                        )))
+                                .map_or(path, |(_, path)| path.as_str()),
+                            format!("'{key}' should be in range [0..1], got {value}"),
+                        ))
                     }
                 };
                 // lets-plot `DoubleSpan(begin, end)`: the ends are sorted.
@@ -499,10 +507,13 @@ impl StyleScaleSpec {
                     na,
                 };
                 if mapper.stop_count() < 2 {
-                    return Err(Error::InvalidSpec(format!(
-                        "at '{path}': begin ({begin}) and end ({end}) select a single color of \
+                    return Err(Error::spec(
+                        path,
+                        format!(
+                            "begin ({begin}) and end ({end}) select a single color of \
                          the map; widen the range"
-                    )));
+                        ),
+                    ));
                 }
                 Arc::new(mapper)
             }
@@ -511,12 +522,12 @@ impl StyleScaleSpec {
                 let lightness = |key: &str, default: f64| -> Result<f64> {
                     let value = self.number(key)?.unwrap_or(default);
                     if !(0.0..=1.0).contains(&value) {
-                        return Err(Error::InvalidSpec(format!(
-                            "at '{}': '{key}' should be in range [0..1], got {value}",
+                        return Err(Error::spec(
                             self.options
                                 .get(key)
-                                .map_or(path, |(_, path)| path.as_str())
-                        )));
+                                .map_or(path, |(_, path)| path.as_str()),
+                            format!("'{key}' should be in range [0..1], got {value}"),
+                        ));
                     }
                     Ok(value)
                 };
@@ -537,9 +548,9 @@ impl StyleScaleSpec {
             match self.options.get(key) {
                 None => Ok(None),
                 Some((Value::String(text), path)) => Ok(Some((text.as_str(), path.as_str()))),
-                Some((other, path)) => Err(Error::InvalidSpec(format!(
-                    "at '{path}': expected a text, got {other}"
-                ))),
+                Some((other, path)) => {
+                    Err(Error::spec(path, format!("expected a text, got {other}")))
+                }
             }
         };
         // lets-plot: a palette name picks the family and `type` is never read.
@@ -547,31 +558,39 @@ impl StyleScaleSpec {
         let kind = match if named { None } else { text("type")? } {
             None => None,
             Some((name, path)) => Some(PaletteType::parse(name).ok_or_else(|| {
-                Error::InvalidSpec(format!(
-                    "at '{path}': palette type expected one of 'seq' (sequential), 'div' \
+                Error::spec(
+                    path,
+                    format!(
+                        "palette type expected one of 'seq' (sequential), 'div' \
                      (diverging) or 'qual' (qualitative), got '{name}'"
-                ))
+                    ),
+                )
             })?),
         };
         let palette = match self.options.get("palette") {
             None => PaletteChoice::Default,
             Some((Value::String(name), path)) => {
                 PaletteChoice::Named(scheme_by_name(name).ok_or_else(|| {
-                    Error::InvalidSpec(format!(
-                        "at '{path}': brewer palette '{name}' was not found. Sequential: {}. \
-                         Diverging: {}. Qualitative: {}",
-                        scheme_names(PaletteType::Sequential),
-                        scheme_names(PaletteType::Diverging),
-                        scheme_names(PaletteType::Qualitative)
-                    ))
+                    Error::spec(
+                        path,
+                        format!(
+                            "brewer palette '{name}' was not found. Sequential: {}. \
+                         Diverging: {}. Qualitative: {}{}",
+                            scheme_names(PaletteType::Sequential),
+                            scheme_names(PaletteType::Diverging),
+                            scheme_names(PaletteType::Qualitative),
+                            crate::suggest::did_you_mean(name, super::brewer::all_scheme_names())
+                        ),
+                    )
                 })?)
             }
             Some((Value::Number(number), path)) => {
                 if kind.is_none() {
-                    return Err(Error::InvalidSpec(format!(
-                        "at '{path}': a palette index needs a palette type: 'seq', 'div' or \
-                         'qual'"
-                    )));
+                    return Err(Error::spec(
+                        path,
+                        "a palette index needs a palette type: 'seq', 'div' or \
+                         'qual'",
+                    ));
                 }
                 // Kotlin `toInt()`: truncates and saturates at the 32-bit range.
                 let index = number
@@ -579,25 +598,30 @@ impl StyleScaleSpec {
                     .unwrap_or(0.0)
                     .clamp(0.0, f64::from(i32::MAX)) as i64;
                 if number.as_f64().is_some_and(|value| value < 0.0) {
-                    return Err(Error::InvalidSpec(format!(
-                        "at '{path}': a palette index is 0 or more, got {number}"
-                    )));
+                    return Err(Error::spec(
+                        path,
+                        format!("a palette index is 0 or more, got {number}"),
+                    ));
                 }
                 PaletteChoice::Index(index)
             }
             Some((other, path)) => {
-                return Err(Error::InvalidSpec(format!(
-                    "at '{path}': expected a palette name or index, got {other}"
-                )));
+                return Err(Error::spec(
+                    path,
+                    format!("expected a palette name or index, got {other}"),
+                ));
             }
         };
         let overflow = match text("overflow")? {
             None => Overflow::Auto,
             Some((name, path)) => Overflow::parse(name).ok_or_else(|| {
-                Error::InvalidSpec(format!(
-                    "at '{path}': overflow expected one of 'interpolate' ('i'), 'cycle' ('c'), \
+                Error::spec(
+                    path,
+                    format!(
+                        "overflow expected one of 'interpolate' ('i'), 'cycle' ('c'), \
                      'generate' ('g'), got '{name}'"
-                ))
+                    ),
+                )
             })?,
         };
         Ok(BrewerMapper {
@@ -619,9 +643,7 @@ impl StyleScaleSpec {
                 .as_f64()
                 .filter(|number| number.is_finite())
                 .map(Some)
-                .ok_or_else(|| {
-                    Error::InvalidSpec(format!("at '{path}': expected a number, got {value}"))
-                }),
+                .ok_or_else(|| Error::spec(path, format!("expected a number, got {value}"))),
         }
     }
 
@@ -634,9 +656,10 @@ impl StyleScaleSpec {
                 .and_then(|items| Some((items[0].as_f64()?, items[1].as_f64()?)))
                 .filter(|(low, high)| low.is_finite() && high.is_finite());
             mapper.hue_range = range.ok_or_else(|| {
-                Error::InvalidSpec(format!(
-                    "at '{path}': expected a hue range [from, to] in degrees, got {value}"
-                ))
+                Error::spec(
+                    path,
+                    format!("expected a hue range [from, to] in degrees, got {value}"),
+                )
             })?;
         }
         let number = |key: &str| -> Result<Option<f64>> {
@@ -646,9 +669,7 @@ impl StyleScaleSpec {
                     .as_f64()
                     .filter(|number| number.is_finite())
                     .map(Some)
-                    .ok_or_else(|| {
-                        Error::InvalidSpec(format!("at '{path}': expected a number, got {value}"))
-                    }),
+                    .ok_or_else(|| Error::spec(path, format!("expected a number, got {value}"))),
             }
         };
         mapper.chroma = number("c")?.unwrap_or(mapper.chroma);
@@ -659,11 +680,9 @@ impl StyleScaleSpec {
     }
 
     fn manual_colors(&self, values: &Value, path: &str) -> Result<ManualColorMapper> {
-        let items = values.as_array().ok_or_else(|| {
-            Error::InvalidSpec(format!(
-                "at '{path}': expected a list of colors, got {values}"
-            ))
-        })?;
+        let items = values
+            .as_array()
+            .ok_or_else(|| Error::spec(path, format!("expected a list of colors, got {values}")))?;
         // lets-plot skips null values (`filterNotNull`).
         let colors = items
             .iter()
@@ -672,9 +691,7 @@ impl StyleScaleSpec {
             .map(|(index, item)| color(item, &format!("{path}[{index}]")))
             .collect::<Result<Vec<_>>>()?;
         if colors.is_empty() {
-            return Err(Error::InvalidSpec(format!(
-                "at '{path}': manual scales need at least one color"
-            )));
+            return Err(Error::spec(path, "manual scales need at least one color"));
         }
         Ok(ManualColorMapper {
             colors,
@@ -684,15 +701,17 @@ impl StyleScaleSpec {
 
     fn manual_shapes(&self, values: &Value, path: &str) -> Result<ShapeMapper> {
         let items = values.as_array().ok_or_else(|| {
-            Error::InvalidSpec(format!(
-                "at '{path}': expected a list of shape codes, got {values}"
-            ))
+            Error::spec(
+                path,
+                format!("expected a list of shape codes, got {values}"),
+            )
         })?;
         let shape = |item: &Value, at: &str| match parse_constant(ValueKind::Shape, item) {
             Ok(StyleValues::Shapes(PerItem::Uniform(code))) => Ok(code),
-            Ok(_) | Err(_) => Err(Error::InvalidSpec(format!(
-                "at '{at}': expected a shape code 0..25, got {item}"
-            ))),
+            Ok(_) | Err(_) => Err(Error::spec(
+                at,
+                format!("expected a shape code 0..25, got {item}"),
+            )),
         };
         // lets-plot skips null values (`filterNotNull`).
         let shapes = items
@@ -702,9 +721,7 @@ impl StyleScaleSpec {
             .map(|(index, item)| shape(item, &format!("{path}[{index}]")))
             .collect::<Result<Vec<_>>>()?;
         if shapes.is_empty() {
-            return Err(Error::InvalidSpec(format!(
-                "at '{path}': manual scales need at least one shape"
-            )));
+            return Err(Error::spec(path, "manual scales need at least one shape"));
         }
         let na = match &self.na_value {
             None => NA_SHAPE,
@@ -720,9 +737,7 @@ impl StyleScaleSpec {
         path: &str,
     ) -> Result<ManualNumberMapper> {
         let items = values.as_array().ok_or_else(|| {
-            Error::InvalidSpec(format!(
-                "at '{path}': expected a list of numbers, got {values}"
-            ))
+            Error::spec(path, format!("expected a list of numbers, got {values}"))
         })?;
         // lets-plot skips null values (`filterNotNull`).
         let numbers = items
@@ -733,16 +748,15 @@ impl StyleScaleSpec {
                 item.as_f64()
                     .filter(|value| value.is_finite())
                     .ok_or_else(|| {
-                        Error::InvalidSpec(format!(
-                            "at '{path}[{index}]': expected a number, got {item}"
-                        ))
+                        Error::spec(
+                            format!("{path}[{index}]"),
+                            format!("expected a number, got {item}"),
+                        )
                     })
             })
             .collect::<Result<Vec<_>>>()?;
         if numbers.is_empty() {
-            return Err(Error::InvalidSpec(format!(
-                "at '{path}': manual scales need at least one value"
-            )));
+            return Err(Error::spec(path, "manual scales need at least one value"));
         }
         let default_na = match aesthetic {
             Aesthetic::Alpha => ALPHA.missing(),
@@ -758,14 +772,10 @@ impl StyleScaleSpec {
     fn na_number(&self, default: f64) -> Result<f64> {
         match &self.na_value {
             None => Ok(default),
-            Some((value, path)) => {
-                value
-                    .as_f64()
-                    .filter(|value| value.is_finite())
-                    .ok_or_else(|| {
-                        Error::InvalidSpec(format!("at '{path}': expected a number, got {value}"))
-                    })
-            }
+            Some((value, path)) => value
+                .as_f64()
+                .filter(|value| value.is_finite())
+                .ok_or_else(|| Error::spec(path, format!("expected a number, got {value}"))),
         }
     }
 
@@ -778,7 +788,7 @@ impl StyleScaleSpec {
     ) -> Result<StyleValues> {
         match &self.na_value {
             Some((value, path)) => parse_constant(default.value_kind(), value).map_err(|message| {
-                Error::InvalidSpec(format!("at '{path}': {message} ('{aesthetic}' na_value)"))
+                Error::spec(path, format!("{message} ('{aesthetic}' na_value)"))
             }),
             None => Ok(match default.map_discrete(&[None], 1) {
                 StyleValues::Colors(colors) => StyleValues::Colors(PerItem::Uniform(colors.get(0))),
@@ -802,8 +812,8 @@ impl StyleScaleSpec {
 fn color(value: &Value, path: &str) -> Result<Color> {
     match parse_constant(ValueKind::Color, value) {
         Ok(StyleValues::Colors(PerItem::Uniform(color))) => Ok(color),
-        Ok(_) => Err(Error::InvalidSpec(format!("at '{path}': expected a color"))),
-        Err(message) => Err(Error::InvalidSpec(format!("at '{path}': {message}"))),
+        Ok(_) => Err(Error::spec(path, "expected a color")),
+        Err(message) => Err(Error::spec(path, message)),
     }
 }
 
@@ -812,9 +822,5 @@ fn positive_number(value: &Value, path: &str) -> Result<f64> {
     value
         .as_f64()
         .filter(|value| value.is_finite() && *value > 0.0)
-        .ok_or_else(|| {
-            Error::InvalidSpec(format!(
-                "at '{path}': expected a positive number, got {value}"
-            ))
-        })
+        .ok_or_else(|| Error::spec(path, format!("expected a positive number, got {value}")))
 }

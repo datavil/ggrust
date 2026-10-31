@@ -151,10 +151,10 @@ fn breaks(parameters: &Parameters) -> Result<Vec<f64>> {
         return Ok(Vec::new());
     };
     let Value::Array(items) = value else {
-        return Err(Error::InvalidSpec(format!(
-            "at '{}': expected a list of numbers, got {value}",
-            parameters.path_of("breaks")
-        )));
+        return Err(Error::spec(
+            parameters.path_of("breaks"),
+            format!("expected a list of numbers, got {value}"),
+        ));
     };
     let mut breaks = Vec::with_capacity(items.len());
     for item in items {
@@ -164,10 +164,10 @@ fn breaks(parameters: &Parameters) -> Result<Vec<f64>> {
                 Some(number) if number.is_finite() => breaks.push(number),
                 Some(_) => {}
                 None => {
-                    return Err(Error::InvalidSpec(format!(
-                        "at '{}': expected numbers, got {item}",
-                        parameters.path_of("breaks")
-                    )));
+                    return Err(Error::spec(
+                        parameters.path_of("breaks"),
+                        format!("expected numbers, got {item}"),
+                    ));
                 }
             },
         }

@@ -41,10 +41,14 @@ impl Transform {
             .map(|(transform, _)| *transform)
             .ok_or_else(|| {
                 let names: Vec<&str> = Transform::ALL.iter().map(|(_, name)| *name).collect();
-                Error::InvalidSpec(format!(
-                    "at '{path}': unknown transform '{name}'; supported: {}",
-                    names.join(", ")
-                ))
+                Error::spec(
+                    path,
+                    format!(
+                        "unknown transform '{name}'; supported: {}{}",
+                        names.join(", "),
+                        crate::suggest::did_you_mean(name, names.iter().copied())
+                    ),
+                )
             })
     }
 

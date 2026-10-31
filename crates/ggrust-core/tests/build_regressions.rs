@@ -237,7 +237,7 @@ fn list_mappings_are_data_vectors_with_a_readable_length_error() {
     .to_string();
     assert_eq!(
         error,
-        "invalid plot specification: at 'mapping.color': the list has 2 values but the data has 1 rows"
+        "invalid plot specification at 'mapping.color': the list has 2 values but the data has 1 rows"
     );
 }
 

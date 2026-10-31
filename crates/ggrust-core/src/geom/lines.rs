@@ -129,7 +129,7 @@ impl Arrow {
             return Ok(None);
         };
         let path = parameters.path_of("arrow");
-        let fail = |message: String| Error::InvalidSpec(format!("at '{path}': {message}"));
+        let fail = |message: String| Error::spec(&path, message);
         let Value::Object(fields) = value else {
             return Err(fail(format!("expected arrow(), got {value}")));
         };

@@ -88,6 +88,14 @@ pub fn scheme_by_name(name: &str) -> Option<&'static BrewerScheme> {
         .find(|scheme| scheme.name == name)
 }
 
+/// Every scheme name, for suggestions.
+pub fn all_scheme_names() -> impl Iterator<Item = &'static str> {
+    [SEQUENTIAL, DIVERGING, QUALITATIVE]
+        .into_iter()
+        .flatten()
+        .map(|scheme| scheme.name)
+}
+
 /// Every scheme name of a family, for error messages.
 pub fn scheme_names(kind: PaletteType) -> String {
     kind.schemes()

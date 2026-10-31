@@ -55,9 +55,9 @@ impl<'a> Parameters<'a> {
     pub fn color(&self, name: &str) -> Result<Option<Color>> {
         match self.options.get(name) {
             None | Some(Value::Null) => Ok(None),
-            Some(Value::String(text)) => Color::parse(text).map(Some).map_err(|message| {
-                Error::InvalidSpec(format!("at '{}': {message}", self.at(name)))
-            }),
+            Some(Value::String(text)) => Color::parse(text)
+                .map(Some)
+                .map_err(|message| Error::spec(self.at(name), message)),
             Some(value) => Err(self.error(name, "a color string", value)),
         }
     }
@@ -89,10 +89,7 @@ impl<'a> Parameters<'a> {
     }
 
     fn error(&self, name: &str, expected: &str, value: &Value) -> Error {
-        Error::InvalidSpec(format!(
-            "at '{}': expected {expected}, got {value}",
-            self.at(name)
-        ))
+        Error::spec(self.at(name), format!("expected {expected}, got {value}"))
     }
 }
 
@@ -127,7 +124,7 @@ mod tests {
         let parameters = Parameters::new(&options, "layers[1]");
         assert_eq!(
             parameters.number("size").unwrap_err().to_string(),
-            "invalid plot specification: at 'layers[1].size': expected a finite number, got \"big\""
+            "invalid plot specification at 'layers[1].size': expected a finite number, got \"big\""
         );
         assert!(
             parameters

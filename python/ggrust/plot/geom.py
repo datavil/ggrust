@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
+from ggrust.errors import SpecError
 from ggrust.plot.core import FeatureSpec, LayerSpec
 from ggrust.plot.tooltip import layer_tooltips
 from ggrust.plot.util import as_annotated_data, key_int2str
@@ -1224,7 +1225,7 @@ def geom_violin(
             "The parameter 'draw_quantiles' is no longer supported.\n"
             "Use parameters 'quantile_lines', 'quantiles' as needed."
         )
-        raise ValueError(message)
+        raise SpecError(message)
     return _geom(
         "violin",
         mapping=mapping,
@@ -2223,8 +2224,11 @@ def _geom(
     **kwargs: Any,
 ) -> LayerSpec:
     if mapping and not (isinstance(mapping, FeatureSpec) and mapping.kind == "mapping"):
-        message = "Unexpected value for argument 'mapping'. Hint: try to use function aes()"
-        raise ValueError(message)
+        message = (
+            f"geom_{name}(): 'mapping' must be an aes() mapping, got {type(mapping).__name__}; "
+            "pass e.g. aes('x', 'y'), and data with data=..."
+        )
+        raise SpecError(message, path="mapping", reason=message)
     data = key_int2str(data)
     data, mapping, data_meta = as_annotated_data(data, mapping)
     if isinstance(tooltips, list | tuple):

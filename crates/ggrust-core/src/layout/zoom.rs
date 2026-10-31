@@ -45,9 +45,10 @@ impl SizeBasis {
             "y" => Ok(SizeBasis::Y),
             "min" => Ok(SizeBasis::Min),
             "max" => Ok(SizeBasis::Max),
-            other => Err(crate::Error::InvalidSpec(format!(
-                "at '{path}': unknown size_basis '{other}'; supported: 'x', 'y', 'min', 'max'"
-            ))),
+            other => Err(crate::Error::spec(
+                path,
+                format!("unknown size_basis '{other}'; supported: 'x', 'y', 'min', 'max'"),
+            )),
         }
     }
 
@@ -147,10 +148,13 @@ impl Zoom {
         };
         let size_zoomin = toolbar.size_zoomin.unwrap_or(0.0);
         if !(size_zoomin.is_finite() && (size_zoomin >= 0.0 || size_zoomin == -1.0)) {
-            return Err(crate::Error::InvalidSpec(format!(
-                "at '{path}.size_zoomin': {size_zoomin} is not accepted; use a number >= 0 \
+            return Err(crate::Error::spec(
+                format!("{path}.size_zoomin"),
+                format!(
+                    "{size_zoomin} is not accepted; use a number >= 0 \
                  (largest point growth, 0 keeps sizes) or -1 (no limit)"
-            )));
+                ),
+            ));
         }
         Ok(Some(Zoom {
             size_basis,

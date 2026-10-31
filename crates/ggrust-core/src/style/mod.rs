@@ -184,7 +184,7 @@ impl Styles {
     /// Set the values of an aesthetic. Their kind must match the aesthetic's.
     pub fn insert(&mut self, aesthetic: Aesthetic, values: StyleValues) -> Result<()> {
         if aesthetic.kind().style() != Some(values.kind()) {
-            return Err(Error::InvalidData(format!(
+            return Err(Error::data(format!(
                 "internal: {:?} values given for aesthetic '{aesthetic}', which takes {:?}",
                 values.kind(),
                 aesthetic.kind()
@@ -278,7 +278,7 @@ impl Styles {
 }
 
 fn missing(aesthetic: Aesthetic, wanted: ValueKind, found: Option<&StyleValues>) -> Error {
-    Error::InvalidData(match found {
+    Error::data(match found {
         None => format!("internal: no {wanted:?} values resolved for aesthetic '{aesthetic}'"),
         Some(values) => format!(
             "internal: aesthetic '{aesthetic}' holds {:?} values, not {wanted:?}",

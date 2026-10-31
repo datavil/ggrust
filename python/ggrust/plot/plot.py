@@ -8,6 +8,7 @@ from __future__ import annotations
 import numbers
 from typing import TYPE_CHECKING
 
+from ggrust.errors import SpecError
 from ggrust.plot.core import FeatureSpec, PlotSpec
 from ggrust.plot.util import as_annotated_data, key_int2str
 
@@ -38,8 +39,11 @@ def ggplot(data: PlotData | None = None, mapping: FeatureSpec | None = None) -> 
         The plot. Add layers, scales and features with ``+``.
     """
     if isinstance(data, FeatureSpec):
-        message = f"Object {data.kind!r} is not acceptable as 'data' argument in ggplot()"
-        raise ValueError(message)
+        message = (
+            f"ggplot(): 'data' got a {data.kind!r} spec; pass a DataFrame or dict as data and "
+            "add specs with + (e.g. ggplot(frame, aes('x', 'y')) + geom_point())"
+        )
+        raise SpecError(message, path="data", reason=message)
     data = key_int2str(data)
     data, mapping, data_meta = as_annotated_data(data, mapping)
     return PlotSpec(data, mapping, scales=[], layers=[], **data_meta)

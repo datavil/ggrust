@@ -62,13 +62,19 @@ impl PlotData {
     /// Frames are shared, not copied (Arrow buffers are reference counted).
     pub fn from_frames(spec: &PlotSpec, frames: &[DataFrame]) -> Result<Self> {
         let resolve = |source: &Option<DataSource>, path: &str| match source {
-            Some(DataSource::Frame { index, .. }) => {
-                frames.get(*index).cloned().map(Some).ok_or_else(|| {
-                    Error::InvalidSpec(format!(
-                        "at '{path}': frame {index} was referenced but only {} were passed",
-                        frames.len()
-                    ))
-                })
+            Some(DataSource::Frame { index, columns }) => {
+                let frame = frames.get(*index).cloned();
+                frame
+                    .map(|frame| Some(frame.with_source_columns(columns)))
+                    .ok_or_else(|| {
+                        Error::spec(
+                            path,
+                            format!(
+                                "frame {index} was referenced but only {} were passed",
+                                frames.len()
+                            ),
+                        )
+                    })
             }
             Some(DataSource::Inline) | None => Ok(None),
         };
@@ -238,10 +244,9 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
             let facets =
                 Facets::wrap(facet, &layers).map_err(|error| error.with_notes(&warnings))?;
             if facets.tiles.is_empty() {
-                return Err(Error::InvalidSpec(
-                    "at 'facet.facets': no panel to draw: every row has a missing value in a \
-                     faceting column"
-                        .to_owned(),
+                return Err(Error::spec(
+                    "facet.facets",
+                    "no panel to draw: every row has a missing value in a faceting column",
                 )
                 .with_notes(&warnings));
             }
@@ -252,10 +257,13 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     let (width, height) = match &spec.ggsize {
         Some(size) if size.width > 0.0 && size.height > 0.0 => (size.width, size.height),
         Some(size) => {
-            return Err(Error::InvalidSpec(format!(
-                "at 'ggsize': width and height must be positive, got {} x {}",
-                size.width, size.height
-            ))
+            return Err(Error::spec(
+                "ggsize",
+                format!(
+                    "width and height must be positive, got {} x {}",
+                    size.width, size.height
+                ),
+            )
             .with_notes(&warnings));
         }
         // lets-plot `PlotSizeHelper.defaultFacetedPlotSize`: panels shrink less
@@ -302,9 +310,10 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
             if let [Some(low), Some(high)] = limits
                 && low >= high
             {
-                return Err(Error::InvalidSpec(format!(
-                    "at 'coord.{key}': expected [low, high] with low < high, got [{low}, {high}]"
-                ))
+                return Err(Error::spec(
+                    format!("coord.{key}"),
+                    format!("expected [low, high] with low < high, got [{low}, {high}]"),
+                )
                 .with_notes(&warnings));
             }
             scale.set_coord_limits(limits);
@@ -460,10 +469,11 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     for (_, tile_x, tile_y) in &prepared_tiles {
         for (scale, key) in [(tile_x, "xlim"), (tile_y, "ylim")] {
             if scale.coord_limit_beyond_data() {
-                return Err(Error::InvalidSpec(format!(
-                    "at 'coord.{key}': the given limit lies beyond the other end of the data \
-                     range; give both limits"
-                ))
+                return Err(Error::spec(
+                    format!("coord.{key}"),
+                    "the given limit lies beyond the other end of the data \
+                     range; give both limits",
+                )
                 .with_notes(&warnings));
             }
         }
@@ -1564,7 +1574,7 @@ fn map_layer_into<'a>(
                 Ok(column) => tooltip_columns.push((name, column)),
                 Err(error) => {
                     let reason = match error {
-                        Error::InvalidSpec(message) => message,
+                        Error::InvalidSpec { .. } => error.reason(),
                         other => other.to_string(),
                     };
                     warnings.push(format!("{reason}; tooltips cannot show it yet"));
@@ -1652,11 +1662,14 @@ fn axis_scale(
             && let Some((_, _, path)) =
                 axis_columns().find(|(_, column, _)| matches!(column, Column::Continuous(_)))
         {
-            return Err(Error::InvalidSpec(format!(
-                "at '{path}': the {axis} axis is discrete (scale_{axis}_discrete()) but only \
+            return Err(Error::spec(
+                path,
+                format!(
+                    "the {axis} axis is discrete (scale_{axis}_discrete()) but only \
                  numeric columns are mapped to it; converting numbers to categories is not \
                  supported yet, map a string column instead"
-            )));
+                ),
+            ));
         }
     }
     Ok(scale)
@@ -1702,7 +1715,7 @@ fn compute_layer(
         let column = match scale_of(aesthetic) {
             Some(scale) => scale
                 .positions(column)
-                .map_err(|message| Error::InvalidSpec(format!("at '{mapping_path}': {message}")))?,
+                .map_err(|message| Error::spec(&mapping_path, message))?,
             None => column,
         };
         layer_data.insert(aesthetic, column)?;
@@ -1721,9 +1734,7 @@ fn compute_layer(
             let column = match scale_of(aesthetic) {
                 Some(scale) => scale
                     .positions(Column::Continuous(column))
-                    .map_err(|message| {
-                        Error::InvalidSpec(format!("at '{}': {message}", at(aesthetic.as_str())))
-                    })?,
+                    .map_err(|message| Error::spec(at(aesthetic.as_str()), message))?,
                 None => Column::Continuous(column),
             };
             layer_data.insert(aesthetic, column)?;
@@ -1768,11 +1779,14 @@ fn compute_layer(
     // there too).
     for (aesthetic, computed, mapping_path) in stat_mappings.iter() {
         let column = layer_data.get(*computed).cloned().ok_or_else(|| {
-            Error::InvalidSpec(format!(
-                "at '{mapping_path}': stat_{} does not compute '..{}..'",
-                stat.name(),
-                computed.as_str()
-            ))
+            Error::spec(
+                mapping_path,
+                format!(
+                    "stat_{} does not compute '..{}..'",
+                    stat.name(),
+                    computed.as_str()
+                ),
+            )
         })?;
         layer_data.insert(*aesthetic, column)?;
         mapping_paths.insert(*aesthetic, mapping_path.clone());
@@ -1810,7 +1824,7 @@ fn compute_layer(
                     .positions(Column::Continuous(column))
                     .map_err(|message| {
                         let path = mapping_paths.get(&aesthetic).unwrap_or(&path);
-                        Error::InvalidSpec(format!("at '{path}': {message}"))
+                        Error::spec(path, message)
                     })?
             } else {
                 Column::Continuous(scale.within_limits(column))
@@ -2017,7 +2031,7 @@ impl LayerFrames<'_> {
     }
 
     fn column(&self, name: &str, path: &str) -> Result<Column> {
-        let error = |message: String| Error::InvalidSpec(format!("at '{path}': {message}"));
+        let error = |message: String| Error::spec(path, message);
         let shared_plot = self.plot.filter(|plot| match self.layer {
             Some(layer) => plot.row_count() == layer.row_count(),
             None => true,
@@ -2034,22 +2048,25 @@ impl LayerFrames<'_> {
             (Some(layer), _) => {
                 let note = match self.plot {
                     Some(plot) if plot.contains(name) => format!(
-                        "; the plot data has it, but its {} rows differ from the layer \
+                        "the plot data has it, but its {} rows differ from the layer \
                          data's {} rows",
                         plot.row_count(),
                         layer.row_count()
                     ),
                     _ => String::new(),
                 };
-                return layer
-                    .column(name)
-                    .map_err(|missing| error(format!("{missing}{note}")));
+                return layer.column(name).map_err(|missing| {
+                    let missing = missing.nested(path);
+                    if note.is_empty() {
+                        missing
+                    } else {
+                        missing.with_notes(&[note])
+                    }
+                });
             }
             (None, Some(plot)) => plot,
         };
-        source
-            .column(name)
-            .map_err(|failure| error(failure.to_string()))
+        source.column(name).map_err(|failure| failure.nested(path))
     }
 }
 
@@ -2220,16 +2237,19 @@ fn require_aesthetics(
     if missing.is_empty() {
         return Ok(());
     }
-    Err(Error::InvalidSpec(format!(
-        "at '{path}': {owner} requires aesthetics {} (mapped to columns or given as \
+    Err(Error::spec(
+        path,
+        format!(
+            "{owner} requires aesthetics {} (mapped to columns or given as \
          constants); missing: {}",
-        required
-            .iter()
-            .map(|aesthetic| aesthetic.as_str())
-            .collect::<Vec<_>>()
-            .join(", "),
-        missing.join(", ")
-    )))
+            required
+                .iter()
+                .map(|aesthetic| aesthetic.as_str())
+                .collect::<Vec<_>>()
+                .join(", "),
+            missing.join(", ")
+        ),
+    ))
 }
 
 /// Whether the layer reads an aesthetic: the geom's (required positions, styles)
@@ -2395,7 +2415,7 @@ fn train_style_scales(
         };
         scale
             .train(column)
-            .map_err(|message| Error::InvalidSpec(format!("at '{path}': {message}")))?;
+            .map_err(|message| Error::spec(path, message))?;
     }
     Ok(scales)
 }
@@ -2441,15 +2461,18 @@ fn assemble_legends(
                 && aesthetic.kind().style() == Some(crate::style::ValueKind::Color);
             if guides.named("colorbar") && !fits_colorbar {
                 // lets-plot `checkFitsColorBar`.
-                return Err(Error::InvalidSpec(format!(
-                    "at 'guides.{aesthetic}': a colorbar needs a continuous color or fill \
+                return Err(Error::spec(
+                    format!("guides.{aesthetic}"),
+                    format!(
+                        "a colorbar needs a continuous color or fill \
                      scale; '{aesthetic}' is {}",
-                    if scale.is_discrete() {
-                        "discrete"
-                    } else {
-                        "not a color"
-                    }
-                )));
+                        if scale.is_discrete() {
+                            "discrete"
+                        } else {
+                            "not a color"
+                        }
+                    ),
+                ));
             }
             // lets-plot `fitsColorBar`: continuous colors get a colorbar unless a
             // legend is asked for.
@@ -2685,9 +2708,10 @@ impl<'a> Guides<'a> {
         for (options, path) in options.into_iter().rev() {
             let count = |value: Option<u32>, key: &str| -> Result<Option<usize>> {
                 match value {
-                    Some(0) => Err(Error::InvalidSpec(format!(
-                        "at '{path}.{key}': expected a positive count, got 0"
-                    ))),
+                    Some(0) => Err(Error::spec(
+                        format!("{path}.{key}"),
+                        "expected a positive count, got 0",
+                    )),
                     value => Ok(value.map(|value| value as usize)),
                 }
             };
@@ -2717,15 +2741,16 @@ impl<'a> Guides<'a> {
                 Ok(aesthetic) => match aesthetic.kind().style() {
                     Some(kind) => (aesthetic, kind),
                     None => {
-                        return Err(Error::InvalidSpec(format!(
-                            "at '{at}': '{key}' is not a style aesthetic; legend keys take                              color, fill, size, shape, alpha, ..."
-                        )));
+                        return Err(Error::spec(
+                            &at,
+                            format!(
+                                "'{key}' is not a style aesthetic; legend keys take                              color, fill, size, shape, alpha, ..."
+                            ),
+                        ));
                     }
                 },
                 Err(_) => {
-                    return Err(Error::InvalidSpec(format!(
-                        "at '{at}': unknown aesthetic '{key}'"
-                    )));
+                    return Err(Error::spec(&at, format!("unknown aesthetic '{key}'")));
                 }
             };
             let parse = |item: &Value| -> Result<Option<StyleValues>> {
@@ -2734,7 +2759,7 @@ impl<'a> Guides<'a> {
                 }
                 parse_constant(kind, item)
                     .map(Some)
-                    .map_err(|message| Error::InvalidSpec(format!("at '{at}': {message}")))
+                    .map_err(|message| Error::spec(&at, message))
             };
             let values = match value {
                 Value::Array(items) if items.is_empty() => vec![None],
@@ -2765,19 +2790,23 @@ impl<'a> Guides<'a> {
             match value {
                 None => Ok(None),
                 Some(value) if value.is_finite() && value > 0.0 => Ok(Some(value)),
-                Some(value) => Err(Error::InvalidSpec(format!(
-                    "at '{path}.{key}': expected a positive size in pixels, got {value}"
-                ))),
+                Some(value) => Err(Error::spec(
+                    format!("{path}.{key}"),
+                    format!("expected a positive size in pixels, got {value}"),
+                )),
             }
         };
         let bins = match options.nbin {
             None => DEFAULT_BINS,
             Some(bins) if bins <= MAX_COLORBAR_BINS => bins as usize,
             Some(bins) => {
-                return Err(Error::InvalidSpec(format!(
-                    "at '{path}.nbin': at most {MAX_COLORBAR_BINS} bins, got {bins} \
+                return Err(Error::spec(
+                    format!("{path}.nbin"),
+                    format!(
+                        "at most {MAX_COLORBAR_BINS} bins, got {bins} \
                      ('{aesthetic}' colorbar)"
-                )));
+                    ),
+                ));
             }
         };
         Ok(ColorbarOptions {
@@ -2803,12 +2832,8 @@ fn key_styles(layer: &PreparedLayer, values: &[(Aesthetic, &StyleValues)]) -> Re
                 Aesthetic::Shape | Aesthetic::Color | Aesthetic::Fill
             )
         }) {
-            parse_constant(default.kind(), constant).map_err(|message| {
-                Error::InvalidSpec(format!(
-                    "at '{}': {message}",
-                    parameters.path_of(aesthetic.as_str())
-                ))
-            })?
+            parse_constant(default.kind(), constant)
+                .map_err(|message| Error::spec(parameters.path_of(aesthetic.as_str()), message))?
         } else if let Some((_, legend_default)) = layer
             .geom
             .legend_defaults()
@@ -2848,9 +2873,9 @@ fn resolve_styles(
         let values = match (mapped, style_scales.get(&aesthetic)) {
             // Text labels are the column's values, not a scale's output.
             (Some(column), _) if aesthetic == Aesthetic::Label => label_texts(column),
-            (Some(column), Some(scale)) => scale.map(column).map_err(|message| {
-                Error::InvalidSpec(format!("at '{path}.mapping.{aesthetic}': {message}"))
-            })?,
+            (Some(column), Some(scale)) => scale
+                .map(column)
+                .map_err(|message| Error::spec(format!("{path}.mapping.{aesthetic}"), message))?,
             _ => {
                 // Only mappings that reached the data; skipped ones were reported already.
                 if mapped.is_some() {
@@ -2861,10 +2886,7 @@ fn resolve_styles(
                 }
                 match parameters.value(aesthetic.as_str()) {
                     Some(value) => parse_constant(default.kind(), value).map_err(|message| {
-                        Error::InvalidSpec(format!(
-                            "at '{}': {message}",
-                            parameters.path_of(aesthetic.as_str())
-                        ))
+                        Error::spec(parameters.path_of(aesthetic.as_str()), message)
                     })?,
                     None => default.uniform(),
                 }
@@ -2962,15 +2984,21 @@ fn resolve_coord(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<&'static
 
 /// `planned`: a lets-plot name that ggrust accepts in its API but does not support yet.
 fn unknown(kind: &str, path: &str, name: &str, planned: bool, supported: &[&str]) -> Error {
-    let problem = if planned {
-        format!("{kind} '{name}' is not supported by ggrust yet")
+    let (problem, suggestion) = if planned {
+        (
+            format!("{kind} '{name}' is not supported by ggrust yet"),
+            String::new(),
+        )
     } else {
-        format!("unknown {kind} '{name}'")
+        (
+            format!("unknown {kind} '{name}'"),
+            crate::suggest::did_you_mean(name, supported.iter().copied()),
+        )
     };
-    Error::InvalidSpec(format!(
-        "at '{path}': {problem}; supported: {}",
-        supported.join(", ")
-    ))
+    Error::spec(
+        path,
+        format!("{problem}; supported: {}{suggestion}", supported.join(", ")),
+    )
 }
 
 /// Parsed features that the builder does not implement yet. Each is reported, never

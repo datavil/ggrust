@@ -14,14 +14,13 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
     from typing import Literal
 
-    from ggrust._typing import Number
 
 __all__ = ["facet_grid", "facet_wrap"]
 
 
 def facet_grid(
-    x: Number | None = None,
-    y: Number | None = None,
+    x: str | None = None,
+    y: str | None = None,
     *,
     scales: Literal["fixed", "free", "free_x", "free_y"] | None = None,
     x_order: int = 1,

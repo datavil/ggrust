@@ -134,10 +134,10 @@ impl DensityOptions {
         default_tails_cutoff: Option<f64>,
     ) -> Result<Self> {
         let invalid = |name: &str, expected: &str, value: &Value| {
-            Error::InvalidSpec(format!(
-                "at '{}': expected {expected}, got {value}",
-                parameters.path_of(name)
-            ))
+            Error::spec(
+                parameters.path_of(name),
+                format!("expected {expected}, got {value}"),
+            )
         };
         let bandwidth = match parameters.value("bw") {
             None => Bandwidth::Nrd0,
@@ -161,27 +161,27 @@ impl DensityOptions {
         };
         let adjust = parameters.number("adjust")?.unwrap_or(1.0);
         if adjust <= 0.0 {
-            return Err(Error::InvalidSpec(format!(
-                "at '{}': expected a positive number, got {adjust}",
-                parameters.path_of("adjust")
-            )));
+            return Err(Error::spec(
+                parameters.path_of("adjust"),
+                format!("expected a positive number, got {adjust}"),
+            ));
         }
         let count = |name: &str, default: usize| -> Result<usize> {
             match parameters.number(name)? {
                 None => Ok(default),
                 Some(value) if value >= 2.0 => Ok(value as usize),
-                Some(value) => Err(Error::InvalidSpec(format!(
-                    "at '{}': expected a whole number of at least 2, got {value}",
-                    parameters.path_of(name)
-                ))),
+                Some(value) => Err(Error::spec(
+                    parameters.path_of(name),
+                    format!("expected a whole number of at least 2, got {value}"),
+                )),
             }
         };
         let n = count("n", DEFAULT_N)?;
         if n > MAX_N {
-            return Err(Error::InvalidSpec(format!(
-                "at '{}': n = {n} is too large; at most {MAX_N}",
-                parameters.path_of("n")
-            )));
+            return Err(Error::spec(
+                parameters.path_of("n"),
+                format!("n = {n} is too large; at most {MAX_N}"),
+            ));
         }
         Ok(DensityOptions {
             bandwidth,

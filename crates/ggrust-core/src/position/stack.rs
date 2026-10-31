@@ -37,10 +37,10 @@ impl Position for StackPosition {
             None | Some("groups") => false,
             Some("all") => true,
             Some(other) => {
-                return Err(Error::InvalidSpec(format!(
-                    "at '{}': unsupported stacking mode '{other}'; use one of: groups, all",
-                    parameters.path_of("mode")
-                )));
+                return Err(Error::spec(
+                    parameters.path_of("mode"),
+                    format!("unsupported stacking mode '{other}'; use one of: groups, all"),
+                ));
             }
         };
         let (Some(x), Some(y)) = (data.continuous(Aesthetic::X), data.continuous(Aesthetic::Y))

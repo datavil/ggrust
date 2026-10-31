@@ -341,7 +341,7 @@ impl Theme {
     /// The theme of a spec (named theme + `theme(...)` options + flavor). Options and
     /// element properties ggrust does not draw yet are reported in `warnings`.
     pub fn from_spec(spec: Option<&ThemeSpec>, warnings: &mut Vec<String>) -> Result<Theme> {
-        let (values, flavor) = theme_values(spec).map_err(Error::InvalidSpec)?;
+        let (values, flavor) = theme_values(spec).map_err(Error::spec_located)?;
         if let Some(spec) = spec {
             report_unbuilt(spec, warnings);
         }
@@ -489,10 +489,10 @@ impl Resolver<'_> {
                 .as_f64()
                 .filter(|number| number.is_finite())
                 .ok_or_else(|| {
-                    Error::InvalidSpec(format!(
-                        "at 'theme.{}': expected a number, got {value}",
-                        keys[0]
-                    ))
+                    Error::spec(
+                        format!("theme.{}", keys[0]),
+                        format!("expected a number, got {value}"),
+                    )
                 }),
         }
     }
@@ -589,9 +589,10 @@ impl Resolver<'_> {
                 Some(Value::String(name)) if name == "vertical" => false,
                 Some(Value::String(name)) if name == "horizontal" => true,
                 Some(other) => {
-                    return Err(Error::InvalidSpec(format!(
-                        "at 'theme.legend_box': expected 'horizontal' or 'vertical', got {other}"
-                    )));
+                    return Err(Error::spec(
+                        "theme.legend_box",
+                        format!("expected 'horizontal' or 'vertical', got {other}"),
+                    ));
                 }
             },
             legend_box_just: legend_box_just(self.values.value_of(&["legend_box_just"]))?,
@@ -643,9 +644,10 @@ fn pair(value: &Value, key: &str) -> Result<(f64, f64)> {
         .filter(|items| items.len() == 2)
         .and_then(|items| Some((items[0].as_f64()?, items[1].as_f64()?)));
     numbers.ok_or_else(|| {
-        Error::InvalidSpec(format!(
-            "at 'theme.{key}': expected a name or two numbers, got {value}"
-        ))
+        Error::spec(
+            format!("theme.{key}"),
+            format!("expected a name or two numbers, got {value}"),
+        )
     })
 }
 
@@ -664,10 +666,17 @@ fn legend_position(value: Option<&Value>) -> Result<LegendPosition> {
             "bottom" => LegendPosition::Bottom,
             "none" => LegendPosition::None,
             _ => {
-                return Err(Error::InvalidSpec(format!(
-                    "at 'theme.legend_position': expected left, right, top, bottom, none or two \
-                     numbers, got '{name}'"
-                )));
+                return Err(Error::spec(
+                    "theme.legend_position",
+                    format!(
+                        "expected left, right, top, bottom, none or two numbers, got \
+                         '{name}'{}",
+                        crate::suggest::did_you_mean(
+                            name,
+                            ["left", "right", "top", "bottom", "none"]
+                        )
+                    ),
+                ));
             }
         },
         Some(value) => {
@@ -688,10 +697,13 @@ fn legend_justification(value: Option<&Value>) -> Result<(f64, f64)> {
             "top" => (0.5, 1.0),
             "bottom" => (0.5, 0.0),
             _ => {
-                return Err(Error::InvalidSpec(format!(
-                    "at 'theme.legend_justification': expected center, left, right, top, bottom \
+                return Err(Error::spec(
+                    "theme.legend_justification",
+                    format!(
+                        "expected center, left, right, top, bottom \
                      or two numbers, got '{name}'"
-                )));
+                    ),
+                ));
             }
         },
         Some(value) => pair(value, "legend_justification")?,
@@ -703,9 +715,10 @@ fn legend_direction(value: Option<&Value>) -> Result<LegendDirection> {
         None => Ok(LegendDirection::Auto),
         Some(Value::String(name)) if name == "horizontal" => Ok(LegendDirection::Horizontal),
         Some(Value::String(name)) if name == "vertical" => Ok(LegendDirection::Vertical),
-        Some(other) => Err(Error::InvalidSpec(format!(
-            "at 'theme.legend_direction': expected 'horizontal' or 'vertical', got {other}"
-        ))),
+        Some(other) => Err(Error::spec(
+            "theme.legend_direction",
+            format!("expected 'horizontal' or 'vertical', got {other}"),
+        )),
     }
 }
 
@@ -718,14 +731,18 @@ fn legend_box_just(value: Option<&Value>) -> Result<LegendBoxJust> {
             "top" => Ok(LegendBoxJust::Top),
             "bottom" => Ok(LegendBoxJust::Bottom),
             "center" => Ok(LegendBoxJust::Center),
-            _ => Err(Error::InvalidSpec(format!(
-                "at 'theme.legend_box_just': expected left, right, top, bottom or center, got \
+            _ => Err(Error::spec(
+                "theme.legend_box_just",
+                format!(
+                    "expected left, right, top, bottom or center, got \
                  '{name}'"
-            ))),
+                ),
+            )),
         },
-        Some(other) => Err(Error::InvalidSpec(format!(
-            "at 'theme.legend_box_just': expected a name, got {other}"
-        ))),
+        Some(other) => Err(Error::spec(
+            "theme.legend_box_just",
+            format!("expected a name, got {other}"),
+        )),
     }
 }
 

@@ -214,7 +214,7 @@ fn missing_column_lists_available_names() {
     assert!(matches!(error, Error::MissingColumn { .. }));
     assert_eq!(
         error.to_string(),
-        "column 'UMAP2' not found in data; available columns: UMAP1"
+        "column 'UMAP2' not found in data; available columns: UMAP1; did you mean 'UMAP1'?"
     );
 }
 
@@ -246,7 +246,7 @@ fn mismatched_batch_schema_is_rejected() {
     )]));
     assert!(matches!(
         DataFrame::new(other, vec![batch]),
-        Err(Error::InvalidData(_))
+        Err(Error::InvalidData { .. })
     ));
 }
 

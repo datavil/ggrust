@@ -8,7 +8,7 @@ runtime API and not re-exported.
 from __future__ import annotations
 
 import os
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from typing import IO, Any, Literal, TypeAlias
 
 import pandas
@@ -25,8 +25,8 @@ PlotData: TypeAlias = (
 )
 """Table-like data: polars, pandas, Arrow, or a mapping of column names to values."""
 
-Breaks: TypeAlias = Sequence[Any] | dict[str, Any]
-"""Scale breaks: a list of values, or a mapping of labels to values."""
+Breaks: TypeAlias = Iterable[Any] | dict[Any, Any]
+"""Scale breaks: values (a list or an array), or a dict of labels to values."""
 
 Labels: TypeAlias = Sequence[str] | dict[Any, str]
 """Scale labels: a list of texts, or a mapping of break values to texts."""

@@ -1,0 +1,225 @@
+"""Exceptions raised by ggrust.
+
+Every class subclasses ``GgrustError`` and the builtin that matches the problem
+(``ValueError`` for invalid values, ``TypeError`` for unsupported types), so
+``except ValueError`` keeps working as with lets_plot. Errors from the Rust engine
+arrive as these classes with structured attributes (``path``, ``column``, ...); the
+message always says what was wrong, where, what is accepted and how to fix it.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+__all__ = [
+    "ColumnNotFoundError",
+    "DataError",
+    "ExportError",
+    "GgrustError",
+    "RenderError",
+    "SpecError",
+    "UnsupportedColumnTypeError",
+    "UnsupportedDataError",
+    "UnsupportedValueError",
+]
+
+
+class GgrustError(Exception):
+    """Base class of every ggrust error."""
+
+
+class SpecError(GgrustError, ValueError):
+    """Raised when the plot specification holds an invalid value.
+
+    Parameters
+    ----------
+    message : str
+        The full message, including the location.
+    path : str, default=""
+        Spec path of the offending value, e.g. ``"layers[0].size"`` or
+        ``"theme.axis_text.size"``; empty when the error concerns the whole spec.
+    reason : str, default=""
+        What was wrong and what is accepted, without the location.
+    """
+
+    def __init__(self, message: str, *, path: str = "", reason: str = "") -> None:
+        super().__init__(message)
+        self.path = path
+        self.reason = reason or message
+
+
+class UnsupportedValueError(SpecError, TypeError):
+    """Raised when a spec holds a value of a type the engine cannot receive.
+
+    Parameters
+    ----------
+    message : str
+        The full message, including the location.
+    path : str, default=""
+        Spec path of the value.
+    reason : str, default=""
+        What was wrong, without the location.
+    """
+
+
+class DataError(GgrustError, ValueError):
+    """Raised when the plot data cannot be read (malformed or inconsistent columns).
+
+    Parameters
+    ----------
+    message : str
+        The full message.
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+
+class UnsupportedDataError(DataError, TypeError):
+    """Raised when the data object is not a kind ggrust reads (e.g. a Series).
+
+    Parameters
+    ----------
+    message : str
+        The full message, listing the accepted kinds.
+    """
+
+
+class ColumnNotFoundError(DataError):
+    """Raised when a mapping refers to a column that is not in the data.
+
+    Parameters
+    ----------
+    message : str
+        The full message, listing the available columns and a close match.
+    column : str
+        The missing column.
+    available : list of str
+        Names of the columns the data has.
+    path : str, default=""
+        Spec path of the mapping that names the column, e.g. ``"layers[0].mapping.x"``.
+    """
+
+    def __init__(self, message: str, *, column: str, available: list[str], path: str = "") -> None:
+        super().__init__(message)
+        self.column = column
+        self.available = available
+        self.path = path
+
+
+class UnsupportedColumnTypeError(DataError, TypeError):
+    """Raised when a mapped column has a type ggrust cannot plot.
+
+    Parameters
+    ----------
+    message : str
+        The full message.
+    column : str
+        The column.
+    data_type : str
+        Its Arrow type, e.g. ``"Duration(ms)"``.
+    path : str, default=""
+        Spec path of the mapping that reads the column.
+    """
+
+    def __init__(self, message: str, *, column: str, data_type: str, path: str = "") -> None:
+        super().__init__(message)
+        self.column = column
+        self.data_type = data_type
+        self.path = path
+
+
+class RenderError(GgrustError, ValueError):
+    """Raised when drawing the output fails, e.g. for an image too large to allocate.
+
+    Parameters
+    ----------
+    message : str
+        The full message.
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+
+class ExportError(GgrustError, ValueError):
+    """Raised when export options are invalid (file name, unit, size, dpi, scale).
+
+    Parameters
+    ----------
+    message : str
+        The full message.
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
+
+
+def did_you_mean(word: str, candidates: Iterable[str]) -> str:
+    """Return ``"; did you mean 'x'?"`` for the closest candidate, or ``""``.
+
+    Same rule as the engine's suggestions: about one edit (insertion, deletion,
+    substitution or swap of neighbours) per three letters, none for one- and
+    two-letter words; case differences alone always match. No suggestion when
+    several candidates are equally close or ``word`` starts several of them.
+
+    Parameters
+    ----------
+    word : str
+        The misspelt name.
+    candidates : iterable of str
+        The accepted names.
+
+    Returns
+    -------
+    str
+        The suggestion, ready to append to a message.
+    """
+    lowered = word.lower()
+    limit = len(word) // 3
+    best: tuple[int, str] | None = None
+    tied = False
+    extensions = 0
+    for candidate in candidates:
+        if candidate == word:
+            continue
+        candidate_lowered = candidate.lower()
+        if candidate_lowered.startswith(lowered) and candidate_lowered != lowered:
+            extensions += 1
+        distance = _distance(lowered, candidate_lowered)
+        if distance > limit or (best is not None and distance > best[0]):
+            continue
+        tied = best is not None and distance == best[0]
+        if not tied:
+            best = (distance, candidate)
+    if best is None or tied or extensions > 1:
+        return ""
+    return f"; did you mean {best[1]!r}?"
+
+
+def _distance(left: str, right: str) -> int:
+    """Optimal string alignment distance (Levenshtein plus adjacent swaps)."""
+    rows = [[0] * (len(right) + 1) for _ in range(len(left) + 1)]
+    for column in range(len(right) + 1):
+        rows[0][column] = column
+    for row in range(1, len(left) + 1):
+        rows[row][0] = row
+        for column in range(1, len(right) + 1):
+            cost = int(left[row - 1] != right[column - 1])
+            best = min(
+                rows[row - 1][column] + 1,
+                rows[row][column - 1] + 1,
+                rows[row - 1][column - 1] + cost,
+            )
+            if (
+                row > 1
+                and column > 1
+                and left[row - 1] == right[column - 2]
+                and left[row - 2] == right[column - 1]
+            ):
+                best = min(best, rows[row - 2][column - 2] + 1)
+            rows[row][column] = best
+    return rows[len(left)][len(right)]

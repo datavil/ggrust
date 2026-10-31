@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ggrust.errors import SpecError
 from ggrust.plot.core import FeatureSpec
 
 if TYPE_CHECKING:
@@ -20,8 +21,11 @@ __all__ = ["guide_colorbar", "guide_legend", "guides"]
 
 def _guide(name: str | None, **kwargs: Any) -> FeatureSpec:
     if "title" in kwargs and isinstance(kwargs["title"], int):
-        message = "Use keyword arguments for all other than 'title' parameters."
-        raise ValueError(message)
+        message = (
+            "guide_*(): only 'title' may be passed by position; pass the other options by "
+            "keyword (e.g. guide_legend('Title', ncol=2))"
+        )
+        raise SpecError(message)
     return FeatureSpec("guide", name=name, **kwargs)
 
 

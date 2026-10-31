@@ -144,7 +144,7 @@ impl Geom for AreaRidgesGeom {
         let quantiles = ydensity_quantiles(&layer.parameters)?;
         let column = |aesthetic| {
             layer.data.continuous(aesthetic).ok_or_else(|| {
-                Error::InvalidData(format!("ridges are missing their '{aesthetic}' column"))
+                Error::data(format!("ridges are missing their '{aesthetic}' column"))
             })
         };
         let (x, y, height, top) = (

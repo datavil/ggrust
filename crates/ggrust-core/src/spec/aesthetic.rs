@@ -165,9 +165,10 @@ impl fmt::Display for UnknownAesthetic {
         let names: Vec<&str> = Aesthetic::ALL.iter().map(|a| a.as_str()).collect();
         write!(
             formatter,
-            "unknown aesthetic '{}'; expected one of: {}",
+            "unknown aesthetic '{}'; expected one of: {}{}",
             self.0,
-            names.join(", ")
+            names.join(", "),
+            crate::suggest::did_you_mean(&self.0, names.iter().copied())
         )
     }
 }

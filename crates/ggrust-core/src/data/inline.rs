@@ -48,11 +48,14 @@ pub fn inline_vectors(
         let name = unused_name(aesthetic.as_str(), used_names);
         frame = Some(match frame {
             Some(frame) if array.len() != frame.row_count() => {
-                return Err(Error::InvalidSpec(format!(
-                    "at '{at}': the list has {} values but the data has {} rows",
-                    array.len(),
-                    frame.row_count()
-                )));
+                return Err(Error::spec(
+                    &at,
+                    format!(
+                        "the list has {} values but the data has {} rows",
+                        array.len(),
+                        frame.row_count()
+                    ),
+                ));
             }
             Some(frame) => frame.with_column(&name, array)?,
             None => DataFrame::from_columns(vec![(name.clone(), array)])?,
@@ -99,10 +102,11 @@ fn vector_array(value: &MappingValue, path: &str) -> Result<ArrayRef> {
             items.iter().map(Value::as_bool).collect::<Vec<_>>(),
         )));
     }
-    Err(Error::InvalidSpec(format!(
-        "at '{path}': a list of values mixes types; expected only numbers, only \
-         texts or only booleans (nulls allowed)"
-    )))
+    Err(Error::spec(
+        path,
+        "a list of values mixes types; expected only numbers, only \
+         texts or only booleans (nulls allowed)",
+    ))
 }
 
 impl DataFrame {
@@ -115,7 +119,7 @@ impl DataFrame {
         let schema = Arc::new(Schema::new(fields));
         let arrays = columns.into_iter().map(|(_, array)| array).collect();
         let batch = RecordBatch::try_new(schema.clone(), arrays)
-            .map_err(|error| Error::InvalidData(error.to_string()))?;
+            .map_err(|error| Error::data(error.to_string()))?;
         DataFrame::new(schema, vec![batch])
     }
 
@@ -123,7 +127,7 @@ impl DataFrame {
     /// Existing columns are shared, not copied.
     pub fn with_column(&self, name: &str, array: ArrayRef) -> Result<DataFrame> {
         if array.len() != self.row_count() {
-            return Err(Error::InvalidData(format!(
+            return Err(Error::data(format!(
                 "have {} items but the data has {} rows",
                 array.len(),
                 self.row_count()
@@ -145,7 +149,7 @@ impl DataFrame {
             offset += batch.num_rows();
             batches.push(
                 RecordBatch::try_new(schema.clone(), columns)
-                    .map_err(|error| Error::InvalidData(error.to_string()))?,
+                    .map_err(|error| Error::data(error.to_string()))?,
             );
         }
         if batches.is_empty() {

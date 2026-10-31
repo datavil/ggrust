@@ -91,8 +91,7 @@ impl Facets {
     /// `facet_wrap` from its spec and each layer's faceting columns (`layers[i][v]`
     /// is layer `i`'s column of variable `v`) with each layer's row count.
     pub fn wrap(spec: &FacetSpec, layers: &[(&LayerFacetColumns, usize)]) -> Result<Facets> {
-        let invalid =
-            |key: &str, message: String| Error::InvalidSpec(format!("at 'facet.{key}': {message}"));
+        let invalid = |key: &str, message: String| Error::spec(format!("facet.{key}"), message);
         let variables: Vec<String> = spec
             .facets
             .as_ref()
@@ -226,7 +225,7 @@ impl Facets {
                 None => Ok(None),
             })
             .collect::<Result<Vec<_>>>()?;
-        let number_pattern = LabelPattern::parse("{,~g}").map_err(Error::InvalidSpec)?;
+        let number_pattern = LabelPattern::parse("{,~g}").map_err(Error::spec_located)?;
 
         let count = combinations.len();
         let (columns, rows) = shape(count, spec.ncol, spec.nrow, vertical);

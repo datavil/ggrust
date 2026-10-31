@@ -116,10 +116,10 @@ impl ViolinScale {
             None | Some("area") => Ok(ViolinScale::Area),
             Some("count") => Ok(ViolinScale::Count),
             Some("width") => Ok(ViolinScale::Width),
-            Some(other) => Err(Error::InvalidSpec(format!(
-                "at '{}': unsupported scale '{other}'; use one of: area, count, width",
-                parameters.path_of("scale")
-            ))),
+            Some(other) => Err(Error::spec(
+                parameters.path_of("scale"),
+                format!("unsupported scale '{other}'; use one of: area, count, width"),
+            )),
         }
     }
 
@@ -161,10 +161,10 @@ pub fn quantiles(parameters: &Parameters) -> Result<Vec<f64>> {
         return Ok(DEFAULT_QUANTILES.to_vec());
     };
     let invalid = || {
-        Error::InvalidSpec(format!(
-            "at '{}': expected a list of numbers between 0 and 1, got {value}",
-            parameters.path_of("quantiles")
-        ))
+        Error::spec(
+            parameters.path_of("quantiles"),
+            format!("expected a list of numbers between 0 and 1, got {value}"),
+        )
     };
     let Value::Array(items) = value else {
         return Err(invalid());

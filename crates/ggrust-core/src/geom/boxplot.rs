@@ -115,10 +115,10 @@ impl Geom for BoxplotGeom {
         if let Some(unit) = parameters.string("width_unit")?
             && unit != "res"
         {
-            return Err(Error::InvalidSpec(format!(
-                "at '{}': width_unit '{unit}' is not supported by ggrust yet; supported: res",
-                parameters.path_of("width_unit")
-            )));
+            return Err(Error::spec(
+                parameters.path_of("width_unit"),
+                format!("width_unit '{unit}' is not supported by ggrust yet; supported: res"),
+            ));
         }
         let Some(x) = data.continuous(Aesthetic::X).cloned() else {
             return Ok(data);
@@ -150,9 +150,10 @@ impl Geom for BoxplotGeom {
             .number("whisker_width")?
             .unwrap_or(DEFAULT_WHISKER_WIDTH);
         let column = |aesthetic| {
-            layer.data.continuous(aesthetic).ok_or_else(|| {
-                Error::InvalidData(format!("boxplot is missing its '{aesthetic}' column"))
-            })
+            layer
+                .data
+                .continuous(aesthetic)
+                .ok_or_else(|| Error::data(format!("boxplot is missing its '{aesthetic}' column")))
         };
         let [x, xmin, xmax, ymin, lower, middle, upper, ymax] = [
             Aesthetic::X,

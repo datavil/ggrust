@@ -42,3 +42,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Profiling on macOS](profiling_macos.md): `sample` + inferno (no root), v0 symbols need llvm-cxxfilt per frame, drop sleeping and polars threads, never name a script profile.py.
 - [Rayon parallel levels: gated, ordered](rayon_parallel_levels.md): `parallel::ordered_map` + 10k-row gate (pool wake ~50 us), results consumed in order, outputs byte-identical, PNG left to 6.1c/6.1f.
 - [Frame column cache](frame_column_cache.md): per-frame OnceLock column cache shared by clones, blocking init for parallel subplots, no stat cache by decision.
+- [Error model](error_model.md): structured spec paths (`Error::spec`, `nested`), one `ggrust.errors` class per kind, shared did-you-mean rule; `uv run` rebuilds after Rust edits.

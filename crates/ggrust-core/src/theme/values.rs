@@ -631,7 +631,10 @@ pub fn theme_values(spec: Option<&ThemeSpec>) -> Result<(Values, Flavor), String
         .and_then(|spec| spec.name.as_deref())
         .unwrap_or("minimal2");
     let (mut values, default_flavor) = named(name).ok_or_else(|| {
-        format!("at 'theme.name': unknown theme '{name}'; expected one of {THEME_NAMES}")
+        let suggestion = crate::suggest::did_you_mean(name, crate::suggest::quoted(THEME_NAMES));
+        format!(
+            "at 'theme.name': unknown theme '{name}'; expected one of {THEME_NAMES}{suggestion}"
+        )
     })?;
     let mut flavor = default_flavor;
     if let Some(spec) = spec {
@@ -644,7 +647,11 @@ pub fn theme_values(spec: Option<&ThemeSpec>) -> Result<(Values, Flavor), String
                     .ok_or_else(|| {
                         format!(
                             "at 'theme.flavor': unknown flavor '{flavor_name}'; expected one \
-                             of {FLAVOR_NAMES}"
+                             of {FLAVOR_NAMES}{}",
+                            crate::suggest::did_you_mean(
+                                flavor_name,
+                                crate::suggest::quoted(FLAVOR_NAMES)
+                            )
                         )
                     })?
                     .or(default_flavor);

@@ -155,9 +155,10 @@ impl Geom for ViolinGeom {
             if show_half < 0.0 { 0.0 } else { 1.0 },
         );
         let column = |aesthetic| {
-            layer.data.continuous(aesthetic).ok_or_else(|| {
-                Error::InvalidData(format!("violin is missing its '{aesthetic}' column"))
-            })
+            layer
+                .data
+                .continuous(aesthetic)
+                .ok_or_else(|| Error::data(format!("violin is missing its '{aesthetic}' column")))
         };
         let (x, y, xmin, xmax, violin_width) = (
             column(Aesthetic::X)?,

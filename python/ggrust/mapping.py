@@ -7,6 +7,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ggrust.errors import SpecError
+
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from typing import Any
@@ -25,9 +27,9 @@ class MappingMeta:
         **parameters: object,
     ) -> None:
         if variable is None:
-            raise ValueError("variable can't be none")
+            raise SpecError("as_discrete(): 'variable' is None; pass a column name")
         if annotation is None:
-            raise ValueError("annotation can't be none")
+            raise SpecError("MappingMeta(): 'annotation' is None; pass e.g. 'as_discrete'")
         self.variable = variable
         self.annotation = annotation
         self.levels = levels

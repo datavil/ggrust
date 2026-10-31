@@ -8,6 +8,7 @@ reset); static output (SVG, PNG) ignores it, as lets-plot's does.
 import math
 from typing import Literal
 
+from ggrust.errors import SpecError, did_you_mean
 from ggrust.plot.core import FeatureSpec
 
 __all__ = ["ggtb"]
@@ -52,9 +53,9 @@ def ggtb(
     >>> html = (plot + gg.ggtb(size_zoomin=-1)).to_html()
     """
     if size_basis is not None and size_basis not in SIZE_BASES:
-        raise ValueError(
+        raise SpecError(
             f"ggtb(size_basis={size_basis!r}): unknown size_basis; "
-            "use one of 'x', 'y', 'min', 'max'"
+            f"use one of 'x', 'y', 'min', 'max'{did_you_mean(str(size_basis), SIZE_BASES)}"
         )
     valid_number = (
         isinstance(size_zoomin, int | float)
@@ -63,7 +64,7 @@ def ggtb(
         and (size_zoomin >= 0 or size_zoomin == -1)
     )
     if size_zoomin is not None and not valid_number:
-        raise ValueError(
+        raise SpecError(
             f"ggtb(size_zoomin={size_zoomin!r}): use a finite number >= 0 (largest point growth, "
             "0 keeps sizes) or -1 (no limit)"
         )

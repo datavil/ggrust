@@ -29,7 +29,7 @@ def ggtitle(label: str, subtitle: str | None = None) -> FeatureSpec:
     return labs(title=label, subtitle=subtitle)
 
 
-def xlab(label: str) -> FeatureSpec:
+def xlab(label: str | None) -> FeatureSpec:
     """Set the x axis title.
 
     Parameters
@@ -45,7 +45,7 @@ def xlab(label: str) -> FeatureSpec:
     return labs(x=label)
 
 
-def ylab(label: str) -> FeatureSpec:
+def ylab(label: str | None) -> FeatureSpec:
     """Set the y axis title.
 
     Parameters
@@ -66,7 +66,7 @@ def labs(
     subtitle: str | None = None,
     caption: str | None = None,
     tag: str | None = None,
-    **labels: str,
+    **labels: str | None,
 ) -> FeatureSpec:
     """Set the title, subtitle, caption, tag and axis or legend titles.
 

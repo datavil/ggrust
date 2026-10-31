@@ -72,22 +72,30 @@ impl AxisScaleSpec {
                     .iter()
                     .map(|value| match value {
                         Value::Null => Ok(None),
-                        value => value.as_f64().filter(|value| value.is_finite()).map(Some).ok_or_else(|| {
-                            Error::InvalidSpec(format!(
-                                "at '{path}': breaks of a continuous axis are numbers, got {value}"
-                            ))
-                        }),
+                        value => value
+                            .as_f64()
+                            .filter(|value| value.is_finite())
+                            .map(Some)
+                            .ok_or_else(|| {
+                                Error::spec(
+                                    path,
+                                    format!("breaks of a continuous axis are numbers, got {value}"),
+                                )
+                            }),
                     })
                     .collect::<Result<Vec<_>>>()?;
                 if let Some((labels, labels_path)) = &labels
                     && labels.len() != values.len()
                 {
                     // lets-plot fails the plot here too.
-                    return Err(Error::InvalidSpec(format!(
-                        "at '{labels_path}': {} labels for {} breaks; give one label per break",
-                        labels.len(),
-                        values.len()
-                    )));
+                    return Err(Error::spec(
+                        labels_path,
+                        format!(
+                            "{} labels for {} breaks; give one label per break",
+                            labels.len(),
+                            values.len()
+                        ),
+                    ));
                 }
                 scale.fixed_breaks = Some(values);
                 scale.labels = labels.map(|(labels, _)| labels);
@@ -143,9 +151,10 @@ impl AxisScaleSpec {
                 .filter(|value| !value.is_null())
                 .map(|value| match value {
                     Value::String(text) => Ok(text.clone()),
-                    other => Err(Error::InvalidSpec(format!(
-                        "at '{path}': discrete limits are category names (strings), got {other}"
-                    ))),
+                    other => Err(Error::spec(
+                        path,
+                        format!("discrete limits are category names (strings), got {other}"),
+                    )),
                 })
                 .collect::<Result<Vec<_>>>()?;
             scale.set_limits(categories);
@@ -172,9 +181,10 @@ impl AxisScaleSpec {
             return Ok(None);
         };
         let Value::Array(items) = labels else {
-            return Err(Error::InvalidSpec(format!(
-                "at '{path}': expected a list of labels, got {labels}"
-            )));
+            return Err(Error::spec(
+                path,
+                format!("expected a list of labels, got {labels}"),
+            ));
         };
         let texts = items
             .iter()
@@ -182,9 +192,7 @@ impl AxisScaleSpec {
                 Value::String(text) => Ok(text.clone()),
                 Value::Number(number) => Ok(number.to_string()),
                 Value::Null => Ok(String::new()),
-                other => Err(Error::InvalidSpec(format!(
-                    "at '{path}': labels are texts, got {other}"
-                ))),
+                other => Err(Error::spec(path, format!("labels are texts, got {other}"))),
             })
             .collect::<Result<_>>()?;
         Ok(Some((texts, path.clone())))
@@ -196,10 +204,13 @@ impl AxisScaleSpec {
             return Ok(None);
         };
         if expand.len() > 2 || expand.iter().any(|value| !value.is_finite()) {
-            return Err(Error::InvalidSpec(format!(
-                "at '{path}': expected [multiplicative] or [multiplicative, additive] \
+            return Err(Error::spec(
+                path,
+                format!(
+                    "expected [multiplicative] or [multiplicative, additive] \
                  finite numbers, got {expand:?}"
-            )));
+                ),
+            ));
         }
         Ok(Some([expand.first().copied(), expand.get(1).copied()]))
     }
@@ -268,9 +279,10 @@ fn category(value: &Value, path: &str, key: &str) -> Result<String> {
         Value::String(text) => Ok(text.clone()),
         Value::Number(number) => Ok(number.to_string()),
         Value::Bool(flag) => Ok(flag.to_string()),
-        other => Err(Error::InvalidSpec(format!(
-            "at '{path}': {key} of a discrete axis are category names, got {other}"
-        ))),
+        other => Err(Error::spec(
+            path,
+            format!("{key} of a discrete axis are category names, got {other}"),
+        )),
     }
 }
 
@@ -287,9 +299,7 @@ fn transformed_limits(
         match value {
             None | Some(Value::Null) => Ok(None),
             Some(value) => value.as_f64().map(Some).ok_or_else(|| {
-                Error::InvalidSpec(format!(
-                    "at '{path}': limits are numbers or null, got {value}"
-                ))
+                Error::spec(path, format!("limits are numbers or null, got {value}"))
             }),
         }
     };

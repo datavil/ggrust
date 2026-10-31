@@ -29,7 +29,7 @@ mod _ggrust {
     /// `data:image/png;base64,...` URL (`geom_imshow`). `compression` is a zlib
     /// level 0..9; `None` picks the fastest. The GIL is released while encoding.
     ///
-    /// Raises `ValueError` if `rgba` does not hold `width * height * 4` bytes.
+    /// Raises `ggrust.errors.RenderError` if `rgba` does not hold `width * height * 4` bytes.
     #[pyfunction]
     #[pyo3(signature = (rgba, width, height, compression=None))]
     fn png_data_url(
@@ -41,18 +41,18 @@ mod _ggrust {
     ) -> PyResult<String> {
         python
             .detach(|| rgba_png_data_url(width, height, rgba, compression))
-            .map_err(to_value_error)
+            .map_err(to_python_error)
     }
 
     /// Parse a plot spec (JSON of `as_dict()` without data) and return the
     /// paths of options ggrust does not support.
     ///
-    /// Raises `ValueError` naming the offending path if the spec is invalid.
+    /// Raises `ggrust.errors.SpecError` (with its `path`) if the spec is invalid.
     #[pyfunction]
     fn validate_spec(spec_json: &str) -> PyResult<Vec<String>> {
         ggrust_core::spec::Figure::from_json(spec_json)
             .map(|figure| figure.unsupported_options())
-            .map_err(to_value_error)
+            .map_err(to_python_error)
     }
 
     /// Describe how ggrust reads each column of an Arrow table (debugging aid).
@@ -101,26 +101,72 @@ mod _ggrust {
     /// Column names a spec reads in every output (mappings, `order_by`, facets),
     /// sorted. Only these (plus [`tooltip_columns`] for HTML) are exported as Arrow.
     ///
-    /// Raises `ValueError` naming the offending path if the spec is invalid.
+    /// Raises `ggrust.errors.SpecError` (with its `path`) if the spec is invalid.
     #[pyfunction]
     fn referenced_columns(spec_json: &str) -> PyResult<Vec<String>> {
         Figure::from_json(spec_json)
             .map(|figure| figure.referenced_columns().into_iter().collect())
-            .map_err(to_value_error)
+            .map_err(to_python_error)
     }
 
     /// Column names `layer_tooltips()` reads, sorted: exported for HTML output only.
     ///
-    /// Raises `ValueError` naming the offending path if the spec is invalid.
+    /// Raises `ggrust.errors.SpecError` (with its `path`) if the spec is invalid.
     #[pyfunction]
     fn tooltip_columns(spec_json: &str) -> PyResult<Vec<String>> {
         Figure::from_json(spec_json)
             .map(|figure| figure.tooltip_columns().into_iter().collect())
-            .map_err(to_value_error)
+            .map_err(to_python_error)
     }
 
-    fn to_value_error(error: ggrust_core::Error) -> PyErr {
-        PyValueError::new_err(error.to_string())
+    /// The `ggrust.errors` exception for an engine error, with its structured fields
+    /// as attributes (`SpecError.path`, `ColumnNotFoundError.column`, ...).
+    fn to_python_error(error: ggrust_core::Error) -> PyErr {
+        Python::attach(|python| {
+            python_error(python, &error)
+                .unwrap_or_else(|_| PyValueError::new_err(error.to_string()))
+        })
+    }
+
+    fn python_error(python: Python<'_>, error: &ggrust_core::Error) -> PyResult<PyErr> {
+        use ggrust_core::Error;
+        let keywords = PyDict::new(python);
+        let class = match error {
+            Error::InvalidSpec { path, message, .. } => {
+                keywords.set_item("path", path)?;
+                keywords.set_item("reason", message)?;
+                "SpecError"
+            }
+            Error::MissingColumn {
+                name,
+                available,
+                path,
+                ..
+            } => {
+                keywords.set_item("column", name)?;
+                keywords.set_item("available", available.to_vec())?;
+                keywords.set_item("path", path)?;
+                "ColumnNotFoundError"
+            }
+            Error::UnsupportedColumnType {
+                name,
+                data_type,
+                path,
+                ..
+            } => {
+                keywords.set_item("column", name)?;
+                keywords.set_item("data_type", data_type)?;
+                keywords.set_item("path", path)?;
+                "UnsupportedColumnTypeError"
+            }
+            Error::Render { .. } => "RenderError",
+            Error::InvalidData { .. } => "DataError",
+        };
+        let instance = python
+            .import("ggrust.errors")?
+            .getattr(class)?
+            .call((error.to_string(),), Some(&keywords))?;
+        Ok(PyErr::from_value(instance))
     }
 
     /// Build and render a figure (a plot, or a `gggrid` of figures).
@@ -159,7 +205,7 @@ mod _ggrust {
                     "html_page" => Some(HtmlDocument::Page),
                     "html_iframe" => Some(HtmlDocument::Iframe),
                     other => {
-                        return Err(ggrust_core::Error::Render(format!(
+                        return Err(ggrust_core::Error::render(format!(
                             "unknown output format '{other}'; expected 'svg', 'png', 'pdf', \
                              'html', 'html_page' or 'html_iframe'"
                         )));
@@ -168,7 +214,7 @@ mod _ggrust {
                 let html = match (document, html_id) {
                     (Some(document), Some(id)) => Some(HtmlOptions { id, document }),
                     (Some(_), None) => {
-                        return Err(ggrust_core::Error::Render(format!(
+                        return Err(ggrust_core::Error::render(format!(
                             "output '{output}' needs 'html_id' (unique per display)"
                         )));
                     }
@@ -190,12 +236,12 @@ mod _ggrust {
                 };
                 Ok((bytes, built.warnings))
             })
-            .map_err(to_value_error)?;
+            .map_err(to_python_error)?;
         Ok((PyBytes::new(python, &bytes), warnings))
     }
 
     fn to_frame(data: AnyRecordBatch) -> PyResult<DataFrame> {
         let (batches, schema) = data.into_table()?.into_inner();
-        DataFrame::new(schema, batches).map_err(to_value_error)
+        DataFrame::new(schema, batches).map_err(to_python_error)
     }
 }

@@ -109,8 +109,8 @@ impl Figure {
     /// Errors name the path of the offending value, e.g. `layers[0].mapping`.
     pub fn from_json(text: &str) -> Result<Self> {
         let value: Value = serde_json::from_str(text)
-            .map_err(|error| Error::InvalidSpec(format!("not valid JSON: {error}")))?;
-        Figure::from_value(value).map_err(Error::InvalidSpec)
+            .map_err(|error| Error::spec("", format!("not valid JSON: {error}")))?;
+        Figure::from_value(value).map_err(Error::spec_located)
     }
 
     /// Paths of every option that ggrust does not support, e.g. `theme.axis_text.margin`.

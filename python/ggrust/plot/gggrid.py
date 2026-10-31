@@ -4,6 +4,7 @@ Ported from lets-plot's ``lets_plot/plot/gggrid_.py`` (MIT, see THIRD_PARTY_NOTI
 Global themes (``theme_set``) are not ported, so figures keep their own themes.
 """
 
+from ggrust.errors import SpecError
 from ggrust.plot.subplots import SupPlotsLayoutSpec, SupPlotsSpec
 
 __all__ = ["gggrid"]
@@ -50,8 +51,8 @@ def gggrid(
         The grid.
     """
     if not len(plots):
-        message = "Supplots list is empty."
-        raise ValueError(message)
+        message = "gggrid(): 'plots' is empty; pass a list of plots (None leaves a cell empty)"
+        raise SpecError(message)
     if ncol is None:
         ncol = len(plots)
         nrow = 1

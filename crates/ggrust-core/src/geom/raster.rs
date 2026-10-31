@@ -120,14 +120,14 @@ impl Geom for RasterGeom {
             layer.data.resolution(Aesthetic::Y),
         );
         if !(step_x > TINY_STEP && step_y > TINY_STEP) {
-            return Err(Error::InvalidData(format!(
+            return Err(Error::data(format!(
                 "geom_raster: the x or y step is too small ({step_x}, {step_y})"
             )));
         }
         let columns = ((x1 - x0) / step_x).round() + 1.0;
         let grid_rows = ((y1 - y0) / step_y).round() + 1.0;
         if columns * grid_rows > MAX_CELLS {
-            return Err(Error::InvalidData(format!(
+            return Err(Error::data(format!(
                 "geom_raster: the image would have {columns} x {grid_rows} cells, more than \
                  {MAX_CELLS}; are x and y on a regular grid?"
             )));

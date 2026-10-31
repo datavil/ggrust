@@ -238,10 +238,10 @@ impl Settings {
         let direction = match parameters.string("direction")? {
             None => defaults.direction,
             Some(name) => Direction::from_name(name).ok_or_else(|| {
-                Error::InvalidSpec(format!(
-                    "at '{}': unknown direction '{name}'; expected 'both', 'x' or 'y'",
-                    parameters.path_of("direction")
-                ))
+                Error::spec(
+                    parameters.path_of("direction"),
+                    format!("unknown direction '{name}'; expected 'both', 'x' or 'y'"),
+                )
             })?,
         };
         Ok(Settings {

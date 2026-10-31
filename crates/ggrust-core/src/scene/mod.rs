@@ -70,7 +70,7 @@ impl Scene {
                     Node::Path(_) | Node::Text(_) => true,
                 };
                 if !consistent {
-                    return Err(crate::Error::Render(format!(
+                    return Err(crate::Error::render(format!(
                         "scene node {path}[{index}] has per-item values that do not match \
                          its item count (an engine bug; please report it)"
                     )));

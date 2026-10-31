@@ -8,6 +8,8 @@ from typing import TYPE_CHECKING, Protocol, cast
 
 import polars as pl
 
+from ggrust.errors import UnsupportedDataError
+
 if TYPE_CHECKING:
     from polars._typing import PolarsDataType
 
@@ -54,7 +56,7 @@ def as_arrow(data: object) -> ArrowStreamExportable:
         return _without_null_dtype(data)
     if isinstance(data, pl.Series) or _is_pandas(data, "Series"):
         message = "got a Series; pass a DataFrame instead (for example `series.to_frame()`)"
-        raise TypeError(message)
+        raise UnsupportedDataError(message)
     if _is_pandas(data, "DataFrame"):
         # Convert eagerly (pandas' own __arrow_c_stream__ is lazy, so errors would
         # surface inside the engine call) and drop the index, as lets-plot ignores it.
@@ -70,7 +72,7 @@ def as_arrow(data: object) -> ArrowStreamExportable:
         f"unsupported data type {type(data).__name__}; expected a polars or pandas DataFrame, "
         "a pyarrow Table, an object exporting __arrow_c_stream__, or a dict of columns"
     )
-    raise TypeError(message)
+    raise UnsupportedDataError(message)
 
 
 def _is_pandas(data: object, class_name: str) -> bool:

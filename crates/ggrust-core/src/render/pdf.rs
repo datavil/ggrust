@@ -22,7 +22,7 @@ const POINTS_PER_INCH: f64 = 72.0;
 /// Render a scene to a one-page PDF: the PNG pixels (`scale`) at `dpi`.
 pub fn to_pdf(scene: &Scene, scale: f64, dpi: f64) -> Result<Vec<u8>> {
     if !(dpi.is_finite() && dpi > 0.0) {
-        return Err(Error::Render(format!("dpi must be positive, got {dpi}")));
+        return Err(Error::render(format!("dpi must be positive, got {dpi}")));
     }
     let pixmap = render_pixmap(scene, scale)?;
     let (width, height) = (pixmap.width(), pixmap.height());
@@ -92,7 +92,7 @@ pub fn to_pdf(scene: &Scene, scale: f64, dpi: f64) -> Result<Vec<u8>> {
 /// The pixels over white as an RGB PNG, and that PNG's zlib stream (its `IDAT`
 /// chunks joined): PNG-filtered scanlines, as `/Predictor 15` expects.
 fn rgb_zlib_stream(pixmap: &Pixmap) -> Result<Vec<u8>> {
-    let failed = |error: png::EncodingError| Error::Render(format!("PDF encoding failed: {error}"));
+    let failed = |error: png::EncodingError| Error::render(format!("PDF encoding failed: {error}"));
     // Premultiplied channels over white: channel + (255 - alpha).
     let data: Vec<u8> = pixmap
         .pixels()

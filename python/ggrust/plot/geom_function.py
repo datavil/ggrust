@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
+from ggrust.errors import UnsupportedDataError
 from ggrust.plot.core import LayerSpec, aes
 from ggrust.plot.geom import _geom
 
@@ -134,8 +135,11 @@ def _function_data(
         import polars as pl
 
         return table.with_columns(pl.Series(_FUNCTION_Y, ys))
-    message = f"Unsupported type of data: {data}"
-    raise TypeError(message)
+    message = (
+        f"geom_function(): unsupported data type {type(data).__name__}; pass a dict, a pandas "
+        "DataFrame or a polars DataFrame"
+    )
+    raise UnsupportedDataError(message)
 
 
 def _function_mapping(mapping: FeatureSpec | None) -> FeatureSpec:

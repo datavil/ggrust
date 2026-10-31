@@ -11,6 +11,7 @@ warnings.filterwarnings("ignore", category=SyntaxWarning)  # lets_plot's own doc
 
 import ggrust as gg  # noqa: E402
 import lets_plot as lp  # noqa: E402
+from ggrust.errors import ExportError  # noqa: E402
 from ggrust.plot.core import FeatureSpecArray, PlotSpec  # noqa: E402
 from ggrust.plot.subplots import SupPlotsSpec  # noqa: E402
 
@@ -287,13 +288,14 @@ def test_ggsave_writes_by_extension(tmp_path):
     gg.ggsave(plot, "page.html", path=str(tmp_path / "out"), iframe=False)
     assert (tmp_path / "out" / "page.html").read_text().startswith("<!DOCTYPE html>")
     for name, message in [
-        ("plot", "Missing file extension"),
-        ("  ", "Malformed filename"),
-        ("plot.jpg", "Unsupported file extension: 'jpg'"),
+        ("plot", "filename 'plot' has no extension; add one of '.svg'"),
+        ("  ", "filename '' has no name"),
+        ("plot.jpg", "unsupported file extension 'jpg'; use one of 'svg'"),
+        ("plot.sgv", "did you mean 'svg'\\?"),
     ]:
-        with pytest.raises(ValueError, match=message):
+        with pytest.raises(ExportError, match=message):
             gg.ggsave(plot, name, path=str(tmp_path))
-    with pytest.raises(ValueError, match="PlotSpec or SupPlotsSpec expected"):
+    with pytest.raises(ExportError, match="'plot' must be a PlotSpec or SupPlotsSpec"):
         gg.ggsave(gg.geom_point(), "plot.svg", path=str(tmp_path))
 
 

@@ -140,17 +140,19 @@ fn spans(
         "res" => data.resolution(axis),
         "identity" => 1.0,
         other => {
-            return Err(Error::InvalidSpec(format!(
-                "at '{}': {unit_option} '{other}' is not supported by ggrust yet; \
-                 supported: res, identity",
-                parameters.path_of(&unit_option)
-            )));
+            return Err(Error::spec(
+                parameters.path_of(&unit_option),
+                format!(
+                    "{unit_option} '{other}' is not supported by ggrust yet; \
+                 supported: res, identity"
+                ),
+            ));
         }
     };
     let mapped = match data.get(size) {
         Some(Column::Continuous(column)) => Some(column),
         Some(_) => {
-            return Err(Error::InvalidData(format!(
+            return Err(Error::data(format!(
                 "tile '{size}' must be numeric; it was mapped to a discrete column"
             )));
         }

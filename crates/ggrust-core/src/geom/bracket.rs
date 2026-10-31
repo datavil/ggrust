@@ -168,21 +168,25 @@ impl Options {
             Some("identity") => TipUnit::Identity,
             Some("px") => TipUnit::Pixel,
             Some(other) => {
-                return Err(Error::InvalidSpec(format!(
-                    "at '{}': unknown tiplength_unit '{other}'; expected one of: res, \
-                     identity, size, px",
-                    parameters.path_of("tiplength_unit")
-                )));
+                return Err(Error::spec(
+                    parameters.path_of("tiplength_unit"),
+                    format!(
+                        "unknown tiplength_unit '{other}'; expected one of: res, \
+                     identity, size, px"
+                    ),
+                ));
             }
         };
         match parameters.string("orientation")? {
             None | Some("x") => {}
             Some(other) => {
-                return Err(Error::InvalidSpec(format!(
-                    "at '{}': orientation '{other}' is not supported by ggrust yet; \
-                     expected 'x' (vertical brackets are planned)",
-                    parameters.path_of("orientation")
-                )));
+                return Err(Error::spec(
+                    parameters.path_of("orientation"),
+                    format!(
+                        "orientation '{other}' is not supported by ggrust yet; \
+                     expected 'x' (vertical brackets are planned)"
+                    ),
+                ));
             }
         }
         Ok(Options {

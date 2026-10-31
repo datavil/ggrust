@@ -76,7 +76,8 @@ impl Color {
         parsed.ok_or_else(|| {
             format!(
                 "invalid color '{text}'; expected a color name (e.g. 'steelblue', 'grey50'), \
-                 '#rrggbb', 'rgb(r, g, b)', 'rgba(r, g, b, opacity)' or 'name / opacity'"
+                 '#rrggbb', 'rgb(r, g, b)', 'rgba(r, g, b, opacity)' or 'name / opacity'{}",
+                crate::suggest::did_you_mean(text, NAMED_COLORS.iter().map(|(name, _)| *name))
             )
         })
     }

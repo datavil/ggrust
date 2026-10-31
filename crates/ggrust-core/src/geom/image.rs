@@ -132,18 +132,23 @@ impl Geom for ImageGeom {
 fn encoded_href(parameters: &Parameters) -> Result<EncodedPng> {
     let path = parameters.path_of("href");
     let Some(href) = parameters.string("href")? else {
-        return Err(Error::InvalidSpec(format!(
-            "at '{path}': geom_image needs an 'href' (a '{PNG_DATA_PREFIX}...' data URL); \
+        return Err(Error::spec(
+            &path,
+            format!(
+                "geom_image needs an 'href' (a '{PNG_DATA_PREFIX}...' data URL); \
              build the layer with geom_imshow()"
-        )));
+            ),
+        ));
     };
     let Some(encoded) = href.strip_prefix(PNG_DATA_PREFIX) else {
         let start: String = href.chars().take(30).collect();
-        return Err(Error::InvalidSpec(format!(
-            "at '{path}': expected a '{PNG_DATA_PREFIX}...' data URL, got '{start}...'; \
+        return Err(Error::spec(
+            &path,
+            format!(
+                "expected a '{PNG_DATA_PREFIX}...' data URL, got '{start}...'; \
              ggrust reads embedded PNG images only (as geom_imshow() writes them)"
-        )));
+            ),
+        ));
     };
-    EncodedPng::new(encoded.into())
-        .map_err(|reason| Error::InvalidSpec(format!("at '{path}': {reason}")))
+    EncodedPng::new(encoded.into()).map_err(|reason| Error::spec(&path, reason.to_string()))
 }

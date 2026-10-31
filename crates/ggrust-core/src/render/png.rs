@@ -65,7 +65,7 @@ pub fn rgba_png_data_url(
 ) -> Result<String> {
     let expected = u64::from(width) * u64::from(height) * 4;
     if width == 0 || height == 0 || rgba.len() as u64 != expected {
-        return Err(Error::Render(format!(
+        return Err(Error::render(format!(
             "expected {width} x {height} RGBA pixels ({expected} bytes), got {} bytes",
             rgba.len()
         )));
@@ -78,7 +78,7 @@ pub fn rgba_png_data_url(
         Some(_) => ::png::Compression::High,
     };
     let failed =
-        |error: ::png::EncodingError| Error::Render(format!("PNG encoding failed: {error}"));
+        |error: ::png::EncodingError| Error::render(format!("PNG encoding failed: {error}"));
     let mut bytes = Vec::new();
     let mut encoder = ::png::Encoder::new(&mut bytes, width, height);
     encoder.set_color(::png::ColorType::Rgba);
@@ -116,7 +116,7 @@ const MAX_PIXELS: f64 = 400_000_000.0;
 
 fn new_pixmap(width: f64, height: f64, scale: f64) -> Result<Pixmap> {
     if !(scale.is_finite() && scale > 0.0) {
-        return Err(Error::Render(format!(
+        return Err(Error::render(format!(
             "scale must be positive, got {scale}"
         )));
     }
@@ -126,19 +126,19 @@ fn new_pixmap(width: f64, height: f64, scale: f64) -> Result<Pixmap> {
     let pixels = |side: f64| ((side - 1e-6).ceil() * scale + 1e-6).floor();
     let (width, height) = (pixels(width), pixels(height));
     if !(width >= 1.0 && height >= 1.0) {
-        return Err(Error::Render(format!(
+        return Err(Error::render(format!(
             "image size {width} x {height} pixels is empty; width and height must be at least 1"
         )));
     }
     let side_ok = |side: f64| (1.0..=MAX_SIDE).contains(&side);
     if !(side_ok(width) && side_ok(height) && width * height <= MAX_PIXELS) {
-        return Err(Error::Render(format!(
+        return Err(Error::render(format!(
             "image size {width} x {height} pixels is too large; limits are \
              {MAX_SIDE} pixels per side and {MAX_PIXELS} pixels in total"
         )));
     }
     Pixmap::new(width as u32, height as u32)
-        .ok_or_else(|| Error::Render("could not allocate the image".into()))
+        .ok_or_else(|| Error::render("could not allocate the image"))
 }
 
 /// The bitmap of an [`Image`] (`None` if it is inconsistent).
@@ -151,7 +151,7 @@ fn image_pixmap(image: &Image) -> Result<Option<Pixmap>> {
         Bitmap::Pixels(pixels) => pixels,
         Bitmap::Png { png, orientation } => {
             let pixels = png.decode().map_err(|reason| {
-                Error::Render(format!("could not draw an embedded image: {reason}"))
+                Error::render(format!("could not draw an embedded image: {reason}"))
             })?;
             decoded = orientation.apply(&pixels, png.columns() as usize, png.rows() as usize);
             &decoded
@@ -194,16 +194,16 @@ pub(super) fn image_png(image: &Image) -> Option<Vec<u8>> {
 fn encode(pixmap: &Pixmap) -> Result<Vec<u8>> {
     pixmap
         .encode_png()
-        .map_err(|error| Error::Render(format!("PNG encoding failed: {error}")))
+        .map_err(|error| Error::render(format!("PNG encoding failed: {error}")))
 }
 
 /// Straight-alpha RGBA PNG with a `pHYs` chunk of `dpi` dots per inch.
 fn encode_with_dpi(pixmap: &Pixmap, dpi: f64) -> Result<Vec<u8>> {
     if !(dpi.is_finite() && dpi > 0.0) {
-        return Err(Error::Render(format!("dpi must be positive, got {dpi}")));
+        return Err(Error::render(format!("dpi must be positive, got {dpi}")));
     }
     let failed =
-        |error: ::png::EncodingError| Error::Render(format!("PNG encoding failed: {error}"));
+        |error: ::png::EncodingError| Error::render(format!("PNG encoding failed: {error}"));
     let data: Vec<u8> = pixmap
         .pixels()
         .iter()
@@ -237,7 +237,7 @@ fn parse_svg(svg: &str) -> Result<usvg::Tree> {
         ..usvg::Options::default()
     };
     usvg::Tree::from_str(svg, &options)
-        .map_err(|error| Error::Render(format!("internal SVG is invalid: {error}")))
+        .map_err(|error| Error::render(format!("internal SVG is invalid: {error}")))
 }
 
 struct Canvas {
@@ -309,7 +309,7 @@ impl Canvas {
             Some(parent) => parent.mask.clone(),
             None => {
                 let mut full = Mask::new(self.pixmap.width(), self.pixmap.height())
-                    .ok_or_else(|| Error::Render("could not allocate a clip mask".into()))?;
+                    .ok_or_else(|| Error::render("could not allocate a clip mask"))?;
                 full.data_mut().fill(255);
                 full
             }
@@ -512,7 +512,7 @@ impl Canvas {
         };
         let bounds = clip.bounds;
         let mut layer = Pixmap::new(bounds.width(), bounds.height())
-            .ok_or_else(|| Error::Render("could not allocate a text layer".into()))?;
+            .ok_or_else(|| Error::render("could not allocate a text layer"))?;
         let shifted = self
             .transform
             .post_translate(-(bounds.x() as f32), -(bounds.y() as f32));

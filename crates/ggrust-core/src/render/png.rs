@@ -216,6 +216,8 @@ fn encode_with_dpi(pixmap: &Pixmap, dpi: f64) -> Result<Vec<u8>> {
     let mut encoder = ::png::Encoder::new(&mut bytes, pixmap.width(), pixmap.height());
     encoder.set_color(::png::ColorType::Rgba);
     encoder.set_depth(::png::BitDepth::Eight);
+    // fdeflate: 25-30% faster renders than the default zlib; files about 2x larger.
+    encoder.set_compression(::png::Compression::Fast);
     let per_meter = (dpi / 0.0254).round() as u32;
     encoder.set_pixel_dims(Some(::png::PixelDimensions {
         xppu: per_meter,

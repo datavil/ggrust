@@ -769,13 +769,38 @@ fn push_decimal(output: &mut String, value: f64, decimals: u32) {
         output.push('-');
     }
     let magnitude = scaled.unsigned_abs();
-    let _ = write!(output, "{}", magnitude / factor);
-    let fraction = magnitude % factor;
+    push_digits(output, magnitude / factor);
+    let mut fraction = magnitude % factor;
     if fraction != 0 {
-        let digits = format!("{fraction:0width$}", width = decimals.min(6) as usize);
+        // Fixed-width fraction digits, trailing zeros dropped, written without allocating.
+        let mut width = decimals.min(6) as usize;
+        while fraction % 10 == 0 {
+            fraction /= 10;
+            width -= 1;
+        }
+        let mut digits = [b'0'; 6];
+        for slot in digits[..width].iter_mut().rev() {
+            *slot = b'0' + (fraction % 10) as u8;
+            fraction /= 10;
+        }
         output.push('.');
-        output.push_str(digits.trim_end_matches('0'));
+        output.extend(digits[..width].iter().map(|&digit| char::from(digit)));
     }
+}
+
+/// Append the decimal digits of `value` without allocating.
+fn push_digits(output: &mut String, mut value: u64) {
+    let mut digits = [0_u8; 20];
+    let mut start = digits.len();
+    loop {
+        start -= 1;
+        digits[start] = b'0' + (value % 10) as u8;
+        value /= 10;
+        if value == 0 {
+            break;
+        }
+    }
+    output.extend(digits[start..].iter().map(|&digit| char::from(digit)));
 }
 
 /// Ids keep only `[A-Za-z0-9_-]` and start with a letter, so `url(#id)` always works.
@@ -936,6 +961,46 @@ mod tests {
         assert_eq!(number(-0.25), "-0.25");
         assert_eq!(number(f64::NAN), "0");
         assert_eq!(number(1234.567), "1234.57");
+    }
+
+    #[test]
+    fn decimals_match_formatted_reference() {
+        // The allocating formatter `push_decimal` replaced.
+        fn reference(value: f64, decimals: u32) -> String {
+            let factor = 10_u64.pow(decimals);
+            let scaled = (value * factor as f64).round() as i64;
+            let sign = if scaled < 0 { "-" } else { "" };
+            let magnitude = scaled.unsigned_abs();
+            let fraction = magnitude % factor;
+            if fraction == 0 {
+                return format!("{sign}{}", magnitude / factor);
+            }
+            let digits = format!("{fraction:0width$}", width = decimals as usize);
+            format!(
+                "{sign}{}.{}",
+                magnitude / factor,
+                digits.trim_end_matches('0')
+            )
+        }
+        let mut state = 0x2545_f491_4f6c_dd1d_u64;
+        for _ in 0..20_000 {
+            state = state
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            let unit = (state >> 11) as f64 / (1_u64 << 53) as f64;
+            let exponent = (state % 13) as i32 - 6;
+            let value = (unit - 0.5) * 10_f64.powi(exponent);
+            for decimals in 0..=6 {
+                let mut output = String::new();
+                push_decimal(&mut output, value, decimals);
+                assert_eq!(output, reference(value, decimals), "{value} at {decimals}");
+            }
+        }
+        for (value, expected) in [(0.000_100_4, "0.0001"), (9.999_999_9, "10"), (0.1, "0.1")] {
+            let mut output = String::new();
+            push_decimal(&mut output, value, 6);
+            assert_eq!(output, expected);
+        }
     }
 
     #[test]

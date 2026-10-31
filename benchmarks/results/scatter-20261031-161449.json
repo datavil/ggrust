@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-31T16:14:49+00:00",
+  "machine": {
+    "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+    "processor": "arm",
+    "python": "3.14.7"
+  },
+  "results": [
+    {
+      "library": "lets-plot-sampled",
+      "output": "svg",
+      "points": 1000000,
+      "cold_seconds": 1.4298101250315085,
+      "warm_seconds": 1.4522407500771806,
+      "repeats": 1,
+      "peak_memory_above_data_mb": 501.03125,
+      "output_bytes": 15629935
+    },
+    {
+      "library": "lets-plot-sampled",
+      "output": "png",
+      "points": 1000000,
+      "cold_seconds": 4.825327374972403,
+      "warm_seconds": 4.979740040958859,
+      "repeats": 1,
+      "peak_memory_above_data_mb": 1316.453125,
+      "output_bytes": 143273
+    }
+  ]
+}

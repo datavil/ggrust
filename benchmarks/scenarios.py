@@ -24,6 +24,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 RESULTS = Path(__file__).parent / "results"
+# ru_maxrss is in kilobytes on Linux and in bytes on macOS.
+BYTES_PER_UNIT = 1024 if sys.platform == "darwin" else 1
 
 
 def make_frame(size: int):
@@ -69,7 +71,30 @@ def scenarios(m, frame, sample: dict) -> dict:
             + m.labs(x="X axis", y="Y axis")
             + m.theme(legend_position="bottom")
         ),
+        "histogram": lambda: m.ggplot(frame, m.aes("x")) + m.geom_histogram(bins=30, **sample),
+        "bar": lambda: m.ggplot(frame, m.aes("group")) + m.geom_bar(**sample),
+        # lets-plot's geom_boxplot sets its own sampling; it samples the (small) stat output.
+        "boxplot": lambda: m.ggplot(frame, m.aes("group", "y")) + m.geom_boxplot(),
+        "violin": lambda: m.ggplot(frame, m.aes("group", "y")) + m.geom_violin(**sample),
+        "line": lambda: m.ggplot(frame, m.aes("x", "y", color="group")) + m.geom_line(**sample),
+        "facet": lambda: (
+            m.ggplot(frame, m.aes("x", "y")) + point(size=1) + m.facet_wrap("group", ncol=3)
+        ),
+        "grid": lambda: m.gggrid(
+            [
+                m.ggplot(frame, m.aes("x", "y", color="group")) + point(size=1),
+                m.ggplot(frame, m.aes("x")) + m.geom_histogram(bins=30, **sample),
+                m.ggplot(frame, m.aes("group", "y")) + m.geom_boxplot(),
+                m.ggplot(frame, m.aes("group")) + m.geom_bar(**sample),
+            ],
+            ncol=2,
+        ),
     }
+
+
+SCATTER = ["scatter", "color_discrete", "color_continuous", "size_alpha", "log_scales"]
+SCATTER += ["titled_themed"]
+GENERAL = ["histogram", "bar", "boxplot", "violin", "line", "facet", "grid"]
 
 
 def load(library: str):
@@ -89,7 +114,7 @@ def worker(library: str, scenario: str, size: int, repeats: int) -> dict:
     frame = make_frame(size)
     module, sample = load(library)
     build = scenarios(module, frame, sample)[scenario]
-    baseline_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    baseline_rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     result = {"library": library, "scenario": scenario, "points": size}
     for output in ("build", "svg", "png"):
         times = []
@@ -109,8 +134,8 @@ def worker(library: str, scenario: str, size: int, repeats: int) -> dict:
         result[f"{output}_warm_seconds"] = statistics.median(times[1:])
         result[f"{output}_bytes"] = size_bytes
         result[f"{output}_peak_mb"] = (
-            resource.getrusage(resource.RUSAGE_SELF).ru_maxrss - baseline_kb
-        ) / (1024 * 1024)  # macOS reports bytes
+            resource.getrusage(resource.RUSAGE_SELF).ru_maxrss - baseline_rss
+        ) / (1024 * BYTES_PER_UNIT)
     return result
 
 
@@ -127,14 +152,15 @@ def run_in_subprocess(library, scenario, size, repeats, timeout) -> dict:
     return json.loads(done.stdout.strip().splitlines()[-1])
 
 
-def render_images(size: int, directory: Path) -> None:
-    """Write each scenario as PNG for both libraries, for the side-by-side figure."""
+def render_images(size: int, directory: Path, names: list[str]) -> None:
+    """Write the named scenarios as PNG for both libraries, for the side-by-side figure."""
     frame = make_frame(size)
     directory.mkdir(parents=True, exist_ok=True)
     for library in ("ggrust", "lets-plot"):
         module, sample = load(library)
-        for name, build in scenarios(module, frame, sample).items():
-            build().to_png(str(directory / f"{name}-{library}.png"), scale=2)
+        builders = scenarios(module, frame, sample)
+        for name in names:
+            builders[name]().to_png(str(directory / f"{name}-{library}.png"), scale=2)
 
 
 def table(results: list[dict]) -> str:
@@ -184,19 +210,13 @@ def main() -> None:
     parser.add_argument("--repeats", type=int, default=2)
     parser.add_argument("--timeout", type=float, default=900)
     parser.add_argument("--images", type=int, default=2_000, help="points in side-by-side images")
+    parser.add_argument("--scenarios", nargs="+", default=SCATTER, choices=SCATTER + GENERAL)
     arguments = parser.parse_args()
     if arguments.worker:
         library, scenario, size, repeats = arguments.worker
         print(json.dumps(worker(library, scenario, int(size), int(repeats))))
         return
-    names = [
-        "scatter",
-        "color_discrete",
-        "color_continuous",
-        "size_alpha",
-        "log_scales",
-        "titled_themed",
-    ]
+    names = arguments.scenarios
     results = []
     for size in arguments.sizes:
         for scenario in names:
@@ -219,7 +239,7 @@ def main() -> None:
     }
     (RESULTS / f"scenarios-{stamp}.json").write_text(json.dumps(report, indent=2))
     (RESULTS / f"scenarios-{stamp}.md").write_text(table(results) + "\n")
-    render_images(arguments.images, RESULTS / f"scenarios-{stamp}-images")
+    render_images(arguments.images, RESULTS / f"scenarios-{stamp}-images", names)
     print(table(results))
     print(f"\nstamp {stamp}")
 

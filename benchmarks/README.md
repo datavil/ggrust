@@ -1,5 +1,8 @@
 # Benchmarks
 
+**Final report against lets-plot (step 6.4): [REPORT.md](REPORT.md).** The sections below
+are the earlier per-step measurements.
+
 `benchmarks/run.py` measures ggrust against lets-plot on **identical work**:
 
 - same polars frame, same scatter plot (`geom_point(size=1)`), same size (600 x 400)

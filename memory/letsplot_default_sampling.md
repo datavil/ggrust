@@ -21,3 +21,8 @@ against ggrust drawing 1M points is unfair in both directions.
 **How to apply:** in benchmarks, run lets-plot with `sampling=sampling_none()` *and*
 report the default-sampled numbers separately, with N drawn stated. Decide (ask the user)
 whether ggrust copies these defaults; cellestial users may rely on them without knowing.
+
+**Exception (step 6.4):** lets_plot's `geom_boxplot` hard-codes `sampling=None` and raises
+`TypeError` if you pass `sampling`. It samples the stat output (boxes + outliers), which stays
+far below the limits: at 300k rows both libraries drew the same outliers (2,059 vs 2,058).
+So benchmark boxplots without the kwarg.

@@ -1,0 +1,130 @@
+{
+  "date": "2026-10-31T16:14:36+00:00",
+  "machine": {
+    "platform": "macOS-27.0.1-arm64-arm-64bit-Mach-O",
+    "processor": "arm",
+    "python": "3.14.7"
+  },
+  "results": [
+    {
+      "library": "ggrust",
+      "output": "svg",
+      "points": 10000,
+      "cold_seconds": 0.0030236250022426248,
+      "warm_seconds": 0.0018016250105574727,
+      "repeats": 3,
+      "peak_memory_above_data_mb": 13.234375,
+      "output_bytes": 422084
+    },
+    {
+      "library": "lets-plot",
+      "output": "svg",
+      "points": 10000,
+      "cold_seconds": 0.05562112492043525,
+      "warm_seconds": 0.05507995805237442,
+      "repeats": 3,
+      "peak_memory_above_data_mb": 44.109375,
+      "output_bytes": 1575328
+    },
+    {
+      "library": "ggrust",
+      "output": "svg",
+      "points": 100000,
+      "cold_seconds": 0.018426042050123215,
+      "warm_seconds": 0.016366582945920527,
+      "repeats": 3,
+      "peak_memory_above_data_mb": 37.625,
+      "output_bytes": 4179535
+    },
+    {
+      "library": "lets-plot",
+      "output": "svg",
+      "points": 100000,
+      "cold_seconds": 0.5962369999615476,
+      "warm_seconds": 0.6151932500069961,
+      "repeats": 3,
+      "peak_memory_above_data_mb": 315.390625,
+      "output_bytes": 15632254
+    },
+    {
+      "library": "ggrust",
+      "output": "svg",
+      "points": 1000000,
+      "cold_seconds": 0.17253708303906024,
+      "warm_seconds": 0.16922600008547306,
+      "repeats": 3,
+      "peak_memory_above_data_mb": 429.75,
+      "output_bytes": 41756912
+    },
+    {
+      "library": "lets-plot",
+      "output": "svg",
+      "points": 1000000,
+      "cold_seconds": 7.377623208914883,
+      "warm_seconds": 6.686211499967612,
+      "repeats": 1,
+      "peak_memory_above_data_mb": 3118.203125,
+      "output_bytes": 156176059
+    },
+    {
+      "library": "ggrust",
+      "output": "png",
+      "points": 10000,
+      "cold_seconds": 0.041853750008158386,
+      "warm_seconds": 0.040436250041238964,
+      "repeats": 3,
+      "peak_memory_above_data_mb": 28.25,
+      "output_bytes": 204728
+    },
+    {
+      "library": "lets-plot",
+      "output": "png",
+      "points": 10000,
+      "cold_seconds": 0.645822332939133,
+      "warm_seconds": 0.6329329999862239,
+      "repeats": 3,
+      "peak_memory_above_data_mb": 246.03125,
+      "output_bytes": 160547
+    },
+    {
+      "library": "ggrust",
+      "output": "png",
+      "points": 100000,
+      "cold_seconds": 0.23690145905129611,
+      "warm_seconds": 0.23463295795954764,
+      "repeats": 3,
+      "peak_memory_above_data_mb": 30.75,
+      "output_bytes": 247216
+    },
+    {
+      "library": "lets-plot",
+      "output": "png",
+      "points": 100000,
+      "cold_seconds": 3.9523305000038818,
+      "warm_seconds": 3.9656385420821607,
+      "repeats": 3,
+      "peak_memory_above_data_mb": 1269.59375,
+      "output_bytes": 140998
+    },
+    {
+      "library": "ggrust",
+      "output": "png",
+      "points": 1000000,
+      "cold_seconds": 2.0969035000307485,
+      "warm_seconds": 2.0919886250048876,
+      "repeats": 3,
+      "peak_memory_above_data_mb": 43.609375,
+      "output_bytes": 257083
+    },
+    {
+      "library": "lets-plot",
+      "output": "png",
+      "points": 1000000,
+      "cold_seconds": 39.567259916919284,
+      "warm_seconds": 39.778669749968685,
+      "repeats": 1,
+      "peak_memory_above_data_mb": 9574.328125,
+      "output_bytes": 117287
+    }
+  ]
+}

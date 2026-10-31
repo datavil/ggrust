@@ -7,7 +7,7 @@ case, in a fresh process each: ``build`` (the cellestial call, includes its fram
 ``svg`` and ``png`` (scale 2) render of an already built plot, and the peak resident set
 above the level reached after loading the dataset (cumulative over the stages).
 
-pbmc3k has about 2.7k cells, below every lets-plot default sampling limit, so both
+pbmc3k has 17,041 cells, below every lets-plot default sampling limit, so both
 libraries draw every row (see memory/letsplot_default_sampling.md).
 
 Usage::

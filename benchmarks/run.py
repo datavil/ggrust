@@ -2,7 +2,8 @@
 
 Fairness rules (see memory/letsplot_default_sampling.md):
 - same polars frame, same plot (scatter), same size (600 x 400), same PNG scale (2)
-- lets-plot runs with ``sampling="none"`` so it draws every point, like ggrust
+- lets-plot runs with ``sampling="none"`` so it draws every point, like ggrust;
+  ``lets-plot-sampled`` keeps its default sampling (at most 100k points drawn) for reference
 - each measurement runs in a fresh process: ``cold`` is the first call (includes
   library start-up work), ``warm`` the median of the following calls
 - memory is the peak resident set above the level reached after building the data
@@ -27,6 +28,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 RESULTS = Path(__file__).parent / "results"
+BYTES_PER_UNIT = 1024 if sys.platform == "darwin" else 1
 
 
 def build_plot(library: str, size: int):
@@ -44,7 +46,8 @@ def build_plot(library: str, size: int):
         warnings.filterwarnings("ignore")
         import lets_plot as module
 
-        layer = module.geom_point(size=1, sampling="none")
+        sampling = {} if library == "lets-plot-sampled" else {"sampling": "none"}
+        layer = module.geom_point(size=1, **sampling)
     return frame, lambda: module.ggplot(frame, module.aes("x", "y")) + layer
 
 
@@ -60,14 +63,14 @@ def render_once(plot, output: str) -> int:
 def worker(library: str, output: str, size: int, repeats: int) -> dict:
     """Measure one configuration in this process."""
     _frame, make_plot = build_plot(library, size)
-    baseline_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    baseline_rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     times = []
     output_bytes = 0
     for _ in range(repeats + 1):
         start = time.perf_counter()
         output_bytes = render_once(make_plot(), output)
         times.append(time.perf_counter() - start)
-    peak_kb = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
+    peak_rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
     return {
         "library": library,
         "output": output,
@@ -75,7 +78,8 @@ def worker(library: str, output: str, size: int, repeats: int) -> dict:
         "cold_seconds": times[0],
         "warm_seconds": statistics.median(times[1:]) if repeats else None,
         "repeats": repeats,
-        "peak_memory_above_data_mb": (peak_kb - baseline_kb) / 1024,
+        # ru_maxrss is in kilobytes on Linux and in bytes on macOS.
+        "peak_memory_above_data_mb": (peak_rss - baseline_rss) / (1024 * BYTES_PER_UNIT),
         "output_bytes": output_bytes,
     }
 
@@ -131,7 +135,12 @@ def main() -> None:
         description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("--worker", nargs=4, metavar=("LIBRARY", "OUTPUT", "POINTS", "REPEATS"))
-    parser.add_argument("--libraries", nargs="+", default=["ggrust", "lets-plot"])
+    parser.add_argument(
+        "--libraries",
+        nargs="+",
+        default=["ggrust", "lets-plot"],
+        choices=["ggrust", "lets-plot", "lets-plot-sampled"],
+    )
     parser.add_argument("--outputs", nargs="+", default=["svg", "png"])
     parser.add_argument("--sizes", nargs="+", type=int, default=[10_000, 100_000, 1_000_000])
     parser.add_argument("--repeats", type=int, default=3)

@@ -234,6 +234,31 @@ impl DiscreteColumn {
         self.codes.null_count()
     }
 
+    /// A column from distinct `levels` and per-row codes into them.
+    pub(crate) fn from_parts(levels: Vec<String>, codes: UInt32Array) -> Self {
+        DiscreteColumn {
+            levels: levels.into(),
+            codes,
+        }
+    }
+
+    /// This column with its levels in a new order: `order[new] = old index`.
+    /// `order` must be a permutation of the level indices.
+    pub fn reordered(&self, order: &[usize]) -> Self {
+        let mut remap = vec![0_u32; self.levels.len()];
+        for (new, &old) in order.iter().enumerate() {
+            remap[old] = new as u32;
+        }
+        DiscreteColumn {
+            levels: order.iter().map(|&old| self.levels[old].clone()).collect(),
+            codes: self
+                .codes
+                .iter()
+                .map(|code| code.map(|code| remap[code as usize]))
+                .collect(),
+        }
+    }
+
     fn from_strings<'a>(strings: impl Iterator<Item = Option<&'a str>>) -> Self {
         let mut level_index: HashMap<&str, u32> = HashMap::new();
         let mut levels: Vec<String> = Vec::new();

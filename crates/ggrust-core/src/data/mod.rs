@@ -9,6 +9,7 @@
 //! `as_discrete` / `factor_levels` is applied by the mapping stage on top of the
 //! default order found here.
 
+pub mod as_discrete;
 mod column;
 mod group;
 pub mod inline;

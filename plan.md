@@ -194,6 +194,25 @@ Steps inside a phase are ordered; each builds on the previous.
   (CI: `make check` on ubuntu with Chromium, visual diffs uploaded on failure. Release: abi3 wheels via maturin-action for linux x86_64/aarch64 (manylinux 2_28), macOS intel/arm, windows x64/arm64, plus an sdist; every wheel and the sdist build are smoke-tested (`.github/smoke_test.py`); PyPI trusted publishing only on a `v*` tag matching the version. sdist now ships `js/` (it did not compile from source before). Docs: mkdocs-material + mkdocstrings (numpy style, runtime inspection so assignment-built scales get signatures), strict build on PRs, Pages deploy from main; home page, migration note, 124-entry reference. Material reaches end of life in May 2027; Zensical reads the same mkdocs.yml.)
 - [ ] 7.2 cellestial switches dependency `lets-plot` -> `ggrust` (with user approval).
 
+### Phase 8: lets-plot gaps (score 5, see [plan-letsplot-gaps.md](plan-letsplot-gaps.md))
+
+Group 1: exposed in the API but erroring or ignored.
+
+- [x] 8.1 `as_discrete`: `order`, `order_by`, `label`, and `levels` on numeric columns.
+  (`data/as_discrete.rs` makes the mapped column discrete in the mapping stage. Rules measured against lets_plot: numeric levels in first appearance; `order` sorts by value (numbers numerically); `order_by` sorts by the per-level mean, descending by default, ties by level value in the same direction, levels without a value last; `levels=` puts given levels first, the rest in first appearance, `order=-1` reverses. `label` names the scale. Deviations: numbers of 1e15+ print plainly (lets-plot uses powers); `order_by` with a stat variable (`..count..`) warns and keeps the order.)
+- [ ] 8.2 `position_fill` and `position_nudge`.
+- [ ] 8.3 `geom_sina` / `stat_sina`.
+- [ ] 8.4 `PlotSpec.show()`.
+
+Group 2: everyday grammar.
+
+- [ ] 8.5 Interval family: `geom_errorbar`, `geom_linerange`, `geom_pointrange`, `geom_crossbar`.
+- [ ] 8.6 `geom_ribbon`, `geom_area`.
+- [ ] 8.7 `geom_abline`.
+- [ ] 8.8 `geom_density` / `stat_density`.
+- [ ] 8.9 `geom_smooth` / `stat_smooth` (lm, loess, CI band).
+- [ ] 8.10 Datetime and time scales (`scale_x_datetime`, ..., `date_breaks`).
+
 ## Performance strategy (honest)
 
 - Biggest structural win: lets-plot serializes data to JSON in Python, then parses it in Kotlin/JS.

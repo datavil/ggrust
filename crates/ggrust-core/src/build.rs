@@ -12,6 +12,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::coord::{self, Coord, Panel};
+use crate::data::as_discrete::{DiscreteOrder, as_discrete};
 use crate::data::{
     Column, Computed, ContinuousColumn, DataFrame, LayerData, SourceRows, group_index, inline,
 };
@@ -34,8 +35,8 @@ use crate::scale::style::{LegendEntry, StyleScale, default_mapper};
 use crate::scale::{AxisScaleSpec, PositionScale, PositionScales, position_scales};
 use crate::scene::{Group, Node, PerItem, Rect, Rects, Scene};
 use crate::spec::{
-    Aesthetic, DataSource, GuideOptions, GuideSpec, LayerSpec, Mapping, MappingValue, Options,
-    PlotSpec, TooltipsSpec, Value,
+    Aesthetic, DataSource, GuideOptions, GuideSpec, LayerSpec, Mapping, MappingAnnotation,
+    MappingValue, Options, PlotSpec, SeriesAnnotation, TooltipsSpec, Value,
 };
 use crate::stat::groups::rows_by_group;
 use crate::stat::{self, Stat, StatContext};
@@ -1320,7 +1321,9 @@ fn plot_titles(spec: &PlotSpec, scales: &PositionScales) -> Titles {
 fn default_scale_name(spec: &PlotSpec, aesthetic: Aesthetic) -> String {
     let mut labels: Vec<String> = Vec::new();
     for layer in &spec.layers {
-        let (mapping, _) = merged_mapping(spec, layer);
+        let (mapping, inherited) = merged_mapping(spec, layer);
+        let label = discrete_annotation(spec, layer, aesthetic, inherited.contains(&aesthetic))
+            .and_then(|annotation| annotation.parameters.label.clone());
         // A stat variable is labelled by its name (`..count..` -> `count`), also
         // when the stat maps it by default (y of `geom_bar`).
         let name: Option<String> = match mapping.get(&aesthetic) {
@@ -1337,6 +1340,7 @@ fn default_scale_name(spec: &PlotSpec, aesthetic: Aesthetic) -> String {
                     .map(|(_, computed)| computed.as_str().to_owned())
             }),
         };
+        let name = label.or(name);
         if let Some(name) = name
             && name != aesthetic.as_str()
             && !labels.contains(&name)
@@ -1506,7 +1510,17 @@ fn map_layer_into<'a>(
             stat_mappings.push((*aesthetic, computed, mapping_path));
             continue;
         }
-        let column = frames.column(name, &mapping_path)?;
+        let column = annotated_column(
+            plot,
+            spec,
+            &frames,
+            *aesthetic,
+            inherited.contains(aesthetic),
+            name,
+            frames.column(name, &mapping_path)?,
+            &mapping_path,
+            warnings,
+        )?;
         if matches!(column, Column::Discrete(_))
             && !aesthetic.is_x_position()
             && !aesthetic.is_y_position()
@@ -1950,6 +1964,98 @@ fn merged_mapping(plot: &PlotSpec, layer: &LayerSpec) -> (Mapping, BTreeSet<Aest
     let inherited = mapping.keys().copied().collect();
     mapping.extend(layer.mapping.clone());
     (mapping, inherited)
+}
+
+/// The `as_discrete` annotation of an aesthetic: the plot's for an inherited
+/// mapping, else the layer's.
+fn discrete_annotation<'a>(
+    plot: &'a PlotSpec,
+    layer: &'a LayerSpec,
+    aesthetic: Aesthetic,
+    inherited: bool,
+) -> Option<&'a MappingAnnotation> {
+    let meta = if inherited {
+        &plot.data_meta
+    } else {
+        &layer.data_meta
+    };
+    meta.mapping_annotations
+        .iter()
+        .rev()
+        .find(|annotation| annotation.aes == aesthetic && annotation.annotation == "as_discrete")
+}
+
+/// Factor levels of a column (`as_discrete(levels=...)`, ordered categoricals):
+/// the layer's annotation, else the plot's.
+fn factor_levels<'a>(
+    plot: &'a PlotSpec,
+    layer: &'a LayerSpec,
+    column: &str,
+) -> Option<&'a SeriesAnnotation> {
+    [&layer.data_meta, &plot.data_meta]
+        .into_iter()
+        .flat_map(|meta| meta.series_annotations.iter())
+        .find(|annotation| annotation.column == column && annotation.factor_levels.is_some())
+}
+
+/// Apply `as_discrete` (or factor levels) to a mapped column: make it discrete
+/// and order its levels. Columns without an annotation pass through.
+#[allow(clippy::too_many_arguments)]
+fn annotated_column(
+    plot: &PlotSpec,
+    layer: &LayerSpec,
+    frames: &LayerFrames<'_>,
+    aesthetic: Aesthetic,
+    inherited: bool,
+    name: &str,
+    column: Column,
+    mapping_path: &str,
+    warnings: &mut Vec<String>,
+) -> Result<Column> {
+    let annotation = discrete_annotation(plot, layer, aesthetic, inherited);
+    let series = factor_levels(plot, layer, name);
+    if annotation.is_none() && series.is_none() {
+        return Ok(column);
+    }
+    let parameters = annotation.map(|annotation| &annotation.parameters);
+    let order_by_name = parameters.and_then(|parameters| parameters.order_by.as_deref());
+    let order_by = match order_by_name {
+        Some(order_by) if Computed::from_mapping(order_by).is_some() => {
+            warnings.push(format!(
+                "at '{mapping_path}': as_discrete(order_by='{order_by}') with a stat variable \
+                 is not supported yet; the levels keep their order"
+            ));
+            None
+        }
+        Some(order_by) => match frames.column(order_by, mapping_path)? {
+            Column::Continuous(values) => Some(values),
+            Column::Discrete(_) => {
+                return Err(Error::spec(
+                    mapping_path,
+                    format!(
+                        "as_discrete(order_by='{order_by}') needs a numeric column; \
+                         '{order_by}' is discrete. Order by a numeric column, or pass \
+                         levels=[...] to set the order directly"
+                    ),
+                ));
+            }
+        },
+        None => None,
+    };
+    let levels = series
+        .and_then(|series| series.factor_levels.as_deref())
+        .or_else(|| annotation.and_then(|annotation| annotation.levels.as_deref()));
+    let order = series
+        .and_then(|series| series.order)
+        .or_else(|| parameters.and_then(|parameters| parameters.order));
+    Ok(as_discrete(
+        &column,
+        DiscreteOrder {
+            levels,
+            order_by: order_by.as_ref(),
+            order,
+        },
+    ))
 }
 
 /// `inherit_aes`, defaulting to the geom's (false for `geom_bracket`).
@@ -3038,14 +3144,6 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
         "facet_grid",
     );
     ignored(spec.caption.is_some(), "caption");
-    ignored(
-        !spec.data_meta.mapping_annotations.is_empty()
-            || spec
-                .layers
-                .iter()
-                .any(|layer| !layer.data_meta.mapping_annotations.is_empty()),
-        "as_discrete",
-    );
     for (index, layer) in spec.layers.iter().enumerate() {
         let mut layer_ignored = |present: bool, feature: &str| {
             if present {

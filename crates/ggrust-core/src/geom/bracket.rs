@@ -30,7 +30,7 @@ use crate::{Error, Result};
 
 /// lets-plot `DEFAULT_SEGMENT_COLOR`, "not set, use `color`": `rgba(255, 255, 255,
 /// 0.999)`, whose alpha rounds to 255. So an explicit opaque white also means `color`.
-const UNSET_SEGMENT_COLOR: Color = Color::rgb(255, 255, 255);
+pub(super) const UNSET_SEGMENT_COLOR: Color = Color::rgb(255, 255, 255);
 
 const DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
     (Aesthetic::Label, StyleDefault::Text("")),
@@ -275,7 +275,7 @@ fn label(styles: &Styles, row: usize, point: (f64, f64), panel: &Panel) -> Resul
 }
 
 /// The line style of a row's bracket: lets-plot `TextUtil.toSegmentAes`.
-fn segment_stroke(styles: &Styles, row: usize) -> Result<Option<Stroke>> {
+pub(super) fn segment_stroke(styles: &Styles, row: usize) -> Result<Option<Stroke>> {
     let segment_color = styles.colors(Aesthetic::SegmentColor)?.get(row);
     let color = if segment_color == UNSET_SEGMENT_COLOR {
         styles.colors(Aesthetic::Color)?.get(row)

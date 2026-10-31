@@ -591,6 +591,83 @@ def grid_sales_dashboard(m):
     )
 
 
+def repel_fruit_prices(m):
+    random = np.random.default_rng(91)
+    fruits = [
+        "apple",
+        "banana",
+        "cherry",
+        "date",
+        "fig",
+        "grape",
+        "kiwi",
+        "lemon",
+        "mango",
+        "melon",
+        "orange",
+        "papaya",
+        "peach",
+        "pear",
+        "plum",
+        "quince",
+    ]
+    frame = pl.DataFrame(
+        {
+            "price_change": random.normal(0, 1.2, len(fruits)),
+            "sales": random.uniform(1, 6, len(fruits)),
+            "fruit": fruits,
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("price_change", "sales"))
+        + m.geom_point(color="#4daf4a")
+        + m.geom_text_repel(
+            m.aes(label="fruit"),
+            point_padding=0.3,
+            box_padding=0.4,
+            max_overlaps=50,
+            seed=42,
+            size=6,
+        )
+        + m.ggtitle("Fruit sales against price change")
+        + m.ggsize(480, 360)
+    )
+
+
+def repel_cluster_labels(m):
+    random = np.random.default_rng(92)
+    centres = {
+        "bakery": (-3.0, 2.0),
+        "cafe": (-2.4, 2.6),
+        "market": (2.5, -1.0),
+        "park": (3.0, -0.4),
+    }
+    frame = pl.DataFrame(
+        {
+            "east": np.concatenate([random.normal(x, 0.6, 60) for x, _ in centres.values()]),
+            "north": np.concatenate([random.normal(y, 0.6, 60) for _, y in centres.values()]),
+            "place": np.repeat(list(centres), 60),
+        }
+    )
+    labels = frame.group_by("place", maintain_order=True).agg(
+        pl.col("east").mean(), pl.col("north").mean()
+    )
+    return (
+        m.ggplot(frame, m.aes("east", "north", color="place"))
+        + m.geom_point(size=1.5, alpha=0.6)
+        + m.geom_label_repel(
+            m.aes(label="place"),
+            data=labels,
+            fill="white",
+            label_size=0,
+            seed=1,
+            show_legend=False,
+        )
+        + m.theme(legend_position="none")
+        + m.ggsize(420, 360)
+    )
+
+
 CASES = {
     case.__name__: case
     for case in [
@@ -629,5 +706,7 @@ CASES = {
         facet_samples,
         facet_free_temperatures,
         grid_sales_dashboard,
+        repel_fruit_prices,
+        repel_cluster_labels,
     ]
 }

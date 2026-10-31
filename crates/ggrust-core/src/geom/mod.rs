@@ -20,6 +20,8 @@ mod quantiles;
 mod raster;
 mod rect;
 mod reference_line;
+mod repel;
+mod repel_layout;
 mod segment;
 mod text;
 mod tile;
@@ -37,6 +39,7 @@ pub use polygon::PolygonGeom;
 pub use raster::RasterGeom;
 pub use rect::RectGeom;
 pub use reference_line::{HorizontalLineGeom, VerticalLineGeom};
+pub use repel::{LabelRepelGeom, TextRepelGeom};
 pub use segment::SegmentGeom;
 pub use text::{LabelGeom, TextGeom};
 pub use tile::TileGeom;
@@ -168,6 +171,8 @@ pub static GEOMS: &[&dyn Geom] = &[
     &HorizontalLineGeom,
     &TextGeom,
     &LabelGeom,
+    &TextRepelGeom,
+    &LabelRepelGeom,
     &BlankGeom,
     &BarGeom,
     &HistogramGeom,
@@ -183,7 +188,7 @@ pub static GEOMS: &[&dyn Geom] = &[
 
 /// lets-plot geoms the Python API builds but the engine does not draw yet (plan.md).
 /// Remove a name when its geom joins [`GEOMS`].
-pub static NOT_DRAWN_YET: &[&str] = &["label_repel", "sina", "text_repel"];
+pub static NOT_DRAWN_YET: &[&str] = &["sina"];
 
 /// Look up a geom by its lets-plot name.
 pub fn geom(name: &str) -> Option<&'static dyn Geom> {

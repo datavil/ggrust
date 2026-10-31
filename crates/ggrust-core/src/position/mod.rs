@@ -4,7 +4,7 @@
 mod dodge;
 mod identity;
 mod jitter;
-mod random;
+pub(crate) mod random;
 mod shift;
 mod stack;
 

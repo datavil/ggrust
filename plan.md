@@ -152,7 +152,7 @@ Steps inside a phase are ordered; each builds on the previous.
 
 ### Phase 5: Remaining cellestial features
 
-- [ ] 5.1 `geom_text_repel` / `geom_label_repel` (volcano, ondata legend).
+- [x] 5.1 `geom_text_repel` / `geom_label_repel` (volcano, ondata legend). (Line-by-line port of lets-plot `LabelForceLayout` (`geom/repel_layout.rs`): with lets-plot's text widths it gives its label positions to 1e-6 (2 Rust cases, incl. cellestial's volcano options); rendered labels still differ a little because our font measures narrower. Points repel with marker radius + `point_padding`, boxes keep `box_padding`; nudge moves only the label; segment from the marker edge to the nearest reachable box edge centre, bracket's segment paint, `arrow`, `min_segment_length`; `max_overlaps` hides at the first repulsion pass; `direction`, `max_iter`, `max_time` (s). Legend key: fill cell (labels) + text + segment line. Numeric `hjust` snaps to 0/0.5/1 as lets-plot. Not yet: unseeded layouts use seed 0 (lets-plot randomises), `inward`/`outward`, `size_unit`, `label_format`, `na_text`, zoom does not re-run the layout, HTML runs the layout twice (6.1d).)
 - [ ] 5.2 `geom_imshow` (spatial H&E images: RGB/RGBA arrays, cmap, extent).
 - [ ] 5.3 `ggsave` (svg, png, html, pdf), `GGBunch` compat if still needed.
 - [ ] 5.4 Full cellestial test suite green on ggrust; browser tests green.
@@ -161,6 +161,7 @@ Steps inside a phase are ordered; each builds on the previous.
 
 - [ ] 6.1 Profile (flamegraph via `cargo flamegraph`, `py-spy`, memory via `/usr/bin/time -v` + `tracemalloc`) on cellestial benchmark scripts.
 - [ ] 6.1b Data bridge hot spots: integer -> f64 cast is single-threaded (50M rows ~0.6 s); string levels use SipHash (5M rows 91 ms vs polars unique 50 ms); multi-chunk columns are re-converted on every `column()` call (cache per frame).
+- [ ] 6.1d Repel layout is O(labels x items) per iteration as lets-plot: 300 labels reach the 5 s `max_time` cap (lets-plot 186 s); HTML runs the layout twice (draw + hover targets). Consider a spatial grid and one shared layout.
 - [ ] 6.1c PNG markers: ~1.3 us per marker via tiny-skia paths (1M points 1.4 s). Stamp pre-rendered subpixel sprites for uniform-style batches; consider parallel tiles.
 - [ ] 6.2 Rayon parallelism (layers, panels, subplots, groups); measure, keep only wins.
 - [ ] 6.3 Caching of Arrow conversion + stat results across subplots.

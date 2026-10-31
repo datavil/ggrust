@@ -1365,7 +1365,7 @@ def geom_text_repel(
     na_rm=None,
     **other_args,
 ) -> LayerSpec:
-    """Text labels pushed apart so they do not overlap. Not drawn yet.
+    """Text labels pushed apart so they do not overlap each other or the points.
 
     Parameters
     ----------
@@ -1458,7 +1458,7 @@ def geom_label_repel(
     na_rm=None,
     **other_args,
 ) -> LayerSpec:
-    """Boxed text labels pushed apart so they do not overlap. Not drawn yet.
+    """Boxed text labels pushed apart so they do not overlap each other or the points.
 
     Parameters
     ----------

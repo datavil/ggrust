@@ -122,6 +122,41 @@ pub(super) fn hover_radius(styles: &Styles, row: usize) -> f64 {
         .unwrap_or(0.0)
 }
 
+/// lets-plot `NamedShape.size` and `strokeWidth`: the diameter (grown by the
+/// outline) and the outline width, in pixels.
+fn shape_size(code: u8, style: MarkerStyle, size: f64, stroke: f64) -> (f64, f64) {
+    let unit = if matches!(code, 18 | 20) {
+        SMALL_POINT_UNIT_SIZE
+    } else {
+        POINT_UNIT_SIZE
+    };
+    let stroke_width = match style {
+        MarkerStyle::Solid => 0.0,
+        _ => stroke * POINT_UNIT_SIZE,
+    };
+    let growth = match code {
+        5 | 9 | 23 => 2f64.sqrt(),
+        3 | 4 | 8 => 2.0,
+        _ => 1.0,
+    };
+    (size * unit + growth * stroke_width, stroke_width)
+}
+
+/// Radius of a point of shape `code` with `size` and `stroke` (half the shape's
+/// size with its stroke, as lets-plot's repel geoms measure their points); a
+/// missing shape is a 1 px dot, a hidden one has none.
+pub(super) fn shape_radius(code: u8, size: f64, stroke: f64) -> f64 {
+    if code == crate::scale::style::HIDDEN_SHAPE {
+        return 0.0;
+    }
+    let Some((_, style)) = MarkerShape::from_code(code) else {
+        return 0.5;
+    };
+    let (diameter, stroke_width) = shape_size(code, style, size, stroke);
+    let radius = (diameter + stroke_width) / 2.0;
+    if radius.is_finite() { radius } else { 0.0 }
+}
+
 /// One marker's geometry and paint.
 #[derive(Debug, Clone, Copy, PartialEq)]
 struct Marker {
@@ -160,20 +195,7 @@ impl Marker {
                 stroke_width: 0.0,
             });
         };
-        let unit = if matches!(code, 18 | 20) {
-            SMALL_POINT_UNIT_SIZE
-        } else {
-            POINT_UNIT_SIZE
-        };
-        let stroke_width = match style {
-            MarkerStyle::Solid => 0.0,
-            _ => stroke * POINT_UNIT_SIZE,
-        };
-        let growth = match code {
-            5 | 9 | 23 => 2f64.sqrt(),
-            3 | 4 | 8 => 2.0,
-            _ => 1.0,
-        };
+        let (diameter, stroke_width) = shape_size(code, style, size, stroke);
         let fill = match style {
             MarkerStyle::Hollow => None,
             MarkerStyle::Solid => Some(color.with_opacity(alpha)),
@@ -181,7 +203,7 @@ impl Marker {
         };
         Ok(Marker {
             shape,
-            size: size * unit + growth * stroke_width,
+            size: diameter,
             fill,
             stroke: (stroke_width > 0.0).then(|| color.with_opacity(alpha)),
             stroke_width,

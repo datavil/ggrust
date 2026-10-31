@@ -22,10 +22,10 @@ use crate::style::{StyleDefault, Styles};
 use crate::text::{self, Font, FontFace, FontFamily};
 
 /// lets-plot `AesScaling.textSize`: pixels of font size per unit of `size`.
-const TEXT_UNIT_SIZE: f64 = 2.0;
-const LABEL_PADDING: f64 = 0.25;
-const LABEL_RADIUS: f64 = 0.15;
-const LABEL_BORDER: f64 = 1.0;
+pub(super) const TEXT_UNIT_SIZE: f64 = 2.0;
+pub(super) const LABEL_PADDING: f64 = 0.25;
+pub(super) const LABEL_RADIUS: f64 = 0.15;
+pub(super) const LABEL_BORDER: f64 = 1.0;
 /// Segments per rounded corner.
 const CORNER_STEPS: usize = 6;
 /// lets-plot moves the baseline 0.7 em from `vjust = 0` to `vjust = 1`.
@@ -175,11 +175,11 @@ impl Geom for LabelGeom {
 pub(super) struct Look {
     pub(super) content: String,
     pub(super) size: f64,
-    font: Font,
-    color: Color,
+    pub(super) font: Font,
+    pub(super) color: Color,
     pub(super) angle: f64,
-    hjust: f64,
-    vjust: f64,
+    pub(super) hjust: f64,
+    pub(super) vjust: f64,
     fill: Color,
     alpha: f64,
 }
@@ -211,12 +211,12 @@ pub(super) fn look(styles: &Styles, row: usize, label: bool) -> Result<Look> {
     })
 }
 
-fn key_size(styles: &Styles) -> Result<(f64, f64)> {
+pub(super) fn key_size(styles: &Styles) -> Result<(f64, f64)> {
     let size = styles.numbers(Aesthetic::Size)?.get(0).max(0.0) * TEXT_UNIT_SIZE;
     Ok((size, size))
 }
 
-fn draw_key(styles: &Styles, cell: Rect, label: bool) -> Result<Vec<Node>> {
+pub(super) fn draw_key(styles: &Styles, cell: Rect, label: bool) -> Result<Vec<Node>> {
     let mut look = look(styles, 0, label)?;
     look.content = "a".to_owned();
     look.hjust = 0.5;
@@ -287,23 +287,7 @@ pub(super) fn draw_one(
     padding: f64,
     radius: f64,
 ) -> Vec<Node> {
-    let lines: Vec<Label> = look
-        .content
-        .split('\n')
-        .map(|line| power_label(line.to_owned()))
-        .collect();
-    let widths: Vec<f64> = lines
-        .iter()
-        .map(|line| {
-            text::measure_label(
-                &line.text,
-                line.superscript.as_deref(),
-                line.suffix.as_deref(),
-                look.size,
-                look.font,
-            )
-        })
-        .collect();
+    let (lines, widths) = measured_lines(look);
     let width = widths.iter().copied().fold(0.0, f64::max);
     let line_count = lines.len() as f64;
     let (sin, cos) = look.angle.to_radians().sin_cos();
@@ -364,6 +348,36 @@ pub(super) fn draw_one(
         }));
     }
     nodes
+}
+
+/// The lines of a text (with power-of-ten superscripts) and their widths.
+fn measured_lines(look: &Look) -> (Vec<Label>, Vec<f64>) {
+    let lines: Vec<Label> = look
+        .content
+        .split('\n')
+        .map(|line| power_label(line.to_owned()))
+        .collect();
+    let widths = lines
+        .iter()
+        .map(|line| {
+            text::measure_label(
+                &line.text,
+                line.superscript.as_deref(),
+                line.suffix.as_deref(),
+                look.size,
+                look.font,
+            )
+        })
+        .collect();
+    (lines, widths)
+}
+
+/// Width and height of a text block as [`draw_one`] lays it out: the widest
+/// line, one font size per line (lets-plot `TextUtil.measure` at line height 1).
+pub(super) fn block_size(look: &Look) -> (f64, f64) {
+    let (lines, widths) = measured_lines(look);
+    let width = widths.into_iter().fold(0.0, f64::max);
+    (width, lines.len() as f64 * look.size)
 }
 
 /// Outline of a box centred on the origin with rounded corners.

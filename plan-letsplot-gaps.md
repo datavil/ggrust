@@ -150,37 +150,45 @@ projections and tile fetching, and carry many open lets-plot bugs (#1448, #795, 
 
 ## 11. Open lets-plot bugs in features ggrust already has
 
-These are not gaps, but places where ggrust follows lets-plot by default. **Not verified
-against ggrust yet**: each needs a quick repro to confirm ggrust does not copy the bug.
+Each issue's repro (from the issue body; #1443 with `geom_histogram` since `geom_density`
+is missing) rendered on ggrust and on lets-plot 4.11.0, 2026-10-31, and inspected side by
+side. Script: `issue_repros.py` (scratch, not committed). Verdicts:
 
-| lets-plot issue | Area | ggplot2 / expected behavior |
-| --- | --- | --- |
-| #1398 | `geom_bar(stat='identity')` does not stack with one group | Stacks. |
-| #1270 | `geom_boxplot` not drawn when a group has a single category value | Draws. |
-| #1511 | Boxplot outliers cannot be removed | `outlier_shape=NA` / `outliers=FALSE`. |
-| #1443 | Histogram with free facet scales shows the full data range | Per-panel range. |
-| #704 | `geom_bar` + `fill` + log10 y gives wrong axis labels | Correct labels. |
-| #769 | Continuous scale limits outside the data crash | Draws an empty or clipped range. |
-| #1512 | Line, path legend keys ignore `alpha` | Legend shows alpha. |
-| #1147 | Dotted line legend key lost at larger size | Visible. |
-| #1504, #1474 | `angle` ignored for axis titles and `label_text` | Applied. |
-| #1143 | `geom_label` `hjust` only accepts 0, 0.5, 1 | Any number. |
-| #1129, #997, #1132 | Duplicate legend labels rejected; `labels` breaks custom order; `as_discrete(label=)` ignored with `levels` | Allowed / kept / applied. |
-| #701 | `label` aesthetic creates groups in text geoms | Does not group. |
-| #1015 | `gggrid` `sharex`/`sharey` broken with discrete scales | Shared. |
-| #1299 | `coord_fixed` + free facet scales gives a non-square grid | ggplot2 errors ("doesn't support free scales"). |
-| #906, #339, #1495, #1506 | Wide axis labels cropped, text outside plot bounds, axis labels dropped, legends wrapped badly | Not clipped, laid out correctly. |
-| #1267 | `geom_text` label size too small with log10 transform | Unaffected by transform. |
-| #985 | Visible gaps between filled geometries | No seams. |
+- **Avoided:** ggrust already does better than lets-plot.
+- **Copied:** ggrust shows the same bug. Score = significance of fixing it in ggrust.
+- **Gap:** ggrust does not support the feature the repro uses (reported in a `GgrustWarning`).
+
+| Score | lets-plot issue | Area | Verdict on ggrust | Expected (ggplot2) |
+| --- | --- | --- | --- | --- |
+| 5 | #1132, #997 | `as_discrete` | **Gap.** Only `levels=` works; plain `as_discrete('c')`, `label=`, `order=`, `order_by=` are ignored with "'as_discrete' is not supported yet", so a numeric column stays continuous (colorbar instead of a discrete legend). | Discrete scale, label and ordering applied. |
+| 4 | #1398 | `geom_bar(stat='identity')`, one group per x | **Copied.** Bars overlap (80 drawn over 90) instead of stacking to 170 and 50. | Stacks. |
+| 4 | #1443 | Free facet scales with a binned stat (histogram) | **Copied.** Every panel spans the full data range. | Per-panel range. |
+| 4 | #339, #906 | Text at the plot edge, wide last axis label | **Copied.** Both clipped at the panel/plot edge. | Not clipped (ggplot2 clips geoms to the panel but never cuts axis labels). |
+| 4 | #1506 | Many legends in a small plot | **Copied.** Legends run off the bottom of the canvas. | Legends fit (ggplot2 lays them out in a box; grows or wraps). |
+| 4 | #1504 | `element_text(angle=, vjust=)` on axis titles | **Gap.** Reported "not supported yet; ignored". (lets-plot ignores it silently.) | Applied. |
+| 4 | #1015 | `gggrid(sharex=, sharey=)` | **Gap.** `layout.sharex` is reported unsupported and ignored. (lets-plot accepts it but it does not work with discrete scales.) | Shared axes. |
+| 3 | #1143 | Mapped `hjust` (and `vjust`) on text and label | **Gap.** "mapping data to 'hjust' is not supported yet"; all labels centred. | Any number per row. |
+| 2 | #1129 | Duplicate legend labels in `scale_*_manual(labels=)` | **Copied.** Two levels labelled "Label A" merge; the red A key disappears. | Two keys with the same label. |
+| 2 | #1147 | Legend `override_aes` with `linetype` / `linewidth` on a rect key | **Copied, differently.** No dashes; key drawn as an odd small notched shape. | Dashed outline at the given width. |
+| 2 | #1299 | `coord_fixed` + free facet scales | **Copied, with a warning.** Non-square grid, but ggrust warns that it is not supported. | ggplot2 errors. Decide: keep the warning or raise. |
+| 1 | #704 | Stacked bars on a log10 y scale | **Copied.** Stacking happens in log space, so totals look far too large. | ggplot2 does the same (stacking on transformed scales is ill-defined). Keep. |
+| 1 | #701 | `label` aesthetic creates groups | **Same as lets-plot.** | ggplot2 also groups by discrete `label`. Not a bug. Keep. |
+| 1 | #1495 | Many discrete axis labels | **Avoided (as ggplot2).** ggrust draws every label (they overlap); lets-plot silently drops 3 of 4. | ggplot2 draws all. Keep. |
+| - | #1270 | Boxplot with a group of only NA | **Avoided.** Draws a and b; lets-plot fails to render. | |
+| - | #769 | Color limits outside the data | **Avoided.** All four limit cases render with out-of-range points grey; lets-plot crashes on two. | |
+| - | #1512 | Line legend keys ignore `alpha` | **Avoided.** Key alpha matches the lines. | |
+| - | #1267 | Text size with a sqrt size scale | **Avoided.** Text size is right. ggrust-only oddity: the size legend for a single value lists five near-identical breaks (9.99992e9 ... 1.000008e10). Score 2. | One key. |
+| n/a | #1474, #985, #1511 | `label_text` angle (needs `geom_crossbar`), seams in density fills (needs `geom_density2df`/`geom_density`), removing boxplot outliers (no `outliers=` option in either library) | Not testable until the geoms exist; add `outliers=` with the boxplot work. | |
 
 ## Proposed order
 
-1. **Score 5, exposed but erroring:** `geom_sina`, `position_fill`, `position_nudge`,
-   `PlotSpec.show()`.
+1. **Score 5, exposed but erroring or ignored:** `as_discrete`, `geom_sina`,
+   `position_fill`, `position_nudge`, `PlotSpec.show()`.
 2. **Score 5, everyday grammar:** interval family, ribbon and area, abline, density,
    smooth, datetime scales.
-3. **Section 11 repros:** confirm ggrust avoids the listed lets-plot bugs (cheap, protects
-   parity work).
+3. **Section 11 score-4 fixes:** single-group identity stacking (#1398), free facet ranges
+   for binned stats (#1443), edge clipping of text and axis labels (#339, #906), legend
+   overflow (#1506), axis title angle, `gggrid` sharex/sharey.
 4. **Score 4:** step and freqpoly, summary and ecdf, grey, discrete and linetype scales,
    `expand_limits`, `orientation`, score-4 theme parameters.
 5. **Score 3:** 2D and contour families, qq, `coord_polar`, `ggmarginal`, facet label

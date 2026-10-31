@@ -74,3 +74,18 @@ def test_as_discrete_order_by_a_discrete_column_is_an_error() -> None:
     mapping = gg.aes("x", "y", color=gg.as_discrete("c", order_by="s"))
     with pytest.raises(SpecError, match="needs a numeric column"):
         (gg.ggplot(FRAME) + gg.geom_point(mapping)).to_svg()
+
+
+@pytest.mark.parametrize("geom", ["bar", "boxplot"])
+@pytest.mark.parametrize("order", [None, 1])
+def test_as_discrete_order_by_on_stat_layers_sorts_levels(geom: str, order: int | None) -> None:
+    frame = pl.DataFrame({"c": [3.0, 1, 2.5, 1, 10, 3], "y": [5.0, 3, 4, 1, 2, 9]})
+    options = {} if order is None else {"order": order}
+
+    def first_texts(module: Any) -> list[str]:
+        x = module.as_discrete("c", order_by="y", **options)
+        mapping = module.aes(x=x) if geom == "bar" else module.aes(x=x, y="y")
+        plot = module.ggplot(frame) + getattr(module, f"geom_{geom}")(mapping)
+        return svg_texts(plot.to_svg())[:4]
+
+    assert first_texts(gg) == first_texts(lp)

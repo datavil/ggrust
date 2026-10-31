@@ -349,11 +349,6 @@ fn lets_plot_names_not_supported_yet_say_so() {
         sina.contains("at 'layers[0].geom': geom 'sina' is not supported by ggrust yet"),
         "{sina}"
     );
-    let nudge = error(r#"{"geom": "point", "position": {"name": "nudge"}}"#);
-    assert!(
-        nudge.contains("position 'nudge' is not supported by ggrust yet"),
-        "{nudge}"
-    );
     let ridges = error(r#"{"geom": "point", "stat": "sina"}"#);
     assert!(
         ridges.contains("stat 'sina' is not supported by ggrust yet"),

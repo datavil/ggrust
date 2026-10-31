@@ -249,10 +249,6 @@ def test_geom_function_on_frames():
     ("layer", "message"),
     [
         (lambda: gg.geom_sina(), "geom 'sina' is not supported by ggrust yet"),
-        (
-            lambda: gg.geom_point(position=gg.position_nudge()),
-            "position 'nudge' is not supported by ggrust yet",
-        ),
     ],
 )
 def test_rendering_spec_only_parts_says_so(layer, message):

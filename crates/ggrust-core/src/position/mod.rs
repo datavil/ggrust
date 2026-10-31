@@ -1,9 +1,11 @@
-//! Position adjustments: move layer data to avoid overlap (dodge, jitter, stack).
+//! Position adjustments: move layer data to avoid overlap (dodge, jitter, stack,
+//! fill) or by a fixed offset (nudge).
 //! One file per position; add it to [`POSITIONS`].
 
 mod dodge;
 mod identity;
 mod jitter;
+mod nudge;
 pub(crate) mod random;
 mod shift;
 mod stack;
@@ -11,7 +13,8 @@ mod stack;
 pub use dodge::DodgePosition;
 pub use identity::IdentityPosition;
 pub use jitter::{JitterDodgePosition, JitterPosition};
-pub use stack::StackPosition;
+pub use nudge::NudgePosition;
+pub use stack::{FillPosition, StackPosition};
 
 use crate::Result;
 use crate::data::LayerData;
@@ -85,14 +88,16 @@ pub trait Position: Sync {
 pub static POSITIONS: &[&dyn Position] = &[
     &IdentityPosition,
     &StackPosition,
+    &FillPosition,
     &DodgePosition,
     &JitterPosition,
     &JitterDodgePosition,
+    &NudgePosition,
 ];
 
 /// lets-plot positions the Python API builds but the engine does not apply yet
 /// (plan.md). Remove a name when its position joins [`POSITIONS`].
-pub static NOT_APPLIED_YET: &[&str] = &["fill", "nudge"];
+pub static NOT_APPLIED_YET: &[&str] = &[];
 
 /// Look up a position by its lets-plot name.
 pub fn position(name: &str) -> Option<&'static dyn Position> {

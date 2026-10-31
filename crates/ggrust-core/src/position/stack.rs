@@ -7,7 +7,9 @@
 //! largest value. `mode="all"` stacks every row. `vjust` (default 1) places a
 //! row's y within its stacked span (0 bottom, 1 top); bars move as a whole.
 //!
-//! What it does not do: `position_fill` (normalised stacks).
+//! `position="fill"` stacks the same way, then divides each x's stack by its
+//! total height (positive and negative stacks each by their own total), so every
+//! stack spans 0..1 (lets-plot `FillPos`).
 
 use std::collections::HashMap;
 
@@ -32,40 +34,71 @@ impl Position for StackPosition {
     }
 
     fn adjust(&self, data: LayerData, parameters: &Parameters) -> Result<LayerData> {
-        let vjust = parameters.number("vjust")?.unwrap_or(1.0);
-        let all = match parameters.string("mode")? {
-            None | Some("groups") => false,
-            Some("all") => true,
-            Some(other) => {
-                return Err(Error::spec(
-                    parameters.path_of("mode"),
-                    format!("unsupported stacking mode '{other}'; use one of: groups, all"),
-                ));
-            }
-        };
-        let (Some(x), Some(y)) = (data.continuous(Aesthetic::X), data.continuous(Aesthetic::Y))
-        else {
-            return Ok(data);
-        };
-        let mut context = StackingContext::new(all);
-        let mut offsets = vec![0.0; data.row_count()];
-        for rows in rows_by_group_id(&data) {
-            for row in rows {
-                let (Some(location), Some(value)) = (x.get(row), y.get(row)) else {
-                    continue;
-                };
-                if !(location.is_finite() && value.is_finite()) {
-                    continue;
-                }
-                let offset = context.total_offset(location, value);
-                offsets[row] = offset - value * (1.0 - vjust);
-            }
-            context.finish_group();
-        }
-        shift_positions(data, Aesthetic::is_y_position, |row, value| {
-            value + offsets[row]
-        })
+        stack(data, parameters, false)
     }
+}
+
+/// Stacks overlapping rows, then scales every stack to span 0..1.
+pub struct FillPosition;
+
+impl Position for FillPosition {
+    fn name(&self) -> &'static str {
+        "fill"
+    }
+
+    fn parameters(&self) -> &'static [&'static str] {
+        &["vjust", "mode"]
+    }
+
+    fn adjust(&self, data: LayerData, parameters: &Parameters) -> Result<LayerData> {
+        stack(data, parameters, true)
+    }
+}
+
+/// `stack` and `fill`: `normalize` divides each stack by its total.
+fn stack(data: LayerData, parameters: &Parameters, normalize: bool) -> Result<LayerData> {
+    let vjust = parameters.number("vjust")?.unwrap_or(1.0);
+    let all = match parameters.string("mode")? {
+        None | Some("groups") => false,
+        Some("all") => true,
+        Some(other) => {
+            return Err(Error::spec(
+                parameters.path_of("mode"),
+                format!("unsupported stacking mode '{other}'; use one of: groups, all"),
+            ));
+        }
+    };
+    let (Some(x), Some(y)) = (data.continuous(Aesthetic::X), data.continuous(Aesthetic::Y)) else {
+        return Ok(data);
+    };
+    let mut context = StackingContext::new(all);
+    let mut offsets = vec![0.0; data.row_count()];
+    // The stack each row joined: x bits and whether it stacks above 0.
+    let mut stacks: Vec<Option<(u64, bool)>> = vec![None; data.row_count()];
+    for rows in rows_by_group_id(&data) {
+        for row in rows {
+            let (Some(location), Some(value)) = (x.get(row), y.get(row)) else {
+                continue;
+            };
+            if !(location.is_finite() && value.is_finite()) {
+                continue;
+            }
+            let offset = context.total_offset(location, value);
+            offsets[row] = offset - value * (1.0 - vjust);
+            stacks[row] = Some((location.to_bits(), value >= 0.0));
+        }
+        context.finish_group();
+    }
+    let scales: Vec<f64> = stacks
+        .iter()
+        .map(|stack| match (normalize, stack) {
+            (true, Some((key, positive))) => context.total(*key, *positive),
+            _ => 1.0,
+        })
+        .collect();
+    shift_positions(data, Aesthetic::is_y_position, |row, value| {
+        (value + offsets[row]) / scales[row]
+    })
 }
 
 /// lets-plot `StackablePos.StackingContext`: per x, the height reached by earlier
@@ -112,6 +145,19 @@ impl StackingContext {
         }
     }
 
+    /// The height of a finished stack, as a positive divisor (1 when it is 0).
+    fn total(&self, key: u64, positive: bool) -> f64 {
+        let map = if positive {
+            &self.positive
+        } else {
+            &self.negative
+        };
+        match map.get(&key).map(|(_, stack)| stack.abs()) {
+            Some(total) if total > 0.0 => total,
+            _ => 1.0,
+        }
+    }
+
     /// Close a group: its heights join the stacks.
     fn finish_group(&mut self) {
         for map in [&mut self.positive, &mut self.negative] {
@@ -129,6 +175,16 @@ mod tests {
     use crate::spec::Options;
 
     fn stacked(x: &[f64], y: &[f64], groups: Vec<u32>, options: &str) -> Vec<f64> {
+        adjusted(&StackPosition, x, y, groups, options)
+    }
+
+    fn adjusted(
+        position: &dyn Position,
+        x: &[f64],
+        y: &[f64],
+        groups: Vec<u32>,
+        options: &str,
+    ) -> Vec<f64> {
         let mut data = LayerData::new(x.len());
         let column =
             |values: &[f64]| Column::Continuous(ContinuousColumn::from_values(values.to_vec()));
@@ -138,7 +194,7 @@ mod tests {
             .unwrap();
         data.set_group_index(Some(groups)).unwrap();
         let options: Options = serde_json::from_str(options).unwrap();
-        let data = StackPosition
+        let data = position
             .adjust(data, &Parameters::new(&options, ""))
             .unwrap();
         let y = data.continuous(Aesthetic::Y).unwrap();
@@ -174,5 +230,17 @@ mod tests {
     fn vjust_places_the_value_within_its_span() {
         let y = stacked(&[0.0, 0.0], &[2.0, 4.0], vec![0, 1], r#"{"vjust": 0.5}"#);
         assert_eq!(y, [1.0, 4.0]);
+    }
+
+    #[test]
+    fn fill_scales_each_stack_by_sign_to_one() {
+        let y = adjusted(
+            &FillPosition,
+            &[0.0, 0.0, 0.0, 1.0, 1.0],
+            &[1.0, 3.0, -2.0, 2.0, 2.0],
+            vec![0, 1, 1, 0, 1],
+            "{}",
+        );
+        assert_eq!(y, [0.25, 1.0, -1.0, 0.5, 1.0]);
     }
 }

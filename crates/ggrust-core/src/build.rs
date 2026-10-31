@@ -1514,6 +1514,7 @@ fn map_layer_into<'a>(
             plot,
             spec,
             &frames,
+            stat.name() == "identity",
             *aesthetic,
             inherited.contains(aesthetic),
             name,
@@ -2005,6 +2006,7 @@ fn annotated_column(
     plot: &PlotSpec,
     layer: &LayerSpec,
     frames: &LayerFrames<'_>,
+    is_identity: bool,
     aesthetic: Aesthetic,
     inherited: bool,
     name: &str,
@@ -2020,6 +2022,9 @@ fn annotated_column(
     let parameters = annotation.map(|annotation| &annotation.parameters);
     let order_by_name = parameters.and_then(|parameters| parameters.order_by.as_deref());
     let order_by = match order_by_name {
+        // lets-plot orders by the variable in the stat's output; a data column is
+        // gone there (bar, boxplot), so the levels sort by value.
+        Some(_) if !is_identity => None,
         Some(order_by) if Computed::from_mapping(order_by).is_some() => {
             warnings.push(format!(
                 "at '{mapping_path}': as_discrete(order_by='{order_by}') with a stat variable \
@@ -2047,7 +2052,8 @@ fn annotated_column(
         .or_else(|| annotation.and_then(|annotation| annotation.levels.as_deref()));
     let order = series
         .and_then(|series| series.order)
-        .or_else(|| parameters.and_then(|parameters| parameters.order));
+        .or_else(|| parameters.and_then(|parameters| parameters.order))
+        .or_else(|| (order_by_name.is_some() && order_by.is_none()).then_some(-1));
     Ok(as_discrete(
         &column,
         DiscreteOrder {

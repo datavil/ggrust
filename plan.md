@@ -199,8 +199,9 @@ Steps inside a phase are ordered; each builds on the previous.
 Group 1: exposed in the API but erroring or ignored.
 
 - [x] 8.1 `as_discrete`: `order`, `order_by`, `label`, and `levels` on numeric columns.
-  (`data/as_discrete.rs` makes the mapped column discrete in the mapping stage. Rules measured against lets_plot: numeric levels in first appearance; `order` sorts by value (numbers numerically); `order_by` sorts by the per-level mean, descending by default, ties by level value in the same direction, levels without a value last; `levels=` puts given levels first, the rest in first appearance, `order=-1` reverses. `label` names the scale. Deviations: numbers of 1e15+ print plainly (lets-plot uses powers); `order_by` with a stat variable (`..count..`) warns and keeps the order.)
-- [ ] 8.2 `position_fill` and `position_nudge`.
+  (`data/as_discrete.rs` makes the mapped column discrete in the mapping stage. Rules measured against lets_plot: numeric levels in first appearance; `order` sorts by value (numbers numerically); `order_by` sorts by the per-level mean, descending by default, ties by level value in the same direction, levels without a value last; `levels=` puts given levels first, the rest in first appearance, `order=-1` reverses. `label` names the scale. Deviations: numbers of 1e15+ print plainly (lets-plot uses powers); `order_by` with a stat variable (`..count..`) warns and keeps the order; lets-plot orders after the stat, so on stat layers a data column is gone and the levels sort by value (matched), except violins, where lets-plot uses the density output's y and ggrust sorts by value. Bug hunt: same column with labels on plot and layer gives "A, B" (lets-plot "B"); `order` on an ordered categorical/Enum is applied (lets-plot ignores it); `facet_wrap(as_discrete(...))` errors in both.)
+- [x] 8.2 `position_fill` and `position_nudge`.
+  (`FillPosition` shares the stacking code and divides each x's stack by its total, positive and negative stacks separately; matches lets-plot axes and bars. `NudgePosition` adds `x`/`y` in data units; `unit='size'|'px'` is an error for now. Deviation: the axes include nudged positions (ggplot2); lets-plot clips nudged labels at the edge.)
 - [ ] 8.3 `geom_sina` / `stat_sina`.
 - [ ] 8.4 `PlotSpec.show()`.
 

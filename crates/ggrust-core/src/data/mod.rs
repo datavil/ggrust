@@ -2,6 +2,8 @@
 //!
 //! What it does: holds the frames that cross from Python (zero-copy Arrow) and
 //! converts a column to a [`Column`] on demand, so only mapped columns are touched.
+//! Each converted column is cached on the frame, so layers, facets, tooltips and
+//! the subplots of a `gggrid` that read the same column convert it once.
 //!
 //! What it does not do: decide scales or category order overrides. Ordering from
 //! `as_discrete` / `factor_levels` is applied by the mapping stage on top of the
@@ -12,6 +14,8 @@ mod group;
 pub mod inline;
 mod layer;
 mod resolution;
+
+use std::sync::{Arc, OnceLock};
 
 use arrow_array::{RecordBatch, new_empty_array};
 use arrow_schema::{Schema, SchemaRef};
@@ -24,11 +28,17 @@ pub use resolution::resolution;
 use crate::{Error, Result};
 
 /// A table of named columns, stored as Arrow record batches (chunks).
+///
+/// Clones share the batches and the column cache.
 #[derive(Debug, Clone)]
 pub struct DataFrame {
     schema: SchemaRef,
     batches: Vec<RecordBatch>,
     row_count: usize,
+    /// Converted columns by schema index, filled on first read (`None`: the
+    /// conversion failed). Columns are Arrow-backed, so handing out a cached one
+    /// is a reference count bump.
+    columns: Arc<[OnceLock<Option<Column>>]>,
 }
 
 impl DataFrame {
@@ -47,10 +57,12 @@ impl DataFrame {
             )));
         }
         let row_count = batches.iter().map(RecordBatch::num_rows).sum();
+        let columns = schema.fields().iter().map(|_| OnceLock::new()).collect();
         Ok(DataFrame {
             schema,
             batches,
             row_count,
+            columns,
         })
     }
 
@@ -76,9 +88,20 @@ impl DataFrame {
     ///
     /// Each chunk is converted on its own and the results are merged, so
     /// dictionary chunks with different dictionaries combine correctly.
-    /// Float64 single-chunk columns are not copied.
+    /// Float64 single-chunk columns are not copied. The result is cached: later
+    /// reads of the same column return it without converting again, and threads
+    /// reading it at the same time wait for one conversion. A failed conversion
+    /// is cached as `None` and converted again to rebuild its error.
     pub fn column(&self, name: &str) -> Result<Column> {
         let index = self.index_of(name)?;
+        match self.columns[index].get_or_init(|| self.convert(name, index).ok()) {
+            Some(column) => Ok(column.clone()),
+            None => self.convert(name, index),
+        }
+    }
+
+    /// Convert the column at `index` from its Arrow chunks.
+    fn convert(&self, name: &str, index: usize) -> Result<Column> {
         let parts = if self.batches.is_empty() {
             let data_type = self.schema.field(index).data_type();
             vec![Column::from_arrow(name, &new_empty_array(data_type))?]

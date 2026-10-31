@@ -359,3 +359,57 @@ fn batch_schema_may_differ_in_metadata_and_nullability() {
         RecordBatch::try_new(batch_schema, vec![Arc::new(Float64Array::from(vec![1.0]))]).unwrap();
     assert!(DataFrame::new(frame_schema, vec![batch]).is_ok());
 }
+
+#[test]
+fn converted_columns_are_cached_and_shared_by_clones() {
+    let schema = Arc::new(Schema::new(vec![
+        Field::new("x", arrow_schema::DataType::Int64, true),
+        Field::new("c", arrow_schema::DataType::Utf8, true),
+    ]));
+    let batch = |x: Vec<i64>, c: Vec<&str>| {
+        RecordBatch::try_new(
+            schema.clone(),
+            vec![
+                Arc::new(Int64Array::from(x)),
+                Arc::new(StringArray::from(c)),
+            ],
+        )
+        .unwrap()
+    };
+    // Two chunks: every uncached read would cast, concatenate and copy again.
+    let frame = DataFrame::new(
+        schema.clone(),
+        vec![batch(vec![1], vec!["b"]), batch(vec![2, 3], vec!["a", "b"])],
+    )
+    .unwrap();
+    let values = |column: Column| match column {
+        Column::Continuous(column) => column.values().as_ptr(),
+        Column::Discrete(_) => panic!("expected continuous"),
+    };
+    let levels = |column: Column| match column {
+        Column::Discrete(column) => column.levels().as_ptr(),
+        Column::Continuous(_) => panic!("expected discrete"),
+    };
+    let first = frame.column("x").unwrap();
+    assert_eq!(continuous(first.clone()), [Some(1.0), Some(2.0), Some(3.0)]);
+    assert_eq!(values(first.clone()), values(frame.column("x").unwrap()));
+    let copy = frame.clone();
+    assert_eq!(values(first), values(copy.column("x").unwrap()));
+    assert_eq!(
+        levels(copy.column("c").unwrap()),
+        levels(frame.column("c").unwrap())
+    );
+    assert_eq!(discrete(frame.column("c").unwrap()).0, ["b", "a"]);
+}
+
+#[test]
+fn failed_conversions_report_their_error_every_time() {
+    let frame = frame_of(vec![(
+        "time",
+        Arc::new(TimestampMillisecondArray::from(vec![0])) as ArrayRef,
+    )]);
+    for _ in 0..2 {
+        let error = frame.column("time").unwrap_err().to_string();
+        assert!(error.contains("unsupported type Timestamp"), "{error}");
+    }
+}

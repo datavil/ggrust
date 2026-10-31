@@ -22,6 +22,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Lessons: [memory/](memory/README.md
 | imshow PNG encoding | Encoded in Rust with the fastest deflate; the href decodes to lets-plot's pixels but its bytes differ (parity is visual, not byte-level) (decided (user) 2026-10-31) |
 | Tooltip runtime (4.2) | Rust computes targets (scene pixels) and every row's text; the JS runtime builds the grid-bucket hit index at mount (no index in the payload) and draws tooltips as HTML divs over the SVG (decided 2026-10-28) |
 | cellestial browser tests (5.4) | cellestial's helper is rewritten on ggrust's HTML; ggrust does not emulate lets-plot's HTML hooks (`plt-container`, `lets-plot.min.js`) (decided (user) 2026-10-31) |
+| Stat caching (6.3) | No stat-result cache across subplots: a hit needs equal layer, data, scales, facets and grouping, no cellestial grid has that, and the key would be large and fragile. Only Arrow column conversion is cached (decided (user) 2026-10-31) |
 
 ## Scope: what cellestial actually uses
 
@@ -167,7 +168,7 @@ Steps inside a phase are ordered; each builds on the previous.
 
 - [x] 6.1 Profile (flamegraph via `cargo flamegraph`, `py-spy`, memory via `/usr/bin/time -v` + `tracemalloc`) on cellestial benchmark scripts.
   (`benchmarks/profiling.py`: Python stage split, RSS + `tracemalloc`, flamegraphs from macOS `sample` + `inferno` (`cargo flamegraph`/`py-spy` need root on macOS; see `memory/profiling_macos.md`). 9 cellestial cases + 3 scatter scenarios x svg/png/html; report in `benchmarks/README.md`, raw in `benchmarks/results/profile-20261031/`. Python (spec, JSON, Arrow export) is under 1.5 ms everywhere; all cost is the engine. New items 6.1e-6.1i below, ranked by expected win. ggrust's idle rayon workers are at most 15% of CPU samples; the polars pool cellestial loads spins far more and is excluded.)
-- [ ] 6.1b Data bridge hot spots: integer -> f64 cast is single-threaded (50M rows ~0.6 s); string levels use SipHash (5M rows 91 ms vs polars unique 50 ms); multi-chunk columns are re-converted on every `column()` call (cache per frame).
+- [ ] 6.1b Data bridge hot spots: integer -> f64 cast is single-threaded (50M rows ~0.6 s); string levels use SipHash (5M rows 91 ms vs polars unique 50 ms); ~~multi-chunk columns are re-converted on every `column()` call~~ (cached per frame in 6.3).
 - [ ] 6.1d Repel layout is O(labels x items) per iteration as lets-plot: 300 labels reach the 5 s `max_time` cap (lets-plot 186 s); HTML runs the layout twice (draw + hover targets). Consider a spatial grid and one shared layout.
 - [ ] 6.1c PNG markers: ~1.3 us per marker via tiny-skia paths (1M points 1.4 s). Stamp pre-rendered subpixel sprites for uniform-style batches; consider parallel tiles.
 - [ ] 6.1e HTML tooltip text is built eagerly, one `String` per row and line (`tooltip::content::aesthetic_values` -> `format_general` via `format!`): 28-85% of HTML renders with points; 1M points 0.9-1.6 s and 435-952 MB vs SVG 0.16-0.29 s. Format without per-value allocations, or ship values and format lazily in the runtime.
@@ -177,7 +178,8 @@ Steps inside a phase are ordered; each builds on the previous.
 - [ ] 6.1i Memory of large outputs: `color_continuous` 1M peaks 636 MB above the build for a 71 MB SVG (`scatter` 1M 295 MB for 42 MB). Heap-profile and cut intermediate copies.
 - [x] 6.2 Rayon parallelism (layers, panels, subplots, groups); measure, keep only wins.
   (`crate::parallel::ordered_map` + a 10k-row gate (waking the pool costs ~50 us per call). Parallel: gggrid plot preparation and figure drawing (tooltips merged in order), facet tiles x layers for stats and styles, panel and layer draws, one tooltip job per panel and layer, SVG siblings with 10k+ marks. Results are consumed in order: outputs byte-identical, same warnings and first error. `benchmarks/parallel.py`, old vs new wheel: SVG 2.3-2.8x and HTML 1.9-2.3x on grids, facets and multi-layer plots (cellestial `dimensionals_grid` SVG 24.6 -> 9.8 ms), boxplot 1.4x, single small plots unchanged. PNG unchanged: one-pixmap raster and deflate dominate (tiles: 6.1c, deflate: 6.1f). Report in `benchmarks/README.md`.)
-- [ ] 6.3 Caching of Arrow conversion + stat results across subplots.
+- [x] 6.3 Caching of Arrow conversion + stat results across subplots.
+  (`DataFrame` caches each converted column (`OnceLock` per schema index, shared by clones; concurrent readers wait for one conversion; failures are not cached). Layers, facets, tooltips and gggrid subplots reading one column convert it once. Single-thread, 500k rows (int x, string colour): 6-plot grid 885 -> 845 ms, 3-layer facet 403 -> 357 ms; with rayon the grid wall time is unchanged (subplots already converted in parallel), facet 149 -> 125 ms. Outputs byte-identical (SVG, PNG, HTML). Stat-result caching skipped by decision, see the decisions table.)
 - [ ] 6.4 Final benchmark report vs lets-plot (methodology + raw numbers + plots).
 
 ### Phase 7: Release

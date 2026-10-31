@@ -16,7 +16,7 @@ pip install ggrust
 ```
 
 Wheels are published for Linux (x86_64, aarch64), macOS (Intel, Apple silicon) and
-Windows (x64), for Python 3.11 and newer.
+Windows (x64, ARM64), for Python 3.11 and newer.
 
 ## A first plot
 

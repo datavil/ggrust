@@ -247,8 +247,8 @@ fn errors_name_the_path() {
             "at 'layers[0].size': expected a finite number",
         ),
         (
-            r#"{"kind": "plot", "mapping": {"x": "UMAP1", "y": "UMAP2"}, "layers": [{"geom": "point", "stat": "sina"}]}"#,
-            "at 'layers[0].stat': stat 'sina' is not supported by ggrust yet",
+            r#"{"kind": "plot", "mapping": {"x": "UMAP1", "y": "UMAP2"}, "layers": [{"geom": "point", "stat": "sinna"}]}"#,
+            "at 'layers[0].stat': unknown stat 'sinna'",
         ),
     ];
     for (json, expected) in cases {

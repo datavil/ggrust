@@ -330,7 +330,7 @@ fn the_panel_never_shrinks_below_lets_plots_minimum() {
 }
 
 #[test]
-fn lets_plot_names_not_supported_yet_say_so() {
+fn unknown_lets_plot_names_say_so() {
     let data = || PlotData {
         plot: Some(frame(&[("a", vec![1.0]), ("b", vec![1.0])])),
         layers: vec![],
@@ -344,16 +344,6 @@ fn lets_plot_names_not_supported_yet_say_so() {
             Err(error) => error.to_string(),
         }
     };
-    let sina = error(r#"{"geom": "sina"}"#);
-    assert!(
-        sina.contains("at 'layers[0].geom': geom 'sina' is not supported by ggrust yet"),
-        "{sina}"
-    );
-    let ridges = error(r#"{"geom": "point", "stat": "sina"}"#);
-    assert!(
-        ridges.contains("stat 'sina' is not supported by ggrust yet"),
-        "{ridges}"
-    );
     let typo = error(r#"{"geom": "violn"}"#);
     assert!(typo.contains("unknown geom 'violn'"), "{typo}");
 }

@@ -1284,7 +1284,7 @@ def geom_sina(
     na_rm: bool | None = None,
     **other_args: Any,
 ) -> LayerSpec:
-    """Sina plot: points spread within the violin outline. Not drawn yet.
+    """Sina plot: points spread within the violin outline.
 
     Parameters
     ----------

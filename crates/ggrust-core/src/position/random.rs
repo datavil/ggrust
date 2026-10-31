@@ -54,6 +54,11 @@ impl KotlinRandom {
         i64::from((self.next_int() as u32) >> (32 - count))
     }
 
+    /// A fair coin (Kotlin `nextBoolean`: the top bit).
+    pub fn next_boolean(&mut self) -> bool {
+        self.next_bits(1) != 0
+    }
+
     /// Uniform in [0, 1) (Kotlin `nextDouble`: 26 + 27 bits).
     pub fn next_double(&mut self) -> f64 {
         let high = self.next_bits(26);

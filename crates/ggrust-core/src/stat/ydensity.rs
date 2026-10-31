@@ -100,14 +100,14 @@ impl Stat for YDensityStat {
 
 /// `scale=`: how violin widths compare across the layer.
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum ViolinScale {
+pub(super) enum ViolinScale {
     Area,
     Count,
     Width,
 }
 
 impl ViolinScale {
-    fn from_parameters(parameters: &Parameters) -> Result<Self> {
+    pub(super) fn from_parameters(parameters: &Parameters) -> Result<Self> {
         match parameters
             .string("scale")?
             .map(str::to_lowercase)

@@ -24,6 +24,7 @@ mod reference_line;
 mod repel;
 mod repel_layout;
 mod segment;
+mod sina;
 mod text;
 mod tile;
 mod violin;
@@ -43,6 +44,7 @@ pub use rect::RectGeom;
 pub use reference_line::{HorizontalLineGeom, VerticalLineGeom};
 pub use repel::{LabelRepelGeom, TextRepelGeom};
 pub use segment::SegmentGeom;
+pub use sina::SinaGeom;
 pub use text::{LabelGeom, TextGeom};
 pub use tile::TileGeom;
 pub use violin::ViolinGeom;
@@ -180,6 +182,7 @@ pub static GEOMS: &[&dyn Geom] = &[
     &HistogramGeom,
     &BoxplotGeom,
     &ViolinGeom,
+    &SinaGeom,
     &JitterGeom,
     &AreaRidgesGeom,
     &BracketGeom,
@@ -191,7 +194,7 @@ pub static GEOMS: &[&dyn Geom] = &[
 
 /// lets-plot geoms the Python API builds but the engine does not draw yet (plan.md).
 /// Remove a name when its geom joins [`GEOMS`].
-pub static NOT_DRAWN_YET: &[&str] = &["sina"];
+pub static NOT_DRAWN_YET: &[&str] = &[];
 
 /// Look up a geom by its lets-plot name.
 pub fn geom(name: &str) -> Option<&'static dyn Geom> {

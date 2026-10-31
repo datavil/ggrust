@@ -245,18 +245,6 @@ def test_geom_function_on_frames():
     assert "<svg" in svg
 
 
-@pytest.mark.parametrize(
-    ("layer", "message"),
-    [
-        (lambda: gg.geom_sina(), "geom 'sina' is not supported by ggrust yet"),
-    ],
-)
-def test_rendering_spec_only_parts_says_so(layer, message):
-    plot = gg.ggplot(FRAME, gg.aes("x", "y")) + layer()
-    with pytest.raises(ValueError, match=message):
-        plot.to_svg()
-
-
 def test_rendering_ignored_features_warns():
     plot = gg.ggplot(FRAME, gg.aes("x", "y")) + gg.geom_point()
     # ggtb is supported (HTML); static output ignores it silently, as lets-plot.

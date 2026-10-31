@@ -134,9 +134,24 @@ temperature = pl.DataFrame(
 
 ggrust is a __subset__ of Lets-Plot, not all of it. Features follow what Cellestial and everyday plotting need. See the [migration note](https://datavil.github.io/ggrust/migration/) for the differences.
 
+## Performance
+
+Compared with Lets-Plot on identical work: same data, every row drawn (Lets-Plot sampling turned off), same output size. Measured on an Apple M4 Pro, ggrust 0.1.0 vs lets-plot 4.11.0.
+
+- __Speed__: SVG a median __40x__ faster (5x to 185x over 23 cases), PNG a median __22x__ faster (13x to 119x).
+- __Memory__: a median __14x__ lower peak memory (3.6x to 220x). A 1M-point scatter PNG peaks at 44 MB above the data in ggrust and 9.6 GB in Lets-Plot.
+- No case was slower. The weakest spots are point-heavy PNGs (13x to 21x) and large SVGs, where ggrust still peaks at 430 MB for 1M points.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/benchmarks/report-speedup.png" alt="Speed-up over Lets-Plot per case" width="49%">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/benchmarks/report-memory.png" alt="Peak memory ratio over Lets-Plot per case" width="49%">
+</p>
+
+Full methodology, raw numbers and side-by-side output images are in the [benchmark report](benchmarks/REPORT.md).
+
 ## Status
 
-Early, but usable: the full Cellestial test suite passes on ggrust. In the [benchmark report](benchmarks/REPORT.md) it renders a median 40x faster than Lets-Plot for SVG and 22x for PNG, on equal work. Expect rough edges and API gaps; issues are welcome.
+Early, but usable: the full Cellestial test suite passes on ggrust. Expect rough edges and API gaps; issues are welcome.
 
 ## Development
 

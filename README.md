@@ -46,7 +46,84 @@ plot = (
 plot.to_png("plot.png")
 ```
 
+<p align="center">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/quickstart.png" alt="Scatter plot coloured by group" width="600">
+</p>
+
 In a notebook the plot shows as interactive HTML (tooltips, zoom and pan with `ggtb()`).
+
+## Examples
+
+### Distributions
+
+Violins with boxplots on top, using the same layering as ggplot.
+
+<details>
+<summary><b>Show code</b></summary>
+
+```python
+import numpy as np
+
+rng = np.random.default_rng(0)
+days = ["Mon", "Tue", "Wed", "Thu", "Fri"]
+commute = pl.DataFrame(
+    {
+        "day": np.repeat(days, 200),
+        "minutes": np.concatenate([rng.gamma(4 + i, 6, 200) for i in range(5)]),
+    }
+)
+
+(
+    ggplot(commute, aes(x="day", y="minutes", fill="day"))
+    + geom_violin(alpha=0.6)
+    + geom_boxplot(width=0.15, fill="white")
+    + labs(title="Commute time by weekday")
+    + theme_classic()
+    + ggsize(600, 400)
+)
+```
+
+</details>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/violin.png" alt="Violin and boxplot of commute times" width="600">
+</p>
+
+### Facets
+
+Split a plot into panels by a column.
+
+<details>
+<summary><b>Show code</b></summary>
+
+```python
+months = np.arange(1, 13)
+temperature = pl.DataFrame(
+    {
+        "month": np.tile(months, 3),
+        "temp": np.concatenate(
+            [10 + 8 * np.sin((months - 3) / 12 * 2 * np.pi) + offset for offset in (0, 5, -4)]
+        ),
+        "city": np.repeat(["Lisbon", "Athens", "Oslo"], 12),
+    }
+)
+
+(
+    ggplot(temperature, aes(x="month", y="temp", color="city"))
+    + geom_line(size=1.2)
+    + geom_point()
+    + facet_wrap("city", ncol=3)
+    + labs(title="Monthly temperature", y="°C")
+    + theme_bw()
+    + ggsize(900, 350)
+)
+```
+
+</details>
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/facets.png" alt="Monthly temperature faceted by city" width="800">
+</p>
 
 ## What it covers
 

@@ -87,7 +87,7 @@ impl Geom for PointGeom {
             pixel_x.push(px);
             pixel_y.push(py);
         }
-        let mut points = markers(layer.styles, row_count, false)?;
+        let mut points = markers(layer.styles, row_count, false, 1.0)?;
         points.x = pixel_x;
         points.y = pixel_y;
         Ok(vec![Node::Points(points)])
@@ -105,7 +105,7 @@ impl Geom for PointGeom {
     }
 
     fn draw_key(&self, styles: &Styles, cell: Rect) -> Result<Vec<Node>> {
-        let mut points = markers(styles, 1, true)?;
+        let mut points = markers(styles, 1, true, 1.0)?;
         points.x = vec![cell.x + cell.width / 2.0];
         points.y = vec![cell.y + cell.height / 2.0];
         Ok(vec![Node::Points(points)])
@@ -115,7 +115,14 @@ impl Geom for PointGeom {
 /// Radius of a marker for hover lookups (lets-plot `PointGeom`: half the shape's
 /// size with its stroke).
 pub(super) fn hover_radius(styles: &Styles, row: usize) -> f64 {
-    Marker::of(styles, row)
+    marker_extent(styles, row, 1.0)
+}
+
+/// Diameter plus outline of the marker of `row` with `size` times `fatten`
+/// (lets-plot `shape.size(p, fatten) + shape.strokeWidth(p)`), halved; 0 when
+/// not finite.
+pub(super) fn marker_extent(styles: &Styles, row: usize, fatten: f64) -> f64 {
+    Marker::fattened(styles, row, fatten)
         .map(|marker| (marker.size + marker.stroke_width) / 2.0)
         .ok()
         .filter(|radius| radius.is_finite())
@@ -170,8 +177,14 @@ struct Marker {
 impl Marker {
     /// lets-plot `NamedShape.size` / `strokeWidth` and `AestheticsUtil.decorate`.
     fn of(styles: &Styles, row: usize) -> Result<Marker> {
+        Marker::fattened(styles, row, 1.0)
+    }
+
+    /// [`Marker::of`] with `size` times `fatten` (lets-plot `PointShapeSvg.create`
+    /// with a fatten factor; the outline is not fattened).
+    fn fattened(styles: &Styles, row: usize, fatten: f64) -> Result<Marker> {
         let code = styles.shapes(Aesthetic::Shape)?.get(row);
-        let size = styles.numbers(Aesthetic::Size)?.get(row);
+        let size = styles.numbers(Aesthetic::Size)?.get(row) * fatten;
         let stroke = styles.numbers(Aesthetic::Stroke)?.get(row);
         let color = styles.colors(Aesthetic::Color)?.get(row);
         let fill = styles.colors(Aesthetic::Fill)?.get(row);
@@ -213,8 +226,8 @@ impl Marker {
 
 /// Markers of `count` items without positions (the caller sets `x` and `y`); one
 /// shared style when every style is uniform. Legend keys centre triangles in
-/// their box.
-fn markers(styles: &Styles, count: usize, key: bool) -> Result<Points> {
+/// their box. `fatten` multiplies `size` (1 for points, 5 for point ranges).
+pub(super) fn markers(styles: &Styles, count: usize, key: bool, fatten: f64) -> Result<Points> {
     let uniform = [
         Aesthetic::Shape,
         Aesthetic::Size,
@@ -233,7 +246,7 @@ fn markers(styles: &Styles, count: usize, key: bool) -> Result<Points> {
         }
     };
     if uniform {
-        let marker = Marker::of(styles, 0)?;
+        let marker = Marker::fattened(styles, 0, fatten)?;
         return Ok(Points {
             x: Vec::new(),
             y: Vec::new(),
@@ -245,7 +258,7 @@ fn markers(styles: &Styles, count: usize, key: bool) -> Result<Points> {
         });
     }
     let markers = (0..count)
-        .map(|row| Marker::of(styles, row))
+        .map(|row| Marker::fattened(styles, row, fatten))
         .collect::<Result<Vec<_>>>()?;
     Ok(Points {
         x: Vec::new(),

@@ -209,7 +209,8 @@ Group 1: exposed in the API but erroring or ignored.
 
 Group 2: everyday grammar.
 
-- [ ] 8.5 Interval family: `geom_errorbar`, `geom_linerange`, `geom_pointrange`, `geom_crossbar`.
+- [x] 8.5 Interval family: `geom_errorbar`, `geom_linerange`, `geom_pointrange`, `geom_crossbar`.
+  (`geom/interval.rs`, ported from lets-plot's four geoms and measured against its SVG: errorbar fences `width` 0.45 and crossbar boxes 0.9 of the x resolution as `xmin`/`xmax` spans (mapped `width` too, and a `width` column so dodging uses it); crossbar dodge 0.95 and midline x `fatten` 2.5; pointrange line from `linewidth`, point `size` x `fatten` 5 (`point::markers` takes a fatten). Legend keys as lets-plot's factories. Not yet: horizontal intervals, `width_unit` other than `res`, crossbar `labels`, a `linewidth` scale. Known: point range legend keys fit the fattened point, so big mapped sizes make a tall legend (lets-plot's keys are smaller than its own points); point ranges draw all lines, then all points.)
 - [ ] 8.6 `geom_ribbon`, `geom_area`.
 - [ ] 8.7 `geom_abline`.
 - [ ] 8.8 `geom_density` / `stat_density`.

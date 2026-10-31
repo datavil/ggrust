@@ -12,6 +12,7 @@ mod boxplot;
 mod bracket;
 mod hover;
 mod image;
+mod interval;
 mod jitter;
 mod lines;
 mod path;
@@ -35,6 +36,7 @@ pub use blank::BlankGeom;
 pub use boxplot::BoxplotGeom;
 pub use bracket::BracketGeom;
 pub use image::ImageGeom;
+pub use interval::{CrossBarGeom, ErrorBarGeom, LineRangeGeom, PointRangeGeom};
 pub use jitter::JitterGeom;
 pub use path::{LineGeom, PathGeom};
 pub use point::PointGeom;
@@ -184,6 +186,10 @@ pub static GEOMS: &[&dyn Geom] = &[
     &ViolinGeom,
     &SinaGeom,
     &JitterGeom,
+    &ErrorBarGeom,
+    &LineRangeGeom,
+    &PointRangeGeom,
+    &CrossBarGeom,
     &AreaRidgesGeom,
     &BracketGeom,
     &TileGeom,

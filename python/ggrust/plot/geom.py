@@ -37,14 +37,18 @@ __all__ = [
     "geom_blank",
     "geom_boxplot",
     "geom_bracket",
+    "geom_crossbar",
+    "geom_errorbar",
     "geom_histogram",
     "geom_hline",
     "geom_jitter",
     "geom_label",
     "geom_label_repel",
     "geom_line",
+    "geom_linerange",
     "geom_path",
     "geom_point",
+    "geom_pointrange",
     "geom_polygon",
     "geom_raster",
     "geom_rect",
@@ -466,6 +470,340 @@ def geom_vline(
         sampling=sampling,
         tooltips=tooltips,
         xintercept=xintercept,
+        color_by=color_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
+def geom_errorbar(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    width_unit: str | None = None,
+    color_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Error bars from ymin to ymax at x, with fences ``width`` wide (default 0.45).
+
+    ``width`` (a constant or a mapped aesthetic) is a share of the x resolution.
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    width_unit : str, optional
+        Unit of ``width``; only ``"res"`` (the x resolution, default) is supported.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Constant aesthetics such as ``color="red"`` or ``size=2``, and the geom's
+        options. As in lets_plot; options ggrust does not read yet are reported as
+        not supported.
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Examples
+    --------
+    >>> from ggrust import aes, geom_errorbar, ggplot
+    >>> data = {"x": ["a", "b"], "y": [2.0, 3.0], "low": [1.0, 2.5], "high": [3.0, 4.0]}
+    >>> plot = ggplot(data, aes(x="x", y="y", ymin="low", ymax="high")) + geom_errorbar()
+    """
+    return _geom(
+        "errorbar",
+        mapping=mapping,
+        data=data,
+        stat=stat,
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        manual_key=manual_key,
+        sampling=sampling,
+        tooltips=tooltips,
+        width_unit=width_unit,
+        color_by=color_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
+def geom_crossbar(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    labels: FeatureSpec | None = None,
+    fatten: Number | None = None,
+    width_unit: str | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Boxes from ymin to ymax at x with a midline at y, dodged by group.
+
+    ``width`` (default 0.9) is a share of the x resolution.
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    labels : FeatureSpec, optional
+        Midline labels from ``layer_labels()`` (lets_plot); not drawn by ggrust yet.
+    fatten : float, optional
+        The midline width as a multiple of the outline width (default 2.5); 0 hides it.
+    width_unit : str, optional
+        Unit of ``width``; only ``"res"`` (the x resolution, default) is supported.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"color"`` or ``"fill"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Constant aesthetics such as ``color="red"`` or ``size=2``, and the geom's
+        options. As in lets_plot; options ggrust does not read yet are reported as
+        not supported.
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Examples
+    --------
+    >>> from ggrust import aes, geom_crossbar, ggplot
+    >>> data = {"x": ["a", "b"], "y": [2.0, 3.0], "low": [1.0, 2.5], "high": [3.0, 4.0]}
+    >>> plot = ggplot(data, aes(x="x", y="y", ymin="low", ymax="high")) + geom_crossbar()
+    """
+    return _geom(
+        "crossbar",
+        mapping=mapping,
+        data=data,
+        stat=stat,
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        manual_key=manual_key,
+        sampling=sampling,
+        tooltips=tooltips,
+        labels=labels,
+        fatten=fatten,
+        width_unit=width_unit,
+        color_by=color_by,
+        fill_by=fill_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
+def geom_pointrange(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    fatten: Number | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Draw a vertical line from ymin to ymax at x with a point at y.
+
+    ``linewidth`` sets the line, ``size`` the point (times ``fatten``).
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    fatten : float, optional
+        The point size as a multiple of ``size`` (default 5).
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"color"`` or ``"fill"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Constant aesthetics such as ``color="red"`` or ``size=2``, and the geom's
+        options. As in lets_plot; options ggrust does not read yet are reported as
+        not supported.
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Examples
+    --------
+    >>> from ggrust import aes, geom_pointrange, ggplot
+    >>> data = {"x": ["a", "b"], "y": [2.0, 3.0], "low": [1.0, 2.5], "high": [3.0, 4.0]}
+    >>> plot = ggplot(data, aes(x="x", y="y", ymin="low", ymax="high")) + geom_pointrange()
+    """
+    return _geom(
+        "pointrange",
+        mapping=mapping,
+        data=data,
+        stat=stat,
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        manual_key=manual_key,
+        sampling=sampling,
+        tooltips=tooltips,
+        fatten=fatten,
+        color_by=color_by,
+        fill_by=fill_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
+def geom_linerange(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    color_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Draw a vertical line from ymin to ymax at x.
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Constant aesthetics such as ``color="red"`` or ``size=2``, and the geom's
+        options. As in lets_plot; options ggrust does not read yet are reported as
+        not supported.
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Examples
+    --------
+    >>> from ggrust import aes, geom_linerange, ggplot
+    >>> data = {"x": ["a", "b"], "y": [2.0, 3.0], "low": [1.0, 2.5], "high": [3.0, 4.0]}
+    >>> plot = ggplot(data, aes(x="x", y="y", ymin="low", ymax="high")) + geom_linerange()
+    """
+    return _geom(
+        "linerange",
+        mapping=mapping,
+        data=data,
+        stat=stat,
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        manual_key=manual_key,
+        sampling=sampling,
+        tooltips=tooltips,
         color_by=color_by,
         na_rm=na_rm,
         **other_args,

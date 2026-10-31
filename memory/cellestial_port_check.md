@@ -14,3 +14,7 @@ How step 1.7 ran the cellestial suite on ggrust without touching the user's chec
 **How to apply:** for every port check (2.7, 3.4, 5.4), compare against the lets_plot baseline in
 the same versions, and render plots (cellestial tests mostly check `isinstance` / `as_dict`).
 lets_plot itself fails some exports (e.g. on-data legend PNG: "Unsupported color value: none").
+
+**Browser tests (5.4):** run them with `-m ""` (cellestial's addopts deselect `browser`). Its
+`tests/plot_assertions.py` reads lets-plot HTML internals; on `ggrust-port` it is rewritten for
+ggrust's HTML (decided with the user). Rebase that commit when the branch moves to a newer `dev`.

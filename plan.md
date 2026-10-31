@@ -165,10 +165,16 @@ Steps inside a phase are ordered; each builds on the previous.
 
 ### Phase 6: Performance
 
-- [ ] 6.1 Profile (flamegraph via `cargo flamegraph`, `py-spy`, memory via `/usr/bin/time -v` + `tracemalloc`) on cellestial benchmark scripts.
+- [x] 6.1 Profile (flamegraph via `cargo flamegraph`, `py-spy`, memory via `/usr/bin/time -v` + `tracemalloc`) on cellestial benchmark scripts.
+  (`benchmarks/profiling.py`: Python stage split, RSS + `tracemalloc`, flamegraphs from macOS `sample` + `inferno` (`cargo flamegraph`/`py-spy` need root on macOS; see `memory/profiling_macos.md`). 9 cellestial cases + 3 scatter scenarios x svg/png/html; report in `benchmarks/README.md`, raw in `benchmarks/results/profile-20261031/`. Python (spec, JSON, Arrow export) is under 1.5 ms everywhere; all cost is the engine. New items 6.1e-6.1i below, ranked by expected win. ggrust's idle rayon workers are at most 15% of CPU samples; the polars pool cellestial loads spins far more and is excluded.)
 - [ ] 6.1b Data bridge hot spots: integer -> f64 cast is single-threaded (50M rows ~0.6 s); string levels use SipHash (5M rows 91 ms vs polars unique 50 ms); multi-chunk columns are re-converted on every `column()` call (cache per frame).
 - [ ] 6.1d Repel layout is O(labels x items) per iteration as lets-plot: 300 labels reach the 5 s `max_time` cap (lets-plot 186 s); HTML runs the layout twice (draw + hover targets). Consider a spatial grid and one shared layout.
 - [ ] 6.1c PNG markers: ~1.3 us per marker via tiny-skia paths (1M points 1.4 s). Stamp pre-rendered subpixel sprites for uniform-style batches; consider parallel tiles.
+- [ ] 6.1e HTML tooltip text is built eagerly, one `String` per row and line (`tooltip::content::aesthetic_values` -> `format_general` via `format!`): 28-85% of HTML renders with points; 1M points 0.9-1.6 s and 435-952 MB vs SVG 0.16-0.29 s. Format without per-value allocations, or ship values and format lazily in the runtime.
+- [ ] 6.1f PNG output deflate: the main encoder uses the `png` default (`Balanced`); `compress_inner` is 40-60% of PNG time in 6 of 9 cellestial cases. Use the fast deflate as `geom_imshow` (pixels, not bytes, must match); report the file-size change.
+- [ ] 6.1g SVG number writing: `push_decimal` is 33-71% of SVG renders with points (~10% of the others) (two `write!` + a `format!` per fractional number). Write digits into the buffer without allocating.
+- [ ] 6.1h KDE: `stat::density::estimate_bins` is 61% of a violin SVG render, nearly all libm `exp`. Only changes that keep stat results equal to lets-plot within test tolerance.
+- [ ] 6.1i Memory of large outputs: `color_continuous` 1M peaks 636 MB above the build for a 71 MB SVG (`scatter` 1M 295 MB for 42 MB). Heap-profile and cut intermediate copies.
 - [ ] 6.2 Rayon parallelism (layers, panels, subplots, groups); measure, keep only wins.
 - [ ] 6.3 Caching of Arrow conversion + stat results across subplots.
 - [ ] 6.4 Final benchmark report vs lets-plot (methodology + raw numbers + plots).

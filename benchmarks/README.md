@@ -88,3 +88,52 @@ Fresh process per case, warm = median of 5 after a cold call. `build` is the cel
 Errors: lets-plot cannot export the on-data legend to PNG ("Unsupported color value: none");
 ggrust has no `geom_text_repel` yet (plan step 5.1), which volcano needs. lets-plot SVGs are
 2-4x larger for the point-heavy cases (1.2 MB vs 2.9 MB for one UMAP).
+
+## Profile (step 6.1): 2026-10-31, macOS arm64 (Apple M4 Pro, 12 cores), Python 3.14
+
+`benchmarks/profiling.py` splits one warm render into Python stages and the Rust engine call,
+records memory (how much the renders raise the peak RSS over the build; `tracemalloc` peak of one
+render) and samples a render loop with macOS `sample` into flamegraphs (`inferno`, demangled with
+Xcode's `llvm-cxxfilt`; sleeping threads and polars' own thread pool left out; see
+`memory/profiling_macos.md`). Cases: the nine cellestial docstring examples (pbmc3k, 2.7k cells)
+and three scenarios (`scatter`, `color_continuous` at 1M points, `size_alpha` at 100k). Shares
+below are of on-CPU samples. Raw: `benchmarks/results/profile-20261031/` (table, JSON with the top
+frames of every case, seven representative flamegraphs).
+
+Python is never the cost: `as_dict` + `to_json` + Arrow export + glue stay between 0.2 and 1.5 ms
+in every case, and inside cellestial's 25 to 45 ms `build` ggrust's Python code takes under 1 ms
+(the rest is cellestial, scipy and polars). Everything below is the Rust engine.
+
+| case | svg ms | png ms | html ms | html RSS MB | where the time goes |
+|---|---:|---:|---:|---:|---|
+| dimensional_continuous | 6 | 50 | 19 | 10 | svg: `push_decimal` 37%; png: deflate 53%; html: tooltip text 49% |
+| dimensionals_grid | 23 | 182 | 71 | 45 | png: deflate 50%; html: tooltip text 43% |
+| scatter | 3 | 101 | 14 | 11 | svg: `push_decimal` 61%; png: deflate 51%, raster 42% |
+| violin | 3 | 30 | 7 | 6 | svg: KDE 61% (libm `exp` 58%); png: deflate 60% |
+| stacked_violin | 1 | 13 | 1 | 4 | png: raster 43%, PNG row filter 26% |
+| heatmap | 3 | 13 | 3 | 4 | no dominant frame |
+| volcano | 75 | 211 | 183 | 42 | svg: `push_decimal` 33%; png: deflate 40%; html: tooltip text 63% |
+| scatter 1M | 155 | 2,079 | 914 | 435 | svg: `push_decimal` 71%; png: raster 90%; html: tooltip text 74% |
+| color_continuous 1M | 285 | 2,106 | 1,649 | 952 | svg: `push_decimal` 43%, RSS 636 MB; html: tooltip text 85% |
+| size_alpha 100k | 35 | 891 | 258 | 458 | png: raster 72%, deflate 23%; html: tooltip text 44% |
+
+Hot spots, by expected win:
+
+1. **HTML tooltip text is built eagerly per row** (`tooltip::content::layer_content` ->
+   `aesthetic_values` -> `format_general`, one `String` per row and line through `format!`).
+   It is 28 to 85% of every HTML render with points and most of HTML's memory (1M points: 0.9 to
+   1.6 s and 435 to 952 MB, while the SVG of the same plot takes 0.16 to 0.29 s).
+2. **PNG deflate**: the main PNG encoder uses the `png` crate default (`Balanced`, miniz);
+   `compress_inner` is 40 to 60% of the PNG time in six of nine cellestial cases. `geom_imshow`
+   already uses the fastest deflate (step 5.2); parity is visual, so the same applies here.
+3. **Marker rasterisation** (step 6.1c): 72 to 90% of PNGs with 100k+ points.
+4. **SVG number writing**: `push_decimal` is 33 to 71% of SVG renders with points (about 10% of
+   the others); it calls `write!` twice and allocates a `format!` string per fractional number
+   (the malloc/free/memmove frames follow it).
+5. **KDE** (`stat::density::estimate_bins`): 61% of a violin SVG render, nearly all libm `exp`.
+6. **Memory of large SVGs**: `color_continuous` 1M peaks 636 MB above the build for a 71 MB SVG
+   (`scatter` 1M: 295 MB for 42 MB), worth a heap profile.
+
+Rayon overhead is small: ggrust's own idle workers spinning (`swtch_pri`) are at most 15% of CPU
+samples (violin HTML), mostly 0 to 6%. The polars pool loaded by cellestial spins far more (up to
+73% of all samples in heatmap) and is excluded above.

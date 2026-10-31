@@ -1,0 +1,4178 @@
+[
+  {
+    "case": "dimensional_categorical",
+    "output": "svg",
+    "bytes": 1221215,
+    "as_dict": 2.7416972443461418e-05,
+    "to_json": 0.00010295805986970663,
+    "export": 0.00018741702660918236,
+    "engine": 0.004860041080974042,
+    "glue": 8.066685404628515e-05,
+    "total": 0.005258499993942678,
+    "rss_mb": 3.6875,
+    "python_mb": 1.1772432327270508,
+    "profile": {
+      "samples": 1271,
+      "self": [
+        [
+          "_platform_memmove",
+          0.1495
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.0944
+        ],
+        [
+          "_xzm_free_main",
+          0.074
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.0708
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.0669
+        ],
+        [
+          "<alloc::string::String as core::fmt::Write>::write_str",
+          0.0362
+        ],
+        [
+          "_free",
+          0.0275
+        ],
+        [
+          "DYLD-STUB$$memcpy",
+          0.026
+        ],
+        [
+          "<core::fmt::Formatter>::pad_integral::write_prefix",
+          0.0252
+        ],
+        [
+          "_malloc_zone_malloc",
+          0.0236
+        ],
+        [
+          "<core::iter::adapters::map::Map<core::iter::adapters::map::Map<polars_arrow::bitmap::utils::zip_validity::ZipValidity, <polars_core::series::arrow_export::categorical::CategoricalArrayToArrowConverter>::array_to_arrow::{closure#0}>, <polars_arrow::array::primitive::mutable::MutablePrimitiveArray as core::iter::traits::collect::FromIterator>::from_iter<core::iter::adapters::map::Map<polars_arrow::bitmap::utils::zip_validity::ZipValidity, <polars_core::series::arrow_export::categorical::CategoricalArrayToArrowConverter>::array_to_arrow::{closure#0}>>::{closure#0}> as core::iter::traits::iterator::Iterator>::next",
+          0.022
+        ],
+        [
+          "_PyEval_EvalFrameDefault",
+          0.0212
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::render::svg::to_svg_with",
+          0.6743
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.6743
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::node",
+          0.5799
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::points",
+          0.5649
+        ],
+        [
+          "ggrust_core::render::svg::push_decimal",
+          0.3375
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::attribute_precise",
+          0.1935
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::attribute_number",
+          0.1912
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::paint",
+          0.1637
+        ],
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.129
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.129
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw",
+          0.0653
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw::{closure#0}",
+          0.0645
+        ]
+      ]
+    }
+  },
+  {
+    "case": "dimensional_categorical",
+    "output": "png",
+    "bytes": 271141,
+    "as_dict": 3.2832962460815907e-05,
+    "to_json": 0.00011799996718764305,
+    "export": 0.00019225012511014938,
+    "engine": 0.05390829092357308,
+    "glue": 9.245902765542269e-05,
+    "total": 0.05434383300598711,
+    "rss_mb": 14.296875,
+    "python_mb": 0.2711820602416992,
+    "profile": {
+      "samples": 1460,
+      "self": [
+        [
+          "miniz_oxide::deflate::core::compress_inner",
+          0.5699
+        ],
+        [
+          "_platform_memmove",
+          0.0432
+        ],
+        [
+          "core::slice::sort::shared::smallsort::insertion_sort_shift_left::<tiny_skia::edge::Edge, <[tiny_skia::edge::Edge]>::sort_by::{closure#0}>",
+          0.0288
+        ],
+        [
+          "png::filter::filter",
+          0.0281
+        ],
+        [
+          "miniz_oxide::deflate::core::flush_block",
+          0.0267
+        ],
+        [
+          "tiny_skia::pipeline::lowp::load_dst_tail",
+          0.0164
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.013
+        ],
+        [
+          "_platform_memset_pattern16",
+          0.0123
+        ],
+        [
+          "_xzm_free_main",
+          0.0103
+        ],
+        [
+          "<tiny_skia::scan::path_aa::SuperBlitter as tiny_skia::blitter::Blitter>::blit_h",
+          0.0096
+        ],
+        [
+          "__bzero",
+          0.0075
+        ],
+        [
+          "tiny_skia::pipeline::lowp::uniform_color",
+          0.0075
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::render::png::to_png_with_dpi",
+          0.9452
+        ],
+        [
+          "ggrust_core::render::png::render_pixmap",
+          0.3055
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::nodes",
+          0.3041
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::points::{closure#2}",
+          0.2541
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::texts",
+          0.0418
+        ],
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.0233
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.0233
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw",
+          0.0137
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw::{closure#0}",
+          0.013
+        ],
+        [
+          "<ggrust_core::geom::point::PointGeom as ggrust_core::geom::Geom>::draw",
+          0.0123
+        ],
+        [
+          "ggrust_core::build::prepare_plot",
+          0.0096
+        ],
+        [
+          "ggrust_core::build::prepare_columns",
+          0.0096
+        ]
+      ]
+    }
+  },
+  {
+    "case": "dimensional_categorical",
+    "output": "html",
+    "bytes": 2207381,
+    "as_dict": 2.9166927561163902e-05,
+    "to_json": 0.00010266690514981747,
+    "export": 0.000203000963665545,
+    "engine": 0.012820082949474454,
+    "glue": 0.0001294572139158845,
+    "total": 0.013284374959766865,
+    "rss_mb": 17.671875,
+    "python_mb": 2.11771297454834,
+    "profile": {
+      "samples": 1177,
+      "self": [
+        [
+          "_platform_memmove",
+          0.1546
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.0918
+        ],
+        [
+          "_xzm_free_main",
+          0.0722
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.0654
+        ],
+        [
+          "<alloc::string::String as core::fmt::Write>::write_str",
+          0.0306
+        ],
+        [
+          "_malloc_zone_malloc",
+          0.028
+        ],
+        [
+          "_free",
+          0.0272
+        ],
+        [
+          "DYLD-STUB$$memcpy",
+          0.0204
+        ],
+        [
+          "<core::fmt::Formatter>::pad_integral",
+          0.0187
+        ],
+        [
+          "log10",
+          0.017
+        ],
+        [
+          "<ggrust_core::style::Styles>::numbers",
+          0.017
+        ],
+        [
+          "<core::fmt::Formatter>::pad_integral::write_prefix",
+          0.0161
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.4834
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.4826
+        ],
+        [
+          "ggrust_core::render::html::to_html",
+          0.3798
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::interaction",
+          0.3135
+        ],
+        [
+          "ggrust_core::tooltip::content::layer_content",
+          0.277
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.2744
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::node",
+          0.2744
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::points",
+          0.2676
+        ],
+        [
+          "ggrust_core::tooltip::content::column_texts",
+          0.1606
+        ],
+        [
+          "ggrust_core::render::svg::push_decimal",
+          0.1597
+        ],
+        [
+          "ggrust_core::build::prepare_plot",
+          0.1045
+        ],
+        [
+          "ggrust_core::build::prepare_columns",
+          0.1045
+        ]
+      ]
+    }
+  },
+  {
+    "case": "dimensional_continuous",
+    "output": "svg",
+    "bytes": 1223049,
+    "as_dict": 2.0208070054650307e-05,
+    "to_json": 7.77500681579113e-05,
+    "export": 0.00010195793583989143,
+    "engine": 0.00600904191378504,
+    "glue": 4.299997817724943e-05,
+    "total": 0.006251957966014743,
+    "rss_mb": 3.453125,
+    "python_mb": 1.1746091842651367,
+    "profile": {
+      "samples": 1051,
+      "self": [
+        [
+          "_platform_memmove",
+          0.1208
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.0875
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.0837
+        ],
+        [
+          "_xzm_free_main",
+          0.0809
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.0666
+        ],
+        [
+          "pow",
+          0.04
+        ],
+        [
+          "<alloc::string::String as core::fmt::Write>::write_str",
+          0.0343
+        ],
+        [
+          "<core::fmt::Formatter>::pad_integral::write_prefix",
+          0.0285
+        ],
+        [
+          "<core::fmt::Formatter>::pad_integral",
+          0.0276
+        ],
+        [
+          "_free",
+          0.0266
+        ],
+        [
+          "_malloc_zone_malloc",
+          0.0257
+        ],
+        [
+          "<alloc::raw_vec::RawVecInner>::finish_grow",
+          0.0228
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::render::svg::to_svg_with",
+          0.7108
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.7108
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::node",
+          0.627
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::points",
+          0.6051
+        ],
+        [
+          "ggrust_core::render::svg::push_decimal",
+          0.3739
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::attribute_number",
+          0.2245
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::attribute_precise",
+          0.1893
+        ],
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.1798
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.1798
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::paint",
+          0.1627
+        ],
+        [
+          "ggrust_core::build::prepare_plot",
+          0.1132
+        ],
+        [
+          "ggrust_core::build::prepare_columns",
+          0.1132
+        ]
+      ]
+    }
+  },
+  {
+    "case": "dimensional_continuous",
+    "output": "png",
+    "bytes": 171278,
+    "as_dict": 2.845900598913431e-05,
+    "to_json": 8.820800576359034e-05,
+    "export": 0.00023729086387902498,
+    "engine": 0.04937720799352974,
+    "glue": 8.737610187381506e-05,
+    "total": 0.0498185419710353,
+    "rss_mb": 14.03125,
+    "python_mb": 0.17156219482421875,
+    "profile": {
+      "samples": 1343,
+      "self": [
+        [
+          "miniz_oxide::deflate::core::compress_inner",
+          0.5294
+        ],
+        [
+          "_platform_memmove",
+          0.0536
+        ],
+        [
+          "tiny_skia::pipeline::lowp::load_dst_tail",
+          0.0313
+        ],
+        [
+          "png::filter::filter",
+          0.0305
+        ],
+        [
+          "_platform_memset_pattern16",
+          0.0238
+        ],
+        [
+          "miniz_oxide::deflate::core::flush_block",
+          0.0194
+        ],
+        [
+          "mach_absolute_time",
+          0.0127
+        ],
+        [
+          "_xzm_free_main",
+          0.0119
+        ],
+        [
+          "tiny_skia::pipeline::lowp::source_over",
+          0.0119
+        ],
+        [
+          "<tiny_skia::edge_builder::BasicEdgeBuilder>::push_quad",
+          0.0112
+        ],
+        [
+          "DYLD-STUB$$memset_pattern16",
+          0.0112
+        ],
+        [
+          "xzm_malloc_zone_malloc_type_realloc",
+          0.0104
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::render::png::to_png_with_dpi",
+          0.933
+        ],
+        [
+          "ggrust_core::render::png::render_pixmap",
+          0.341
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::nodes",
+          0.3403
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::points::{closure#2}",
+          0.306
+        ],
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.0424
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.0424
+        ],
+        [
+          "ggrust_core::build::prepare_plot",
+          0.029
+        ],
+        [
+          "ggrust_core::build::prepare_columns",
+          0.029
+        ],
+        [
+          "<ggrust_core::scale::style::gradient::GradientMapper as ggrust_core::scale::style::StyleMapper>::map_continuous",
+          0.0208
+        ],
+        [
+          "ggrust_core::scale::style::gradient::lab_gradient",
+          0.0171
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw",
+          0.0119
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw::{closure#0}",
+          0.0119
+        ]
+      ]
+    }
+  },
+  {
+    "case": "dimensional_continuous",
+    "output": "html",
+    "bytes": 2234054,
+    "as_dict": 2.758402843028307e-05,
+    "to_json": 8.612498641014099e-05,
+    "export": 0.00019849988166242838,
+    "engine": 0.018181166029535234,
+    "glue": 0.00010570802260190248,
+    "total": 0.01859908294863999,
+    "rss_mb": 10.359375,
+    "python_mb": 2.1388816833496094,
+    "profile": {
+      "samples": 1222,
+      "self": [
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.1326
+        ],
+        [
+          "_platform_memmove",
+          0.1146
+        ],
+        [
+          "_xzm_free_main",
+          0.0827
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.0786
+        ],
+        [
+          "_malloc_zone_malloc",
+          0.0507
+        ],
+        [
+          "<alloc::string::String as core::fmt::Write>::write_str",
+          0.0475
+        ],
+        [
+          "DYLD-STUB$$memcpy",
+          0.0303
+        ],
+        [
+          "_free",
+          0.0295
+        ],
+        [
+          "<alloc::raw_vec::RawVecInner>::finish_grow",
+          0.0221
+        ],
+        [
+          "<core::fmt::Formatter>::pad_integral",
+          0.0188
+        ],
+        [
+          "<core::fmt::Formatter>::pad",
+          0.0164
+        ],
+        [
+          "<core::fmt::Formatter>::pad_integral::write_prefix",
+          0.0139
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.6277
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.6277
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::interaction",
+          0.5106
+        ],
+        [
+          "ggrust_core::tooltip::content::layer_content",
+          0.4853
+        ],
+        [
+          "ggrust_core::tooltip::content::column_texts",
+          0.4051
+        ],
+        [
+          "<ggrust_core::tooltip::content::Builder>::aesthetic_values",
+          0.3658
+        ],
+        [
+          "<ggrust_core::scale::label_pattern::LabelPattern>::format",
+          0.3592
+        ],
+        [
+          "ggrust_core::render::html::to_html",
+          0.2954
+        ],
+        [
+          "<ggrust_core::scale::number_format::NumberFormat>::apply",
+          0.2897
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.2267
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::node",
+          0.2267
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::points",
+          0.2201
+        ]
+      ]
+    }
+  },
+  {
+    "case": "dimensionals_grid",
+    "output": "svg",
+    "bytes": 4888771,
+    "as_dict": 8.045905269682407e-05,
+    "to_json": 0.0003457500133663416,
+    "export": 0.000497999950312078,
+    "engine": 0.02224116597790271,
+    "glue": 0.000186040997505188,
+    "total": 0.023351415991783142,
+    "rss_mb": 33.265625,
+    "python_mb": 4.708444595336914,
+    "profile": {
+      "samples": 1147,
+      "self": [
+        [
+          "_platform_memmove",
+          0.1151
+        ],
+        [
+          "_xzm_free_main",
+          0.0793
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.0785
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.0767
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.075
+        ],
+        [
+          "<core::iter::adapters::map::Map<core::iter::adapters::map::Map<polars_arrow::bitmap::utils::zip_validity::ZipValidity, <polars_core::series::arrow_export::categorical::CategoricalArrayToArrowConverter>::array_to_arrow::{closure#0}>, <polars_arrow::array::primitive::mutable::MutablePrimitiveArray as core::iter::traits::collect::FromIterator>::from_iter<core::iter::adapters::map::Map<polars_arrow::bitmap::utils::zip_validity::ZipValidity, <polars_core::series::arrow_export::categorical::CategoricalArrayToArrowConverter>::array_to_arrow::{closure#0}>>::{closure#0}> as core::iter::traits::iterator::Iterator>::next",
+          0.0401
+        ],
+        [
+          "<alloc::string::String as core::fmt::Write>::write_str",
+          0.0375
+        ],
+        [
+          "_malloc_zone_malloc",
+          0.034
+        ],
+        [
+          "<core::fmt::Formatter>::pad_integral",
+          0.0235
+        ],
+        [
+          "???",
+          0.0209
+        ],
+        [
+          "_free",
+          0.0201
+        ],
+        [
+          "<core::fmt::Formatter>::pad_integral::write_prefix",
+          0.0201
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::render::svg::to_svg_with",
+          0.6643
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.6643
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::node",
+          0.5894
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::points",
+          0.5754
+        ],
+        [
+          "ggrust_core::render::svg::push_decimal",
+          0.3409
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::attribute_precise",
+          0.2049
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::attribute_number",
+          0.1857
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::paint",
+          0.1587
+        ],
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.1578
+        ],
+        [
+          "<ggrust_core::grid::PreparedGrid>::new",
+          0.0881
+        ],
+        [
+          "ggrust_core::build::prepare_plot",
+          0.0863
+        ],
+        [
+          "ggrust_core::build::prepare_columns",
+          0.0863
+        ]
+      ]
+    }
+  },
+  {
+    "case": "dimensionals_grid",
+    "output": "png",
+    "bytes": 630162,
+    "as_dict": 9.320804383605719e-05,
+    "to_json": 0.00036204198841005564,
+    "export": 0.0008222932228818536,
+    "engine": 0.17991825006902218,
+    "glue": 0.00030991469975560904,
+    "total": 0.18150570802390575,
+    "rss_mb": 30.34375,
+    "python_mb": 0.6475191116333008,
+    "profile": {
+      "samples": 1250,
+      "self": [
+        [
+          "miniz_oxide::deflate::core::compress_inner",
+          0.5
+        ],
+        [
+          "_platform_memmove",
+          0.0536
+        ],
+        [
+          "png::filter::filter",
+          0.0272
+        ],
+        [
+          "_platform_memset_pattern16",
+          0.0224
+        ],
+        [
+          "tiny_skia::scan::path::fill_path_impl",
+          0.02
+        ],
+        [
+          "miniz_oxide::deflate::core::flush_block",
+          0.0192
+        ],
+        [
+          "tiny_skia::pipeline::lowp::load_dst_tail",
+          0.0192
+        ],
+        [
+          "<tiny_skia::edge_builder::BasicEdgeBuilder>::push_quad",
+          0.0152
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.012
+        ],
+        [
+          "tiny_skia::pipeline::lowp::start",
+          0.0112
+        ],
+        [
+          "tiny_skia::pipeline::lowp::uniform_color",
+          0.0112
+        ],
+        [
+          "tiny_skia::pipeline::lowp::mask_u8",
+          0.0104
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::render::png::to_png_with_dpi",
+          0.9216
+        ],
+        [
+          "ggrust_core::render::png::render_pixmap",
+          0.3656
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::nodes",
+          0.3632
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::points::{closure#2}",
+          0.3232
+        ],
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.044
+        ],
+        [
+          "ggrust_core::build::prepare_plot",
+          0.028
+        ],
+        [
+          "<ggrust_core::grid::PreparedGrid>::new",
+          0.028
+        ],
+        [
+          "ggrust_core::build::prepare_columns",
+          0.028
+        ],
+        [
+          "<ggrust_core::grid::PreparedGrid>::draw",
+          0.016
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw",
+          0.0152
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw::{closure#0}",
+          0.0152
+        ],
+        [
+          "<ggrust_core::geom::point::PointGeom as ggrust_core::geom::Geom>::draw",
+          0.0152
+        ]
+      ]
+    }
+  },
+  {
+    "case": "dimensionals_grid",
+    "output": "html",
+    "bytes": 9005988,
+    "as_dict": 8.491694461554289e-05,
+    "to_json": 0.000323957996442914,
+    "export": 0.0010179158998653293,
+    "engine": 0.06869149999693036,
+    "glue": 0.00038662622682750225,
+    "total": 0.07050491706468165,
+    "rss_mb": 45.03125,
+    "python_mb": 8.635031700134277,
+    "profile": {
+      "samples": 1184,
+      "self": [
+        [
+          "_platform_memmove",
+          0.1495
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.1258
+        ],
+        [
+          "_xzm_free_main",
+          0.0769
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.0659
+        ],
+        [
+          "<alloc::string::String as core::fmt::Write>::write_str",
+          0.0338
+        ],
+        [
+          "_malloc_zone_malloc",
+          0.0304
+        ],
+        [
+          "_free",
+          0.0194
+        ],
+        [
+          "DYLD-STUB$$memcpy",
+          0.0186
+        ],
+        [
+          "<alloc::raw_vec::RawVecInner>::finish_grow",
+          0.0177
+        ],
+        [
+          "<core::fmt::Formatter>::pad_integral::write_prefix",
+          0.0169
+        ],
+        [
+          "<alloc::raw_vec::RawVecInner>::reserve::do_reserve_and_handle",
+          0.0152
+        ],
+        [
+          "<core::iter::adapters::map::Map<core::iter::adapters::map::Map<polars_arrow::bitmap::utils::zip_validity::ZipValidity, <polars_core::series::arrow_export::categorical::CategoricalArrayToArrowConverter>::array_to_arrow::{closure#0}>, <polars_arrow::array::primitive::mutable::MutablePrimitiveArray as core::iter::traits::collect::FromIterator>::from_iter<core::iter::adapters::map::Map<polars_arrow::bitmap::utils::zip_validity::ZipValidity, <polars_core::series::arrow_export::categorical::CategoricalArrayToArrowConverter>::array_to_arrow::{closure#0}>>::{closure#0}> as core::iter::traits::iterator::Iterator>::next",
+          0.0152
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.5954
+        ],
+        [
+          "<ggrust_core::grid::PreparedGrid>::draw",
+          0.489
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::interaction",
+          0.4544
+        ],
+        [
+          "ggrust_core::tooltip::content::layer_content",
+          0.4299
+        ],
+        [
+          "ggrust_core::tooltip::content::column_texts",
+          0.3412
+        ],
+        [
+          "ggrust_core::render::html::to_html",
+          0.3066
+        ],
+        [
+          "<ggrust_core::scale::label_pattern::LabelPattern>::format",
+          0.2905
+        ],
+        [
+          "<ggrust_core::tooltip::content::Builder>::aesthetic_values",
+          0.2821
+        ],
+        [
+          "<ggrust_core::scale::number_format::NumberFormat>::apply",
+          0.2306
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.2255
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::node",
+          0.2255
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::points",
+          0.2196
+        ]
+      ]
+    }
+  },
+  {
+    "case": "scatter",
+    "output": "svg",
+    "bytes": 711042,
+    "as_dict": 8.708098903298378e-06,
+    "to_json": 7.829105015844107e-05,
+    "export": 0.00014545803423970938,
+    "engine": 0.00302808394189924,
+    "glue": 5.545886233448982e-05,
+    "total": 0.0033159999875351787,
+    "rss_mb": 12.140625,
+    "python_mb": 0.6860151290893555,
+    "profile": {
+      "samples": 1191,
+      "self": [
+        [
+          "_platform_memmove",
+          0.1234
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.1184
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.0924
+        ],
+        [
+          "_xzm_free_main",
+          0.0865
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.0806
+        ],
+        [
+          "<alloc::string::String as core::fmt::Write>::write_str",
+          0.0403
+        ],
+        [
+          "<core::fmt::Formatter>::pad_integral",
+          0.0311
+        ],
+        [
+          "_free",
+          0.0294
+        ],
+        [
+          "_malloc_zone_malloc",
+          0.0285
+        ],
+        [
+          "log10",
+          0.0277
+        ],
+        [
+          "<core::fmt::Formatter>::pad_integral::write_prefix",
+          0.026
+        ],
+        [
+          "???",
+          0.0235
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::render::svg::to_svg_with",
+          0.7935
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.7935
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::node",
+          0.7003
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::points",
+          0.6709
+        ],
+        [
+          "ggrust_core::render::svg::push_decimal",
+          0.6079
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::attribute_precise",
+          0.3778
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::attribute_number",
+          0.3048
+        ],
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.0999
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.0999
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw",
+          0.0521
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw::{closure#0}",
+          0.0479
+        ],
+        [
+          "<ggrust_core::geom::point::PointGeom as ggrust_core::geom::Geom>::draw",
+          0.0479
+        ]
+      ]
+    }
+  },
+  {
+    "case": "scatter",
+    "output": "png",
+    "bytes": 220440,
+    "as_dict": 1.191697083413601e-05,
+    "to_json": 7.61660048738122e-05,
+    "export": 0.00016837497241795063,
+    "engine": 0.10085316596087068,
+    "glue": 0.0001143341651186347,
+    "total": 0.10122395807411522,
+    "rss_mb": 23.34375,
+    "python_mb": 0.21825504302978516,
+    "profile": {
+      "samples": 1052,
+      "self": [
+        [
+          "miniz_oxide::deflate::core::compress_inner",
+          0.5086
+        ],
+        [
+          "_platform_memmove",
+          0.0665
+        ],
+        [
+          "tiny_skia::pipeline::lowp::load_dst_tail",
+          0.0494
+        ],
+        [
+          "_platform_memset_pattern16",
+          0.0494
+        ],
+        [
+          "png::filter::filter",
+          0.0285
+        ],
+        [
+          "tiny_skia::pipeline::lowp::source_over",
+          0.02
+        ],
+        [
+          "tiny_skia::scan::path::fill_path_impl",
+          0.019
+        ],
+        [
+          "DYLD-STUB$$memset_pattern16",
+          0.0171
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.0143
+        ],
+        [
+          "<tiny_skia::scan::path_aa::SuperBlitter as tiny_skia::blitter::Blitter>::blit_h",
+          0.0133
+        ],
+        [
+          "tiny_skia::pipeline::lowp::store_tail",
+          0.0124
+        ],
+        [
+          "tiny_skia::pipeline::lowp::mask_u8",
+          0.0114
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::render::png::to_png_with_dpi",
+          0.9648
+        ],
+        [
+          "ggrust_core::render::png::render_pixmap",
+          0.4154
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::nodes",
+          0.4144
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::points::{closure#2}",
+          0.3688
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::texts",
+          0.0228
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::stroke",
+          0.02
+        ],
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.0124
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.0114
+        ],
+        [
+          "<ggrust_core::scale::position::PositionScale>::map",
+          0.0057
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw",
+          0.0057
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw::{closure#0}",
+          0.0057
+        ],
+        [
+          "<ggrust_core::geom::point::PointGeom as ggrust_core::geom::Geom>::draw",
+          0.0057
+        ]
+      ]
+    }
+  },
+  {
+    "case": "scatter",
+    "output": "html",
+    "bytes": 1315002,
+    "as_dict": 1.1750031262636185e-05,
+    "to_json": 7.762503810226917e-05,
+    "export": 0.00013162498362362385,
+    "engine": 0.014037207933142781,
+    "glue": 9.708397556096315e-05,
+    "total": 0.014355291961692274,
+    "rss_mb": 10.71875,
+    "python_mb": 1.2617673873901367,
+    "profile": {
+      "samples": 900,
+      "self": [
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.1056
+        ],
+        [
+          "_platform_memmove",
+          0.0844
+        ],
+        [
+          "xzm_malloc_zone_malloc_type_realloc",
+          0.06
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.0544
+        ],
+        [
+          "_xzm_free_main",
+          0.0533
+        ],
+        [
+          "_xzm_free",
+          0.0444
+        ],
+        [
+          "<alloc::string::String as core::fmt::Write>::write_str",
+          0.0389
+        ],
+        [
+          "xzm_malloc_zone_size",
+          0.0367
+        ],
+        [
+          "_malloc_zone_malloc",
+          0.0333
+        ],
+        [
+          "<alloc::raw_vec::RawVecInner>::finish_grow",
+          0.0256
+        ],
+        [
+          "_free",
+          0.0222
+        ],
+        [
+          "_xzm_malloc",
+          0.0211
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.6022
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.6011
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::interaction",
+          0.5589
+        ],
+        [
+          "ggrust_core::tooltip::content::layer_content",
+          0.5133
+        ],
+        [
+          "<ggrust_core::tooltip::content::Builder>::aesthetic_values",
+          0.5044
+        ],
+        [
+          "ggrust_core::scale::format::format_general",
+          0.4389
+        ],
+        [
+          "ggrust_core::render::html::to_html",
+          0.3233
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.2456
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::node",
+          0.2456
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::points",
+          0.2333
+        ],
+        [
+          "ggrust_core::render::svg::push_decimal",
+          0.2211
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::attribute_number",
+          0.1244
+        ]
+      ]
+    }
+  },
+  {
+    "case": "violin",
+    "output": "svg",
+    "bytes": 180693,
+    "as_dict": 1.7166021279990673e-05,
+    "to_json": 5.76250022277236e-05,
+    "export": 5.0541944801807404e-05,
+    "engine": 0.0031857090070843697,
+    "glue": 3.416603431105614e-05,
+    "total": 0.0033452080097049475,
+    "rss_mb": 4.765625,
+    "python_mb": 0.17993927001953125,
+    "profile": {
+      "samples": 1423,
+      "self": [
+        [
+          "exp",
+          0.4617
+        ],
+        [
+          "DYLD-STUB$$exp",
+          0.1209
+        ],
+        [
+          "swtch_pri",
+          0.059
+        ],
+        [
+          "_pthread_cond_wait",
+          0.0295
+        ],
+        [
+          "_platform_memmove",
+          0.0225
+        ],
+        [
+          "rayon::iter::plumbing::bridge_producer_consumer::helper",
+          0.0176
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.0155
+        ],
+        [
+          "_xzm_free_main",
+          0.0134
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.0126
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.0105
+        ],
+        [
+          "<alloc::string::String as core::fmt::Write>::write_str",
+          0.0091
+        ],
+        [
+          "__psynch_cvsignal",
+          0.0084
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "rayon::iter::plumbing::bridge_producer_consumer::helper::<rayon::slice::IterProducer, rayon::iter::map::MapConsumer<rayon::iter::collect::consumer::CollectConsumer, ggrust_core::stat::groups::per_group<<ggrust_core::stat::ydensity::YDensityStat as ggrust_core::stat::Stat>::compute::{closure#0}>::{closure#0}>>",
+          0.6191
+        ],
+        [
+          "ggrust_core::stat::density::estimate_bins",
+          0.6065
+        ],
+        [
+          "rayon_core::join::join_context::<rayon::iter::plumbing::bridge_producer_consumer::helper<rayon::slice::IterProducer, rayon::iter::map::MapConsumer<rayon::iter::collect::consumer::CollectConsumer, ggrust_core::stat::groups::per_group<<ggrust_core::stat::ydensity::YDensityStat as ggrust_core::stat::Stat>::compute::{closure#0}>::{closure#0}>>::{closure#0}, rayon::iter::plumbing::bridge_producer_consumer::helper<rayon::slice::IterProducer, rayon::iter::map::MapConsumer<rayon::iter::collect::consumer::CollectConsumer, ggrust_core::stat::groups::per_group<<ggrust_core::stat::ydensity::YDensityStat as ggrust_core::stat::Stat>::compute::{closure#0}>::{closure#0}>>::{closure#1}, rayon::iter::collect::consumer::CollectResult, rayon::iter::collect::consumer::CollectResult>::{closure#0}",
+          0.4975
+        ],
+        [
+          "<rayon_core::job::StackJob<rayon_core::latch::LatchRef, <rayon_core::registry::Registry>::in_worker_cold<rayon_core::join::join_context<rayon::iter::plumbing::bridge_producer_consumer::helper<rayon::slice::IterProducer, rayon::iter::map::MapConsumer<rayon::iter::collect::consumer::CollectConsumer, ggrust_core::stat::groups::per_group<<ggrust_core::stat::ydensity::YDensityStat as ggrust_core::stat::Stat>::compute::{closure#0}>::{closure#0}>>::{closure#0}, rayon::iter::plumbing::bridge_producer_consumer::helper<rayon::slice::IterProducer, rayon::iter::map::MapConsumer<rayon::iter::collect::consumer::CollectConsumer, ggrust_core::stat::groups::per_group<<ggrust_core::stat::ydensity::YDensityStat as ggrust_core::stat::Stat>::compute::{closure#0}>::{closure#0}>>::{closure#1}, rayon::iter::collect::consumer::CollectResult, rayon::iter::collect::consumer::CollectResult>::{closure#0}, (rayon::iter::collect::consumer::CollectResult, rayon::iter::collect::consumer::CollectResult)>::{closure#0}::{closure#0}, (rayon::iter::collect::consumer::CollectResult, rayon::iter::collect::consumer::CollectResult)> as rayon_core::job::Job>::execute",
+          0.4722
+        ],
+        [
+          "<rayon_core::job::StackJob<rayon_core::latch::SpinLatch, rayon_core::join::join_context::call_b<rayon::iter::collect::consumer::CollectResult, rayon::iter::plumbing::bridge_producer_consumer::helper<rayon::slice::IterProducer, rayon::iter::map::MapConsumer<rayon::iter::collect::consumer::CollectConsumer, ggrust_core::stat::groups::per_group<<ggrust_core::stat::ydensity::YDensityStat as ggrust_core::stat::Stat>::compute::{closure#0}>::{closure#0}>>::{closure#1}>::{closure#0}, rayon::iter::collect::consumer::CollectResult> as rayon_core::job::Job>::execute",
+          0.1483
+        ],
+        [
+          "ggrust_core::render::svg::to_svg_with",
+          0.1279
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.1279
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::node",
+          0.1174
+        ],
+        [
+          "ggrust_core::render::svg::push_decimal",
+          0.0949
+        ],
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.0668
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.0668
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::points",
+          0.0436
+        ]
+      ]
+    }
+  },
+  {
+    "case": "violin",
+    "output": "png",
+    "bytes": 201219,
+    "as_dict": 2.6082969270646572e-05,
+    "to_json": 6.491702515631914e-05,
+    "export": 0.00010912504512816668,
+    "engine": 0.029198416974395514,
+    "glue": 9.658292401582003e-05,
+    "total": 0.029495124937966466,
+    "rss_mb": 17.640625,
+    "python_mb": 0.19951438903808594,
+    "profile": {
+      "samples": 1892,
+      "self": [
+        [
+          "miniz_oxide::deflate::core::compress_inner",
+          0.5988
+        ],
+        [
+          "exp",
+          0.0603
+        ],
+        [
+          "swtch_pri",
+          0.0418
+        ],
+        [
+          "miniz_oxide::deflate::core::flush_block",
+          0.0254
+        ],
+        [
+          "tiny_skia::scan::path::fill_path_impl",
+          0.0233
+        ],
+        [
+          "DYLD-STUB$$exp",
+          0.0217
+        ],
+        [
+          "_platform_memmove",
+          0.0159
+        ],
+        [
+          "tiny_skia::pipeline::lowp::load_dst_tail",
+          0.0127
+        ],
+        [
+          "_platform_memset_pattern16",
+          0.0122
+        ],
+        [
+          "rayon::iter::plumbing::bridge_producer_consumer::helper",
+          0.009
+        ],
+        [
+          "tiny_skia::pipeline::lowp::load_dst",
+          0.0079
+        ],
+        [
+          "__bzero",
+          0.0074
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::render::png::to_png_with_dpi",
+          0.8187
+        ],
+        [
+          "ggrust_core::render::png::render_pixmap",
+          0.1823
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::nodes",
+          0.1792
+        ],
+        [
+          "rayon::iter::plumbing::bridge_producer_consumer::helper::<rayon::slice::IterProducer, rayon::iter::map::MapConsumer<rayon::iter::collect::consumer::CollectConsumer, ggrust_core::stat::groups::per_group<<ggrust_core::stat::ydensity::YDensityStat as ggrust_core::stat::Stat>::compute::{closure#0}>::{closure#0}>>",
+          0.0936
+        ],
+        [
+          "ggrust_core::stat::density::estimate_bins",
+          0.092
+        ],
+        [
+          "rayon_core::join::join_context::<rayon::iter::plumbing::bridge_producer_consumer::helper<rayon::slice::IterProducer, rayon::iter::map::MapConsumer<rayon::iter::collect::consumer::CollectConsumer, ggrust_core::stat::groups::per_group<<ggrust_core::stat::ydensity::YDensityStat as ggrust_core::stat::Stat>::compute::{closure#0}>::{closure#0}>>::{closure#0}, rayon::iter::plumbing::bridge_producer_consumer::helper<rayon::slice::IterProducer, rayon::iter::map::MapConsumer<rayon::iter::collect::consumer::CollectConsumer, ggrust_core::stat::groups::per_group<<ggrust_core::stat::ydensity::YDensityStat as ggrust_core::stat::Stat>::compute::{closure#0}>::{closure#0}>>::{closure#1}, rayon::iter::collect::consumer::CollectResult, rayon::iter::collect::consumer::CollectResult>::{closure#0}",
+          0.0766
+        ],
+        [
+          "<rayon_core::job::StackJob<rayon_core::latch::LatchRef, <rayon_core::registry::Registry>::in_worker_cold<rayon_core::join::join_context<rayon::iter::plumbing::bridge_producer_consumer::helper<rayon::slice::IterProducer, rayon::iter::map::MapConsumer<rayon::iter::collect::consumer::CollectConsumer, ggrust_core::stat::groups::per_group<<ggrust_core::stat::ydensity::YDensityStat as ggrust_core::stat::Stat>::compute::{closure#0}>::{closure#0}>>::{closure#0}, rayon::iter::plumbing::bridge_producer_consumer::helper<rayon::slice::IterProducer, rayon::iter::map::MapConsumer<rayon::iter::collect::consumer::CollectConsumer, ggrust_core::stat::groups::per_group<<ggrust_core::stat::ydensity::YDensityStat as ggrust_core::stat::Stat>::compute::{closure#0}>::{closure#0}>>::{closure#1}, rayon::iter::collect::consumer::CollectResult, rayon::iter::collect::consumer::CollectResult>::{closure#0}, (rayon::iter::collect::consumer::CollectResult, rayon::iter::collect::consumer::CollectResult)>::{closure#0}::{closure#0}, (rayon::iter::collect::consumer::CollectResult, rayon::iter::collect::consumer::CollectResult)> as rayon_core::job::Job>::execute",
+          0.0751
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::points::{closure#2}",
+          0.0608
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::texts",
+          0.0418
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::stroke",
+          0.0365
+        ],
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.0238
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.0238
+        ]
+      ]
+    }
+  },
+  {
+    "case": "violin",
+    "output": "html",
+    "bytes": 424352,
+    "as_dict": 2.9041897505521774e-05,
+    "to_json": 6.75420742481947e-05,
+    "export": 0.0001181670231744647,
+    "engine": 0.006921624997630715,
+    "glue": 0.00010437401942908764,
+    "total": 0.007240750011987984,
+    "rss_mb": 6.21875,
+    "python_mb": 0.41225337982177734,
+    "profile": {
+      "samples": 1392,
+      "self": [
+        [
+          "exp",
+          0.2795
+        ],
+        [
+          "swtch_pri",
+          0.1509
+        ],
+        [
+          "DYLD-STUB$$exp",
+          0.069
+        ],
+        [
+          "_platform_memmove",
+          0.0409
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.0273
+        ],
+        [
+          "rayon::iter::plumbing::bridge_producer_consumer::helper",
+          0.0237
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.0194
+        ],
+        [
+          "xzm_malloc_zone_malloc_type_realloc",
+          0.0158
+        ],
+        [
+          "_pthread_cond_wait",
+          0.0144
+        ],
+        [
+          "<alloc::string::String as core::fmt::Write>::write_str",
+          0.0136
+        ],
+        [
+          "<alloc::raw_vec::RawVecInner>::finish_grow",
+          0.0122
+        ],
+        [
+          "_xzm_free",
+          0.0122
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "rayon::iter::plumbing::bridge_producer_consumer::helper::<rayon::slice::IterProducer, rayon::iter::map::MapConsumer<rayon::iter::collect::consumer::CollectConsumer, ggrust_core::stat::groups::per_group<<ggrust_core::stat::ydensity::YDensityStat as ggrust_core::stat::Stat>::compute::{closure#0}>::{closure#0}>>",
+          0.3822
+        ],
+        [
+          "ggrust_core::stat::density::estimate_bins",
+          0.3764
+        ],
+        [
+          "rayon_core::join::join_context::<rayon::iter::plumbing::bridge_producer_consumer::helper<rayon::slice::IterProducer, rayon::iter::map::MapConsumer<rayon::iter::collect::consumer::CollectConsumer, ggrust_core::stat::groups::per_group<<ggrust_core::stat::ydensity::YDensityStat as ggrust_core::stat::Stat>::compute::{closure#0}>::{closure#0}>>::{closure#0}, rayon::iter::plumbing::bridge_producer_consumer::helper<rayon::slice::IterProducer, rayon::iter::map::MapConsumer<rayon::iter::collect::consumer::CollectConsumer, ggrust_core::stat::groups::per_group<<ggrust_core::stat::ydensity::YDensityStat as ggrust_core::stat::Stat>::compute::{closure#0}>::{closure#0}>>::{closure#1}, rayon::iter::collect::consumer::CollectResult, rayon::iter::collect::consumer::CollectResult>::{closure#0}",
+          0.3118
+        ],
+        [
+          "<rayon_core::job::StackJob<rayon_core::latch::LatchRef, <rayon_core::registry::Registry>::in_worker_cold<rayon_core::join::join_context<rayon::iter::plumbing::bridge_producer_consumer::helper<rayon::slice::IterProducer, rayon::iter::map::MapConsumer<rayon::iter::collect::consumer::CollectConsumer, ggrust_core::stat::groups::per_group<<ggrust_core::stat::ydensity::YDensityStat as ggrust_core::stat::Stat>::compute::{closure#0}>::{closure#0}>>::{closure#0}, rayon::iter::plumbing::bridge_producer_consumer::helper<rayon::slice::IterProducer, rayon::iter::map::MapConsumer<rayon::iter::collect::consumer::CollectConsumer, ggrust_core::stat::groups::per_group<<ggrust_core::stat::ydensity::YDensityStat as ggrust_core::stat::Stat>::compute::{closure#0}>::{closure#0}>>::{closure#1}, rayon::iter::collect::consumer::CollectResult, rayon::iter::collect::consumer::CollectResult>::{closure#0}, (rayon::iter::collect::consumer::CollectResult, rayon::iter::collect::consumer::CollectResult)>::{closure#0}::{closure#0}, (rayon::iter::collect::consumer::CollectResult, rayon::iter::collect::consumer::CollectResult)> as rayon_core::job::Job>::execute",
+          0.3053
+        ],
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.2435
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.2435
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::interaction",
+          0.1897
+        ],
+        [
+          "ggrust_core::tooltip::content::layer_content",
+          0.1746
+        ],
+        [
+          "<ggrust_core::tooltip::content::Builder>::aesthetic_values",
+          0.1545
+        ],
+        [
+          "ggrust_core::render::html::to_html",
+          0.1214
+        ],
+        [
+          "ggrust_core::scale::format::format_general",
+          0.1171
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.0898
+        ]
+      ]
+    }
+  },
+  {
+    "case": "dotplot",
+    "output": "svg",
+    "bytes": 8120,
+    "as_dict": 2.0666979253292084e-05,
+    "to_json": 8.274998981505632e-05,
+    "export": 0.0001247919863089919,
+    "engine": 0.00022000004537403584,
+    "glue": 3.75829404219985e-05,
+    "total": 0.00048579194117337465,
+    "rss_mb": 3.640625,
+    "python_mb": 0.015125274658203125,
+    "profile": {
+      "samples": 1426,
+      "self": [
+        [
+          "_PyEval_EvalFrameDefault",
+          0.1122
+        ],
+        [
+          "_platform_memmove",
+          0.0456
+        ],
+        [
+          "_xzm_free_main",
+          0.0358
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.0323
+        ],
+        [
+          "_tlv_get_addr",
+          0.0224
+        ],
+        [
+          "_PyObject_Free",
+          0.0203
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.0196
+        ],
+        [
+          "<harfrust::hb::ot_shape::hb_ot_shape_planner_t>::compile",
+          0.0196
+        ],
+        [
+          "pymalloc_alloc",
+          0.0154
+        ],
+        [
+          "gc_collect_main",
+          0.0154
+        ],
+        [
+          "_malloc_zone_malloc",
+          0.0147
+        ],
+        [
+          "_PyObject_GenericGetAttrWithDict",
+          0.014
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.2244
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.2237
+        ],
+        [
+          "<ggrust_core::spec::Figure>::from_json",
+          0.101
+        ],
+        [
+          "ggrust_core::build::prepare_plot",
+          0.0975
+        ],
+        [
+          "ggrust_core::build::prepare_columns",
+          0.0975
+        ],
+        [
+          "ggrust_core::text::measure",
+          0.0968
+        ],
+        [
+          "ggrust_core::render::svg::to_svg_with",
+          0.0673
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.0673
+        ],
+        [
+          "<ggrust_core::spec::Figure>::from_value",
+          0.0652
+        ],
+        [
+          "<<ggrust_core::spec::plot::PlotSpec as serde_core::de::Deserialize>::deserialize::__Visitor as serde_core::de::Visitor>::visit_map",
+          0.0638
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::node",
+          0.0631
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::arrange",
+          0.0624
+        ]
+      ]
+    }
+  },
+  {
+    "case": "dotplot",
+    "output": "png",
+    "bytes": 44283,
+    "as_dict": 2.6165973395109177e-05,
+    "to_json": 9.366590529680252e-05,
+    "export": 0.0001905009848996997,
+    "engine": 0.010135791962966323,
+    "glue": 7.333315443247557e-05,
+    "total": 0.01051945798099041,
+    "rss_mb": 16.0625,
+    "python_mb": 0.049612998962402344,
+    "profile": {
+      "samples": 685,
+      "self": [
+        [
+          "png::filter::filter",
+          0.2759
+        ],
+        [
+          "__bzero",
+          0.0599
+        ],
+        [
+          "_PyEval_EvalFrameDefault",
+          0.0365
+        ],
+        [
+          "tiny_skia::scan::path::fill_path_impl",
+          0.0365
+        ],
+        [
+          "tiny_skia::pipeline::lowp::load_dst_tail",
+          0.035
+        ],
+        [
+          "miniz_oxide::deflate::core::flush_block",
+          0.0336
+        ],
+        [
+          "_xzm_free_main",
+          0.0263
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.0204
+        ],
+        [
+          "_platform_memmove",
+          0.0204
+        ],
+        [
+          "tiny_skia::pipeline::lowp::start",
+          0.019
+        ],
+        [
+          "_platform_memset_pattern16",
+          0.019
+        ],
+        [
+          "<tiny_skia::scan::path_aa::SuperBlitter as tiny_skia::blitter::Blitter>::blit_h",
+          0.0131
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::render::png::to_png_with_dpi",
+          0.7898
+        ],
+        [
+          "ggrust_core::render::png::render_pixmap",
+          0.4175
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::nodes",
+          0.3956
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::texts",
+          0.2102
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::points::{closure#2}",
+          0.0788
+        ],
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.0569
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.0569
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::stroke",
+          0.0569
+        ],
+        [
+          "ggrust_core::build::prepare_plot",
+          0.0292
+        ],
+        [
+          "ggrust_core::build::prepare_columns",
+          0.0292
+        ],
+        [
+          "ggrust_core::text::measure",
+          0.0204
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::arrange",
+          0.0146
+        ]
+      ]
+    }
+  },
+  {
+    "case": "dotplot",
+    "output": "html",
+    "bytes": 70368,
+    "as_dict": 1.9542057998478413e-05,
+    "to_json": 8.191692177206278e-05,
+    "export": 0.0002074160147458315,
+    "engine": 0.00020487490110099316,
+    "glue": 5.283311475068331e-05,
+    "total": 0.0005665830103680491,
+    "rss_mb": 3.875,
+    "python_mb": 0.07470321655273438,
+    "profile": {
+      "samples": 1081,
+      "self": [
+        [
+          "_PyEval_EvalFrameDefault",
+          0.1082
+        ],
+        [
+          "_xzm_free_main",
+          0.0574
+        ],
+        [
+          "_platform_memmove",
+          0.0518
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.0361
+        ],
+        [
+          "gc_collect_main",
+          0.0222
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.0213
+        ],
+        [
+          "_tlv_get_addr",
+          0.0204
+        ],
+        [
+          "_PyObject_Free",
+          0.0157
+        ],
+        [
+          "<harfrust::hb::ot_shape::hb_ot_shape_planner_t>::compile",
+          0.0157
+        ],
+        [
+          "_free",
+          0.0148
+        ],
+        [
+          "pymalloc_alloc",
+          0.0139
+        ],
+        [
+          "_malloc_zone_malloc",
+          0.0139
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.272
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.271
+        ],
+        [
+          "<ggrust_core::spec::Figure>::from_json",
+          0.1008
+        ],
+        [
+          "ggrust_core::build::prepare_plot",
+          0.0953
+        ],
+        [
+          "ggrust_core::build::prepare_columns",
+          0.0953
+        ],
+        [
+          "ggrust_core::render::html::to_html",
+          0.0842
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::interaction",
+          0.0759
+        ],
+        [
+          "ggrust_core::tooltip::content::layer_content",
+          0.0703
+        ],
+        [
+          "<ggrust_core::spec::Figure>::from_value",
+          0.0694
+        ],
+        [
+          "ggrust_core::text::measure",
+          0.0694
+        ],
+        [
+          "<<ggrust_core::spec::plot::PlotSpec as serde_core::de::Deserialize>::deserialize::__Visitor as serde_core::de::Visitor>::visit_map",
+          0.0685
+        ],
+        [
+          "<ggrust_core::tooltip::content::Builder>::aesthetic_values",
+          0.0611
+        ]
+      ]
+    }
+  },
+  {
+    "case": "stacked_violin",
+    "output": "svg",
+    "bytes": 46366,
+    "as_dict": 2.037500962615013e-05,
+    "to_json": 8.637504652142525e-05,
+    "export": 0.00012383307330310345,
+    "engine": 0.0009192080469802022,
+    "glue": 3.787584137171507e-05,
+    "total": 0.001187667017802596,
+    "rss_mb": 3.78125,
+    "python_mb": 0.05104541778564453,
+    "profile": {
+      "samples": 853,
+      "self": [
+        [
+          "_platform_memmove",
+          0.0492
+        ],
+        [
+          "pow",
+          0.0434
+        ],
+        [
+          "_PyEval_EvalFrameDefault",
+          0.0422
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.0375
+        ],
+        [
+          "_xzm_free_main",
+          0.034
+        ],
+        [
+          "gc_collect_main",
+          0.0281
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.0281
+        ],
+        [
+          "<core::iter::adapters::map::Map<core::iter::adapters::map::Map<arrow_array::iterator::ArrayIter, <ggrust_core::data::column::ContinuousColumn>::map_values<<ggrust_core::scale::position::PositionScale>::positions::{closure#0}>::{closure#0}>, <arrow_array::array::primitive_array::PrimitiveArray as core::iter::traits::collect::FromIterator>::from_iter<core::iter::adapters::map::Map<arrow_array::iterator::ArrayIter, <ggrust_core::data::column::ContinuousColumn>::map_values<<ggrust_core::scale::position::PositionScale>::positions::{closure#0}>::{closure#0}>>::{closure#0}> as core::iter::traits::iterator::Iterator>::next",
+          0.0246
+        ],
+        [
+          "ggrust_core::data::group::column_groups",
+          0.0199
+        ],
+        [
+          "DYLD-STUB$$pow",
+          0.0199
+        ],
+        [
+          "<harfrust::hb::ot_shape::hb_ot_shape_planner_t>::compile",
+          0.0188
+        ],
+        [
+          "ggrust_core::build::report_missing_values",
+          0.0176
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.4162
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.4115
+        ],
+        [
+          "ggrust_core::build::prepare_plot",
+          0.3001
+        ],
+        [
+          "ggrust_core::build::prepare_columns",
+          0.2989
+        ],
+        [
+          "<ggrust_core::spec::Figure>::from_json",
+          0.143
+        ],
+        [
+          "ggrust_core::render::svg::to_svg_with",
+          0.1278
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.1278
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::node",
+          0.1208
+        ],
+        [
+          "<ggrust_core::spec::Figure>::from_value",
+          0.1043
+        ],
+        [
+          "<<ggrust_core::spec::plot::PlotSpec as serde_core::de::Deserialize>::deserialize::__Visitor as serde_core::de::Visitor>::visit_map",
+          0.1032
+        ],
+        [
+          "<ggrust_core::scale::style::gradient::GradientMapper as ggrust_core::scale::style::StyleMapper>::map_continuous",
+          0.095
+        ],
+        [
+          "ggrust_core::render::svg::push_decimal",
+          0.095
+        ]
+      ]
+    }
+  },
+  {
+    "case": "stacked_violin",
+    "output": "png",
+    "bytes": 67584,
+    "as_dict": 2.462498378008604e-05,
+    "to_json": 9.81249613687396e-05,
+    "export": 0.00019033311400562525,
+    "engine": 0.012893292005173862,
+    "glue": 7.412501145154238e-05,
+    "total": 0.013280500075779855,
+    "rss_mb": 14.03125,
+    "python_mb": 0.07128047943115234,
+    "profile": {
+      "samples": 724,
+      "self": [
+        [
+          "png::filter::filter",
+          0.2624
+        ],
+        [
+          "tiny_skia::pipeline::lowp::load_dst_tail",
+          0.0428
+        ],
+        [
+          "miniz_oxide::deflate::core::flush_block",
+          0.0414
+        ],
+        [
+          "__bzero",
+          0.0414
+        ],
+        [
+          "_platform_memset_pattern16",
+          0.0304
+        ],
+        [
+          "_platform_memmove",
+          0.0235
+        ],
+        [
+          "tiny_skia::scan::path::fill_path_impl",
+          0.0235
+        ],
+        [
+          "tiny_skia::pipeline::lowp::start",
+          0.0221
+        ],
+        [
+          "DYLD-STUB$$memset_pattern16",
+          0.0221
+        ],
+        [
+          "_PyEval_EvalFrameDefault",
+          0.0207
+        ],
+        [
+          "tiny_skia::pipeline::lowp::mask_u8",
+          0.018
+        ],
+        [
+          "tiny_skia::pipeline::lowp::source_over",
+          0.0166
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::render::png::to_png_with_dpi",
+          0.7901
+        ],
+        [
+          "ggrust_core::render::png::render_pixmap",
+          0.4309
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::nodes",
+          0.4157
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::stroke",
+          0.1713
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::texts",
+          0.1285
+        ],
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.0801
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.0801
+        ],
+        [
+          "ggrust_core::build::prepare_plot",
+          0.058
+        ],
+        [
+          "ggrust_core::build::prepare_columns",
+          0.058
+        ],
+        [
+          "<ggrust_core::scale::style::gradient::GradientMapper as ggrust_core::scale::style::StyleMapper>::map_continuous",
+          0.0235
+        ],
+        [
+          "ggrust_core::scale::style::gradient::lab_gradient",
+          0.018
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw",
+          0.0166
+        ]
+      ]
+    }
+  },
+  {
+    "case": "stacked_violin",
+    "output": "html",
+    "bytes": 106377,
+    "as_dict": 2.2916938178241253e-05,
+    "to_json": 0.00010370893869549036,
+    "export": 9.741808753460646e-05,
+    "engine": 0.0009577919263392687,
+    "glue": 6.508105434477329e-05,
+    "total": 0.00124691694509238,
+    "rss_mb": 4.078125,
+    "python_mb": 0.10843276977539062,
+    "profile": {
+      "samples": 879,
+      "self": [
+        [
+          "_PyEval_EvalFrameDefault",
+          0.0944
+        ],
+        [
+          "_platform_memmove",
+          0.0319
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.0307
+        ],
+        [
+          "_xzm_free_main",
+          0.0284
+        ],
+        [
+          "_tlv_get_addr",
+          0.0228
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.0216
+        ],
+        [
+          "_platform_memcmp",
+          0.0182
+        ],
+        [
+          "_PyFrame_ClearExceptCode",
+          0.0159
+        ],
+        [
+          "<core::iter::adapters::map::Map<core::iter::adapters::map::Map<arrow_array::iterator::ArrayIter, <ggrust_core::data::column::DiscreteColumn>::from_strings::{closure#0}>, <arrow_array::array::primitive_array::PrimitiveArray as core::iter::traits::collect::FromIterator>::from_iter<core::iter::adapters::map::Map<arrow_array::iterator::ArrayIter, <ggrust_core::data::column::DiscreteColumn>::from_strings::{closure#0}>>::{closure#0}> as core::iter::traits::iterator::Iterator>::next",
+          0.0137
+        ],
+        [
+          "core::ptr::drop_in_place",
+          0.0125
+        ],
+        [
+          "<std::hash::random::RandomState as core::hash::BuildHasher>::hash_one",
+          0.0125
+        ],
+        [
+          "pow",
+          0.0125
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.2173
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.215
+        ],
+        [
+          "ggrust_core::build::prepare_plot",
+          0.1547
+        ],
+        [
+          "ggrust_core::build::prepare_columns",
+          0.1547
+        ],
+        [
+          "ggrust_core::render::html::to_html",
+          0.1422
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.1331
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::node",
+          0.132
+        ],
+        [
+          "ggrust_core::render::svg::push_decimal",
+          0.0876
+        ],
+        [
+          "<ggrust_core::spec::Figure>::from_json",
+          0.0853
+        ],
+        [
+          "<ggrust_core::spec::Figure>::from_value",
+          0.0671
+        ],
+        [
+          "<<ggrust_core::spec::plot::PlotSpec as serde_core::de::Deserialize>::deserialize::__Visitor as serde_core::de::Visitor>::visit_map",
+          0.0671
+        ],
+        [
+          "ggrust_core::build::map_layer_into",
+          0.0648
+        ]
+      ]
+    }
+  },
+  {
+    "case": "heatmap",
+    "output": "svg",
+    "bytes": 20569,
+    "as_dict": 3.258406650274992e-05,
+    "to_json": 0.00012712494935840368,
+    "export": 0.000410082982853055,
+    "engine": 0.0022631658939644694,
+    "glue": 7.287506014108658e-05,
+    "total": 0.0029058329528197646,
+    "rss_mb": 3.671875,
+    "python_mb": 0.029601097106933594,
+    "profile": {
+      "samples": 498,
+      "self": [
+        [
+          "__bzero",
+          0.1466
+        ],
+        [
+          "_PyEval_EvalFrameDefault",
+          0.0622
+        ],
+        [
+          "core::slice::sort::stable::quicksort::quicksort::<f64, <[f64]>::sort_by<<f64>::total_cmp>::{closure#0}>",
+          0.0522
+        ],
+        [
+          "<core::iter::adapters::map::Map<core::iter::adapters::map::Map<arrow_array::iterator::ArrayIter, <ggrust_core::data::column::ContinuousColumn>::map_values<<ggrust_core::scale::position::PositionScale>::positions::{closure#0}>::{closure#0}>, <arrow_array::array::primitive_array::PrimitiveArray as core::iter::traits::collect::FromIterator>::from_iter<core::iter::adapters::map::Map<arrow_array::iterator::ArrayIter, <ggrust_core::data::column::ContinuousColumn>::map_values<<ggrust_core::scale::position::PositionScale>::positions::{closure#0}>::{closure#0}>>::{closure#0}> as core::iter::traits::iterator::Iterator>::next",
+          0.0402
+        ],
+        [
+          "_platform_memmove",
+          0.0281
+        ],
+        [
+          "pow",
+          0.0281
+        ],
+        [
+          "miniz_oxide::deflate::core::flush_block",
+          0.0261
+        ],
+        [
+          "_xzm_free_main",
+          0.0181
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.0181
+        ],
+        [
+          "<core::iter::adapters::map::Map<core::iter::adapters::map::Map<polars_arrow::bitmap::utils::zip_validity::ZipValidity, <polars_core::series::arrow_export::categorical::CategoricalArrayToArrowConverter>::array_to_arrow::{closure#0}>, <polars_arrow::array::primitive::mutable::MutablePrimitiveArray as core::iter::traits::collect::FromIterator>::from_iter<core::iter::adapters::map::Map<polars_arrow::bitmap::utils::zip_validity::ZipValidity, <polars_core::series::arrow_export::categorical::CategoricalArrayToArrowConverter>::array_to_arrow::{closure#0}>>::{closure#0}> as core::iter::traits::iterator::Iterator>::next",
+          0.0181
+        ],
+        [
+          "mach_absolute_time",
+          0.0161
+        ],
+        [
+          "_tlv_get_addr",
+          0.0141
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.3233
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.3193
+        ],
+        [
+          "ggrust_core::render::svg::to_svg_with",
+          0.2369
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.2369
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::node",
+          0.2329
+        ],
+        [
+          "ggrust_core::build::prepare_plot",
+          0.2149
+        ],
+        [
+          "ggrust_core::build::prepare_columns",
+          0.2149
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::image",
+          0.2088
+        ],
+        [
+          "ggrust_core::data::resolution::resolution",
+          0.0964
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw",
+          0.0783
+        ],
+        [
+          "<ggrust_core::scale::style::colormap::ColormapMapper as ggrust_core::scale::style::StyleMapper>::map_continuous",
+          0.0723
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw::{closure#0}",
+          0.0683
+        ]
+      ]
+    }
+  },
+  {
+    "case": "heatmap",
+    "output": "png",
+    "bytes": 32769,
+    "as_dict": 2.4250010028481483e-05,
+    "to_json": 0.00012025004252791405,
+    "export": 0.0003606670070439577,
+    "engine": 0.012097915983758867,
+    "glue": 7.404200732707977e-05,
+    "total": 0.0126771250506863,
+    "rss_mb": 10.515625,
+    "python_mb": 0.04123497009277344,
+    "profile": {
+      "samples": 486,
+      "self": [
+        [
+          "__bzero",
+          0.0761
+        ],
+        [
+          "tiny_skia::scan::path::fill_path_impl",
+          0.0679
+        ],
+        [
+          "_PyEval_EvalFrameDefault",
+          0.0412
+        ],
+        [
+          "_platform_memmove",
+          0.035
+        ],
+        [
+          "miniz_oxide::deflate::core::flush_block",
+          0.0329
+        ],
+        [
+          "simd_adler32::imp::neon::imp::update",
+          0.0329
+        ],
+        [
+          "tiny_skia::pipeline::lowp::load_dst_tail",
+          0.0309
+        ],
+        [
+          "core::slice::sort::stable::quicksort::quicksort::<f64, <[f64]>::sort_by<<f64>::total_cmp>::{closure#0}>",
+          0.0288
+        ],
+        [
+          "_xzm_free_main",
+          0.0226
+        ],
+        [
+          "_platform_memset",
+          0.0206
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.0185
+        ],
+        [
+          "ggrust_core::render::png::render_pixmap",
+          0.0185
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::render::png::to_png_with_dpi",
+          0.6502
+        ],
+        [
+          "ggrust_core::render::png::render_pixmap",
+          0.4918
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::nodes",
+          0.4691
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::texts",
+          0.1708
+        ],
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.1379
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.1379
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::stroke",
+          0.1111
+        ],
+        [
+          "ggrust_core::build::prepare_plot",
+          0.1049
+        ],
+        [
+          "ggrust_core::build::prepare_columns",
+          0.1049
+        ],
+        [
+          "ggrust_core::data::resolution::resolution",
+          0.0412
+        ],
+        [
+          "<ggrust_core::scale::style::colormap::ColormapMapper as ggrust_core::scale::style::StyleMapper>::map_continuous",
+          0.035
+        ],
+        [
+          "<ggrust_core::geom::raster::RasterGeom as ggrust_core::geom::Geom>::setup",
+          0.0309
+        ]
+      ]
+    }
+  },
+  {
+    "case": "heatmap",
+    "output": "html",
+    "bytes": 81311,
+    "as_dict": 2.254103310406208e-05,
+    "to_json": 0.00010900001507252455,
+    "export": 0.0004006249364465475,
+    "engine": 0.002309042029082775,
+    "glue": 7.979199290275574e-05,
+    "total": 0.002921000006608665,
+    "rss_mb": 3.890625,
+    "python_mb": 0.0875864028930664,
+    "profile": {
+      "samples": 539,
+      "self": [
+        [
+          "__bzero",
+          0.1503
+        ],
+        [
+          "_PyEval_EvalFrameDefault",
+          0.0538
+        ],
+        [
+          "_platform_memmove",
+          0.0464
+        ],
+        [
+          "core::slice::sort::stable::quicksort::quicksort::<f64, <[f64]>::sort_by<<f64>::total_cmp>::{closure#0}>",
+          0.0445
+        ],
+        [
+          "pow",
+          0.0353
+        ],
+        [
+          "<core::iter::adapters::map::Map<core::iter::adapters::map::Map<arrow_array::iterator::ArrayIter, <ggrust_core::data::column::ContinuousColumn>::map_values<<ggrust_core::scale::position::PositionScale>::positions::{closure#0}>::{closure#0}>, <arrow_array::array::primitive_array::PrimitiveArray as core::iter::traits::collect::FromIterator>::from_iter<core::iter::adapters::map::Map<arrow_array::iterator::ArrayIter, <ggrust_core::data::column::ContinuousColumn>::map_values<<ggrust_core::scale::position::PositionScale>::positions::{closure#0}>::{closure#0}>>::{closure#0}> as core::iter::traits::iterator::Iterator>::next",
+          0.0278
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.026
+        ],
+        [
+          "_xzm_free_main",
+          0.026
+        ],
+        [
+          "<core::iter::adapters::map::Map<core::iter::adapters::map::Map<polars_arrow::bitmap::utils::zip_validity::ZipValidity, <polars_core::series::arrow_export::categorical::CategoricalArrayToArrowConverter>::array_to_arrow::{closure#0}>, <polars_arrow::array::primitive::mutable::MutablePrimitiveArray as core::iter::traits::collect::FromIterator>::from_iter<core::iter::adapters::map::Map<polars_arrow::bitmap::utils::zip_validity::ZipValidity, <polars_core::series::arrow_export::categorical::CategoricalArrayToArrowConverter>::array_to_arrow::{closure#0}>>::{closure#0}> as core::iter::traits::iterator::Iterator>::next",
+          0.0204
+        ],
+        [
+          "miniz_oxide::deflate::core::flush_block",
+          0.0167
+        ],
+        [
+          "pymalloc_alloc",
+          0.0148
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.0111
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.321
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.321
+        ],
+        [
+          "ggrust_core::build::prepare_plot",
+          0.2412
+        ],
+        [
+          "ggrust_core::build::prepare_columns",
+          0.2412
+        ],
+        [
+          "ggrust_core::render::html::to_html",
+          0.2338
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::node",
+          0.2319
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.2301
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::image",
+          0.2096
+        ],
+        [
+          "ggrust_core::data::resolution::resolution",
+          0.0891
+        ],
+        [
+          "<ggrust_core::scale::style::colormap::ColormapMapper as ggrust_core::scale::style::StyleMapper>::map_continuous",
+          0.0816
+        ],
+        [
+          "<ggrust_core::spec::Figure>::from_json",
+          0.0705
+        ],
+        [
+          "ggrust_core::scale::style::gradient::lab_gradient",
+          0.0594
+        ]
+      ]
+    }
+  },
+  {
+    "case": "volcano",
+    "output": "svg",
+    "bytes": 2057618,
+    "as_dict": 3.5541015677154064e-05,
+    "to_json": 0.00010000006295740604,
+    "export": 0.0003195840399712324,
+    "engine": 0.0745889589888975,
+    "glue": 0.00011754094157367945,
+    "total": 0.07516162504907697,
+    "rss_mb": 7.625,
+    "python_mb": 1.9705333709716797,
+    "profile": {
+      "samples": 272,
+      "self": [
+        [
+          "_platform_memmove",
+          0.1287
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.0699
+        ],
+        [
+          "_xzm_free_main",
+          0.0478
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.0478
+        ],
+        [
+          "<core::fmt::Formatter>::pad_integral",
+          0.0441
+        ],
+        [
+          "core::fmt::write",
+          0.0368
+        ],
+        [
+          "_malloc_zone_malloc",
+          0.0331
+        ],
+        [
+          "<core::fmt::Formatter>::pad_integral::write_prefix",
+          0.0331
+        ],
+        [
+          "_PyEval_EvalFrameDefault",
+          0.0294
+        ],
+        [
+          "<alloc::string::String as core::fmt::Write>::write_str",
+          0.0294
+        ],
+        [
+          "<core::iter::adapters::map::Map<core::iter::adapters::map::Map<polars_arrow::bitmap::utils::zip_validity::ZipValidity, <polars_core::series::arrow_export::categorical::CategoricalArrayToArrowConverter>::array_to_arrow::{closure#0}>, <polars_arrow::array::primitive::mutable::MutablePrimitiveArray as core::iter::traits::collect::FromIterator>::from_iter<core::iter::adapters::map::Map<polars_arrow::bitmap::utils::zip_validity::ZipValidity, <polars_core::series::arrow_export::categorical::CategoricalArrayToArrowConverter>::array_to_arrow::{closure#0}>>::{closure#0}> as core::iter::traits::iterator::Iterator>::next",
+          0.0257
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.0257
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::render::svg::to_svg_with",
+          0.6544
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.6544
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::node",
+          0.625
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::points",
+          0.6176
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::paint",
+          0.3566
+        ],
+        [
+          "ggrust_core::render::svg::push_decimal",
+          0.3309
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::attribute_precise",
+          0.2279
+        ],
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.2243
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.2206
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::attribute_number",
+          0.1471
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw",
+          0.1103
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw::{closure#0}",
+          0.1103
+        ]
+      ]
+    }
+  },
+  {
+    "case": "volcano",
+    "output": "png",
+    "bytes": 194602,
+    "as_dict": 3.89590859413147e-05,
+    "to_json": 9.595800656825304e-05,
+    "export": 0.0003534158458933234,
+    "engine": 0.21016383299138397,
+    "glue": 0.00012812612112611532,
+    "total": 0.21078029205091298,
+    "rss_mb": 14.796875,
+    "python_mb": 0.19382286071777344,
+    "profile": {
+      "samples": 655,
+      "self": [
+        [
+          "miniz_oxide::deflate::core::compress_inner",
+          0.4031
+        ],
+        [
+          "_platform_memmove",
+          0.0534
+        ],
+        [
+          "tiny_skia::pipeline::highp::load_dst",
+          0.0351
+        ],
+        [
+          "tiny_skia::pipeline::highp::store",
+          0.0321
+        ],
+        [
+          "_platform_memset_pattern16",
+          0.0275
+        ],
+        [
+          "tiny_skia::pipeline::lowp::load_dst_tail",
+          0.0275
+        ],
+        [
+          "tiny_skia::pipeline::highp::gather",
+          0.0214
+        ],
+        [
+          "<tiny_skia::scan::path_aa::SuperBlitter as tiny_skia::blitter::Blitter>::blit_h",
+          0.0183
+        ],
+        [
+          "__bzero",
+          0.0168
+        ],
+        [
+          "tiny_skia::pipeline::lowp::store_tail",
+          0.0168
+        ],
+        [
+          "_xzm_free_main",
+          0.0153
+        ],
+        [
+          "tiny_skia::pipeline::lowp::source_over",
+          0.0153
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::render::png::to_png_with_dpi",
+          0.9298
+        ],
+        [
+          "ggrust_core::render::png::render_pixmap",
+          0.4931
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::nodes",
+          0.4931
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::points::{closure#2}",
+          0.3069
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::texts",
+          0.1664
+        ],
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.058
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.058
+        ],
+        [
+          "ggrust_core::build::prepare_plot",
+          0.029
+        ],
+        [
+          "ggrust_core::build::prepare_columns",
+          0.029
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw",
+          0.0275
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw::{closure#0}",
+          0.026
+        ],
+        [
+          "ggrust_core::build::map_layer_into",
+          0.0229
+        ]
+      ]
+    }
+  },
+  {
+    "case": "volcano",
+    "output": "html",
+    "bytes": 3881808,
+    "as_dict": 3.362505231052637e-05,
+    "to_json": 0.00010304199531674385,
+    "export": 0.000411708140745759,
+    "engine": 0.18244820891413838,
+    "glue": 0.0001571238972246647,
+    "total": 0.18315370799973607,
+    "rss_mb": 42.078125,
+    "python_mb": 3.710322380065918,
+    "profile": {
+      "samples": 464,
+      "self": [
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.0862
+        ],
+        [
+          "_platform_memmove",
+          0.0841
+        ],
+        [
+          "_xzm_free_main",
+          0.0539
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.0431
+        ],
+        [
+          "<alloc::string::String as core::fmt::Write>::write_str",
+          0.0388
+        ],
+        [
+          "xzm_malloc_zone_malloc_type_realloc",
+          0.0345
+        ],
+        [
+          "core::fmt::write",
+          0.0323
+        ],
+        [
+          "<alloc::raw_vec::RawVecInner>::finish_grow",
+          0.0323
+        ],
+        [
+          "_free",
+          0.028
+        ],
+        [
+          "_malloc_zone_malloc",
+          0.0259
+        ],
+        [
+          "alloc::fmt::format::format_inner",
+          0.0216
+        ],
+        [
+          "<core::fmt::Formatter>::pad",
+          0.0216
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.7284
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.7284
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::interaction",
+          0.6638
+        ],
+        [
+          "ggrust_core::tooltip::content::layer_content",
+          0.6272
+        ],
+        [
+          "ggrust_core::tooltip::content::column_texts",
+          0.4181
+        ],
+        [
+          "<ggrust_core::tooltip::content::Builder>::values",
+          0.3966
+        ],
+        [
+          "<ggrust_core::scale::label_pattern::LabelPattern>::format",
+          0.375
+        ],
+        [
+          "<ggrust_core::scale::number_format::NumberFormat>::apply",
+          0.2716
+        ],
+        [
+          "ggrust_core::render::html::to_html",
+          0.2328
+        ],
+        [
+          "<ggrust_core::tooltip::content::Builder>::aesthetic_values",
+          0.194
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.1789
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::node",
+          0.1789
+        ]
+      ]
+    }
+  },
+  {
+    "case": "scatter@1000000",
+    "output": "svg",
+    "bytes": 41759585,
+    "as_dict": 1.0791001841425896e-05,
+    "to_json": 3.770797047764063e-05,
+    "export": 0.00012695800978690386,
+    "engine": 0.15482983400579542,
+    "glue": 8.212600369006395e-05,
+    "total": 0.15508741699159145,
+    "rss_mb": 295.015625,
+    "python_mb": 39.82894706726074,
+    "profile": {
+      "samples": 1217,
+      "self": [
+        [
+          "_platform_memmove",
+          0.1257
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.1175
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.1175
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.1085
+        ],
+        [
+          "_xzm_free_main",
+          0.1019
+        ],
+        [
+          "log10",
+          0.0452
+        ],
+        [
+          "<alloc::string::String as core::fmt::Write>::write_str",
+          0.0435
+        ],
+        [
+          "_malloc_zone_malloc",
+          0.0435
+        ],
+        [
+          "<core::fmt::Formatter>::pad_integral::write_prefix",
+          0.0337
+        ],
+        [
+          "_free",
+          0.0312
+        ],
+        [
+          "???",
+          0.0279
+        ],
+        [
+          "DYLD-STUB$$memcpy",
+          0.0238
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::render::svg::to_svg_with",
+          0.9022
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.9022
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::node",
+          0.7938
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::points",
+          0.7691
+        ],
+        [
+          "ggrust_core::render::svg::push_decimal",
+          0.7116
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::attribute_precise",
+          0.4224
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::attribute_number",
+          0.364
+        ],
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.083
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.083
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw",
+          0.0616
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw::{closure#0}",
+          0.0616
+        ],
+        [
+          "<ggrust_core::geom::point::PointGeom as ggrust_core::geom::Geom>::draw",
+          0.0616
+        ]
+      ]
+    }
+  },
+  {
+    "case": "scatter@1000000",
+    "output": "png",
+    "bytes": 232305,
+    "as_dict": 1.2625008821487427e-05,
+    "to_json": 3.383390139788389e-05,
+    "export": 0.00012891599908471107,
+    "engine": 2.0788080830825493,
+    "glue": 7.279193960130215e-05,
+    "total": 2.0790562499314547,
+    "rss_mb": 27.75,
+    "python_mb": 0.2254467010498047,
+    "profile": {
+      "samples": 686,
+      "self": [
+        [
+          "_platform_memmove",
+          0.1603
+        ],
+        [
+          "mach_absolute_time",
+          0.1239
+        ],
+        [
+          "tiny_skia::pipeline::lowp::load_dst_tail",
+          0.0554
+        ],
+        [
+          "_platform_memset_pattern16",
+          0.0481
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.0379
+        ],
+        [
+          "miniz_oxide::deflate::core::compress_inner",
+          0.035
+        ],
+        [
+          "tiny_skia::pipeline::lowp::source_over",
+          0.0306
+        ],
+        [
+          "DYLD-STUB$$memset_pattern16",
+          0.0306
+        ],
+        [
+          "<tiny_skia::edge_builder::BasicEdgeBuilder>::push_quad",
+          0.0277
+        ],
+        [
+          "<tiny_skia::scan::path_aa::SuperBlitter as tiny_skia::blitter::Blitter>::blit_h",
+          0.0277
+        ],
+        [
+          "tiny_skia::pipeline::lowp::scale_1_float",
+          0.0204
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.019
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::render::png::to_png_with_dpi",
+          0.9417
+        ],
+        [
+          "ggrust_core::render::png::render_pixmap",
+          0.9038
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::nodes",
+          0.9038
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::points::{closure#2}",
+          0.8965
+        ],
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.019
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.019
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw",
+          0.0146
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw::{closure#0}",
+          0.0146
+        ],
+        [
+          "<ggrust_core::geom::point::PointGeom as ggrust_core::geom::Geom>::draw",
+          0.0146
+        ],
+        [
+          "<ggrust_core::scale::position::PositionScale>::map",
+          0.0131
+        ],
+        [
+          "<ggrust_core::scale::continuous::ContinuousPositionScale>::scale_domain",
+          0.0073
+        ],
+        [
+          "ggrust_core::build::prepare_plot",
+          0.0044
+        ]
+      ]
+    }
+  },
+  {
+    "case": "scatter@1000000",
+    "output": "html",
+    "bytes": 43026582,
+    "as_dict": 1.2167030945420265e-05,
+    "to_json": 3.750005271285772e-05,
+    "export": 0.00016187503933906555,
+    "engine": 0.9134548340225592,
+    "glue": 0.00012374890502542257,
+    "total": 0.913790125050582,
+    "rss_mb": 434.890625,
+    "python_mb": 41.037306785583496,
+    "profile": {
+      "samples": 622,
+      "self": [
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.1318
+        ],
+        [
+          "_platform_memmove",
+          0.0916
+        ],
+        [
+          "xzm_malloc_zone_malloc_type_realloc",
+          0.082
+        ],
+        [
+          "_xzm_free",
+          0.0547
+        ],
+        [
+          "_xzm_free_main",
+          0.0531
+        ],
+        [
+          "_realloc",
+          0.045
+        ],
+        [
+          "_malloc_zone_realloc",
+          0.0386
+        ],
+        [
+          "xzm_malloc_zone_size",
+          0.037
+        ],
+        [
+          "DYLD-STUB$$memcpy",
+          0.0338
+        ],
+        [
+          "<alloc::raw_vec::RawVecInner>::finish_grow",
+          0.0257
+        ],
+        [
+          "_xzm_malloc",
+          0.0257
+        ],
+        [
+          "<alloc::string::String as core::fmt::Write>::write_str",
+          0.0257
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.8408
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.8408
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::interaction",
+          0.799
+        ],
+        [
+          "ggrust_core::tooltip::content::layer_content",
+          0.7395
+        ],
+        [
+          "<ggrust_core::tooltip::content::Builder>::aesthetic_values",
+          0.7363
+        ],
+        [
+          "ggrust_core::scale::format::format_general",
+          0.6415
+        ],
+        [
+          "ggrust_core::render::html::to_html",
+          0.1174
+        ],
+        [
+          "<ggrust_core::tooltip::Interaction>::to_script_json",
+          0.09
+        ],
+        [
+          "<ggrust_core::geom::point::PointGeom as ggrust_core::geom::Geom>::hover_targets",
+          0.0595
+        ],
+        [
+          "<ggrust_core::scale::position::PositionScale>::map",
+          0.0547
+        ],
+        [
+          "ggrust_core::tooltip::content::label_text",
+          0.0531
+        ],
+        [
+          "<ggrust_core::scale::continuous::ContinuousPositionScale>::scale_domain",
+          0.0289
+        ]
+      ]
+    }
+  },
+  {
+    "case": "color_continuous@1000000",
+    "output": "svg",
+    "bytes": 70762381,
+    "as_dict": 1.6208039596676826e-05,
+    "to_json": 4.63749747723341e-05,
+    "export": 0.0003450000658631325,
+    "engine": 0.2849105839850381,
+    "glue": 9.083293844014406e-05,
+    "total": 0.2854090000037104,
+    "rss_mb": 636.234375,
+    "python_mb": 67.48822975158691,
+    "profile": {
+      "samples": 1206,
+      "self": [
+        [
+          "_platform_memmove",
+          0.1327
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.1078
+        ],
+        [
+          "_xzm_free_main",
+          0.0945
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.0937
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.0813
+        ],
+        [
+          "<ggrust_core::scale::style::color::DefaultColorMapper as ggrust_core::scale::style::StyleMapper>::map_continuous",
+          0.0489
+        ],
+        [
+          "<alloc::string::String as core::fmt::Write>::write_str",
+          0.0456
+        ],
+        [
+          "DYLD-STUB$$memcpy",
+          0.0415
+        ],
+        [
+          "<core::fmt::Formatter>::pad_integral::write_prefix",
+          0.0381
+        ],
+        [
+          "???",
+          0.0249
+        ],
+        [
+          "<core::fmt::Formatter>::pad_integral",
+          0.0249
+        ],
+        [
+          "pow",
+          0.024
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::render::svg::to_svg_with",
+          0.8333
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.8333
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::node",
+          0.7255
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::points",
+          0.7123
+        ],
+        [
+          "ggrust_core::render::svg::push_decimal",
+          0.432
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::attribute_number",
+          0.2463
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::attribute_precise",
+          0.2371
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::paint",
+          0.2023
+        ],
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.1567
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.1567
+        ],
+        [
+          "ggrust_core::build::prepare_plot",
+          0.0962
+        ],
+        [
+          "ggrust_core::build::prepare_columns",
+          0.0962
+        ]
+      ]
+    }
+  },
+  {
+    "case": "color_continuous@1000000",
+    "output": "png",
+    "bytes": 556498,
+    "as_dict": 1.1958065442740917e-05,
+    "to_json": 3.3208983950316906e-05,
+    "export": 0.00012083305045962334,
+    "engine": 2.105646707932465,
+    "glue": 7.412489503622055e-05,
+    "total": 2.1058868329273537,
+    "rss_mb": 255.234375,
+    "python_mb": 0.5346822738647461,
+    "profile": {
+      "samples": 656,
+      "self": [
+        [
+          "_platform_memmove",
+          0.1402
+        ],
+        [
+          "mach_absolute_time",
+          0.1387
+        ],
+        [
+          "_platform_memset_pattern16",
+          0.0732
+        ],
+        [
+          "tiny_skia::pipeline::lowp::load_dst_tail",
+          0.061
+        ],
+        [
+          "miniz_oxide::deflate::core::compress_inner",
+          0.0335
+        ],
+        [
+          "<tiny_skia::edge_builder::BasicEdgeBuilder>::push_quad",
+          0.029
+        ],
+        [
+          "<tiny_skia::scan::path_aa::SuperBlitter as tiny_skia::blitter::Blitter>::blit_h",
+          0.0259
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.0244
+        ],
+        [
+          "DYLD-STUB$$memset_pattern16",
+          0.0244
+        ],
+        [
+          "tiny_skia::pipeline::lowp::store_tail",
+          0.0229
+        ],
+        [
+          "_xzm_free_main",
+          0.0213
+        ],
+        [
+          "tiny_skia::pipeline::lowp::source_over",
+          0.0198
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::render::png::to_png_with_dpi",
+          0.9131
+        ],
+        [
+          "ggrust_core::render::png::render_pixmap",
+          0.8765
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::nodes",
+          0.8765
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::points::{closure#2}",
+          0.8689
+        ],
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.0457
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.0457
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw",
+          0.0229
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw::{closure#0}",
+          0.0229
+        ],
+        [
+          "<ggrust_core::geom::point::PointGeom as ggrust_core::geom::Geom>::draw",
+          0.0229
+        ],
+        [
+          "ggrust_core::build::prepare_plot",
+          0.0229
+        ],
+        [
+          "ggrust_core::build::prepare_columns",
+          0.0229
+        ],
+        [
+          "<ggrust_core::scale::style::color::DefaultColorMapper as ggrust_core::scale::style::StyleMapper>::map_continuous",
+          0.0168
+        ]
+      ]
+    }
+  },
+  {
+    "case": "color_continuous@1000000",
+    "output": "html",
+    "bytes": 62658880,
+    "as_dict": 1.4374963939189911e-05,
+    "to_json": 3.825000021606684e-05,
+    "export": 0.000295833102427423,
+    "engine": 1.6489055410493165,
+    "glue": 0.0001380849862471223,
+    "total": 1.6493920841021463,
+    "rss_mb": 952.265625,
+    "python_mb": 59.760186195373535,
+    "profile": {
+      "samples": 1066,
+      "self": [
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.1482
+        ],
+        [
+          "_platform_memmove",
+          0.0882
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.0563
+        ],
+        [
+          "xzm_malloc_zone_malloc_type_realloc",
+          0.0478
+        ],
+        [
+          "_malloc_zone_malloc",
+          0.046
+        ],
+        [
+          "_xzm_free_main",
+          0.0394
+        ],
+        [
+          "<alloc::string::String as core::fmt::Write>::write_str",
+          0.0385
+        ],
+        [
+          "<alloc::raw_vec::RawVecInner>::finish_grow",
+          0.0375
+        ],
+        [
+          "_xzm_free",
+          0.0375
+        ],
+        [
+          "xzm_malloc_zone_size",
+          0.03
+        ],
+        [
+          "_realloc",
+          0.0272
+        ],
+        [
+          "<core::fmt::Formatter>::pad",
+          0.0235
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.924
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.924
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::interaction",
+          0.8752
+        ],
+        [
+          "ggrust_core::tooltip::content::layer_content",
+          0.849
+        ],
+        [
+          "<ggrust_core::tooltip::content::Builder>::aesthetic_values",
+          0.7917
+        ],
+        [
+          "ggrust_core::tooltip::content::column_texts",
+          0.575
+        ],
+        [
+          "<ggrust_core::scale::label_pattern::LabelPattern>::format",
+          0.5375
+        ],
+        [
+          "<ggrust_core::scale::number_format::NumberFormat>::apply",
+          0.4972
+        ],
+        [
+          "ggrust_core::scale::format::format_general",
+          0.1961
+        ],
+        [
+          "<ggrust_core::scale::number_format::Formatted as core::fmt::Display>::fmt",
+          0.0901
+        ],
+        [
+          "<ggrust_core::scale::number_format::Decimal>::decimal",
+          0.0872
+        ],
+        [
+          "<ggrust_core::scale::number_format::NumberFormat>::group",
+          0.0694
+        ]
+      ]
+    }
+  },
+  {
+    "case": "size_alpha@100000",
+    "output": "svg",
+    "bytes": 9474952,
+    "as_dict": 9.917072020471096e-06,
+    "to_json": 3.5541015677154064e-05,
+    "export": 0.00010341603774577379,
+    "engine": 0.034721167059615254,
+    "glue": 5.404185503721237e-05,
+    "total": 0.034924083040095866,
+    "rss_mb": 80.875,
+    "python_mb": 9.040003776550293,
+    "profile": {
+      "samples": 1468,
+      "self": [
+        [
+          "_platform_memmove",
+          0.1308
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.1049
+        ],
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.1042
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.0995
+        ],
+        [
+          "_xzm_free_main",
+          0.0783
+        ],
+        [
+          "_malloc_zone_malloc",
+          0.0436
+        ],
+        [
+          "<alloc::string::String as core::fmt::Write>::write_str",
+          0.0429
+        ],
+        [
+          "<core::fmt::Formatter>::pad_integral::write_prefix",
+          0.0381
+        ],
+        [
+          "DYLD-STUB$$memcpy",
+          0.0272
+        ],
+        [
+          "_free",
+          0.0259
+        ],
+        [
+          "xzm_malloc_zone_malloc_type_realloc",
+          0.0232
+        ],
+        [
+          "???",
+          0.0211
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::render::svg::to_svg_with",
+          0.9074
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.9074
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::node",
+          0.8079
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::points",
+          0.7943
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::paint",
+          0.4571
+        ],
+        [
+          "ggrust_core::render::svg::push_decimal",
+          0.4469
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::attribute_precise",
+          0.3372
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::attribute_number",
+          0.158
+        ],
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.0756
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.0749
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw",
+          0.0593
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw::{closure#0}",
+          0.0579
+        ]
+      ]
+    }
+  },
+  {
+    "case": "size_alpha@100000",
+    "output": "png",
+    "bytes": 305818,
+    "as_dict": 1.266703475266695e-05,
+    "to_json": 3.8125086575746536e-05,
+    "export": 0.00013225001748651266,
+    "engine": 0.8902633329853415,
+    "glue": 6.90418528392911e-05,
+    "total": 0.8905154169769958,
+    "rss_mb": 38.484375,
+    "python_mb": 0.2956361770629883,
+    "profile": {
+      "samples": 581,
+      "self": [
+        [
+          "miniz_oxide::deflate::core::compress_inner",
+          0.2289
+        ],
+        [
+          "_platform_memmove",
+          0.1067
+        ],
+        [
+          "tiny_skia::pipeline::lowp::load_dst_tail",
+          0.0947
+        ],
+        [
+          "_platform_memset_pattern16",
+          0.0809
+        ],
+        [
+          "tiny_skia::pipeline::lowp::source_over",
+          0.0534
+        ],
+        [
+          "DYLD-STUB$$memset_pattern16",
+          0.043
+        ],
+        [
+          "tiny_skia::pipeline::lowp::scale_1_float",
+          0.0293
+        ],
+        [
+          "tiny_skia::pipeline::lowp::store_tail",
+          0.0275
+        ],
+        [
+          "tiny_skia::pipeline::lowp::start",
+          0.0258
+        ],
+        [
+          "tiny_skia::pipeline::lowp::mask_u8",
+          0.0258
+        ],
+        [
+          "<tiny_skia::scan::path_aa::SuperBlitter as tiny_skia::blitter::Blitter>::blit_h",
+          0.0189
+        ],
+        [
+          "tiny_skia::scan::path::fill_path_impl",
+          0.0172
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::render::png::to_png_with_dpi",
+          0.9639
+        ],
+        [
+          "ggrust_core::render::png::render_pixmap",
+          0.7212
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::nodes",
+          0.7212
+        ],
+        [
+          "<ggrust_core::render::png::Canvas>::points::{closure#2}",
+          0.7091
+        ],
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.0189
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.0189
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw",
+          0.0172
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::draw::{closure#0}",
+          0.0172
+        ],
+        [
+          "<ggrust_core::geom::point::PointGeom as ggrust_core::geom::Geom>::draw",
+          0.0172
+        ],
+        [
+          "<ggrust_core::scale::position::PositionScale>::map",
+          0.012
+        ],
+        [
+          "<ggrust_core::scale::continuous::ContinuousPositionScale>::scale_domain",
+          0.0103
+        ],
+        [
+          "<ggrust_core::geom::point::Marker>::of",
+          0.0052
+        ]
+      ]
+    }
+  },
+  {
+    "case": "size_alpha@100000",
+    "output": "html",
+    "bytes": 20634297,
+    "as_dict": 1.2665987014770508e-05,
+    "to_json": 4.425004590302706e-05,
+    "export": 0.00012337497901171446,
+    "engine": 0.25746758293826133,
+    "glue": 0.00017121003475040197,
+    "total": 0.25781908398494124,
+    "rss_mb": 457.546875,
+    "python_mb": 19.68244171142578,
+    "profile": {
+      "samples": 1183,
+      "self": [
+        [
+          "_xzm_xzone_malloc_tiny",
+          0.1268
+        ],
+        [
+          "_platform_memmove",
+          0.1014
+        ],
+        [
+          "_xzm_free_main",
+          0.0634
+        ],
+        [
+          "<deduplicated_symbol>",
+          0.0541
+        ],
+        [
+          "<alloc::string::String as core::fmt::Write>::write_str",
+          0.0431
+        ],
+        [
+          "_malloc_zone_malloc",
+          0.0406
+        ],
+        [
+          "_free",
+          0.0321
+        ],
+        [
+          "core::ptr::drop_glue",
+          0.027
+        ],
+        [
+          "xzm_malloc_zone_malloc_type_realloc",
+          0.0262
+        ],
+        [
+          "<&mut serde_json::ser::Serializer<&mut <serde_json::value::Value as core::fmt::Display>::fmt::WriterFormatter> as serde_core::ser::Serializer>::serialize_str",
+          0.0254
+        ],
+        [
+          "_xzm_free",
+          0.0237
+        ],
+        [
+          "xzm_malloc_zone_size",
+          0.0237
+        ]
+      ],
+      "ggrust_inclusive": [
+        [
+          "ggrust_core::grid::build_figure_with",
+          0.481
+        ],
+        [
+          "ggrust_core::build::build_plot_with",
+          0.481
+        ],
+        [
+          "ggrust_core::render::html::to_html",
+          0.47
+        ],
+        [
+          "<ggrust_core::build::PreparedPlot>::interaction",
+          0.4573
+        ],
+        [
+          "ggrust_core::tooltip::content::layer_content",
+          0.4404
+        ],
+        [
+          "<ggrust_core::tooltip::content::Builder>::aesthetic_values",
+          0.4396
+        ],
+        [
+          "ggrust_core::tooltip::content::column_texts",
+          0.2773
+        ],
+        [
+          "ggrust_core::render::svg::write_svg",
+          0.2756
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::node",
+          0.2756
+        ],
+        [
+          "<ggrust_core::render::svg::SvgWriter>::points",
+          0.2646
+        ],
+        [
+          "<ggrust_core::scale::label_pattern::LabelPattern>::format",
+          0.2612
+        ],
+        [
+          "<ggrust_core::scale::number_format::NumberFormat>::apply",
+          0.2375
+        ]
+      ]
+    }
+  }
+]

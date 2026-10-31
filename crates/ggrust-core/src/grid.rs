@@ -14,10 +14,12 @@
 use crate::build::{Arrangement, BuiltPlot, DEFAULT_SIZE, PlotData, PreparedPlot, build_plot_with};
 use crate::data::DataFrame;
 use crate::layout::grid::{DEFAULT_SPACING, cell_rects, shrink_to_aspect};
+use crate::layout::zoom::Zoom;
 use crate::layout::{
     LegendBlock, LegendBox, Titles, draw_legends, heading_nodes, headings_band, measure_legends,
     shrink,
 };
+use crate::parallel;
 use crate::scene::{Color, Group, Node, PerItem, Rect, Rects, Scene};
 use crate::spec::{ElementSpec, Figure, SubplotsSpec, ThemeSpec, ThemeValue};
 use crate::theme::{LegendPosition, Margins, Theme};
@@ -152,6 +154,19 @@ enum Element<'s> {
 }
 
 impl Element<'_> {
+    /// Rows of every prepared layer of the figure.
+    fn prepared_rows(&self) -> usize {
+        match self {
+            Element::Plot(plot) => plot.prepared_rows(),
+            Element::Grid(grid) => grid
+                .elements
+                .iter()
+                .flatten()
+                .map(Element::prepared_rows)
+                .sum(),
+        }
+    }
+
     /// Size the figure has on its own (`ggsize` or the default), for `fit=False`.
     fn own_size(&self) -> (f64, f64) {
         match self {
@@ -261,16 +276,30 @@ impl<'s> PreparedGrid<'s> {
         };
         let mut collected = Vec::new();
         let mut elements = Vec::with_capacity(spec.figures.len());
-        for (index, figure) in spec.figures.iter().enumerate() {
-            let figure_path = format!("{path}figures[{index}]");
-            let element = match figure {
-                None => None,
+        // Plots prepare in parallel; their results are taken in figure order below.
+        let rows = context.frames.iter().map(DataFrame::row_count).sum();
+        let figures = spec.figures.iter().collect();
+        let mut prepared: Vec<Option<Result<PreparedPlot>>> =
+            parallel::ordered_map(figures, parallel::is_worth(rows), |figure| match figure {
                 Some(Figure::Plot(plot_spec)) => {
                     let mut plot_spec = plot_spec.clone();
                     plot_spec.theme =
                         Some(child_theme(&theme_spec, &theme, plot_spec.theme.as_ref()));
-                    let mut plot = PlotData::from_frames(&plot_spec, context.frames)
-                        .and_then(|data| crate::build::prepare_plot(&plot_spec, &data))
+                    Some(
+                        PlotData::from_frames(&plot_spec, context.frames)
+                            .and_then(|data| crate::build::prepare_plot(&plot_spec, &data)),
+                    )
+                }
+                _ => None,
+            });
+        for (index, figure) in spec.figures.iter().enumerate() {
+            let figure_path = format!("{path}figures[{index}]");
+            let element = match figure {
+                None => None,
+                Some(Figure::Plot(_)) => {
+                    let mut plot = prepared[index]
+                        .take()
+                        .expect("every plot figure was prepared")
                         .map_err(|error| nest_error(error, &figure_path))?;
                     warnings.extend(
                         plot.warnings
@@ -412,7 +441,26 @@ impl<'s> PreparedGrid<'s> {
             .map(Placed::bounds)
             .reduce(union)
             .unwrap_or(elements_area);
-        for figure in placed.iter().flatten() {
+        // Figures draw in parallel, each collecting its own tooltips; they merge
+        // back in drawing order.
+        let empty_interaction = interaction.as_deref().map(|(collected, _)| Interaction {
+            layers: Vec::new(),
+            zoom: collected.zoom.as_ref().map(|zoom| Zoom {
+                plots: Vec::new(),
+                ..zoom.clone()
+            }),
+        });
+        let rows = self
+            .elements
+            .iter()
+            .flatten()
+            .map(Element::prepared_rows)
+            .sum();
+        let figures = placed.iter().flatten().collect();
+        let drawn = parallel::ordered_map(figures, parallel::is_worth(rows), |figure| {
+            let mut figure_interaction = empty_interaction
+                .clone()
+                .map(|collected| (collected, Vec::new()));
             let mut figure_nodes = Vec::new();
             match figure {
                 Placed::Plot(plot, arrangement) => {
@@ -424,12 +472,29 @@ impl<'s> PreparedGrid<'s> {
                         }));
                     }
                     figure_nodes.extend(plot.draw(arrangement)?);
-                    if let Some((collected, notes)) = interaction.as_deref_mut() {
+                    if let Some((collected, notes)) = figure_interaction.as_mut() {
                         plot.interaction(arrangement, collected, notes)?;
                     }
                 }
                 Placed::Grid(grid, bounds) => {
-                    figure_nodes.extend(grid.draw(*bounds, true, interaction.as_deref_mut())?)
+                    figure_nodes.extend(grid.draw(*bounds, true, figure_interaction.as_mut())?)
+                }
+            }
+            Ok::<_, Error>((figure_nodes, figure_interaction))
+        });
+        for result in drawn {
+            let (figure_nodes, figure_interaction) = result?;
+            if let (Some((collected, notes)), Some((figure, figure_notes))) =
+                (interaction.as_deref_mut(), figure_interaction)
+            {
+                collected.layers.extend(figure.layers);
+                if let (Some(zoom), Some(figure_zoom)) = (collected.zoom.as_mut(), figure.zoom) {
+                    zoom.plots.extend(figure_zoom.plots);
+                }
+                for note in figure_notes {
+                    if !notes.contains(&note) {
+                        notes.push(note);
+                    }
                 }
             }
             nodes.push(Node::Group(Group {

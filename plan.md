@@ -175,7 +175,8 @@ Steps inside a phase are ordered; each builds on the previous.
 - [ ] 6.1g SVG number writing: `push_decimal` is 33-71% of SVG renders with points (~10% of the others) (two `write!` + a `format!` per fractional number). Write digits into the buffer without allocating.
 - [ ] 6.1h KDE: `stat::density::estimate_bins` is 61% of a violin SVG render, nearly all libm `exp`. Only changes that keep stat results equal to lets-plot within test tolerance.
 - [ ] 6.1i Memory of large outputs: `color_continuous` 1M peaks 636 MB above the build for a 71 MB SVG (`scatter` 1M 295 MB for 42 MB). Heap-profile and cut intermediate copies.
-- [ ] 6.2 Rayon parallelism (layers, panels, subplots, groups); measure, keep only wins.
+- [x] 6.2 Rayon parallelism (layers, panels, subplots, groups); measure, keep only wins.
+  (`crate::parallel::ordered_map` + a 10k-row gate (waking the pool costs ~50 us per call). Parallel: gggrid plot preparation and figure drawing (tooltips merged in order), facet tiles x layers for stats and styles, panel and layer draws, one tooltip job per panel and layer, SVG siblings with 10k+ marks. Results are consumed in order: outputs byte-identical, same warnings and first error. `benchmarks/parallel.py`, old vs new wheel: SVG 2.3-2.8x and HTML 1.9-2.3x on grids, facets and multi-layer plots (cellestial `dimensionals_grid` SVG 24.6 -> 9.8 ms), boxplot 1.4x, single small plots unchanged. PNG unchanged: one-pixmap raster and deflate dominate (tiles: 6.1c, deflate: 6.1f). Report in `benchmarks/README.md`.)
 - [ ] 6.3 Caching of Arrow conversion + stat results across subplots.
 - [ ] 6.4 Final benchmark report vs lets-plot (methodology + raw numbers + plots).
 

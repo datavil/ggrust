@@ -137,3 +137,25 @@ Hot spots, by expected win:
 Rayon overhead is small: ggrust's own idle workers spinning (`swtch_pri`) are at most 15% of CPU
 samples (violin HTML), mostly 0 to 6%. The polars pool loaded by cellestial spins far more (up to
 73% of all samples in heatmap) and is excluded above.
+
+## Parallelism (step 6.2): 2026-10-31, macOS arm64 (Apple M4 Pro, 12 cores), Python 3.14
+
+`benchmarks/parallel.py`: the commit before step 6.2 against step 6.2, as two release wheels in
+one clean venv, median of 9 warm renders (ms). Outputs are byte-identical between the two builds
+(SVG, PNG and HTML of every case). Parallel levels: gggrid plots (prepare, draw, tooltips), facet
+panels and layers (stats, styles, draws, tooltips), and SVG writing of heavy sibling nodes, all
+gated at 10k rows or marks so small plots never wake the thread pool.
+
+| case | svg before | svg after | speed-up | png before | png after | html before | html after | speed-up |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| small_scatter (3k) | 1.1 | 1.1 | 1.0x | 27.5 | 27.5 | 6.1 | 6.0 | 1.0x |
+| grid4_50k (gggrid 2x2) | 67.5 | 27.0 | 2.5x | 482.9 | 471.5 | 377.8 | 180.4 | 2.1x |
+| grid9_3k (gggrid 3x3) | 9.2 | 3.9 | 2.3x | 175.5 | 174.8 | 53.6 | 24.1 | 2.2x |
+| facet9_300k (facet_wrap) | 102.4 | 36.7 | 2.8x | 797.8 | 784.1 | 579.8 | 248.6 | 2.3x |
+| layers4_50k (4 layers) | 35.5 | 15.4 | 2.3x | 810.2 | 808.7 | 233.5 | 126.2 | 1.9x |
+| violin30_200k | 23.6 | 19.1 | 1.2x | 44.0 | 44.1 | 42.7 | 42.9 | 1.0x |
+| boxplot30_200k | 20.0 | 13.8 | 1.4x | 43.4 | 37.8 | 20.7 | 15.0 | 1.4x |
+
+cellestial docstring examples (port env, same two wheels): `dimensionals_grid` SVG 24.6 -> 9.8 ms;
+the eight single-plot cases are within noise (build, SVG and PNG). PNG does not gain: a render is
+one pixmap raster plus deflate, which are plan items 6.1c (tiles, sprites) and 6.1f (deflate).

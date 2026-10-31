@@ -24,6 +24,7 @@ use crate::layout::{
     draw_axes, draw_legends, draw_panel_background, draw_panel_border, draw_titles, layout_plot,
     legend_origin, legend_space, measure_legends,
 };
+use crate::parallel;
 use crate::parameters::Parameters;
 use crate::position::{self, Position};
 use crate::scale::format::Label;
@@ -340,6 +341,7 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     // and its position scales before training (free axes: discrete levels of the
     // panel only, in the plot's order).
     let level_order = facets.as_ref().map(|_| style_level_order(&mapped));
+    let parallel = parallel::is_worth(mapped.iter().map(|layer| layer.row_count).sum());
     let tiles: Vec<(Vec<MappedLayer>, PositionScale, PositionScale)> = match &facets {
         None => vec![(mapped, x_scale.clone(), y_scale.clone())],
         Some(facets) => {
@@ -368,12 +370,20 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
                 .collect()
         }
     };
-    let mut computed_tiles = Vec::with_capacity(tiles.len());
+    // Tiles and layers compute in parallel; results are taken in order, so
+    // warnings and the first error are those of a sequential run.
+    let results = parallel::ordered_map(tiles, parallel, |(layers, tile_x, tile_y)| {
+        let results = parallel::ordered_map(layers, parallel, |layer| {
+            compute_layer(layer, [&tile_x, &tile_y], &context)
+        });
+        (results, tile_x, tile_y)
+    });
+    let mut computed_tiles = Vec::with_capacity(results.len());
     let mut tile_warnings = Vec::new();
-    for (layers, tile_x, tile_y) in tiles {
-        let mut computed = Vec::with_capacity(layers.len());
-        for layer in layers {
-            match compute_layer(layer, [&tile_x, &tile_y], &context) {
+    for (results, tile_x, tile_y) in results {
+        let mut computed = Vec::with_capacity(results.len());
+        for result in results {
+            match result {
                 Ok(mut layer) => {
                     tile_warnings.append(&mut layer.warnings);
                     computed.push(layer);
@@ -403,12 +413,19 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
             }
         }
     }
-    let mut prepared_tiles = Vec::with_capacity(computed_tiles.len());
+    // Styles map in parallel too, taken in order as above.
+    let styled = parallel::ordered_map(computed_tiles, parallel, |(computed, tile_x, tile_y)| {
+        let results = parallel::ordered_map(computed, parallel, |layer| {
+            style_layer(layer, &style_scales)
+        });
+        (results, tile_x, tile_y)
+    });
+    let mut prepared_tiles = Vec::with_capacity(styled.len());
     let mut tile_warnings = Vec::new();
-    for (computed, mut tile_x, mut tile_y) in computed_tiles {
-        let mut layers = Vec::with_capacity(computed.len());
-        for layer in computed {
-            match style_layer(layer, &style_scales) {
+    for (results, mut tile_x, mut tile_y) in styled {
+        let mut layers = Vec::with_capacity(results.len());
+        for result in results {
+            match result {
                 Ok((layer, mut layer_warnings)) => {
                     tile_warnings.append(&mut layer_warnings);
                     layers.push(layer);
@@ -672,6 +689,20 @@ impl PreparedPlot {
         }
     }
 
+    /// Rows of every prepared layer in every panel.
+    pub(crate) fn prepared_rows(&self) -> usize {
+        self.tiles
+            .iter()
+            .flat_map(|(layers, _, _)| layers)
+            .map(|layer| layer.data.row_count())
+            .sum()
+    }
+
+    /// Whether the plot is worth drawing and collecting tooltips in parallel.
+    fn is_large(&self) -> bool {
+        parallel::is_worth(self.prepared_rows())
+    }
+
     /// Screen scales of a panel: swapped under `coord_flip`.
     fn screen_scales<'s>(
         &self,
@@ -806,11 +837,26 @@ impl PreparedPlot {
             self.theme.axis_text_x.is_some(),
             self.theme.axis_text_y.is_some(),
         );
-        let mut notes = Vec::new();
+        // Panels first (scales per tile), then one job per panel and layer, run in
+        // parallel; results and notes keep the panel and layer order.
+        let mut jobs = Vec::new();
         for (rect, tile) in panels {
             let Some((layers, tile_x, tile_y)) = self.tiles.get(tile) else {
                 continue;
             };
+            for (layer, setup) in layers.iter().zip(&self.tooltip_setups) {
+                jobs.push((rect, tile_x, tile_y, layer, setup));
+            }
+        }
+        let layer_interaction = |&(rect, tile_x, tile_y, layer, setup): &(
+            Rect,
+            &PositionScale,
+            &PositionScale,
+            &PreparedLayer,
+            &LayerTooltipSetup,
+        ),
+                                 notes: &mut Vec<String>|
+         -> Result<Option<LayerInteraction>> {
             let (horizontal, vertical) = self.screen_scales(tile_x, tile_y);
             let panel = Panel {
                 rect,
@@ -819,69 +865,78 @@ impl PreparedPlot {
                 coord: self.coord,
                 flipped: self.flipped,
             };
-            for (layer, setup) in layers.iter().zip(&self.tooltip_setups) {
-                let behavior = layer.geom.tooltip_behavior();
-                let Some(lookup) = behavior.lookup else {
-                    continue;
-                };
-                let draw_layer = DrawLayer {
-                    data: &layer.data,
-                    styles: &layer.styles,
-                    parameters: Parameters::new(&layer.options, &layer.path),
-                };
-                let Some(targets) = layer.geom.hover_targets(&draw_layer, &panel)? else {
-                    continue;
-                };
-                if targets.is_empty() {
-                    continue;
+            let behavior = layer.geom.tooltip_behavior();
+            let Some(lookup) = behavior.lookup else {
+                return Ok(None);
+            };
+            let draw_layer = DrawLayer {
+                data: &layer.data,
+                styles: &layer.styles,
+                parameters: Parameters::new(&layer.options, &layer.path),
+            };
+            let Some(targets) = layer.geom.hover_targets(&draw_layer, &panel)? else {
+                return Ok(None);
+            };
+            if targets.is_empty() {
+                return Ok(None);
+            }
+            let source = ContentSource {
+                tooltips: setup.tooltips.as_ref(),
+                behavior,
+                data: &layer.unadjusted,
+                styles: &layer.styles,
+                x_scale: tile_x,
+                y_scale: tile_y,
+                bindings: &setup.bindings,
+                labels: &setup.labels,
+                columns: &layer.tooltip_columns,
+                flipped: self.flipped,
+                axis_labels,
+            };
+            let content = layer_content(&source, &layer.path, notes);
+            if content.is_empty() {
+                return Ok(None);
+            }
+            let (anchor, min_width) = match &setup.tooltips {
+                Some(TooltipsSpec::Lines(lines)) => {
+                    let anchor = lines.tooltip_anchor.clone().filter(|anchor| {
+                        let known = TOOLTIP_ANCHORS.contains(&anchor.as_str());
+                        if !known {
+                            notes.push(format!(
+                                "at '{}.tooltips.tooltip_anchor': unknown anchor \
+                                 '{anchor}'; expected one of {}; the tooltip follows \
+                                 the cursor",
+                                layer.path,
+                                TOOLTIP_ANCHORS.join(", ")
+                            ));
+                        }
+                        known
+                    });
+                    let min_width = lines
+                        .tooltip_min_width
+                        .filter(|width| width.is_finite() && *width > 0.0);
+                    (anchor, min_width)
                 }
-                let source = ContentSource {
-                    tooltips: setup.tooltips.as_ref(),
-                    behavior,
-                    data: &layer.unadjusted,
-                    styles: &layer.styles,
-                    x_scale: tile_x,
-                    y_scale: tile_y,
-                    bindings: &setup.bindings,
-                    labels: &setup.labels,
-                    columns: &layer.tooltip_columns,
-                    flipped: self.flipped,
-                    axis_labels,
-                };
-                let content = layer_content(&source, &layer.path, &mut notes);
-                if content.is_empty() {
-                    continue;
-                }
-                let (anchor, min_width) = match &setup.tooltips {
-                    Some(TooltipsSpec::Lines(lines)) => {
-                        let anchor = lines.tooltip_anchor.clone().filter(|anchor| {
-                            let known = TOOLTIP_ANCHORS.contains(&anchor.as_str());
-                            if !known {
-                                notes.push(format!(
-                                    "at '{}.tooltips.tooltip_anchor': unknown anchor \
-                                     '{anchor}'; expected one of {}; the tooltip follows \
-                                     the cursor",
-                                    layer.path,
-                                    TOOLTIP_ANCHORS.join(", ")
-                                ));
-                            }
-                            known
-                        });
-                        let min_width = lines
-                            .tooltip_min_width
-                            .filter(|width| width.is_finite() && *width > 0.0);
-                        (anchor, min_width)
-                    }
-                    _ => (None, None),
-                };
-                interaction.layers.push(LayerInteraction {
-                    panel: LayerInteraction::panel_of(rect),
-                    lookup,
-                    targets,
-                    content,
-                    anchor,
-                    min_width,
-                });
+                _ => (None, None),
+            };
+            Ok(Some(LayerInteraction {
+                panel: LayerInteraction::panel_of(rect),
+                lookup,
+                targets,
+                content,
+                anchor,
+                min_width,
+            }))
+        };
+        let results = parallel::ordered_map(jobs, self.is_large(), |job| {
+            let mut notes = Vec::new();
+            (layer_interaction(&job, &mut notes), notes)
+        });
+        let mut notes = Vec::new();
+        for (result, mut job_notes) in results {
+            notes.append(&mut job_notes);
+            if let Some(layer) = result? {
+                interaction.layers.push(layer);
             }
         }
         if interaction.zoom.is_some() {
@@ -933,15 +988,20 @@ impl PreparedPlot {
     /// fill (the scene's, or the grid cell's), with the background border last.
     pub fn draw(&self, arrangement: &Arrangement) -> Result<Vec<Node>> {
         let theme = &self.theme;
+        let parallel = self.is_large();
         let draw_layers = |layers: &[PreparedLayer], panel: &Panel| -> Result<Vec<Node>> {
-            let mut layer_nodes = Vec::new();
-            for layer in layers {
+            // Layers draw in parallel and stack in layer order.
+            let drawn = parallel::ordered_map(layers.iter().collect(), parallel, |layer| {
                 let draw_layer = DrawLayer {
                     data: &layer.data,
                     styles: &layer.styles,
                     parameters: Parameters::new(&layer.options, &layer.path),
                 };
-                layer_nodes.extend(layer.geom.draw(&draw_layer, panel)?);
+                layer.geom.draw(&draw_layer, panel)
+            });
+            let mut layer_nodes = Vec::new();
+            for nodes in drawn {
+                layer_nodes.extend(nodes?);
             }
             Ok(layer_nodes)
         };
@@ -970,27 +1030,34 @@ impl PreparedPlot {
                 nodes.push(tile_group(tile));
             }
             Arranged::Facets(layout) => {
-                for (tile, (layers, tile_x, tile_y)) in layout.tiles.iter().zip(&self.tiles) {
-                    let (horizontal, vertical) = self.screen_scales(tile_x, tile_y);
-                    let panel = Panel {
-                        rect: tile.layout.panel,
-                        x_scale: horizontal,
-                        y_scale: vertical,
-                        coord: self.coord,
-                        flipped: self.flipped,
-                    };
-                    let layer_nodes = draw_layers(layers, &panel)?;
-                    let mut tile_nodes = draw_panel_background(&tile.layout, theme, &panel);
-                    tile_nodes.push(Node::Group(Group {
-                        clip: Some(tile.layout.panel),
-                        role: Some("panel"),
-                        anchor: None,
-                        nodes: layer_nodes,
-                    }));
-                    tile_nodes.extend(draw_panel_border(&tile.layout, theme));
-                    tile_nodes.extend(draw_axes(&tile.layout, theme, &panel, tile.axes));
-                    nodes.push(tile_group(tile_nodes));
-                    nodes.extend(draw_strips(tile, theme));
+                // Panels draw in parallel and join in drawing order.
+                let tiles = layout.tiles.iter().zip(&self.tiles).collect();
+                let drawn =
+                    parallel::ordered_map(tiles, parallel, |(tile, (layers, tile_x, tile_y))| {
+                        let (horizontal, vertical) = self.screen_scales(tile_x, tile_y);
+                        let panel = Panel {
+                            rect: tile.layout.panel,
+                            x_scale: horizontal,
+                            y_scale: vertical,
+                            coord: self.coord,
+                            flipped: self.flipped,
+                        };
+                        let layer_nodes = draw_layers(layers, &panel)?;
+                        let mut tile_nodes = draw_panel_background(&tile.layout, theme, &panel);
+                        tile_nodes.push(Node::Group(Group {
+                            clip: Some(tile.layout.panel),
+                            role: Some("panel"),
+                            anchor: None,
+                            nodes: layer_nodes,
+                        }));
+                        tile_nodes.extend(draw_panel_border(&tile.layout, theme));
+                        tile_nodes.extend(draw_axes(&tile.layout, theme, &panel, tile.axes));
+                        let mut panel_nodes = vec![tile_group(tile_nodes)];
+                        panel_nodes.extend(draw_strips(tile, theme));
+                        Ok::<_, Error>(panel_nodes)
+                    });
+                for panel_nodes in drawn {
+                    nodes.extend(panel_nodes?);
                 }
             }
         }

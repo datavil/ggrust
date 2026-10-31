@@ -8,10 +8,12 @@
 
 use std::fmt::Write;
 
+use rayon::prelude::*;
 use serde_json::Value;
 
 use super::canvas;
 
+use crate::parallel;
 use crate::scene::geometry::{ClipBox, is_drawable_marker, is_drawable_stroke, is_drawable_width};
 use crate::scene::{
     Bitmap, Color, Group, HorizontalAlign, Image, MarkerPart, Node, Orientation, Path, PerItem,
@@ -182,10 +184,59 @@ impl SvgWriter {
             self.fill(Some(background));
             self.raw("/>\n");
         }
-        for node in &scene.nodes {
-            self.node(node);
-        }
+        self.nodes(&scene.nodes);
         self.raw("</svg>\n");
+    }
+
+    /// Write sibling nodes in order. Heavy siblings (plots of a grid, panels,
+    /// layers) are written in parallel into their own buffers and joined; clip
+    /// numbers and id positions come out as in a sequential write. Canvas output
+    /// (HTML) stays sequential: batch numbers follow the writing order.
+    fn nodes(&mut self, nodes: &[Node]) {
+        if self.canvas.is_some()
+            || nodes.len() < 2
+            || !parallel::is_worth(nodes.iter().map(node_weight).sum())
+        {
+            for node in nodes {
+                self.node(node);
+            }
+            return;
+        }
+        let mut first_clip = self.clip_count;
+        let starts: Vec<usize> = nodes
+            .iter()
+            .map(|node| {
+                let start = first_clip;
+                first_clip += clip_count(node);
+                start
+            })
+            .collect();
+        let parts: Vec<SvgWriter> = nodes
+            .par_iter()
+            .zip(starts)
+            .map(|(node, clip_count)| {
+                let mut part = SvgWriter {
+                    output: String::new(),
+                    id_prefix: self.id_prefix.clone(),
+                    id_positions: Vec::new(),
+                    clip_count,
+                    clip_box: self.clip_box,
+                    zoomable: self.zoomable,
+                    canvas: None,
+                };
+                part.node(node);
+                part
+            })
+            .collect();
+        self.output
+            .reserve(parts.iter().map(|part| part.output.len()).sum());
+        for part in parts {
+            let base = self.output.len();
+            self.id_positions
+                .extend(part.id_positions.iter().map(|position| base + position));
+            self.output.push_str(&part.output);
+            self.clip_count = part.clip_count;
+        }
     }
 
     fn open(&mut self, width: f64, height: f64) {
@@ -221,9 +272,7 @@ impl SvgWriter {
             if self.zoomable {
                 self.anchor_open(x, y);
             }
-            for node in &group.nodes {
-                self.node(node);
-            }
+            self.nodes(&group.nodes);
             if self.zoomable {
                 self.raw("</g>\n");
             }
@@ -249,9 +298,7 @@ impl SvgWriter {
             self.raw(")\"");
         }
         self.raw(">\n");
-        for node in &group.nodes {
-            self.node(node);
-        }
+        self.nodes(&group.nodes);
         self.raw("</g>\n");
     }
 
@@ -652,6 +699,27 @@ impl SvgWriter {
     }
 }
 
+/// Rough writing cost of a node: its marks and vertices (one per text or image).
+fn node_weight(node: &Node) -> usize {
+    match node {
+        Node::Group(group) => group.nodes.iter().map(node_weight).sum(),
+        Node::Points(points) => points.len(),
+        Node::Path(path) => path.points.len(),
+        Node::Rects(rects) => rects.rects.len(),
+        Node::Text(_) | Node::Image(_) => 1,
+    }
+}
+
+/// Clip paths a node writes ([`SvgWriter::group`] numbers one per clipped group).
+fn clip_count(node: &Node) -> usize {
+    match node {
+        Node::Group(group) => {
+            usize::from(group.clip.is_some()) + group.nodes.iter().map(clip_count).sum::<usize>()
+        }
+        _ => 0,
+    }
+}
+
 /// Standard base64 (RFC 4648, padded).
 pub(super) fn push_base64(output: &mut String, bytes: &[u8]) {
     const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
@@ -756,6 +824,85 @@ fn is_xml_character(character: char) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::scene::MarkerShape;
+
+    /// Three clipped plots of nested clipped points: heavy enough to be written
+    /// in parallel at the top level, sequentially inside.
+    fn heavy_scene() -> Scene {
+        let points = |offset: f64| Points {
+            x: (0..6_000)
+                .map(|index| offset + (index % 97) as f64)
+                .collect(),
+            y: (0..6_000).map(|index| (index / 97) as f64 + 0.5).collect(),
+            shape: PerItem::Uniform(MarkerShape::Circle),
+            size: PerItem::Uniform(3.0),
+            fill: PerItem::Uniform(Some(Color::rgb(10, 20, 30))),
+            stroke: PerItem::Uniform(None),
+            stroke_width: PerItem::Uniform(0.0),
+        };
+        let clip = |x: f64| Rect {
+            x,
+            y: 0.0,
+            width: 100.0,
+            height: 100.0,
+        };
+        let plot = |x: f64| {
+            Node::Group(Group {
+                clip: Some(clip(x)),
+                role: Some("figure"),
+                anchor: None,
+                nodes: vec![Node::Group(Group {
+                    clip: Some(clip(x + 1.0)),
+                    role: Some("panel"),
+                    anchor: None,
+                    nodes: vec![Node::Points(points(x))],
+                })],
+            })
+        };
+        let rects = Node::Rects(Rects {
+            rects: vec![clip(5.0)],
+            fill: PerItem::Uniform(Some(Color::rgb(1, 2, 3))),
+            stroke: None,
+        });
+        Scene {
+            width: 300.0,
+            height: 100.0,
+            background: None,
+            nodes: vec![plot(0.0), rects, plot(100.0), plot(200.0)],
+        }
+    }
+
+    #[test]
+    fn parallel_siblings_write_as_sequential() {
+        let scene = heavy_scene();
+        let options = SvgOptions {
+            id_prefix: Some("t".into()),
+            zoomable: false,
+        };
+        let parallel = to_svg_with(&scene, &options);
+        let mut writer = SvgWriter {
+            output: String::new(),
+            id_prefix: "t".into(),
+            id_positions: Vec::new(),
+            clip_count: 0,
+            clip_box: ClipBox::for_scene(scene.width, scene.height),
+            zoomable: false,
+            canvas: None,
+        };
+        writer.open(scene.width, scene.height);
+        for node in &scene.nodes {
+            writer.node(node);
+        }
+        writer.raw("</svg>\n");
+        assert_eq!(parallel, writer.output);
+        for number in 0..6 {
+            assert_eq!(parallel.matches(&format!("t-clip{number}")).count(), 2);
+        }
+        // Hashed prefixes land on every recorded id position.
+        let hashed = to_svg(&scene);
+        assert!(!hashed.contains(&"g".repeat(HASH_PREFIX_LENGTH)));
+        assert_eq!(hashed.matches("-clip").count(), 12);
+    }
 
     #[test]
     fn base64_pads_like_rfc_4648() {

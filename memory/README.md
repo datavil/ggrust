@@ -40,3 +40,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Repel follows lets-plot's force layout](letsplot_repel.md): exact LabelForceLayout port (1e-6 with lets-plot widths), font widths cause the visible differences, nudge moves labels not segment starts.
 - [geom_imshow and export sizes follow lets-plot](letsplot_imshow_and_export.md): fast Rust-encoded imshow href (pixels, not bytes, match) kept encoded in SVG, L* grey mapper, style label format/lablim, measured scale/dpi/unit rules, dependency-free raster PDF.
 - [Profiling on macOS](profiling_macos.md): `sample` + inferno (no root), v0 symbols need llvm-cxxfilt per frame, drop sleeping and polars threads, never name a script profile.py.
+- [Rayon parallel levels: gated, ordered](rayon_parallel_levels.md): `parallel::ordered_map` + 10k-row gate (pool wake ~50 us), results consumed in order, outputs byte-identical, PNG left to 6.1c/6.1f.

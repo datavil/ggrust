@@ -11,6 +11,7 @@ pub mod facet;
 pub mod geom;
 pub mod grid;
 pub mod layout;
+pub mod parallel;
 pub mod parameters;
 pub mod position;
 pub mod render;

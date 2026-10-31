@@ -11,10 +11,12 @@
 
 mod color;
 mod color_names;
+mod encoded_png;
 pub mod geometry;
 mod marker;
 
 pub use color::Color;
+pub use encoded_png::EncodedPng;
 pub use marker::{MarkerPart, MarkerShape, MarkerStyle};
 
 use crate::text::Font;
@@ -294,16 +296,90 @@ pub struct Image {
     pub columns: u32,
     /// Number of rows.
     pub rows: u32,
+    /// The pixels, as drawn (top row first).
+    pub bitmap: Bitmap,
+}
+
+/// The pixels of an [`Image`].
+#[derive(Debug, Clone, PartialEq)]
+pub enum Bitmap {
     /// Row-major colors, top row first; transparent where nothing is drawn.
-    pub pixels: Vec<Color>,
+    Pixels(Vec<Color>),
+    /// A PNG kept encoded (SVG embeds it as is), drawn turned by `orientation`.
+    Png {
+        /// The image as given.
+        png: EncodedPng,
+        /// How the PNG's pixels map onto the drawn `columns` x `rows`.
+        orientation: Orientation,
+    },
+}
+
+/// How an image's own pixel grid lies on screen: transposed (its columns run
+/// down), then mirrored along the screen axes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct Orientation {
+    /// Image columns run vertically, image rows horizontally.
+    pub transposed: bool,
+    /// Mirrored left to right (on screen).
+    pub mirror_horizontal: bool,
+    /// Mirrored top to bottom (on screen).
+    pub mirror_vertical: bool,
+}
+
+impl Orientation {
+    /// The screen size (columns, rows) of an image of `columns` x `rows` pixels.
+    pub fn screen_size(self, columns: u32, rows: u32) -> (u32, u32) {
+        if self.transposed {
+            (rows, columns)
+        } else {
+            (columns, rows)
+        }
+    }
+
+    /// The row-major screen pixels of an image's row-major `pixels`.
+    pub fn apply(self, pixels: &[Color], columns: usize, rows: usize) -> Vec<Color> {
+        if self == Orientation::default() {
+            return pixels.to_vec();
+        }
+        let (screen_columns, screen_rows) = if self.transposed {
+            (rows, columns)
+        } else {
+            (columns, rows)
+        };
+        let mut screen = vec![Color::TRANSPARENT; screen_columns * screen_rows];
+        for row in 0..rows {
+            for column in 0..columns {
+                let (mut horizontal, mut vertical) = if self.transposed {
+                    (row, column)
+                } else {
+                    (column, row)
+                };
+                if self.mirror_horizontal {
+                    horizontal = screen_columns - 1 - horizontal;
+                }
+                if self.mirror_vertical {
+                    vertical = screen_rows - 1 - vertical;
+                }
+                if let Some(&color) = pixels.get(row * columns + column) {
+                    screen[vertical * screen_columns + horizontal] = color;
+                }
+            }
+        }
+        screen
+    }
 }
 
 impl Image {
     /// Whether the bitmap is non-empty and has `columns` x `rows` pixels.
     pub fn is_consistent(&self) -> bool {
-        self.columns > 0
-            && self.rows > 0
-            && self.pixels.len() as u64 == u64::from(self.columns) * u64::from(self.rows)
+        let count = u64::from(self.columns) * u64::from(self.rows);
+        count > 0
+            && match &self.bitmap {
+                Bitmap::Pixels(pixels) => pixels.len() as u64 == count,
+                Bitmap::Png { png, orientation } => {
+                    orientation.screen_size(png.columns(), png.rows()) == (self.columns, self.rows)
+                }
+            }
     }
 }
 

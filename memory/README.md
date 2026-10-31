@@ -38,4 +38,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Zoom/pan follows lets-plot via coord limits](html_zoom.md): JS breaks ported from Rust and tested against it, SVG templates stamped at new breaks, anchored marks, `g.tile` order, toolbar svg trap.
 - [Canvas points: placeholder + quarter-pixel sprites](html_canvas_points.md): dense batches as foreignObject canvas in HTML, Rust marker parts, sprites at quarter pixels, cull before quantizing.
 - [Repel follows lets-plot's force layout](letsplot_repel.md): exact LabelForceLayout port (1e-6 with lets-plot widths), font widths cause the visible differences, nudge moves labels not segment starts.
-- [geom_imshow and export sizes follow lets-plot](letsplot_imshow_and_export.md): spec-identical imshow href, L* grey mapper, measured scale/dpi/unit rules, dependency-free raster PDF.
+- [geom_imshow and export sizes follow lets-plot](letsplot_imshow_and_export.md): spec-identical imshow href kept encoded in SVG, L* grey mapper, style label format/lablim, measured scale/dpi/unit rules, dependency-free raster PDF.

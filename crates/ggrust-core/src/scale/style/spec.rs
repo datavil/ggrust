@@ -16,6 +16,7 @@ use super::{
     scheme_by_name, scheme_names,
 };
 use crate::scale::Transform;
+use crate::scale::label_pattern::LabelPattern;
 use crate::scene::{Color, PerItem};
 use crate::spec::{Aesthetic, GuideSpec, PlotSpec, ScaleSpec, Value};
 use crate::style::{StyleValues, ValueKind, parse_constant};
@@ -50,6 +51,9 @@ const MAPPER_OPTIONS: &[&str] = &[
     "max_size",
 ];
 
+/// The `parameters` key of `lablim=...`.
+const LABEL_LIMIT: &str = "lablim";
+
 /// Merged `scale_*()` options of one style aesthetic.
 #[derive(Debug, Clone, Default)]
 pub struct StyleScaleSpec {
@@ -62,6 +66,10 @@ pub struct StyleScaleSpec {
     kind: Set<String>,
     trans: Set<String>,
     guide: Set<GuideSpec>,
+    /// `format=...`, parsed (an unsupported pattern is reported and dropped).
+    format: Option<LabelPattern>,
+    /// `lablim=...`: discrete labels longer than this are cut (0: no limit).
+    label_limit: Option<usize>,
     options: BTreeMap<String, (Value, String)>,
 }
 
@@ -78,15 +86,33 @@ pub fn style_scale_specs(
             if default_mapper(aesthetic).is_none() {
                 continue; // position scales, or reported by `position_scales`
             }
-            merge(merged.entry(aesthetic).or_default(), scale, &path);
+            merge(merged.entry(aesthetic).or_default(), scale, &path, warnings);
             report_unbuilt(scale, &path, warnings);
         }
     }
     merged
 }
 
-fn merge(target: &mut StyleScaleSpec, scale: &ScaleSpec, path: &str) {
+fn merge(target: &mut StyleScaleSpec, scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
     let at = |key: &str| format!("{path}.{key}");
+    if let Some(format) = &scale.format {
+        // A later call wins even when its pattern is not supported (lets-plot).
+        target.format = LabelPattern::parse(format)
+            .map_err(|message| warnings.push(format!("at '{}': {message}; ignored", at("format"))))
+            .ok();
+    }
+    match scale.parameters.get(LABEL_LIMIT) {
+        None | Some(Value::Null) => {}
+        // lets-plot truncates fractions (2.5 -> 2); 0 and below mean no limit.
+        Some(Value::Number(number)) if number.as_f64().is_some_and(f64::is_finite) => {
+            let limit = number.as_f64().unwrap_or_default().trunc();
+            target.label_limit = (limit >= 1.0).then_some(limit as usize);
+        }
+        Some(other) => warnings.push(format!(
+            "at '{}': expected a number of characters (e.g. lablim=10), got {other}; ignored",
+            at(LABEL_LIMIT)
+        )),
+    }
     if let Some(name) = &scale.name {
         target.name = Some(name.clone());
     }
@@ -121,7 +147,6 @@ fn merge(target: &mut StyleScaleSpec, scale: &ScaleSpec, path: &str) {
 /// Warn about options of a style scale that are parsed but not built yet.
 fn report_unbuilt(scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
     let present = [
-        ("format", scale.format.is_some()),
         (
             "guide",
             scale
@@ -138,7 +163,7 @@ fn report_unbuilt(scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
         warnings.push(format!("at '{path}.{key}': not supported yet; ignored"));
     }
     for (key, value) in &scale.parameters {
-        if !MAPPER_OPTIONS.contains(&key.as_str()) && !value.is_null() {
+        if !MAPPER_OPTIONS.contains(&key.as_str()) && key != LABEL_LIMIT && !value.is_null() {
             warnings.push(format!("at '{path}.{key}': not supported yet; ignored"));
         }
     }
@@ -323,6 +348,8 @@ impl StyleScaleSpec {
             breaks: levels(&self.breaks),
             limits: levels(&self.limits).filter(|limits| !limits.is_empty()),
             labels,
+            format: self.format.clone(),
+            label_limit: self.label_limit.filter(|&limit| limit > 0),
         })
     }
 
@@ -365,6 +392,7 @@ impl StyleScaleSpec {
             }
             domain.breaks = Some(values);
         }
+        domain.format = self.format.clone();
         domain.labels = self
             .discrete_domain()
             .map_err(|error| error.to_string())?

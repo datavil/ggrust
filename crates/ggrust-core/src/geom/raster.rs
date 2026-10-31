@@ -14,7 +14,7 @@ use super::{DrawLayer, Geom};
 use crate::coord::Panel;
 use crate::data::{Column, ContinuousColumn, LayerData};
 use crate::parameters::Parameters;
-use crate::scene::{Color, Image, Node, PerItem, Rect, Rects};
+use crate::scene::{Bitmap, Color, Image, Node, PerItem, Rect, Rects};
 use crate::spec::Aesthetic;
 use crate::style::{StyleDefault, Styles};
 use crate::{Error, Result};
@@ -174,7 +174,7 @@ impl Geom for RasterGeom {
             rect,
             columns: screen_columns as u32,
             rows: screen_rows as u32,
-            pixels,
+            bitmap: Bitmap::Pixels(pixels),
         })])
     }
 

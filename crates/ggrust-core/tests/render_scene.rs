@@ -11,8 +11,8 @@ use std::path::{Path as FilePath, PathBuf};
 
 use ggrust_core::render::{SvgOptions, svg_to_png, to_png, to_svg_with};
 use ggrust_core::scene::{
-    Color, Group, HorizontalAlign, Image, MarkerShape, Node, Path, PerItem, Points, Rect, Rects,
-    Scene, Stroke, Text, VerticalAlign,
+    Bitmap, Color, EncodedPng, Group, HorizontalAlign, Image, MarkerShape, Node, Orientation, Path,
+    PerItem, Points, Rect, Rects, Scene, Stroke, Text, VerticalAlign,
 };
 use ggrust_core::text::{FontFace, measure};
 use resvg::tiny_skia::Pixmap;
@@ -375,7 +375,7 @@ fn images_are_drawn_cell_by_cell_without_smoothing() {
             },
             columns: 2,
             rows: 2,
-            pixels,
+            bitmap: Bitmap::Pixels(pixels),
         })],
     };
     scene.validate().unwrap();
@@ -399,4 +399,108 @@ fn images_are_drawn_cell_by_cell_without_smoothing() {
         svg.contains("href=\"data:image/png;base64,iVBORw0KGgo"),
         "{svg}"
     );
+}
+
+#[test]
+fn encoded_png_images_draw_like_their_pixels_and_embed_as_given() {
+    let pixels = vec![
+        Color::rgb(255, 0, 0),
+        Color::TRANSPARENT,
+        Color {
+            red: 0,
+            green: 0,
+            blue: 255,
+            alpha: 100,
+        },
+        Color::rgb(0, 128, 0),
+    ];
+    let scene = |bitmap: Bitmap| Scene {
+        width: 60.0,
+        height: 40.0,
+        background: Some(Color::WHITE),
+        nodes: vec![Node::Image(Image {
+            rect: Rect {
+                x: 10.0,
+                y: 10.0,
+                width: 40.0,
+                height: 20.0,
+            },
+            columns: 2,
+            rows: 2,
+            bitmap,
+        })],
+    };
+    let direct = scene(Bitmap::Pixels(pixels.clone()));
+    let svg = to_svg_with(&direct, &SvgOptions::default());
+    let start = svg.find("base64,").unwrap() + "base64,".len();
+    let base64 = &svg[start..start + svg[start..].find('"').unwrap()];
+    let png = EncodedPng::new(base64.into()).unwrap();
+    assert_eq!(png.decode().unwrap(), pixels);
+
+    let encoded = scene(Bitmap::Png {
+        png: png.clone(),
+        orientation: Orientation::default(),
+    });
+    encoded.validate().unwrap();
+    assert_eq!(
+        to_png(&encoded, 2.0).unwrap(),
+        to_png(&direct, 2.0).unwrap()
+    );
+    assert_eq!(to_svg_with(&encoded, &SvgOptions::default()), svg);
+
+    // Turned images: the direct PNG shows the turned pixels, and the SVG matrix
+    // puts each PNG pixel's centre where the direct PNG shows that pixel.
+    for transposed in [false, true] {
+        for mirror_horizontal in [false, true] {
+            for mirror_vertical in [false, true] {
+                let orientation = Orientation {
+                    transposed,
+                    mirror_horizontal,
+                    mirror_vertical,
+                };
+                let turned = scene(Bitmap::Png {
+                    png: png.clone(),
+                    orientation,
+                });
+                let expected = scene(Bitmap::Pixels(orientation.apply(&pixels, 2, 2)));
+                turned.validate().unwrap();
+                let direct = to_png(&expected, 2.0).unwrap();
+                assert_eq!(to_png(&turned, 2.0).unwrap(), direct);
+                let direct = Pixmap::decode_png(&direct).unwrap();
+                let turned_svg = to_svg_with(&turned, &SvgOptions::default());
+                let matrix: Vec<f64> = if orientation == Orientation::default() {
+                    vec![40.0, 0.0, 0.0, 20.0, 10.0, 10.0]
+                } else {
+                    let start = turned_svg.find("matrix(").unwrap() + "matrix(".len();
+                    let end = start + turned_svg[start..].find(')').unwrap();
+                    turned_svg[start..end]
+                        .split(' ')
+                        .map(|value| value.parse().unwrap())
+                        .collect()
+                };
+                for (index, color) in pixels.iter().enumerate() {
+                    let (u, v) = (
+                        (index % 2) as f64 * 0.5 + 0.25,
+                        (index / 2) as f64 * 0.5 + 0.25,
+                    );
+                    let x = matrix[0] * u + matrix[2] * v + matrix[4];
+                    let y = matrix[1] * u + matrix[3] * v + matrix[5];
+                    let shown = pixel(&direct, x, y);
+                    let want = if color.alpha == 0 {
+                        [255, 255, 255, 255]
+                    } else {
+                        shown
+                    };
+                    assert_eq!(shown, want, "{orientation:?} pixel {index}: {turned_svg}");
+                    if color.alpha == 255 {
+                        assert_eq!(
+                            shown,
+                            [color.red, color.green, color.blue, 255],
+                            "{orientation:?} pixel {index}: {turned_svg}"
+                        );
+                    }
+                }
+            }
+        }
+    }
 }

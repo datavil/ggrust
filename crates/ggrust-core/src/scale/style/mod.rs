@@ -43,6 +43,7 @@ pub use shape::{ALL_SHAPES, HIDDEN_SHAPE, HOLLOW_SHAPES, NA_SHAPE, ShapeMapper};
 
 use super::breaks::linear_breaks;
 use super::format::{Label, format_breaks};
+use super::label_pattern::{LabelPattern, PatternValue};
 use super::{ContinuousPositionScale, Transform};
 use crate::data::{Column, ContinuousColumn};
 use crate::spec::{Aesthetic, Value};
@@ -179,6 +180,11 @@ pub struct DiscreteDomain {
     pub limits: Option<Vec<Level>>,
     /// Legend labels, aligned with `breaks` (or the domain).
     pub labels: Option<Vec<String>>,
+    /// `format=...` for categories without a given label.
+    pub format: Option<LabelPattern>,
+    /// `lablim=...`: labels longer than this many characters are cut to it plus
+    /// `...` (lets-plot applies it to discrete scales only).
+    pub label_limit: Option<usize>,
 }
 
 /// Continuous domain options from `scale_*()`: numeric `limits`, `breaks`, `labels`.
@@ -192,6 +198,8 @@ pub struct ContinuousDomain {
     pub labels: Option<Vec<String>>,
     /// `trans=...`: values are mapped (and breaks generated) in transformed units.
     pub transform: Transform,
+    /// `format=...` for break labels not given in `labels`.
+    pub format: Option<LabelPattern>,
 }
 
 /// Breaks of a continuous style scale, for a colorbar or a legend.
@@ -517,6 +525,14 @@ impl StyleScale {
         // else about 5 generated as on an axis (lets-plot
         // `TransformedDomainBreaksGenerator`): linear in data units for linear
         // transforms, else linear in transformed units, labelled one by one.
+        let format = options.and_then(|options| options.format.as_ref());
+        let labelled = |values: &[f64], default: Vec<Label>| match format {
+            Some(format) => values
+                .iter()
+                .map(|&value| format.format(PatternValue::Number(value)))
+                .collect(),
+            None => default,
+        };
         let (positions, mut labels): (Vec<f64>, Vec<Label>) =
             match options.and_then(|options| options.breaks.as_ref()) {
                 Some(breaks) => {
@@ -529,17 +545,18 @@ impl StyleScale {
                         .iter()
                         .filter_map(|value| transform.apply(*value))
                         .collect();
-                    (positions, format_breaks(&kept))
+                    (positions, labelled(&kept, format_breaks(&kept)))
                 }
                 None if transform == Transform::Identity => {
                     let values = linear_breaks(domain.0, domain.1, 5);
-                    let labels = format_breaks(&values);
+                    let labels = labelled(&values, format_breaks(&values));
                     (values, labels)
                 }
                 None => {
                     let mut axis = ContinuousPositionScale::default();
                     axis.transform = transform;
                     axis.multiplicative_expand = 0.0;
+                    axis.format = format.cloned();
                     axis.train_range(domain.0, domain.1);
                     let breaks = axis.breaks(5);
                     (breaks.positions, breaks.labels)
@@ -592,6 +609,18 @@ impl StyleScale {
         self.discrete_legend_entries()
     }
 
+    /// A category's label without a given one: `format` (numbers formatted as
+    /// numbers), else the category itself.
+    fn category_label(&self, level: &Level) -> Label {
+        match (&self.domain.format, level) {
+            (None, _) => Label::plain(level.label()),
+            (Some(format), Level::Number(bits)) => {
+                format.format(PatternValue::Number(f64::from_bits(*bits)))
+            }
+            (Some(format), Level::Text(text)) => format.format(PatternValue::Text(text)),
+        }
+    }
+
     /// Legend entries of a discrete scale (lets-plot `DiscreteScale.createScaleBreaks`):
     /// the effective domain filtered by `breaks`, labelled by `labels`. `None` for a
     /// continuous scale.
@@ -611,8 +640,11 @@ impl StyleScale {
             }
             None => domain.iter().enumerate().collect(),
         };
-        let labels: Vec<String> = match (&self.domain.labels, &self.domain.breaks) {
-            (None, _) => breaks.iter().map(|(_, level)| level.label()).collect(),
+        let labels: Vec<Label> = match (&self.domain.labels, &self.domain.breaks) {
+            (None, _) => breaks
+                .iter()
+                .map(|(_, level)| self.category_label(level))
+                .collect(),
             (Some(labels), Some(provided)) if self.domain.limits.is_some() => {
                 // Labels belong to the provided breaks, reordered by the limits.
                 let by_break: HashMap<&Level, &String> = provided
@@ -622,13 +654,17 @@ impl StyleScale {
                 breaks
                     .iter()
                     .map(|(_, level)| {
-                        by_break
-                            .get(level)
-                            .map_or(String::new(), |label| (*label).clone())
+                        Label::plain(
+                            by_break
+                                .get(level)
+                                .map_or(String::new(), |label| (*label).clone()),
+                        )
                     })
                     .collect()
             }
-            (Some(labels), _) => align_labels(breaks.len(), labels).cloned().collect(),
+            (Some(labels), _) => align_labels(breaks.len(), labels)
+                .map(|label| Label::plain(label.clone()))
+                .collect(),
         };
         let indices: Vec<Option<usize>> = breaks.iter().map(|(index, _)| Some(*index)).collect();
         let values = self.mapper.map_levels(&indices, domain).ok()?;
@@ -637,12 +673,23 @@ impl StyleScale {
                 .into_iter()
                 .enumerate()
                 .map(|(item, label)| LegendEntry {
-                    label: Label::plain(label),
+                    label: cut_label(label, self.domain.label_limit),
                     value: single(&values, item),
                 })
                 .collect(),
         )
     }
+}
+
+/// A label's text cut to `limit` characters plus `...` when longer (lets-plot
+/// `lablim`).
+fn cut_label(mut label: Label, limit: Option<usize>) -> Label {
+    if let Some(limit) = limit
+        && label.text.chars().count() > limit
+    {
+        label.text = label.text.chars().take(limit).collect::<String>() + "...";
+    }
+    label
 }
 
 /// lets-plot `alignLablesAndBreaks`: as many labels as breaks, missing ones empty.
@@ -768,6 +815,7 @@ mod tests {
                 limits: Some(texts(&["c", "a", "b"])),
                 breaks: Some(texts(&["b", "c"])),
                 labels: Some(vec!["BB".into(), "CC".into()]),
+                ..DiscreteDomain::default()
             },
         );
         limited.train(&data).unwrap();
@@ -804,6 +852,60 @@ mod tests {
         };
         let palette = discrete_palette(4);
         assert_eq!(colors, [palette[2], palette[3], palette[2], NA_COLOR]);
+    }
+
+    #[test]
+    fn discrete_labels_are_formatted_then_cut() {
+        let numbers = Column::Continuous(ContinuousColumn::from_values(vec![1.5, 30.25]));
+        let labels = |format: &str, label_limit: Option<usize>| -> Vec<String> {
+            let mut scale = StyleScale::discrete(
+                default_mapper(Aesthetic::Color).unwrap(),
+                DiscreteDomain {
+                    format: Some(LabelPattern::parse(format).unwrap()),
+                    label_limit,
+                    ..DiscreteDomain::default()
+                },
+            );
+            scale.train(&strings(vec!["alphabet"])).unwrap();
+            scale.train(&numbers).unwrap();
+            let entries = scale.legend_entries().unwrap();
+            entries.into_iter().map(|entry| entry.label.text).collect()
+        };
+        // Numeric categories format as numbers, texts as texts (lets-plot).
+        assert_eq!(labels(".2f", None), ["alphabet", "1.50", "30.25"]);
+        assert_eq!(labels("<{}>", Some(3)), ["<al...", "<1....", "<30..."]);
+        assert_eq!(cut_label(Label::plain("abc"), Some(3)).text, "abc");
+    }
+
+    #[test]
+    fn continuous_labels_follow_format_unless_given() {
+        let mut scale = StyleScale::new(
+            default_mapper(Aesthetic::Color).unwrap(),
+            DiscreteDomain::default(),
+        );
+        scale.continuous = Ok(ContinuousDomain {
+            breaks: Some(vec![1200.0, 2800.0]),
+            format: Some(LabelPattern::parse("{d}$").unwrap()),
+            ..ContinuousDomain::default()
+        });
+        scale
+            .train(&Column::Continuous(ContinuousColumn::from_values(vec![
+                1000.0, 3000.0,
+            ])))
+            .unwrap();
+        let texts = |scale: &StyleScale| -> Vec<String> {
+            let guide = scale.continuous_guide().unwrap();
+            guide
+                .breaks
+                .into_iter()
+                .map(|(_, label)| label.text)
+                .collect()
+        };
+        assert_eq!(texts(&scale), ["1200$", "2800$"]);
+        if let Ok(domain) = &mut scale.continuous {
+            domain.labels = Some(vec!["low".into()]);
+        }
+        assert_eq!(texts(&scale), ["low", ""]);
     }
 
     #[test]

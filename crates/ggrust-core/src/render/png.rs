@@ -18,7 +18,7 @@ use crate::scene::geometry::{
     ClipBox, is_drawable_marker, is_drawable_rect, is_drawable_stroke, is_drawable_width,
 };
 use crate::scene::{
-    Color, Group, Image, MarkerPart, Node, Path, Points, Rect, Rects, Scene, Stroke, Text,
+    Bitmap, Color, Group, Image, MarkerPart, Node, Path, Points, Rect, Rects, Scene, Stroke, Text,
 };
 use crate::text::{FONT_FAMILY, Font, MONO_FONT_FAMILY};
 use crate::{Error, Result};
@@ -103,21 +103,38 @@ fn new_pixmap(width: f64, height: f64, scale: f64) -> Result<Pixmap> {
 }
 
 /// The bitmap of an [`Image`] (`None` if it is inconsistent).
-fn image_pixmap(image: &Image) -> Option<Pixmap> {
+fn image_pixmap(image: &Image) -> Result<Option<Pixmap>> {
     if !image.is_consistent() {
-        return None;
+        return Ok(None);
     }
-    let mut pixmap = Pixmap::new(image.columns, image.rows)?;
-    for (pixel, color) in pixmap.pixels_mut().iter_mut().zip(&image.pixels) {
+    let decoded;
+    let pixels = match &image.bitmap {
+        Bitmap::Pixels(pixels) => pixels,
+        Bitmap::Png { png, orientation } => {
+            let pixels = png.decode().map_err(|reason| {
+                Error::Render(format!("could not draw an embedded image: {reason}"))
+            })?;
+            decoded = orientation.apply(&pixels, png.columns() as usize, png.rows() as usize);
+            &decoded
+        }
+    };
+    let Some(mut pixmap) = Pixmap::new(image.columns, image.rows) else {
+        return Ok(None);
+    };
+    for (pixel, color) in pixmap.pixels_mut().iter_mut().zip(pixels) {
         *pixel = tiny_skia::ColorU8::from_rgba(color.red, color.green, color.blue, color.alpha)
             .premultiply();
     }
-    Some(pixmap)
+    Ok(Some(pixmap))
 }
 
 /// An [`Image`]'s bitmap as straight-alpha RGBA PNG bytes, for the SVG writer
-/// (no premultiplied round trip, which would shift faint colors).
+/// (no premultiplied round trip, which would shift faint colors). Only for
+/// [`Bitmap::Pixels`]: an encoded PNG is embedded as given.
 pub(super) fn image_png(image: &Image) -> Option<Vec<u8>> {
+    let Bitmap::Pixels(pixels) = &image.bitmap else {
+        return None;
+    };
     if !image.is_consistent() {
         return None;
     }
@@ -125,8 +142,7 @@ pub(super) fn image_png(image: &Image) -> Option<Vec<u8>> {
     let mut encoder = ::png::Encoder::new(&mut bytes, image.columns, image.rows);
     encoder.set_color(::png::ColorType::Rgba);
     encoder.set_depth(::png::BitDepth::Eight);
-    let data: Vec<u8> = image
-        .pixels
+    let data: Vec<u8> = pixels
         .iter()
         .flat_map(|color| [color.red, color.green, color.blue, color.alpha])
         .collect();
@@ -228,7 +244,7 @@ impl Canvas {
                 Node::Points(points) => self.points(points, mask),
                 Node::Path(path) => self.path(path, mask),
                 Node::Rects(rects) => self.rects(rects, mask),
-                Node::Image(image) => self.image(image, mask),
+                Node::Image(image) => self.image(image, mask)?,
                 Node::Text(_) => {}
             }
         }
@@ -394,15 +410,18 @@ impl Canvas {
         }
     }
 
-    fn image(&mut self, image: &Image, mask: Option<&Mask>) {
+    fn image(&mut self, image: &Image, mask: Option<&Mask>) -> Result<()> {
         let rect = image.rect;
         let drawable = [rect.x, rect.y, rect.width, rect.height]
             .iter()
             .all(|value| value.is_finite())
             && rect.width > 0.0
             && rect.height > 0.0;
-        let Some(bitmap) = image_pixmap(image).filter(|_| drawable) else {
-            return;
+        if !drawable {
+            return Ok(());
+        }
+        let Some(bitmap) = image_pixmap(image)? else {
+            return Ok(());
         };
         let transform = self
             .transform
@@ -417,6 +436,7 @@ impl Canvas {
         };
         self.pixmap
             .draw_pixmap(0, 0, bitmap.as_ref(), &paint, transform, mask);
+        Ok(())
     }
 
     fn stroke(&mut self, geometry: &tiny_skia::Path, stroke: &Stroke, mask: Option<&Mask>) {

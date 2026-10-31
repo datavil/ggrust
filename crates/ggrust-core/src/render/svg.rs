@@ -14,8 +14,8 @@ use super::canvas;
 
 use crate::scene::geometry::{ClipBox, is_drawable_marker, is_drawable_stroke, is_drawable_width};
 use crate::scene::{
-    Color, Group, HorizontalAlign, Image, MarkerPart, Node, Path, PerItem, Points, Rect, Rects,
-    SUPERSCRIPT_RISE, SUPERSCRIPT_SCALE, Scene, Stroke, Text, VerticalAlign,
+    Bitmap, Color, Group, HorizontalAlign, Image, MarkerPart, Node, Orientation, Path, PerItem,
+    Points, Rect, Rects, SUPERSCRIPT_RISE, SUPERSCRIPT_SCALE, Scene, Stroke, Text, VerticalAlign,
 };
 use crate::text::{CSS_FONT_FAMILY, FontFamily, measure, single_line};
 
@@ -431,17 +431,58 @@ impl SvgWriter {
             .all(|value| value.is_finite())
             && rect.width > 0.0
             && rect.height > 0.0;
-        let Some(png) = super::png::image_png(image).filter(|_| drawable) else {
+        if !drawable || !image.is_consistent() {
             return;
+        }
+        let encoded = match &image.bitmap {
+            Bitmap::Png { .. } => None,
+            Bitmap::Pixels(_) => match super::png::image_png(image) {
+                Some(png) => Some(png),
+                None => return,
+            },
         };
         self.raw("<image preserveAspectRatio=\"none\"");
-        self.attribute_number("x", rect.x);
-        self.attribute_number("y", rect.y);
-        self.attribute_number("width", rect.width);
-        self.attribute_number("height", rect.height);
+        match &image.bitmap {
+            Bitmap::Png { orientation, .. } if *orientation != Orientation::default() => {
+                // The PNG spans the unit square; the matrix turns (u, v), the
+                // fractions along its columns and rows, onto `rect`.
+                let along = |mirrored: bool, start: f64, length: f64| {
+                    if mirrored {
+                        (-length, start + length)
+                    } else {
+                        (length, start)
+                    }
+                };
+                let (horizontal, x) = along(orientation.mirror_horizontal, rect.x, rect.width);
+                let (vertical, y) = along(orientation.mirror_vertical, rect.y, rect.height);
+                let [a, b, c, d] = if orientation.transposed {
+                    [0.0, vertical, horizontal, 0.0]
+                } else {
+                    [horizontal, 0.0, 0.0, vertical]
+                };
+                self.raw(" x=\"0\" y=\"0\" width=\"1\" height=\"1\" transform=\"matrix(");
+                for (index, value) in [a, b, c, d, x, y].into_iter().enumerate() {
+                    if index > 0 {
+                        self.output.push(' ');
+                    }
+                    let _ = write!(self.output, "{}", value as f32);
+                }
+                self.raw(")\"");
+            }
+            _ => {
+                self.attribute_number("x", rect.x);
+                self.attribute_number("y", rect.y);
+                self.attribute_number("width", rect.width);
+                self.attribute_number("height", rect.height);
+            }
+        }
         self.raw(" style=\"image-rendering: optimizeSpeed; image-rendering: pixelated\"");
         self.raw(" href=\"data:image/png;base64,");
-        push_base64(&mut self.output, &png);
+        match (&image.bitmap, encoded) {
+            (Bitmap::Png { png, .. }, _) => self.output.push_str(png.base64()),
+            (_, Some(png)) => push_base64(&mut self.output, &png),
+            (_, None) => {}
+        }
         self.raw("\"/>\n");
     }
 

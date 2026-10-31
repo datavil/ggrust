@@ -454,6 +454,7 @@ dependencies = [
  "arrow-cast",
  "arrow-schema",
  "arrow-select",
+ "crc32fast",
  "harfrust",
  "png",
  "rayon",

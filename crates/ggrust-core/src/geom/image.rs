@@ -6,6 +6,9 @@
 //! `coord_flip` the bitmap is transposed and reversed axes mirror it, so each
 //! pixel stays at its data position (as `geom_raster`).
 //!
+//! The PNG stays encoded in the scene with its orientation: SVG embeds it as
+//! given (a transform turns it), raster outputs decode it.
+//!
 //! What it does not do: image formats other than PNG, `href` URLs that are not
 //! `data:image/png;base64,...`, a legend key (the `paint_c` colorbar comes from
 //! the color scale, the layer itself draws no key).
@@ -13,7 +16,7 @@
 use super::{DrawLayer, Geom};
 use crate::coord::Panel;
 use crate::parameters::Parameters;
-use crate::scene::{Color, Image, Node, Rect};
+use crate::scene::{Bitmap, Color, EncodedPng, Image, Node, Orientation, Rect};
 use crate::spec::Aesthetic;
 use crate::style::{StyleDefault, Styles};
 use crate::{Error, Result};
@@ -89,7 +92,7 @@ impl Geom for ImageGeom {
         if !(x0.is_finite() && x1.is_finite() && y0.is_finite() && y1.is_finite()) {
             return Ok(Vec::new());
         }
-        let (columns, rows, pixels) = decode_href(&layer.parameters)?;
+        let png = encoded_href(&layer.parameters)?;
 
         // Pixel corners of the image's top-left (xmin, ymax) and bottom-right
         // (xmax, ymin); data x may run vertically (coord_flip), axes may be reversed.
@@ -101,36 +104,18 @@ impl Geom for ImageGeom {
             width: (top_left.0 - bottom_right.0).abs(),
             height: (top_left.1 - bottom_right.1).abs(),
         };
-        let (screen_columns, screen_rows) = if panel.flipped {
-            (rows, columns)
-        } else {
-            (columns, rows)
+        // Image column runs along data x, image row along data y (top down).
+        let orientation = Orientation {
+            transposed: panel.flipped,
+            mirror_horizontal: bottom_right.0 < top_left.0,
+            mirror_vertical: bottom_right.1 < top_left.1,
         };
-        let mirror_horizontal = bottom_right.0 < top_left.0;
-        let mirror_vertical = bottom_right.1 < top_left.1;
-        let mut screen = vec![Color::TRANSPARENT; screen_columns * screen_rows];
-        for row in 0..rows {
-            for column in 0..columns {
-                // Image column runs along data x, image row along data y (top down).
-                let (mut horizontal, mut vertical) = if panel.flipped {
-                    (row, column)
-                } else {
-                    (column, row)
-                };
-                if mirror_horizontal {
-                    horizontal = screen_columns - 1 - horizontal;
-                }
-                if mirror_vertical {
-                    vertical = screen_rows - 1 - vertical;
-                }
-                screen[vertical * screen_columns + horizontal] = pixels[row * columns + column];
-            }
-        }
+        let (columns, rows) = orientation.screen_size(png.columns(), png.rows());
         Ok(vec![Node::Image(Image {
             rect,
-            columns: screen_columns as u32,
-            rows: screen_rows as u32,
-            pixels: screen,
+            columns,
+            rows,
+            bitmap: Bitmap::Png { png, orientation },
         })])
     }
 
@@ -143,8 +128,8 @@ impl Geom for ImageGeom {
     }
 }
 
-/// The layer's `href` as (columns, rows, row-major straight-alpha colors).
-fn decode_href(parameters: &Parameters) -> Result<(usize, usize, Vec<Color>)> {
+/// The layer's `href` PNG, still encoded (its header checked).
+fn encoded_href(parameters: &Parameters) -> Result<EncodedPng> {
     let path = parameters.path_of("href");
     let Some(href) = parameters.string("href")? else {
         return Err(Error::InvalidSpec(format!(
@@ -159,94 +144,6 @@ fn decode_href(parameters: &Parameters) -> Result<(usize, usize, Vec<Color>)> {
              ggrust reads embedded PNG images only (as geom_imshow() writes them)"
         )));
     };
-    let invalid = |reason: String| Error::InvalidSpec(format!("at '{path}': {reason}"));
-    let bytes = decode_base64(encoded).ok_or_else(|| invalid("invalid base64 data".into()))?;
-    let mut decoder = png::Decoder::new(std::io::Cursor::new(bytes));
-    decoder.set_transformations(png::Transformations::normalize_to_color8());
-    let mut reader = decoder
-        .read_info()
-        .map_err(|error| invalid(format!("invalid PNG image: {error}")))?;
-    let mut buffer = vec![
-        0;
-        reader
-            .output_buffer_size()
-            .ok_or_else(|| { invalid("the PNG image is too large".into()) })?
-    ];
-    let info = reader
-        .next_frame(&mut buffer)
-        .map_err(|error| invalid(format!("invalid PNG image: {error}")))?;
-    let (columns, rows) = (info.width as usize, info.height as usize);
-    let channels = info.color_type.samples();
-    let pixels = buffer[..info.buffer_size()]
-        .chunks_exact(channels)
-        .map(|sample| match (info.color_type, sample) {
-            (png::ColorType::Rgba, &[red, green, blue, alpha]) => Color {
-                red,
-                green,
-                blue,
-                alpha,
-            },
-            (png::ColorType::Rgb, &[red, green, blue]) => Color::rgb(red, green, blue),
-            (png::ColorType::GrayscaleAlpha, &[grey, alpha]) => Color {
-                red: grey,
-                green: grey,
-                blue: grey,
-                alpha,
-            },
-            (_, &[grey, ..]) => Color::rgb(grey, grey, grey),
-            _ => Color::TRANSPARENT,
-        })
-        .collect::<Vec<_>>();
-    if columns == 0 || rows == 0 || pixels.len() != columns * rows {
-        return Err(invalid(format!(
-            "the PNG image has {} pixels, expected {columns} x {rows}",
-            pixels.len()
-        )));
-    }
-    Ok((columns, rows, pixels))
-}
-
-/// Standard base64 (with or without padding); `None` on any other character.
-fn decode_base64(text: &str) -> Option<Vec<u8>> {
-    let text = text.trim_end_matches('=');
-    let mut output = Vec::with_capacity(text.len() * 3 / 4);
-    let mut accumulator = 0u32;
-    let mut bits = 0;
-    for byte in text.bytes() {
-        let value = match byte {
-            b'A'..=b'Z' => byte - b'A',
-            b'a'..=b'z' => byte - b'a' + 26,
-            b'0'..=b'9' => byte - b'0' + 52,
-            b'+' => 62,
-            b'/' => 63,
-            _ => return None,
-        };
-        accumulator = accumulator << 6 | u32::from(value);
-        bits += 6;
-        if bits >= 8 {
-            bits -= 8;
-            output.push((accumulator >> bits) as u8);
-            accumulator &= (1 << bits) - 1;
-        }
-    }
-    Some(output)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn base64_round_trips() {
-        for (text, bytes) in [
-            ("", &b""[..]),
-            ("TQ==", b"M"),
-            ("TWE=", b"Ma"),
-            ("TWFu", b"Man"),
-            ("/+8A", &[0xff, 0xef, 0x00]),
-        ] {
-            assert_eq!(decode_base64(text).as_deref(), Some(bytes));
-        }
-        assert_eq!(decode_base64("ab$c"), None);
-    }
+    EncodedPng::new(encoded.into())
+        .map_err(|reason| Error::InvalidSpec(format!("at '{path}': {reason}")))
 }

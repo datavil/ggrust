@@ -9,6 +9,16 @@ Parity tests: `tests/test_imshow_parity.py`, `tests/test_export_parity.py`.
   a two-color LAB gradient from rounded grey endpoints is off by one in places.
 - **Images like rasters**: no axis expansion, default `coord_fixed`, flip/reverse keep
   pixels at their data positions (lets-plot does not; recorded in plan.md 5.2).
+- **Keep the image encoded**: decoding + re-encoding the PNG for SVG made ggrust 3x
+  slower than lets-plot. The scene keeps `Bitmap::Png { png, orientation }`; SVG embeds
+  the spec's base64 as given (flip/reverse via `transform="matrix(...)"` on a unit
+  `<image>`), only PNG/PDF decode. `EncodedPng::new` still checks base64 + every chunk
+  CRC up front (cheap, no inflate) so a broken href fails the same for every output.
+  resvg here has no raster-image support: verify image SVGs in headless Chrome.
+- **Style label options** (measured): `format` applies to colorbars, continuous and
+  discrete legends (numeric categories as numbers); given `labels` win. `lablim` cuts
+  discrete legend labels only, after `format`; fractions truncate, <= 0 means none;
+  a later scale call's value wins, even an unsupported format.
 - **Export sizing** (lets-plot `PlotImageExport`, measured, not documented right):
   `scale` defaults to 2 only when none of w/h, dpi, unit is given; it still multiplies
   when w/h are given; physical units default to 300 dpi; unitless w/h are inches and

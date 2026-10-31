@@ -289,7 +289,7 @@ def test_ggsave_writes_by_extension(tmp_path):
     for name, message in [
         ("plot", "Missing file extension"),
         ("  ", "Malformed filename"),
-        ("plot.pdf", "Unsupported file extension: 'pdf'"),
+        ("plot.jpg", "Unsupported file extension: 'jpg'"),
     ]:
         with pytest.raises(ValueError, match=message):
             gg.ggsave(plot, name, path=str(tmp_path))
@@ -304,8 +304,6 @@ def test_ggsave_default_directory_is_lets_plots(tmp_path, monkeypatch):
 
 
 def test_unsupported_names_raise_on_use():
-    with pytest.raises(NotImplementedError, match="geom_imshow"):
-        gg.geom_imshow([[0.0]])
     with pytest.raises(NotImplementedError, match="gggrid"):
         gg.GGBunch()
     assert issubclass(gg.GGBunch, gg.plot.core.FeatureSpec)

@@ -2371,7 +2371,7 @@ fn assemble_legends(
                 .title()
                 .unwrap_or_else(|| legend_title(spec, aesthetic, specs.get(&aesthetic)));
             let fits_colorbar = scale.continuous_guide().is_some()
-                && matches!(aesthetic, Aesthetic::Color | Aesthetic::Fill);
+                && aesthetic.kind().style() == Some(crate::style::ValueKind::Color);
             if guides.named("colorbar") && !fits_colorbar {
                 // lets-plot `checkFitsColorBar`.
                 return Err(Error::InvalidSpec(format!(

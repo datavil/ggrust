@@ -134,6 +134,62 @@ impl StyleMapper for GradientMapper {
     }
 }
 
+/// `scale_grey()` (lets-plot `GreyscaleLightnessMapperProvider`): greys from
+/// lightness L* = `start` x 100 to `end` x 100, interpolated before rounding.
+#[derive(Debug, Clone, PartialEq)]
+pub struct GreyMapper {
+    /// Lightness at the low end, 0..1.
+    pub start: f64,
+    /// Lightness at the high end, 0..1.
+    pub end: f64,
+    /// Color of missing and out-of-domain values.
+    pub na: Color,
+}
+
+impl GreyMapper {
+    /// The grey of `value` over `domain`; outside is NA.
+    pub fn color(&self, domain: (f64, f64), value: f64) -> Color {
+        if !(value.is_finite() && value >= domain.0 && value <= domain.1) {
+            return self.na;
+        }
+        rgb_from_lab(Lab {
+            l: linear(domain, (self.start * 100.0, self.end * 100.0))(value),
+            a: 0.0,
+            b: 0.0,
+        })
+    }
+}
+
+impl StyleMapper for GreyMapper {
+    fn name(&self) -> &'static str {
+        "color_grey"
+    }
+
+    fn value_kind(&self) -> ValueKind {
+        ValueKind::Color
+    }
+
+    fn map_continuous(&self, column: &ContinuousColumn, domain: (f64, f64)) -> StyleValues {
+        let colors = (0..column.len())
+            .map(|row| {
+                column
+                    .get(row)
+                    .map_or(self.na, |value| self.color(domain, value))
+            })
+            .collect();
+        StyleValues::Colors(PerItem::Varying(colors))
+    }
+
+    fn map_discrete(&self, indices: &[Option<usize>], level_count: usize) -> StyleValues {
+        let domain = index_domain(level_count);
+        let colors = indices
+            .iter()
+            .map(|index| index.map_or(self.na, |index| self.color(domain, index as f64)))
+            .collect();
+        StyleValues::Colors(PerItem::Varying(colors))
+    }
+}
+
 /// `scale_*_gradient2()`: `low` -> `mid` below the midpoint, `mid` -> `high` above.
 /// Continuous data only.
 #[derive(Debug, Clone, PartialEq)]
@@ -214,6 +270,46 @@ impl StyleMapper for Gradient2Mapper {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Measured from lets-plot `scale_grey('color', start, end)` over 0..10.
+    #[test]
+    fn grey_matches_lets_plot() {
+        for (start, end, expected) in [
+            (
+                0.0,
+                1.0,
+                [
+                    0x00, 0x1b, 0x30, 0x47, 0x5e, 0x77, 0x91, 0xab, 0xc6, 0xe2, 0xff,
+                ],
+            ),
+            (
+                0.2,
+                0.8,
+                [
+                    0x30, 0x3e, 0x4b, 0x59, 0x68, 0x77, 0x86, 0x96, 0xa6, 0xb6, 0xc6,
+                ],
+            ),
+            (
+                0.0,
+                0.0431,
+                [
+                    0x00, 0x02, 0x03, 0x05, 0x06, 0x08, 0x09, 0x0b, 0x0c, 0x0e, 0x0f,
+                ],
+            ),
+        ] {
+            let mapper = GreyMapper {
+                start,
+                end,
+                na: Color::TRANSPARENT,
+            };
+            let greys: Vec<u8> = (0..=10)
+                .map(|value| mapper.color((0.0, 10.0), f64::from(value)))
+                .inspect(|color| assert_eq!((color.red, color.red), (color.green, color.blue)))
+                .map(|color| color.red)
+                .collect();
+            assert_eq!(greys, expected, "start {start}, end {end}");
+        }
+    }
 
     #[test]
     fn ends_and_stops_are_exact_and_outside_is_na() {

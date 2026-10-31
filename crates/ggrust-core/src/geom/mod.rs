@@ -11,6 +11,7 @@ mod blank;
 mod boxplot;
 mod bracket;
 mod hover;
+mod image;
 mod jitter;
 mod lines;
 mod path;
@@ -32,6 +33,7 @@ pub use bar::{BarGeom, HistogramGeom};
 pub use blank::BlankGeom;
 pub use boxplot::BoxplotGeom;
 pub use bracket::BracketGeom;
+pub use image::ImageGeom;
 pub use jitter::JitterGeom;
 pub use path::{LineGeom, PathGeom};
 pub use point::PointGeom;
@@ -184,6 +186,7 @@ pub static GEOMS: &[&dyn Geom] = &[
     &TileGeom,
     &RectGeom,
     &RasterGeom,
+    &ImageGeom,
 ];
 
 /// lets-plot geoms the Python API builds but the engine does not draw yet (plan.md).

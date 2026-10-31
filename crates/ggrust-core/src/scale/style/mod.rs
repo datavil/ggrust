@@ -31,7 +31,9 @@ pub use brewer::{
 };
 pub use color::{DefaultColorMapper, GRADIENT_HIGH, GRADIENT_LOW, NA_COLOR, discrete_palette};
 pub use colormap::{COLORMAP_NAMES, ColormapMapper, colormap};
-pub use gradient::{GRADIENT2_HIGH, GRADIENT2_LOW, GRADIENT2_MID, Gradient2Mapper, GradientMapper};
+pub use gradient::{
+    GRADIENT2_HIGH, GRADIENT2_LOW, GRADIENT2_MID, Gradient2Mapper, GradientMapper, GreyMapper,
+};
 pub use hue::HueMapper;
 pub use identity::IdentityMapper;
 pub use manual::ManualColorMapper;
@@ -81,7 +83,11 @@ pub trait StyleMapper: Send + Sync {
 /// The mapper lets-plot uses for an aesthetic without a `scale_*()` call.
 pub fn default_mapper(aesthetic: Aesthetic) -> Option<Arc<dyn StyleMapper>> {
     match aesthetic {
-        Aesthetic::Color | Aesthetic::Fill => Some(Arc::new(DefaultColorMapper { na: NA_COLOR })),
+        Aesthetic::Color
+        | Aesthetic::Fill
+        | Aesthetic::PaintA
+        | Aesthetic::PaintB
+        | Aesthetic::PaintC => Some(Arc::new(DefaultColorMapper { na: NA_COLOR })),
         Aesthetic::Size => Some(Arc::new(SIZE.clone())),
         Aesthetic::Alpha => Some(Arc::new(ALPHA.clone())),
         Aesthetic::Shape => Some(Arc::new(ShapeMapper::all())),
@@ -721,6 +727,7 @@ mod tests {
         for aesthetic in [
             Aesthetic::Color,
             Aesthetic::Fill,
+            Aesthetic::PaintC,
             Aesthetic::Size,
             Aesthetic::Alpha,
         ] {

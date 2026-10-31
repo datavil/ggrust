@@ -10,7 +10,7 @@ use std::sync::Arc;
 use super::{
     ALPHA, BrewerMapper, COLORMAP_NAMES, ColormapMapper, ContinuousDomain, DiscreteDomain,
     GRADIENT_HIGH, GRADIENT_LOW, GRADIENT2_HIGH, GRADIENT2_LOW, GRADIENT2_MID, Gradient2Mapper,
-    GradientMapper, HOLLOW_SHAPES, HueMapper, IdentityMapper, Level, ManualColorMapper,
+    GradientMapper, GreyMapper, HOLLOW_SHAPES, HueMapper, IdentityMapper, Level, ManualColorMapper,
     ManualNumberMapper, NA_COLOR, NA_SHAPE, Overflow, PaletteChoice, PaletteType,
     ProportionalMapper, SIZE, SIZE_AREA_MAX, ShapeMapper, StyleMapper, colormap, default_mapper,
     scheme_by_name, scheme_names,
@@ -39,6 +39,7 @@ const MAPPER_OPTIONS: &[&str] = &[
     "colors",
     "alpha",
     "begin",
+    "start",
     "end",
     "option",
     "type",
@@ -478,6 +479,25 @@ impl StyleScaleSpec {
                 Arc::new(mapper)
             }
             "color_brewer" => Arc::new(self.brewer(na)?),
+            "color_grey" => {
+                let lightness = |key: &str, default: f64| -> Result<f64> {
+                    let value = self.number(key)?.unwrap_or(default);
+                    if !(0.0..=1.0).contains(&value) {
+                        return Err(Error::InvalidSpec(format!(
+                            "at '{}': '{key}' should be in range [0..1], got {value}",
+                            self.options
+                                .get(key)
+                                .map_or(path, |(_, path)| path.as_str())
+                        )));
+                    }
+                    Ok(value)
+                };
+                Arc::new(GreyMapper {
+                    start: lightness("start", 0.2)?,
+                    end: lightness("end", 0.8)?,
+                    na,
+                })
+            }
             _ => return Ok(None),
         };
         Ok(Some(mapper))

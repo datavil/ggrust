@@ -1,5 +1,6 @@
-"""``geom_imshow`` must match lets-plot: the same spec (``as_dict``, PNG href included),
-the same image box (fraction of the panel), the same pixels, axis labels and colorbar
+"""``geom_imshow`` must match lets-plot: the same spec (``as_dict``; the PNG href
+decodes to the same pixels, its bytes may differ: ggrust compresses faster), the same
+image box (fraction of the panel), the same pixels, axis labels and colorbar
 labels. Legends are off for the box comparison (font widths move the panel).
 """
 
@@ -44,9 +45,30 @@ CASES = {
 }
 
 
+def _href_pixels(href: str) -> np.ndarray:
+    import base64
+    import io
+
+    from PIL import Image
+
+    data = base64.b64decode(href.removeprefix("data:image/png;base64,"))
+    return np.asarray(Image.open(io.BytesIO(data)).convert("RGBA"))
+
+
 @pytest.mark.parametrize("name", sorted(CASES))
 def test_imshow_spec_matches_lets_plot(name):
-    assert CASES[name](gg).as_dict() == CASES[name](lp).as_dict()
+    actual, expected = CASES[name](gg).as_dict(), CASES[name](lp).as_dict()
+    actual_href = actual["layers"][0].pop("href")
+    expected_href = expected["layers"][0].pop("href")
+    assert actual == expected
+    assert (_href_pixels(actual_href) == _href_pixels(expected_href)).all()
+
+
+@pytest.mark.parametrize("compression", [None, 0, 1, 4, 6, 9])
+def test_every_compression_level_keeps_the_pixels(compression):
+    expected = _href_pixels(lp.geom_imshow(RGBA_BYTES).as_dict()["href"])
+    href = gg.geom_imshow(RGBA_BYTES, compression=compression).as_dict()["href"]
+    assert (_href_pixels(href) == expected).all()
 
 
 @pytest.mark.parametrize("name", sorted(CASES))
@@ -131,6 +153,8 @@ def test_broken_png_fails_for_every_output():
     [
         ([[1, 2]], {}, "ndarray is expected"),
         (np.zeros(3), {}, "2d or 3d array"),
+        (np.zeros((0, 5, 3)), {}, "at least 1 x 1 pixels"),
+        (np.zeros((4, 0)), {}, "at least 1 x 1 pixels"),
         (GREY, {"alpha": 2}, "Invalid alpha"),
         (GREY, {"compression": 11}, "Invalid compression"),
         (GREY, {"vmin": 5, "vmax": 1}, "vmin value must be less than vmax"),

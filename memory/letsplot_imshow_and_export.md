@@ -3,8 +3,11 @@
 Parity tests: `tests/test_imshow_parity.py`, `tests/test_export_parity.py`.
 
 - **imshow is a Python port**: the array becomes an RGBA PNG data URL on a
-  `geom='image'` layer; our `zlib` encoder gives byte-identical hrefs to pypng, so
-  `as_dict()` equals lets_plot's. Keep it that way (cellestial compares specs).
+  `geom='image'` layer, encoded in Rust (`render::rgba_png_data_url`, png crate's
+  fastest deflate by default; `compression=` maps to its levels). The href bytes
+  differ from lets-plot's (user: visual similarity is enough, see AGENTS.md
+  "Parity is visual"); tests compare the decoded pixels and the rest of `as_dict()`.
+  Python zlib level 6 took 0.4 s on 2000x2000 RGB; the Rust encoder 0.05 s.
 - **Grey colorbar** (`color_grey`): interpolate lightness L* first, round last. Building
   a two-color LAB gradient from rounded grey endpoints is off by one in places.
 - **Images like rasters**: no axis expansion, default `coord_fixed`, flip/reverse keep

@@ -53,6 +53,45 @@ pub(super) fn render_pixmap(scene: &Scene, scale: f64) -> Result<Pixmap> {
     Ok(canvas.pixmap)
 }
 
+/// Straight-alpha RGBA rows (`width` x `height`, top row first) as a
+/// `data:image/png;base64,...` URL, for `geom_imshow`. `compression` is a zlib
+/// style level 0..=9; `None` is the fastest deflate (images are only
+/// embedded, so speed beats size).
+pub fn rgba_png_data_url(
+    width: u32,
+    height: u32,
+    rgba: &[u8],
+    compression: Option<u8>,
+) -> Result<String> {
+    let expected = u64::from(width) * u64::from(height) * 4;
+    if width == 0 || height == 0 || rgba.len() as u64 != expected {
+        return Err(Error::Render(format!(
+            "expected {width} x {height} RGBA pixels ({expected} bytes), got {} bytes",
+            rgba.len()
+        )));
+    }
+    let level = match compression {
+        None | Some(1..=2) => ::png::Compression::Fastest,
+        Some(0) => ::png::Compression::NoCompression,
+        Some(3..=5) => ::png::Compression::Fast,
+        Some(6..=7) => ::png::Compression::Balanced,
+        Some(_) => ::png::Compression::High,
+    };
+    let failed =
+        |error: ::png::EncodingError| Error::Render(format!("PNG encoding failed: {error}"));
+    let mut bytes = Vec::new();
+    let mut encoder = ::png::Encoder::new(&mut bytes, width, height);
+    encoder.set_color(::png::ColorType::Rgba);
+    encoder.set_depth(::png::BitDepth::Eight);
+    encoder.set_compression(level);
+    let mut writer = encoder.write_header().map_err(failed)?;
+    writer.write_image_data(rgba).map_err(failed)?;
+    writer.finish().map_err(failed)?;
+    let mut url = String::from("data:image/png;base64,");
+    super::svg::push_base64(&mut url, &bytes);
+    Ok(url)
+}
+
 /// Render SVG text to PNG bytes with resvg (slow path; usvg caps the node count).
 ///
 /// Used to cross-check [`to_png`] against the SVG renderer, and for SVG input.

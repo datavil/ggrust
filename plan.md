@@ -19,6 +19,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Lessons: [memory/](memory/README.md
 | Categorical level order | From the Arrow data: dictionary order, so polars `Categorical` = first appearance (as lets-plot), `Enum`/ordered pandas = category order. Unordered pandas categoricals keep their category order (ggplot2), a recorded deviation from lets-plot's first appearance (decided 2026-10-28) |
 | Tooltip scope (4.2) | General tooltips + axis tooltips as lets-plot; boxplot statistics are lines of the general tooltip (lets-plot `disable_splitting` look), not separate side boxes. No tooltip theme elements, `tooltip_group` or crosshair modes (decided 2026-10-28) |
 | PDF export (5.3) | Raster PDF as lets-plot (the PNG at its dpi on one page), written by a small Rust PDF writer: no Pillow needed (decided (user) 2026-10-31) |
+| imshow PNG encoding | Encoded in Rust with the fastest deflate; the href decodes to lets-plot's pixels but its bytes differ (parity is visual, not byte-level) (decided (user) 2026-10-31) |
 | Tooltip runtime (4.2) | Rust computes targets (scene pixels) and every row's text; the JS runtime builds the grid-bucket hit index at mount (no index in the payload) and draws tooltips as HTML divs over the SVG (decided 2026-10-28) |
 
 ## Scope: what cellestial actually uses

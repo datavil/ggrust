@@ -42,6 +42,12 @@ Do not copy those blindly. When something in the lets-plot output looks wrong:
 Parity covers rendering and semantics only. It does **not** cover code quality:
 lets-plot's sparse type hints, docstrings and error messages are not the bar (see below).
 
+Parity is **visual, not byte-level.** Encoded payloads inside the spec or the output
+(embedded PNGs, compressed streams, number formatting of coordinates) do not have to
+be byte-identical to lets-plot. When a faster implementation gives the same picture
+(same pixels after decoding, same layout), prefer the faster one, and test the
+decoded result rather than the bytes. Never trade speed for byte-identical output.
+
 ## Golden rules
 
 1. **Test everything before handing over. Not just smoke tests.** You have computer

@@ -9,7 +9,7 @@
 use std::fs;
 use std::path::{Path as FilePath, PathBuf};
 
-use ggrust_core::render::{SvgOptions, svg_to_png, to_png, to_svg_with};
+use ggrust_core::render::{SvgOptions, rgba_png_data_url, svg_to_png, to_png, to_svg_with};
 use ggrust_core::scene::{
     Bitmap, Color, EncodedPng, Group, HorizontalAlign, Image, MarkerShape, Node, Orientation, Path,
     PerItem, Points, Rect, Rects, Scene, Stroke, Text, VerticalAlign,
@@ -503,4 +503,28 @@ fn encoded_png_images_draw_like_their_pixels_and_embed_as_given() {
             }
         }
     }
+}
+
+#[test]
+fn rgba_data_urls_decode_to_their_pixels_at_every_level() {
+    let rgba: Vec<u8> = (0..6 * 4 * 4)
+        .map(|index| (index * 37 % 256) as u8)
+        .collect();
+    for compression in [None, Some(0), Some(1), Some(4), Some(6), Some(9)] {
+        let url = rgba_png_data_url(6, 4, &rgba, compression).unwrap();
+        let png = EncodedPng::new(url.trim_start_matches("data:image/png;base64,").into()).unwrap();
+        let decoded: Vec<u8> = png
+            .decode()
+            .unwrap()
+            .iter()
+            .flat_map(|color| [color.red, color.green, color.blue, color.alpha])
+            .collect();
+        assert_eq!(decoded, rgba, "{compression:?}");
+    }
+    let error = rgba_png_data_url(6, 4, &rgba[1..], None).unwrap_err();
+    assert!(
+        error
+            .to_string()
+            .contains("expected 6 x 4 RGBA pixels (96 bytes), got 95")
+    );
 }

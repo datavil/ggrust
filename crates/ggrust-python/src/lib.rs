@@ -11,7 +11,8 @@ mod _ggrust {
     use ggrust_core::data::{Column, DataFrame};
     use ggrust_core::grid::build_figure_with;
     use ggrust_core::render::{
-        HtmlDocument, HtmlOptions, SCREEN_DPI, to_html, to_pdf, to_png_with_dpi, to_svg,
+        HtmlDocument, HtmlOptions, SCREEN_DPI, rgba_png_data_url, to_html, to_pdf, to_png_with_dpi,
+        to_svg,
     };
     use ggrust_core::spec::Figure;
     use pyo3::exceptions::PyValueError;
@@ -22,6 +23,25 @@ mod _ggrust {
     #[pyfunction]
     fn engine_version() -> &'static str {
         ggrust_core::VERSION
+    }
+
+    /// Encode straight-alpha RGBA bytes (`width` x `height`, top row first) as a
+    /// `data:image/png;base64,...` URL (`geom_imshow`). `compression` is a zlib
+    /// level 0..9; `None` picks the fastest. The GIL is released while encoding.
+    ///
+    /// Raises `ValueError` if `rgba` does not hold `width * height * 4` bytes.
+    #[pyfunction]
+    #[pyo3(signature = (rgba, width, height, compression=None))]
+    fn png_data_url(
+        python: Python<'_>,
+        rgba: &[u8],
+        width: u32,
+        height: u32,
+        compression: Option<u8>,
+    ) -> PyResult<String> {
+        python
+            .detach(|| rgba_png_data_url(width, height, rgba, compression))
+            .map_err(to_value_error)
     }
 
     /// Parse a plot spec (JSON of `as_dict()` without data) and return the

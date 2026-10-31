@@ -24,6 +24,13 @@ class ColumnSummary(TypedDict, total=False):
 def engine_version() -> str:
     """Return the version of the Rust engine."""
 
+def png_data_url(rgba: bytes, width: int, height: int, compression: int | None = None) -> str:
+    """Encode straight-alpha RGBA rows as a ``data:image/png;base64,...`` URL.
+
+    ``compression`` is a zlib level 0..9; ``None`` picks the fastest deflate.
+    Raises ``ValueError`` if ``rgba`` does not hold ``width * height * 4`` bytes.
+    """
+
 def validate_spec(spec_json: str) -> list[str]:
     """Parse a plot spec and return the paths of unsupported options.
 

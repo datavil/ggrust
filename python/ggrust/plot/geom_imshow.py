@@ -9,9 +9,6 @@ optional ``palettable`` package, as in lets_plot. The PNG is written with ``zlib
 
 from __future__ import annotations
 
-import base64
-import struct
-import zlib
 from typing import TYPE_CHECKING, Literal
 
 from ggrust.plot.core import FeatureSpec, LayerSpec, aes
@@ -130,27 +127,18 @@ def _palettable_map(name: str, size: int) -> list[str]:
 
 
 def _png_data_url(rgba: numpy.ndarray, compression: int | None) -> str:
-    """Encode an ``(height, width, 4)`` uint8 array as a ``data:image/png;base64,...`` URL."""
+    """Encode an ``(height, width, 4)`` uint8 array as a ``data:image/png;base64,...`` URL.
+
+    Encoded in Rust with the fastest deflate by default: the PNG differs byte-wise
+    from lets-plot's (pure zlib) but decodes to the same pixels.
+    """
     import numpy
 
+    from ggrust import _ggrust
+
     height, width, _ = rgba.shape
-    # Each scanline starts with filter type 0 (none).
-    scanlines = numpy.zeros((height, width * 4 + 1), dtype=numpy.uint8)
-    scanlines[:, 1:] = rgba.reshape(height, width * 4)
-    level = -1 if compression is None else int(compression)
-
-    def chunk(kind: bytes, payload: bytes) -> bytes:
-        checksum = zlib.crc32(kind + payload) & 0xFFFFFFFF
-        return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", checksum)
-
-    header = struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0)  # 8-bit RGBA
-    png = (
-        b"\x89PNG\r\n\x1a\n"
-        + chunk(b"IHDR", header)
-        + chunk(b"IDAT", zlib.compress(scanlines.tobytes(), level))
-        + chunk(b"IEND", b"")
-    )
-    return "data:image/png;base64," + base64.standard_b64encode(png).decode("ascii")
+    data = numpy.ascontiguousarray(rgba, dtype=numpy.uint8).tobytes()
+    return _ggrust.png_data_url(data, width, height, compression)
 
 
 def geom_imshow(
@@ -227,6 +215,12 @@ def geom_imshow(
     if image_data.ndim not in (2, 3):
         message = (
             f"Invalid image_data: 2d or 3d array is expected but was {image_data.ndim}-dimensional"
+        )
+        raise ValueError(message)
+    if image_data.shape[0] == 0 or image_data.shape[1] == 0:
+        message = (
+            f"Invalid image_data: expected at least 1 x 1 pixels but the shape was "
+            f"{image_data.shape}"
         )
         raise ValueError(message)
     if alpha is not None and not 0 <= alpha <= 1:

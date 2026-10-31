@@ -18,3 +18,8 @@ lets_plot itself fails some exports (e.g. on-data legend PNG: "Unsupported color
 **Browser tests (5.4):** run them with `-m ""` (cellestial's addopts deselect `browser`). Its
 `tests/plot_assertions.py` reads lets-plot HTML internals; on `ggrust-port` it is rewritten for
 ggrust's HTML (decided with the user). Rebase that commit when the branch moves to a newer `dev`.
+
+**Worktree location (2026-11-01):** a port worktree created inside a session's scratchpad dies
+with that session (its `.git` file and most files vanished mid-step 7.2; `git worktree list`
+showed it `prunable`). Commit port work promptly, and if the worktree is gone, recreate it with
+`git -C ../cellestial worktree add -f <dir> ggrust-port`: the branch's commits survive.

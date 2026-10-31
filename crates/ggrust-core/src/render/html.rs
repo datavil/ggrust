@@ -5,11 +5,13 @@
 //! same plot shown twice on one page must not share clip-path ids once the runtime
 //! edits them. Interactivity lives in the runtime; the tooltips' targets and text
 //! ([`Interaction`]) ride along as JSON in a `<script type="application/json">`
-//! inside the root element.
+//! inside the root element. Dense point batches are drawn on a canvas by the
+//! runtime from a third payload (see `canvas`): without JavaScript they are
+//! missing from the static view.
 
 use serde_json::{Value, json};
 
-use super::svg::{SvgOptions, fragment, sanitize_id, to_svg_with};
+use super::svg::{SvgOptions, fragment, sanitize_id, to_svg_with_canvas};
 use crate::layout::zoom::{Zoom, ZoomAxis};
 use crate::scene::{Node, Scene};
 use crate::tooltip::{Interaction, script_safe_json};
@@ -43,7 +45,7 @@ pub struct HtmlOptions {
 /// Render a scene to HTML, with the hover tooltips of `interaction` if given.
 pub fn to_html(scene: &Scene, interaction: Option<&Interaction>, options: &HtmlOptions) -> String {
     let id = sanitize_id(&options.id);
-    let svg = to_svg_with(
+    let (svg, canvas_batches) = to_svg_with_canvas(
         scene,
         &SvgOptions {
             id_prefix: Some(id.clone()),
@@ -60,6 +62,12 @@ pub fn to_html(scene: &Scene, interaction: Option<&Interaction>, options: &HtmlO
             )
         })
         .unwrap_or_default();
+    if !canvas_batches.is_empty() {
+        data.push_str(&format!(
+            "<script type=\"application/json\" class=\"ggrust-canvas\">{}</script>\n",
+            script_safe_json(&Value::Array(canvas_batches).to_string())
+        ));
+    }
     let zoom = interaction.and_then(|interaction| interaction.zoom.as_ref());
     if let Some(zoom) = zoom {
         data.push_str(&format!(

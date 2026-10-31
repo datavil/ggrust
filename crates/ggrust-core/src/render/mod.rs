@@ -1,5 +1,6 @@
 //! Renderers: [`Scene`](crate::scene::Scene) -> SVG text, PNG bytes or HTML.
 
+mod canvas;
 mod html;
 mod png;
 mod svg;

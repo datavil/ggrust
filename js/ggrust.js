@@ -12,7 +12,8 @@
 // (GitHub, nbviewer) still show the static plot.
 // With `ggtb()` it also adds lets-plot's toolbar (pan, rubber band zoom,
 // centerpoint zoom, reset) and zooms panels: see "Zoom and pan" below.
-// What it does not do (yet): canvas point layers (plan.md 4.4).
+// Dense point batches (more than 50k markers) arrive as base64 typed arrays
+// and are stamped on a canvas inside their SVG placeholder: see "Canvas points".
 //
 // The file is one function expression; the renderer calls it with the engine
 // version. It is inlined in a script element, so it must never contain a
@@ -407,6 +408,151 @@
       var ay = axisBox(axisY, overlay);
       var ayTop = clamp(lead.y * scale - ay.offsetHeight / 2, 0, Math.max(0, height - ay.offsetHeight));
       ay.style.transform = "translate(" + Math.max(0, panel[0] - ay.offsetWidth - 2) + "px," + ayTop + "px)";
+    }
+  }
+
+  // ---- Canvas points (crates/ggrust-core/src/render/canvas.rs) ----
+
+  // A dense batch is an empty `<foreignObject class="ggrust-canvas">` over the
+  // whole scene, at the batch's place in the SVG (z-order and clip paths hold).
+  // Its payload: `xy` Float32 centres, `styles` (size, paints and marker parts
+  // around 0,0) and `style` per-marker indices. Each style is rendered once to
+  // a small sprite per quarter-pixel offset (stamped at whole pixels, so
+  // markers stay as crisp as the SVG's), then stamped per marker in data order,
+  // so translucent markers stack as in the SVG. Past MAX_SPRITES styles markers
+  // are traced one by one instead.
+
+  var XHTML_NS = "http://www.w3.org/1999/xhtml";
+  var MAX_SPRITES = 4096;
+  var SUBPIXEL = 4; // sprite offsets per device pixel and axis
+
+  function decodeBase64(text) {
+    var binary = window.atob(text);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return bytes.buffer;
+  }
+
+  function tracePart(context, part, k) {
+    context.beginPath();
+    if (part[0] === "c") {
+      context.arc(part[1] * k, part[2] * k, part[3] * k, 0, 2 * Math.PI);
+    } else if (part[0] === "r") {
+      context.rect(part[1] * k, part[2] * k, part[3] * k, part[4] * k);
+    } else if (part[0] === "p") {
+      context.moveTo(part[1] * k, part[2] * k);
+      for (var i = 3; i + 1 < part.length; i += 2) context.lineTo(part[i] * k, part[i + 1] * k);
+      context.closePath();
+    } else if (part[0] === "l") {
+      context.moveTo(part[1] * k, part[2] * k);
+      context.lineTo(part[3] * k, part[4] * k);
+    }
+  }
+
+  // Paint a marker centred at the context's origin: geometry grows with `k`,
+  // the outline keeps its width (as the SVG's non-scaling strokes).
+  function paintMarker(context, style, k) {
+    style.parts.forEach(function (part) {
+      tracePart(context, part, k);
+      if (style.fill && part[0] !== "l") {
+        context.fillStyle = style.fill;
+        context.fill();
+      }
+      if (style.stroke) {
+        context.strokeStyle = style.stroke;
+        context.lineWidth = style.width;
+        context.stroke();
+      }
+    });
+  }
+
+  // `style` drawn with its centre at (half + dx, half + dy) device pixels.
+  function sprite(style, k, ratio, dx, dy) {
+    var reach = 0;
+    style.parts.forEach(function (part) {
+      var extent = part[0] === "c" ? [Math.abs(part[1]) + part[3], Math.abs(part[2]) + part[3]]
+        : part[0] === "r" ? [Math.abs(part[1]), Math.abs(part[2]), Math.abs(part[1] + part[3]), Math.abs(part[2] + part[4])]
+        : part.slice(1).map(Math.abs);
+      extent.forEach(function (value) { reach = Math.max(reach, value); });
+    });
+    // A miter reaches a full stroke width past a 60 degree corner (triangles).
+    var half = Math.ceil((reach * k + style.width + 1) * ratio);
+    var canvas = document.createElement("canvas");
+    canvas.width = canvas.height = 2 * half;
+    var context = canvas.getContext("2d");
+    context.setTransform(ratio, 0, 0, ratio, half + dx, half + dy);
+    paintMarker(context, style, k);
+    return { canvas: canvas, half: half };
+  }
+
+  function attachCanvas(plot) {
+    var data = plot.root.querySelector("script.ggrust-canvas");
+    if (!data || !plot.svg) return;
+    var payload;
+    try {
+      payload = JSON.parse(data.textContent);
+    } catch (error) {
+      return;
+    }
+    var holders = plot.svg.querySelectorAll("foreignObject.ggrust-canvas");
+    plot.canvases = [];
+    for (var i = 0; i < holders.length; i++) {
+      var batch = payload[+holders[i].getAttribute("data-batch")];
+      if (!batch) continue;
+      var width = +holders[i].getAttribute("width"), height = +holders[i].getAttribute("height");
+      var ratio = window.devicePixelRatio || 1;
+      var canvas = document.createElementNS(XHTML_NS, "canvas");
+      canvas.width = Math.ceil(width * ratio);
+      canvas.height = Math.ceil(height * ratio);
+      canvas.setAttribute("style", "display:block;pointer-events:none;width:" + width + "px;height:" + height + "px");
+      holders[i].appendChild(canvas);
+      var layer = {
+        holder: holders[i],
+        canvas: canvas,
+        ratio: ratio,
+        count: batch.count,
+        xy: new Float32Array(decodeBase64(batch.xy)),
+        styles: batch.styles,
+        style: batch.style ? new (batch.style_type === "u32" ? Uint32Array : Uint16Array)(decodeBase64(batch.style)) : null,
+        sprites: {},
+      };
+      holders[i].ggrustCanvas = layer;
+      plot.canvases.push(layer);
+      drawCanvas(layer, { scale: 1, offset: 0 }, { scale: 1, offset: 0 }, 1);
+    }
+  }
+
+  // Draw the markers of `layer` through the per-axis maps `h`, `v` (unzoomed
+  // pixel -> pixel), with marker geometry scaled by `k`.
+  function drawCanvas(layer, h, v, k) {
+    var context = layer.canvas.getContext("2d");
+    var ratio = layer.ratio, xy = layer.xy, style = layer.style;
+    var width = layer.canvas.width, height = layer.canvas.height;
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.clearRect(0, 0, width, height);
+    var direct = layer.styles.length > MAX_SPRITES;
+    if (!direct && layer.sprites.k !== k) layer.sprites = { k: k };
+    var hs = h.scale * ratio, ho = h.offset * ratio, vs = v.scale * ratio, vo = v.offset * ratio;
+    for (var i = 0; i < layer.count; i++) {
+      var x = hs * xy[2 * i] + ho, y = vs * xy[2 * i + 1] + vo;
+      var s = style ? style[i] : 0;
+      // Off-canvas markers are skipped first (zoomed pixels can pass 2^31).
+      var reach = (layer.styles[s].size * k + layer.styles[s].width + 2) * ratio;
+      if (!(x > -reach && y > -reach && x < width + reach && y < height + reach)) continue;
+      if (direct) {
+        context.setTransform(ratio, 0, 0, ratio, x, y);
+        paintMarker(context, layer.styles[s], k);
+        continue;
+      }
+      // The nearest quarter pixel: whole pixel + sprite offset.
+      x = Math.round(x * SUBPIXEL);
+      y = Math.round(y * SUBPIXEL);
+      var fx = x & (SUBPIXEL - 1), fy = y & (SUBPIXEL - 1);
+      var left = (x - fx) / SUBPIXEL, top = (y - fy) / SUBPIXEL;
+      var key = (s * SUBPIXEL + fx) * SUBPIXEL + fy;
+      var stamp = layer.sprites[key] ||
+        (layer.sprites[key] = sprite(layer.styles[s], k, ratio, fx / SUBPIXEL, fy / SUBPIXEL));
+      context.drawImage(stamp.canvas, left - stamp.half, top - stamp.half);
     }
   }
 
@@ -827,7 +973,9 @@
   // with their anchor, everything else is scaled.
   function collectMarks(container, marks) {
     for (var child = container.firstElementChild; child; child = child.nextElementSibling) {
-      if (child.getAttribute("class") === "ggrust-points") {
+      if (child.getAttribute("class") === "ggrust-canvas") {
+        if (child.ggrustCanvas) marks.push({ kind: "canvas", layer: child.ggrustCanvas });
+      } else if (child.getAttribute("class") === "ggrust-points") {
         for (var m = child.firstElementChild; m; m = m.nextElementSibling) {
           if (m.tagName.toLowerCase() === "circle") {
             marks.push({ kind: "circle", element: m, x: +m.getAttribute("cx"), y: +m.getAttribute("cy"), r: +m.getAttribute("r") });
@@ -840,7 +988,7 @@
       } else if (child.tagName.toLowerCase() === "text") {
         // A text outside an anchored group moves with its own position.
         marks.push({ kind: "anchor", element: child, x: +child.getAttribute("x"), y: +child.getAttribute("y") });
-      } else if (child.tagName.toLowerCase() === "g" && child.querySelector(".ggrust-points,[data-anchor]")) {
+      } else if (child.tagName.toLowerCase() === "g" && child.querySelector(".ggrust-points,.ggrust-canvas,[data-anchor]")) {
         collectMarks(child, marks);
       } else {
         marks.push({ kind: "shape", element: child });
@@ -892,6 +1040,10 @@
     var k = reset ? 1 : sizeFactor(plot.zoom, tile);
     var matrix = "matrix(" + h.scale + " 0 0 " + v.scale + " " + h.offset + " " + v.offset + ")";
     tile.marks.forEach(function (mark) {
+      if (mark.kind === "canvas") {
+        drawCanvas(mark.layer, h, v, k);
+        return;
+      }
       var e = mark.element;
       if (mark.kind === "shape") {
         if (reset) e.removeAttribute("transform");
@@ -1339,6 +1491,7 @@
     var plot = { id: id, root: root, svg: root.querySelector("svg"), layers: [] };
     root.ggrust = plot;
     root.setAttribute("data-ggrust-mounted", version);
+    attachCanvas(plot);
     attach(plot);
     attachZoom(plot);
     return plot;

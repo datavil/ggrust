@@ -12,7 +12,7 @@ use std::f64::consts::PI;
 use super::Rect;
 
 /// The geometry of a marker.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum MarkerShape {
     /// A circle.
     Circle,

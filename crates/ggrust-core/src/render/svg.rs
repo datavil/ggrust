@@ -8,6 +8,10 @@
 
 use std::fmt::Write;
 
+use serde_json::Value;
+
+use super::canvas;
+
 use crate::scene::geometry::{ClipBox, is_drawable_marker, is_drawable_stroke, is_drawable_width};
 use crate::scene::{
     Color, Group, HorizontalAlign, Image, MarkerPart, Node, Path, PerItem, Points, Rect, Rects,
@@ -41,6 +45,7 @@ pub(super) fn fragment(nodes: &[Node], width: f64, height: f64) -> String {
         clip_count: 0,
         clip_box: ClipBox::for_scene(width, height),
         zoomable: true,
+        canvas: None,
     };
     for node in nodes {
         writer.node(node);
@@ -58,6 +63,28 @@ pub fn to_svg(scene: &Scene) -> String {
 
 /// Render a scene to SVG text.
 pub fn to_svg_with(scene: &Scene, options: &SvgOptions) -> String {
+    write_svg(scene, options, None).0
+}
+
+/// The SVG of an HTML display: dense point batches become canvas placeholders
+/// and are returned as their payloads, in placeholder order (see `canvas`).
+pub(super) fn to_svg_with_canvas(scene: &Scene, options: &SvgOptions) -> (String, Vec<Value>) {
+    write_svg(
+        scene,
+        options,
+        Some(CanvasBatches {
+            width: scene.width,
+            height: scene.height,
+            batches: Vec::new(),
+        }),
+    )
+}
+
+fn write_svg(
+    scene: &Scene,
+    options: &SvgOptions,
+    canvas: Option<CanvasBatches>,
+) -> (String, Vec<Value>) {
     let mut writer = SvgWriter {
         output: String::with_capacity(4096),
         id_prefix: match &options.id_prefix {
@@ -68,6 +95,7 @@ pub fn to_svg_with(scene: &Scene, options: &SvgOptions) -> String {
         clip_count: 0,
         clip_box: ClipBox::for_scene(scene.width, scene.height),
         zoomable: options.zoomable,
+        canvas,
     };
     writer.document(scene);
     if options.id_prefix.is_none() && !writer.id_positions.is_empty() {
@@ -80,7 +108,11 @@ pub fn to_svg_with(scene: &Scene, options: &SvgOptions) -> String {
                 .replace_range(position..position + HASH_PREFIX_LENGTH, &prefix);
         }
     }
-    writer.output
+    let batches = writer
+        .canvas
+        .map(|canvas| canvas.batches)
+        .unwrap_or_default();
+    (writer.output, batches)
 }
 
 /// A fast hash that never changes between runs, platforms or Rust versions
@@ -111,6 +143,7 @@ pub(super) fn text_document(width: f64, height: f64, texts: &[&Text]) -> String 
         clip_count: 0,
         clip_box: ClipBox::for_scene(width, height),
         zoomable: false,
+        canvas: None,
     };
     writer.open(width, height);
     for text in texts {
@@ -128,6 +161,15 @@ struct SvgWriter {
     clip_count: usize,
     clip_box: ClipBox,
     zoomable: bool,
+    /// Set for HTML: where dense point batches go instead of SVG elements.
+    canvas: Option<CanvasBatches>,
+}
+
+/// Canvas payloads collected while writing (HTML only).
+struct CanvasBatches {
+    width: f64,
+    height: f64,
+    batches: Vec<Value>,
 }
 
 impl SvgWriter {
@@ -231,6 +273,24 @@ impl SvgWriter {
 
     fn points(&mut self, points: &Points) {
         if points.is_empty() || !points.is_consistent() {
+            return;
+        }
+        if let Some(canvas) = self
+            .canvas
+            .as_mut()
+            .filter(|_| canvas::is_dense(points, &self.clip_box))
+        {
+            // A placeholder over the whole scene; the runtime puts the canvas in it.
+            let number = canvas.batches.len();
+            canvas.batches.push(canvas::encode(points, &self.clip_box));
+            let (width, height) = (canvas.width, canvas.height);
+            let _ = write!(
+                self.output,
+                "<foreignObject class=\"ggrust-canvas\" data-batch=\"{number}\" x=\"0\" y=\"0\""
+            );
+            self.attribute_number("width", width);
+            self.attribute_number("height", height);
+            self.raw("></foreignObject>\n");
             return;
         }
         self.raw("<g");
@@ -552,7 +612,7 @@ impl SvgWriter {
 }
 
 /// Standard base64 (RFC 4648, padded).
-fn push_base64(output: &mut String, bytes: &[u8]) {
+pub(super) fn push_base64(output: &mut String, bytes: &[u8]) {
     const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     output.reserve(bytes.len().div_ceil(3) * 4);
     for chunk in bytes.chunks(3) {
@@ -571,7 +631,7 @@ fn push_base64(output: &mut String, bytes: &[u8]) {
 }
 
 /// The visible stroke of a marker: a non-transparent color with a drawable width.
-fn marker_stroke(color: Option<Color>, width: f64) -> Option<(Color, f64)> {
+pub(super) fn marker_stroke(color: Option<Color>, width: f64) -> Option<(Color, f64)> {
     color
         .filter(|color| !color.is_transparent())
         .filter(|_| is_drawable_width(width))

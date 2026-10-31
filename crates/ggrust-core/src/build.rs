@@ -1109,11 +1109,16 @@ fn train_positions(
             y_scale.train_span(low, high);
         }
         let setup = layer.geom.setup_aesthetics();
-        for aesthetic in layer.data.aesthetics() {
+        let data = if layer.trains_unadjusted {
+            &layer.unadjusted
+        } else {
+            &layer.data
+        };
+        for aesthetic in data.aesthetics() {
             if setup.contains(&aesthetic) {
                 continue;
             }
-            if let Some(column) = layer.data.continuous(aesthetic) {
+            if let Some(column) = data.continuous(aesthetic) {
                 if aesthetic.is_x_position() {
                     x_scale.train(column);
                 } else if aesthetic.is_y_position() {
@@ -1400,6 +1405,8 @@ struct PreparedLayer {
     tooltip_columns: Vec<(String, Column)>,
     /// See [`ComputedLayer::x_span`].
     x_span: Option<(f64, f64)>,
+    /// See [`ComputedLayer::trains_unadjusted`].
+    trains_unadjusted: bool,
     /// See [`ComputedLayer::y_span`].
     y_span: Option<(f64, f64)>,
     styles: Styles,
@@ -1864,6 +1871,9 @@ fn compute_layer(
         (true, SourceRows::All) => tooltip_columns,
         _ => Vec::new(),
     };
+    let trains_unadjusted = positions
+        .iter()
+        .any(|(position, _, _)| !position.trains_axes());
     let layer_data = apply_positions(layer_data, &positions)?;
 
     // Missing stat output is deliberate (e.g. `threshold`); input rows the stat
@@ -1884,6 +1894,7 @@ fn compute_layer(
         data: layer_data,
         unadjusted,
         tooltip_columns,
+        trains_unadjusted,
         x_span,
         y_span,
         mapping_paths,
@@ -1905,6 +1916,9 @@ struct ComputedLayer {
     tooltip_columns: Vec<(String, Column)>,
     /// Range of the setup's x columns before the position adjustment (see
     /// [`Geom::setup_aesthetics`]).
+    /// Whether the axes train on [`Self::unadjusted`]: a position that does not
+    /// move the axes (nudge, as lets-plot) ran.
+    trains_unadjusted: bool,
     x_span: Option<(f64, f64)>,
     /// The same for y (ridge heights).
     y_span: Option<(f64, f64)>,
@@ -1945,6 +1959,7 @@ fn style_layer(
             unadjusted: layer.unadjusted,
             tooltip_columns: layer.tooltip_columns,
             x_span: layer.x_span,
+            trains_unadjusted: layer.trains_unadjusted,
             y_span: layer.y_span,
             styles,
             show_legend: layer.show_legend,

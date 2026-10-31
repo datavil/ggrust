@@ -80,6 +80,12 @@ pub trait Position: Sync {
         &[]
     }
 
+    /// Whether the adjusted positions train the axes. `false` (nudge): the axes
+    /// cover the positions before the adjustment, as lets-plot's.
+    fn trains_axes(&self) -> bool {
+        true
+    }
+
     /// Adjust positions.
     fn adjust(&self, data: LayerData, parameters: &Parameters) -> Result<LayerData>;
 }

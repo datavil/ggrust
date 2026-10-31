@@ -1,7 +1,9 @@
 //! `position="nudge"`: move every row by a fixed amount, as lets-plot's `NudgePos`.
 //!
 //! `x` and `y` (default 0) are added to every x-axis and y-axis position column
-//! in data units. What it does not do: `unit="size"` or `unit="px"`.
+//! in data units. The axes do not grow to the nudged positions (lets-plot), so
+//! a discrete axis keeps its spacing. What it does not do: `unit="size"` or
+//! `unit="px"`.
 
 use super::Position;
 use super::shift::shift_positions;
@@ -20,6 +22,10 @@ impl Position for NudgePosition {
 
     fn parameters(&self) -> &'static [&'static str] {
         &["x", "y", "unit"]
+    }
+
+    fn trains_axes(&self) -> bool {
+        false
     }
 
     fn adjust(&self, data: LayerData, parameters: &Parameters) -> Result<LayerData> {

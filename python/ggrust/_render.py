@@ -547,3 +547,32 @@ def render_notebook_html(plot: PlotSpec | SupPlotsSpec) -> str:
         The plot or grid of plots.
     """
     return render_bytes(plot, "html").decode()
+
+
+def show(plot: PlotSpec | SupPlotsSpec) -> None:
+    """Show a plot: inline in a running IPython/Jupyter session, else in the browser.
+
+    lets_plot prints the spec dict outside IPython; ggrust opens the interactive
+    HTML page in the default browser instead (as lets_plot's ``setup_show_ext``).
+
+    Parameters
+    ----------
+    plot : PlotSpec or SupPlotsSpec
+        The plot or grid of plots.
+    """
+    try:
+        from IPython import get_ipython
+        from IPython.display import display
+    except ImportError:
+        get_ipython = None
+    if get_ipython is not None and get_ipython() is not None:
+        display(plot)
+        return
+    import tempfile
+    import webbrowser
+
+    with tempfile.NamedTemporaryFile(
+        "w", suffix=".html", prefix="ggrust-", delete=False, encoding="utf-8"
+    ) as page:
+        page.write(cast(str, export_html(plot, None, False)))
+    webbrowser.open(f"file://{page.name}")

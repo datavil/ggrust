@@ -204,7 +204,8 @@ Group 1: exposed in the API but erroring or ignored.
   (`FillPosition` shares the stacking code and divides each x's stack by its total, positive and negative stacks separately; matches lets-plot axes and bars. `NudgePosition` adds `x`/`y` in data units; `unit='size'|'px'` is an error for now. Deviation: the axes include nudged positions (ggplot2); lets-plot clips nudged labels at the edge.)
 - [x] 8.3 `geom_sina` / `stat_sina`.
   (Ported from lets-plot's `SinaStat`/`SinaGeom` source: per x the violin grid, each point gets interpolated density/count/scaled and the ceiling quantile band, widths normalised by the layer's grid; rows keep their input row (per-point aesthetics, tooltips). The geom spreads `sign x u x violinwidth x width x res / 2` with Kotlin's `Random(seed)` (x groups in first appearance, sorted by y, `nextBoolean` then `nextDouble`), stored in `xend` before the default dodge 0.95 so dodging narrows it; `xmin`/`xmax` span the width for the axis. Seeded points match lets-plot within pixel rounding. Not done: quantile bands drawn as separate groups.)
-- [ ] 8.4 `PlotSpec.show()`.
+- [x] 8.4 `PlotSpec.show()`.
+  (`PlotSpec.show()` and `SupPlotsSpec.show()`: inline `display()` in a running IPython/Jupyter session; elsewhere the interactive HTML page goes to a temp file opened in the default browser. Deviation: lets_plot prints the spec dict outside IPython; ggrust opens the page, as lets_plot's `setup_show_ext`.)
 
 Group 2: everyday grammar.
 

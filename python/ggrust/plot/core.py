@@ -258,6 +258,21 @@ class PlotSpec(FeatureSpec):
 
         return render_notebook_html(self)
 
+    def show(self) -> None:
+        """Draw the plot: inline in Jupyter/IPython, else in the default browser.
+
+        Outside IPython the interactive HTML page is written to a temporary file
+        and opened in the browser (lets_plot prints the spec dict there).
+
+        Examples
+        --------
+        >>> from ggrust import ggplot, geom_point
+        >>> (ggplot() + geom_point(x=0, y=0)).show()  # doctest: +SKIP
+        """
+        from ggrust._render import show
+
+        show(self)
+
     def to_svg(
         self,
         path: Target | None = None,

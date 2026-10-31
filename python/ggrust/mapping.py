@@ -3,13 +3,27 @@
 Ported from lets-plot's ``lets_plot/mapping.py`` (MIT, see THIRD_PARTY_NOTICES.md).
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from typing import Any
+
 __all__ = ["as_discrete"]
 
 
 class MappingMeta:
     """Annotation of a mapped variable (for example ``as_discrete``)."""
 
-    def __init__(self, variable, annotation, levels, **parameters):
+    def __init__(
+        self,
+        variable: str,
+        annotation: str,
+        levels: Sequence[Any] | None,
+        **parameters: object,
+    ) -> None:
         if variable is None:
             raise ValueError("variable can't be none")
         if annotation is None:
@@ -20,7 +34,13 @@ class MappingMeta:
         self.parameters = parameters
 
 
-def as_discrete(variable, label=None, order_by=None, order=None, levels=None):
+def as_discrete(
+    variable: str | Sequence[Any],
+    label: str | None = None,
+    order_by: str | None = None,
+    order: int | None = None,
+    levels: Sequence[Any] | None = None,
+) -> MappingMeta | Sequence[Any]:
     """Use a discrete scale for a mapped column, optionally ordering its values.
 
     Parameters

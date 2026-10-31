@@ -25,6 +25,8 @@ Usage::
         --cases violin scatter@1000000
 """
 
+from __future__ import annotations
+
 import argparse
 import json
 import re
@@ -35,8 +37,10 @@ import time
 import tracemalloc
 import warnings
 from collections import Counter
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 RESULTS = Path(__file__).parent / "results"
 OUTPUTS = {"svg": "svg", "png": "png", "html": "html_page"}
@@ -55,7 +59,7 @@ BLOCKING = {
 }
 
 
-def build_plot(case: str):
+def build_plot(case: str) -> Callable[[], Any]:
     """Zero-argument builder for ``case`` (cellestial example or ``scenario@points``)."""
     import ggrust
 
@@ -74,17 +78,17 @@ def build_plot(case: str):
     return cellestial_examples.cases(cl, ggrust, data)[case]
 
 
-def render_once(plot, output: str) -> int:
+def render_once(plot: Any, output: str) -> int:
     """Render ``plot`` once (PNG at scale 2, as the benchmarks) and return the size in bytes."""
     from ggrust._render import render_bytes
 
     return len(render_bytes(plot, OUTPUTS[output], scale=2.0 if output == "png" else 1.0))
 
 
-def timed(timers: dict, name: str, function):
+def timed(timers: dict[str, float], name: str, function: Callable[..., Any]) -> Callable[..., Any]:
     """Wrap ``function`` so its wall time accumulates in ``timers[name]``."""
 
-    def wrapper(*arguments, **keywords):
+    def wrapper(*arguments: Any, **keywords: Any) -> Any:
         start = time.perf_counter()
         try:
             return function(*arguments, **keywords)

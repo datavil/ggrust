@@ -4,22 +4,32 @@ Ported from lets-plot's ``lets_plot/plot/facet.py`` (MIT, see THIRD_PARTY_NOTICE
 The engine does not split panels yet (plan.md step 3.2); rendering reports the facet.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from ggrust.plot.core import FeatureSpec
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from typing import Literal
+
+    from ggrust._typing import Number
 
 __all__ = ["facet_grid", "facet_wrap"]
 
 
 def facet_grid(
-    x=None,
-    y=None,
+    x: Number | None = None,
+    y: Number | None = None,
     *,
-    scales=None,
-    x_order=1,
-    y_order=1,
-    x_format=None,
-    y_format=None,
-    x_labwidth=None,
-    y_labwidth=None,
+    scales: Literal["fixed", "free", "free_x", "free_y"] | None = None,
+    x_order: int = 1,
+    y_order: int = 1,
+    x_format: str | None = None,
+    y_format: str | None = None,
+    x_labwidth: int | None = None,
+    y_labwidth: int | None = None,
 ) -> FeatureSpec:
     """Lay panels out in a grid: columns by ``x``, rows by ``y``.
 
@@ -57,16 +67,16 @@ def facet_grid(
 
 
 def facet_wrap(
-    facets,
-    ncol=None,
-    nrow=None,
+    facets: str | Sequence[str],
+    ncol: int | None = None,
+    nrow: int | None = None,
     *,
-    scales=None,
-    order=1,
-    format=None,
-    drop=None,
-    dir="h",
-    labwidth=None,
+    scales: Literal["fixed", "free", "free_x", "free_y"] | None = None,
+    order: int = 1,
+    format: str | None = None,
+    drop: bool | None = None,
+    dir: Literal["h", "v"] = "h",
+    labwidth: int | Sequence[int] | None = None,
 ) -> FeatureSpec:
     """Wrap one panel per level of ``facets`` into rows.
 

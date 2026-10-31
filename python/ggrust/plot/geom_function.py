@@ -5,8 +5,19 @@ THIRD_PARTY_NOTICES.md). The function is evaluated in Python; the result is an
 ordinary layer (``geom_line`` by default) on columns ``x`` and ``y``.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, cast
+
 from ggrust.plot.core import LayerSpec, aes
 from ggrust.plot.geom import _geom
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from ggrust._typing import Function, ManualKey, Number, PlotData, Position, Tooltips
+    from ggrust.plot.core import FeatureSpec
+
 
 __all__ = ["geom_function"]
 
@@ -16,21 +27,21 @@ _DEFAULT_N = 512
 
 
 def geom_function(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    geom=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=None,
-    manual_key=None,
-    tooltips=None,
-    fun=None,
-    xlim=None,
-    n=None,
-    color_by=None,
-    **other_args,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    geom: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    tooltips: Tooltips | None = None,
+    fun: Function | None = None,
+    xlim: Sequence[Number] | None = None,
+    n: int | None = None,
+    color_by: str | None = None,
+    **other_args: Any,
 ) -> LayerSpec:
     """Evaluate ``fun`` at x values and draw the result.
 
@@ -50,6 +61,19 @@ def geom_function(
         ``[low, high]`` of the evaluated x range when ``x`` is not mapped (default [0, 1]).
     n : int, optional
         Number of evaluated points in ``xlim`` (default 512).
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
     **other_args
         Constant aesthetics and the geom's options, as in lets_plot.
 
@@ -74,17 +98,25 @@ def geom_function(
     )
 
 
-def _linspace(start, stop, count) -> list:
+def _linspace(start: float, stop: float, count: int) -> list[float]:
     if count == 1:
         return [start]
     step = (stop - start) / (count - 1)
     return [start + step * index for index in range(count)]
 
 
-def _function_data(mapping, data, fun, xlim, n):
+def _function_data(
+    mapping: FeatureSpec | None,
+    data: PlotData | None,
+    fun: Function | None,
+    xlim: Sequence[Number] | None,
+    n: int | None,
+) -> PlotData:
     x_mapping = mapping.as_dict().get("x") if mapping is not None else None
+    # pandas or polars frames, used by duck typing as lets_plot does.
+    table = cast("Any", data)
     if isinstance(x_mapping, str) and data is not None:
-        xs = data[x_mapping]
+        xs = table[x_mapping]
     elif hasattr(x_mapping, "__iter__"):
         xs = x_mapping
     else:
@@ -94,18 +126,18 @@ def _function_data(mapping, data, fun, xlim, n):
     if data is None:
         return {_FUNCTION_X: xs, _FUNCTION_Y: ys}
     if isinstance(data, dict):
-        return {**data, _FUNCTION_Y: ys}
+        return {**table, _FUNCTION_Y: ys}
     module = type(data).__module__.split(".")[0]
     if module == "pandas":
-        return data.assign(**{_FUNCTION_Y: ys})
+        return table.assign(**{_FUNCTION_Y: ys})
     if module == "polars":
         import polars as pl
 
-        return data.with_columns(pl.Series(_FUNCTION_Y, ys))
+        return table.with_columns(pl.Series(_FUNCTION_Y, ys))
     message = f"Unsupported type of data: {data}"
     raise TypeError(message)
 
 
-def _function_mapping(mapping):
+def _function_mapping(mapping: FeatureSpec | None) -> FeatureSpec:
     mapping_dict = mapping.as_dict() if mapping is not None else {}
     return aes(**{"x": _FUNCTION_X, **mapping_dict, "y": _FUNCTION_Y})

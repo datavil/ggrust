@@ -14,6 +14,8 @@ Usage::
     uv run python benchmarks/run.py --sizes 10000 100000 --outputs svg
 """
 
+from __future__ import annotations
+
 import argparse
 import io
 import json
@@ -24,14 +26,19 @@ import subprocess
 import sys
 import time
 import warnings
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import polars as pl
 
 RESULTS = Path(__file__).parent / "results"
 BYTES_PER_UNIT = 1024 if sys.platform == "darwin" else 1
 
 
-def build_plot(library: str, size: int):
+def build_plot(library: str, size: int) -> tuple[pl.DataFrame, Callable[[], Any]]:
     """Return the data and a function building the benchmark plot with ``library``."""
     import numpy as np
     import polars as pl
@@ -51,7 +58,7 @@ def build_plot(library: str, size: int):
     return frame, lambda: module.ggplot(frame, module.aes("x", "y")) + layer
 
 
-def render_once(plot, output: str) -> int:
+def render_once(plot: Any, output: str) -> int:
     """Render ``plot`` once and return the output size in bytes."""
     if output == "svg":
         return len(plot.to_svg())

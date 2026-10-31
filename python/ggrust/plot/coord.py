@@ -3,12 +3,25 @@
 Ported from lets-plot's ``lets_plot/plot/coord.py`` (MIT, see THIRD_PARTY_NOTICES.md).
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from ggrust.plot.core import FeatureSpec
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from ggrust._typing import Number
 
 __all__ = ["coord_cartesian", "coord_fixed", "coord_flip"]
 
 
-def coord_cartesian(xlim=None, ylim=None, flip=False) -> FeatureSpec:
+def coord_cartesian(
+    xlim: Sequence[Number | None] | None = None,
+    ylim: Sequence[Number | None] | None = None,
+    flip: bool = False,
+) -> FeatureSpec:
     """Cartesian coordinates; limits zoom without dropping data.
 
     Parameters
@@ -27,7 +40,12 @@ def coord_cartesian(xlim=None, ylim=None, flip=False) -> FeatureSpec:
     return FeatureSpec("coord", name="cartesian", xlim=xlim, ylim=ylim, flip=flip)
 
 
-def coord_fixed(ratio=1.0, xlim=None, ylim=None, flip=False) -> FeatureSpec:
+def coord_fixed(
+    ratio: Number = 1.0,
+    xlim: Sequence[Number | None] | None = None,
+    ylim: Sequence[Number | None] | None = None,
+    flip: bool = False,
+) -> FeatureSpec:
     """Cartesian coordinates with a fixed aspect ratio.
 
     Parameters
@@ -48,7 +66,9 @@ def coord_fixed(ratio=1.0, xlim=None, ylim=None, flip=False) -> FeatureSpec:
     return FeatureSpec("coord", name="fixed", ratio=ratio, xlim=xlim, ylim=ylim, flip=flip)
 
 
-def coord_flip(xlim=None, ylim=None) -> FeatureSpec:
+def coord_flip(
+    xlim: Sequence[Number | None] | None = None, ylim: Sequence[Number | None] | None = None
+) -> FeatureSpec:
     """Swap the x and y axes (not drawn yet; ggrust warns and keeps them).
 
     Parameters

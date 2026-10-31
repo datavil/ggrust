@@ -1,10 +1,15 @@
 """Turn user data into an Arrow stream the Rust engine can read without copying."""
 
+from __future__ import annotations
+
 import sys
 from collections.abc import Mapping
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Protocol, cast
 
 import polars as pl
+
+if TYPE_CHECKING:
+    from polars._typing import PolarsDataType
 
 
 class ArrowStreamExportable(Protocol):
@@ -15,7 +20,7 @@ class ArrowStreamExportable(Protocol):
         ...
 
 
-def as_arrow(data: Any) -> ArrowStreamExportable:
+def as_arrow(data: object) -> ArrowStreamExportable:
     """Return `data` as an object exporting `__arrow_c_stream__`.
 
     Parameters
@@ -60,7 +65,7 @@ def as_arrow(data: Any) -> ArrowStreamExportable:
             raise ImportError(message) from error
         return pyarrow.Table.from_pandas(data, preserve_index=False)
     if hasattr(data, "__arrow_c_stream__"):
-        return data
+        return cast("ArrowStreamExportable", data)
     message = (
         f"unsupported data type {type(data).__name__}; expected a polars or pandas DataFrame, "
         "a pyarrow Table, an object exporting __arrow_c_stream__, or a dict of columns"
@@ -68,7 +73,7 @@ def as_arrow(data: Any) -> ArrowStreamExportable:
     raise TypeError(message)
 
 
-def _is_pandas(data: Any, class_name: str) -> bool:
+def _is_pandas(data: object, class_name: str) -> bool:
     """Check for a pandas type without importing pandas."""
     pandas = sys.modules.get("pandas")
     return pandas is not None and isinstance(data, getattr(pandas, class_name))
@@ -91,7 +96,7 @@ def _without_null_dtype(frame: pl.DataFrame) -> pl.DataFrame:
     return frame.with_columns(pl.col(name).cast(dtype) for name, dtype in casts.items())
 
 
-def _replace_null(dtype: pl.DataType) -> pl.DataType:
+def _replace_null(dtype: PolarsDataType) -> PolarsDataType:
     """Return `dtype` with every nested `pl.Null` replaced by `pl.Float64`."""
     if dtype == pl.Null:
         return pl.Float64()

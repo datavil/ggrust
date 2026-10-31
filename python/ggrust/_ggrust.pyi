@@ -1,5 +1,7 @@
 """Type stubs for the native extension module."""
 
+from __future__ import annotations
+
 from typing import Any, TypedDict
 
 __all__ = [
@@ -50,7 +52,7 @@ def validate_spec(spec_json: str) -> list[str]:
         If the spec is invalid; the message names the offending path.
     """
 
-def describe_frame(data: Any) -> list[ColumnSummary]:
+def describe_frame(data: object) -> list[ColumnSummary]:
     """Describe how ggrust reads each column of an Arrow table (debugging aid).
 
     Parameters

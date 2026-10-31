@@ -5,7 +5,19 @@ Ported from lets-plot's ``lets_plot/plot/scale.py``, ``scale_position.py`` and
 later phase.
 """
 
+from __future__ import annotations
+
+from collections.abc import Callable
+from types import FunctionType
+from typing import TYPE_CHECKING, Any, cast
+
 from ggrust.plot.core import DummySpec, FeatureSpec, FeatureSpecArray
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from ggrust._typing import Breaks, Color, Guide, Labels, Limits, Number, Position, Transform
+
 
 __all__ = [
     "lims",
@@ -27,26 +39,26 @@ __all__ = [
 
 
 def _scale(
-    aesthetic,
+    aesthetic: str | Sequence[str],
     *,
-    name=None,
-    breaks=None,
-    labels=None,
-    lablim=None,
-    limits=None,
-    expand=None,
-    na_value=None,
-    trans=None,
-    guide=None,
-    format=None,
-    position=None,
-    **kwargs,
-):
+    name: str | None = None,
+    breaks: Breaks | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    expand: Sequence[Number] | None = None,
+    na_value: Color | Number | None = None,
+    trans: Transform | None = None,
+    guide: Guide | None = None,
+    format: str | None = None,
+    position: Position | None = None,
+    **kwargs: Any,
+) -> FeatureSpec:
     """Create a scale spec for one aesthetic, or an array of specs for a list of them.
 
     ``breaks`` / ``labels`` given as dicts are split into lists as lets-plot does.
     """
-    args = {
+    args: dict[str, Any] = {
         "aesthetic": aesthetic,
         "name": name,
         "breaks": breaks,
@@ -69,8 +81,9 @@ def _scale(
             args["breaks"] = list(labels.keys())
             args["labels"] = list(labels.values())
         else:
-            new_breaks = [value for value in breaks if value in labels]
-            args["labels"] = [labels[value] for value in new_breaks]
+            label_by_break = cast("dict[Any, str]", labels)
+            new_breaks = [value for value in breaks if value in label_by_break]
+            args["labels"] = [label_by_break[value] for value in new_breaks]
             args["breaks"] = new_breaks + [value for value in breaks if value not in new_breaks]
     if isinstance(aesthetic, list):
         args.pop("aesthetic")
@@ -81,18 +94,18 @@ def _scale(
 
 
 def scale_x_continuous(
-    name=None,
+    name: str | None = None,
     *,
-    breaks=None,
-    break_width=None,
-    labels=None,
-    lablim=None,
-    limits=None,
-    expand=None,
-    na_value=None,
-    trans=None,
-    format=None,
-    position=None,
+    breaks: Breaks | None = None,
+    break_width: Number | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    expand: Sequence[Number] | None = None,
+    na_value: Color | Number | None = None,
+    trans: Transform | None = None,
+    format: str | None = None,
+    position: Position | None = None,
 ) -> FeatureSpec:
     """Continuous position scale x.
 
@@ -139,20 +152,41 @@ def scale_x_continuous(
 
 
 def scale_y_continuous(
-    name=None,
+    name: str | None = None,
     *,
-    breaks=None,
-    break_width=None,
-    labels=None,
-    lablim=None,
-    limits=None,
-    expand=None,
-    na_value=None,
-    trans=None,
-    format=None,
-    position=None,
+    breaks: Breaks | None = None,
+    break_width: Number | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    expand: Sequence[Number] | None = None,
+    na_value: Color | Number | None = None,
+    trans: Transform | None = None,
+    format: str | None = None,
+    position: Position | None = None,
 ) -> FeatureSpec:
     """Continuous position scale y. See ``scale_x_continuous``.
+
+    Parameters
+    ----------
+    name : str, optional
+        Axis title (``labs(x=...)`` takes precedence).
+    breaks : list of float, optional
+        Fixed break positions in data units; breaks outside the axis are dropped.
+    break_width, lablim, na_value, position
+        As in lets-plot; not drawn yet (ggrust warns).
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels). Ignored without
+        ``breaks``, as in lets-plot.
+    limits : list, optional
+        ``[low, high]`` in data units; ``None`` leaves a side free.
+    expand : list, optional
+        ``[multiplicative]`` or ``[multiplicative, additive]`` expansion.
+    trans : {'identity', 'log10', 'log2', 'sqrt', 'reverse'}, optional
+        Transformation of the data.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"e"``, ``"%"``) or a
+        template (``"{.1f} %"``, ``"{d} cells"``). ``labels`` take precedence.
 
     Returns
     -------
@@ -175,19 +209,19 @@ def scale_y_continuous(
     )
 
 
-def _transformed(scale, trans):
+def _transformed(scale: FunctionType, trans: Transform) -> Callable[..., FeatureSpec]:
     def scale_function(
-        name=None,
+        name: str | None = None,
         *,
-        breaks=None,
-        break_width=None,
-        labels=None,
-        lablim=None,
-        limits=None,
-        expand=None,
-        na_value=None,
-        format=None,
-        position=None,
+        breaks: Breaks | None = None,
+        break_width: Number | None = None,
+        labels: Labels | None = None,
+        lablim: int | None = None,
+        limits: Limits | None = None,
+        expand: Sequence[Number] | None = None,
+        na_value: Color | Number | None = None,
+        format: str | None = None,
+        position: Position | None = None,
     ) -> FeatureSpec:
         return scale(
             name,
@@ -222,7 +256,7 @@ scale_x_reverse = _transformed(scale_x_continuous, "reverse")
 scale_y_reverse = _transformed(scale_y_continuous, "reverse")
 
 
-def _as_boolean(value, *, default):
+def _as_boolean(value: bool | str | None, *, default: bool) -> bool:
     """lets-plot ``as_boolean``: ``None`` -> ``default``; the string ``'False'`` is false."""
     if value is None:
         return default
@@ -230,17 +264,17 @@ def _as_boolean(value, *, default):
 
 
 def scale_x_discrete(
-    name=None,
+    name: str | None = None,
     *,
-    breaks=None,
-    labels=None,
-    lablim=None,
-    limits=None,
-    expand=None,
-    na_value=None,
-    reverse=None,
-    format=None,
-    position=None,
+    breaks: Breaks | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    expand: Sequence[Number] | None = None,
+    na_value: Color | Number | None = None,
+    reverse: bool | None = None,
+    format: str | None = None,
+    position: Position | None = None,
 ) -> FeatureSpec:
     """Discrete position scale x.
 
@@ -289,19 +323,40 @@ def scale_x_discrete(
 
 
 def scale_y_discrete(
-    name=None,
+    name: str | None = None,
     *,
-    breaks=None,
-    labels=None,
-    lablim=None,
-    limits=None,
-    expand=None,
-    na_value=None,
-    reverse=None,
-    format=None,
-    position=None,
+    breaks: Breaks | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    expand: Sequence[Number] | None = None,
+    na_value: Color | Number | None = None,
+    reverse: bool | None = None,
+    format: str | None = None,
+    position: Position | None = None,
 ) -> FeatureSpec:
     """Discrete position scale y. See ``scale_x_discrete``.
+
+    Parameters
+    ----------
+    name : str, optional
+        Axis title (``labs(x=...)`` takes precedence).
+    breaks : list of str, optional
+        Only these categories get a tick and a label.
+    labels : list of str or dict, optional
+        Labels aligned with ``breaks`` (or the categories in axis order); missing
+        ones are empty. A dict maps categories to labels.
+    lablim, na_value, position
+        As in lets-plot; not drawn yet (ggrust warns).
+    limits : list of str, optional
+        The categories to show, in axis order; other categories are dropped.
+    expand : list, optional
+        ``[multiplicative]`` or ``[multiplicative, additive]``; the default adds 0.2
+        categories on each side.
+    reverse : bool, default False
+        Reverse the category order.
+    format : str, optional
+        Label template, e.g. ``"<{}>"``. ``labels`` take precedence.
 
     Returns
     -------
@@ -326,18 +381,18 @@ def scale_y_discrete(
     )
 
 
-def _discrete_reversed(scale):
+def _discrete_reversed(scale: FunctionType) -> Callable[..., FeatureSpec]:
     def scale_function(
-        name=None,
+        name: str | None = None,
         *,
-        breaks=None,
-        labels=None,
-        lablim=None,
-        limits=None,
-        expand=None,
-        na_value=None,
-        format=None,
-        position=None,
+        breaks: Breaks | None = None,
+        labels: Labels | None = None,
+        lablim: int | None = None,
+        limits: Limits | None = None,
+        expand: Sequence[Number] | None = None,
+        na_value: Color | Number | None = None,
+        format: str | None = None,
+        position: Position | None = None,
     ) -> FeatureSpec:
         return scale(
             name,
@@ -365,7 +420,7 @@ scale_x_discrete_reversed = _discrete_reversed(scale_x_discrete)
 scale_y_discrete_reversed = _discrete_reversed(scale_y_discrete)
 
 
-def lims(x, y) -> FeatureSpec:
+def lims(x: Sequence[Any] | None, y: Sequence[Any] | None) -> FeatureSpec:
     """Limits for both axes: ``xlim(*x) + ylim(*y)``.
 
     Parameters
@@ -381,8 +436,14 @@ def lims(x, y) -> FeatureSpec:
     return xlim(*list(x or [])) + ylim(*list(y or []))
 
 
-def xlim(*limits) -> FeatureSpec:
+def xlim(*limits: object) -> FeatureSpec:
     """Limits of the x axis, e.g. ``xlim(0, 10)``, ``xlim(None, 10)`` or ``xlim("B", "T")``.
+
+    Parameters
+    ----------
+    *limits
+        Data range of the scale: ``[low, high]`` for continuous scales (None keeps a side), or the
+        levels of a discrete scale.
 
     Returns
     -------
@@ -392,8 +453,14 @@ def xlim(*limits) -> FeatureSpec:
     return _limits("x", *limits)
 
 
-def ylim(*limits) -> FeatureSpec:
+def ylim(*limits: object) -> FeatureSpec:
     """Limits of the y axis. See ``xlim``.
+
+    Parameters
+    ----------
+    *limits
+        Data range of the scale: ``[low, high]`` for continuous scales (None keeps a side), or the
+        levels of a discrete scale.
 
     Returns
     -------
@@ -403,7 +470,7 @@ def ylim(*limits) -> FeatureSpec:
     return _limits("y", *limits)
 
 
-def _limits(aesthetic, *limits) -> FeatureSpec:
+def _limits(aesthetic: str | Sequence[str], *limits: Any) -> FeatureSpec:
     if len(limits) == 0:
         return DummySpec()
     if any(isinstance(value, str | bytes) for value in limits):

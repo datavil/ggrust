@@ -5,9 +5,30 @@ Geoms the engine does not draw yet still build lets_plot-identical specs, so cod
 written for lets_plot imports and composes; rendering them reports the geom.
 """
 
-from ggrust.plot.core import FeatureSpec, FeatureSpecArray, LayerSpec
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, cast
+
+from ggrust.plot.core import FeatureSpec, LayerSpec
 from ggrust.plot.tooltip import layer_tooltips
 from ggrust.plot.util import as_annotated_data, key_int2str
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from ggrust._typing import (
+        Breaks,
+        Color,
+        Labels,
+        ManualKey,
+        Number,
+        PlotData,
+        Position,
+        Sampling,
+        Shape,
+        Tooltips,
+    )
+
 
 __all__ = [
     "geom_area_ridges",
@@ -37,19 +58,19 @@ __all__ = [
 
 
 def geom_point(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=None,
-    manual_key=None,
-    sampling=None,
-    tooltips=None,
-    size_unit=None,
-    na_rm=None,
-    **other_args,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    size_unit: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
 ) -> LayerSpec:
     """Scatter points.
 
@@ -94,19 +115,19 @@ def geom_point(
 
 
 def geom_path(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=None,
-    manual_key=None,
-    sampling=None,
-    tooltips=None,
-    color_by=None,
-    na_rm=None,
-    **other_args,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    color_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
 ) -> LayerSpec:
     """Connect observations in data order.
 
@@ -116,6 +137,25 @@ def geom_path(
         Aesthetic mapping from ``aes()``.
     data : DataFrame or dict, optional
         Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args
         Constant aesthetics such as ``color="red"`` or ``size=2``, and the geom's
         options. As in lets_plot; options ggrust does not read yet are reported as
@@ -144,19 +184,19 @@ def geom_path(
 
 
 def geom_line(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=None,
-    manual_key=None,
-    sampling=None,
-    tooltips=None,
-    color_by=None,
-    na_rm=None,
-    **other_args,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    color_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
 ) -> LayerSpec:
     """Connect observations sorted by x.
 
@@ -166,6 +206,25 @@ def geom_line(
         Aesthetic mapping from ``aes()``.
     data : DataFrame or dict, optional
         Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args
         Constant aesthetics such as ``color="red"`` or ``size=2``, and the geom's
         options. As in lets_plot; options ggrust does not read yet are reported as
@@ -194,20 +253,20 @@ def geom_line(
 
 
 def geom_polygon(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=None,
-    manual_key=None,
-    sampling=None,
-    tooltips=None,
-    color_by=None,
-    fill_by=None,
-    na_rm=None,
-    **other_args,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
 ) -> LayerSpec:
     """Draw filled polygons, one per group.
 
@@ -217,6 +276,27 @@ def geom_polygon(
         Aesthetic mapping from ``aes()``.
     data : DataFrame or dict, optional
         Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args
         Constant aesthetics such as ``color="red"`` or ``size=2``, and the geom's
         options. As in lets_plot; options ggrust does not read yet are reported as
@@ -246,20 +326,20 @@ def geom_polygon(
 
 
 def geom_hline(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=None,
-    manual_key=None,
-    sampling=None,
-    tooltips=None,
-    yintercept=None,
-    color_by=None,
-    na_rm=None,
-    **other_args,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    yintercept: Number | None = None,
+    color_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
 ) -> LayerSpec:
     """Horizontal reference lines at ``yintercept``.
 
@@ -269,6 +349,27 @@ def geom_hline(
         Aesthetic mapping from ``aes()``.
     data : DataFrame or dict, optional
         Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    yintercept : float, optional
+        Position of the line on the y axis.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args
         Constant aesthetics such as ``color="red"`` or ``size=2``, and the geom's
         options. As in lets_plot; options ggrust does not read yet are reported as
@@ -298,20 +399,20 @@ def geom_hline(
 
 
 def geom_vline(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=None,
-    manual_key=None,
-    sampling=None,
-    tooltips=None,
-    xintercept=None,
-    color_by=None,
-    na_rm=None,
-    **other_args,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    xintercept: Number | None = None,
+    color_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
 ) -> LayerSpec:
     """Vertical reference lines at ``xintercept``.
 
@@ -321,6 +422,27 @@ def geom_vline(
         Aesthetic mapping from ``aes()``.
     data : DataFrame or dict, optional
         Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    xintercept : float, optional
+        Position of the line on the x axis.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args
         Constant aesthetics such as ``color="red"`` or ``size=2``, and the geom's
         options. As in lets_plot; options ggrust does not read yet are reported as
@@ -350,20 +472,20 @@ def geom_vline(
 
 
 def geom_segment(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=None,
-    manual_key=None,
-    sampling=None,
-    tooltips=None,
-    arrow=None,
-    color_by=None,
-    na_rm=None,
-    **other_args,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    arrow: FeatureSpec | None = None,
+    color_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
 ) -> LayerSpec:
     """Line segments from (x, y) to (xend, yend), optionally with arrows.
 
@@ -373,6 +495,27 @@ def geom_segment(
         Aesthetic mapping from ``aes()``.
     data : DataFrame or dict, optional
         Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    arrow : FeatureSpec, optional
+        Arrow spec from ``arrow()``.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args
         Constant aesthetics such as ``color="red"`` or ``size=2``, and the geom's
         options. As in lets_plot; options ggrust does not read yet are reported as
@@ -402,23 +545,23 @@ def geom_segment(
 
 
 def geom_text(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=None,
-    manual_key=None,
-    sampling=None,
-    tooltips=None,
-    label_format=None,
-    na_text=None,
-    nudge_x=None,
-    nudge_y=None,
-    check_overlap=None,
-    na_rm=None,
-    **other_args,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    label_format: str | None = None,
+    na_text: str | None = None,
+    nudge_x: Number | None = None,
+    nudge_y: Number | None = None,
+    check_overlap: bool | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
 ) -> LayerSpec:
     """Text labels at (x, y); the text comes from the ``label`` aesthetic.
 
@@ -428,6 +571,33 @@ def geom_text(
         Aesthetic mapping from ``aes()``.
     data : DataFrame or dict, optional
         Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    label_format : str, optional
+        Format pattern of the label text, e.g. ``".2f"`` or ``"{d} %"``.
+    na_text : str, optional
+        Text shown for missing values.
+    nudge_x : float, optional
+        Horizontal offset of the labels.
+    nudge_y : float, optional
+        Vertical offset of the labels.
+    check_overlap : bool, optional
+        True skips labels that overlap labels drawn before them.
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args
         Constant aesthetics such as ``color="red"`` or ``size=2``, and the geom's
         options. As in lets_plot; options ggrust does not read yet are reported as
@@ -460,25 +630,25 @@ def geom_text(
 
 
 def geom_label(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=None,
-    manual_key=None,
-    sampling=None,
-    tooltips=None,
-    label_format=None,
-    na_text=None,
-    nudge_x=None,
-    nudge_y=None,
-    label_padding=None,
-    label_r=None,
-    label_size=None,
-    na_rm=None,
-    **other_args,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    label_format: str | None = None,
+    na_text: str | None = None,
+    nudge_x: Number | None = None,
+    nudge_y: Number | None = None,
+    label_padding: Number | None = None,
+    label_r: Number | None = None,
+    label_size: Number | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
 ) -> LayerSpec:
     """Text labels in a rounded box at (x, y).
 
@@ -488,6 +658,37 @@ def geom_label(
         Aesthetic mapping from ``aes()``.
     data : DataFrame or dict, optional
         Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    label_format : str, optional
+        Format pattern of the label text, e.g. ``".2f"`` or ``"{d} %"``.
+    na_text : str, optional
+        Text shown for missing values.
+    nudge_x : float, optional
+        Horizontal offset of the labels.
+    nudge_y : float, optional
+        Vertical offset of the labels.
+    label_padding : float, optional
+        Space between the text and the label border.
+    label_r : float, optional
+        Radius of the label corners.
+    label_size : float, optional
+        Width of the label border line.
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args
         Constant aesthetics such as ``color="red"`` or ``size=2``, and the geom's
         options. As in lets_plot; options ggrust does not read yet are reported as
@@ -522,22 +723,22 @@ def geom_label(
 
 
 def geom_blank(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=False,
-    manual_key=None,
-    sampling=None,
-    map=None,
-    map_join=None,
-    use_crs=None,
-    color_by=None,
-    fill_by=None,
-    na_rm=None,
-    **other_args,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool = False,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    map: PlotData | None = None,
+    map_join: str | Sequence[str] | None = None,
+    use_crs: str | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
 ) -> LayerSpec:
     """Draw nothing; the mapped data still trains the scales. No tooltips (as lets_plot).
 
@@ -547,6 +748,30 @@ def geom_blank(
         Aesthetic mapping from ``aes()``.
     data : DataFrame or dict, optional
         Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, default=False
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    map : DataFrame or dict, optional
+        Spatial data (lets_plot ``map``); not supported by ggrust yet.
+    map_join : str or list of str, optional
+        Columns joining ``data`` to ``map`` (lets_plot); not supported by ggrust yet.
+    use_crs : str, optional
+        Coordinate reference system for ``map`` (lets_plot); not supported by ggrust yet.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args
         Constant aesthetics such as ``color="red"`` or ``size=2``, and the geom's
         options. As in lets_plot; options ggrust does not read yet are reported as
@@ -583,22 +808,22 @@ def geom_blank(
 
 
 def geom_bar(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=None,
-    manual_key=None,
-    sampling=None,
-    tooltips=None,
-    labels=None,
-    orientation=None,
-    color_by=None,
-    fill_by=None,
-    na_rm=None,
-    **other_args,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    labels: Labels | None = None,
+    orientation: str | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
 ) -> LayerSpec:
     """Bars, by default the count of rows per x (``stat="count"``), stacked.
 
@@ -608,6 +833,31 @@ def geom_bar(
         Aesthetic mapping from ``aes()``.
     data : DataFrame or dict, optional
         Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    labels : list or dict, optional
+        Texts at the breaks: a list, or a dict of break values to texts.
+    orientation : str, optional
+        Set to ``"y"`` to draw the geom along the y axis.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args
         Constant aesthetics and the geom's options, as in lets_plot.
 
@@ -637,28 +887,28 @@ def geom_bar(
 
 
 def geom_histogram(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=None,
-    manual_key=None,
-    sampling=None,
-    threshold=None,
-    tooltips=None,
-    labels=None,
-    orientation=None,
-    bins=None,
-    binwidth=None,
-    center=None,
-    boundary=None,
-    breaks=None,
-    color_by=None,
-    fill_by=None,
-    na_rm=None,
-    **other_args,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    threshold: Number | None = None,
+    tooltips: Tooltips | None = None,
+    labels: Labels | None = None,
+    orientation: str | None = None,
+    bins: int | None = None,
+    binwidth: Number | None = None,
+    center: Number | None = None,
+    boundary: Number | None = None,
+    breaks: Breaks | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
 ) -> LayerSpec:
     """Histogram of binned x values (``stat="bin"``), stacked.
 
@@ -668,6 +918,43 @@ def geom_histogram(
         Aesthetic mapping from ``aes()``.
     data : DataFrame or dict, optional
         Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    threshold : float, optional
+        Densities under this value are not drawn.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    labels : list or dict, optional
+        Texts at the breaks: a list, or a dict of break values to texts.
+    orientation : str, optional
+        Set to ``"y"`` to draw the geom along the y axis.
+    bins : int, optional
+        Number of bins (30 when neither ``bins`` nor ``binwidth`` is set).
+    binwidth : float, optional
+        Width of the bins; overrides ``bins``.
+    center : float, optional
+        A bin center, to align the bins.
+    boundary : float, optional
+        A bin boundary, to align the bins.
+    breaks : list or dict, optional
+        Positions of the ticks or legend keys: a list, or a dict of labels to values.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args
         Constant aesthetics and the geom's options, as in lets_plot.
 
@@ -703,31 +990,31 @@ def geom_histogram(
 
 
 def geom_boxplot(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=None,
-    manual_key=None,
-    tooltips=None,
-    orientation=None,
-    fatten=None,
-    outlier_alpha=None,
-    outlier_color=None,
-    outlier_fill=None,
-    outlier_shape=None,
-    outlier_size=None,
-    outlier_stroke=None,
-    varwidth=None,
-    whisker_width=None,
-    width_unit=None,
-    color_by=None,
-    fill_by=None,
-    na_rm=None,
-    **other_args,
-) -> LayerSpec | FeatureSpecArray:
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    tooltips: Tooltips | None = None,
+    orientation: str | None = None,
+    fatten: Number | None = None,
+    outlier_alpha: Number | None = None,
+    outlier_color: Color | None = None,
+    outlier_fill: Color | None = None,
+    outlier_shape: Shape | None = None,
+    outlier_size: Number | None = None,
+    outlier_stroke: Number | None = None,
+    varwidth: bool | None = None,
+    whisker_width: Number | None = None,
+    width_unit: str | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> FeatureSpec:
     """Box and whiskers plot, dodged by group.
 
     With the default stat, a second point layer (``stat="boxplot_outlier"``) draws
@@ -744,6 +1031,41 @@ def geom_boxplot(
         Style of the outlier points (also ``outlier_shape``, ``outlier_size``,
         ``outlier_stroke``); ``color``, ``fill``, ``shape``, ``size`` and
         ``stroke`` in ``other_args`` are the fallback.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    orientation : str, optional
+        Set to ``"y"`` to draw the geom along the y axis.
+    fatten : float, optional
+        Multiplier of the median line width.
+    outlier_shape : int or str, optional
+        Shape of the outlier points.
+    outlier_size : float, optional
+        Size of the outlier points.
+    outlier_stroke : float, optional
+        Stroke width of the outlier points.
+    varwidth : bool, optional
+        True makes box widths proportional to the square root of the group size.
+    whisker_width : float, optional
+        Width of the whisker ends, relative to the box width.
+    width_unit : str, optional
+        Unit of ``width``: ``"res"``, ``"identity"``, ``"size"`` or ``"px"``.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args
         Constant aesthetics and the geom's options, as in lets_plot.
 
@@ -775,7 +1097,7 @@ def geom_boxplot(
     )
     if stat is None or stat == "boxplot":
 
-        def outlier_parameter(name, value):
+        def outlier_parameter(name: str, value: Any) -> Any:  # noqa: ANN401 (user constants)
             return value if value is not None else other_args.get(name)
 
         outlier_fatten = 4
@@ -808,32 +1130,32 @@ def geom_boxplot(
 
 
 def geom_violin(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=None,
-    manual_key=None,
-    sampling=None,
-    tooltips=None,
-    orientation=None,
-    show_half=None,
-    quantiles=None,
-    quantile_lines=None,
-    scale=None,
-    trim=None,
-    tails_cutoff=None,
-    kernel=None,
-    bw=None,
-    adjust=None,
-    n=None,
-    fs_max=None,
-    color_by=None,
-    fill_by=None,
-    na_rm=None,
-    **other_args,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    orientation: str | None = None,
+    show_half: Number | None = None,
+    quantiles: Sequence[float] | None = None,
+    quantile_lines: bool | None = None,
+    scale: Number | None = None,
+    trim: bool | None = None,
+    tails_cutoff: Number | None = None,
+    kernel: str | None = None,
+    bw: str | Number | None = None,
+    adjust: Number | None = None,
+    n: int | None = None,
+    fs_max: Number | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
 ) -> LayerSpec:
     """Violin plot: mirrored kernel density per x (``stat="ydensity"``). Not drawn yet.
 
@@ -843,6 +1165,51 @@ def geom_violin(
         Aesthetic mapping from ``aes()``.
     data : DataFrame or dict, optional
         Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    orientation : str, optional
+        Set to ``"y"`` to draw the geom along the y axis.
+    show_half : float, optional
+        Draw only half of each violin: ``-1`` left, ``1`` right, ``0`` both.
+    quantiles : list of float, optional
+        Quantiles to draw lines at, each in [0, 1].
+    quantile_lines : bool, optional
+        True draws the quantile lines.
+    scale : float, optional
+        Multiplier of the pixel size.
+    trim : bool, optional
+        True trims the density to the data range.
+    tails_cutoff : float, optional
+        Density tails are cut where the density falls under this share of the maximum.
+    kernel : str, optional
+        Kernel of the density estimate, e.g. ``"gaussian"``.
+    bw : str or float, optional
+        Bandwidth: a number or a rule name such as ``"nrd0"``.
+    adjust : float, optional
+        Multiplier of the bandwidth.
+    fs_max : float, optional
+        Upper bound of the number of points the density is evaluated at.
+    n : int, optional
+        Number of points the density is evaluated at.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args
         Constant aesthetics and the geom's options, as in lets_plot.
         ``draw_quantiles`` is rejected, as in lets_plot.
@@ -889,32 +1256,32 @@ def geom_violin(
 
 
 def geom_sina(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=None,
-    manual_key=None,
-    sampling=None,
-    tooltips=None,
-    orientation=None,
-    seed=None,
-    show_half=None,
-    quantiles=None,
-    scale=None,
-    trim=None,
-    tails_cutoff=None,
-    kernel=None,
-    bw=None,
-    adjust=None,
-    n=None,
-    fs_max=None,
-    color_by=None,
-    fill_by=None,
-    na_rm=None,
-    **other_args,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    orientation: str | None = None,
+    seed: int | None = None,
+    show_half: Number | None = None,
+    quantiles: Sequence[float] | None = None,
+    scale: Number | None = None,
+    trim: bool | None = None,
+    tails_cutoff: Number | None = None,
+    kernel: str | None = None,
+    bw: str | Number | None = None,
+    adjust: Number | None = None,
+    n: int | None = None,
+    fs_max: Number | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
 ) -> LayerSpec:
     """Sina plot: points spread within the violin outline. Not drawn yet.
 
@@ -924,6 +1291,51 @@ def geom_sina(
         Aesthetic mapping from ``aes()``.
     data : DataFrame or dict, optional
         Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    orientation : str, optional
+        Set to ``"y"`` to draw the geom along the y axis.
+    seed : int, optional
+        Random seed, for reproducible results.
+    show_half : float, optional
+        Draw only half of each violin: ``-1`` left, ``1`` right, ``0`` both.
+    quantiles : list of float, optional
+        Quantiles to draw lines at, each in [0, 1].
+    scale : float, optional
+        Multiplier of the pixel size.
+    trim : bool, optional
+        True trims the density to the data range.
+    tails_cutoff : float, optional
+        Density tails are cut where the density falls under this share of the maximum.
+    kernel : str, optional
+        Kernel of the density estimate, e.g. ``"gaussian"``.
+    bw : str or float, optional
+        Bandwidth: a number or a rule name such as ``"nrd0"``.
+    adjust : float, optional
+        Multiplier of the bandwidth.
+    fs_max : float, optional
+        Upper bound of the number of points the density is evaluated at.
+    n : int, optional
+        Number of points the density is evaluated at.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args
         Constant aesthetics and the geom's options, as in lets_plot.
 
@@ -963,31 +1375,31 @@ def geom_sina(
 
 
 def geom_area_ridges(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=None,
-    manual_key=None,
-    sampling=None,
-    tooltips=None,
-    trim=None,
-    tails_cutoff=None,
-    kernel=None,
-    adjust=None,
-    bw=None,
-    n=None,
-    fs_max=None,
-    min_height=None,
-    scale=None,
-    quantiles=None,
-    quantile_lines=None,
-    color_by=None,
-    fill_by=None,
-    na_rm=None,
-    **other_args,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    trim: bool | None = None,
+    tails_cutoff: Number | None = None,
+    kernel: str | None = None,
+    adjust: Number | None = None,
+    bw: str | Number | None = None,
+    n: int | None = None,
+    fs_max: Number | None = None,
+    min_height: Number | None = None,
+    scale: Number | None = None,
+    quantiles: Sequence[float] | None = None,
+    quantile_lines: bool | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
 ) -> LayerSpec:
     """Ridgeline plot: one density curve per y level. Not drawn yet.
 
@@ -997,6 +1409,49 @@ def geom_area_ridges(
         Aesthetic mapping from ``aes()``.
     data : DataFrame or dict, optional
         Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    trim : bool, optional
+        True trims the density to the data range.
+    tails_cutoff : float, optional
+        Density tails are cut where the density falls under this share of the maximum.
+    kernel : str, optional
+        Kernel of the density estimate, e.g. ``"gaussian"``.
+    adjust : float, optional
+        Multiplier of the bandwidth.
+    bw : str or float, optional
+        Bandwidth: a number or a rule name such as ``"nrd0"``.
+    fs_max : float, optional
+        Upper bound of the number of points the density is evaluated at.
+    n : int, optional
+        Number of points the density is evaluated at.
+    min_height : float, optional
+        Ridges lower than this are not drawn.
+    scale : float, optional
+        Multiplier of the pixel size.
+    quantiles : list of float, optional
+        Quantiles to draw lines at, each in [0, 1].
+    quantile_lines : bool, optional
+        True draws the quantile lines.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args
         Constant aesthetics and the geom's options, as in lets_plot.
 
@@ -1035,23 +1490,23 @@ def geom_area_ridges(
 
 
 def geom_jitter(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=None,
-    manual_key=None,
-    sampling=None,
-    tooltips=None,
-    width=None,
-    height=None,
-    color_by=None,
-    fill_by=None,
-    seed=None,
-    na_rm=None,
-    **other_args,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    width: Number | None = None,
+    height: Number | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    seed: int | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
 ) -> LayerSpec:
     """Points with random noise added to their positions. Not drawn yet.
 
@@ -1061,6 +1516,31 @@ def geom_jitter(
         Aesthetic mapping from ``aes()``.
     data : DataFrame or dict, optional
         Layer data; inherits the plot data when None.
+    width, height : float, optional
+        Jitter amount on each axis, as a share of the data resolution (0.4 by default).
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
+    seed : int, optional
+        Random seed, for reproducible results.
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args
         Constant aesthetics and the geom's options, as in lets_plot.
 
@@ -1091,22 +1571,22 @@ def geom_jitter(
 
 
 def geom_tile(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=None,
-    manual_key=None,
-    sampling=None,
-    tooltips=None,
-    width_unit=None,
-    height_unit=None,
-    color_by=None,
-    fill_by=None,
-    na_rm=None,
-    **other_args,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    width_unit: str | None = None,
+    height_unit: str | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
 ) -> LayerSpec:
     """Rectangles centred on (x, y), e.g. heatmap cells. Not drawn yet.
 
@@ -1116,6 +1596,31 @@ def geom_tile(
         Aesthetic mapping from ``aes()``.
     data : DataFrame or dict, optional
         Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    width_unit : str, optional
+        Unit of ``width``: ``"res"``, ``"identity"``, ``"size"`` or ``"px"``.
+    height_unit : str, optional
+        Unit of ``height``: ``"res"``, ``"identity"``, ``"size"`` or ``"px"``.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args
         Constant aesthetics and the geom's options, as in lets_plot.
 
@@ -1145,18 +1650,18 @@ def geom_tile(
 
 
 def geom_raster(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=None,
-    manual_key=None,
-    sampling=None,
-    fill_by=None,
-    na_rm=None,
-    **other_args,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
 ) -> LayerSpec:
     """Equal-sized tiles on a regular grid. Not drawn yet.
 
@@ -1166,6 +1671,22 @@ def geom_raster(
         Aesthetic mapping from ``aes()``.
     data : DataFrame or dict, optional
         Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args
         Constant aesthetics and the geom's options, as in lets_plot.
 
@@ -1191,23 +1712,23 @@ def geom_raster(
 
 
 def geom_rect(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=None,
-    manual_key=None,
-    sampling=None,
-    tooltips=None,
-    map=None,
-    map_join=None,
-    use_crs=None,
-    color_by=None,
-    fill_by=None,
-    na_rm=None,
-    **other_args,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    map: PlotData | None = None,
+    map_join: str | Sequence[str] | None = None,
+    use_crs: str | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
 ) -> LayerSpec:
     """Rectangles from ``xmin``, ``xmax``, ``ymin``, ``ymax``. Not drawn yet.
 
@@ -1219,6 +1740,27 @@ def geom_rect(
         Layer data; inherits the plot data when None.
     map, map_join, use_crs : optional
         GIS options of lets_plot; ggrust does not support maps.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args
         Constant aesthetics and the geom's options, as in lets_plot.
 
@@ -1249,26 +1791,26 @@ def geom_rect(
 
 
 def geom_bracket(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    manual_key=None,
-    sampling=None,
-    orientation=None,
-    label_format=None,
-    na_text=None,
-    nudge_x=None,
-    nudge_y=None,
-    nudge_unit=None,
-    size_unit=None,
-    bracket_shorten=None,
-    tiplength_unit=None,
-    color_by=None,
-    na_rm=None,
-    **other_args,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    orientation: str | None = None,
+    label_format: str | None = None,
+    na_text: str | None = None,
+    nudge_x: Number | None = None,
+    nudge_y: Number | None = None,
+    nudge_unit: str | None = None,
+    size_unit: str | None = None,
+    bracket_shorten: Number | None = None,
+    tiplength_unit: str | None = None,
+    color_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
 ) -> LayerSpec:
     """Labelled brackets from ``xmin`` to ``xmax`` at height ``y`` (significance marks).
 
@@ -1293,6 +1835,28 @@ def geom_bracket(
     tiplength_unit : {"size", "res", "identity", "px"}, default "size"
         Unit of ``lenstart``/``lenend``: point size units (2.2 px), the y resolution,
         data units, or pixels.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    label_format : str, optional
+        Format pattern of the label text, e.g. ``".2f"`` or ``"{d} %"``.
+    na_text : str, optional
+        Text shown for missing values.
+    nudge_unit : str, optional
+        Unit of the nudge: ``"identity"`` (data units), ``"size"``, ``"px"``.
+    size_unit : str, optional
+        Relate ``size`` to an axis: ``"x"``, ``"y"``, ``"min"`` or ``"max"``.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args
         Constant aesthetics such as ``color="red"`` or ``segment_size=1``, and the
         geom's options. As in lets_plot; options ggrust does not read yet are
@@ -1330,40 +1894,40 @@ def geom_bracket(
 
 
 def geom_text_repel(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=None,
-    manual_key=None,
-    sampling=None,
-    tooltips=None,
-    map=None,
-    map_join=None,
-    use_crs=None,
-    label_format=None,
-    na_text=None,
-    halo_width=None,
-    halo_color=None,
-    nudge_x=None,
-    nudge_y=None,
-    size_unit=None,
-    nudge_unit=None,
-    check_overlap=None,
-    color_by=None,
-    seed=None,
-    max_iter=None,
-    max_time=None,
-    direction=None,
-    point_padding=None,
-    box_padding=None,
-    max_overlaps=None,
-    min_segment_length=None,
-    arrow=None,
-    na_rm=None,
-    **other_args,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    map: PlotData | None = None,
+    map_join: str | Sequence[str] | None = None,
+    use_crs: str | None = None,
+    label_format: str | None = None,
+    na_text: str | None = None,
+    halo_width: Number | None = None,
+    halo_color: Color | None = None,
+    nudge_x: Number | None = None,
+    nudge_y: Number | None = None,
+    size_unit: str | None = None,
+    nudge_unit: str | None = None,
+    check_overlap: bool | None = None,
+    color_by: str | None = None,
+    seed: int | None = None,
+    max_iter: int | None = None,
+    max_time: Number | None = None,
+    direction: int | None = None,
+    point_padding: Number | None = None,
+    box_padding: Number | None = None,
+    max_overlaps: int | None = None,
+    min_segment_length: Number | None = None,
+    arrow: FeatureSpec | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
 ) -> LayerSpec:
     """Text labels pushed apart so they do not overlap each other or the points.
 
@@ -1373,6 +1937,67 @@ def geom_text_repel(
         Aesthetic mapping from ``aes()``.
     data : DataFrame or dict, optional
         Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    map : DataFrame or dict, optional
+        Spatial data (lets_plot ``map``); not supported by ggrust yet.
+    map_join : str or list of str, optional
+        Columns joining ``data`` to ``map`` (lets_plot); not supported by ggrust yet.
+    use_crs : str, optional
+        Coordinate reference system for ``map`` (lets_plot); not supported by ggrust yet.
+    label_format : str, optional
+        Format pattern of the label text, e.g. ``".2f"`` or ``"{d} %"``.
+    na_text : str, optional
+        Text shown for missing values.
+    halo_width : float, optional
+        Width of the halo around text.
+    halo_color : str, optional
+        Color of the halo around text.
+    nudge_x : float, optional
+        Horizontal offset of the labels.
+    nudge_y : float, optional
+        Vertical offset of the labels.
+    size_unit : str, optional
+        Relate ``size`` to an axis: ``"x"``, ``"y"``, ``"min"`` or ``"max"``.
+    nudge_unit : str, optional
+        Unit of the nudge: ``"identity"`` (data units), ``"size"``, ``"px"``.
+    check_overlap : bool, optional
+        True skips labels that overlap labels drawn before them.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    seed : int, optional
+        Random seed, for reproducible results.
+    max_iter : int, optional
+        Maximum number of iterations of the repel layout.
+    max_time : float, optional
+        Maximum time of the repel layout, in seconds.
+    direction : int, optional
+        Repel direction: ``"both"``, ``"x"`` or ``"y"``.
+    point_padding : float, optional
+        Space kept free around each point.
+    box_padding : float, optional
+        Space kept free around each label.
+    max_overlaps : int, optional
+        Labels overlapping more than this many items are dropped.
+    min_segment_length : float, optional
+        Shorter connector segments are not drawn.
+    arrow : FeatureSpec, optional
+        Arrow spec from ``arrow()``.
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args
         Constant aesthetics and the geom's options, as in lets_plot.
 
@@ -1420,43 +2045,43 @@ def geom_text_repel(
 
 
 def geom_label_repel(
-    mapping=None,
+    mapping: FeatureSpec | None = None,
     *,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=None,
-    manual_key=None,
-    sampling=None,
-    tooltips=None,
-    map=None,
-    map_join=None,
-    use_crs=None,
-    label_format=None,
-    na_text=None,
-    nudge_x=None,
-    nudge_y=None,
-    label_padding=None,
-    label_r=None,
-    label_size=None,
-    alpha_stroke=None,
-    size_unit=None,
-    nudge_unit=None,
-    check_overlap=None,
-    color_by=None,
-    fill_by=None,
-    seed=None,
-    max_iter=None,
-    max_time=None,
-    direction=None,
-    point_padding=None,
-    box_padding=None,
-    max_overlaps=None,
-    min_segment_length=None,
-    arrow=None,
-    na_rm=None,
-    **other_args,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    map: PlotData | None = None,
+    map_join: str | Sequence[str] | None = None,
+    use_crs: str | None = None,
+    label_format: str | None = None,
+    na_text: str | None = None,
+    nudge_x: Number | None = None,
+    nudge_y: Number | None = None,
+    label_padding: Number | None = None,
+    label_r: Number | None = None,
+    label_size: Number | None = None,
+    alpha_stroke: bool | None = None,
+    size_unit: str | None = None,
+    nudge_unit: str | None = None,
+    check_overlap: bool | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    seed: int | None = None,
+    max_iter: int | None = None,
+    max_time: Number | None = None,
+    direction: int | None = None,
+    point_padding: Number | None = None,
+    box_padding: Number | None = None,
+    max_overlaps: int | None = None,
+    min_segment_length: Number | None = None,
+    arrow: FeatureSpec | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
 ) -> LayerSpec:
     """Boxed text labels pushed apart so they do not overlap each other or the points.
 
@@ -1466,6 +2091,73 @@ def geom_label_repel(
         Aesthetic mapping from ``aes()``.
     data : DataFrame or dict, optional
         Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer: a label, or a ``layer_key()`` spec.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    map : DataFrame or dict, optional
+        Spatial data (lets_plot ``map``); not supported by ggrust yet.
+    map_join : str or list of str, optional
+        Columns joining ``data`` to ``map`` (lets_plot); not supported by ggrust yet.
+    use_crs : str, optional
+        Coordinate reference system for ``map`` (lets_plot); not supported by ggrust yet.
+    label_format : str, optional
+        Format pattern of the label text, e.g. ``".2f"`` or ``"{d} %"``.
+    na_text : str, optional
+        Text shown for missing values.
+    nudge_x : float, optional
+        Horizontal offset of the labels.
+    nudge_y : float, optional
+        Vertical offset of the labels.
+    label_padding : float, optional
+        Space between the text and the label border.
+    label_r : float, optional
+        Radius of the label corners.
+    label_size : float, optional
+        Width of the label border line.
+    alpha_stroke : bool, optional
+        True applies ``alpha`` to the label border too.
+    size_unit : str, optional
+        Relate ``size`` to an axis: ``"x"``, ``"y"``, ``"min"`` or ``"max"``.
+    nudge_unit : str, optional
+        Unit of the nudge: ``"identity"`` (data units), ``"size"``, ``"px"``.
+    check_overlap : bool, optional
+        True skips labels that overlap labels drawn before them.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
+    seed : int, optional
+        Random seed, for reproducible results.
+    max_iter : int, optional
+        Maximum number of iterations of the repel layout.
+    max_time : float, optional
+        Maximum time of the repel layout, in seconds.
+    direction : int, optional
+        Repel direction: ``"both"``, ``"x"`` or ``"y"``.
+    point_padding : float, optional
+        Space kept free around each point.
+    box_padding : float, optional
+        Space kept free around each label.
+    max_overlaps : int, optional
+        Labels overlapping more than this many items are dropped.
+    min_segment_length : float, optional
+        Shorter connector segments are not drawn.
+    arrow : FeatureSpec, optional
+        Arrow spec from ``arrow()``.
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args
         Constant aesthetics and the geom's options, as in lets_plot.
 
@@ -1516,19 +2208,19 @@ def geom_label_repel(
 
 
 def _geom(
-    name,
+    name: str,
     *,
-    mapping=None,
-    data=None,
-    stat=None,
-    position=None,
-    show_legend=None,
-    inherit_aes=None,
-    na_rm=None,
-    manual_key=None,
-    sampling=None,
-    tooltips=None,
-    **kwargs,
+    mapping: FeatureSpec | None = None,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    na_rm: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    **kwargs: Any,
 ) -> LayerSpec:
     if mapping and not (isinstance(mapping, FeatureSpec) and mapping.kind == "mapping"):
         message = "Unexpected value for argument 'mapping'. Hint: try to use function aes()"
@@ -1536,7 +2228,7 @@ def _geom(
     data = key_int2str(data)
     data, mapping, data_meta = as_annotated_data(data, mapping)
     if isinstance(tooltips, list | tuple):
-        tooltips = layer_tooltips(tooltips)
+        tooltips = layer_tooltips(cast("Sequence[str]", tooltips))
     return LayerSpec(
         geom=name,
         stat=stat,

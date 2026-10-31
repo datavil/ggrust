@@ -3,13 +3,15 @@
 Ported from lets-plot's ``lets_plot/plot/label.py`` (MIT, see THIRD_PARTY_NOTICES.md).
 """
 
+from __future__ import annotations
+
 from ggrust.plot.core import FeatureSpec, FeatureSpecArray
 from ggrust.plot.guide import _guide, guides
 
 __all__ = ["ggtitle", "labs", "xlab", "ylab"]
 
 
-def ggtitle(label, subtitle=None) -> FeatureSpec:
+def ggtitle(label: str, subtitle: str | None = None) -> FeatureSpec:
     """Set the plot title and subtitle.
 
     Parameters
@@ -27,7 +29,7 @@ def ggtitle(label, subtitle=None) -> FeatureSpec:
     return labs(title=label, subtitle=subtitle)
 
 
-def xlab(label) -> FeatureSpec:
+def xlab(label: str) -> FeatureSpec:
     """Set the x axis title.
 
     Parameters
@@ -43,7 +45,7 @@ def xlab(label) -> FeatureSpec:
     return labs(x=label)
 
 
-def ylab(label) -> FeatureSpec:
+def ylab(label: str) -> FeatureSpec:
     """Set the y axis title.
 
     Parameters
@@ -59,7 +61,13 @@ def ylab(label) -> FeatureSpec:
     return labs(y=label)
 
 
-def labs(title=None, subtitle=None, caption=None, tag=None, **labels):
+def labs(
+    title: str | None = None,
+    subtitle: str | None = None,
+    caption: str | None = None,
+    tag: str | None = None,
+    **labels: str,
+) -> FeatureSpec:
     """Set the title, subtitle, caption, tag and axis or legend titles.
 
     Parameters

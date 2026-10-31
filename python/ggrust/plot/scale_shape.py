@@ -3,23 +3,33 @@
 Ported from lets-plot's ``lets_plot/plot/scale.py`` (MIT, see THIRD_PARTY_NOTICES.md).
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from ggrust.plot.core import FeatureSpec
 from ggrust.plot.scale import _scale
 from ggrust.plot.scale_color import _manual
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from typing import Any
+
+    from ggrust._typing import Breaks, Color, Guide, Labels, Limits, Number
 
 __all__ = ["scale_shape", "scale_shape_manual"]
 
 
 def scale_shape(
-    solid=True,
-    name=None,
-    breaks=None,
-    labels=None,
-    lablim=None,
-    limits=None,
-    na_value=None,
-    guide=None,
-    format=None,
+    solid: bool = True,
+    name: str | None = None,
+    breaks: Breaks | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    na_value: Color | Number | None = None,
+    guide: Guide | None = None,
+    format: str | None = None,
 ) -> FeatureSpec:
     """Point shapes for categories.
 
@@ -50,15 +60,15 @@ def scale_shape(
 
 
 def scale_shape_manual(
-    values,
-    name=None,
-    breaks=None,
-    labels=None,
-    lablim=None,
-    limits=None,
-    na_value=None,
-    guide=None,
-    format=None,
+    values: Sequence[Any] | dict[Any, Any],
+    name: str | None = None,
+    breaks: Breaks | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    na_value: Color | Number | None = None,
+    guide: Guide | None = None,
+    format: str | None = None,
 ) -> FeatureSpec:
     """Your own point shapes (lets-plot codes 0..25) for ``shape``.
 

@@ -3,9 +3,19 @@
 Ported from lets-plot's ``lets_plot/plot/scale.py`` (MIT, see THIRD_PARTY_NOTICES.md).
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from ggrust.plot.core import FeatureSpec
 from ggrust.plot.scale import _scale
 from ggrust.plot.scale_color import _manual
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+    from typing import Any
+
+    from ggrust._typing import Breaks, Color, Guide, Labels, Limits, Number, Transform
 
 __all__ = [
     "scale_alpha",
@@ -17,16 +27,16 @@ __all__ = [
 
 
 def scale_size(
-    range=None,
-    name=None,
-    breaks=None,
-    labels=None,
-    lablim=None,
-    limits=None,
-    na_value=None,
-    guide=None,
-    trans=None,
-    format=None,
+    range: Sequence[Number] | None = None,
+    name: str | None = None,
+    breaks: Breaks | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    na_value: Color | Number | None = None,
+    guide: Guide | None = None,
+    trans: Transform | None = None,
+    format: str | None = None,
 ) -> FeatureSpec:
     """Sizes for ``size``: data mapped linearly onto ``range``.
 
@@ -48,16 +58,16 @@ def scale_size(
 
 
 def scale_size_area(
-    max_size=None,
-    name=None,
-    breaks=None,
-    labels=None,
-    lablim=None,
-    limits=None,
-    na_value=None,
-    guide=None,
-    trans=None,
-    format=None,
+    max_size: Number | None = None,
+    name: str | None = None,
+    breaks: Breaks | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    na_value: Color | Number | None = None,
+    guide: Guide | None = None,
+    trans: Transform | None = None,
+    format: str | None = None,
 ) -> FeatureSpec:
     """Sizes proportional to the data: 0 is size 0, the largest value ``max_size``.
 
@@ -77,16 +87,16 @@ def scale_size_area(
 
 
 def scale_alpha(
-    range=None,
-    name=None,
-    breaks=None,
-    labels=None,
-    lablim=None,
-    limits=None,
-    na_value=None,
-    guide=None,
-    trans=None,
-    format=None,
+    range: Sequence[Number] | None = None,
+    name: str | None = None,
+    breaks: Breaks | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    na_value: Color | Number | None = None,
+    guide: Guide | None = None,
+    trans: Transform | None = None,
+    format: str | None = None,
 ) -> FeatureSpec:
     """Transparency for ``alpha``: data mapped linearly onto ``range``.
 
@@ -106,17 +116,39 @@ def scale_alpha(
 
 
 def scale_size_manual(
-    values,
-    name=None,
-    breaks=None,
-    labels=None,
-    lablim=None,
-    limits=None,
-    na_value=None,
-    guide=None,
-    format=None,
+    values: Sequence[Any] | dict[Any, Any],
+    name: str | None = None,
+    breaks: Breaks | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    na_value: Color | Number | None = None,
+    guide: Guide | None = None,
+    format: str | None = None,
 ) -> FeatureSpec:
     """Your own sizes for ``size``, matched in order with the categories (or a dict).
+
+    Parameters
+    ----------
+    values : list of Any or dict
+        Values of the levels: a list, or a dict of levels to values.
+    name : str, optional
+        Title of the scale, shown on the axis or the legend.
+    breaks : list or dict, optional
+        Positions of the ticks or legend keys: a list, or a dict of labels to values.
+    labels : list or dict, optional
+        Texts at the breaks: a list, or a dict of break values to texts.
+    lablim : int, optional
+        Maximum number of characters of a label; longer labels are cut.
+    limits : list, optional
+        Data range of the scale: ``[low, high]`` for continuous scales (None keeps a side), or the
+        levels of a discrete scale.
+    na_value : str or float, optional
+        Value used for missing data.
+    guide : str or FeatureSpec, optional
+        Guide: ``"legend"``, ``"colorbar"``, ``"none"``, or a ``guide_*()`` spec.
+    format : str, optional
+        Format pattern of the labels, e.g. ``".2f"`` or ``"{d} %"``.
 
     Returns
     -------
@@ -127,17 +159,39 @@ def scale_size_manual(
 
 
 def scale_alpha_manual(
-    values,
-    name=None,
-    breaks=None,
-    labels=None,
-    lablim=None,
-    limits=None,
-    na_value=None,
-    guide=None,
-    format=None,
+    values: Sequence[Any] | dict[Any, Any],
+    name: str | None = None,
+    breaks: Breaks | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    na_value: Color | Number | None = None,
+    guide: Guide | None = None,
+    format: str | None = None,
 ) -> FeatureSpec:
     """Your own alphas for ``alpha``, matched in order with the categories (or a dict).
+
+    Parameters
+    ----------
+    values : list of Any or dict
+        Values of the levels: a list, or a dict of levels to values.
+    name : str, optional
+        Title of the scale, shown on the axis or the legend.
+    breaks : list or dict, optional
+        Positions of the ticks or legend keys: a list, or a dict of labels to values.
+    labels : list or dict, optional
+        Texts at the breaks: a list, or a dict of break values to texts.
+    lablim : int, optional
+        Maximum number of characters of a label; longer labels are cut.
+    limits : list, optional
+        Data range of the scale: ``[low, high]`` for continuous scales (None keeps a side), or the
+        levels of a discrete scale.
+    na_value : str or float, optional
+        Value used for missing data.
+    guide : str or FeatureSpec, optional
+        Guide: ``"legend"``, ``"colorbar"``, ``"none"``, or a ``guide_*()`` spec.
+    format : str, optional
+        Format pattern of the labels, e.g. ``".2f"`` or ``"{d} %"``.
 
     Returns
     -------

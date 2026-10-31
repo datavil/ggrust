@@ -8,12 +8,21 @@ with identical ``as_dict()`` output and ``+`` semantics, so code written for let
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Iterable, Iterator
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
+    from ggrust._typing import Number, PlotData, Position, Target
+
 
 __all__ = ["aes", "layer"]
 
 
-def aes(x=None, y=None, **kwargs) -> FeatureSpec:
+def aes(
+    x: str | Sequence[Any] | None = None, y: str | Sequence[Any] | None = None, **kwargs: object
+) -> FeatureSpec:
     """Define aesthetic mappings.
 
     Parameters
@@ -31,7 +40,14 @@ def aes(x=None, y=None, **kwargs) -> FeatureSpec:
     return FeatureSpec("mapping", name=None, x=x, y=y, **kwargs)
 
 
-def layer(geom=None, stat=None, data=None, mapping=None, position=None, **kwargs) -> LayerSpec:
+def layer(
+    geom: str | None = None,
+    stat: str | None = None,
+    data: PlotData | None = None,
+    mapping: FeatureSpec | None = None,
+    position: Position | None = None,
+    **kwargs: object,
+) -> LayerSpec:
     """Create a layer from a geom name, stat, data, mapping and position.
 
     Parameters
@@ -57,12 +73,12 @@ def layer(geom=None, stat=None, data=None, mapping=None, position=None, **kwargs
     return LayerSpec(**locals())
 
 
-def _filter_none(original: dict) -> dict:
+def _filter_none(original: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in original.items() if value is not None}
 
 
-def _specs_to_dict(raw_options: dict) -> dict:
-    options = {}
+def _specs_to_dict(raw_options: dict[str, Any]) -> dict[str, Any]:
+    options: dict[str, Any] = {}
     for key, value in raw_options.items():
         if isinstance(value, FeatureSpec):
             options[key] = value.as_dict()
@@ -76,18 +92,18 @@ def _specs_to_dict(raw_options: dict) -> dict:
 class FeatureSpec:
     """Base class of plot objects. Build them with ``ggplot()``, ``geom_*()``, ...."""
 
-    def __init__(self, kind, name, **kwargs):
+    def __init__(self, kind: str, name: str | None, **kwargs: object) -> None:
         self.kind = kind
-        self.__props = {}
+        self.__props: dict[str, Any] = {}
         if name is not None:
             self.__props["name"] = name
         self.__props.update(**kwargs)
 
-    def props(self) -> dict:
+    def props(self) -> dict[str, Any]:
         """Return the raw properties (mutable)."""
         return self.__props
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         """Return all properties, with ``as_dict()`` applied to nested specs.
 
         Returns
@@ -102,7 +118,7 @@ class FeatureSpec:
 
         return json.dumps(self.as_dict(), indent=2)
 
-    def __add__(self, other):
+    def __add__(self, other: object) -> FeatureSpec:
         if isinstance(other, DummySpec):
             return self
         if (
@@ -120,7 +136,13 @@ class PlotSpec(FeatureSpec):
 
     @classmethod
     def duplicate(cls, other: PlotSpec) -> PlotSpec:
-        """Return a shallow copy of ``other``."""
+        """Return a shallow copy of ``other``.
+
+        Parameters
+        ----------
+        other : PlotSpec
+            The spec to copy.
+        """
         duplicate = PlotSpec(
             data=None,
             mapping=None,
@@ -131,13 +153,21 @@ class PlotSpec(FeatureSpec):
         duplicate.props().update(other.props())
         return duplicate
 
-    def __init__(self, data, mapping, scales, layers, metainfo_list=(), **kwargs):
+    def __init__(
+        self,
+        data: PlotData | None,
+        mapping: FeatureSpec | None,
+        scales: Iterable[FeatureSpec],
+        layers: Iterable[FeatureSpec],
+        metainfo_list: Iterable[FeatureSpec] = (),
+        **kwargs: object,
+    ) -> None:
         super().__init__("plot", name=None, data=data, mapping=mapping, **kwargs)
         self.__scales = list(scales)
         self.__layers = list(layers)
         self.__metainfo_list = list(metainfo_list)
 
-    def get_plot_shared_data(self) -> Any:
+    def get_plot_shared_data(self) -> PlotData | None:
         """Return the data shared by all layers."""
         return self.props()["data"]
 
@@ -145,7 +175,7 @@ class PlotSpec(FeatureSpec):
         """Return whether the plot has at least one layer."""
         return bool(self.__layers)
 
-    def __add__(self, other):
+    def __add__(self, other: object) -> PlotSpec:
         if isinstance(other, DummySpec):
             return self
         # lets_plot: plot + plot is not rejected; it is stored under "plot".
@@ -189,9 +219,10 @@ class PlotSpec(FeatureSpec):
                 return plot
             plot.props()[other.kind] = other
             return plot
-        return super().__add__(other)
+        message = f"unsupported operand type(s) for +: {self.__class__} and {other.__class__}"
+        raise TypeError(message)
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         """Return the plot as a lets_plot-compatible dictionary.
 
         Returns
@@ -227,7 +258,13 @@ class PlotSpec(FeatureSpec):
 
         return render_notebook_html(self)
 
-    def to_svg(self, path=None, w=None, h=None, unit=None) -> str | None:
+    def to_svg(
+        self,
+        path: Target | None = None,
+        w: Number | None = None,
+        h: Number | None = None,
+        unit: str | None = None,
+    ) -> str | None:
         """Render to SVG.
 
         Parameters
@@ -249,7 +286,15 @@ class PlotSpec(FeatureSpec):
 
         return export_svg(self, path, w=w, h=h, unit=unit)
 
-    def to_png(self, path, scale=None, w=None, h=None, unit=None, dpi=None) -> str | None:
+    def to_png(
+        self,
+        path: Target,
+        scale: Number | None = None,
+        w: Number | None = None,
+        h: Number | None = None,
+        unit: str | None = None,
+        dpi: Number | None = None,
+    ) -> str | None:
         """Render to PNG, sized as lets_plot.
 
         Parameters
@@ -284,7 +329,15 @@ class PlotSpec(FeatureSpec):
 
         return export_png(self, path, scale=scale, w=w, h=h, unit=unit, dpi=dpi)
 
-    def to_pdf(self, path, scale=None, w=None, h=None, unit=None, dpi=None) -> str | None:
+    def to_pdf(
+        self,
+        path: Target,
+        scale: Number | None = None,
+        w: Number | None = None,
+        h: Number | None = None,
+        unit: str | None = None,
+        dpi: Number | None = None,
+    ) -> str | None:
         """Render to a one-page raster PDF (the PNG at its resolution), as lets_plot.
 
         Parameters
@@ -308,7 +361,7 @@ class PlotSpec(FeatureSpec):
 
         return export_pdf(self, path, scale=scale, w=w, h=h, unit=unit, dpi=dpi)
 
-    def to_html(self, path=None, iframe: bool | None = None) -> str | None:
+    def to_html(self, path: Target | None = None, iframe: bool | None = None) -> str | None:
         """Render to a standalone HTML page (inline SVG + the interactive runtime).
 
         Parameters
@@ -336,17 +389,23 @@ class LayerSpec(FeatureSpec):
 
     @classmethod
     def duplicate(cls, other: LayerSpec) -> LayerSpec:
-        """Return a shallow copy of ``other``."""
+        """Return a shallow copy of ``other``.
+
+        Parameters
+        ----------
+        other : LayerSpec
+            The spec to copy.
+        """
         return LayerSpec(**other.props())
 
-    def __init__(self, **kwargs):
+    def __init__(self, **kwargs: object) -> None:
         super().__init__("layer", name=None, **kwargs)
 
-    def get_plot_layer_data(self) -> Any:
+    def get_plot_layer_data(self) -> PlotData | None:
         """Return the layer's own data."""
         return self.props()["data"]
 
-    def __add__(self, other):
+    def __add__(self, other: object) -> FeatureSpec:
         if isinstance(other, DummySpec):
             return self
         if isinstance(other, FeatureSpec) and other.kind in LayerSpec.__own_features:
@@ -359,29 +418,29 @@ class LayerSpec(FeatureSpec):
 class FeatureSpecArray(FeatureSpec):
     """A flat list of features added together (e.g. ``labs()`` with several labels)."""
 
-    def __init__(self, *features):
+    def __init__(self, *features: FeatureSpec) -> None:
         super().__init__("feature-list", name=None)
-        self.__elements = []
+        self.__elements: list[FeatureSpec] = []
         self._flatten(list(features), self.__elements)
 
     def __len__(self) -> int:
         return len(self.__elements)
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[FeatureSpec]:
         return self.__elements.__iter__()
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: int) -> FeatureSpec:
         return self.__elements[item]
 
-    def elements(self) -> list:
+    def elements(self) -> list[FeatureSpec]:
         """Return the features."""
         return self.__elements
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         """Return ``{"feature-list": [{kind: as_dict()}, ...]}``."""
         return {"feature-list": [{element.kind: element.as_dict()} for element in self.__elements]}
 
-    def __add__(self, other):
+    def __add__(self, other: object) -> FeatureSpec:
         if isinstance(other, DummySpec):
             return self
         if isinstance(other, FeatureSpecArray):
@@ -390,7 +449,7 @@ class FeatureSpecArray(FeatureSpec):
             return FeatureSpecArray(*self.__elements, other)
         return super().__add__(other)
 
-    def _flatten(self, features, out):
+    def _flatten(self, features: Iterable[FeatureSpec], out: list[FeatureSpec]) -> None:
         for feature in features:
             if isinstance(feature, FeatureSpecArray):
                 self._flatten(feature.elements(), out)
@@ -401,18 +460,18 @@ class FeatureSpecArray(FeatureSpec):
 class DummySpec(FeatureSpec):
     """A feature that does nothing when added."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         super().__init__("dummy", name=None)
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         """Return ``{"dummy-feature": True}``."""
         return {"dummy-feature": True}
 
-    def __add__(self, other):
+    def __add__(self, other: object) -> Any:  # noqa: ANN401 (returns ``other`` as is)
         return other
 
 
-def _merge_dicts_recursively(first: dict, second: dict) -> dict:
+def _merge_dicts_recursively(first: dict[str, Any], second: dict[str, Any]) -> dict[str, Any]:
     merged = first.copy()
     for key, value in second.items():
         if isinstance(value, dict) and isinstance(merged.get(key), dict):
@@ -422,7 +481,7 @@ def _merge_dicts_recursively(first: dict, second: dict) -> dict:
     return merged
 
 
-def _theme_dicts_merge(first: dict, second: dict) -> dict:
+def _theme_dicts_merge(first: dict[str, Any], second: dict[str, Any]) -> dict[str, Any]:
     overlapping = first.keys() & second.keys()
     nested = {
         key: {**first[key], **second[key]}

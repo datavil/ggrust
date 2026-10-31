@@ -2,13 +2,19 @@ line-length = 100
 target-version = "py311"
 
 [lint]
-select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "D", "RUF"]
+select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "D", "RUF", "ANN"]
 ignore = ["D105", "D107"]
 
 [lint.pydocstyle]
 convention = "numpy"
 
+[lint.flake8-annotations]
+# `**other_args: Any` forwards lets_plot constants and options of any kind.
+allow-star-arg-any = true
+
 [lint.per-file-ignores]
-"tests/**" = ["D"]
+"tests/**" = ["D", "ANN"]
+# Benchmarks duck-type plots of either library (ggrust or lets_plot).
+"benchmarks/**" = ["ANN401"]
 # Manual notebooks use the lets-plot idiom `from ggrust import *`.
 "notebooks/**" = ["F403", "F405"]

@@ -9,7 +9,7 @@ optional ``palettable`` package, as in lets_plot. The PNG is written with ``zlib
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from ggrust.plot.core import FeatureSpec, LayerSpec, aes
 from ggrust.plot.geom import _geom
@@ -319,7 +319,7 @@ def geom_imshow(
     color_scale_mapping = None
     if greyscale and show_legend:
         color_scale_mapping = aes(**{color_by: [greyscale_data_min, greyscale_data_max]})
-        guide_options: dict[str, object] = {
+        guide_options: dict[str, Any] = {
             "name": "",
             "guide": cguide,
             "breaks": breaks,

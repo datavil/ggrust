@@ -10,6 +10,8 @@ Usage::
     uv run python benchmarks/scenarios.py --sizes 10000 100000
 """
 
+from __future__ import annotations
+
 import argparse
 import io
 import json
@@ -20,15 +22,21 @@ import subprocess
 import sys
 import time
 import warnings
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
+from types import ModuleType
+from typing import TYPE_CHECKING, Any
+
+if TYPE_CHECKING:
+    import polars as pl
 
 RESULTS = Path(__file__).parent / "results"
 # ru_maxrss is in kilobytes on Linux and in bytes on macOS.
 BYTES_PER_UNIT = 1024 if sys.platform == "darwin" else 1
 
 
-def make_frame(size: int):
+def make_frame(size: int) -> pl.DataFrame:
     """Everyday-style data: two numeric axes, a 6-level category, a continuous value."""
     import numpy as np
     import polars as pl
@@ -48,7 +56,9 @@ def make_frame(size: int):
     )
 
 
-def scenarios(m, frame, sample: dict) -> dict:
+def scenarios(
+    m: ModuleType, frame: pl.DataFrame, sample: dict[str, Any]
+) -> dict[str, Callable[[], Any]]:
     """Scenario name -> zero-argument plot builder. ``sample`` holds library-specific kwargs."""
     point = lambda **kw: m.geom_point(**kw, **sample)  # noqa: E731
     return {
@@ -97,7 +107,7 @@ SCATTER += ["titled_themed"]
 GENERAL = ["histogram", "bar", "boxplot", "violin", "line", "facet", "grid"]
 
 
-def load(library: str):
+def load(library: str) -> tuple[ModuleType, dict[str, Any]]:
     """Import the library module and its per-layer sampling kwargs."""
     if library == "ggrust":
         import ggrust as module
@@ -139,7 +149,9 @@ def worker(library: str, scenario: str, size: int, repeats: int) -> dict:
     return result
 
 
-def run_in_subprocess(library, scenario, size, repeats, timeout) -> dict:
+def run_in_subprocess(
+    library: str, scenario: str, size: int, repeats: int, timeout: float
+) -> dict[str, Any]:
     """Measure one configuration in a fresh process."""
     command = [sys.executable, __file__, "--worker", library, scenario, str(size), str(repeats)]
     base = {"library": library, "scenario": scenario, "points": size}

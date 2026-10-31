@@ -3,10 +3,16 @@
 Ported from lets-plot's ``lets_plot/plot/plot.py`` (MIT, see THIRD_PARTY_NOTICES.md).
 """
 
+from __future__ import annotations
+
 import numbers
+from typing import TYPE_CHECKING
 
 from ggrust.plot.core import FeatureSpec, PlotSpec
 from ggrust.plot.util import as_annotated_data, key_int2str
+
+if TYPE_CHECKING:
+    from ggrust._typing import Number, PlotData
 
 __all__ = ["GGBunch", "ggplot", "ggsize"]
 
@@ -15,7 +21,7 @@ MAX_WIDTH = 10_000
 MAX_HEIGHT = 10_000
 
 
-def ggplot(data=None, mapping=None) -> PlotSpec:
+def ggplot(data: PlotData | None = None, mapping: FeatureSpec | None = None) -> PlotSpec:
     """Create a new plot.
 
     Parameters
@@ -39,7 +45,7 @@ def ggplot(data=None, mapping=None) -> PlotSpec:
     return PlotSpec(data, mapping, scales=[], layers=[], **data_meta)
 
 
-def ggsize(width, height) -> FeatureSpec:
+def ggsize(width: Number, height: Number) -> FeatureSpec:
     """Set the plot size in pixels.
 
     Parameters
@@ -70,6 +76,6 @@ class GGBunch(FeatureSpec):
     Exported so code that names it (type hints, ``isinstance``) keeps importing.
     """
 
-    def __init__(self):
+    def __init__(self) -> None:
         message = "GGBunch is deprecated in lets_plot and not supported by ggrust; use gggrid()"
         raise NotImplementedError(message)

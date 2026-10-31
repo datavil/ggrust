@@ -5,7 +5,17 @@ THIRD_PARTY_NOTICES.md). The engine draws the options listed in plan.md (Phase 1
 warns about the rest.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any, cast
+
 from ggrust.plot.core import FeatureSpec
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping, Sequence
+    from typing import Any, Literal
+
+    from ggrust._typing import Color, Margins, Number, ThemeElement
 
 __all__ = [
     "element_blank",
@@ -36,120 +46,231 @@ __all__ = [
 
 def theme(
     *,
-    exponent_format=None,
-    line=None,
-    rect=None,
-    text=None,
-    title=None,
-    axis=None,
-    axis_ontop=None,
-    axis_ontop_x=None,
-    axis_ontop_y=None,
-    axis_title=None,
-    axis_title_x=None,
-    axis_title_y=None,
-    axis_text=None,
-    axis_text_x=None,
-    axis_text_y=None,
-    axis_text_spacing=None,
-    axis_text_spacing_x=None,
-    axis_text_spacing_y=None,
-    axis_ticks=None,
-    axis_ticks_x=None,
-    axis_ticks_y=None,
-    axis_minor_ticks=None,
-    axis_minor_ticks_x=None,
-    axis_minor_ticks_y=None,
-    axis_ticks_length=None,
-    axis_ticks_length_x=None,
-    axis_ticks_length_y=None,
-    axis_minor_ticks_length=None,
-    axis_minor_ticks_length_x=None,
-    axis_minor_ticks_length_y=None,
-    axis_line=None,
-    axis_line_x=None,
-    axis_line_y=None,
-    legend_background=None,
-    legend_text=None,
-    legend_title=None,
-    legend_position=None,
-    legend_justification=None,
-    legend_direction=None,
-    legend_margin=None,
-    legend_spacing=None,
-    legend_spacing_x=None,
-    legend_spacing_y=None,
-    legend_key=None,
-    legend_key_size=None,
-    legend_key_width=None,
-    legend_key_height=None,
-    legend_key_spacing=None,
-    legend_key_spacing_x=None,
-    legend_key_spacing_y=None,
-    legend_box=None,
-    legend_box_just=None,
-    legend_box_spacing=None,
-    legend_ticks=None,
-    legend_ticks_length=None,
-    panel_background=None,
-    panel_border=None,
-    panel_border_ontop=None,
-    panel_grid=None,
-    panel_grid_ontop=None,
-    panel_grid_ontop_x=None,
-    panel_grid_ontop_y=None,
-    panel_grid_major=None,
-    panel_grid_minor=None,
-    panel_grid_major_x=None,
-    panel_grid_minor_x=None,
-    panel_grid_major_y=None,
-    panel_grid_minor_y=None,
-    panel_inset=None,
-    plot_background=None,
-    plot_title=None,
-    plot_subtitle=None,
-    plot_caption=None,
-    plot_tag=None,
-    plot_message=None,
-    plot_margin=None,
-    plot_inset=None,
-    plot_title_position=None,
-    plot_caption_position=None,
-    plot_tag_position=None,
-    plot_tag_location=None,
-    plot_tag_prefix=None,
-    plot_tag_suffix=None,
-    strip_background=None,
-    strip_background_x=None,
-    strip_background_y=None,
-    strip_text=None,
-    strip_text_x=None,
-    strip_text_y=None,
-    strip_spacing=None,
-    strip_spacing_x=None,
-    strip_spacing_y=None,
-    panel_spacing=None,
-    panel_spacing_x=None,
-    panel_spacing_y=None,
-    axis_tooltip=None,
-    axis_tooltip_x=None,
-    axis_tooltip_y=None,
-    axis_tooltip_text=None,
-    axis_tooltip_text_x=None,
-    axis_tooltip_text_y=None,
-    tooltip=None,
-    tooltip_text=None,
-    tooltip_title_text=None,
-    tooltip_merge=None,
-    tooltip_max_count=None,
-    label_text=None,
-    geom=None,
+    exponent_format: str | tuple[str, int | None, int | None] | None = None,
+    line: ThemeElement | None = None,
+    rect: ThemeElement | None = None,
+    text: ThemeElement | None = None,
+    title: ThemeElement | None = None,
+    axis: ThemeElement | None = None,
+    axis_ontop: bool | None = None,
+    axis_ontop_x: bool | None = None,
+    axis_ontop_y: bool | None = None,
+    axis_title: ThemeElement | None = None,
+    axis_title_x: ThemeElement | None = None,
+    axis_title_y: ThemeElement | None = None,
+    axis_text: ThemeElement | None = None,
+    axis_text_x: ThemeElement | None = None,
+    axis_text_y: ThemeElement | None = None,
+    axis_text_spacing: Number | None = None,
+    axis_text_spacing_x: Number | None = None,
+    axis_text_spacing_y: Number | None = None,
+    axis_ticks: ThemeElement | None = None,
+    axis_ticks_x: ThemeElement | None = None,
+    axis_ticks_y: ThemeElement | None = None,
+    axis_minor_ticks: ThemeElement | None = None,
+    axis_minor_ticks_x: ThemeElement | None = None,
+    axis_minor_ticks_y: ThemeElement | None = None,
+    axis_ticks_length: Number | None = None,
+    axis_ticks_length_x: Number | None = None,
+    axis_ticks_length_y: Number | None = None,
+    axis_minor_ticks_length: Number | None = None,
+    axis_minor_ticks_length_x: Number | None = None,
+    axis_minor_ticks_length_y: Number | None = None,
+    axis_line: ThemeElement | None = None,
+    axis_line_x: ThemeElement | None = None,
+    axis_line_y: ThemeElement | None = None,
+    legend_background: ThemeElement | None = None,
+    legend_text: ThemeElement | None = None,
+    legend_title: ThemeElement | None = None,
+    legend_position: str | Sequence[Number] | None = None,
+    legend_justification: str | Sequence[Number] | None = None,
+    legend_direction: Literal["horizontal", "vertical"] | None = None,
+    legend_margin: Margins | None = None,
+    legend_spacing: Number | None = None,
+    legend_spacing_x: Number | None = None,
+    legend_spacing_y: Number | None = None,
+    legend_key: ThemeElement | None = None,
+    legend_key_size: Number | None = None,
+    legend_key_width: Number | None = None,
+    legend_key_height: Number | None = None,
+    legend_key_spacing: Number | None = None,
+    legend_key_spacing_x: Number | None = None,
+    legend_key_spacing_y: Number | None = None,
+    legend_box: Literal["horizontal", "vertical"] | None = None,
+    legend_box_just: str | None = None,
+    legend_box_spacing: Number | None = None,
+    legend_ticks: ThemeElement | None = None,
+    legend_ticks_length: Number | None = None,
+    panel_background: ThemeElement | None = None,
+    panel_border: ThemeElement | None = None,
+    panel_border_ontop: bool | None = None,
+    panel_grid: ThemeElement | None = None,
+    panel_grid_ontop: bool | None = None,
+    panel_grid_ontop_x: bool | None = None,
+    panel_grid_ontop_y: bool | None = None,
+    panel_grid_major: ThemeElement | None = None,
+    panel_grid_minor: ThemeElement | None = None,
+    panel_grid_major_x: ThemeElement | None = None,
+    panel_grid_minor_x: ThemeElement | None = None,
+    panel_grid_major_y: ThemeElement | None = None,
+    panel_grid_minor_y: ThemeElement | None = None,
+    panel_inset: Margins | None = None,
+    plot_background: ThemeElement | None = None,
+    plot_title: ThemeElement | None = None,
+    plot_subtitle: ThemeElement | None = None,
+    plot_caption: ThemeElement | None = None,
+    plot_tag: ThemeElement | None = None,
+    plot_message: ThemeElement | None = None,
+    plot_margin: Margins | None = None,
+    plot_inset: Margins | None = None,
+    plot_title_position: Literal["panel", "plot"] | None = None,
+    plot_caption_position: Literal["panel", "plot"] | None = None,
+    plot_tag_position: str | Sequence[Number] | None = None,
+    plot_tag_location: str | None = None,
+    plot_tag_prefix: str | None = None,
+    plot_tag_suffix: str | None = None,
+    strip_background: ThemeElement | None = None,
+    strip_background_x: ThemeElement | None = None,
+    strip_background_y: ThemeElement | None = None,
+    strip_text: ThemeElement | None = None,
+    strip_text_x: ThemeElement | None = None,
+    strip_text_y: ThemeElement | None = None,
+    strip_spacing: Number | None = None,
+    strip_spacing_x: Number | None = None,
+    strip_spacing_y: Number | None = None,
+    panel_spacing: Number | None = None,
+    panel_spacing_x: Number | None = None,
+    panel_spacing_y: Number | None = None,
+    axis_tooltip: ThemeElement | None = None,
+    axis_tooltip_x: ThemeElement | None = None,
+    axis_tooltip_y: ThemeElement | None = None,
+    axis_tooltip_text: ThemeElement | None = None,
+    axis_tooltip_text_x: ThemeElement | None = None,
+    axis_tooltip_text_y: ThemeElement | None = None,
+    tooltip: ThemeElement | None = None,
+    tooltip_text: ThemeElement | None = None,
+    tooltip_title_text: ThemeElement | None = None,
+    tooltip_merge: bool | None = None,
+    tooltip_max_count: int | None = None,
+    label_text: ThemeElement | None = None,
+    geom: Mapping[str, Any] | None = None,
 ) -> FeatureSpec:
     """Set theme options: element_*() values, numbers or names per theme element.
 
     Every parameter is keyword-only, named and valued as in lets_plot ``theme()``
     (``axis_text_x=element_text(size=10)``, ``legend_position="bottom"``,
     ``panel_grid=element_blank()``, ...). Parameters left as None are not set.
+    Element parameters take an ``element_*()`` value, or ``"blank"`` to hide the
+    element. ``_x`` / ``_y`` variants override the shared one for one axis.
+
+    Parameters
+    ----------
+    exponent_format : str or tuple, optional
+        How large and small numbers are written: ``"e"`` (1e+06), ``"pow"`` (10^6),
+        ``"pow_full"``, or ``(format, min_exponent, max_exponent)``.
+    line, rect, text, title : dict or str, optional
+        Root elements every line, rectangle, text and title inherits from.
+    axis : dict or str, optional
+        Every part of both axes.
+    axis_ontop, axis_ontop_x, axis_ontop_y : bool, optional
+        True draws the axis over the plot layers.
+    axis_title, axis_title_x, axis_title_y : dict or str, optional
+        Axis titles (``element_text()``).
+    axis_text, axis_text_x, axis_text_y : dict or str, optional
+        Tick labels (``element_text()``).
+    axis_text_spacing, axis_text_spacing_x, axis_text_spacing_y : float, optional
+        Space between the ticks and their labels, in pixels.
+    axis_ticks, axis_ticks_x, axis_ticks_y : dict or str, optional
+        Major ticks (``element_line()``).
+    axis_minor_ticks, axis_minor_ticks_x, axis_minor_ticks_y : dict or str, optional
+        Minor ticks (``element_line()``).
+    axis_ticks_length, axis_ticks_length_x, axis_ticks_length_y : float, optional
+        Length of the major ticks, in pixels.
+    axis_minor_ticks_length, axis_minor_ticks_length_x, axis_minor_ticks_length_y : float, optional
+        Length of the minor ticks, in pixels.
+    axis_line, axis_line_x, axis_line_y : dict or str, optional
+        Axis lines (``element_line()``).
+    legend_background, legend_text, legend_title : dict or str, optional
+        Legend box (``element_rect()``), key labels and title (``element_text()``).
+    legend_position : str or list of float, optional
+        ``"right"``, ``"left"``, ``"top"``, ``"bottom"``, ``"none"``, or ``[x, y]``
+        inside the plot (0 to 1).
+    legend_justification : str or list of float, optional
+        Anchor of the legend box: a name such as ``"center"``, or ``[x, y]``.
+    legend_direction : {"horizontal", "vertical"}, optional
+        Layout of the legend keys.
+    legend_margin : float or list of float, optional
+        Margins around the legend, in pixels (one number, or 2 to 4 as in CSS).
+    legend_spacing, legend_spacing_x, legend_spacing_y : float, optional
+        Space between legends, in pixels.
+    legend_key : dict or str, optional
+        Background of the legend keys (``element_rect()``).
+    legend_key_size, legend_key_width, legend_key_height : float, optional
+        Size of the legend keys, in pixels.
+    legend_key_spacing, legend_key_spacing_x, legend_key_spacing_y : float, optional
+        Space between legend keys, in pixels.
+    legend_box : {"horizontal", "vertical"}, optional
+        Arrangement of several legends.
+    legend_box_just : str, optional
+        Justification of the legends within their box.
+    legend_box_spacing : float, optional
+        Space between the plot panel and the legend box, in pixels.
+    legend_ticks : dict or str, optional
+        Ticks of the color bar (``element_line()``).
+    legend_ticks_length : float, optional
+        Length of the color bar ticks, in pixels.
+    panel_background, panel_border : dict or str, optional
+        Panel background and border (``element_rect()``).
+    panel_border_ontop : bool, optional
+        True draws the border over the plot layers.
+    panel_grid, panel_grid_major, panel_grid_minor : dict or str, optional
+        Grid lines (``element_line()``).
+    panel_grid_major_x, panel_grid_minor_x : dict or str, optional
+        Grid lines of the x axis.
+    panel_grid_major_y, panel_grid_minor_y : dict or str, optional
+        Grid lines of the y axis.
+    panel_grid_ontop, panel_grid_ontop_x, panel_grid_ontop_y : bool, optional
+        True draws the grid over the plot layers.
+    panel_inset : float or list of float, optional
+        Inner margins of the panel, in pixels.
+    plot_background : dict or str, optional
+        Background of the whole plot (``element_rect()``).
+    plot_title, plot_subtitle, plot_caption, plot_tag : dict or str, optional
+        Title, subtitle, caption and tag texts (``element_text()``).
+    plot_message : dict or str, optional
+        Messages shown on the plot (lets_plot); ``"blank"`` hides them.
+    plot_margin, plot_inset : float or list of float, optional
+        Outer and inner margins of the plot, in pixels.
+    plot_title_position, plot_caption_position : {"panel", "plot"}, optional
+        Align the title or caption with the panel or with the whole plot.
+    plot_tag_position : str or list of float, optional
+        Where the tag goes: a side name such as ``"topleft"``, or ``[x, y]``.
+    plot_tag_location : str, optional
+        What the tag position is relative to: ``"panel"``, ``"plot"`` or ``"margin"``.
+    plot_tag_prefix, plot_tag_suffix : str, optional
+        Text added before and after the tag.
+    strip_background, strip_background_x, strip_background_y : dict or str, optional
+        Facet strip backgrounds (``element_rect()``).
+    strip_text, strip_text_x, strip_text_y : dict or str, optional
+        Facet strip texts (``element_text()``).
+    strip_spacing, strip_spacing_x, strip_spacing_y : float, optional
+        Space between the strips and the panels, in pixels.
+    panel_spacing, panel_spacing_x, panel_spacing_y : float, optional
+        Space between facet panels, in pixels.
+    axis_tooltip, axis_tooltip_x, axis_tooltip_y : dict or str, optional
+        Axis tooltips of HTML output (``element_rect()``).
+    axis_tooltip_text, axis_tooltip_text_x, axis_tooltip_text_y : dict or str, optional
+        Text of the axis tooltips (``element_text()``).
+    tooltip, tooltip_text, tooltip_title_text : dict or str, optional
+        Tooltip box, text and title text of HTML output.
+    tooltip_merge : bool, optional
+        lets_plot's tooltip merging option.
+    tooltip_max_count : int, optional
+        Maximum number of tooltips shown at once.
+    label_text : dict or str, optional
+        Text of ``geom_label()`` labels (``element_text()``).
+    geom : dict, optional
+        Default geom colors, from ``element_geom()``.
 
     Returns
     -------
@@ -159,14 +280,14 @@ def theme(
     return FeatureSpec("theme", name=None, **_filter_none(locals()))
 
 
-def _filter_none(original: dict) -> dict:
-    def filter_value(value):
-        return _filter_none(value) if isinstance(value, dict) else value
+def _filter_none(original: dict[str, Any]) -> dict[str, Any]:
+    def filter_value(value: object) -> object:
+        return _filter_none(cast("dict[str, Any]", value)) if isinstance(value, dict) else value
 
     return {key: filter_value(value) for key, value in original.items() if value is not None}
 
 
-def element_blank() -> dict:
+def element_blank() -> dict[str, Any]:
     """Hide a theme element.
 
     Returns
@@ -177,8 +298,27 @@ def element_blank() -> dict:
     return dict(blank=True)
 
 
-def element_rect(fill=None, color=None, size=None, linetype=None, blank=False) -> dict:
+def element_rect(
+    fill: Color | None = None,
+    color: Color | None = None,
+    size: Number | None = None,
+    linetype: int | str | None = None,
+    blank: bool = False,
+) -> dict[str, Any]:
     """Style a rectangle (backgrounds, borders).
+
+    Parameters
+    ----------
+    fill : str, optional
+        Fill color.
+    color : str, optional
+        Color.
+    size : float, optional
+        Size (line width, or text size in points).
+    linetype : int or str, optional
+        Line type, by number or name.
+    blank : bool, default=False
+        True hides the element.
 
     Returns
     -------
@@ -188,8 +328,24 @@ def element_rect(fill=None, color=None, size=None, linetype=None, blank=False) -
     return locals()
 
 
-def element_line(color=None, size=None, linetype=None, blank=False) -> dict:
+def element_line(
+    color: Color | None = None,
+    size: Number | None = None,
+    linetype: int | str | None = None,
+    blank: bool = False,
+) -> dict[str, Any]:
     """Style a line (axis lines, ticks, grid).
+
+    Parameters
+    ----------
+    color : str, optional
+        Color.
+    size : float, optional
+        Size (line width, or text size in points).
+    linetype : int or str, optional
+        Line type, by number or name.
+    blank : bool, default=False
+        True hides the element.
 
     Returns
     -------
@@ -200,17 +356,38 @@ def element_line(color=None, size=None, linetype=None, blank=False) -> dict:
 
 
 def element_text(
-    color=None,
-    family=None,
-    face=None,
-    size=None,
-    angle=None,
-    hjust=None,
-    vjust=None,
-    margin=None,
-    blank=False,
-) -> dict:
+    color: Color | None = None,
+    family: str | None = None,
+    face: str | None = None,
+    size: Number | None = None,
+    angle: Number | None = None,
+    hjust: Number | None = None,
+    vjust: Number | None = None,
+    margin: Margins | None = None,
+    blank: bool = False,
+) -> dict[str, Any]:
     """Style text.
+
+    Parameters
+    ----------
+    color : str, optional
+        Color.
+    family : str, optional
+        Font family.
+    face : str, optional
+        Font face, e.g. ``"bold"`` or ``"italic"``.
+    size : float, optional
+        Size (line width, or text size in points).
+    angle : float, optional
+        Text rotation in degrees.
+    hjust : float, optional
+        Horizontal justification, 0 (left) to 1 (right).
+    vjust : float, optional
+        Vertical justification, 0 (bottom) to 1 (top).
+    margin : float or list of float, optional
+        Margins in pixels: one number, or 2 to 4 numbers as in CSS.
+    blank : bool, default=False
+        True hides the element.
 
     Returns
     -------
@@ -221,17 +398,38 @@ def element_text(
 
 
 def element_markdown(
-    color=None,
-    family=None,
-    face=None,
-    size=None,
-    angle=None,
-    hjust=None,
-    vjust=None,
-    margin=None,
-    blank=False,
-) -> dict:
+    color: Color | None = None,
+    family: str | None = None,
+    face: str | None = None,
+    size: Number | None = None,
+    angle: Number | None = None,
+    hjust: Number | None = None,
+    vjust: Number | None = None,
+    margin: Margins | None = None,
+    blank: bool = False,
+) -> dict[str, Any]:
     """Style text written in Markdown (drawn as plain text by ggrust).
+
+    Parameters
+    ----------
+    color : str, optional
+        Color.
+    family : str, optional
+        Font family.
+    face : str, optional
+        Font face, e.g. ``"bold"`` or ``"italic"``.
+    size : float, optional
+        Size (line width, or text size in points).
+    angle : float, optional
+        Text rotation in degrees.
+    hjust : float, optional
+        Horizontal justification, 0 (left) to 1 (right).
+    vjust : float, optional
+        Vertical justification, 0 (bottom) to 1 (top).
+    margin : float or list of float, optional
+        Margins in pixels: one number, or 2 to 4 numbers as in CSS.
+    blank : bool, default=False
+        True hides the element.
 
     Returns
     -------
@@ -241,8 +439,24 @@ def element_markdown(
     return {"markdown": True, **locals()}
 
 
-def margin(t=None, r=None, b=None, l=None):  # noqa: E741 (lets_plot's name)
+def margin(
+    t: Number | None = None,
+    r: Number | None = None,
+    b: Number | None = None,
+    l: Number | None = None,  # noqa: E741 (lets_plot's name)
+) -> list[Number | None]:
     """Return margins ``[top, right, bottom, left]`` (deprecated in lets_plot).
+
+    Parameters
+    ----------
+    t : float, optional
+        Top margin.
+    r : float, optional
+        Right margin.
+    b : float, optional
+        Bottom margin.
+    l : float, optional
+        Left margin.
 
     Returns
     -------
@@ -252,8 +466,19 @@ def margin(t=None, r=None, b=None, l=None):  # noqa: E741 (lets_plot's name)
     return [t, r, b, l]
 
 
-def element_geom(pen=None, brush=None, paper=None) -> dict:
+def element_geom(
+    pen: Color | None = None, brush: Color | None = None, paper: Color | None = None
+) -> dict[str, Any]:
     """Set default geom colors.
+
+    Parameters
+    ----------
+    pen : str, optional
+        Color of lines and point outlines.
+    brush : str, optional
+        Color of fills.
+    paper : str, optional
+        Background color.
 
     Returns
     -------

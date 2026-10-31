@@ -1,11 +1,25 @@
 """Helpers for geoms, ported from lets-plot's ``lets_plot/plot/geom_extras.py``."""
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from ggrust.plot.core import FeatureSpec
+
+if TYPE_CHECKING:
+    from typing import Literal
+
+    from ggrust._typing import Number
 
 __all__ = ["arrow"]
 
 
-def arrow(angle=None, length=None, ends=None, type=None) -> FeatureSpec:
+def arrow(
+    angle: Number | None = None,
+    length: Number | None = None,
+    ends: Literal["first", "last", "both"] | None = None,
+    type: str | None = None,
+) -> FeatureSpec:
     """Describe the arrow heads of a line (``geom_segment``, ``geom_path``).
 
     Parameters

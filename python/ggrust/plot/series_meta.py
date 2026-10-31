@@ -5,9 +5,19 @@ THIRD_PARTY_NOTICES.md). The Rust engine reads types from Arrow; these annotatio
 keep ``as_dict()`` identical to lets_plot.
 """
 
+from __future__ import annotations
+
 import sys
 from collections.abc import Iterable
 from datetime import date, datetime, time
+from typing import TYPE_CHECKING, TypeGuard, cast
+
+if TYPE_CHECKING:
+    import pandas
+    import polars
+    from polars._typing import PolarsDataType
+
+    from ggrust._typing import PlotData
 
 TYPE_INTEGER = "int"
 TYPE_FLOATING = "float"
@@ -19,30 +29,48 @@ TYPE_TIME = "time"
 TYPE_UNKNOWN = "unknown"
 
 
-def is_pandas_data_frame(data) -> bool:
-    """Whether ``data`` is a pandas DataFrame (without importing pandas)."""
+def is_pandas_data_frame(data: object) -> TypeGuard[pandas.DataFrame]:
+    """Whether ``data`` is a pandas DataFrame (without importing pandas).
+
+    Parameters
+    ----------
+    data : object
+        Layer data; inherits the plot data when None.
+    """
     pandas = sys.modules.get("pandas")
     return pandas is not None and isinstance(data, pandas.DataFrame)
 
 
-def is_polars_data_frame(data) -> bool:
-    """Whether ``data`` is a polars DataFrame (without importing polars)."""
+def is_polars_data_frame(data: object) -> TypeGuard[polars.DataFrame]:
+    """Whether ``data`` is a polars DataFrame (without importing polars).
+
+    Parameters
+    ----------
+    data : object
+        Layer data; inherits the plot data when None.
+    """
     polars = sys.modules.get("polars")
     return polars is not None and isinstance(data, polars.DataFrame)
 
 
-def infer_types(data) -> dict:
-    """Map each column of ``data`` to a lets-plot type name."""
+def infer_types(data: PlotData | None) -> dict[str, str]:
+    """Map each column of ``data`` to a lets-plot type name.
+
+    Parameters
+    ----------
+    data : DataFrame or dict
+        Layer data; inherits the plot data when None.
+    """
     if isinstance(data, dict):
-        return {name: _infer_dict_type(content) for name, content in data.items()}
+        return {str(name): _infer_dict_type(content) for name, content in data.items()}
     if is_pandas_data_frame(data):
-        return {name: _infer_pandas_type(content) for name, content in data.items()}
+        return {str(name): _infer_pandas_type(content) for name, content in data.items()}
     if is_polars_data_frame(data):
         return {name: _infer_polars_type(dtype) for name, dtype in data.schema.items()}
     return {}
 
 
-def _infer_pandas_type(content) -> str:
+def _infer_pandas_type(content: pandas.Series) -> str:
     import numpy
     import pandas
 
@@ -76,7 +104,7 @@ def _infer_pandas_type(content) -> str:
     return simple.get(inferred, f"unknown(pandas:{inferred})")
 
 
-def _infer_polars_type(dtype) -> str:
+def _infer_polars_type(dtype: PolarsDataType) -> str:
     import polars
 
     if isinstance(dtype, polars.Enum | polars.Categorical):
@@ -98,7 +126,7 @@ def _infer_polars_type(dtype) -> str:
     return f"unknown(polars:{dtype})"
 
 
-def _infer_dict_type(content) -> str:
+def _infer_dict_type(content: object) -> str:
     if not isinstance(content, Iterable) or not any(True for _ in content):
         return TYPE_UNKNOWN
     types = {type(value) for value in content}
@@ -137,8 +165,16 @@ def _infer_dict_type(content) -> str:
     return f"unknown(python:{kind})"
 
 
-def detect_time_zone(name: str, data) -> str | None:
-    """Time zone of a datetime column, if any."""
+def detect_time_zone(name: str, data: PlotData | None) -> str | None:
+    """Time zone of a datetime column, if any.
+
+    Parameters
+    ----------
+    name : str
+        Title of the scale, shown on the axis or the legend.
+    data : DataFrame or dict
+        Layer data; inherits the plot data when None.
+    """
     if is_pandas_data_frame(data):
         if name in data:
             content = data[name]
@@ -150,7 +186,7 @@ def detect_time_zone(name: str, data) -> str | None:
             if time_zone is not None:
                 return str(time_zone)
     elif isinstance(data, dict) and name in data:
-        content = data[name]
+        content = cast("dict[str, object]", data)[name]
         if isinstance(content, Iterable):
             for value in content:
                 if isinstance(value, datetime) and value.tzinfo is not None:

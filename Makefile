@@ -21,6 +21,7 @@ lint: venv
 	cargo clippy --workspace --all-targets -- -D warnings
 	uv run ruff format --check .
 	uv run ruff check .
+	uv run ty check python/
 
 test: venv
 	cargo test --workspace

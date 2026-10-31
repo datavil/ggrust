@@ -5,7 +5,17 @@ The engine applies ``identity`` only so far; the others build lets_plot-identica
 specs and rendering reports them (plan.md Phase 2).
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from ggrust.plot.core import FeatureSpec
+
+if TYPE_CHECKING:
+    from typing import Any
+
+    from ggrust._typing import Number
+
 
 __all__ = [
     "position_dodge",
@@ -17,7 +27,7 @@ __all__ = [
 ]
 
 
-def position_dodge(width=None) -> FeatureSpec:
+def position_dodge(width: Number | None = None) -> FeatureSpec:
     """Place overlapping objects side by side.
 
     Parameters
@@ -33,7 +43,9 @@ def position_dodge(width=None) -> FeatureSpec:
     return _position("dodge", width=width)
 
 
-def position_jitter(width=None, height=None, seed=None) -> FeatureSpec:
+def position_jitter(
+    width: Number | None = None, height: Number | None = None, seed: int | None = None
+) -> FeatureSpec:
     """Add random noise to positions.
 
     Parameters
@@ -51,7 +63,9 @@ def position_jitter(width=None, height=None, seed=None) -> FeatureSpec:
     return _position("jitter", width=width, height=height, seed=seed)
 
 
-def position_nudge(x=None, y=None, unit=None) -> FeatureSpec:
+def position_nudge(
+    x: Number | None = None, y: Number | None = None, unit: str | None = None
+) -> FeatureSpec:
     """Shift positions by a fixed offset.
 
     Parameters
@@ -70,7 +84,10 @@ def position_nudge(x=None, y=None, unit=None) -> FeatureSpec:
 
 
 def position_jitterdodge(
-    dodge_width=None, jitter_width=None, jitter_height=None, seed=None
+    dodge_width: Number | None = None,
+    jitter_width: Number | None = None,
+    jitter_height: Number | None = None,
+    seed: int | None = None,
 ) -> FeatureSpec:
     """Dodge, then jitter (points over dodged boxplots).
 
@@ -97,7 +114,7 @@ def position_jitterdodge(
     )
 
 
-def position_stack(vjust=None, mode=None) -> FeatureSpec:
+def position_stack(vjust: Number | None = None, mode: str | None = None) -> FeatureSpec:
     """Stack overlapping objects on top of each other.
 
     Parameters
@@ -115,7 +132,7 @@ def position_stack(vjust=None, mode=None) -> FeatureSpec:
     return _position("stack", vjust=vjust, mode=mode)
 
 
-def position_fill(vjust=None, mode=None) -> FeatureSpec:
+def position_fill(vjust: Number | None = None, mode: str | None = None) -> FeatureSpec:
     """Stack overlapping objects and normalise each stack to height 1.
 
     Parameters
@@ -133,5 +150,5 @@ def position_fill(vjust=None, mode=None) -> FeatureSpec:
     return _position("fill", vjust=vjust, mode=mode)
 
 
-def _position(name, **options) -> FeatureSpec:
+def _position(name: str, **options: Any) -> FeatureSpec:
     return FeatureSpec("pos", name=name, **options)

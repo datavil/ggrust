@@ -5,7 +5,8 @@ Ported from lets-plot's ``lets_plot/plot/util.py`` (MIT, see THIRD_PARTY_NOTICES
 
 from __future__ import annotations
 
-from typing import Any
+from collections.abc import Sequence
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from ggrust.mapping import MappingMeta
 from ggrust.plot.core import FeatureSpec, PlotSpec, aes
@@ -18,28 +19,58 @@ from ggrust.plot.series_meta import (
     is_polars_data_frame,
 )
 
+if TYPE_CHECKING:
+    from ggrust._typing import PlotData
 
-def last_not_none(values: list) -> Any:
-    """Return the last value that is not None, or None."""
+
+Value = TypeVar("Value")
+
+
+def last_not_none(values: Sequence[Value | None]) -> Value | None:
+    """Return the last value that is not None, or None.
+
+    Parameters
+    ----------
+    values : list of Value
+        Values of the levels: a list, or a dict of levels to values.
+    """
     for value in reversed(values):
         if value is not None:
             return value
     return None
 
 
-def key_int2str(data):
-    """Use string column names when the names are integers (as lets_plot)."""
+def key_int2str(data: PlotData | None) -> PlotData | None:
+    """Use string column names when the names are integers (as lets_plot).
+
+    Parameters
+    ----------
+    data : DataFrame or dict
+        Layer data; inherits the plot data when None.
+    """
     if is_pandas_data_frame(data):
         if data.columns.inferred_type in ("integer", "mixed-integer"):
             data.columns = data.columns.astype(str)
         return data
     if isinstance(data, dict):
-        return {str(key) if isinstance(key, int) else key: value for key, value in data.items()}
+        columns = cast("dict[object, object]", data)
+        renamed = {
+            str(key) if isinstance(key, int) else key: value for key, value in columns.items()
+        }
+        return cast("dict[str, object]", renamed)
     return data
 
 
 def update_plot_aes_mapping(plot: PlotSpec, add_mapping: FeatureSpec) -> None:
-    """Merge ``plot + aes(...)`` into the plot mapping and refresh ``data_meta``."""
+    """Merge ``plot + aes(...)`` into the plot mapping and refresh ``data_meta``.
+
+    Parameters
+    ----------
+    plot : PlotSpec
+        The plot, updated in place.
+    add_mapping : FeatureSpec
+        The added ``aes()``; its aesthetics override the plot's.
+    """
     existing = plot.props().get("mapping", aes())
     merged = {**existing.as_dict(), **add_mapping.as_dict()}
     data = plot.props().get("data", None)
@@ -50,7 +81,9 @@ def update_plot_aes_mapping(plot: PlotSpec, add_mapping: FeatureSpec) -> None:
         plot.props()[key] = value
 
 
-def as_annotated_data(data: Any, mapping_spec: FeatureSpec | None) -> tuple:
+def as_annotated_data(
+    data: PlotData | None, mapping_spec: FeatureSpec | None
+) -> tuple[PlotData | None, FeatureSpec, dict[str, Any]]:
     """Resolve ``as_discrete`` annotations and describe column types.
 
     Parameters
@@ -67,7 +100,7 @@ def as_annotated_data(data: Any, mapping_spec: FeatureSpec | None) -> tuple:
     """
     type_by_variable: dict[str, str] = {}
     meta_by_variable: dict[str, dict[str, MappingMeta]] = {}
-    mappings = {}
+    mappings: dict[str, Any] = {}
     if mapping_spec is not None:
         for key, spec in mapping_spec.props().items():
             if key == "name":
@@ -80,16 +113,16 @@ def as_annotated_data(data: Any, mapping_spec: FeatureSpec | None) -> tuple:
                 mappings[key] = spec
     type_by_variable.update(infer_types(data))
 
-    time_zones = {}
+    time_zones: dict[str, str] = {}
     for variable, data_type in type_by_variable.items():
         if data_type == TYPE_DATE_TIME:
             time_zone = detect_time_zone(variable, data)
             if time_zone is not None:
                 time_zones[variable] = time_zone
 
-    series_annotations = {}
+    series_annotations: dict[str, dict[str, Any]] = {}
     for variable, data_type in type_by_variable.items():
-        annotation = {}
+        annotation: dict[str, Any] = {}
         if data_type != TYPE_UNKNOWN:
             annotation["type"] = data_type
         if variable in time_zones:
@@ -122,14 +155,14 @@ def as_annotated_data(data: Any, mapping_spec: FeatureSpec | None) -> tuple:
             annotation["column"] = variable
             series_annotations[variable] = annotation
 
-    mapping_annotations = []
+    mapping_annotations: list[dict[str, Any]] = []
     for variable, metas in meta_by_variable.items():
         for aesthetic, meta in metas.items():
             if meta.annotation != "as_discrete":
                 continue
             if "factor_levels" in series_annotations.get(variable, {}):
                 continue
-            mapping_annotation = {}
+            mapping_annotation: dict[str, Any] = {}
             label = meta.parameters.get("label")
             if label is not None:
                 mapping_annotation.setdefault("parameters", {})["label"] = label
@@ -146,7 +179,7 @@ def as_annotated_data(data: Any, mapping_spec: FeatureSpec | None) -> tuple:
                 mapping_annotation["annotation"] = "as_discrete"
                 mapping_annotations.append(mapping_annotation)
 
-    data_meta = {}
+    data_meta: dict[str, Any] = {}
     if series_annotations:
         data_meta["series_annotations"] = list(series_annotations.values())
     if mapping_annotations:

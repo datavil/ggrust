@@ -70,15 +70,17 @@ def ggsave(
     pathname = os.path.join(path or os.path.join(os.getcwd(), _DEFAULT_EXPORT_DIRECTORY), filename)
     extension = extension[1:].lower()
     if extension == "svg":
-        return export_svg(plot, pathname, w=w, h=h, unit=unit)
-    if extension in ["html", "htm"]:
-        return export_html(plot, pathname, iframe)
-    if extension == "png":
-        return export_png(plot, pathname, scale=scale, w=w, h=h, unit=unit, dpi=dpi)
-    if extension == "pdf":
-        return export_pdf(plot, pathname, scale=scale, w=w, h=h, unit=unit, dpi=dpi)
-    message = (
-        f"Unsupported file extension: '{extension}'. "
-        "Use one of: 'svg', 'png', 'pdf', 'html', 'htm'."
-    )
-    raise ValueError(message)
+        export_svg(plot, pathname, w=w, h=h, unit=unit)
+    elif extension in ["html", "htm"]:
+        export_html(plot, pathname, iframe)
+    elif extension == "png":
+        export_png(plot, pathname, scale=scale, w=w, h=h, unit=unit, dpi=dpi)
+    elif extension == "pdf":
+        export_pdf(plot, pathname, scale=scale, w=w, h=h, unit=unit, dpi=dpi)
+    else:
+        message = (
+            f"Unsupported file extension: '{extension}'. "
+            "Use one of: 'svg', 'png', 'pdf', 'html', 'htm'."
+        )
+        raise ValueError(message)
+    return os.path.abspath(pathname)

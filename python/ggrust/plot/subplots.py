@@ -7,6 +7,8 @@ with identical ``as_dict()`` output and ``+`` semantics. The engine lays grids o
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from ggrust.plot.core import (
     DummySpec,
     FeatureSpec,
@@ -15,17 +17,24 @@ from ggrust.plot.core import (
     _theme_dicts_merge,
 )
 
+if TYPE_CHECKING:
+    from typing import Any
+
+    from ggrust._typing import Number, Target
+    from ggrust.plot.core import PlotSpec
+
+
 __all__ = ["SupPlotsSpec"]
 
 
 class SupPlotsLayoutSpec:
     """Layout of a ``SupPlotsSpec`` (``name="grid"`` plus its options)."""
 
-    def __init__(self, name: str, **kwargs):
+    def __init__(self, name: str, **kwargs: object) -> None:
         self.__props = dict(kwargs)
         self.__props["name"] = name
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         """Return the layout options without ``None`` values."""
         return _specs_to_dict(self.__props)
 
@@ -35,17 +44,25 @@ class SupPlotsSpec(FeatureSpec):
 
     @classmethod
     def duplicate(cls, other: SupPlotsSpec) -> SupPlotsSpec:
-        """Return a shallow copy of ``other``."""
+        """Return a shallow copy of ``other``.
+
+        Parameters
+        ----------
+        other : SupPlotsSpec
+            The spec to copy.
+        """
         duplicate = SupPlotsSpec(figures=other.__figures, layout=other.__layout)
         duplicate.props().update(other.props())
         return duplicate
 
-    def __init__(self, figures: list, layout: SupPlotsLayoutSpec):
+    def __init__(
+        self, figures: list[PlotSpec | SupPlotsSpec | None], layout: SupPlotsLayoutSpec
+    ) -> None:
         super().__init__("subplots", name=None)
         self.__figures = list(figures)
         self.__layout = layout
 
-    def __add__(self, other):
+    def __add__(self, other: object) -> SupPlotsSpec:
         if isinstance(other, DummySpec):
             return self
         if isinstance(other, FeatureSpecArray):
@@ -78,9 +95,10 @@ class SupPlotsSpec(FeatureSpec):
                 return supplots
             supplots.props()[other.kind] = other
             return supplots
-        return super().__add__(other)
+        message = f"unsupported operand type(s) for +: {self.__class__} and {other.__class__}"
+        raise TypeError(message)
 
-    def as_dict(self) -> dict:
+    def as_dict(self) -> dict[str, Any]:
         """Return the figure as a lets_plot-compatible dictionary.
 
         Returns
@@ -102,26 +120,100 @@ class SupPlotsSpec(FeatureSpec):
 
         return render_notebook_html(self)
 
-    def to_svg(self, path=None, w=None, h=None, unit=None) -> str | None:
-        """Render to SVG; parameters as ``PlotSpec.to_svg``."""
+    def to_svg(
+        self,
+        path: Target | None = None,
+        w: Number | None = None,
+        h: Number | None = None,
+        unit: str | None = None,
+    ) -> str | None:
+        """Render to SVG; parameters as ``PlotSpec.to_svg``.
+
+        Parameters
+        ----------
+        path : str or file-like, optional
+            Where to write: a file path or a binary file-like object.
+        w : float, optional
+            Width.
+        h : float, optional
+            Height.
+        unit : str, optional
+            Unit of ``w`` and ``h``: ``"in"``, ``"cm"``, ``"mm"`` or ``"px"``.
+        """
         from ggrust._render import export_svg
 
         return export_svg(self, path, w=w, h=h, unit=unit)
 
-    def to_png(self, path, scale=None, w=None, h=None, unit=None, dpi=None) -> str | None:
-        """Render to PNG; parameters as ``PlotSpec.to_png``."""
+    def to_png(
+        self,
+        path: Target,
+        scale: Number | None = None,
+        w: Number | None = None,
+        h: Number | None = None,
+        unit: str | None = None,
+        dpi: Number | None = None,
+    ) -> str | None:
+        """Render to PNG; parameters as ``PlotSpec.to_png``.
+
+        Parameters
+        ----------
+        path : str or file-like
+            Where to write: a file path or a binary file-like object.
+        scale : float, optional
+            Multiplier of the pixel size.
+        w : float, optional
+            Width.
+        h : float, optional
+            Height.
+        unit : str, optional
+            Unit of ``w`` and ``h``: ``"in"``, ``"cm"``, ``"mm"`` or ``"px"``.
+        dpi : float, optional
+            Resolution in dots per inch.
+        """
         from ggrust._render import export_png
 
         return export_png(self, path, scale=scale, w=w, h=h, unit=unit, dpi=dpi)
 
-    def to_pdf(self, path, scale=None, w=None, h=None, unit=None, dpi=None) -> str | None:
-        """Render to PDF; parameters as ``PlotSpec.to_pdf``."""
+    def to_pdf(
+        self,
+        path: Target,
+        scale: Number | None = None,
+        w: Number | None = None,
+        h: Number | None = None,
+        unit: str | None = None,
+        dpi: Number | None = None,
+    ) -> str | None:
+        """Render to PDF; parameters as ``PlotSpec.to_pdf``.
+
+        Parameters
+        ----------
+        path : str or file-like
+            Where to write: a file path or a binary file-like object.
+        scale : float, optional
+            Multiplier of the pixel size.
+        w : float, optional
+            Width.
+        h : float, optional
+            Height.
+        unit : str, optional
+            Unit of ``w`` and ``h``: ``"in"``, ``"cm"``, ``"mm"`` or ``"px"``.
+        dpi : float, optional
+            Resolution in dots per inch.
+        """
         from ggrust._render import export_pdf
 
         return export_pdf(self, path, scale=scale, w=w, h=h, unit=unit, dpi=dpi)
 
-    def to_html(self, path=None, iframe: bool | None = None) -> str | None:
-        """Render to standalone HTML; parameters as ``PlotSpec.to_html``."""
+    def to_html(self, path: Target | None = None, iframe: bool | None = None) -> str | None:
+        """Render to standalone HTML; parameters as ``PlotSpec.to_html``.
+
+        Parameters
+        ----------
+        path : str or file-like, optional
+            Where to write: a file path or a binary file-like object.
+        iframe : bool, optional
+            Return an ``<iframe srcdoc>`` sized to the plot instead of a page.
+        """
         from ggrust._render import export_html
 
         return export_html(self, path, iframe)

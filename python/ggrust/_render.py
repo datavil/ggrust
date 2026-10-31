@@ -9,10 +9,18 @@ import os
 import secrets
 import sys
 import warnings
-from typing import Any
+from typing import TYPE_CHECKING, Any, cast
 
 from ggrust._data import as_arrow
 from ggrust._ggrust import referenced_columns, render, tooltip_columns
+
+if TYPE_CHECKING:
+    from collections.abc import Iterable
+
+    from ggrust._data import ArrowStreamExportable
+    from ggrust._typing import Number, Target
+    from ggrust.plot.core import PlotSpec
+    from ggrust.plot.subplots import SupPlotsSpec
 
 DEFAULT_PNG_SCALE = 2.0  # lets-plot's default
 SCREEN_DPI = 96.0  # layout pixels per inch (CSS), lets-plot's PNG default resolution
@@ -26,7 +34,7 @@ class GgrustWarning(UserWarning):
 
 
 def render_bytes(
-    plot,
+    plot: PlotSpec | SupPlotsSpec,
     output: str,
     scale: float = 1.0,
     size: tuple | None = None,
@@ -85,7 +93,7 @@ def _display_id() -> str:
     return f"ggrust-{secrets.token_hex(6)}"
 
 
-def split_data(spec: dict) -> tuple[dict, list[tuple[Any, str]]]:
+def split_data(spec: dict[str, Any]) -> tuple[dict, list[tuple[Any, str]]]:
     """Replace inline data with frame references (sent as JSON; data goes as Arrow).
 
     Every ``data`` value of the figure (plot, layers, nested figures) becomes
@@ -94,22 +102,27 @@ def split_data(spec: dict) -> tuple[dict, list[tuple[Any, str]]]:
     names every column of the data (only referenced ones are exported): the engine
     names list mappings (``aes(x=[1, 2])``) around them, as lets-plot does.
 
+    Parameters
+    ----------
+    spec : dict
+        The figure's ``as_dict()``.
+
     Returns
     -------
     tuple
         ``(spec with references, [(data, path of its first use), ...])``.
     """
-    frames: list[tuple[Any, str]] = []
+    frames: list[tuple[object, str]] = []
     index_by_id: dict[int, int] = {}
 
-    def reference(data: Any, path: str) -> dict:
+    def reference(data: object, path: str) -> dict[str, Any]:
         index = index_by_id.get(id(data))
         if index is None:
             index = index_by_id[id(data)] = len(frames)
             frames.append((data, path))
         return {"frame": index, "columns": _column_names(data)}
 
-    def split(figure: dict, prefix: str) -> dict:
+    def split(figure: dict[str, Any], prefix: str) -> dict[str, Any]:
         figure = dict(figure)
         if figure.get("data") is not None:
             figure["data"] = reference(figure["data"], f"{prefix}data")
@@ -131,7 +144,7 @@ def split_data(spec: dict) -> tuple[dict, list[tuple[Any, str]]]:
     return split(spec, ""), frames
 
 
-def _column_names(data: Any) -> list[str]:
+def _column_names(data: object) -> list[str]:
     """Names of every column of ``data``, without reading any values."""
     import polars as pl
 
@@ -151,8 +164,8 @@ def _column_names(data: Any) -> list[str]:
 
 
 def _export_with_tooltips(
-    data: Any, columns: set[str], extra: set[str], path: str
-) -> tuple[Any, list[str]]:
+    data: object, columns: set[str], extra: set[str], path: str
+) -> tuple[ArrowStreamExportable, list[str]]:
     """Export the referenced columns plus the tooltip columns ``extra`` (HTML only).
 
     A tooltip column that cannot be exported never fails the plot: it is left out
@@ -174,7 +187,7 @@ def _export_with_tooltips(
         return _export(data, kept, path), dropped
 
 
-def _export(data: Any, columns: set[str], path: str):
+def _export(data: object, columns: set[str], path: str) -> ArrowStreamExportable:
     """Arrow export of the referenced columns of ``data``."""
     try:
         return as_arrow(_select(data, columns))
@@ -185,7 +198,7 @@ def _export(data: Any, columns: set[str], path: str):
         raise ValueError(message) from error
 
 
-def _select(data: Any, columns: set[str]) -> Any:
+def _select(data: object, columns: set[str]) -> object:
     """Keep only ``columns`` (in the data's own order) when the type allows it.
 
     A frame needs at least one column to carry its row count (the engine merges plot
@@ -193,7 +206,7 @@ def _select(data: Any, columns: set[str]) -> Any:
     """
     import polars as pl
 
-    def keep(names) -> list:
+    def keep(names: Iterable[str]) -> list[str]:
         names = list(names)
         kept = [name for name in names if name in columns]
         return kept or names[:1]
@@ -210,8 +223,9 @@ def _select(data: Any, columns: set[str]) -> Any:
     if pyarrow is not None and isinstance(data, pyarrow.Table):
         return data.select(keep(data.column_names))
     if isinstance(data, dict):
-        kept = set(keep(data))
-        return {key: value for key, value in data.items() if key in kept}
+        columns_by_name = cast("dict[str, object]", data)
+        kept = set(keep(columns_by_name))
+        return {key: value for key, value in columns_by_name.items() if key in kept}
     return data
 
 
@@ -220,16 +234,31 @@ def _select(data: Any, columns: set[str]) -> Any:
 MAX_DEPTH = 64
 
 
-def to_json(spec: dict) -> str:
+def to_json(spec: dict[str, Any]) -> str:
     """Serialise a spec to JSON.
 
     NaN/inf become null, numpy values become plain values, and datetimes become epoch
     milliseconds (as lets-plot sends them).
+
+    Parameters
+    ----------
+    spec : dict
+        The spec, with data replaced by frame references.
+
+    Returns
+    -------
+    str
+        The JSON text.
+
+    Raises
+    ------
+    TypeError
+        If a value cannot be sent to the engine; the message names its spec path.
     """
     return json.dumps(_plain(spec, "spec", 0), allow_nan=False)
 
 
-def _plain(value: Any, path: str, depth: int) -> Any:
+def _plain(value: object, path: str, depth: int) -> object:
     if depth > MAX_DEPTH:
         message = f"at '{path}': value is nested more than {MAX_DEPTH} levels deep"
         raise TypeError(message)
@@ -264,7 +293,7 @@ def _plain(value: Any, path: str, depth: int) -> Any:
     raise TypeError(message)
 
 
-def _epoch_milliseconds(value) -> float:
+def _epoch_milliseconds(value: datetime.date | datetime.timedelta) -> float:
     """Milliseconds since the Unix epoch (naive datetimes are taken as UTC)."""
     if isinstance(value, datetime.timedelta):
         return value.total_seconds() * 1000.0
@@ -364,24 +393,45 @@ def _svg_size(svg: str, w: float, h: float, unit: str) -> str:
     return svg[:start] + root + svg[end:]
 
 
-def _write(target, content: bytes | str) -> str | None:
+def _write(target: Target, content: bytes | str) -> str | None:
     if isinstance(target, str | os.PathLike):
         path = os.path.abspath(target)
         directory = os.path.dirname(path)
         if directory:
             os.makedirs(directory, exist_ok=True)
-        mode = "wb" if isinstance(content, bytes) else "w"
-        with open(
-            path, mode, **({} if isinstance(content, bytes) else {"encoding": "utf-8"})
-        ) as file:
-            file.write(content)
+        if isinstance(content, bytes):
+            with open(path, "wb") as binary_file:
+                binary_file.write(content)
+        else:
+            with open(path, "w", encoding="utf-8") as text_file:
+                text_file.write(content)
         return path
     target.write(content if isinstance(content, bytes) else content.encode())
     return None
 
 
-def export_svg(plot, path=None, w=None, h=None, unit=None) -> str | None:
-    """See ``PlotSpec.to_svg``."""
+def export_svg(
+    plot: PlotSpec | SupPlotsSpec,
+    path: Target | None = None,
+    w: Number | None = None,
+    h: Number | None = None,
+    unit: str | None = None,
+) -> str | None:
+    """See ``PlotSpec.to_svg``.
+
+    Parameters
+    ----------
+    plot : PlotSpec or SupPlotsSpec
+        The plot or grid of plots.
+    path : str or file-like, optional
+        Where to write: a file path or a binary file-like object.
+    w : float, optional
+        Width.
+    h : float, optional
+        Height.
+    unit : str, optional
+        Unit of ``w`` and ``h``: ``"in"``, ``"cm"``, ``"mm"`` or ``"px"``.
+    """
     given = _given_size(w, h, _unit(unit))
     if given is None or given[2] == "px":
         size = None if given is None else given[:2]
@@ -396,26 +446,96 @@ def export_svg(plot, path=None, w=None, h=None, unit=None) -> str | None:
     return svg if path is None else _write(path, svg)
 
 
-def export_png(plot, path, scale=None, w=None, h=None, unit=None, dpi=None) -> str | None:
-    """See ``PlotSpec.to_png``."""
+def export_png(
+    plot: PlotSpec | SupPlotsSpec,
+    path: Target,
+    scale: Number | None = None,
+    w: Number | None = None,
+    h: Number | None = None,
+    unit: str | None = None,
+    dpi: Number | None = None,
+) -> str | None:
+    """See ``PlotSpec.to_png``.
+
+    Parameters
+    ----------
+    plot : PlotSpec or SupPlotsSpec
+        The plot or grid of plots.
+    path : str or file-like
+        Where to write: a file path or a binary file-like object.
+    scale : float, optional
+        Multiplier of the pixel size.
+    w : float, optional
+        Width.
+    h : float, optional
+        Height.
+    unit : str, optional
+        Unit of ``w`` and ``h``: ``"in"``, ``"cm"``, ``"mm"`` or ``"px"``.
+    dpi : float, optional
+        Resolution in dots per inch.
+    """
     size, pixel_scale, resolution = _raster_options(w, h, unit, dpi, scale)
     png = render_bytes(plot, "png", scale=pixel_scale, size=size, dpi=resolution)
     return _write(path, png)
 
 
-def export_pdf(plot, path, scale=None, w=None, h=None, unit=None, dpi=None) -> str | None:
-    """See ``PlotSpec.to_pdf``."""
+def export_pdf(
+    plot: PlotSpec | SupPlotsSpec,
+    path: Target,
+    scale: Number | None = None,
+    w: Number | None = None,
+    h: Number | None = None,
+    unit: str | None = None,
+    dpi: Number | None = None,
+) -> str | None:
+    """See ``PlotSpec.to_pdf``.
+
+    Parameters
+    ----------
+    plot : PlotSpec or SupPlotsSpec
+        The plot or grid of plots.
+    path : str or file-like
+        Where to write: a file path or a binary file-like object.
+    scale : float, optional
+        Multiplier of the pixel size.
+    w : float, optional
+        Width.
+    h : float, optional
+        Height.
+    unit : str, optional
+        Unit of ``w`` and ``h``: ``"in"``, ``"cm"``, ``"mm"`` or ``"px"``.
+    dpi : float, optional
+        Resolution in dots per inch.
+    """
     size, pixel_scale, resolution = _raster_options(w, h, unit, dpi, scale)
     pdf = render_bytes(plot, "pdf", scale=pixel_scale, size=size, dpi=resolution)
     return _write(path, pdf)
 
 
-def export_html(plot, path=None, iframe: bool | None = None) -> str | None:
-    """See ``PlotSpec.to_html``."""
+def export_html(
+    plot: PlotSpec | SupPlotsSpec, path: Target | None = None, iframe: bool | None = None
+) -> str | None:
+    """See ``PlotSpec.to_html``.
+
+    Parameters
+    ----------
+    plot : PlotSpec or SupPlotsSpec
+        The plot or grid of plots.
+    path : str or file-like, optional
+        Where to write: a file path or a binary file-like object.
+    iframe : bool, optional
+        Return an ``<iframe srcdoc>`` sized to the plot instead of a page.
+    """
     page = render_bytes(plot, "html_iframe" if iframe else "html_page").decode()
     return page if path is None else _write(path, page)
 
 
-def render_notebook_html(plot) -> str:
-    """HTML for Jupyter's ``_repr_html_``: the plot's root ``<div>`` and runtime script."""
+def render_notebook_html(plot: PlotSpec | SupPlotsSpec) -> str:
+    """HTML for Jupyter's ``_repr_html_``: the plot's root ``<div>`` and runtime script.
+
+    Parameters
+    ----------
+    plot : PlotSpec or SupPlotsSpec
+        The plot or grid of plots.
+    """
     return render_bytes(plot, "html").decode()

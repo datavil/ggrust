@@ -16,6 +16,8 @@ Usage::
         --lets-plot-python <poetry env python>
 """
 
+from __future__ import annotations
+
 import argparse
 import io
 import json
@@ -26,14 +28,17 @@ import subprocess
 import sys
 import time
 import warnings
+from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
+from types import ModuleType
+from typing import Any
 
 RESULTS = Path(__file__).parent / "results"
 MARKERS = ["C1QA", "PSAP", "CD79A", "CD79B", "CST3", "LYZ"]
 
 
-def cases(cl, m, data) -> dict:
+def cases(cl: ModuleType, m: ModuleType, data: Any) -> dict[str, Callable[[], Any]]:
     """Case name -> zero-argument builder, as written in the cellestial docstrings."""
     return {
         "dimensional_categorical": lambda: cl.dimensional(
@@ -79,7 +84,7 @@ def cases(cl, m, data) -> dict:
     }
 
 
-def render(plot, output: str) -> int:
+def render(plot: Any, output: str) -> int:
     """Render ``plot`` once and return the output size in bytes."""
     if output == "svg":
         return len(plot.to_svg())

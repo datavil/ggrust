@@ -23,8 +23,21 @@ use crate::scene::{
 use crate::text::{FONT_FAMILY, Font, MONO_FONT_FAMILY};
 use crate::{Error, Result};
 
+/// Screen resolution (lets-plot's PNG default `pHYs`): one layout pixel per pixel.
+pub const SCREEN_DPI: f64 = 96.0;
+
 /// Render a scene to PNG bytes. `scale` multiplies the pixel size (2.0 for retina).
 pub fn to_png(scene: &Scene, scale: f64) -> Result<Vec<u8>> {
+    to_png_with_dpi(scene, scale, SCREEN_DPI)
+}
+
+/// [`to_png`] with the resolution written to the PNG (`pHYs`, dots per inch).
+pub fn to_png_with_dpi(scene: &Scene, scale: f64, dpi: f64) -> Result<Vec<u8>> {
+    encode_with_dpi(&render_pixmap(scene, scale)?, dpi)
+}
+
+/// Rasterise a scene; `scale` multiplies the pixel size.
+pub(super) fn render_pixmap(scene: &Scene, scale: f64) -> Result<Pixmap> {
     let mut pixmap = new_pixmap(scene.width, scene.height, scale)?;
     if let Some(background) = scene.background {
         pixmap.fill(skia_color(background));
@@ -37,7 +50,7 @@ pub fn to_png(scene: &Scene, scale: f64) -> Result<Vec<u8>> {
         clip_box: ClipBox::for_scene(scene.width, scene.height),
     };
     canvas.nodes(&scene.nodes, None)?;
-    encode(&canvas.pixmap)
+    Ok(canvas.pixmap)
 }
 
 /// Render SVG text to PNG bytes with resvg (slow path; usvg caps the node count).
@@ -68,8 +81,11 @@ fn new_pixmap(width: f64, height: f64, scale: f64) -> Result<Pixmap> {
             "scale must be positive, got {scale}"
         )));
     }
-    let width = (width * scale).ceil();
-    let height = (height * scale).ceil();
+    // As lets-plot (`PlotImageExport`): the layout size rounded up to whole pixels,
+    // then scaled and rounded down; the epsilons keep 400.0000001 at 400 and
+    // 1199.9999 at 1200.
+    let pixels = |side: f64| ((side - 1e-6).ceil() * scale + 1e-6).floor();
+    let (width, height) = (pixels(width), pixels(height));
     if !(width >= 1.0 && height >= 1.0) {
         return Err(Error::Render(format!(
             "image size {width} x {height} pixels is empty; width and height must be at least 1"
@@ -124,6 +140,37 @@ fn encode(pixmap: &Pixmap) -> Result<Vec<u8>> {
     pixmap
         .encode_png()
         .map_err(|error| Error::Render(format!("PNG encoding failed: {error}")))
+}
+
+/// Straight-alpha RGBA PNG with a `pHYs` chunk of `dpi` dots per inch.
+fn encode_with_dpi(pixmap: &Pixmap, dpi: f64) -> Result<Vec<u8>> {
+    if !(dpi.is_finite() && dpi > 0.0) {
+        return Err(Error::Render(format!("dpi must be positive, got {dpi}")));
+    }
+    let failed =
+        |error: ::png::EncodingError| Error::Render(format!("PNG encoding failed: {error}"));
+    let data: Vec<u8> = pixmap
+        .pixels()
+        .iter()
+        .flat_map(|pixel| {
+            let color = pixel.demultiply();
+            [color.red(), color.green(), color.blue(), color.alpha()]
+        })
+        .collect();
+    let mut bytes = Vec::new();
+    let mut encoder = ::png::Encoder::new(&mut bytes, pixmap.width(), pixmap.height());
+    encoder.set_color(::png::ColorType::Rgba);
+    encoder.set_depth(::png::BitDepth::Eight);
+    let per_meter = (dpi / 0.0254).round() as u32;
+    encoder.set_pixel_dims(Some(::png::PixelDimensions {
+        xppu: per_meter,
+        yppu: per_meter,
+        unit: ::png::Unit::Meter,
+    }));
+    let mut writer = encoder.write_header().map_err(failed)?;
+    writer.write_image_data(&data).map_err(failed)?;
+    writer.finish().map_err(failed)?;
+    Ok(bytes)
 }
 
 fn parse_svg(svg: &str) -> Result<usvg::Tree> {

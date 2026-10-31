@@ -167,12 +167,20 @@ def test_to_png_writes_files_and_file_likes(tmp_path):
 
 
 def test_svg_size_override_and_units():
-    svg = scatter().to_svg(w=300, h=200)
+    svg = scatter().to_svg(w=300, h=200, unit="px")
     assert 'width="300" height="200"' in svg
-    with pytest.raises(ValueError, match="unit 'in' is not supported yet"):
-        scatter().to_svg(w=3, h=2, unit="in")
-    with pytest.raises(ValueError, match="'dpi' is not supported yet"):
-        scatter().to_png(io.BytesIO(), dpi=300)
+    # Physical units: lets-plot writes them on the root, the viewBox keeps 96 px per inch.
+    svg = scatter().to_svg(w=3, h=2, unit="in")
+    assert 'width="3.0in" height="2.0in" viewBox="0 0 288 192"' in svg
+    assert 'width="3.0in" height="2.0in"' in scatter().to_svg(w=3, h=2)
+    with pytest.raises(ValueError, match="unusually large"):
+        scatter().to_svg(w=300, h=200)
+    with pytest.raises(ValueError, match="Unsupported unit: 'ft'"):
+        scatter().to_png(io.BytesIO(), w=3, h=2, unit="ft")
+    with pytest.raises(ValueError, match="give both 'w' and 'h'"):
+        scatter().to_svg(w=3)
+    with pytest.raises(ValueError, match="'dpi' must be a positive number"):
+        scatter().to_png(io.BytesIO(), dpi=0)
 
 
 def root_id(html: str) -> str:

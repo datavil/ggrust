@@ -1,7 +1,7 @@
 """``ggsave()``: write a plot to a file chosen by its extension.
 
 Ported from lets-plot's ``lets_plot/export/ggsave_.py`` (MIT, see THIRD_PARTY_NOTICES.md).
-Supported: svg, png, html/htm. pdf arrives in plan.md step 5.3.
+Supported: svg, png, pdf (raster, as lets_plot), html/htm.
 """
 
 from __future__ import annotations
@@ -35,26 +35,26 @@ def ggsave(
     plot : PlotSpec or SupPlotsSpec
         The figure.
     filename : str
-        File name with extension: ``.svg``, ``.png``, ``.html`` or ``.htm``.
+        File name with extension: ``.svg``, ``.png``, ``.pdf``, ``.html`` or ``.htm``.
     path : str, optional
         Directory; ``./lets-plot-images`` when None (as lets_plot).
     iframe : bool, default True
         HTML only: write an ``<iframe srcdoc>`` sized to the plot (as lets_plot).
     scale : float, optional
-        PNG pixel scale.
+        PNG / PDF pixel scale (see ``PlotSpec.to_png``).
     w, h : float, optional
-        Override the plot size (svg, png).
-    unit : {"px"}, optional
-        Unit of ``w`` and ``h``.
+        Output size (svg, png, pdf); give both.
+    unit : {"in", "cm", "mm", "px"}, optional
+        Unit of ``w`` and ``h``; inches when None.
     dpi : int, optional
-        Not supported yet; raises when given (png).
+        PNG / PDF resolution; 300 by default for physical sizes.
 
     Returns
     -------
     str
         Absolute path of the written file.
     """
-    from ggrust._render import export_html, export_png, export_svg
+    from ggrust._render import export_html, export_pdf, export_png, export_svg
 
     if not isinstance(plot, PlotSpec | SupPlotsSpec):
         message = f"PlotSpec or SupPlotsSpec expected but was: {type(plot)}"
@@ -75,5 +75,10 @@ def ggsave(
         return export_html(plot, pathname, iframe)
     if extension == "png":
         return export_png(plot, pathname, scale=scale, w=w, h=h, unit=unit, dpi=dpi)
-    message = f"Unsupported file extension: '{extension}'. Use one of: 'svg', 'png', 'html', 'htm'."
+    if extension == "pdf":
+        return export_pdf(plot, pathname, scale=scale, w=w, h=h, unit=unit, dpi=dpi)
+    message = (
+        f"Unsupported file extension: '{extension}'. "
+        "Use one of: 'svg', 'png', 'pdf', 'html', 'htm'."
+    )
     raise ValueError(message)

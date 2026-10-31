@@ -18,6 +18,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Lessons: [memory/](memory/README.md
 | Fonts | One embedded open font so text measurement and PNGs are identical on every machine |
 | Categorical level order | From the Arrow data: dictionary order, so polars `Categorical` = first appearance (as lets-plot), `Enum`/ordered pandas = category order. Unordered pandas categoricals keep their category order (ggplot2), a recorded deviation from lets-plot's first appearance (decided 2026-10-28) |
 | Tooltip scope (4.2) | General tooltips + axis tooltips as lets-plot; boxplot statistics are lines of the general tooltip (lets-plot `disable_splitting` look), not separate side boxes. No tooltip theme elements, `tooltip_group` or crosshair modes (decided 2026-10-28) |
+| PDF export (5.3) | Raster PDF as lets-plot (the PNG at its dpi on one page), written by a small Rust PDF writer: no Pillow needed (decided (user) 2026-10-31) |
 | Tooltip runtime (4.2) | Rust computes targets (scene pixels) and every row's text; the JS runtime builds the grid-bucket hit index at mount (no index in the payload) and draws tooltips as HTML divs over the SVG (decided 2026-10-28) |
 
 ## Scope: what cellestial actually uses
@@ -153,8 +154,10 @@ Steps inside a phase are ordered; each builds on the previous.
 ### Phase 5: Remaining cellestial features
 
 - [x] 5.1 `geom_text_repel` / `geom_label_repel` (volcano, ondata legend). (Line-by-line port of lets-plot `LabelForceLayout` (`geom/repel_layout.rs`): with lets-plot's text widths it gives its label positions to 1e-6 (2 Rust cases, incl. cellestial's volcano options); rendered labels still differ a little because our font measures narrower. Points repel with marker radius + `point_padding`, boxes keep `box_padding`; nudge moves only the label; segment from the marker edge to the nearest reachable box edge centre, bracket's segment paint, `arrow`, `min_segment_length`; `max_overlaps` hides at the first repulsion pass; `direction`, `max_iter`, `max_time` (s). Legend key: fill cell (labels) + text + segment line. Numeric `hjust` snaps to 0/0.5/1 as lets-plot. Not yet: unseeded layouts use seed 0 (lets-plot randomises), `inward`/`outward`, `size_unit`, `label_format`, `na_text`, zoom does not re-run the layout, HTML runs the layout twice (6.1d).)
-- [ ] 5.2 `geom_imshow` (spatial H&E images: RGB/RGBA arrays, cmap, extent).
-- [ ] 5.3 `ggsave` (svg, png, html, pdf), `GGBunch` compat if still needed.
+- [x] 5.2 `geom_imshow` (spatial H&E images: RGB/RGBA arrays, cmap, extent).
+  (Python port of lets_plot's `geom_imshow` (PNG data URL `href` via `zlib`, no pypng; named `cmap` needs `palettable`, as lets_plot): `as_dict()` equals lets_plot's, href included, in 15 cases. New `geom_image` (`geom/image.rs`) decodes the PNG and stretches it over xmin..xmax x ymin..ymax, no axis expansion, default `coord_fixed`: same box and pixels as lets-plot in all 15 cases. Greyscale colorbar: `paint_a/b/c` are color aesthetics with default mappers, `color_grey` mapper (L* from start to end, exact to lets-plot), colorbars for any color aesthetic. Like `geom_raster`, `coord_flip` transposes and reversed axes mirror the bitmap (lets-plot draws it unchanged). 2000x2000 RGB: SVG 0.47 s (lets-plot 0.15 s; we decode and re-encode the PNG), PNG 0.19 s (2.1 s). Open: colorbar `format`/`lablim` are ignored for every color scale (general gap, not imshow); all-NaN greyscale with `norm=False` renders where lets-plot raises; zoom (`ggtb`) works on images.)
+- [x] 5.3 `ggsave` (svg, png, html, pdf), `GGBunch` compat if still needed.
+  (`unit` in/cm/mm/px (case-insensitive), `dpi`, `scale` follow lets-plot's sizing rules exactly (27 PNG cases: pixel size and `pHYs`): w/h in px = pixels x scale; physical w/h laid out at 96 px/in, rendered at dpi (300) x scale; no w/h: plot size x dpi/96 x scale (2 by default, 1 once dpi or unit is given); unitless w/h are inches and >= 20 raises; layout sizes round up, scaled sizes down. PNGs now carry `pHYs` (96 dpi by default). SVG with physical units gets `width="4.0in"` + the pixel viewBox. PDF: `to_pdf()`/`ggsave(.pdf)` write the PNG's pixels over white on one page at its dpi (same image and page size as lets-plot + Pillow) with a dependency-free Rust writer (`render/pdf.rs`, PNG IDAT stream + `/Predictor 15`). Deviation: an unknown `unit` raises (lets-plot silently uses inches). `GGBunch`: cellestial only imports it for type hints, so the raising stub stays. Breaking: `to_svg(w=300, h=200)` without a unit now raises as lets-plot (pass `unit="px"`).)
 - [ ] 5.4 Full cellestial test suite green on ggrust; browser tests green.
 
 ### Phase 6: Performance
@@ -185,4 +188,3 @@ Steps inside a phase are ordered; each builds on the previous.
 
 ## Open questions (ask when the step comes up)
 
-- Is `GGBunch` still needed or can cellestial drop it? (Phase 5.3)

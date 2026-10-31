@@ -15,31 +15,43 @@ from ggrust._data import as_arrow
 from ggrust._ggrust import referenced_columns, render, tooltip_columns
 
 DEFAULT_PNG_SCALE = 2.0  # lets-plot's default
+SCREEN_DPI = 96.0  # layout pixels per inch (CSS), lets-plot's PNG default resolution
+PRINT_DPI = 300.0  # lets-plot's resolution for sizes in physical units
+MAX_UNITLESS_SIZE = 20.0  # lets-plot: larger w / h without a unit look like pixels, not inches
+INCHES_PER_UNIT = {"in": 1.0, "cm": 1 / 2.54, "mm": 1 / 25.4}
 
 
 class GgrustWarning(UserWarning):
     """Something in the plot was ignored or adjusted; the message says what and where."""
 
 
-def render_bytes(plot, output: str, scale: float = 1.0, size: tuple | None = None) -> bytes:
+def render_bytes(
+    plot,
+    output: str,
+    scale: float = 1.0,
+    size: tuple | None = None,
+    dpi: float | None = None,
+) -> bytes:
     """Build ``plot`` in Rust and return the encoded output.
 
     Parameters
     ----------
     plot : PlotSpec
         The plot.
-    output : {"svg", "png", "html", "html_page", "html_iframe"}
+    output : {"svg", "png", "pdf", "html", "html_page", "html_iframe"}
         Output format. HTML outputs get a fresh element id on every call, so one plot
         displayed twice on a page keeps its ids apart.
     scale : float
-        PNG pixel scale.
+        PNG / PDF pixel scale.
     size : tuple of float, optional
         ``(width, height)`` overriding ``ggsize``.
+    dpi : float, optional
+        PNG resolution metadata and PDF page resolution (96 when None).
 
     Returns
     -------
     bytes
-        SVG or HTML (UTF-8), or PNG bytes.
+        SVG or HTML (UTF-8), or PNG / PDF bytes.
     """
     spec, frames = split_data(plot.as_dict())
     if size is not None:
@@ -61,6 +73,7 @@ def render_bytes(plot, output: str, scale: float = 1.0, size: tuple | None = Non
         output,
         float(scale),
         _display_id() if output.startswith("html") else None,
+        None if dpi is None else float(dpi),
     )
     for message in messages:
         warnings.warn(message, GgrustWarning, stacklevel=4)
@@ -262,16 +275,93 @@ def _epoch_milliseconds(value) -> float:
     return value.timestamp() * 1000.0
 
 
-def _pixels(w, h, unit) -> tuple | None:
+def _unit(unit: str | None) -> str | None:
+    """Lower-case and check ``unit``: one of ``in``, ``cm``, ``mm``, ``px``, or None."""
+    if unit is None:
+        return None
+    normalized = str(unit).strip().lower()
+    if normalized not in (*INCHES_PER_UNIT, "px"):
+        message = f"Unsupported unit: {unit!r}. Use one of: 'in', 'cm', 'mm', 'px'."
+        raise ValueError(message)
+    return normalized
+
+
+def _given_size(
+    w: float | None, h: float | None, unit: str | None
+) -> tuple[float, float, str] | None:
+    """``(w, h, unit)`` when both sides are given (a missing unit is inches), else None."""
     if w is None and h is None:
         return None
     if w is None or h is None:
         message = "give both 'w' and 'h', or neither"
         raise ValueError(message)
-    if unit not in (None, "px"):
-        message = f"unit {unit!r} is not supported yet; use pixels ('px')"
+    w, h = float(w), float(h)
+    if not (math.isfinite(w) and math.isfinite(h) and w > 0 and h > 0):
+        message = f"'w' and 'h' must be positive numbers, got w={w}, h={h}"
         raise ValueError(message)
-    return float(w), float(h)
+    if unit is None:
+        if max(w, h) >= MAX_UNITLESS_SIZE:
+            message = (
+                "The image size was interpreted as inches, but it seems unusually large. "
+                "Please specify the size unit explicitly (px, cm, mm, in)."
+            )
+            raise ValueError(message)
+        unit = "in"
+    return w, h, unit
+
+
+def _raster_options(
+    w: float | None,
+    h: float | None,
+    unit: str | None,
+    dpi: float | None,
+    scale: float | None,
+) -> tuple[tuple[float, float] | None, float, float]:
+    """Layout size override, pixel scale and resolution of a PNG / PDF, as lets-plot.
+
+    - ``w`` and ``h`` in px: that many pixels times ``scale`` (default 1); ``dpi`` is
+      metadata only.
+    - ``w`` and ``h`` in in / cm / mm (or no unit: inches): laid out at 96 px per inch,
+      rendered at ``dpi`` (300 by default) times ``scale`` (default 1).
+    - Otherwise the plot's own size times ``dpi / 96`` (when ``dpi`` is given, or 300
+      for a physical ``unit``) times ``scale`` (2 by default, 1 once ``dpi`` or ``unit``
+      is given).
+    """
+    unit = _unit(unit)
+    if dpi is not None and not (math.isfinite(float(dpi)) and float(dpi) > 0):
+        message = f"'dpi' must be a positive number, got {dpi}"
+        raise ValueError(message)
+    if scale is not None and not (math.isfinite(float(scale)) and float(scale) > 0):
+        message = f"'scale' must be a positive number, got {scale}"
+        raise ValueError(message)
+    given = _given_size(w, h, unit)
+    if given is not None:
+        w, h, unit = given
+        factor = 1.0 if scale is None else float(scale)
+        if unit == "px":
+            return (w, h), factor, SCREEN_DPI if dpi is None else float(dpi)
+        inches = INCHES_PER_UNIT[unit]
+        resolution = PRINT_DPI if dpi is None else float(dpi)
+        size = (w * inches * SCREEN_DPI, h * inches * SCREEN_DPI)
+        return size, factor * resolution / SCREEN_DPI, resolution
+    resolution = float(dpi) if dpi is not None else PRINT_DPI if unit in INCHES_PER_UNIT else None
+    if scale is None:
+        scale = DEFAULT_PNG_SCALE if dpi is None and unit is None else 1.0
+    density = 1.0 if resolution is None else resolution / SCREEN_DPI
+    return None, density * float(scale), SCREEN_DPI if resolution is None else resolution
+
+
+def _svg_size(svg: str, w: float, h: float, unit: str) -> str:
+    """Give the root ``<svg>`` a physical ``width`` / ``height`` (its viewBox keeps pixels)."""
+    start = svg.index("<svg")
+    end = svg.index(">", start)
+    root = svg[start:end]
+    for name, value in (("width", w), ("height", h)):
+        prefix = f' {name}="'
+        position = root.index(prefix) + len(prefix)
+        close = root.index('"', position)
+        root = root[:position] + f"{value}{unit}" + root[close:]
+    return svg[:start] + root + svg[end:]
 
 
 def _write(target, content: bytes | str) -> str | None:
@@ -292,18 +382,32 @@ def _write(target, content: bytes | str) -> str | None:
 
 def export_svg(plot, path=None, w=None, h=None, unit=None) -> str | None:
     """See ``PlotSpec.to_svg``."""
-    svg = render_bytes(plot, "svg", size=_pixels(w, h, unit)).decode()
+    given = _given_size(w, h, _unit(unit))
+    if given is None or given[2] == "px":
+        size = None if given is None else given[:2]
+        svg = render_bytes(plot, "svg", size=size).decode()
+    else:
+        w, h, unit = given
+        inches = INCHES_PER_UNIT[unit]
+        svg = render_bytes(
+            plot, "svg", size=(w * inches * SCREEN_DPI, h * inches * SCREEN_DPI)
+        ).decode()
+        svg = _svg_size(svg, w, h, unit)
     return svg if path is None else _write(path, svg)
 
 
 def export_png(plot, path, scale=None, w=None, h=None, unit=None, dpi=None) -> str | None:
     """See ``PlotSpec.to_png``."""
-    if dpi is not None:
-        message = "'dpi' is not supported yet; use 'scale'"
-        raise ValueError(message)
-    scale = DEFAULT_PNG_SCALE if scale is None else scale
-    png = render_bytes(plot, "png", scale=scale, size=_pixels(w, h, unit))
+    size, pixel_scale, resolution = _raster_options(w, h, unit, dpi, scale)
+    png = render_bytes(plot, "png", scale=pixel_scale, size=size, dpi=resolution)
     return _write(path, png)
+
+
+def export_pdf(plot, path, scale=None, w=None, h=None, unit=None, dpi=None) -> str | None:
+    """See ``PlotSpec.to_pdf``."""
+    size, pixel_scale, resolution = _raster_options(w, h, unit, dpi, scale)
+    pdf = render_bytes(plot, "pdf", scale=pixel_scale, size=size, dpi=resolution)
+    return _write(path, pdf)
 
 
 def export_html(plot, path=None, iframe: bool | None = None) -> str | None:

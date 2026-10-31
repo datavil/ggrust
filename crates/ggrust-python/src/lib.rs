@@ -10,7 +10,9 @@ mod _ggrust {
     use super::*;
     use ggrust_core::data::{Column, DataFrame};
     use ggrust_core::grid::build_figure_with;
-    use ggrust_core::render::{HtmlDocument, HtmlOptions, to_html, to_png, to_svg};
+    use ggrust_core::render::{
+        HtmlDocument, HtmlOptions, SCREEN_DPI, to_html, to_pdf, to_png_with_dpi, to_svg,
+    };
     use ggrust_core::spec::Figure;
     use pyo3::exceptions::PyValueError;
     use pyo3::types::{PyBytes, PyDict};
@@ -106,13 +108,14 @@ mod _ggrust {
     /// `spec_json` is the plot spec whose `data` keys are frame references
     /// (`{"frame": i}`); `frames` are the Arrow tables they point to (any object
     /// exporting `__arrow_c_stream__`).
-    /// `output` is `"svg"`, `"png"`, `"html"` (notebook fragment), `"html_page"`
-    /// or `"html_iframe"`; `scale` multiplies PNG pixel size; `html_id` is the
+    /// `output` is `"svg"`, `"png"`, `"pdf"`, `"html"` (notebook fragment),
+    /// `"html_page"` or `"html_iframe"`; `scale` multiplies PNG/PDF pixel size;
+    /// `dpi` is the PNG resolution and the PDF page's (default 96); `html_id` is the
     /// root element id of HTML outputs, unique per display (required for them).
     /// Returns the encoded output (UTF-8 for text) and the build warnings.
     /// The GIL is released while building and rendering.
     #[pyfunction]
-    #[pyo3(signature = (spec_json, frames, output, scale, html_id=None))]
+    #[pyo3(signature = (spec_json, frames, output, scale, html_id=None, dpi=None))]
     fn render<'py>(
         python: Python<'py>,
         spec_json: &str,
@@ -120,6 +123,7 @@ mod _ggrust {
         output: &str,
         scale: f64,
         html_id: Option<String>,
+        dpi: Option<f64>,
     ) -> PyResult<(Bound<'py, PyBytes>, Vec<String>)> {
         let frames = frames
             .into_iter()
@@ -130,13 +134,13 @@ mod _ggrust {
         let (bytes, warnings) = python
             .detach(move || -> ggrust_core::Result<(Vec<u8>, Vec<String>)> {
                 let document = match output.as_str() {
-                    "svg" | "png" => None,
+                    "svg" | "png" | "pdf" => None,
                     "html" => Some(HtmlDocument::Fragment),
                     "html_page" => Some(HtmlDocument::Page),
                     "html_iframe" => Some(HtmlDocument::Iframe),
                     other => {
                         return Err(ggrust_core::Error::Render(format!(
-                            "unknown output format '{other}'; expected 'svg', 'png', \
+                            "unknown output format '{other}'; expected 'svg', 'png', 'pdf', \
                              'html', 'html_page' or 'html_iframe'"
                         )));
                     }
@@ -156,7 +160,12 @@ mod _ggrust {
                     Some(options) => {
                         to_html(&built.scene, built.interaction.as_ref(), &options).into_bytes()
                     }
-                    None if output == "png" => to_png(&built.scene, scale)?,
+                    None if output == "png" => {
+                        to_png_with_dpi(&built.scene, scale, dpi.unwrap_or(SCREEN_DPI))?
+                    }
+                    None if output == "pdf" => {
+                        to_pdf(&built.scene, scale, dpi.unwrap_or(SCREEN_DPI))?
+                    }
                     None => to_svg(&built.scene).into_bytes(),
                 };
                 Ok((bytes, built.warnings))

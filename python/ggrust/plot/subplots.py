@@ -114,6 +114,12 @@ class SupPlotsSpec(FeatureSpec):
 
         return export_png(self, path, scale=scale, w=w, h=h, unit=unit, dpi=dpi)
 
+    def to_pdf(self, path, scale=None, w=None, h=None, unit=None, dpi=None) -> str | None:
+        """Render to PDF; parameters as ``PlotSpec.to_pdf``."""
+        from ggrust._render import export_pdf
+
+        return export_pdf(self, path, scale=scale, w=w, h=h, unit=unit, dpi=dpi)
+
     def to_html(self, path=None, iframe: bool | None = None) -> str | None:
         """Render to standalone HTML; parameters as ``PlotSpec.to_html``."""
         from ggrust._render import export_html

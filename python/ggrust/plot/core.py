@@ -235,9 +235,10 @@ class PlotSpec(FeatureSpec):
         path : str or file-like, optional
             Where to write. When None, the SVG text is returned.
         w, h : float, optional
-            Override the plot size.
-        unit : {"px"}, optional
-            Unit of ``w`` and ``h``. Only pixels are supported so far.
+            Override the plot size (give both).
+        unit : {"in", "cm", "mm", "px"}, optional
+            Unit of ``w`` and ``h``; inches when None. Physical units become the SVG's
+            ``width`` / ``height`` (laid out at 96 px per inch).
 
         Returns
         -------
@@ -249,29 +250,63 @@ class PlotSpec(FeatureSpec):
         return export_svg(self, path, w=w, h=h, unit=unit)
 
     def to_png(self, path, scale=None, w=None, h=None, unit=None, dpi=None) -> str | None:
-        """Render to PNG.
+        """Render to PNG, sized as lets_plot.
 
         Parameters
         ----------
         path : str or file-like
             Where to write.
         scale : float, optional
-            Pixel scale (default 2.0, as lets-plot).
+            Pixel scale: 2.0 by default, 1.0 once ``w`` and ``h``, ``dpi`` or ``unit`` is
+            given.
         w, h : float, optional
-            Override the plot size.
-        unit : {"px"}, optional
-            Unit of ``w`` and ``h``. Only pixels are supported so far.
+            Output size (give both). In px: that many pixels (times ``scale``). In in / cm
+            / mm (inches when ``unit`` is None): laid out at 96 px per inch, rendered at
+            ``dpi`` (times ``scale``).
+        unit : {"in", "cm", "mm", "px"}, optional
+            Unit of ``w`` and ``h``.
         dpi : float, optional
-            Not supported yet; raises when given.
+            Resolution: 300 by default for physical sizes. Without ``w`` and ``h`` it
+            scales the plot's own size by ``dpi / 96``. Written to the PNG (``pHYs``).
 
         Returns
         -------
         str or None
             The absolute path written to, or None for a file-like target.
+
+        Raises
+        ------
+        ValueError
+            On an unknown ``unit``, only one of ``w`` / ``h``, a unitless size of 20 or
+            more (looks like pixels), or a non-positive ``dpi`` / ``scale``.
         """
         from ggrust._render import export_png
 
         return export_png(self, path, scale=scale, w=w, h=h, unit=unit, dpi=dpi)
+
+    def to_pdf(self, path, scale=None, w=None, h=None, unit=None, dpi=None) -> str | None:
+        """Render to a one-page raster PDF (the PNG at its resolution), as lets_plot.
+
+        Parameters
+        ----------
+        path : str or file-like
+            Where to write.
+        scale, w, h, unit, dpi : optional
+            As ``to_png``; the page size is the pixel size divided by the resolution.
+
+        Returns
+        -------
+        str or None
+            The absolute path written to, or None for a file-like target.
+
+        Raises
+        ------
+        ValueError
+            As ``to_png``.
+        """
+        from ggrust._render import export_pdf
+
+        return export_pdf(self, path, scale=scale, w=w, h=h, unit=unit, dpi=dpi)
 
     def to_html(self, path=None, iframe: bool | None = None) -> str | None:
         """Render to a standalone HTML page (inline SVG + the interactive runtime).

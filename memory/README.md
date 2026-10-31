@@ -35,3 +35,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [gggrid follows lets-plot](letsplot_grids.md): prepare once/lay out many, partial theme inheritance, collected legends keep figure theme, NaN-aware dedupe.
 - [HTML output: explicit ids, inlined runtime](html_renderer.md): per-display id prefix (not the content hash), runtime is a function expression without trailing `;`, `vertical-align:top` on the root.
 - [Tooltips follow lets-plot](letsplot_tooltips.md): how to measure real lets-plot hovers, default-line rules, 100-break position format, unadjusted values, HTML-only tooltip columns.
+- [Zoom/pan follows lets-plot via coord limits](html_zoom.md): JS breaks ported from Rust and tested against it, SVG templates stamped at new breaks, anchored marks, `g.tile` order, toolbar svg trap.

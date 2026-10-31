@@ -86,6 +86,7 @@ fn showcase() -> Scene {
     let panel = Group {
         clip: Some(PANEL),
         role: Some("panel"),
+        anchor: None,
         nodes: vec![
             Node::Rects(Rects {
                 rects: vec![PANEL],
@@ -95,6 +96,7 @@ fn showcase() -> Scene {
             Node::Group(Group {
                 clip: None,
                 role: Some("grid"),
+                anchor: None,
                 nodes: grid,
             }),
             Node::Rects(Rects {
@@ -208,6 +210,7 @@ fn render() -> (String, Pixmap) {
         &scene,
         &SvgOptions {
             id_prefix: Some("golden".into()),
+            zoomable: false,
         },
     );
     let png = to_png(&scene, 2.0).unwrap();

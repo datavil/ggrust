@@ -595,6 +595,7 @@ pub fn draw_legends(block: &LegendBlock, origin: (f64, f64), theme: &Theme) -> R
         nodes.push(Node::Group(Group {
             clip: None,
             role: Some("legend"),
+            anchor: None,
             nodes: legend_nodes,
         }));
     }

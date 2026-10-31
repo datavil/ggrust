@@ -7,9 +7,12 @@
 //! ([`Interaction`]) ride along as JSON in a `<script type="application/json">`
 //! inside the root element.
 
-use super::svg::{SvgOptions, sanitize_id, to_svg_with};
-use crate::scene::Scene;
-use crate::tooltip::Interaction;
+use serde_json::{Value, json};
+
+use super::svg::{SvgOptions, fragment, sanitize_id, to_svg_with};
+use crate::layout::zoom::{Zoom, ZoomAxis};
+use crate::scene::{Node, Scene};
+use crate::tooltip::{Interaction, script_safe_json};
 
 /// The runtime: one JavaScript function expression called with the engine version.
 const RUNTIME: &str = include_str!("../../../../js/ggrust.js");
@@ -44,10 +47,11 @@ pub fn to_html(scene: &Scene, interaction: Option<&Interaction>, options: &HtmlO
         scene,
         &SvgOptions {
             id_prefix: Some(id.clone()),
+            zoomable: interaction.is_some_and(|interaction| interaction.zoom.is_some()),
         },
     );
     // Escaped so that it cannot end its script element (see `to_script_json`).
-    let data = interaction
+    let mut data = interaction
         .filter(|interaction| !interaction.layers.is_empty())
         .map(|interaction| {
             format!(
@@ -56,6 +60,15 @@ pub fn to_html(scene: &Scene, interaction: Option<&Interaction>, options: &HtmlO
             )
         })
         .unwrap_or_default();
+    let zoom = interaction.and_then(|interaction| interaction.zoom.as_ref());
+    if let Some(zoom) = zoom {
+        data.push_str(&format!(
+            "<script type=\"application/json\" class=\"ggrust-zoom\">{}</script>\n",
+            script_safe_json(&zoom_json(zoom, scene).to_string())
+        ));
+    }
+    // The toolbar sits above the plot (lets-plot `DefaultToolbar`).
+    let toolbar_height = if zoom.is_some() { TOOLBAR_HEIGHT } else { 0.0 };
     // `id` is sanitized to [A-Za-z0-9_-], so it needs no escaping in HTML or JS.
     let fragment = format!(
         "<div id=\"{id}\" class=\"ggrust-plot\" \
@@ -76,11 +89,72 @@ pub fn to_html(scene: &Scene, interaction: Option<&Interaction>, options: &HtmlO
                 "<iframe src=\"about:blank\" style=\"border:none !important;\" \
                  width=\"{width}\" height=\"{height}\" srcdoc=\"{srcdoc}\"></iframe>\n",
                 width = scene.width.ceil(),
-                height = scene.height.ceil(),
+                height = (scene.height + toolbar_height).ceil(),
                 srcdoc = escape_attribute(&document),
             )
         }
     }
+}
+
+/// lets-plot `DefaultToolbarJs.EXPECTED_TOOLBAR_HEIGHT`: 22 px buttons, 2 px
+/// padding, 1 px border, 5 px below.
+const TOOLBAR_HEIGHT: f64 = 33.0;
+
+/// The zoom payload as JSON; templates are SVG fragments written by the SVG writer.
+fn zoom_json(zoom: &Zoom, scene: &Scene) -> Value {
+    let fragment = |node: &Option<Node>| match node {
+        Some(node) => Value::String(fragment(
+            std::slice::from_ref(node),
+            scene.width,
+            scene.height,
+        )),
+        None => Value::Null,
+    };
+    let axis = |axis: &ZoomAxis| {
+        let fixed = axis.fixed.as_ref().map(|breaks| {
+            breaks
+                .iter()
+                .map(|item| json!([item.position, item.pixel, fragment(&item.label)]))
+                .collect::<Vec<_>>()
+        });
+        json!({
+            "domain": [axis.domain.0, axis.domain.1],
+            "pixels": [axis.pixels.0, axis.pixels.1],
+            "transform": axis.transform.as_str(),
+            "count": axis.count,
+            "fixed": fixed,
+            "major": fragment(&axis.major),
+            "minor": fragment(&axis.minor),
+            "tick": fragment(&axis.tick),
+            "label": fragment(&axis.label),
+            "label_superscript": fragment(&axis.label_superscript),
+            "line": fragment(&axis.line),
+        })
+    };
+    let plots: Vec<Value> = zoom
+        .plots
+        .iter()
+        .map(|plot| {
+            let tiles: Vec<Value> = plot
+                .tiles
+                .iter()
+                .map(|tile| {
+                    let panel = tile.panel;
+                    json!({
+                        "panel": [panel.x, panel.y, panel.width, panel.height],
+                        "horizontal": axis(&tile.horizontal),
+                        "vertical": axis(&tile.vertical),
+                    })
+                })
+                .collect();
+            json!({ "tiles": tiles, "shared": [plot.shared.0, plot.shared.1] })
+        })
+        .collect();
+    json!({
+        "size_basis": zoom.size_basis.as_str(),
+        "size_zoomin": zoom.size_zoomin,
+        "plots": plots,
+    })
 }
 
 fn page(fragment: &str, extra_body_style: &str) -> String {
@@ -125,6 +199,7 @@ mod tests {
                     height: 10.0,
                 }),
                 role: None,
+                anchor: None,
                 nodes: Vec::new(),
             })],
         }

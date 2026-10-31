@@ -18,6 +18,7 @@ pub mod facet;
 pub mod grid;
 mod legend;
 mod rotated;
+pub mod zoom;
 
 pub use axis::{AxisBreaks, LabelArrangement, Orientation, choose_breaks};
 pub use colorbar::{Colorbar, DEFAULT_BINS};
@@ -433,6 +434,7 @@ pub fn draw_panel_background(layout: &PlotLayout, theme: &Theme, mapper: &Panel)
         nodes.push(Node::Group(Group {
             clip: None,
             role: Some("grid"),
+            anchor: None,
             nodes: grid,
         }));
     }
@@ -685,6 +687,7 @@ fn role_group(role: &'static str, nodes: Vec<Node>) -> Node {
     Node::Group(Group {
         clip: None,
         role: Some(role),
+        anchor: None,
         nodes,
     })
 }

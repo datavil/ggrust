@@ -57,7 +57,18 @@ pub fn build_figure_with(
                 width,
                 height,
             };
-            let mut collected = interactive.then(|| (Interaction::default(), Vec::new()));
+            let zoom = if interactive {
+                crate::layout::zoom::Zoom::from_spec(spec.ggtoolbar.as_ref(), "ggtoolbar")?
+            } else {
+                None
+            };
+            let mut collected = interactive.then(|| {
+                let interaction = Interaction {
+                    zoom,
+                    ..Interaction::default()
+                };
+                (interaction, Vec::new())
+            });
             let nodes = grid.draw(bounds, false, collected.as_mut())?;
             let scene = Scene {
                 width,
@@ -424,6 +435,7 @@ impl<'s> PreparedGrid<'s> {
             nodes.push(Node::Group(Group {
                 clip: None,
                 role: Some("figure"),
+                anchor: None,
                 nodes: figure_nodes,
             }));
         }
@@ -693,7 +705,6 @@ fn report_grid_unsupported(spec: &SubplotsSpec, path: &str, warnings: &mut Vec<S
         }
     };
     ignored(spec.caption.is_some(), "caption");
-    ignored(spec.ggtoolbar.is_some(), "ggtb");
     ignored(!spec.guides.is_empty(), "guides");
     let keys = spec
         .unsupported

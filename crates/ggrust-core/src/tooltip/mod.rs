@@ -202,6 +202,10 @@ impl HoverTargets {
 pub struct Interaction {
     /// One entry per layer and panel that has targets and something to show.
     pub layers: Vec<LayerInteraction>,
+    /// The zoom/pan payload when the figure has `ggtb()`; written apart by the
+    /// HTML renderer (it holds scene templates).
+    #[serde(skip)]
+    pub zoom: Option<crate::layout::zoom::Zoom>,
 }
 
 /// One layer in one panel.
@@ -237,19 +241,25 @@ impl Interaction {
     /// `>` and `&` are written as `<`-style escapes.
     pub fn to_script_json(&self) -> String {
         let json = serde_json::to_string(self).unwrap_or_else(|_| "{\"layers\":[]}".into());
-        let mut escaped = String::with_capacity(json.len());
-        for character in json.chars() {
-            match character {
-                '<' => escaped.push_str("\\u003c"),
-                '>' => escaped.push_str("\\u003e"),
-                '&' => escaped.push_str("\\u0026"),
-                '\u{2028}' => escaped.push_str("\\u2028"),
-                '\u{2029}' => escaped.push_str("\\u2029"),
-                other => escaped.push(other),
-            }
-        }
-        escaped
+        script_safe_json(&json)
     }
+}
+
+/// JSON text made safe inside an HTML `<script>` element: `<`, `>`, `&` and the
+/// JavaScript line separators are written as `\u` escapes.
+pub fn script_safe_json(json: &str) -> String {
+    let mut escaped = String::with_capacity(json.len());
+    for character in json.chars() {
+        match character {
+            '<' => escaped.push_str("\\u003c"),
+            '>' => escaped.push_str("\\u003e"),
+            '&' => escaped.push_str("\\u0026"),
+            '\u{2028}' => escaped.push_str("\\u2028"),
+            '\u{2029}' => escaped.push_str("\\u2029"),
+            other => escaped.push(other),
+        }
+    }
+    escaped
 }
 
 #[cfg(test)]
@@ -277,6 +287,7 @@ mod tests {
                 anchor: None,
                 min_width: None,
             }],
+            zoom: None,
         };
         let json = interaction.to_script_json();
         assert!(!json.contains('<') && !json.contains('>') && !json.contains('&'));

@@ -58,12 +58,9 @@ fn build(json: &str, data: DataFrame) -> BuiltPlot {
 fn panel(built: &BuiltPlot) -> &Group {
     built
         .scene
-        .nodes
-        .iter()
-        .find_map(|node| match node {
-            Node::Group(group) if group.role == Some("panel") => Some(group),
-            _ => None,
-        })
+        .groups_with_role("panel")
+        .into_iter()
+        .next()
         .expect("a panel group")
 }
 
@@ -204,8 +201,8 @@ fn layer_data_overrides_plot_data_and_inherit_aes() {
     )
     .unwrap();
     let sizes: Vec<usize> = panel(&built)
-        .nodes
-        .iter()
+        .flattened()
+        .into_iter()
         .filter_map(|node| match node {
             Node::Points(points) => Some(points.len()),
             _ => None,

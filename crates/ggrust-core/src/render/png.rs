@@ -155,8 +155,20 @@ struct Clip<'a> {
 impl Canvas {
     /// Draw nodes in order; consecutive text nodes are rendered as one batch.
     fn nodes(&mut self, nodes: &[Node], clip: Option<Clip>) -> Result<()> {
+        // Unclipped groups (anchored labels) are drawn inline, so their texts
+        // still join one batch.
+        fn inline<'a>(nodes: &'a [Node], flat: &mut Vec<&'a Node>) {
+            for node in nodes {
+                match node {
+                    Node::Group(group) if group.clip.is_none() => inline(&group.nodes, flat),
+                    other => flat.push(other),
+                }
+            }
+        }
+        let mut flat = Vec::with_capacity(nodes.len());
+        inline(nodes, &mut flat);
         let mut texts: Vec<&Text> = Vec::new();
-        for node in nodes {
+        for node in flat {
             if let Node::Text(text) = node {
                 texts.push(text);
                 continue;

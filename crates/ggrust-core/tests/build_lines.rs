@@ -44,19 +44,16 @@ fn build(layers: &str, data: DataFrame) -> BuiltPlot {
 fn panel(built: &BuiltPlot) -> &Group {
     built
         .scene
-        .nodes
-        .iter()
-        .find_map(|node| match node {
-            Node::Group(group) if group.role == Some("panel") => Some(group),
-            _ => None,
-        })
+        .groups_with_role("panel")
+        .into_iter()
+        .next()
         .expect("a panel group")
 }
 
 fn paths(built: &BuiltPlot) -> Vec<&Path> {
     panel(built)
-        .nodes
-        .iter()
+        .flattened()
+        .into_iter()
         .filter_map(|node| match node {
             Node::Path(path) => Some(path),
             _ => None,
@@ -66,8 +63,8 @@ fn paths(built: &BuiltPlot) -> Vec<&Path> {
 
 fn texts(built: &BuiltPlot) -> Vec<&Text> {
     panel(built)
-        .nodes
-        .iter()
+        .flattened()
+        .into_iter()
         .filter_map(|node| match node {
             Node::Text(text) => Some(text),
             _ => None,
@@ -225,16 +222,13 @@ fn intercepts_train_the_scales() {
     let first = |built: &BuiltPlot| {
         built
             .scene
-            .nodes
-            .iter()
-            .filter_map(|node| match node {
-                Node::Group(group) if group.role == Some("panel") => {
-                    group.nodes.iter().find_map(|node| match node {
-                        Node::Points(points) => Some(points.x[1]),
-                        _ => None,
-                    })
-                }
-                _ => None,
+            .groups_with_role("panel")
+            .into_iter()
+            .filter_map(|group| {
+                group.nodes.iter().find_map(|node| match node {
+                    Node::Points(points) => Some(points.x[1]),
+                    _ => None,
+                })
             })
             .next()
             .unwrap()
@@ -401,8 +395,8 @@ fn label_vjust_one_hangs_the_box_from_the_point() {
         .map(|point| point.1)
         .fold(f64::MAX, f64::min);
     let point_y = panel(&built)
-        .nodes
-        .iter()
+        .flattened()
+        .into_iter()
         .find_map(|node| match node {
             Node::Points(points) => Some(points.y[0]),
             _ => None,

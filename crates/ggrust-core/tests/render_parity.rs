@@ -256,6 +256,7 @@ fn id_prefix_with_spaces_still_clips() {
             height: 100.0,
         }),
         role: None,
+        anchor: None,
         nodes: vec![Node::Rects(Rects {
             rects: vec![Rect {
                 x: 0.0,
@@ -272,6 +273,7 @@ fn id_prefix_with_spaces_still_clips() {
         &scene,
         &SvgOptions {
             id_prefix: Some("my plot)".into()),
+            zoomable: false,
         },
     );
     let (_, range) = ink(&svg_to_png(&svg, 200.0, 100.0, 1.0).unwrap());
@@ -332,6 +334,7 @@ fn interleaved_text_under_a_clip_stays_fast() {
                 height: 600.0,
             }),
             role: None,
+            anchor: None,
             nodes,
         })],
     };

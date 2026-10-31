@@ -36,16 +36,13 @@ fn build(json: &str, plot: Option<DataFrame>, layers: Vec<Option<DataFrame>>) ->
 fn points(built: &BuiltPlot) -> Vec<&Points> {
     let panel: &Group = built
         .scene
-        .nodes
-        .iter()
-        .find_map(|node| match node {
-            Node::Group(group) if group.role == Some("panel") => Some(group),
-            _ => None,
-        })
+        .groups_with_role("panel")
+        .into_iter()
+        .next()
         .unwrap();
     panel
-        .nodes
-        .iter()
+        .flattened()
+        .into_iter()
         .filter_map(|node| match node {
             Node::Points(points) => Some(points),
             _ => None,
@@ -325,12 +322,9 @@ fn the_panel_never_shrinks_below_lets_plots_minimum() {
     );
     let panel = built
         .scene
-        .nodes
-        .iter()
-        .find_map(|node| match node {
-            Node::Group(group) if group.role == Some("panel") => group.clip,
-            _ => None,
-        })
+        .groups_with_role("panel")
+        .into_iter()
+        .find_map(|group| group.clip)
         .unwrap();
     assert!(panel.height >= 50.0 && panel.width >= 50.0, "{panel:?}");
 }

@@ -55,6 +55,9 @@ pub struct AxisBreaks {
     pub labels: Vec<Label>,
     /// Label placement (horizontal axes; vertical axes are always simple).
     pub arrangement: LabelArrangement,
+    /// The break count asked of the scale (0 for fixed breaks): the HTML
+    /// runtime asks the same of a zoomed domain.
+    pub target_count: usize,
 }
 
 impl AxisBreaks {
@@ -63,6 +66,7 @@ impl AxisBreaks {
             values,
             labels,
             arrangement: LabelArrangement::Simple,
+            target_count: 0,
         }
     }
 
@@ -131,6 +135,7 @@ pub fn choose_breaks(
     let breaks_for = |count: usize| {
         let scale_breaks = scale.breaks(count);
         let mut breaks = AxisBreaks::new(scale_breaks.positions, scale_breaks.labels);
+        breaks.target_count = count;
         if rotation.is_some() && orientation == Orientation::Horizontal {
             breaks.arrangement = LabelArrangement::Rotated;
         }

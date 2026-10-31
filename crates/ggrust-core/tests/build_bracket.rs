@@ -63,19 +63,16 @@ fn try_build(plot_options: &str, layer_options: &str) -> ggrust_core::Result<Bui
 fn panel(built: &BuiltPlot) -> &Group {
     built
         .scene
-        .nodes
-        .iter()
-        .find_map(|node| match node {
-            Node::Group(group) if group.role == Some("panel") => Some(group),
-            _ => None,
-        })
+        .groups_with_role("panel")
+        .into_iter()
+        .next()
         .expect("a panel group")
 }
 
 fn paths(built: &BuiltPlot) -> Vec<&Path> {
     panel(built)
-        .nodes
-        .iter()
+        .flattened()
+        .into_iter()
         .filter_map(|node| match node {
             Node::Path(path) => Some(path),
             _ => None,
@@ -85,8 +82,8 @@ fn paths(built: &BuiltPlot) -> Vec<&Path> {
 
 fn texts(built: &BuiltPlot) -> Vec<&Text> {
     panel(built)
-        .nodes
-        .iter()
+        .flattened()
+        .into_iter()
         .filter_map(|node| match node {
             Node::Text(text) => Some(text),
             _ => None,
@@ -98,8 +95,8 @@ fn texts(built: &BuiltPlot) -> Vec<&Text> {
 fn brackets_are_drawn_before_their_labels_with_lets_plot_defaults() {
     let built = build("", "");
     let kinds: Vec<&str> = panel(&built)
-        .nodes
-        .iter()
+        .flattened()
+        .into_iter()
         .filter_map(|node| match node {
             Node::Path(_) => Some("path"),
             Node::Text(_) => Some("text"),

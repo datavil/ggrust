@@ -80,6 +80,43 @@ impl Scene {
     }
 }
 
+impl Scene {
+    /// Every group with `role` (e.g. `"panel"`), depth first, in drawing order.
+    pub fn groups_with_role(&self, role: &str) -> Vec<&Group> {
+        fn walk<'a>(nodes: &'a [Node], role: &str, found: &mut Vec<&'a Group>) {
+            for node in nodes {
+                if let Node::Group(group) = node {
+                    if group.role == Some(role) {
+                        found.push(group);
+                    }
+                    walk(&group.nodes, role, found);
+                }
+            }
+        }
+        let mut found = Vec::new();
+        walk(&self.nodes, role, &mut found);
+        found
+    }
+}
+
+impl Group {
+    /// The children, with anchored groups ([`Group::anchor`]) replaced by their
+    /// own children: what is drawn, in order.
+    pub fn flattened(&self) -> Vec<&Node> {
+        fn walk<'a>(nodes: &'a [Node], flat: &mut Vec<&'a Node>) {
+            for node in nodes {
+                match node {
+                    Node::Group(group) if group.anchor.is_some() => walk(&group.nodes, flat),
+                    other => flat.push(other),
+                }
+            }
+        }
+        let mut flat = Vec::new();
+        walk(&self.nodes, &mut flat);
+        flat
+    }
+}
+
 /// Child nodes drawn together, optionally clipped to a rectangle.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct Group {
@@ -88,6 +125,10 @@ pub struct Group {
     /// Semantic label for renderers (e.g. `"panel"`, `"legend"`), used for
     /// interactivity hooks and debugging. Not styling.
     pub role: Option<&'static str>,
+    /// The data point the children are drawn around (a text label and its box):
+    /// interactive zoom moves them rigidly with it instead of stretching them.
+    /// Static output ignores it.
+    pub anchor: Option<(f64, f64)>,
     /// Children, drawn in order.
     pub nodes: Vec<Node>,
 }
@@ -351,6 +392,7 @@ mod tests {
             nodes: vec![Node::Group(Group {
                 clip: None,
                 role: Some("panel"),
+                anchor: None,
                 nodes: vec![rects(fill)],
             })],
         };

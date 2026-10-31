@@ -23,7 +23,7 @@ use super::{DrawLayer, Geom};
 use crate::coord::Panel;
 use crate::data::{ContinuousColumn, LayerData};
 use crate::parameters::Parameters;
-use crate::scene::{Color, Node, Path, Rect, Stroke};
+use crate::scene::{Color, Group, Node, Path, Rect, Stroke};
 use crate::spec::Aesthetic;
 use crate::style::{StyleDefault, Styles};
 use crate::{Error, Result};
@@ -265,7 +265,13 @@ fn label(styles: &Styles, row: usize, point: (f64, f64), panel: &Panel) -> Resul
     let lift = look.content.split('\n').count() as f64 * look.size / 2.0;
     let (sin, cos) = look.angle.to_radians().sin_cos();
     let lifted = (point.0 - lift * sin, point.1 - lift * cos);
-    Ok(text::draw_one(&look, lifted, false, 0.0, 0.0, 0.0))
+    // Anchored at the bar's middle, so interactive zoom moves the label with it.
+    Ok(vec![Node::Group(Group {
+        clip: None,
+        role: None,
+        anchor: Some(point),
+        nodes: text::draw_one(&look, lifted, false, 0.0, 0.0, 0.0),
+    })])
 }
 
 /// The line style of a row's bracket: lets-plot `TextUtil.toSegmentAes`.

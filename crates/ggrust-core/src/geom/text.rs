@@ -16,7 +16,7 @@ use crate::Result;
 use crate::coord::Panel;
 use crate::scale::format::Label;
 use crate::scale::label_pattern::power_label;
-use crate::scene::{Color, HorizontalAlign, Node, Path, Rect, Stroke, Text, VerticalAlign};
+use crate::scene::{Color, Group, HorizontalAlign, Node, Path, Rect, Stroke, Text, VerticalAlign};
 use crate::spec::Aesthetic;
 use crate::style::{StyleDefault, Styles};
 use crate::text::{self, Font, FontFace, FontFamily};
@@ -264,7 +264,13 @@ fn draw_texts(layer: &DrawLayer, panel: &Panel, label: bool) -> Result<Vec<Node>
         if look.content.is_empty() || look.size <= 0.0 {
             continue;
         }
-        nodes.extend(draw_one(&look, (px, py), label, border, padding, radius));
+        // Anchored, so interactive zoom moves each text with its point.
+        nodes.push(Node::Group(Group {
+            clip: None,
+            role: None,
+            anchor: Some((px, py)),
+            nodes: draw_one(&look, (px, py), label, border, padding, radius),
+        }));
     }
     Ok(nodes)
 }

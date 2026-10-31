@@ -18,6 +18,7 @@ use crate::data::{
 use crate::facet::{Facets, LayerFacetColumns};
 use crate::geom::{self, DrawLayer, Geom};
 use crate::layout::facet::{FacetGrid, FacetLayout, FacetPanel, draw_strips, layout_facets};
+use crate::layout::zoom::{Zoom, ZoomPlot, zoom_tile};
 use crate::layout::{
     Colorbar, DEFAULT_BINS, KeyGrid, KeyLayer, Legend, LegendBox, LegendKey, PlotLayout, Titles,
     draw_axes, draw_legends, draw_panel_background, draw_panel_border, draw_titles, layout_plot,
@@ -123,7 +124,10 @@ pub fn build_plot_with(spec: &PlotSpec, data: &PlotData, interactive: bool) -> R
     scene.validate()?;
     let mut warnings = plot.warnings.clone();
     let interaction = if interactive {
-        let mut interaction = Interaction::default();
+        let mut interaction = Interaction {
+            zoom: Zoom::from_spec(spec.ggtoolbar.as_ref(), "ggtoolbar")?,
+            ..Interaction::default()
+        };
         plot.interaction(&arrangement, &mut interaction, &mut warnings)?;
         Some(interaction)
     } else {
@@ -601,6 +605,17 @@ fn tooltip_setups(
         .collect()
 }
 
+/// One panel with its background, grid, border and axes: the HTML runtime's
+/// zoom finds a panel's pieces inside its `tile` group.
+fn tile_group(nodes: Vec<Node>) -> Node {
+    Node::Group(Group {
+        clip: None,
+        role: Some("tile"),
+        anchor: None,
+        nodes,
+    })
+}
+
 /// Where a plot's panels, axes and titles go (from [`PreparedPlot::arrange`]).
 pub struct Arrangement {
     area: Rect,
@@ -869,12 +884,49 @@ impl PreparedPlot {
                 });
             }
         }
+        if interaction.zoom.is_some() {
+            let plot = self.zoom_plot(arrangement);
+            if let Some(zoom) = interaction.zoom.as_mut() {
+                zoom.plots.push(plot);
+            }
+        }
         for note in notes {
             if !warnings.contains(&note) {
                 warnings.push(note);
             }
         }
         Ok(())
+    }
+
+    /// The zoom payload of the plot as laid out by `arrangement` (`ggtb`).
+    fn zoom_plot(&self, arrangement: &Arrangement) -> ZoomPlot {
+        let layouts: Vec<(&PlotLayout, (bool, bool))> = match &arrangement.layout {
+            Arranged::Single(layout) => vec![(layout, (true, true))],
+            Arranged::Facets(layout) => layout
+                .tiles
+                .iter()
+                .map(|tile| (&tile.layout, tile.axes))
+                .collect(),
+        };
+        let mut tiles = Vec::new();
+        let mut scales = Vec::new();
+        for ((layout, shown), (_, tile_x, tile_y)) in layouts.into_iter().zip(&self.tiles) {
+            let (horizontal, vertical) = self.screen_scales(tile_x, tile_y);
+            let panel = Panel {
+                rect: layout.panel,
+                x_scale: horizontal,
+                y_scale: vertical,
+                coord: self.coord,
+                flipped: self.flipped,
+            };
+            tiles.push(zoom_tile(layout, &self.theme, &panel, shown));
+            scales.push((horizontal, vertical));
+        }
+        let shared = (
+            scales.windows(2).all(|pair| pair[0].0 == pair[1].0),
+            scales.windows(2).all(|pair| pair[0].1 == pair[1].1),
+        );
+        ZoomPlot { tiles, shared }
     }
 
     /// Draw the plot as laid out by `arrangement`: everything but the background
@@ -906,14 +958,16 @@ impl PreparedPlot {
                     flipped: self.flipped,
                 };
                 let layer_nodes = draw_layers(layers, &panel)?;
-                nodes.extend(draw_panel_background(layout, theme, &panel));
-                nodes.push(Node::Group(Group {
+                let mut tile = draw_panel_background(layout, theme, &panel);
+                tile.push(Node::Group(Group {
                     clip: Some(layout.panel),
                     role: Some("panel"),
+                    anchor: None,
                     nodes: layer_nodes,
                 }));
-                nodes.extend(draw_panel_border(layout, theme));
-                nodes.extend(draw_axes(layout, theme, &panel, (true, true)));
+                tile.extend(draw_panel_border(layout, theme));
+                tile.extend(draw_axes(layout, theme, &panel, (true, true)));
+                nodes.push(tile_group(tile));
             }
             Arranged::Facets(layout) => {
                 for (tile, (layers, tile_x, tile_y)) in layout.tiles.iter().zip(&self.tiles) {
@@ -926,14 +980,16 @@ impl PreparedPlot {
                         flipped: self.flipped,
                     };
                     let layer_nodes = draw_layers(layers, &panel)?;
-                    nodes.extend(draw_panel_background(&tile.layout, theme, &panel));
-                    nodes.push(Node::Group(Group {
+                    let mut tile_nodes = draw_panel_background(&tile.layout, theme, &panel);
+                    tile_nodes.push(Node::Group(Group {
                         clip: Some(tile.layout.panel),
                         role: Some("panel"),
+                        anchor: None,
                         nodes: layer_nodes,
                     }));
-                    nodes.extend(draw_panel_border(&tile.layout, theme));
-                    nodes.extend(draw_axes(&tile.layout, theme, &panel, tile.axes));
+                    tile_nodes.extend(draw_panel_border(&tile.layout, theme));
+                    tile_nodes.extend(draw_axes(&tile.layout, theme, &panel, tile.axes));
+                    nodes.push(tile_group(tile_nodes));
                     nodes.extend(draw_strips(tile, theme));
                 }
             }
@@ -2887,7 +2943,6 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
         "facet_grid",
     );
     ignored(spec.caption.is_some(), "caption");
-    ignored(spec.ggtoolbar.is_some(), "ggtb");
     ignored(
         !spec.data_meta.mapping_annotations.is_empty()
             || spec

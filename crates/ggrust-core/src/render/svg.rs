@@ -24,6 +24,28 @@ pub struct SvgOptions {
     /// do not collide. Characters other than ASCII letters, digits, `-` and `_` are
     /// replaced by `_`.
     pub id_prefix: Option<String>,
+    /// Hooks for the HTML runtime's zoom (`ggtb`): point batches carry
+    /// `class="ggrust-points"`, markers other than one circle and anchored groups
+    /// a `data-anchor="x y"` group. Off for static SVG.
+    pub zoomable: bool,
+}
+
+/// The elements of `nodes` without a document around them (templates the HTML
+/// runtime stamps when it redraws zoomed axes), clipped to a `width` x `height`
+/// scene. Clipped groups are not expected: their ids would not be unique.
+pub(super) fn fragment(nodes: &[Node], width: f64, height: f64) -> String {
+    let mut writer = SvgWriter {
+        output: String::new(),
+        id_prefix: "ggrust-template".into(),
+        id_positions: Vec::new(),
+        clip_count: 0,
+        clip_box: ClipBox::for_scene(width, height),
+        zoomable: true,
+    };
+    for node in nodes {
+        writer.node(node);
+    }
+    writer.output
 }
 
 /// Length of a content-hash prefix: `gg` + 12 hex digits.
@@ -45,6 +67,7 @@ pub fn to_svg_with(scene: &Scene, options: &SvgOptions) -> String {
         id_positions: Vec::new(),
         clip_count: 0,
         clip_box: ClipBox::for_scene(scene.width, scene.height),
+        zoomable: options.zoomable,
     };
     writer.document(scene);
     if options.id_prefix.is_none() && !writer.id_positions.is_empty() {
@@ -87,6 +110,7 @@ pub(super) fn text_document(width: f64, height: f64, texts: &[&Text]) -> String 
         id_positions: Vec::new(),
         clip_count: 0,
         clip_box: ClipBox::for_scene(width, height),
+        zoomable: false,
     };
     writer.open(width, height);
     for text in texts {
@@ -103,6 +127,7 @@ struct SvgWriter {
     id_positions: Vec<usize>,
     clip_count: usize,
     clip_box: ClipBox,
+    zoomable: bool,
 }
 
 impl SvgWriter {
@@ -146,6 +171,22 @@ impl SvgWriter {
     }
 
     fn group(&mut self, group: &Group) {
+        if let Some((x, y)) = group
+            .anchor
+            .filter(|_| group.clip.is_none() && group.role.is_none())
+        {
+            // Static output draws anchored content inline.
+            if self.zoomable {
+                self.anchor_open(x, y);
+            }
+            for node in &group.nodes {
+                self.node(node);
+            }
+            if self.zoomable {
+                self.raw("</g>\n");
+            }
+            return;
+        }
         let clip_number = group.clip.map(|clip| {
             let number = self.clip_count;
             self.clip_count += 1;
@@ -172,6 +213,15 @@ impl SvgWriter {
         self.raw("</g>\n");
     }
 
+    /// `<g data-anchor="x y">`: the runtime moves the group with this point.
+    fn anchor_open(&mut self, x: f64, y: f64) {
+        self.raw("<g data-anchor=\"");
+        self.number(x);
+        self.raw(" ");
+        self.number(y);
+        self.raw("\">");
+    }
+
     /// `<prefix>-clip<number>`; the prefix is sanitized, so no escaping is needed.
     fn clip_id(&mut self, number: usize) {
         self.id_positions.push(self.output.len());
@@ -184,6 +234,9 @@ impl SvgWriter {
             return;
         }
         self.raw("<g");
+        if self.zoomable {
+            self.raw(" class=\"ggrust-points\"");
+        }
         if let PerItem::Uniform(fill) = points.fill {
             self.fill(fill);
         }
@@ -199,6 +252,8 @@ impl SvgWriter {
             self.marker_stroke(stroke);
         }
         self.raw(">\n");
+        // One buffer for every marker's parts (no allocation per point).
+        let mut parts = Vec::new();
         for index in 0..points.len() {
             let (x, y, size) = (points.x[index], points.y[index], points.size.get(index));
             if !is_drawable_marker(x, y, size) || !self.clip_box.contains(x, y) {
@@ -211,7 +266,17 @@ impl SvgWriter {
             };
             let per_item_stroke = uniform_stroke.is_none().then_some(stroke);
             let shape = points.shape.get(index);
+            parts.clear();
             shape.for_each_part(x, y, size, points.stroke_width.get(index), |part| {
+                parts.push(part);
+            });
+            // The runtime moves a lone circle by its centre, anything else by its anchor.
+            let anchored =
+                self.zoomable && !matches!(parts.as_slice(), [MarkerPart::Circle { .. }]);
+            if anchored {
+                self.anchor_open(x, y);
+            }
+            for part in parts.drain(..) {
                 match part {
                     MarkerPart::Circle { x, y, radius } => {
                         self.raw("<circle");
@@ -242,7 +307,10 @@ impl SvgWriter {
                     self.marker_stroke(stroke);
                 }
                 self.raw("/>\n");
-            });
+            }
+            if anchored {
+                self.raw("</g>\n");
+            }
         }
         self.raw("</g>\n");
     }
@@ -660,6 +728,7 @@ mod tests {
                     height: 10.0,
                 }),
                 role: None,
+                anchor: None,
                 nodes: vec![],
             })],
         };

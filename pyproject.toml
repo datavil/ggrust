@@ -39,11 +39,17 @@ dev = [
     "pytest>=8",
     "ruff>=0.15",
 ]
+docs = [
+    "mkdocs-material>=9.6",
+    "mkdocstrings[python]>=0.29",
+]
 
 [tool.maturin]
 manifest-path = "crates/ggrust-python/Cargo.toml"
 module-name = "ggrust._ggrust"
 python-source = "python"
+# ggrust-core embeds the JS runtime from outside its crate (include_str!).
+include = [{ path = "js/**/*", format = "sdist" }]
 
 [tool.uv]
 # Rebuild the extension whenever Rust or Python sources change.

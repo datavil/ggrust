@@ -147,11 +147,9 @@ def theme(
 ) -> FeatureSpec:
     """Set theme options: element_*() values, numbers or names per theme element.
 
-    Parameters
-    ----------
-    **options
-        As in lets_plot ``theme()`` (``axis_text_x=element_text(size=10)``,
-        ``legend_position="bottom"``, ``panel_grid=element_blank()``, ...).
+    Every parameter is keyword-only, named and valued as in lets_plot ``theme()``
+    (``axis_text_x=element_text(size=10)``, ``legend_position="bottom"``,
+    ``panel_grid=element_blank()``, ...). Parameters left as None are not set.
 
     Returns
     -------

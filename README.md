@@ -3,6 +3,9 @@
 Grammar-of-graphics plotting engine written in Rust, used from Python through a
 lets_plot-compatible API. Built for [cellestial](https://github.com/datavil/cellestial).
 
+Docs: [datavil.github.io/ggrust](https://datavil.github.io/ggrust/), including a
+[migration note for lets-plot users](https://datavil.github.io/ggrust/migration/).
+
 Status: early development. See [plan.md](https://github.com/datavil/ggrust/blob/main/plan.md) for the roadmap and
 [AGENTS.md](https://github.com/datavil/ggrust/blob/main/AGENTS.md) for contributor rules.
 

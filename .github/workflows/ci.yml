@@ -1,0 +1,42 @@
+# Runs the same gate as `make check` (fmt, clippy, ruff, cargo test, pytest with
+# visual goldens and browser tests) on every push and pull request to main.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+      - name: Create the dev environment
+        run: uv sync
+      - name: Install Chromium for the browser tests
+        run: uv run playwright install --with-deps chromium
+      - name: make check
+        run: make check
+      - name: Upload visual diffs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-output
+          path: tests/visual/output/
+          if-no-files-found: ignore

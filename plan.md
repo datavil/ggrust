@@ -189,7 +189,8 @@ Steps inside a phase are ordered; each builds on the previous.
 ### Phase 7: Release
 
 - [ ] 7.0 Code quality pass (after the features are complete; see AGENTS.md "Errors are first-class"). Comprehensive type hints on all Python code, `ty check` clean and added to `make lint`; NumPy docstrings on every public function/class (cellestial style); errors audited end to end: typed Rust `thiserror` variants, specific Python exception classes, every message says what, where, what is accepted and how to fix it (close-match suggestions for typos). Tests assert error types and messages.
-- [ ] 7.1 Docs (API reference from docstrings, migration note for cellestial), CI, wheels for linux/macos/windows.
+- [x] 7.1 Docs (API reference from docstrings, migration note for cellestial), CI, wheels for linux/macos/windows.
+  (CI: `make check` on ubuntu with Chromium, visual diffs uploaded on failure. Release: abi3 wheels via maturin-action for linux x86_64/aarch64 (manylinux 2_28), macOS intel/arm, windows x64, plus an sdist; every wheel and the sdist build are smoke-tested (`.github/smoke_test.py`); PyPI trusted publishing only on a `v*` tag matching the version. sdist now ships `js/` (it did not compile from source before). Docs: mkdocs-material + mkdocstrings (numpy style, runtime inspection so assignment-built scales get signatures), strict build on PRs, Pages deploy from main; home page, migration note, 124-entry reference. Material reaches end of life in May 2027; Zensical reads the same mkdocs.yml.)
 - [ ] 7.2 cellestial switches dependency `lets-plot` -> `ggrust` (with user approval).
 
 ## Performance strategy (honest)

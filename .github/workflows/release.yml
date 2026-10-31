@@ -1,0 +1,96 @@
+# Builds abi3 wheels (one per platform, Python >= 3.11) and an sdist, smoke-tests
+# every wheel, and publishes to PyPI when a `v*` tag is pushed. Manual runs and
+# pull requests that touch packaging only build and test, they never publish.
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+  pull_request:
+    paths:
+      - ".github/workflows/release.yml"
+      - "pyproject.toml"
+      - "Cargo.toml"
+      - "crates/ggrust-python/Cargo.toml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  wheels:
+    name: wheel ${{ matrix.platform.os }} ${{ matrix.platform.target }}
+    runs-on: ${{ matrix.platform.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        platform:
+          - { os: linux, runner: ubuntu-latest, target: x86_64, manylinux: "2_28" }
+          - { os: linux, runner: ubuntu-24.04-arm, target: aarch64, manylinux: "2_28" }
+          - { os: macos, runner: macos-15-intel, target: x86_64, manylinux: "" }
+          - { os: macos, runner: macos-15, target: aarch64, manylinux: "" }
+          - { os: windows, runner: windows-latest, target: x64, manylinux: "" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Build wheel
+        uses: PyO3/maturin-action@v1
+        with:
+          target: ${{ matrix.platform.target }}
+          manylinux: ${{ matrix.platform.manylinux || 'auto' }}
+          args: --release --out dist
+      - name: Smoke-test the wheel
+        shell: bash
+        run: |
+          python -m pip install dist/*.whl
+          python .github/smoke_test.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheel-${{ matrix.platform.os }}-${{ matrix.platform.target }}
+          path: dist/*.whl
+
+  sdist:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build sdist
+        uses: PyO3/maturin-action@v1
+        with:
+          command: sdist
+          args: --out dist
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Build from the sdist and smoke-test
+        run: |
+          python -m pip install dist/*.tar.gz
+          python .github/smoke_test.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdist
+          path: dist/*.tar.gz
+
+  publish:
+    name: Publish to PyPI
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [wheels, sdist]
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write  # PyPI trusted publishing, no stored token
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Check the tag matches the package version
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          test -f "dist/ggrust-${version}.tar.gz" || {
+            echo "tag ${GITHUB_REF_NAME} does not match the built version: $(ls dist)"; exit 1; }
+      - uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/

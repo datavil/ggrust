@@ -10,3 +10,5 @@ convention = "numpy"
 
 [lint.per-file-ignores]
 "tests/**" = ["D"]
+# Manual notebooks use the lets-plot idiom `from ggrust import *`.
+"notebooks/**" = ["F403", "F405"]

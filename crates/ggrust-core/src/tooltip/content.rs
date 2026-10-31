@@ -12,6 +12,7 @@
 
 use std::collections::BTreeMap;
 
+use rayon::prelude::*;
 use serde::ser::{Serialize, SerializeStruct, Serializer};
 
 use super::TooltipBehavior;
@@ -477,22 +478,20 @@ impl Builder<'_> {
             }
         }
         let rows = self.source.data.row_count();
-        let values = (0..rows)
-            .map(|row| {
-                let mut text = String::new();
-                let mut fields = columns.iter();
-                for part in &line.parts {
-                    match part {
-                        Part::Text(literal) => text.push_str(literal),
-                        Part::Field(_) => {
-                            let value = fields.next()?.get(row)?.as_deref()?;
-                            text.push_str(value);
-                        }
+        let values = row_texts(rows, |row| {
+            let mut text = String::new();
+            let mut fields = columns.iter();
+            for part in &line.parts {
+                match part {
+                    Part::Text(literal) => text.push_str(literal),
+                    Part::Field(_) => {
+                        let value = fields.next()?.get(row)?.as_deref()?;
+                        text.push_str(value);
                     }
                 }
-                Some(text)
-            })
-            .collect();
+            }
+            Some(text)
+        });
         Some(TextColumn {
             label: line.label.clone(),
             values,
@@ -588,19 +587,17 @@ impl Builder<'_> {
             return vec![None; rows];
         };
         let formatter = PositionFormatter::new(scale);
-        (0..rows)
-            .map(|row| {
-                let text = column
-                    .get(row)
-                    .filter(|value| value.is_finite())
-                    .and_then(|value| formatter.format(value, format));
-                match (text, axis) {
-                    (Some(text), _) => Some(text),
-                    (None, true) => None,
-                    (None, false) => Some("n/a".into()),
-                }
-            })
-            .collect()
+        row_texts(rows, |row| {
+            let text = column
+                .get(row)
+                .filter(|value| value.is_finite())
+                .and_then(|value| formatter.format(value, format));
+            match (text, axis) {
+                (Some(text), _) => Some(text),
+                (None, true) => None,
+                (None, false) => Some("n/a".into()),
+            }
+        })
     }
 
     /// lets-plot `HintColorUtil.markerFactory` (simplified): the fill when `fill`
@@ -648,25 +645,34 @@ fn rendered_rank(aesthetic: Aesthetic) -> (u8, &'static str) {
 fn column_texts(column: Option<&Column>, pattern: Option<&LabelPattern>) -> Vec<Option<String>> {
     match column {
         None => Vec::new(),
-        Some(Column::Discrete(column)) => (0..column.len())
-            .map(|row| {
-                column.label(row).map(|label| match pattern {
-                    Some(pattern) => label_text(&pattern.format(PatternValue::Text(label))),
-                    None => label.to_owned(),
+        Some(Column::Discrete(column)) => row_texts(column.len(), |row| {
+            column.label(row).map(|label| match pattern {
+                Some(pattern) => label_text(pattern.format(PatternValue::Text(label))),
+                None => label.to_owned(),
+            })
+        }),
+        Some(Column::Continuous(column)) => row_texts(column.len(), |row| {
+            column
+                .get(row)
+                .filter(|value| !value.is_nan())
+                .map(|value| match pattern {
+                    Some(pattern) => label_text(pattern.format(PatternValue::Number(value))),
+                    None => value.to_string(),
                 })
-            })
-            .collect(),
-        Some(Column::Continuous(column)) => (0..column.len())
-            .map(|row| {
-                column
-                    .get(row)
-                    .filter(|value| !value.is_nan())
-                    .map(|value| match pattern {
-                        Some(pattern) => label_text(&pattern.format(PatternValue::Number(value))),
-                        None => value.to_string(),
-                    })
-            })
-            .collect(),
+        }),
+    }
+}
+
+/// One text per row, formatted in parallel for layers with enough rows (row
+/// order kept, so the output does not depend on threads).
+fn row_texts(
+    rows: usize,
+    text: impl Fn(usize) -> Option<String> + Sync + Send,
+) -> Vec<Option<String>> {
+    if crate::parallel::is_worth(rows) {
+        (0..rows).into_par_iter().map(text).collect()
+    } else {
+        (0..rows).map(text).collect()
     }
 }
 
@@ -690,7 +696,7 @@ impl<'a> PositionFormatter<'a> {
                         .positions
                         .iter()
                         .zip(&breaks.labels)
-                        .map(|(position, label)| (*position, label_text(label)))
+                        .map(|(position, label)| (*position, label_text(label.clone())))
                         .collect(),
                     reference_and_step: (0.0, 0.0),
                 }
@@ -723,7 +729,7 @@ impl<'a> PositionFormatter<'a> {
                     .map(|(_, label)| label.clone());
                 match (label, pattern) {
                     (Some(label), Some(pattern)) => {
-                        Some(label_text(&pattern.format(PatternValue::Text(&label))))
+                        Some(label_text(pattern.format(PatternValue::Text(&label))))
                     }
                     (Some(label), None) => Some(label),
                     // Numbers on a discrete axis (lets-plot `FALLBACK_NUMBER_FORMATTER`).
@@ -737,10 +743,10 @@ impl<'a> PositionFormatter<'a> {
                 }
                 let pattern = pattern.or(continuous.format.as_ref());
                 Some(match pattern {
-                    Some(pattern) => label_text(&pattern.format(PatternValue::Number(value))),
+                    Some(pattern) => label_text(pattern.format(PatternValue::Number(value))),
                     None => {
                         let (reference, step) = self.reference_and_step;
-                        label_text(&format_with_step(value, reference, step))
+                        label_text(format_with_step(value, reference, step))
                     }
                 })
             }
@@ -749,8 +755,8 @@ impl<'a> PositionFormatter<'a> {
 }
 
 /// A label as plain text, the exponent in Unicode superscripts (`2·10⁶`).
-fn label_text(label: &Label) -> String {
-    let mut text = label.text.clone();
+fn label_text(label: Label) -> String {
+    let mut text = label.text;
     if let Some(superscript) = &label.superscript {
         text.extend(superscript.chars().map(|character| match character {
             '0' => '⁰',
@@ -784,5 +790,19 @@ fn css_color(color: Color) -> String {
             color.blue,
             f64::from(color.alpha) / 255.0
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn row_texts_keep_row_order_in_parallel() {
+        let text = |row: usize| (row % 7 != 0).then(|| row.to_string());
+        let rows = crate::parallel::MIN_PARALLEL_ITEMS * 3 + 1;
+        let expected: Vec<Option<String>> = (0..rows).map(text).collect();
+        assert_eq!(row_texts(rows, text), expected);
+        assert_eq!(row_texts(5, text), expected[..5]);
     }
 }

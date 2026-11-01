@@ -162,3 +162,20 @@ gated at 10k rows or marks so small plots never wake the thread pool.
 cellestial docstring examples (port env, same two wheels): `dimensionals_grid` SVG 24.6 -> 9.8 ms;
 the eight single-plot cases are within noise (build, SVG and PNG). PNG does not gain: a render is
 one pixmap raster plus deflate, which are plan items 6.1c (tiles, sprites) and 6.1f (deflate).
+
+## PNG marker sprites (step 6.1c): 2026-11-01, macOS arm64 (Apple M4 Pro, 12 cores), Python 3.14
+
+Point batches of 1000+ markers are stamped from cached coverage sprites (`render/sprite.rs`)
+instead of traced per marker. PNG at scale 2 (`profiling.py --outputs png`, warm engine time):
+
+| case | before ms | after ms |
+|---|---:|---:|
+| scatter 100k (REPORT.md scenario, before) | 235 | 17 |
+| scatter 1M (`run.py`, size 1) | 2079 | 106 |
+| color_continuous 1M | 2106 | 174 |
+| color_discrete 1M | not measured | 158 |
+| size_alpha 1M (continuous sizes: every marker its own geometry, still traced) | not measured (100k: 895) | 8655 |
+
+Pictures: markers move at most 1/32 px; tiny-skia's quarter-scanline anti-aliasing makes the
+difference about that of shifting every marker by 1/32 px (`tests/render_sprites.rs`). Golden
+images unchanged. Batches under 1000 markers are traced exactly as before.

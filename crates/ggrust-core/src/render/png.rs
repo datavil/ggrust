@@ -13,6 +13,7 @@ use resvg::tiny_skia::{
 };
 use resvg::usvg::{self, fontdb};
 
+use crate::render::sprite::Sprites;
 use crate::render::svg::text_document;
 use crate::scene::geometry::{
     ClipBox, is_drawable_marker, is_drawable_rect, is_drawable_stroke, is_drawable_width,
@@ -22,6 +23,10 @@ use crate::scene::{
 };
 use crate::text::{FONT_FAMILY, Font, MONO_FONT_FAMILY};
 use crate::{Error, Result};
+
+/// Point batches with at least this many markers are stamped from sprites
+/// (see `render::sprite`); smaller ones are traced exactly.
+const SPRITE_MIN_MARKERS: usize = 1000;
 
 /// Screen resolution (lets-plot's PNG default `pHYs`): one layout pixel per pixel.
 pub const SCREEN_DPI: f64 = 96.0;
@@ -48,6 +53,7 @@ pub(super) fn render_pixmap(scene: &Scene, scale: f64) -> Result<Pixmap> {
         transform: Transform::from_scale(scale as f32, scale as f32),
         scene_size: (scene.width, scene.height),
         clip_box: ClipBox::for_scene(scene.width, scene.height),
+        sprites: Sprites::new(scale),
     };
     canvas.nodes(&scene.nodes, None)?;
     Ok(canvas.pixmap)
@@ -246,6 +252,7 @@ struct Canvas {
     transform: Transform,
     scene_size: (f64, f64),
     clip_box: ClipBox,
+    sprites: Sprites,
 }
 
 /// The active clip: a mask over the whole canvas plus the device-pixel bounds it
@@ -350,6 +357,7 @@ impl Canvas {
         }
         let mut fill_paint = paint(Color::BLACK);
         let mut stroke_paint = paint(Color::BLACK);
+        let stamped = points.len() >= SPRITE_MIN_MARKERS;
         for index in 0..points.len() {
             let (x, y, size) = (points.x[index], points.y[index], points.size.get(index));
             if !is_drawable_marker(x, y, size) || !self.clip_box.contains(x, y) {
@@ -362,6 +370,18 @@ impl Canvas {
                 .get(index)
                 .filter(|stroke| !stroke.is_transparent() && is_drawable_width(width));
             let shape = points.shape.get(index);
+            if stamped
+                && self.sprites.stamp(
+                    &mut self.pixmap,
+                    mask,
+                    (x, y),
+                    (shape, size, width),
+                    fill,
+                    stroke,
+                )
+            {
+                continue;
+            }
             shape.for_each_part(x, y, size, width, |part| {
                 let Some((path, closed)) = marker_path(&part) else {
                     return;
@@ -530,7 +550,7 @@ impl Canvas {
 }
 
 /// A marker part as a path, and whether it is closed (fillable).
-fn marker_path(part: &MarkerPart) -> Option<(tiny_skia::Path, bool)> {
+pub(super) fn marker_path(part: &MarkerPart) -> Option<(tiny_skia::Path, bool)> {
     match part {
         MarkerPart::Circle { x, y, radius } => {
             PathBuilder::from_circle(*x as f32, *y as f32, *radius as f32).map(|path| (path, true))

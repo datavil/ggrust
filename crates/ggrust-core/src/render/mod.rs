@@ -4,6 +4,7 @@ mod canvas;
 mod html;
 mod pdf;
 mod png;
+mod sprite;
 mod svg;
 
 pub use html::{HtmlDocument, HtmlOptions, to_html};

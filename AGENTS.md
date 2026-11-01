@@ -37,7 +37,16 @@ Do not copy those blindly. When something in the lets-plot output looks wrong:
 2. **Check ggplot2.** See how ggplot2 (the reference grammar) behaves for the same
    spec. If ggplot2 clearly does the right thing, that is the candidate behavior.
 3. **Still unsure? Ask the user.** Do not decide a deviation on your own when it is
-   not obvious. Recorded deviations go in the `plan.md` decisions table.
+   not obvious.
+
+**Record every deviation, no exceptions.** Any place where ggrust behaves differently
+from lets-plot or from ggplot2 gets a row in [deviations.md](deviations.md), in the
+same commit that introduces it: big or small, chosen on purpose or a known gap left
+for later, decided by you or by the user. Differences ggrust inherits from lets-plot
+(lets-plot and ggplot2 disagree, ggrust follows lets-plot) count too, once you know
+of them. Each row says what lets-plot does, what ggplot2 does, what ggrust does, why,
+and when and by whom it was decided. Decisions that change direction also go in the
+`plan.md` decisions table; step notes may mention a deviation but are not the record.
 
 Parity covers rendering and semantics only. It does **not** cover code quality:
 lets-plot's sparse type hints, docstrings and error messages are not the bar (see below).

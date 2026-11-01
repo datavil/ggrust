@@ -8,6 +8,6 @@ lets-plot quirks that make plots depend on accidents (e.g. axis order changing w
 `fill` is added) are not worth copying.
 
 **How to apply:** match lets-plot by default. When a lets-plot behaviour is a quirk,
-look up ggplot2's (source or docs), follow it, record the deviation in plan.md and
+look up ggplot2's (source or docs), follow it, record the deviation in deviations.md (AGENTS.md: record every deviation) and
 in the topic memory, and keep a test that pins ggrust's choice. First use:
 discrete axis order with a stat ([[letsplot_bars_and_positions]]).

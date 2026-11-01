@@ -94,16 +94,19 @@ def test_unconvertible_identity_values_fail_like_lets_plot():
         plot.to_svg()
 
 
-def test_size_area_with_a_negative_maximum_draws_nothing_visible():
-    # lets-plot maps every value to a size of 0 or less (DoubleSpan sorts 0..max).
+def test_size_area_draws_negative_values_by_their_absolute_value():
+    # ggplot2 `abs_area`: -40 draws as large as 40, -10 at half its radius.
+    frame = {"x": [1, 2, 3], "y": [1, 2, 3], "v": [-40.0, -10.0, 40.0]}
     plot = (
-        gg.ggplot(HUNT, gg.aes("x", "y", size="v"))
+        gg.ggplot(frame, gg.aes("x", "y", size="v"))
         + gg.geom_point()
         + gg.scale_size_area(guide="none")
     )
     svg = plot.to_svg()
-    panel = svg[svg.find('<g class="panel"') :]
-    assert "<circle" not in panel[: panel.find('<g class="axis-x"')]
+    radii = [float(part.split('"')[0]) for part in svg.split(' r="')[1:]]
+    assert len(radii) == 3
+    assert abs(radii[0] - radii[2]) < 1e-3
+    assert abs(radii[0] / radii[1] - 2.0) < 1e-2
 
 
 def test_size_area_scales_the_circle_area():

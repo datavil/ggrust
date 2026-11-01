@@ -63,13 +63,13 @@ impl StyleMapper for ProportionalMapper {
     }
 
     fn map_continuous(&self, column: &ContinuousColumn, domain: (f64, f64)) -> StyleValues {
-        // Area, not diameter, grows with the value (ggplot2 `abs_area`; lets-plot
-        // scales the diameter linearly, issue lets-plot#1452). Values at or below 0,
-        // or a maximum at or below 0, draw nothing.
-        let largest = domain.1;
+        // Area, not diameter, grows with the value (ggplot2 `rescale_max` +
+        // `abs_area`; lets-plot scales the diameter linearly, issue lets-plot#1452).
+        // As in ggplot2, a negative value draws as large as its absolute value.
+        let largest = domain.0.abs().max(domain.1.abs());
         let map = |value: f64| {
             if largest > 0.0 {
-                self.max * (value / largest).max(0.0).sqrt()
+                self.max * (value.abs() / largest).sqrt()
             } else {
                 0.0
             }
@@ -174,7 +174,8 @@ mod tests {
         // Twice the value, twice the area.
         assert!(((sizes[1] / sizes[0]).powi(2) - 2.0).abs() < 1e-12);
         assert_eq!(sizes[1], 10.0);
-        assert_eq!(sizes[2], 0.0);
+        // ggplot2 `abs_area`: -5 draws as 5.
+        assert!((sizes[2] - 10.0 * (5.0_f64 / 40.0).sqrt()).abs() < 1e-12);
     }
 
     #[test]

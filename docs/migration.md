@@ -26,7 +26,7 @@ small runtime, so there is nothing to load.
 
 | Area | Supported |
 |---|---|
-| Geoms | point, jitter, sina, line, path, segment, hline, vline, rect, polygon, tile, raster, imshow, bar, histogram, boxplot, violin, area_ridges, text, label, text_repel, label_repel, bracket, function, blank |
+| Geoms | point, jitter, sina, line, path, segment, hline, vline, rect, polygon, tile, raster, imshow, bar, histogram, boxplot, violin, area, ribbon, area_ridges, errorbar, crossbar, linerange, pointrange, text, label, text_repel, label_repel, bracket, function, blank |
 | Positions | identity, dodge, jitter, jitterdodge, nudge, stack, fill |
 | Scales | x/y continuous and discrete, log2, log10, reverse; color/fill continuous, gradient, gradient2, gradientn, viridis, brewer, hue, manual, identity; size, shape, alpha |
 | Coordinates and facets | `coord_cartesian`, `coord_fixed`, `coord_flip`, `facet_wrap`, `facet_grid` |

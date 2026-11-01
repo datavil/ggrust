@@ -44,3 +44,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Frame column cache](frame_column_cache.md): per-frame OnceLock column cache shared by clones, blocking init for parallel subplots, no stat cache by decision.
 - [Error model](error_model.md): structured spec paths (`Error::spec`, `nested`), one `ggrust.errors` class per kind, shared did-you-mean rule; `uv run` rebuilds after Rust edits.
 - [Overflow guards](overflow_guards.md): legends reflow/wrap/"+K more", discrete axis labels wrap then cut past 1/2, titles wrap; only overflowing plots change; gggrid/colorbars not yet.
+- [Docs site: Zensical, generated live plots](docs_site_zensical.md): examples render to gitignored iframes in CI; src is relative to the .md file; ruff mangles snippet lines in md.

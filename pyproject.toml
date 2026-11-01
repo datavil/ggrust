@@ -41,8 +41,8 @@ dev = [
     "ty>=0.0.43",
 ]
 docs = [
-    "mkdocs-material>=9.6",
-    "mkdocstrings[python]>=0.29",
+    "mkdocstrings-python>=2",
+    "zensical>=0.0.74",
 ]
 
 [tool.maturin]

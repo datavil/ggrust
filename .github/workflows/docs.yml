@@ -1,6 +1,7 @@
 # Builds the docs in strict mode on every pull request and push to main, and
 # deploys them to GitHub Pages from main. The reference is read from the
-# installed package at runtime, so the extension is built first (`uv sync`).
+# installed package at runtime, and the example plots are rendered by it, so the
+# extension is built first (`uv run`).
 name: Docs
 
 on:
@@ -27,10 +28,10 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
+      - name: Render the example plots
+        run: uv run python docs/build_examples.py
       - name: Build the docs
-        env:
-          NO_MKDOCS_2_WARNING: "1"
-        run: uv run --group docs mkdocs build --strict
+        run: uv run --group docs zensical build --strict
       - uses: actions/upload-pages-artifact@v3
         if: github.event_name != 'pull_request'
         with:

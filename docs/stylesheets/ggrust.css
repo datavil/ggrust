@@ -1,0 +1,138 @@
+/* ggrust docs theme: rust accent, live plot frames, gallery cards and the home hero. */
+
+:root,
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color: #b7410e;
+  --md-primary-fg-color--light: #d4622c;
+  --md-primary-fg-color--dark: #8c300a;
+  --md-accent-fg-color: #d4622c;
+  --ggrust-card-border: #e7e2de;
+  --ggrust-card-shadow: 0 1px 3px rgba(60, 30, 10, 0.08);
+}
+
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color: #c2511d;
+  --md-primary-fg-color--light: #e0763f;
+  --md-primary-fg-color--dark: #8c300a;
+  --md-accent-fg-color: #f08a50;
+  --md-typeset-a-color: #f08a50;
+  --ggrust-card-border: #3a3533;
+  --ggrust-card-shadow: none;
+}
+
+/* Live plots: a white card that scrolls sideways on narrow screens. */
+.ggrust-figure {
+  margin: 1.2em 0;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.ggrust-figure iframe {
+  display: inline-block;
+  max-width: none;
+  box-sizing: content-box; /* the border must not shrink the plot */
+  border: 1px solid var(--ggrust-card-border);
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow: var(--ggrust-card-shadow);
+}
+
+/* Gallery: thumbnail cards, as on lets-plot.org. */
+.md-typeset .gallery {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+  margin: 1em 0 2em;
+}
+
+.md-typeset .gallery > p {
+  display: contents;
+}
+
+.md-typeset .gallery a {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--ggrust-card-border);
+  border-radius: 8px;
+  color: var(--md-default-fg-color);
+  box-shadow: var(--ggrust-card-shadow);
+  transition: transform 0.15s, border-color 0.15s;
+}
+
+.md-typeset .gallery a:hover {
+  transform: translateY(-2px);
+  border-color: var(--md-accent-fg-color);
+}
+
+.md-typeset .gallery img {
+  aspect-ratio: 4 / 3;
+  object-fit: contain;
+  background: #ffffff;
+  padding: 0.4rem;
+}
+
+.md-typeset .gallery span {
+  padding: 0.5rem 0.75rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  border-top: 1px solid var(--ggrust-card-border);
+}
+
+/* Home page hero. */
+.md-typeset .hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 2rem;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.md-typeset .hero h1 {
+  margin: 0 0 0.4rem;
+  font-size: 2.6rem;
+  font-weight: 700;
+  color: var(--md-default-fg-color);
+}
+
+.md-typeset .hero .tagline {
+  font-size: 1.05rem;
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset .hero .badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.8rem 0 1.2rem;
+}
+
+.md-typeset .hero .badges span {
+  padding: 0.1rem 0.55rem;
+  border: 1px solid var(--ggrust-card-border);
+  border-radius: 999px;
+  font-size: 0.65rem;
+  color: var(--md-default-fg-color--light);
+}
+
+.md-typeset .hero .ggrust-figure {
+  margin: 0;
+}
+
+@media screen and (max-width: 60em) {
+  .md-typeset .hero {
+    grid-template-columns: 1fr;
+  }
+}
+
+.md-typeset .gallery a,
+.md-typeset .gallery a:hover {
+  text-decoration: none;
+}
+
+/* Home page feature cards: two by two. */
+@media screen and (min-width: 45em) {
+  .md-typeset .grid.cards.why {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

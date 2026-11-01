@@ -1,80 +1,106 @@
-# ggrust
+---
+hide: [navigation, toc]
+---
 
-ggrust is a grammar-of-graphics plotting library written in Rust and used from Python.
-Its Python API is a subset of [lets-plot](https://lets-plot.org)'s: `ggplot`, `aes`,
-`geom_*`, `scale_*`, `theme`, `gggrid` and `+` composition work the same way.
-Rust does the heavy work (stats, scales, layout, rendering). Data crosses from Python
-to Rust once, as Arrow, so polars, pandas, pyarrow and dicts of numpy arrays all work.
+<div class="hero" markdown>
 
-Outputs: SVG, PNG, PDF and interactive HTML with tooltips and zoom/pan. Plots render
-inline in Jupyter notebooks.
+<div markdown>
+
+<h1>ggrust</h1>
+
+<p class="tagline">The grammar of graphics, with a Rust engine and a lets-plot API.</p>
+
+<div class="badges">
+  <span>python</span><span>rust</span><span>grammar of graphics</span>
+  <span>interactive</span><span>arrow</span><span>polars</span>
+</div>
+
+[:lucide-rocket: Get started](guide/getting-started.md){ .md-button .md-button--primary }
+[:lucide-images: Gallery](gallery/index.md){ .md-button }
+
+</div>
+
+<div class="ggrust-figure"><iframe src="plots/hero.html" title="Monthly temperatures" width="480" height="320" scrolling="no"></iframe></div>
+
+</div>
+
+ggrust is a plotting library for Python. You describe a plot with `ggplot`, `aes`,
+`geom_*`, `scale_*` and `theme`, joined with `+`, exactly as in
+[lets-plot](https://lets-plot.org). Rust computes the stats, scales and layout and
+draws the picture. Hover the plot above for tooltips: every plot on this site is a live
+ggrust plot.
 
 ## Install
 
-```bash
-pip install ggrust
-```
+=== "pip"
 
-Wheels are published for Linux (x86_64, aarch64), macOS (Intel, Apple silicon) and
-Windows (x64, ARM64), for Python 3.11 and newer.
+    ```bash
+    pip install ggrust
+    ```
 
-## A first plot
+=== "uv"
+
+    ```bash
+    uv add ggrust
+    ```
+
+=== "poetry"
+
+    ```bash
+    poetry add ggrust
+    ```
+
+Wheels are published for Linux, macOS and Windows, for Python 3.11 and newer.
+Nothing else is needed: no Java, no browser, no JavaScript build.
+
+## Why ggrust
+
+<div class="grid cards why" markdown>
+
+-   :lucide-layers:{ .lg } **The lets-plot API**
+
+    ---
+
+    `from ggrust import *` instead of `from lets_plot import *`. Specs compose with
+    `+` and `as_dict()` gives the same layout, so most code ports as an import swap.
+
+    [:octicons-arrow-right-24: Migrating from lets-plot](migration.md)
+
+-   :lucide-zap:{ .lg } **Fast, in Rust**
+
+    ---
+
+    Stats, scales, layout and rendering run in Rust. Data crosses from Python once, as
+    Arrow: polars, pandas, pyarrow and dicts of numpy arrays all work.
+
+    [:octicons-arrow-right-24: Layers](guide/layers.md)
+
+-   :lucide-mouse-pointer-click:{ .lg } **Interactive by default**
+
+    ---
+
+    Notebook and HTML output has tooltips, and zoom and pan with `ggtb()`. Dense point
+    layers are drawn on a canvas, so a hundred thousand points stay smooth.
+
+    [:octicons-arrow-right-24: Interactivity](guide/interactivity.md)
+
+-   :lucide-image:{ .lg } **SVG, PNG, PDF, HTML**
+
+    ---
+
+    One embedded font makes text measurement, and every PNG, identical on every
+    machine. Export without a browser or any system library.
+
+    [:octicons-arrow-right-24: Export](guide/export.md)
+
+</div>
+
+## A taste
 
 ```python
-import polars as pl
-import ggrust as gg
-
-frame = pl.DataFrame(
-    {
-        "city": ["Oslo"] * 6 + ["Lima"] * 6 + ["Pune"] * 6,
-        "month": list(range(1, 7)) * 3,
-        "temperature": [
-            -4.3,
-            -4.0,
-            -0.2,
-            4.5,
-            10.8,
-            15.2,
-            22.1,
-            22.6,
-            22.1,
-            20.4,
-            18.6,
-            17.3,
-            21.0,
-            23.4,
-            27.5,
-            30.4,
-            30.6,
-            27.1,
-        ],
-    }
-)
-
-plot = (
-    gg.ggplot(frame, gg.aes("month", "temperature", color="city"))
-    + gg.geom_line(size=1)
-    + gg.geom_point(size=3)
-    + gg.scale_color_brewer(palette="Set1")
-    + gg.labs(x="Month", y="Mean temperature (°C)", color="City")
-    + gg.theme_classic()
-    + gg.ggsize(560, 340)
-)
-plot  # shows the interactive plot in a notebook
+--8<-- "hero.py:code"
 ```
 
-![Monthly mean temperature in three cities](images/weather.png)
-
-## Export
-
-```python
-plot.to_svg("weather.svg")
-plot.to_png("weather.png", scale=2)
-plot.to_html("weather.html")
-gg.ggsave(plot, "weather.pdf")  # the extension picks the format
-```
-
-## Where next
-
-- [Migrating from lets-plot](migration.md): what changes when you swap the import.
-- [API reference](reference/plot.md): every public function, with its parameters.
+ggrust was built for [cellestial](https://github.com/datavil/cellestial), a single-cell
+plotting library, after lets-plot's Kotlin notebook support ended. It is a general
+plotting library: the [gallery](gallery/index.md) uses everyday data.

@@ -1,0 +1,148 @@
+"""Write the small everyday datasets the docs examples read.
+
+Run once after changing a dataset: ``uv run python docs/data/make_data.py``.
+The random datasets are seeded, so the CSV files only change on purpose.
+Climate and fruit numbers are rounded, approximate public figures.
+"""
+
+from pathlib import Path
+
+import numpy as np
+import polars as pl
+
+DATA = Path(__file__).parent
+
+MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+# Approximate monthly mean temperature (°C) and typical daily range.
+CLIMATE = {
+    "Oslo": ([-4.3, -4.0, -0.2, 4.5, 10.8, 15.2, 16.4, 15.2, 10.8, 6.3, 0.7, -3.1], 7.0),
+    "Toronto": ([-5.5, -4.5, 0.0, 7.1, 13.1, 18.6, 21.5, 20.6, 16.2, 9.5, 3.7, -2.2], 9.0),
+    "Lima": ([22.1, 22.6, 22.1, 20.4, 18.6, 17.3, 16.5, 16.1, 16.5, 17.4, 18.8, 20.6], 6.0),
+    "Pune": ([21.0, 23.4, 27.5, 30.4, 30.6, 27.1, 25.0, 24.5, 24.8, 25.6, 23.0, 21.0], 14.0),
+    "Sydney": ([23.0, 23.0, 21.8, 19.2, 16.2, 13.8, 12.9, 14.0, 16.5, 18.6, 20.2, 21.9], 8.0),
+}
+
+# Approximate nutrition per 100 g: calories (kcal), sugar (g), fibre (g), vitamin C (mg).
+FRUIT = {
+    "Apple": (52, 10.4, 2.4, 4.6),
+    "Avocado": (160, 0.7, 6.7, 10.0),
+    "Banana": (89, 12.2, 2.6, 8.7),
+    "Blueberry": (57, 10.0, 2.4, 9.7),
+    "Cherry": (63, 12.8, 2.1, 7.0),
+    "Coconut": (354, 6.2, 9.0, 3.3),
+    "Date": (282, 63.4, 8.0, 0.4),
+    "Grape": (69, 15.5, 0.9, 3.2),
+    "Guava": (68, 8.9, 5.4, 228.3),
+    "Kiwi": (61, 9.0, 3.0, 92.7),
+    "Lemon": (29, 2.5, 2.8, 53.0),
+    "Mango": (60, 13.7, 1.6, 36.4),
+    "Orange": (47, 9.4, 2.4, 53.2),
+    "Papaya": (43, 7.8, 1.7, 60.9),
+    "Pear": (57, 9.8, 3.1, 4.3),
+    "Pineapple": (50, 9.9, 1.4, 47.8),
+    "Raspberry": (52, 4.4, 6.5, 26.2),
+    "Strawberry": (32, 4.9, 2.0, 58.8),
+    "Watermelon": (30, 6.2, 0.4, 8.1),
+}
+
+
+def cities() -> pl.DataFrame:
+    """Return monthly mean, low and high temperatures for five cities."""
+    rows = []
+    for city, (means, daily_range) in CLIMATE.items():
+        for month_index, mean in enumerate(means):
+            rows.append(
+                {
+                    "city": city,
+                    "month": month_index + 1,
+                    "month_name": MONTHS[month_index],
+                    "temperature": mean,
+                    "low": round(mean - daily_range / 2, 1),
+                    "high": round(mean + daily_range / 2, 1),
+                }
+            )
+    return pl.DataFrame(rows)
+
+
+def commute(generator: np.random.Generator, n: int = 1500) -> pl.DataFrame:
+    """Return simulated commute times by city and transport mode."""
+    modes = ["Walk", "Bike", "Bus", "Train", "Car"]
+    speed_kmh = {"Walk": 5.0, "Bike": 16.0, "Bus": 18.0, "Train": 35.0, "Car": 28.0}
+    overhead_minutes = {"Walk": 0.0, "Bike": 3.0, "Bus": 9.0, "Train": 12.0, "Car": 7.0}
+    max_distance_km = {"Walk": 3.5, "Bike": 12.0, "Bus": 18.0, "Train": 40.0, "Car": 45.0}
+    city_names = ["Oslo", "Toronto", "Lima"]
+    city_traffic = {"Oslo": 1.0, "Toronto": 1.25, "Lima": 1.5}
+    mode = generator.choice(modes, size=n, p=[0.12, 0.18, 0.25, 0.2, 0.25])
+    city = generator.choice(city_names, size=n)
+    distance = np.array(
+        [generator.uniform(0.4, max_distance_km[m]) ** 0.9 for m in mode],
+    ).round(1)
+    traffic = np.array(
+        [city_traffic[c] if m in ("Bus", "Car") else 1.0 for c, m in zip(city, mode, strict=True)]
+    )
+    minutes = (
+        np.array([overhead_minutes[m] for m in mode])
+        + distance / np.array([speed_kmh[m] for m in mode]) * 60 * traffic
+    ) * generator.lognormal(0.0, 0.18, size=n)
+    return pl.DataFrame(
+        {"city": city, "mode": mode, "distance_km": distance, "minutes": minutes.round(1)}
+    )
+
+
+def coffee(generator: np.random.Generator) -> pl.DataFrame:
+    """Return simulated cups sold per weekday and drink at a small café."""
+    weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+    base = {"Espresso": 48, "Cappuccino": 70, "Latte": 85, "Tea": 35, "Hot chocolate": 18}
+    weekday_factor = [0.9, 0.95, 1.0, 1.0, 1.1, 1.35, 1.2]
+    rows = []
+    for weekday, factor in zip(weekdays, weekday_factor, strict=True):
+        for drink, cups in base.items():
+            rows.append(
+                {
+                    "weekday": weekday,
+                    "drink": drink,
+                    "cups": int(generator.poisson(cups * factor)),
+                }
+            )
+    return pl.DataFrame(rows)
+
+
+def homes(generator: np.random.Generator, n: int = 600) -> pl.DataFrame:
+    """Return simulated home sales: floor area, rooms, price by neighbourhood."""
+    neighbourhoods = {"Old town": 7.2, "Riverside": 5.6, "Suburbs": 3.9, "Harbour": 6.4}
+    names = list(neighbourhoods)
+    neighbourhood = generator.choice(names, size=n, p=[0.2, 0.25, 0.4, 0.15])
+    area = generator.gamma(6.0, 15.0, size=n).clip(25, 320).round(0)
+    rooms = np.clip(np.round(area / 28 + generator.normal(0, 0.6, size=n)), 1, 9).astype(int)
+    price_per_m2 = np.array([neighbourhoods[name] for name in neighbourhood])
+    price = area * price_per_m2 * generator.lognormal(0.0, 0.15, size=n)
+    built = generator.integers(1900, 2025, size=n)
+    return pl.DataFrame(
+        {
+            "neighbourhood": neighbourhood,
+            "area_m2": area,
+            "rooms": rooms,
+            "year_built": built,
+            "price_k": price.round(0),
+        }
+    )
+
+
+def fruit() -> pl.DataFrame:
+    """Return approximate nutrition values per 100 g for common fruit."""
+    return pl.DataFrame(
+        [
+            {"fruit": name, "calories": c, "sugar_g": s, "fibre_g": f, "vitamin_c_mg": v}
+            for name, (c, s, f, v) in FRUIT.items()
+        ]
+    )
+
+
+if __name__ == "__main__":
+    generator = np.random.default_rng(2026)
+    cities().write_csv(DATA / "cities.csv")
+    commute(generator).write_csv(DATA / "commute.csv")
+    coffee(generator).write_csv(DATA / "coffee.csv")
+    homes(generator).write_csv(DATA / "homes.csv")
+    fruit().write_csv(DATA / "fruit.csv")

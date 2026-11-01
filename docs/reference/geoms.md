@@ -36,7 +36,19 @@ Layers that draw data.
 
 ::: ggrust.geom_violin
 
+::: ggrust.geom_area
+
+::: ggrust.geom_ribbon
+
 ::: ggrust.geom_area_ridges
+
+::: ggrust.geom_errorbar
+
+::: ggrust.geom_crossbar
+
+::: ggrust.geom_linerange
+
+::: ggrust.geom_pointrange
 
 ::: ggrust.geom_text
 

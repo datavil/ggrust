@@ -1,5 +1,7 @@
 line-length = 100
 target-version = "py311"
+# Docs pages include example code with `--8<--` snippet lines, which are not Python.
+extend-exclude = ["docs/**/*.md"]
 
 [lint]
 select = ["E", "F", "W", "I", "N", "UP", "B", "SIM", "D", "RUF", "ANN"]
@@ -18,3 +20,5 @@ allow-star-arg-any = true
 "benchmarks/**" = ["ANN401"]
 # Manual notebooks use the lets-plot idiom `from ggrust import *`.
 "notebooks/**" = ["F403", "F405"]
+# Docs examples: the title line is the docstring, and `plot` ends the cell as in a notebook.
+"docs/examples/**" = ["B018", "D400"]

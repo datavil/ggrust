@@ -182,24 +182,7 @@ fn layout_free(
         return first;
     }
     let limit = first.content.height * AXIS_LABELS_MAX_SHARE;
-    // Wrapped into each tick's slot, laid out flat, when that fits; else cut.
-    let slot = first.panel.width / first.x_breaks.values.len().max(1) as f64;
-    let wrapped = theme
-        .axis_text_x
-        .filter(|text| x_scale.is_discrete() && !rotated::rotates(*text) && needed > limit)
-        .and_then(|text| wrap_labels(&first.x_breaks, text, slot * WRAP_SLOT_SHARE))
-        .map(|labels| AxisBreaks {
-            labels,
-            arrangement: LabelArrangement::Simple,
-            ..first.x_breaks.clone()
-        })
-        .filter(|breaks| x_labels_height(breaks, theme) <= limit);
-    let x_breaks = match wrapped {
-        Some(breaks) => breaks,
-        None => fit_labels(first.x_breaks, x_scale.is_discrete(), limit, |breaks| {
-            x_labels_height(breaks, theme)
-        }),
-    };
+    let x_breaks = fit_x_labels(first.x_breaks, x_scale, first.panel.width, limit, theme);
     let needed = x_labels_height(&x_breaks, theme);
     layout_with(
         area,
@@ -241,39 +224,13 @@ fn layout_with(
         theme.axis_text_y,
         (0.0, 0.0),
     );
-    let y_limit = content.width * AXIS_LABELS_MAX_SHARE;
-    // Wrapped to the label budget when the lines do not overlap; else cut.
-    let y_wrapped = theme
-        .axis_text_y
-        .filter(|text| {
-            y_scale.is_discrete()
-                && !rotated::rotates(*text)
-                && y_axis_width(&y_breaks, theme) > y_limit
-        })
-        .and_then(|text| {
-            let room = y_limit
-                - (y_axis_width(&y_breaks, theme)
-                    - label_sizes(&y_breaks.labels, text)
-                        .iter()
-                        .map(|(width, _)| *width)
-                        .fold(0.0, f64::max));
-            let labels = wrap_labels(&y_breaks, text, room)?;
-            let slot = panel_height / y_breaks.values.len().max(1) as f64;
-            let tallest = label_sizes(&labels, text)
-                .iter()
-                .map(|(_, height)| *height)
-                .fold(0.0, f64::max);
-            (tallest <= slot).then(|| AxisBreaks {
-                labels,
-                ..y_breaks.clone()
-            })
-        });
-    let y_breaks = match y_wrapped {
-        Some(breaks) => breaks,
-        None => fit_labels(y_breaks, y_scale.is_discrete(), y_limit, |breaks| {
-            y_axis_width(breaks, theme)
-        }),
-    };
+    let y_breaks = fit_y_labels(
+        y_breaks,
+        y_scale,
+        panel_height,
+        content.width * AXIS_LABELS_MAX_SHARE,
+        theme,
+    );
     let y_axis_width = y_axis_width(&y_breaks, theme);
     let left = content.x
         + legend_space.left
@@ -479,6 +436,111 @@ fn fit_labels(
 /// Separates the lines of a label or title wrapped by the layout. Not `\n`: a
 /// user's own `\n` keeps drawing as a space, as before wrapping existed.
 pub const LINE_BREAK: char = '\u{2028}';
+
+/// x `breaks` of a panel `panel_width` wide whose labels need at most `limit` px
+/// in height: unchanged when they fit; else, on a discrete axis, wrapped at
+/// spaces into each tick's slot and laid out flat, or cut (see [`fit_labels`]).
+pub(crate) fn fit_x_labels(
+    breaks: AxisBreaks,
+    scale: &PositionScale,
+    panel_width: f64,
+    limit: f64,
+    theme: &Theme,
+) -> AxisBreaks {
+    if x_labels_height(&breaks, theme) <= limit {
+        return breaks;
+    }
+    let wrapped = theme
+        .axis_text_x
+        .filter(|text| scale.is_discrete() && !rotated::rotates(*text))
+        .and_then(|text| {
+            wrap_labels(
+                &breaks,
+                text,
+                x_label_slot(&breaks, scale, panel_width, theme),
+            )
+        })
+        .map(|labels| AxisBreaks {
+            labels,
+            arrangement: LabelArrangement::Simple,
+            ..breaks.clone()
+        })
+        .filter(|wrapped| x_labels_height(wrapped, theme) <= limit);
+    match wrapped {
+        Some(wrapped) => wrapped,
+        None => fit_labels(breaks, scale.is_discrete(), limit, |breaks| {
+            x_labels_height(breaks, theme)
+        }),
+    }
+}
+
+/// Width a wrapped x label may take: [`WRAP_SLOT_SHARE`] of the room between ticks,
+/// and an end label no further past the panel than half the panel spacing (so
+/// facet panels' labels never meet).
+fn x_label_slot(
+    breaks: &AxisBreaks,
+    scale: &PositionScale,
+    panel_width: f64,
+    theme: &Theme,
+) -> f64 {
+    let (low, high) = scale.expanded_domain();
+    let pixels = panel_width / (high - low);
+    let mut values = breaks.values.clone();
+    values.sort_by(f64::total_cmp);
+    let between = values
+        .windows(2)
+        .map(|pair| (pair[1] - pair[0]) * pixels)
+        .fold(panel_width, f64::min);
+    let edge = match (values.first(), values.last()) {
+        (Some(first), Some(last)) => {
+            2.0 * (((first - low).min(high - last)) * pixels + theme.panel_spacing.0 / 2.0)
+        }
+        _ => panel_width,
+    };
+    let slot = between.min(edge) * WRAP_SLOT_SHARE;
+    if slot.is_finite() { slot.max(0.0) } else { 0.0 }
+}
+
+/// y `breaks` of a panel `panel_height` tall whose axis may be at most `limit` px
+/// wide: unchanged when it fits; else, on a discrete axis, labels wrapped at
+/// spaces when the lines fit each tick's slot, or cut (see [`fit_labels`]).
+pub(crate) fn fit_y_labels(
+    breaks: AxisBreaks,
+    scale: &PositionScale,
+    panel_height: f64,
+    limit: f64,
+    theme: &Theme,
+) -> AxisBreaks {
+    let width = y_axis_width(&breaks, theme);
+    if width <= limit {
+        return breaks;
+    }
+    let wrapped = theme
+        .axis_text_y
+        .filter(|text| scale.is_discrete() && !rotated::rotates(*text))
+        .and_then(|text| {
+            let widest = label_sizes(&breaks.labels, text)
+                .iter()
+                .map(|(width, _)| *width)
+                .fold(0.0, f64::max);
+            let labels = wrap_labels(&breaks, text, limit - (width - widest))?;
+            let slot = panel_height / breaks.values.len().max(1) as f64;
+            let tallest = label_sizes(&labels, text)
+                .iter()
+                .map(|(_, height)| *height)
+                .fold(0.0, f64::max);
+            (tallest <= slot).then(|| AxisBreaks {
+                labels,
+                ..breaks.clone()
+            })
+        });
+    match wrapped {
+        Some(wrapped) => wrapped,
+        None => fit_labels(breaks, scale.is_discrete(), limit, |breaks| {
+            y_axis_width(breaks, theme)
+        }),
+    }
+}
 
 /// Share of a tick's slot a wrapped x label may take (the rest keeps labels apart).
 const WRAP_SLOT_SHARE: f64 = 0.9;

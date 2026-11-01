@@ -164,6 +164,19 @@ fn layout_grid(
         })
         .collect();
 
+    // Axis labels share the overflow budget among the axis bands they stack in.
+    let band_rows = row_has_band.iter().filter(|has| **has).count().max(1);
+    let mut axis_columns: Vec<usize> = grid
+        .panels
+        .iter()
+        .filter(|panel| panel.y_axis)
+        .map(|panel| panel.column)
+        .collect();
+    axis_columns.sort_unstable();
+    axis_columns.dedup();
+    let x_limit = content.height * AXIS_LABELS_MAX_SHARE / band_rows as f64;
+    let y_limit = content.width * AXIS_LABELS_MAX_SHARE / axis_columns.len().max(1) as f64;
+
     let simple = theme.axis_text_x.map_or(0.0, text_band);
     let mut label_heights = vec![simple; rows];
     let mut kept_x: Option<Vec<AxisBreaks>> = None;
@@ -193,6 +206,14 @@ fn layout_grid(
                 (0.0, 0.0),
             )
         });
+        let y_breaks: Vec<AxisBreaks> = grid
+            .panels
+            .iter()
+            .zip(y_breaks)
+            .map(|(panel, breaks)| {
+                fit_y_labels(breaks, panel.y_scale, panel_height, y_limit, theme)
+            })
+            .collect();
         let mut column_widths = vec![0.0_f64; columns];
         for (panel, breaks) in grid.panels.iter().zip(&y_breaks) {
             if panel.y_axis {
@@ -216,7 +237,11 @@ fn layout_grid(
                     theme.axis_text_x,
                     (y_width.max(LABELS_OVERFLOW), LABELS_OVERFLOW),
                 )
-            }),
+            })
+            .into_iter()
+            .zip(&grid.panels)
+            .map(|(breaks, panel)| fit_x_labels(breaks, panel.x_scale, panel_width, x_limit, theme))
+            .collect(),
         };
         let mut needed = label_heights.clone();
         for (panel, breaks) in grid.panels.iter().zip(&x_breaks) {

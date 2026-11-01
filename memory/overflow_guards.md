@@ -19,4 +19,4 @@ plots that fit stay pixel-identical to lets-plot.
 
 **Why:** the user chose robustness over copying shared bugs ([[deviate-from-lets-plot-via-ggplot2]]).
 **How to apply:** parity tests with extreme labels may need a bigger `ggsize`; new layout code must keep
-fitting plots byte-identical. Facets, gggrid and colorbars are not guarded yet.
+fitting plots byte-identical. Facets use the same `fit_x_labels`/`fit_y_labels`, budget split among axis rows/columns; gggrid and colorbars are not guarded yet.

@@ -165,3 +165,24 @@ def test_a_users_newline_in_a_label_is_drawn_as_before():
     frame["y"] = [1, 2, 3]
     svg = (gg.ggplot(frame, gg.aes("x", "y")) + gg.geom_point() + gg.ggsize(400, 300)).to_svg()
     assert "a b c d e" in [text for _, _, text in texts(svg)]
+
+
+def test_facet_axis_labels_wrap_like_a_single_plot():
+    cells = [
+        "CD4 positive naive T cell",
+        "CD8 positive effector memory T cell",
+        "classical monocyte",
+        "natural killer cell",
+    ]
+    frame = {"cell": cells * 2, "n": [3, 5, 2, 4, 1, 2, 3, 4], "f": ["A"] * 4 + ["B"] * 4}
+    svg = (
+        gg.ggplot(frame, gg.aes("cell", "n"))
+        + gg.geom_bar(stat="identity")
+        + gg.facet_wrap("f")
+        + gg.ggsize(500, 300)
+    ).to_svg()
+    found = texts(svg)
+    assert "CD8 positive effector memory T cell" not in [text for _, _, text in found]
+    assert not any("..." in text for _, _, text in found)
+    for x, y, text in found:
+        assert 0 <= x <= 500 and 0 <= y <= 300, (text, x, y)

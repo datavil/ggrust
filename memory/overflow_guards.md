@@ -11,7 +11,9 @@ plots that fit stay pixel-identical to lets-plot.
 
 - Legends: `layout/legend.rs::fit_legend` with `layout::legend_budget` (preferred 50% across for automatic
   grids, `most` for user ncol/nrow grids). Order: reflow grid, narrower label wrap, then first keys + "+K more".
-- Axis labels: `layout::fit_labels` cuts discrete labels in the middle to 1/3 of the content; numbers are never cut (a cut number misleads).
+- Axis labels (discrete, only past 1/2 of the content: 1/3 caught lets-plot's normal vertical labels): first wrapped at
+  spaces (`wrap_labels`; x into each tick slot, laid out flat; y if lines fit the slot), else cut in the middle
+  (`fit_labels`). Numbers are never cut (a cut number misleads).
 - Titles: `wrap_headings` in `PreparedPlot::arrange` (two layout passes); `Arrangement.titles` is what is drawn.
 - Geoms stay clipped to the panel, as in both references.
 

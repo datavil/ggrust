@@ -63,7 +63,7 @@ def test_long_legend_labels_wrap_narrower_before_keys_are_dropped():
     assert all(len(text) <= 20 for text in found if text in label)
 
 
-def test_long_discrete_axis_labels_are_cut_and_the_panel_keeps_its_height():
+def test_long_discrete_axis_labels_wrap_into_their_slots():
     long = "a really long category name that never ends at all"
     frame = {"x": ["short", long], "y": [1, 2]}
     svg = (
@@ -71,13 +71,33 @@ def test_long_discrete_axis_labels_are_cut_and_the_panel_keeps_its_height():
     ).to_svg()
     found = [text for _, _, text in texts(svg)]
     assert "short" in found
-    assert long not in found
-    assert any(
-        "..." in text
-        and long.startswith(text.split("...")[0])
-        and long.endswith(text.split("...")[1])
-        for text in found
-    )
+    lines = [text for text in found if len(text) > 1 and text in long]
+    assert len(lines) > 1 and " ".join(lines) == long
+    assert not any("..." in text for text in found)
+
+
+def test_long_y_labels_wrap_within_the_label_budget():
+    cells = ["CD4 positive naive T cell", "CD8 positive effector memory T cell", "B cell"]
+    svg = (
+        gg.ggplot({"y": cells, "x": [1, 2, 3]}, gg.aes("x", "y"))
+        + gg.geom_point()
+        + gg.ggsize(300, 300)
+    ).to_svg()
+    found = [text for _, _, text in texts(svg)]
+    assert "B cell" in found
+    assert "CD8 positive effector memory T cell" not in found
+    assert not any("..." in text for text in found)
+
+
+def test_vertical_labels_that_fit_are_not_wrapped():
+    names = ["first long-ish label", "second long-ish label", "third long-ish label"]
+    svg = (
+        gg.ggplot({"x": names, "y": [1, 2, 3]}, gg.aes("x", "y"))
+        + gg.geom_point()
+        + gg.ggsize(250, 600)
+    ).to_svg()
+    found = [text for _, _, text in texts(svg)]
+    assert all(name in found for name in names)
 
 
 def test_long_titles_wrap_inside_the_canvas():
@@ -138,3 +158,10 @@ def test_a_title_word_wider_than_the_plot_is_broken():
     ).to_svg()
     lines = [text for _, _, text in texts(svg) if set(text) == {"W"}]
     assert len(lines) > 1 and "".join(lines) == "W" * 80
+
+
+def test_a_users_newline_in_a_label_is_drawn_as_before():
+    frame = {"x": ["a\nb\nc\nd\ne", "a really long category name that never ends at all", "z"]}
+    frame["y"] = [1, 2, 3]
+    svg = (gg.ggplot(frame, gg.aes("x", "y")) + gg.geom_point() + gg.ggsize(400, 300)).to_svg()
+    assert "a b c d e" in [text for _, _, text in texts(svg)]

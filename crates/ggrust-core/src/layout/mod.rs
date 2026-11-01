@@ -33,7 +33,7 @@ use crate::coord::Panel;
 use crate::scale::PositionScale;
 use crate::scale::format::Label;
 use crate::scene::{Group, HorizontalAlign, Node, Path, PerItem, Rect, Rects, Text, VerticalAlign};
-use crate::text::{measure, measure_label};
+use crate::text::{measure, measure_label, single_line};
 
 /// lets-plot `GEOM_MIN_SIZE`: the panel never shrinks below 50 x 50 px; axes and
 /// labels that do not fit then run past the plot edge instead.
@@ -42,7 +42,7 @@ pub const PANEL_MIN_SIZE: f64 = 50.0;
 /// Largest share of the plot (inside its margin) the x labels may take in height,
 /// or the y labels in width: longer labels are cut with "...". A ggrust deviation
 /// (lets-plot squeezes the panel and lets the labels run off the canvas).
-pub const AXIS_LABELS_MAX_SHARE: f64 = 1.0 / 3.0;
+pub const AXIS_LABELS_MAX_SHARE: f64 = 0.5;
 
 /// Height of a text band: the real line box of the font at this size.
 pub fn text_band(style: TextStyle) -> f64 {
@@ -182,9 +182,24 @@ fn layout_free(
         return first;
     }
     let limit = first.content.height * AXIS_LABELS_MAX_SHARE;
-    let x_breaks = fit_labels(first.x_breaks, x_scale.is_discrete(), limit, |breaks| {
-        x_labels_height(breaks, theme)
-    });
+    // Wrapped into each tick's slot, laid out flat, when that fits; else cut.
+    let slot = first.panel.width / first.x_breaks.values.len().max(1) as f64;
+    let wrapped = theme
+        .axis_text_x
+        .filter(|text| x_scale.is_discrete() && !rotated::rotates(*text) && needed > limit)
+        .and_then(|text| wrap_labels(&first.x_breaks, text, slot * WRAP_SLOT_SHARE))
+        .map(|labels| AxisBreaks {
+            labels,
+            arrangement: LabelArrangement::Simple,
+            ..first.x_breaks.clone()
+        })
+        .filter(|breaks| x_labels_height(breaks, theme) <= limit);
+    let x_breaks = match wrapped {
+        Some(breaks) => breaks,
+        None => fit_labels(first.x_breaks, x_scale.is_discrete(), limit, |breaks| {
+            x_labels_height(breaks, theme)
+        }),
+    };
     let needed = x_labels_height(&x_breaks, theme);
     layout_with(
         area,
@@ -226,12 +241,39 @@ fn layout_with(
         theme.axis_text_y,
         (0.0, 0.0),
     );
-    let y_breaks = fit_labels(
-        y_breaks,
-        y_scale.is_discrete(),
-        content.width * AXIS_LABELS_MAX_SHARE,
-        |breaks| y_axis_width(breaks, theme),
-    );
+    let y_limit = content.width * AXIS_LABELS_MAX_SHARE;
+    // Wrapped to the label budget when the lines do not overlap; else cut.
+    let y_wrapped = theme
+        .axis_text_y
+        .filter(|text| {
+            y_scale.is_discrete()
+                && !rotated::rotates(*text)
+                && y_axis_width(&y_breaks, theme) > y_limit
+        })
+        .and_then(|text| {
+            let room = y_limit
+                - (y_axis_width(&y_breaks, theme)
+                    - label_sizes(&y_breaks.labels, text)
+                        .iter()
+                        .map(|(width, _)| *width)
+                        .fold(0.0, f64::max));
+            let labels = wrap_labels(&y_breaks, text, room)?;
+            let slot = panel_height / y_breaks.values.len().max(1) as f64;
+            let tallest = label_sizes(&labels, text)
+                .iter()
+                .map(|(_, height)| *height)
+                .fold(0.0, f64::max);
+            (tallest <= slot).then(|| AxisBreaks {
+                labels,
+                ..y_breaks.clone()
+            })
+        });
+    let y_breaks = match y_wrapped {
+        Some(breaks) => breaks,
+        None => fit_labels(y_breaks, y_scale.is_discrete(), y_limit, |breaks| {
+            y_axis_width(breaks, theme)
+        }),
+    };
     let y_axis_width = y_axis_width(&y_breaks, theme);
     let left = content.x
         + legend_space.left
@@ -434,6 +476,52 @@ fn fit_labels(
     best
 }
 
+/// Separates the lines of a label or title wrapped by the layout. Not `\n`: a
+/// user's own `\n` keeps drawing as a space, as before wrapping existed.
+pub const LINE_BREAK: char = '\u{2028}';
+
+/// Share of a tick's slot a wrapped x label may take (the rest keeps labels apart).
+const WRAP_SLOT_SHARE: f64 = 0.9;
+
+/// Plain labels wrapped at spaces to lines at most `width` wide; `None` when a
+/// word is wider than that (such labels are cut instead).
+fn wrap_labels(breaks: &AxisBreaks, text: TextStyle, width: f64) -> Option<Vec<Label>> {
+    breaks
+        .labels
+        .iter()
+        .map(|label| {
+            if label.superscript.is_some() || label.suffix.is_some() {
+                return Some(label.clone());
+            }
+            let mut lines: Vec<String> = Vec::new();
+            for word in single_line(&label.text)
+                .split(' ')
+                .filter(|word| !word.is_empty())
+            {
+                if measure(word, text.size, text.font).width > width {
+                    return None;
+                }
+                match lines.last_mut() {
+                    Some(line)
+                        if measure(&format!("{line} {word}"), text.size, text.font).width
+                            <= width =>
+                    {
+                        line.push(' ');
+                        line.push_str(word);
+                    }
+                    _ => lines.push(word.to_owned()),
+                }
+            }
+            Some(Label::plain(lines.join(&LINE_BREAK.to_string())))
+        })
+        .collect()
+}
+
+/// Lines in a label (see [`LINE_BREAK`]).
+fn line_count(label: &Label) -> usize {
+    label.text.matches(LINE_BREAK).count() + 1
+}
+
 /// `label` cut to `characters` characters, its middle replaced by "..." (the end
 /// often tells similar categories apart), if longer.
 fn cut_label(label: &Label, characters: usize) -> Label {
@@ -453,14 +541,20 @@ fn label_sizes(labels: &[Label], text: TextStyle) -> Vec<(f64, f64)> {
     labels
         .iter()
         .map(|label| {
-            let width = measure_label(
-                &label.text,
-                label.superscript.as_deref(),
-                label.suffix.as_deref(),
-                text.size,
-                text.font,
-            );
-            (width, text_band(text))
+            let width = label
+                .text
+                .split(LINE_BREAK)
+                .map(|line| {
+                    measure_label(
+                        line,
+                        label.superscript.as_deref(),
+                        label.suffix.as_deref(),
+                        text.size,
+                        text.font,
+                    )
+                })
+                .fold(0.0, f64::max);
+            (width, text_band(text) * line_count(label) as f64)
         })
         .collect()
 }
@@ -487,7 +581,9 @@ fn x_labels_height(breaks: &AxisBreaks, theme: &Theme) -> f64 {
             .fold(0.0, f64::max)
     };
     match &breaks.arrangement {
-        LabelArrangement::Simple => line,
+        LabelArrangement::Simple => {
+            line * breaks.labels.iter().map(line_count).max().unwrap_or(1) as f64
+        }
         LabelArrangement::TwoRows(rows) => {
             let row_count = rows.iter().max().map_or(1, |row| row + 1) as f64;
             row_count * line + (row_count - 1.0) * row_gap(text)
@@ -757,7 +853,9 @@ pub fn headings_band(theme: &Theme, titles: &Titles) -> f64 {
     let lines_band = |style: Option<TextStyle>, text: &Option<String>, gap: f64| {
         band(style, text, gap)
             + match (style, present(text)) {
-                (Some(style), Some(text)) => text_band(style) * text.matches('\n').count() as f64,
+                (Some(style), Some(text)) => {
+                    text_band(style) * text.matches(LINE_BREAK).count() as f64
+                }
                 _ => 0.0,
             }
     };
@@ -774,12 +872,7 @@ pub fn headings_band(theme: &Theme, titles: &Titles) -> f64 {
 /// and ggplot2 cut long titles at the canvas edge.
 pub fn wrap_headings(titles: &Titles, theme: &Theme, width: f64) -> Titles {
     let wrap = |style: Option<TextStyle>, text: &Option<String>| match (style, text) {
-        (Some(style), Some(text)) => Some(
-            text.split('\n')
-                .map(|line| wrap_line(line, style, width))
-                .collect::<Vec<_>>()
-                .join("\n"),
-        ),
+        (Some(style), Some(text)) => Some(wrap_line(&single_line(text), style, width)),
         _ => text.clone(),
     };
     Titles {
@@ -821,7 +914,7 @@ fn wrap_line(line: &str, style: TextStyle, width: f64) -> String {
         }
     }
     lines.push(current);
-    lines.join("\n")
+    lines.join(&LINE_BREAK.to_string())
 }
 
 /// The title and subtitle, from `top` down, justified along `(start, width)` (the
@@ -835,7 +928,7 @@ pub fn heading_nodes(
     let mut nodes = Vec::new();
     let mut top = top;
     let mut lines = |style: TextStyle, text: &str, top: &mut f64| {
-        for line in text.split('\n') {
+        for line in text.split(LINE_BREAK) {
             let x = justified_centre(start, width, line, style);
             nodes.push(text_node(
                 line,
@@ -879,7 +972,7 @@ fn x_label_node(
     let (anchor, horizontal, vertical, angle) = match arrangement {
         // Rotated labels are placed by `placed_label_node`.
         LabelArrangement::Simple | LabelArrangement::Rotated => (
-            (x, top + line / 2.0),
+            (x, top + line * line_count(label) as f64 / 2.0),
             HorizontalAlign::Middle,
             VerticalAlign::Middle,
             0.0,
@@ -963,6 +1056,29 @@ fn label_node(
     horizontal: HorizontalAlign,
     angle: f64,
 ) -> Node {
+    let lines: Vec<&str> = label.text.split(LINE_BREAK).collect();
+    if lines.len() > 1 {
+        // A wrapped label: lines centred as a block on the anchor, stacked along
+        // the text's own downward direction.
+        let band = text_band(style);
+        let (sin, cos) = angle.to_radians().sin_cos();
+        let middle = (lines.len() - 1) as f64 / 2.0;
+        let nodes = lines
+            .iter()
+            .enumerate()
+            .map(|(index, line)| {
+                let offset = (index as f64 - middle) * band;
+                let anchor = (anchor.0 + offset * sin, anchor.1 + offset * cos);
+                text_node(line, style, anchor, horizontal, angle)
+            })
+            .collect();
+        return Node::Group(Group {
+            clip: None,
+            role: None,
+            anchor: None,
+            nodes,
+        });
+    }
     let mut node = text_node(&label.text, style, anchor, horizontal, angle);
     if let Node::Text(text) = &mut node {
         text.superscript = label.superscript.clone();

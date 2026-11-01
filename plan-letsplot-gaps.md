@@ -180,6 +180,18 @@ side. Script: `issue_repros.py` (scratch, not committed). Verdicts:
 | - | #1267 | Text size with a sqrt size scale | **Avoided.** Text size is right. ggrust-only oddity: the size legend for a single value lists five near-identical breaks (9.99992e9 ... 1.000008e10). Score 2. | One key. |
 | n/a | #1474, #985, #1511 | `label_text` angle (needs `geom_crossbar`), seams in density fills (needs `geom_density2df`/`geom_density`), removing boxplot outliers (no `outliers=` option in either library) | Not testable until the geoms exist; add `outliers=` with the boxplot work. | |
 
+## 12. Docs workarounds to undo
+
+When one of these gaps closes, put the original spec back in the docs example that works
+around it, then rebuild with `uv run python docs/build_examples.py`.
+
+| Gap | Example | Workaround to undo |
+| --- | --- | --- |
+| `geom_curve` (section 1) | `docs/examples/periodic_table.py` | Two key arrows drawn straight with `geom_segment`. lets-plot uses `geom_curve(curvature=.4, ncp=1)` and `geom_curve(curvature=-.4, ncp=1)` for the first and third arrows. |
+| `label_format` (section 7) | `docs/examples/periodic_table.py` | Atomic masses rounded to 3 decimals in `docs/data/make_data.py` (`elements()`). lets-plot uses `label_format=".3~f"` on the mass `geom_text`. |
+| `plot_caption` (section 6) | `docs/examples/periodic_table.py` | Caption dropped. lets-plot: `labs(caption="© 1869, Dmitri Mendeleev")` and `plot_caption=element_text(size=18)`. |
+| `element_text(margin=...)` (section 6) | `docs/examples/periodic_table.py` | Title margin dropped. lets-plot: `plot_title=element_text(..., margin=[30, 0, 5, 0])` (a list, not only the dict form of #1265). |
+
 ## Proposed order
 
 1. **Score 5, exposed but erroring or ignored:** `as_discrete`, `geom_sina`,

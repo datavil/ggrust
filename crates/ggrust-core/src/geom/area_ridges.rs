@@ -27,7 +27,7 @@ use crate::style::{StyleDefault, Styles};
 use crate::{Error, Result};
 
 /// lets-plot ridge style: pen outline, pen fill at 10% opacity, size 0.75.
-const STYLE_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
+pub(super) const STYLE_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
     (
         Aesthetic::Color,
         StyleDefault::Color(Color::rgb(0x47, 0x47, 0x47)),

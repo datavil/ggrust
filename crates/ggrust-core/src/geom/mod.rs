@@ -5,6 +5,7 @@
 //! defaults, extra parameters); the build stage validates the layer against that,
 //! resolves styles (mapped -> constant -> default) and calls [`Geom::draw`].
 
+mod area;
 mod area_ridges;
 mod bar;
 mod blank;
@@ -30,6 +31,7 @@ mod text;
 mod tile;
 mod violin;
 
+pub use area::{AreaGeom, RibbonGeom};
 pub use area_ridges::AreaRidgesGeom;
 pub use bar::{BarGeom, HistogramGeom};
 pub use blank::BlankGeom;
@@ -190,6 +192,8 @@ pub static GEOMS: &[&dyn Geom] = &[
     &LineRangeGeom,
     &PointRangeGeom,
     &CrossBarGeom,
+    &AreaGeom,
+    &RibbonGeom,
     &AreaRidgesGeom,
     &BracketGeom,
     &TileGeom,

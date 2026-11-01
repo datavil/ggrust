@@ -4,6 +4,7 @@ from ggrust.plot.coord import coord_cartesian, coord_fixed, coord_flip
 from ggrust.plot.core import aes, layer
 from ggrust.plot.facet import facet_grid, facet_wrap
 from ggrust.plot.geom import (
+    geom_area,
     geom_area_ridges,
     geom_bar,
     geom_blank,
@@ -24,6 +25,7 @@ from ggrust.plot.geom import (
     geom_polygon,
     geom_raster,
     geom_rect,
+    geom_ribbon,
     geom_segment,
     geom_sina,
     geom_text,
@@ -148,6 +150,7 @@ __all__ = [
     "flavor_solarized_dark",
     "flavor_solarized_light",
     "flavor_standard",
+    "geom_area",
     "geom_area_ridges",
     "geom_bar",
     "geom_blank",
@@ -170,6 +173,7 @@ __all__ = [
     "geom_polygon",
     "geom_raster",
     "geom_rect",
+    "geom_ribbon",
     "geom_segment",
     "geom_sina",
     "geom_text",

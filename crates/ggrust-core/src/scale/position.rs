@@ -135,9 +135,22 @@ impl PositionScale {
     /// shows all of them instead of choosing a count.
     pub fn has_fixed_breaks(&self) -> bool {
         match self {
-            PositionScale::Continuous(scale) => scale.fixed_breaks.is_some(),
+            // A date-time `break_width` fixes the breaks too (lets-plot
+            // `DateTimeFixedBreaksGen`), so their labels are laid out as fixed.
+            PositionScale::Continuous(scale) => {
+                scale.fixed_breaks.is_some()
+                    || scale
+                        .temporal
+                        .as_ref()
+                        .is_some_and(|temporal| temporal.break_width.is_some())
+            }
             PositionScale::Discrete(_) => true,
         }
+    }
+
+    /// Whether the axis shows date-times or durations.
+    pub fn is_temporal(&self) -> bool {
+        matches!(self, PositionScale::Continuous(scale) if scale.temporal.is_some())
     }
 
     /// Breaks: about `target_count` for continuous scales, every category for

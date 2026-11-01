@@ -6,9 +6,9 @@ use std::sync::Arc;
 
 use arrow_array::types::{Int8Type, Int32Type};
 use arrow_array::{
-    ArrayRef, BooleanArray, DictionaryArray, Float32Array, Float64Array, Int64Array,
-    LargeStringArray, NullArray, RecordBatch, StringArray, StringViewArray,
-    TimestampMillisecondArray, UInt8Array,
+    ArrayRef, BooleanArray, Date32Array, DictionaryArray, Float32Array, Float64Array, Int64Array,
+    IntervalYearMonthArray, LargeStringArray, NullArray, RecordBatch, StringArray, StringViewArray,
+    Time64NanosecondArray, TimestampMicrosecondArray, UInt8Array,
 };
 use arrow_schema::{Field, Schema};
 use ggrust_core::Error;
@@ -221,14 +221,36 @@ fn missing_column_lists_available_names() {
 #[test]
 fn unsupported_type_names_column_and_type() {
     let frame = frame_of(vec![(
-        "time",
-        Arc::new(TimestampMillisecondArray::from(vec![0])) as ArrayRef,
+        "span",
+        Arc::new(IntervalYearMonthArray::from(vec![1])) as ArrayRef,
     )]);
-    let error = frame.column("time").unwrap_err().to_string();
+    let error = frame.column("span").unwrap_err().to_string();
     assert!(
-        error.starts_with("column 'time' has unsupported type Timestamp"),
+        error.starts_with("column 'span' has unsupported type Interval"),
         "{error}"
     );
+}
+
+#[test]
+fn temporal_columns_become_milliseconds() {
+    let frame = frame_of(vec![
+        (
+            "stamp",
+            Arc::new(TimestampMicrosecondArray::from(vec![Some(1_500_000), None])) as ArrayRef,
+        ),
+        ("day", Arc::new(Date32Array::from(vec![1, 2])) as ArrayRef),
+        (
+            "clock",
+            Arc::new(Time64NanosecondArray::from(vec![3_000_000_000, 0])) as ArrayRef,
+        ),
+    ]);
+    let values = |name: &str| match frame.column(name).unwrap() {
+        Column::Continuous(column) => (0..2).map(|row| column.get(row)).collect::<Vec<_>>(),
+        Column::Discrete(_) => panic!("{name} is discrete"),
+    };
+    assert_eq!(values("stamp"), vec![Some(1500.0), None]);
+    assert_eq!(values("day"), vec![Some(86_400_000.0), Some(172_800_000.0)]);
+    assert_eq!(values("clock"), vec![Some(3000.0), Some(0.0)]);
 }
 
 #[test]
@@ -405,11 +427,11 @@ fn converted_columns_are_cached_and_shared_by_clones() {
 #[test]
 fn failed_conversions_report_their_error_every_time() {
     let frame = frame_of(vec![(
-        "time",
-        Arc::new(TimestampMillisecondArray::from(vec![0])) as ArrayRef,
+        "span",
+        Arc::new(IntervalYearMonthArray::from(vec![0])) as ArrayRef,
     )]);
     for _ in 0..2 {
-        let error = frame.column("time").unwrap_err().to_string();
-        assert!(error.contains("unsupported type Timestamp"), "{error}");
+        let error = frame.column("span").unwrap_err().to_string();
+        assert!(error.contains("unsupported type Interval"), "{error}");
     }
 }

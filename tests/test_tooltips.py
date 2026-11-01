@@ -262,9 +262,7 @@ def test_labs_title_labels_the_line():
 
 
 def test_unsupported_tooltip_column_warns_once():
-    import datetime
-
-    data = FRAME.with_columns(day=pl.lit(datetime.date(2026, 1, 2)))
+    data = FRAME.with_columns(day=pl.lit([1, 2]))
     plot = gg.ggplot(data, gg.aes("height", "weight")) + gg.geom_point(
         tooltips=gg.layer_tooltips().line("@day").line("@name")
     )

@@ -3,6 +3,7 @@
 //! Several calls for one aesthetic merge key by key, later ones winning, as in
 //! lets-plot (`PlotConfigUtil.mergeScaleOptions`).
 
+use super::datetime::{DatePattern, TemporalAxis, TemporalKind, TimeInterval};
 use super::label_pattern::LabelPattern;
 use super::{ContinuousPositionScale, DiscretePositionScale, PositionScale, Transform};
 use crate::spec::{Aesthetic, PlotSpec, ScaleSpec, Value};
@@ -34,6 +35,9 @@ pub struct AxisScaleSpec {
     breaks: Set<Vec<Value>>,
     labels: Set<Value>,
     format: Set<String>,
+    /// `scale_*_datetime()` (date-time) or `scale_*_time()` (duration).
+    temporal: Set<TemporalKind>,
+    break_width: Set<String>,
 }
 
 impl AxisScaleSpec {
@@ -46,6 +50,17 @@ impl AxisScaleSpec {
 
     /// Build the (untrained) scale; `discrete` when the axis shows categories.
     pub fn build(&self, discrete: bool, warnings: &mut Vec<String>) -> Result<PositionScale> {
+        self.build_with(discrete, None, warnings)
+    }
+
+    /// [`Self::build`] for an axis whose mapped columns are of `column_kind`
+    /// (date-time columns get a date-time axis without `scale_*_datetime()`).
+    pub fn build_with(
+        &self,
+        discrete: bool,
+        column_kind: Option<TemporalKind>,
+        warnings: &mut Vec<String>,
+    ) -> Result<PositionScale> {
         if discrete {
             return self.build_discrete(warnings).map(PositionScale::Discrete);
         }
@@ -55,16 +70,29 @@ impl AxisScaleSpec {
                  a continuous axis; ignored"
             ));
         }
-        self.build_continuous(warnings)
+        self.build_continuous(column_kind, warnings)
             .map(PositionScale::Continuous)
     }
 
-    fn build_continuous(&self, warnings: &mut Vec<String>) -> Result<ContinuousPositionScale> {
+    fn build_continuous(
+        &self,
+        column_kind: Option<TemporalKind>,
+        warnings: &mut Vec<String>,
+    ) -> Result<ContinuousPositionScale> {
         let mut scale = ContinuousPositionScale::default();
         let labels = self.label_texts()?;
+        scale.temporal = self.temporal_axis(column_kind, warnings)?;
         // lets-plot ignores `format` too when `labels` come without `breaks`.
         if self.breaks.is_some() || labels.is_none() {
-            scale.format = self.label_format(warnings);
+            match (&mut scale.temporal, &self.format) {
+                (Some(temporal), Some((pattern, _)))
+                    if temporal.kind != TemporalKind::Duration
+                        && DatePattern::is_datetime(pattern) =>
+                {
+                    temporal.format = Some(DatePattern::parse(pattern));
+                }
+                _ => scale.format = self.label_format(warnings),
+            }
         }
         match (&self.breaks, labels) {
             (Some((breaks, path)), labels) => {
@@ -161,6 +189,42 @@ impl AxisScaleSpec {
         }
         scale.reverse = self.reverse.as_ref().is_some_and(|(reverse, _)| *reverse);
         Ok(scale)
+    }
+
+    /// The date-time axis: `scale_*_time()` gives durations, `scale_*_datetime()`
+    /// or date-time columns give date-times (dates and times of day keep their
+    /// column's kind). `break_width` elsewhere is reported and ignored.
+    fn temporal_axis(
+        &self,
+        column_kind: Option<TemporalKind>,
+        warnings: &mut Vec<String>,
+    ) -> Result<Option<TemporalAxis>> {
+        let kind = match (&self.temporal, column_kind) {
+            (Some((TemporalKind::Duration, _)), _) => Some(TemporalKind::Duration),
+            (_, Some(kind)) => Some(kind),
+            (Some((kind, _)), None) => Some(*kind),
+            (None, None) => None,
+        };
+        let Some(kind) = kind else {
+            if let Some((_, path)) = &self.break_width {
+                warnings.push(format!(
+                    "at '{path}': break_width applies to scale_*_datetime() and \
+                     scale_*_time(); ignored"
+                ));
+            }
+            return Ok(None);
+        };
+        let break_width = match &self.break_width {
+            Some((width, path)) => {
+                Some(TimeInterval::parse(width).map_err(|message| Error::spec(path, message))?)
+            }
+            None => None,
+        };
+        Ok(Some(TemporalAxis {
+            kind,
+            break_width,
+            format: None,
+        }))
     }
 
     /// `format=...`; a pattern ggrust cannot format (datetime) is reported and ignored.
@@ -271,6 +335,17 @@ fn merge(target: &mut AxisScaleSpec, scale: &ScaleSpec, path: &str) {
     if let Some(format) = &scale.format {
         target.format = Some((format.clone(), at("format")));
     }
+    for (key, kind) in [
+        ("datetime", TemporalKind::DateTime),
+        ("time", TemporalKind::Duration),
+    ] {
+        if scale.parameters.get(key) == Some(&Value::Bool(true)) {
+            target.temporal = Some((kind, at(key)));
+        }
+    }
+    if let Some(Value::String(width)) = scale.parameters.get("break_width") {
+        target.break_width = Some((width.clone(), at("break_width")));
+    }
 }
 
 /// A category name in `breaks` of a discrete axis; numbers are written as given.
@@ -329,7 +404,12 @@ fn report_unbuilt(scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
     for (key, _) in present.iter().filter(|(_, present)| *present) {
         warnings.push(format!("at '{path}.{key}': not supported yet; ignored"));
     }
-    for key in scale.parameters.keys() {
+    let built = ["datetime", "time", "break_width"];
+    for key in scale
+        .parameters
+        .keys()
+        .filter(|key| !built.contains(&key.as_str()))
+    {
         warnings.push(format!("at '{path}.{key}': not supported yet; ignored"));
     }
 }

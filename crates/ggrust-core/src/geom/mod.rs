@@ -5,6 +5,7 @@
 //! defaults, extra parameters); the build stage validates the layer against that,
 //! resolves styles (mapped -> constant -> default) and calls [`Geom::draw`].
 
+mod abline;
 mod area;
 mod area_ridges;
 mod bar;
@@ -27,11 +28,13 @@ mod repel;
 mod repel_layout;
 mod segment;
 mod sina;
+mod smooth;
 mod text;
 mod tile;
 mod violin;
 
-pub use area::{AreaGeom, RibbonGeom};
+pub use abline::AbLineGeom;
+pub use area::{AreaGeom, DensityGeom, RibbonGeom};
 pub use area_ridges::AreaRidgesGeom;
 pub use bar::{BarGeom, HistogramGeom};
 pub use blank::BlankGeom;
@@ -49,6 +52,7 @@ pub use reference_line::{HorizontalLineGeom, VerticalLineGeom};
 pub use repel::{LabelRepelGeom, TextRepelGeom};
 pub use segment::SegmentGeom;
 pub use sina::SinaGeom;
+pub use smooth::SmoothGeom;
 pub use text::{LabelGeom, TextGeom};
 pub use tile::TileGeom;
 pub use violin::ViolinGeom;
@@ -177,6 +181,7 @@ pub static GEOMS: &[&dyn Geom] = &[
     &PolygonGeom,
     &VerticalLineGeom,
     &HorizontalLineGeom,
+    &AbLineGeom,
     &TextGeom,
     &LabelGeom,
     &TextRepelGeom,
@@ -194,6 +199,8 @@ pub static GEOMS: &[&dyn Geom] = &[
     &CrossBarGeom,
     &AreaGeom,
     &RibbonGeom,
+    &DensityGeom,
+    &SmoothGeom,
     &AreaRidgesGeom,
     &BracketGeom,
     &TileGeom,

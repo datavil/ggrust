@@ -59,6 +59,22 @@ impl KotlinRandom {
         self.next_bits(1) != 0
     }
 
+    /// Uniform in [0, `until`) for a positive `until` (Kotlin `nextInt(until)`:
+    /// the top bits for a power of two, else rejection sampling).
+    pub fn next_int_until(&mut self, until: i32) -> i32 {
+        debug_assert!(until > 0);
+        if until & until.wrapping_neg() == until {
+            return self.next_bits(31 - until.leading_zeros()) as i32;
+        }
+        loop {
+            let bits = (self.next_int() as u32 >> 1) as i32;
+            let value = bits % until;
+            if bits.wrapping_sub(value).wrapping_add(until - 1) >= 0 {
+                return value;
+            }
+        }
+    }
+
     /// Uniform in [0, 1) (Kotlin `nextDouble`: 26 + 27 bits).
     pub fn next_double(&mut self) -> f64 {
         let high = self.next_bits(26);

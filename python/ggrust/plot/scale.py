@@ -22,17 +22,21 @@ if TYPE_CHECKING:
 __all__ = [
     "lims",
     "scale_x_continuous",
+    "scale_x_datetime",
     "scale_x_discrete",
     "scale_x_discrete_reversed",
     "scale_x_log2",
     "scale_x_log10",
     "scale_x_reverse",
+    "scale_x_time",
     "scale_y_continuous",
+    "scale_y_datetime",
     "scale_y_discrete",
     "scale_y_discrete_reversed",
     "scale_y_log2",
     "scale_y_log10",
     "scale_y_reverse",
+    "scale_y_time",
     "xlim",
     "ylim",
 ]
@@ -254,6 +258,219 @@ scale_x_log2 = _transformed(scale_x_continuous, "log2")
 scale_y_log2 = _transformed(scale_y_continuous, "log2")
 scale_x_reverse = _transformed(scale_x_continuous, "reverse")
 scale_y_reverse = _transformed(scale_y_continuous, "reverse")
+
+
+def scale_x_datetime(
+    name: str | None = None,
+    *,
+    breaks: Breaks | None = None,
+    break_width: str | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    expand: Sequence[Number] | None = None,
+    na_value: Color | Number | None = None,
+    format: str | None = None,
+    position: Position | None = None,
+) -> FeatureSpec:
+    """Date-time position scale x.
+
+    Values are date-times (``datetime``, ``date``, numpy and polars date-time
+    columns) or milliseconds since the Unix epoch. Breaks fall on calendar
+    boundaries (whole hours, days, Mondays, months, years) and are labelled by
+    their spacing (``"%b %e"``, ``"%Y"``, ...). Axes of date-time columns get
+    this scale without asking for it. Labels are in UTC.
+
+    Parameters
+    ----------
+    name : str, optional
+        Axis title (``labs(x=...)`` takes precedence).
+    breaks : list, optional
+        Fixed break positions (date-times or epoch milliseconds).
+    break_width : str, optional
+        Fixed distance between breaks, as ``"<count> <unit>"`` with a unit of
+        ``ms``, ``sec``, ``min``, ``hour``, ``day``, ``week``, ``month`` or
+        ``year`` (plurals allowed), e.g. ``"2 weeks"``.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels). Ignored without
+        ``breaks``, as in lets-plot.
+    format : str, optional
+        Date-time label pattern (``"%d.%m.%y"``, ``"%b %Y"``, ``"{%H:%M}"``).
+        ``labels`` take precedence.
+    limits : list, optional
+        ``[low, high]`` as date-times; ``None`` leaves a side free.
+    expand : list, optional
+        ``[multiplicative]`` or ``[multiplicative, additive]`` expansion; the
+        additive part is in milliseconds.
+    lablim, na_value, position
+        As in lets-plot; not drawn yet (ggrust warns).
+
+    Returns
+    -------
+    FeatureSpec
+        Scale specification.
+
+    Examples
+    --------
+    >>> import datetime
+    >>> from ggrust import *
+    >>> days = [datetime.date(2024, 1, 1) + datetime.timedelta(days=d) for d in range(60)]
+    >>> data = {"day": days, "visitors": [100 + (d % 7) * 12 for d in range(60)]}
+    >>> plot = (
+    ...     ggplot(data, aes("day", "visitors"))
+    ...     + geom_line()
+    ...     + scale_x_datetime(break_width="2 weeks", format="%d %b")
+    ... )
+    """
+    return _scale(
+        "x",
+        name=name,
+        breaks=breaks,
+        break_width=break_width,
+        labels=labels,
+        lablim=lablim,
+        limits=limits,
+        expand=expand,
+        na_value=na_value,
+        format=format,
+        position=position,
+        datetime=True,
+    )
+
+
+def scale_y_datetime(
+    name: str | None = None,
+    *,
+    breaks: Breaks | None = None,
+    break_width: str | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    expand: Sequence[Number] | None = None,
+    na_value: Color | Number | None = None,
+    format: str | None = None,
+    position: Position | None = None,
+) -> FeatureSpec:
+    """Date-time position scale y. See ``scale_x_datetime``.
+
+    Returns
+    -------
+    FeatureSpec
+        Scale specification.
+    """
+    return _scale(
+        "y",
+        name=name,
+        breaks=breaks,
+        break_width=break_width,
+        labels=labels,
+        lablim=lablim,
+        limits=limits,
+        expand=expand,
+        na_value=na_value,
+        format=format,
+        position=position,
+        datetime=True,
+    )
+
+
+def scale_x_time(
+    name: str | None = None,
+    *,
+    breaks: Breaks | None = None,
+    break_width: str | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    expand: Sequence[Number] | None = None,
+    na_value: Color | Number | None = None,
+    position: Position | None = None,
+) -> FeatureSpec:
+    """Duration position scale x.
+
+    Values are durations (``timedelta``, polars ``Duration`` columns) or
+    milliseconds. Breaks fall on nice durations (seconds, minutes, hours, days,
+    weeks) and are labelled like ``"1:30"`` or ``"2d 6:00"``.
+
+    Parameters
+    ----------
+    name : str, optional
+        Axis title (``labs(x=...)`` takes precedence).
+    breaks : list, optional
+        Fixed break positions (durations or milliseconds).
+    break_width : str, optional
+        Fixed distance between breaks, e.g. ``"15 min"`` (see
+        ``scale_x_datetime``; months count as 30 days, years as 365).
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels). Ignored without
+        ``breaks``, as in lets-plot.
+    limits : list, optional
+        ``[low, high]`` as durations; ``None`` leaves a side free.
+    expand : list, optional
+        ``[multiplicative]`` or ``[multiplicative, additive]`` expansion; the
+        additive part is in milliseconds.
+    lablim, na_value, position
+        As in lets-plot; not drawn yet (ggrust warns).
+
+    Returns
+    -------
+    FeatureSpec
+        Scale specification.
+
+    Examples
+    --------
+    >>> import datetime
+    >>> from ggrust import *
+    >>> laps = {"lap": [1, 2, 3], "time": [datetime.timedelta(minutes=m) for m in (31, 29, 33)]}
+    >>> plot = ggplot(laps, aes("time", "lap")) + geom_point() + scale_x_time()
+    """
+    return _scale(
+        "x",
+        name=name,
+        breaks=breaks,
+        break_width=break_width,
+        labels=labels,
+        lablim=lablim,
+        limits=limits,
+        expand=expand,
+        na_value=na_value,
+        position=position,
+        time=True,
+    )
+
+
+def scale_y_time(
+    name: str | None = None,
+    *,
+    breaks: Breaks | None = None,
+    break_width: str | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    expand: Sequence[Number] | None = None,
+    na_value: Color | Number | None = None,
+    position: Position | None = None,
+) -> FeatureSpec:
+    """Duration position scale y. See ``scale_x_time``.
+
+    Returns
+    -------
+    FeatureSpec
+        Scale specification.
+    """
+    return _scale(
+        "y",
+        name=name,
+        breaks=breaks,
+        break_width=break_width,
+        labels=labels,
+        lablim=lablim,
+        limits=limits,
+        expand=expand,
+        na_value=na_value,
+        position=position,
+        time=True,
+    )
 
 
 def _as_boolean(value: bool | str | None, *, default: bool) -> bool:

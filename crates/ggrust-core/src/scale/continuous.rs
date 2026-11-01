@@ -2,6 +2,7 @@
 
 use super::Transform;
 use super::breaks::linear_breaks;
+use super::datetime::TemporalAxis;
 use super::format::{Label, format_breaks, format_breaks_individually};
 use super::label_pattern::{LabelPattern, PatternValue};
 use crate::data::ContinuousColumn;
@@ -44,6 +45,9 @@ pub struct ContinuousPositionScale {
     /// Include 0 and do not pad past it (lets-plot `rangeIncludesZero`, bars).
     /// Ignored when the limits exclude 0.
     pub include_zero: bool,
+    /// Date-time or duration axis: calendar breaks and date labels
+    /// (`scale_*_datetime()`, `scale_*_time()`, temporal columns).
+    pub temporal: Option<TemporalAxis>,
     /// Ranges that widen the domain even past the limits (bar width spans:
     /// lets-plot starts from the limits and joins every layer's range).
     beyond_limits: Option<(f64, f64)>,
@@ -62,6 +66,7 @@ impl Default for ContinuousPositionScale {
             format: None,
             coord_limits: [None, None],
             include_zero: false,
+            temporal: None,
             beyond_limits: None,
         }
     }
@@ -239,6 +244,20 @@ impl ContinuousPositionScale {
         if let Some(values) = &self.fixed_breaks {
             return self.fixed(values);
         }
+        if let Some(temporal) = &self.temporal {
+            // Date breaks are made in data units, then transformed (reverse, log).
+            let (low, high) = self.data_domain();
+            let (values, labels) = temporal.breaks(low, high, target_count);
+            let (positions, labels) = values
+                .iter()
+                .zip(labels)
+                .filter_map(|(&value, label)| {
+                    let position = self.transform.apply(value)?;
+                    Some((position, Label::plain(label)))
+                })
+                .unzip();
+            return ScaleBreaks { positions, labels };
+        }
         let (values, mut breaks) = self.generated_breaks(target_count);
         if let Some(format) = &self.format {
             // The break values themselves: inverse(apply(1000)) is 999.999... on log axes.
@@ -259,6 +278,8 @@ impl ContinuousPositionScale {
         let (low, high) = (low.min(high), low.max(high));
         let default = LabelPattern::parse("{,~g}").ok();
         let pattern = self.format.as_ref().or(default.as_ref());
+        // Date labels unless a number `format` is given.
+        let temporal = self.temporal.as_ref().filter(|_| self.format.is_none());
         let mut breaks = ScaleBreaks {
             positions: Vec::new(),
             labels: Vec::new(),
@@ -271,15 +292,28 @@ impl ContinuousPositionScale {
             if !(low..=high).contains(&position) {
                 continue;
             }
-            let label = match (&self.labels, pattern) {
-                (Some(labels), _) => Label::plain(labels.get(index).cloned().unwrap_or_default()),
-                (None, Some(pattern)) => pattern.format(PatternValue::Number(value)),
-                (None, None) => Label::plain(value.to_string()),
+            let label = match (&self.labels, temporal, pattern) {
+                (Some(labels), _, _) => {
+                    Label::plain(labels.get(index).cloned().unwrap_or_default())
+                }
+                (None, Some(temporal), _) => {
+                    let (data_low, data_high) = self.data_domain();
+                    Label::plain(temporal.label(value, data_low, data_high, values.len().max(1)))
+                }
+                (None, None, Some(pattern)) => pattern.format(PatternValue::Number(value)),
+                (None, None, None) => Label::plain(value.to_string()),
             };
             breaks.positions.push(position);
             breaks.labels.push(label);
         }
         breaks
+    }
+
+    /// The expanded domain in data units, low end first.
+    fn data_domain(&self) -> (f64, f64) {
+        let (low, high) = self.expanded_domain();
+        let (low, high) = (self.transform.inverse(low), self.transform.inverse(high));
+        (low.min(high), low.max(high))
     }
 
     /// Generated breaks with their values in data units.

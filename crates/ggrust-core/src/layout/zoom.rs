@@ -214,7 +214,8 @@ pub fn zoom_tile(
         pixels: (mapper.x_pixel(x_domain.0), mapper.x_pixel(x_domain.1)),
         transform: transform(mapper.x_scale),
         count: x_breaks.target_count,
-        fixed: mapper.x_scale.has_fixed_breaks().then(|| {
+        // The HTML runtime generates number breaks only: date axes keep theirs.
+        fixed: (mapper.x_scale.has_fixed_breaks() || mapper.x_scale.is_temporal()).then(|| {
             x_breaks
                 .values
                 .iter()
@@ -269,7 +270,8 @@ pub fn zoom_tile(
         pixels: (mapper.y_pixel(y_domain.0), mapper.y_pixel(y_domain.1)),
         transform: transform(mapper.y_scale),
         count: y_breaks.target_count,
-        fixed: mapper.y_scale.has_fixed_breaks().then(|| {
+        // The HTML runtime generates number breaks only: date axes keep theirs.
+        fixed: (mapper.y_scale.has_fixed_breaks() || mapper.y_scale.is_temporal()).then(|| {
             y_breaks
                 .values
                 .iter()

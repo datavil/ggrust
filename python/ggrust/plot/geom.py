@@ -7,7 +7,7 @@ written for lets_plot imports and composes; rendering them reports the geom.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from ggrust.errors import SpecError
 from ggrust.plot.core import FeatureSpec, LayerSpec
@@ -32,12 +32,14 @@ if TYPE_CHECKING:
 
 
 __all__ = [
+    "geom_abline",
     "geom_area_ridges",
     "geom_bar",
     "geom_blank",
     "geom_boxplot",
     "geom_bracket",
     "geom_crossbar",
+    "geom_density",
     "geom_errorbar",
     "geom_histogram",
     "geom_hline",
@@ -54,6 +56,7 @@ __all__ = [
     "geom_rect",
     "geom_segment",
     "geom_sina",
+    "geom_smooth",
     "geom_text",
     "geom_text_repel",
     "geom_tile",
@@ -338,6 +341,86 @@ def geom_polygon(
         tooltips=tooltips,
         color_by=color_by,
         fill_by=fill_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
+def geom_abline(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    intercept: Number | None = None,
+    slope: Number | None = None,
+    color_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Straight reference lines ``y = intercept + slope * x`` across the panel.
+
+    The lines do not train the axes. With neither ``intercept`` nor ``slope``
+    (mapped or given) the line is ``y = x``, as in ggplot2.
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    intercept : float, optional
+        Value of y at x = 0 (axis units, after a scale transform); 0 when None.
+    slope : float, optional
+        Change of y per unit of x; 1 when None.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Constant aesthetics such as ``color="red"`` or ``size=2``, and the geom's
+        options. As in lets_plot; options ggrust does not read yet are reported as
+        not supported.
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+    """
+    return _geom(
+        "abline",
+        mapping=mapping,
+        data=data,
+        stat=stat,
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        manual_key=manual_key,
+        sampling=sampling,
+        tooltips=tooltips,
+        intercept=intercept,
+        slope=slope,
+        color_by=color_by,
         na_rm=na_rm,
         **other_args,
     )
@@ -1719,6 +1802,251 @@ def geom_sina(
         adjust=adjust,
         n=n,
         fs_max=fs_max,
+        color_by=color_by,
+        fill_by=fill_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
+def geom_density(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    orientation: str | None = None,
+    trim: bool | None = None,
+    kernel: str | None = None,
+    adjust: Number | None = None,
+    bw: str | Number | None = None,
+    n: int | None = None,
+    fs_max: Number | None = None,
+    quantiles: Sequence[float] | None = None,
+    quantile_lines: bool | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Kernel density estimate of ``x``, drawn as a filled area (``stat="density"``).
+
+    One density per group. The computed variables are ``..density..`` (y by default),
+    ``..count..`` (density x total weight, which is the number of rows without
+    ``weight``), ``..scaled..`` (density / its maximum) and ``..quantile..``.
+    Bandwidths follow R's ``bw.nrd0`` and ``bw.nrd``.
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``. ``weight`` weighs the rows.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name; ``"density"`` when None.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"stack"`` or a ``position_*()`` spec;
+        ``"identity"`` when None.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    orientation : str, optional
+        ``"y"`` estimates the density of ``y``; not supported yet (ggrust warns).
+    trim : bool, default=False
+        True evaluates the density over the group's data range only; otherwise over
+        the x range of every layer.
+    kernel : str, default="gaussian"
+        Kernel: ``"gaussian"``, ``"rectangular"``, ``"triangular"``, ``"biweight"``,
+        ``"epanechikov"``, ``"optcosine"`` or ``"cosine"``.
+    adjust : float, default=1
+        Multiplier of the bandwidth.
+    bw : str or float, default="nrd0"
+        Bandwidth: a positive number, or ``"nrd0"`` or ``"nrd"``.
+    n : int, default=512
+        Number of points the density is evaluated at (2 to 1024).
+    fs_max : float, default=5000
+        Above this many rows, only rows within 5 bandwidths of a point are summed.
+    quantiles : list of float, default=[0.25, 0.5, 0.75]
+        Quantiles that split the area into bands (``..quantile..``), each in [0, 1].
+    quantile_lines : bool, default=False
+        True draws a line from the curve down to the base at each quantile.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Constant aesthetics such as ``fill="steelblue"`` or ``alpha=0.5``, as in lets_plot.
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> frame = {"height": [160, 165, 170, 172, 175, 180, 185], "sex": list("FFFMMMM")}
+    >>> plot = ggplot(frame, aes("height", fill="sex")) + geom_density(alpha=0.4)
+    """
+    return _geom(
+        "density",
+        mapping=mapping,
+        data=data,
+        stat=stat,
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        manual_key=manual_key,
+        sampling=sampling,
+        tooltips=tooltips,
+        orientation=orientation,
+        trim=trim,
+        kernel=kernel,
+        adjust=adjust,
+        bw=bw,
+        n=n,
+        fs_max=fs_max,
+        quantiles=quantiles,
+        quantile_lines=quantile_lines,
+        color_by=color_by,
+        fill_by=fill_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
+def geom_smooth(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    labels: FeatureSpec | None = None,
+    orientation: str | None = None,
+    method: Literal["lm", "loess", "lowess"] | None = None,
+    n: int | None = None,
+    se: bool | None = None,
+    level: Number | None = None,
+    span: Number | None = None,
+    deg: int | None = None,
+    seed: int | None = None,
+    max_n: int | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Draw a fitted curve with a confidence band (``stat="smooth"``), one per group.
+
+    The computed variables are ``x``, ``y`` (the fitted value), ``ymin`` and ``ymax``
+    (the band) and ``..se..`` (the standard error). As lets_plot, the band uses the
+    straight-line standard error for every method, so polynomial and loess bands
+    differ from ggplot2's.
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name; ``"smooth"`` when None.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    labels : FeatureSpec, optional
+        lets_plot's model summary annotation (``smooth_labels()``); not supported yet
+        (ggrust warns).
+    orientation : str, optional
+        ``"y"`` smooths x along y; not supported yet (ggrust warns).
+    method : {"lm", "loess", "lowess"}, default="lm"
+        Fitting method: least squares (``"lm"``) or local regression (``"loess"``,
+        ``"lowess"``).
+    n : int, default=80
+        Number of points the curve is evaluated at.
+    se : bool, default=True
+        False leaves out the confidence band.
+    level : float, default=0.95
+        Confidence level of the band, in [0.01, 0.99].
+    span : float, default=0.5
+        Share of the points each loess fit uses, in (0, 1].
+    deg : int, default=1
+        Degree of the ``"lm"`` polynomial; 2 or more fits a polynomial.
+    seed : int, default=37
+        Seed of the row sampling for loess on more than ``max_n`` rows.
+    max_n : int, default=1000
+        Loess fits a random sample of this many rows per group when it has more.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Constant aesthetics such as ``color="red"`` or ``fill="steelblue"``, as in lets_plot.
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> frame = {"hours": [1, 2, 3, 4, 5, 6], "score": [52, 55, 61, 64, 70, 71]}
+    >>> plot = ggplot(frame, aes("hours", "score")) + geom_point() + geom_smooth()
+    """
+    return _geom(
+        "smooth",
+        mapping=mapping,
+        data=data,
+        stat=stat,
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        manual_key=manual_key,
+        sampling=sampling,
+        tooltips=tooltips,
+        labels=labels,
+        orientation=orientation,
+        method=method,
+        n=n,
+        se=se,
+        level=level,
+        span=span,
+        deg=deg,
+        seed=seed,
+        max_n=max_n,
         color_by=color_by,
         fill_by=fill_by,
         na_rm=na_rm,

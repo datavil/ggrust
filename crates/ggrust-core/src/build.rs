@@ -29,6 +29,7 @@ use crate::layout::{
 use crate::parallel;
 use crate::parameters::Parameters;
 use crate::position::{self, Position};
+use crate::scale::datetime::TemporalKind;
 use crate::scale::format::Label;
 use crate::scale::number_format::{ExponentStyle, NumberFormat};
 use crate::scale::style::spec::{StyleScaleSpec, style_scale_specs};
@@ -1205,6 +1206,7 @@ fn split_layer<'a>(layer: &MappedLayer<'a>, rows: &[u32]) -> MappedLayer<'a> {
             .map(|(aesthetic, column, path)| (*aesthetic, column.take(rows), path.clone()))
             .collect(),
         stat_mappings: layer.stat_mappings.clone(),
+        temporal: layer.temporal.clone(),
         group_index,
         group_rank,
         facet_columns: Vec::new(),
@@ -1507,6 +1509,7 @@ fn map_layer_into<'a>(
     };
     let mut columns = Vec::new();
     let mut stat_mappings = Vec::new();
+    let mut temporal = Vec::new();
     // Discrete non-positional columns, the default grouping (lets-plot
     // `defaultGroupingVariables`), by column name.
     let mut default_grouping: Vec<(&str, Column)> = Vec::new();
@@ -1567,6 +1570,12 @@ fn map_layer_into<'a>(
             && !default_grouping.iter().any(|(seen, _)| seen == name)
         {
             default_grouping.push((name, column.clone()));
+        }
+        if (aesthetic.is_x_position() || aesthetic.is_y_position())
+            && matches!(column, Column::Continuous(_))
+            && let Some(kind) = temporal_kind(plot, spec, name, &mapping_path, warnings)
+        {
+            temporal.push((*aesthetic, kind));
         }
         columns.push((*aesthetic, column, mapping_path));
     }
@@ -1653,6 +1662,7 @@ fn map_layer_into<'a>(
         row_count: if unbound { 1 } else { frames.row_count() },
         columns,
         stat_mappings,
+        temporal,
         group_index,
         group_rank: None,
         facet_columns,
@@ -1676,6 +1686,9 @@ struct MappedLayer<'a> {
     columns: Vec<(Aesthetic, Column, String)>,
     /// Aesthetics mapped to stat variables (`..count..`), with mapping paths.
     stat_mappings: Vec<(Aesthetic, Computed, String)>,
+    /// Position aesthetics mapped to date-time columns (series type `datetime`,
+    /// `date` or `time`): their axes get date-time breaks.
+    temporal: Vec<(Aesthetic, TemporalKind)>,
     group_index: Option<Vec<u32>>,
     /// A facet panel's groups: each group's rank in the whole layer (see
     /// [`split_layer`]); `None` without facets.
@@ -1705,7 +1718,13 @@ fn axis_scale(
     };
     let discrete = spec.requests_discrete()
         || axis_columns().any(|(_, column, _)| matches!(column, Column::Discrete(_)));
-    let mut scale = spec.build(discrete, warnings)?;
+    // lets-plot gives an axis of date-time columns a date-time scale.
+    let column_kind = layers
+        .iter()
+        .flat_map(|layer| &layer.temporal)
+        .find(|(aesthetic, _)| on_axis(*aesthetic))
+        .map(|(_, kind)| *kind);
+    let mut scale = spec.build_with(discrete, column_kind, warnings)?;
     if let PositionScale::Discrete(discrete) = &mut scale {
         for (_, column, _) in axis_columns() {
             if let Column::Discrete(column) = column {
@@ -2035,6 +2054,37 @@ fn discrete_annotation<'a>(
 
 /// Factor levels of a column (`as_discrete(levels=...)`, ordered categoricals):
 /// the layer's annotation, else the plot's.
+/// The date-time kind of a column from its series annotation; a time zone
+/// other than UTC is reported (labels show UTC).
+fn temporal_kind(
+    plot: &PlotSpec,
+    layer: &LayerSpec,
+    column: &str,
+    mapping_path: &str,
+    warnings: &mut Vec<String>,
+) -> Option<TemporalKind> {
+    let annotation = [&layer.data_meta, &plot.data_meta]
+        .into_iter()
+        .flat_map(|meta| meta.series_annotations.iter())
+        .find(|annotation| annotation.column == column && annotation.series_type.is_some())?;
+    let kind = match annotation.series_type.as_deref()? {
+        "datetime" => TemporalKind::DateTime,
+        "date" => TemporalKind::Date,
+        "time" => TemporalKind::TimeOfDay,
+        _ => return None,
+    };
+    if let Some(zone) = &annotation.time_zone
+        && !matches!(zone.as_str(), "UTC" | "Etc/UTC" | "GMT" | "Z")
+    {
+        warnings.push(format!(
+            "at '{mapping_path}': column '{column}' is in time zone '{zone}'; ggrust labels \
+             date-times in UTC (convert the column to UTC, or drop its time zone to label \
+             wall-clock times)"
+        ));
+    }
+    Some(kind)
+}
+
 fn factor_levels<'a>(
     plot: &'a PlotSpec,
     layer: &'a LayerSpec,
@@ -3035,6 +3085,15 @@ fn resolve_styles(
             (Some(column), Some(scale)) => scale
                 .map(column)
                 .map_err(|message| Error::spec(format!("{path}.mapping.{aesthetic}"), message))?,
+            // Line coefficients are drawn as they are (lets-plot has no scale for them).
+            (Some(Column::Continuous(column)), None)
+                if matches!(aesthetic, Aesthetic::Intercept | Aesthetic::Slope) =>
+            {
+                let values = (0..column.len())
+                    .map(|row| column.get(row).unwrap_or(f64::NAN))
+                    .collect();
+                StyleValues::Numbers(PerItem::Varying(values))
+            }
             _ => {
                 // Only mappings that reached the data; skipped ones were reported already.
                 if mapped.is_some() {

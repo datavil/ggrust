@@ -112,9 +112,9 @@ def test_all_null_column_is_continuous():
 
 
 def test_unsupported_column_type_names_column():
-    frame = pl.DataFrame({"when": pl.Series([0], dtype=pl.Datetime)})
+    frame = pl.DataFrame({"when": pl.Series([[0]], dtype=pl.List(pl.Int64))})
     error = describe(frame)["when"]["error"]
-    assert error.startswith("column 'when' has unsupported type Timestamp")
+    assert error.startswith("column 'when' has unsupported type LargeList")
 
 
 def test_unsupported_input_type():

@@ -36,10 +36,12 @@ pub enum Computed {
     Quantile,
     /// `..height..`: ridge height, density scaled to the layer's largest.
     Height,
+    /// `..se..`: standard error of a smooth's fitted value.
+    Se,
 }
 
 impl Computed {
-    const ALL: [(Computed, &'static str); 13] = [
+    const ALL: [(Computed, &'static str); 14] = [
         (Computed::Count, "count"),
         (Computed::Density, "density"),
         (Computed::NormalizedCount, "ncount"),
@@ -53,6 +55,7 @@ impl Computed {
         (Computed::ViolinWidth, "violinwidth"),
         (Computed::Quantile, "quantile"),
         (Computed::Height, "height"),
+        (Computed::Se, "se"),
     ];
 
     /// lets-plot name without dots, e.g. `count`.

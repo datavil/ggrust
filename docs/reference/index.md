@@ -37,7 +37,9 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_segment()`](api/geom_segment.md) | Line segments from (x, y) to (xend, yend), optionally with arrows. |
 | [`geom_hline()`](api/geom_hline.md) | Horizontal reference lines at ``yintercept``. |
 | [`geom_vline()`](api/geom_vline.md) | Vertical reference lines at ``xintercept``. |
+| [`geom_abline()`](api/geom_abline.md) | Straight reference lines ``y = intercept + slope * x`` across the panel. |
 | [`geom_function()`](api/geom_function.md) | Evaluate ``fun`` at x values and draw the result. |
+| [`geom_smooth()`](api/geom_smooth.md) | Draw a fitted curve with a confidence band (``stat="smooth"``), one per group. |
 | [`geom_area()`](api/geom_area.md) | Fill the area under a line, stacked by default (``position="stack"``). |
 | [`geom_ribbon()`](api/geom_ribbon.md) | Fill the band between ymin and ymax along x. |
 | [`geom_area_ridges()`](api/geom_area_ridges.md) | Ridgeline plot: one density curve per y level. Not drawn yet. |
@@ -47,6 +49,7 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_histogram()`](api/geom_histogram.md) | Histogram of binned x values (``stat="bin"``), stacked. |
 | [`geom_boxplot()`](api/geom_boxplot.md) | Box and whiskers plot, dodged by group. |
 | [`geom_violin()`](api/geom_violin.md) | Violin plot: mirrored kernel density per x (``stat="ydensity"``). Not drawn yet. |
+| [`geom_density()`](api/geom_density.md) | Kernel density estimate of ``x``, drawn as a filled area (``stat="density"``). |
 | [`geom_errorbar()`](api/geom_errorbar.md) | Error bars from ymin to ymax at x, with fences ``width`` wide (default 0.45). |
 | [`geom_crossbar()`](api/geom_crossbar.md) | Boxes from ymin to ymax at x with a midline at y, dodged by group. |
 | [`geom_linerange()`](api/geom_linerange.md) | Draw a vertical line from ymin to ymax at x. |
@@ -93,6 +96,10 @@ Axes: breaks, labels, limits and transforms.
 | [`scale_y_log2()`](api/scale_y_log2.md) | Continuous position scale y with the 'log2' transformation. See ``scale_y_continuous``. |
 | [`scale_x_reverse()`](api/scale_x_reverse.md) | Continuous position scale x with the 'reverse' transformation. See ``scale_x_continuous``. |
 | [`scale_y_reverse()`](api/scale_y_reverse.md) | Continuous position scale y with the 'reverse' transformation. See ``scale_y_continuous``. |
+| [`scale_x_datetime()`](api/scale_x_datetime.md) | Date-time position scale x. |
+| [`scale_y_datetime()`](api/scale_y_datetime.md) | Date-time position scale y. See ``scale_x_datetime``. |
+| [`scale_x_time()`](api/scale_x_time.md) | Duration position scale x. |
+| [`scale_y_time()`](api/scale_y_time.md) | Duration position scale y. See ``scale_x_time``. |
 | [`lims()`](api/lims.md) | Limits for both axes: ``xlim(*x) + ylim(*y)``. |
 | [`xlim()`](api/xlim.md) | Limits of the x axis, e.g. ``xlim(0, 10)``, ``xlim(None, 10)`` or ``xlim("B", "T")``. |
 | [`ylim()`](api/ylim.md) | Limits of the y axis. See ``xlim``. |

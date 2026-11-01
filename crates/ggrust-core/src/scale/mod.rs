@@ -5,6 +5,7 @@
 
 pub mod breaks;
 mod continuous;
+pub mod datetime;
 mod discrete;
 pub mod format;
 pub mod label_pattern;

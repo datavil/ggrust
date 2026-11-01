@@ -37,7 +37,7 @@ pub enum Error {
     },
     /// A column has an Arrow type ggrust cannot plot.
     #[error(
-        "{}column '{name}' has unsupported type {data_type}; expected numbers, strings, booleans or categoricals; convert the column first (e.g. a date to a number or a string){notes}",
+        "{}column '{name}' has unsupported type {data_type}; expected numbers, strings, booleans, categoricals, dates, times or durations; convert the column first (e.g. a list to a string){notes}",
         prefix(path)
     )]
     UnsupportedColumnType {

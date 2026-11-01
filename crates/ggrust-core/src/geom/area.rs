@@ -1,5 +1,5 @@
-//! `geom_area` and `geom_ribbon`: filled bands along x, as lets-plot's
-//! `AreaGeom` and `RibbonGeom`.
+//! `geom_area`, `geom_density` and `geom_ribbon`: filled bands along x, as
+//! lets-plot's `AreaGeom`, `DensityGeom` and `RibbonGeom`.
 //!
 //! Rows sort by x within a group (stable) and split where a bound is missing;
 //! single-row pieces are dropped. Each band is filled from its first row (`alpha`
@@ -8,18 +8,22 @@
 //!
 //! - Area: from `y` down to `ymin`, which setup sets to 0 so `position="stack"`
 //!   (the default) lifts it to the stack below. Groups are drawn last group first,
-//!   each as its bands then its top lines. The y axis includes 0.
+//!   each as its bands then its top lines. With a `quantile` column (from
+//!   `stat="density"`) a group whose fill varies splits into its quantile bands,
+//!   so `fill="..quantile.."` colors each band (one fill: drawn whole, no seams); `quantile_lines` draws a line from
+//!   the top to the base at each quantile. The y axis includes 0.
+//! - Density: an area with `stat="density"` and `position="identity"`.
 //! - Ribbon: from `ymin` to `ymax`. All bands first, then all `ymax` lines, then
 //!   all `ymin` lines.
 //!
 //! What it does not do (yet): split the fill where a mapped fill varies within a
-//! group (lets-plot does; ggrust fills from the first row), quantile bands and lines (`stat_density`, 8.8),
-//! resampling in non-linear coordinates, `flat`, horizontal ribbons.
+//! group (lets-plot does; ggrust fills from the first row), resampling in non-linear coordinates, `flat`, horizontal ribbons.
 
 use super::area_ridges::STYLE_DEFAULTS;
 use super::bar::{draw_key, key_size};
 use super::hover::VertexBuilder;
 use super::lines;
+use super::quantiles::{quantile_line_rows, split_by_band};
 use super::{DrawLayer, Geom};
 use crate::Result;
 use crate::coord::Panel;
@@ -28,6 +32,7 @@ use crate::parameters::Parameters;
 use crate::position::DefaultPosition;
 use crate::scene::{Node, Path, Rect};
 use crate::spec::Aesthetic;
+use crate::stat::ydensity_quantiles;
 use crate::style::{StyleDefault, Styles};
 use crate::tooltip::{HoverTargets, TooltipBehavior};
 
@@ -36,6 +41,10 @@ pub struct AreaGeom;
 
 /// Bands between two lines.
 pub struct RibbonGeom;
+
+/// Kernel density areas (`geom_density`: an area with `stat="density"` and
+/// `position="identity"`).
+pub struct DensityGeom;
 
 impl Geom for AreaGeom {
     fn name(&self) -> &'static str {
@@ -71,26 +80,12 @@ impl Geom for AreaGeom {
         Ok(data)
     }
 
+    fn parameters(&self) -> &'static [&'static str] {
+        &["quantile_lines", "quantiles"]
+    }
+
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
-        let (Some(x), Some(top), Some(base)) = (
-            layer.data.continuous(Aesthetic::X),
-            layer.data.continuous(Aesthetic::Y),
-            layer.data.continuous(Aesthetic::Ymin),
-        ) else {
-            return Ok(Vec::new());
-        };
-        let mut nodes = Vec::new();
-        // lets-plot `sortedByDescending(group)`.
-        for rows in sorted_groups(layer, x).into_iter().rev() {
-            let pieces = pieces(&rows, |row| finite(top, row) && finite(base, row));
-            for piece in &pieces {
-                nodes.push(band(layer, panel, piece, x, top, base)?);
-            }
-            for piece in &pieces {
-                nodes.extend(edge(layer, panel, piece, x, top)?);
-            }
-        }
-        Ok(nodes)
+        draw_areas(layer, panel)
     }
 
     /// lets-plot `xUnivariateFunction(HOVER)` over the top line.
@@ -136,7 +131,7 @@ impl Geom for RibbonGeom {
         let mut nodes = Vec::new();
         for rows in &groups {
             for piece in pieces(rows, |row| finite(low, row) && finite(high, row)) {
-                nodes.push(band(layer, panel, &piece, x, high, low)?);
+                nodes.push(band_node(layer, panel, &piece, x, high, low)?);
             }
         }
         // Each edge splits on its own bound only (lets-plot `TO_LOCATION_X_YMAX`).
@@ -190,12 +185,139 @@ impl Geom for RibbonGeom {
     }
 }
 
-fn finite(column: &ContinuousColumn, row: usize) -> bool {
+impl Geom for DensityGeom {
+    fn name(&self) -> &'static str {
+        "density"
+    }
+
+    fn default_stat(&self) -> &'static str {
+        "density"
+    }
+
+    fn required_aesthetics(&self) -> &'static [Aesthetic] {
+        &[Aesthetic::X, Aesthetic::Y]
+    }
+
+    fn style_defaults(&self) -> &'static [(Aesthetic, StyleDefault)] {
+        STYLE_DEFAULTS
+    }
+
+    fn parameters(&self) -> &'static [&'static str] {
+        &["quantile_lines", "quantiles"]
+    }
+
+    fn includes_zero_y(&self) -> bool {
+        true
+    }
+
+    fn setup_aesthetics(&self) -> &'static [Aesthetic] {
+        AreaGeom.setup_aesthetics()
+    }
+
+    fn setup(&self, data: LayerData, parameters: &Parameters) -> Result<LayerData> {
+        AreaGeom.setup(data, parameters)
+    }
+
+    fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
+        draw_areas(layer, panel)
+    }
+
+    fn tooltip_behavior(&self) -> TooltipBehavior {
+        AreaGeom.tooltip_behavior()
+    }
+
+    fn hover_targets(&self, layer: &DrawLayer, panel: &Panel) -> Result<Option<HoverTargets>> {
+        AreaGeom.hover_targets(layer, panel)
+    }
+
+    fn minimum_key_size(&self, styles: &Styles) -> Result<(f64, f64)> {
+        key_size(styles)
+    }
+
+    fn draw_key(&self, styles: &Styles, cell: Rect) -> Result<Vec<Node>> {
+        draw_key(styles, cell)
+    }
+}
+
+/// Areas of every group, last group first (lets-plot `sortedByDescending(group)`).
+/// A group splits into its quantile bands (lets-plot `splitByQuantiles`), each
+/// drawn as its bands then its top lines; `quantile_lines` then drops a line
+/// from the top to the base at each quantile.
+fn draw_areas(layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
+    let (Some(x), Some(top), Some(base)) = (
+        layer.data.continuous(Aesthetic::X),
+        layer.data.continuous(Aesthetic::Y),
+        layer.data.continuous(Aesthetic::Ymin),
+    ) else {
+        return Ok(Vec::new());
+    };
+    let quantile_lines = layer.parameters.boolean("quantile_lines")?.unwrap_or(false);
+    let quantiles = ydensity_quantiles(&layer.parameters)?;
+    let band = layer.data.continuous(Aesthetic::Quantile);
+    let band_of = |row: usize| band.and_then(|band| band.get(row)).unwrap_or(f64::NAN);
+    let mut nodes = Vec::new();
+    for rows in sorted_groups(layer, x).into_iter().rev() {
+        // Bands with one fill are drawn whole: adjacent pieces leave
+        // anti-aliasing seams (lets-plot #985).
+        let runs = match band.is_some() && !same_fill(layer, &rows)? {
+            true => split_by_band(&rows, band_of, x),
+            false => vec![rows.clone()],
+        };
+        for run in &runs {
+            let pieces = pieces(run, |row| finite(top, row) && finite(base, row));
+            for piece in &pieces {
+                nodes.push(band_node(layer, panel, piece, x, top, base)?);
+            }
+            for piece in &pieces {
+                nodes.extend(edge(layer, panel, piece, x, top)?);
+            }
+        }
+        if quantile_lines && band.is_some() {
+            for row in quantile_line_rows(&rows, band_of, x, &quantiles) {
+                let (Some(value_x), Some(value_top), Some(value_base)) =
+                    (x.get(row), top.get(row), base.get(row))
+                else {
+                    continue;
+                };
+                let Some(stroke) = lines::stroke_with_alpha(layer.styles, row, false)? else {
+                    continue;
+                };
+                nodes.push(Node::Path(Path {
+                    points: vec![
+                        panel.map(value_x, value_top),
+                        panel.map(value_x, value_base),
+                    ],
+                    closed: false,
+                    fill: None,
+                    stroke: Some(stroke),
+                }));
+            }
+        }
+    }
+    Ok(nodes)
+}
+
+/// Whether every row has the fill and alpha of the first.
+fn same_fill(layer: &DrawLayer, rows: &[usize]) -> Result<bool> {
+    let (fill, alpha) = (
+        layer.styles.colors(Aesthetic::Fill)?,
+        layer.styles.numbers(Aesthetic::Alpha)?,
+    );
+    let Some(&first) = rows.first() else {
+        return Ok(true);
+    };
+    let alpha_of = |row: usize| alpha.get(row).to_bits();
+    Ok(rows
+        .iter()
+        .all(|&row| fill.get(row) == fill.get(first) && alpha_of(row) == alpha_of(first)))
+}
+
+pub(super) fn finite(column: &ContinuousColumn, row: usize) -> bool {
     column.get(row).is_some_and(f64::is_finite)
 }
 
 /// Rows with a finite x per group, in group order, each sorted by x (stable).
-fn sorted_groups(layer: &DrawLayer, x: &ContinuousColumn) -> Vec<Vec<usize>> {
+pub(super) fn sorted_groups(layer: &DrawLayer, x: &ContinuousColumn) -> Vec<Vec<usize>> {
     let mut groups: Vec<Vec<usize>> = Vec::new();
     for row in 0..layer.data.row_count() {
         if !finite(x, row) {
@@ -220,7 +342,7 @@ fn sorted_groups(layer: &DrawLayer, x: &ContinuousColumn) -> Vec<Vec<usize>> {
 
 /// Runs of rows where `valid` holds, of at least two rows (lets-plot
 /// `splitByNull`, then single points dropped).
-fn pieces(rows: &[usize], valid: impl Fn(usize) -> bool) -> Vec<Vec<usize>> {
+pub(super) fn pieces(rows: &[usize], valid: impl Fn(usize) -> bool) -> Vec<Vec<usize>> {
     rows.split(|&row| !valid(row))
         .filter(|run| run.len() >= 2)
         .map(<[usize]>::to_vec)
@@ -228,7 +350,7 @@ fn pieces(rows: &[usize], valid: impl Fn(usize) -> bool) -> Vec<Vec<usize>> {
 }
 
 /// The filled band of `piece`: `upper` forward, `lower` back.
-fn band(
+pub(super) fn band_node(
     layer: &DrawLayer,
     panel: &Panel,
     piece: &[usize],
@@ -258,7 +380,7 @@ fn band(
 
 /// The edge line of `piece` along `bound`, without `alpha` (lets-plot
 /// `setAlphaEnabled(false)`), split where the stroke style changes.
-fn edge(
+pub(super) fn edge(
     layer: &DrawLayer,
     panel: &Panel,
     piece: &[usize],

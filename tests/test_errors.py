@@ -1,6 +1,5 @@
 """Errors are part of the API: typed classes, structured attributes, helpful messages."""
 
-import datetime
 import io
 import re
 
@@ -145,12 +144,12 @@ def test_missing_layer_column_names_the_layer_mapping() -> None:
 
 
 def test_unsupported_column_type_says_how_to_fix_it() -> None:
-    frame = FRAME.with_columns(day=pl.lit(datetime.date(2020, 1, 1)))
+    frame = FRAME.with_columns(day=pl.lit([1, 2]))
     plot = gg.ggplot(frame, gg.aes("day", "sepal_width")) + gg.geom_point()
     with pytest.raises(UnsupportedColumnTypeError) as caught:
         plot.to_svg()
     error = caught.value
-    assert (error.column, error.data_type, error.path) == ("day", "Date32", "mapping.x")
+    assert (error.column, error.data_type, error.path) == ("day", "LargeList(Int64)", "mapping.x")
     assert "convert the column first" in str(error)
 
 

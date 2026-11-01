@@ -57,6 +57,8 @@ impl Column {
     ///   order, dropping levels that no row uses (as lets-plot does for factor levels)
     /// - booleans become the levels `"true"`/`"false"` in order of first appearance
     /// - an all-null column becomes an all-missing continuous column
+    /// - timestamps, dates, times of day and durations become milliseconds (since
+    ///   the Unix epoch, midnight or zero), as lets-plot receives them
     pub(super) fn from_arrow(name: &str, array: &ArrayRef) -> Result<Self> {
         let discrete = |column: DiscreteColumn| Ok(Column::Discrete(column));
         match array.data_type() {
@@ -66,6 +68,9 @@ impl Column {
             DataType::Null => Ok(Column::Continuous(ContinuousColumn {
                 values: Float64Array::new_null(array.len()),
             })),
+            data_type if data_type.is_temporal() || matches!(data_type, DataType::Duration(_)) => {
+                Ok(Column::Continuous(temporal_milliseconds(name, array)?))
+            }
             data_type if data_type.is_numeric() => {
                 let values = cast(name, array, &DataType::Float64)?;
                 Ok(Column::Continuous(ContinuousColumn {
@@ -397,6 +402,38 @@ impl DiscreteColumn {
             codes,
         })
     }
+}
+
+/// Milliseconds of a timestamp, date, time or duration array.
+fn temporal_milliseconds(name: &str, array: &ArrayRef) -> Result<ContinuousColumn> {
+    use arrow_schema::TimeUnit;
+    let unit = match array.data_type() {
+        DataType::Timestamp(unit, _)
+        | DataType::Time32(unit)
+        | DataType::Time64(unit)
+        | DataType::Duration(unit) => *unit,
+        DataType::Date64 => TimeUnit::Millisecond,
+        // Days.
+        DataType::Date32 => {
+            let days = cast(name, array, &DataType::Int32)?;
+            let days = days.as_primitive::<arrow_array::types::Int32Type>();
+            return Ok(ContinuousColumn {
+                values: days.unary(|day| f64::from(day) * 86_400_000.0),
+            });
+        }
+        other => return Err(unsupported(name, other)),
+    };
+    let per_millisecond = match unit {
+        TimeUnit::Second => 1e-3,
+        TimeUnit::Millisecond => 1.0,
+        TimeUnit::Microsecond => 1e3,
+        TimeUnit::Nanosecond => 1e6,
+    };
+    let ticks = cast(name, array, &DataType::Int64)?;
+    let ticks = ticks.as_primitive::<arrow_array::types::Int64Type>();
+    Ok(ContinuousColumn {
+        values: ticks.unary(|tick| tick as f64 / per_millisecond),
+    })
 }
 
 fn is_label_type(data_type: &DataType) -> bool {

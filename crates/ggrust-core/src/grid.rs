@@ -429,7 +429,9 @@ impl<'s> PreparedGrid<'s> {
                 shrink_to_aspect(cell, element.own_size())
             };
             placed.push(Some(match element {
-                Element::Plot(plot) => Placed::Plot(plot, Box::new(plot.arrange(cell)?)),
+                Element::Plot(plot) => {
+                    Placed::Plot(plot, Box::new(plot.arrange(cell, CELL_PANEL_MIN_SIZE)?))
+                }
                 Element::Grid(grid) => Placed::Grid(grid, cell),
             }));
         }
@@ -591,7 +593,7 @@ fn align(placed: &mut [Option<Placed>], columns: usize, rows: usize) -> Result<(
             width: right - left,
             height: bottom - top,
         };
-        **arrangement = plot.arrange_panel(arrangement.area(), target)?;
+        **arrangement = plot.arrange_panel(arrangement.area(), target, CELL_PANEL_MIN_SIZE)?;
     }
     Ok(())
 }
@@ -661,6 +663,11 @@ fn group_legends(collected: Vec<Collected>) -> Vec<Collected> {
     }
     groups
 }
+
+/// Smallest panel of a plot in a grid cell. A ggrust deviation, as ggplot2 (patchwork):
+/// panels shrink to what the cell leaves, so thin cells (annotation tracks) stay inside
+/// them; lets-plot keeps its 50 px `GEOM_MIN_SIZE` and the panel runs past the cell.
+const CELL_PANEL_MIN_SIZE: f64 = 1.0;
 
 /// Container theme options a figure with its own theme options still takes (lets-plot
 /// `ThemeConfig.mergeUserOptions`).

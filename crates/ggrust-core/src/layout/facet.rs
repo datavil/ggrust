@@ -80,8 +80,9 @@ pub fn layout_facets(
     grid: &FacetGrid,
     legend_space: Margins,
     aspect: Option<f64>,
+    panel_min_size: f64,
 ) -> FacetLayout {
-    let layout = layout_grid(area, theme, titles, grid, legend_space);
+    let layout = layout_grid(area, theme, titles, grid, legend_space, panel_min_size);
     let (Some(ratio), Some(first), Some(tile)) = (
         aspect.filter(|ratio| ratio.is_finite() && *ratio > 0.0),
         grid.panels.first(),
@@ -115,7 +116,7 @@ pub fn layout_facets(
         }
     };
     let mut relaid = if shrunk.width > 0.0 && shrunk.height > 0.0 && shrunk != area {
-        layout_grid(shrunk, theme, titles, grid, legend_space)
+        layout_grid(shrunk, theme, titles, grid, legend_space, panel_min_size)
     } else {
         layout
     };
@@ -134,6 +135,7 @@ fn layout_grid(
     titles: &Titles,
     grid: &FacetGrid,
     legend_space: Margins,
+    panel_min_size: f64,
 ) -> FacetLayout {
     let inset = theme.plot_inset;
     let content = shrink(area, theme.plot_margin);
@@ -201,7 +203,7 @@ fn layout_grid(
             - row_bands.iter().sum::<f64>()
             - (rows - 1) as f64 * spacing_y)
             / rows as f64;
-        let panel_height = panel_height.max(PANEL_MIN_SIZE);
+        let panel_height = panel_height.max(panel_min_size);
         let y_breaks = per_panel(grid, grid.shared_y, |panel| {
             choose_breaks(
                 panel.y_scale,
@@ -229,7 +231,7 @@ fn layout_grid(
         let panel_width =
             ((right - left) - column_widths.iter().sum::<f64>() - (columns - 1) as f64 * spacing_x)
                 / columns as f64;
-        let panel_width = panel_width.max(PANEL_MIN_SIZE);
+        let panel_width = panel_width.max(panel_min_size);
         let x_breaks = match kept_x.take() {
             Some(breaks) => breaks,
             None => per_panel(grid, grid.shared_x, |panel| {
@@ -496,6 +498,7 @@ mod tests {
             &grid,
             Margins::uniform(0.0),
             None,
+            PANEL_MIN_SIZE,
         );
         let rects: Vec<Rect> = layout.tiles.iter().map(|tile| tile.layout.panel).collect();
         for rect in &rects {
@@ -536,6 +539,7 @@ mod tests {
             &grid,
             Margins::uniform(0.0),
             None,
+            PANEL_MIN_SIZE,
         );
         let rects: Vec<Rect> = layout.tiles.iter().map(|tile| tile.layout.panel).collect();
         // Column 1 holds the long labels of panel b: both its panels move right.
@@ -561,6 +565,7 @@ mod tests {
             &grid,
             Margins::uniform(0.0),
             Some(1.0),
+            PANEL_MIN_SIZE,
         );
         for tile in &layout.tiles {
             let panel = tile.layout.panel;
@@ -578,7 +583,15 @@ mod tests {
         };
         let grid = panels(&scales, &labels, 1, 1, false);
         let space = legend_space(&theme, (50.0, 20.0));
-        let layout = layout_facets(area(), &theme, &Titles::default(), &grid, space, None);
+        let layout = layout_facets(
+            area(),
+            &theme,
+            &Titles::default(),
+            &grid,
+            space,
+            None,
+            PANEL_MIN_SIZE,
+        );
         let (_, legend_y) = legend_origin(&layout.plot, &theme, &Titles::default(), (50.0, 20.0));
         let strip_top = layout.plot.panel.y - strips_height(&theme, 1);
         assert!(
@@ -600,6 +613,7 @@ mod tests {
             &grid,
             Margins::uniform(0.0),
             None,
+            PANEL_MIN_SIZE,
         );
         let tile = &layout.tiles[0];
         let nodes = draw_strips(tile, &theme);

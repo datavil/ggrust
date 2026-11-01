@@ -94,6 +94,7 @@ pub struct PlotLayout {
 /// height, then x axis for the resulting width; if the x labels need a thicker band
 /// (tilted, two rows), the y axis is laid out again for the shorter panel while the
 /// x breaks and their arrangement are kept.
+#[allow(clippy::too_many_arguments)]
 pub fn layout_plot(
     area: Rect,
     theme: &Theme,
@@ -102,8 +103,17 @@ pub fn layout_plot(
     y_scale: &PositionScale,
     legend_space: Margins,
     aspect: Option<f64>,
+    panel_min_size: f64,
 ) -> PlotLayout {
-    let layout = layout_free(area, theme, titles, x_scale, y_scale, legend_space);
+    let layout = layout_free(
+        area,
+        theme,
+        titles,
+        x_scale,
+        y_scale,
+        legend_space,
+        panel_min_size,
+    );
     let Some(ratio) = aspect.filter(|ratio| ratio.is_finite() && *ratio > 0.0) else {
         return layout;
     };
@@ -131,7 +141,15 @@ pub fn layout_plot(
         }
     };
     let relaid = if shrunk.width > 0.0 && shrunk.height > 0.0 && shrunk != area {
-        layout_free(shrunk, theme, titles, x_scale, y_scale, legend_space)
+        layout_free(
+            shrunk,
+            theme,
+            titles,
+            x_scale,
+            y_scale,
+            legend_space,
+            panel_min_size,
+        )
     } else {
         layout
     };
@@ -166,6 +184,7 @@ fn layout_free(
     x_scale: &PositionScale,
     y_scale: &PositionScale,
     legend_space: Margins,
+    panel_min_size: f64,
 ) -> PlotLayout {
     let simple = theme.axis_text_x.map_or(0.0, text_band);
     let first = layout_with(
@@ -176,6 +195,7 @@ fn layout_free(
         legend_space,
         simple,
         None,
+        panel_min_size,
     );
     let needed = x_labels_height(&first.x_breaks, theme);
     if needed <= simple {
@@ -192,10 +212,12 @@ fn layout_free(
         legend_space,
         needed,
         Some(x_breaks),
+        panel_min_size,
     )
 }
 
 /// One layout pass with an x label band `labels_height` px tall.
+#[allow(clippy::too_many_arguments)]
 fn layout_with(
     area: Rect,
     theme: &Theme,
@@ -204,6 +226,7 @@ fn layout_with(
     legend_space: Margins,
     labels_height: f64,
     x_breaks: Option<AxisBreaks>,
+    panel_min_size: f64,
 ) -> PlotLayout {
     let inset = theme.plot_inset;
     let content = shrink(area, theme.plot_margin);
@@ -215,7 +238,7 @@ fn layout_with(
         - axis_title_band(theme.axis_title_x, &titles.x, 0.0, 0.0)
         - inset.bottom
         - x_axis_band;
-    let panel_height = (bottom - top).max(PANEL_MIN_SIZE);
+    let panel_height = (bottom - top).max(panel_min_size);
 
     let y_breaks = choose_breaks(
         y_scale,
@@ -243,7 +266,7 @@ fn layout_with(
         + inset.left
         + y_axis_width;
     let panel_width =
-        (content.x + content.width - legend_space.right - inset.right - left).max(PANEL_MIN_SIZE);
+        (content.x + content.width - legend_space.right - inset.right - left).max(panel_min_size);
 
     // lets-plot lets x labels reach over the y axis on the left (geom area insets).
     let x_breaks = x_breaks.unwrap_or_else(|| {
@@ -1251,6 +1274,7 @@ mod tests {
                 &scale,
                 Margins::uniform(0.0),
                 None,
+                PANEL_MIN_SIZE,
             )
         };
         let (origin, moved) = (at(0.0, 0.0), at(250.0, 40.0));

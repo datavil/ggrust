@@ -215,6 +215,36 @@ def test_aligned_panels_share_rows_and_columns_exactly(name):
         assert rects[first][2] == rects[second][2]
 
 
+def test_thin_cell_panel_stays_in_its_cell():
+    # A ggrust deviation (ggplot2/patchwork): grid panels may shrink below lets-plot's
+    # 50 px minimum, so a thin track neither runs into the next cell nor drags its
+    # axis title off its panel.
+    blank = gg.theme(axis_text=gg.element_blank(), axis_ticks=gg.element_blank())
+    track = (
+        gg.ggplot(DATA, gg.aes("x", "x"))
+        + gg.geom_point()
+        + blank
+        + gg.labs(y="track")
+        + gg.theme(axis_title_x=gg.element_blank(), axis_title_y=gg.element_text(angle=0))
+    )
+    main = gg.ggplot(DATA, gg.aes("x", "y")) + gg.geom_point() + blank
+    grid = gg.gggrid([track, main], ncol=1, heights=[0.1, 1], align=True) + gg.ggsize(600, 400)
+    svg = grid.to_svg()
+    panels = [
+        _attributes(match.group(1))
+        for match in re.finditer(r'<clipPath id="[^"]+"><rect ([^>]*)/></clipPath>', svg)
+    ]
+    track_panel, main_panel = (
+        tuple(float(panel[key]) for key in ("y", "height")) for panel in panels
+    )
+    assert track_panel[1] < 50
+    assert track_panel[0] + track_panel[1] < main_panel[0]
+    title = re.search(r'<text x="[^"]+" y="([^"]+)" font-size="([^"]+)"[^>]*>track</text>', svg)
+    # The baseline sits about a third of the font size below the centre.
+    centre = float(title.group(1)) - float(title.group(2)) / 3
+    assert centre == pytest.approx(track_panel[0] + track_panel[1] / 2, abs=2)
+
+
 def test_png_has_the_grid_size(tmp_path):
     path = gg.gggrid(_plots(gg), ncol=2, guides="collect").to_png(tmp_path / "grid.png", scale=1)
     with open(path, "rb") as file:

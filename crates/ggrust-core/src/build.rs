@@ -21,9 +21,10 @@ use crate::geom::{self, DrawLayer, Geom};
 use crate::layout::facet::{FacetGrid, FacetLayout, FacetPanel, draw_strips, layout_facets};
 use crate::layout::zoom::{Zoom, ZoomPlot, zoom_tile};
 use crate::layout::{
-    Colorbar, DEFAULT_BINS, KeyGrid, KeyLayer, Legend, LegendBox, LegendKey, PlotLayout, Titles,
-    draw_axes, draw_legends, draw_panel_background, draw_panel_border, draw_titles, layout_plot,
-    legend_budget, legend_origin, legend_space, measure_legends, wrap_headings,
+    Colorbar, DEFAULT_BINS, KeyGrid, KeyLayer, Legend, LegendBox, LegendKey, PANEL_MIN_SIZE,
+    PlotLayout, Titles, draw_axes, draw_legends, draw_panel_background, draw_panel_border,
+    draw_titles, layout_plot, legend_budget, legend_origin, legend_space, measure_legends,
+    wrap_headings,
 };
 use crate::parallel;
 use crate::parameters::Parameters;
@@ -121,7 +122,7 @@ pub fn build_plot_with(spec: &PlotSpec, data: &PlotData, interactive: bool) -> R
         width,
         height,
     };
-    let arrangement = plot.arrange(area)?;
+    let arrangement = plot.arrange(area, PANEL_MIN_SIZE)?;
     let nodes = plot.draw(&arrangement)?;
     let scene = Scene {
         width,
@@ -758,8 +759,9 @@ impl PreparedPlot {
         }
     }
 
-    /// Lay the plot out to fill `area`.
-    pub fn arrange(&self, area: Rect) -> Result<Arrangement> {
+    /// Lay the plot out to fill `area`, with panels at least `panel_min_size` px
+    /// across ([`PANEL_MIN_SIZE`] for a whole figure).
+    pub fn arrange(&self, area: Rect, panel_min_size: f64) -> Result<Arrangement> {
         let legend_space = self
             .legend_block(area)?
             .map_or(Margins::uniform(0.0), |block| {
@@ -777,6 +779,7 @@ impl PreparedPlot {
                     vertical,
                     legend_space,
                     self.aspect,
+                    panel_min_size,
                 ))
             }
             Some(facets) => Arranged::Facets(layout_facets(
@@ -786,6 +789,7 @@ impl PreparedPlot {
                 &self.facet_grid(facets),
                 legend_space,
                 self.aspect,
+                panel_min_size,
             )),
         };
         let layout = layout_with(&self.titles);
@@ -814,9 +818,14 @@ impl PreparedPlot {
     /// is moved and resized by the panel's distance from `target` until it fits
     /// (breaks, and so axis widths, change with the size); a single panel without a
     /// fixed aspect ratio then takes `target` exactly.
-    pub fn arrange_panel(&self, area: Rect, target: Rect) -> Result<Arrangement> {
+    pub fn arrange_panel(
+        &self,
+        area: Rect,
+        target: Rect,
+        panel_min_size: f64,
+    ) -> Result<Arrangement> {
         let mut area = area;
-        let mut arrangement = self.arrange(area)?;
+        let mut arrangement = self.arrange(area, panel_min_size)?;
         for _ in 0..ALIGN_PASSES {
             let panel = arrangement.panel_bounds();
             let left = target.x - panel.x;
@@ -839,7 +848,7 @@ impl PreparedPlot {
                 break;
             }
             area = moved;
-            arrangement = self.arrange(area)?;
+            arrangement = self.arrange(area, panel_min_size)?;
         }
         if self.aspect.is_none()
             && let Arranged::Single(layout) = &mut arrangement.layout

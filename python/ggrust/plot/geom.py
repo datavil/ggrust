@@ -1959,9 +1959,9 @@ def geom_smooth(
     """Draw a fitted curve with a confidence band (``stat="smooth"``), one per group.
 
     The computed variables are ``x``, ``y`` (the fitted value), ``ymin`` and ``ymax``
-    (the band) and ``..se..`` (the standard error). As lets_plot, the band uses the
-    straight-line standard error for every method, so polynomial and loess bands
-    differ from ggplot2's.
+    (the band) and ``..se..`` (the standard error). The band uses each model's own
+    standard error, as ggplot2 (lets_plot uses the straight-line one for every
+    method, so its polynomial and loess bands differ).
 
     Parameters
     ----------

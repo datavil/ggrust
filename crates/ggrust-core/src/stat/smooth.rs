@@ -10,10 +10,13 @@
 //! (80) evenly spaced x over the group's range; with `se` (the default) the band
 //! is `y -/+ t * se` at `level` (0.95).
 //!
-//! As lets-plot, `se` uses the straight-line formula `s * sqrt(1/n + (x - mean)^2
-//! / Sxx)` for every method, with `n - deg - 1` degrees of freedom (loess: `deg`
-//! 1). ggplot2 uses each model's own standard errors, so polynomial and loess
-//! bands differ from ggplot2.
+//! `se` is each model's own standard error, as ggplot2 (R's `predict(..., se =
+//! TRUE)`): lines and polynomials `s * sqrt(x0' (X'X)^-1 x0)` with `n - deg - 1`
+//! degrees of freedom; loess, a linear smoother `y_hat = L y`, `s * |l(x0)|` with
+//! `s^2 = RSS / delta1` and `delta1^2 / delta2` degrees of freedom (`delta1 =
+//! tr(M'M)`, `delta2 = tr((M'M)^2)`, `M = I - L`; above 500 points `delta1`).
+//! A recorded deviation: lets-plot uses the straight-line formula for every
+//! method, so its polynomial and loess bands differ.
 //!
 //! What it does not do: `glm`, `gam`, `rlm` (lets-plot neither), `orientation`.
 
@@ -243,14 +246,18 @@ fn smooth(
         .fold((f64::INFINITY, f64::NEG_INFINITY), |(low, high), &x| {
             (low.min(x), high.max(x))
         });
-    let evaluator = Evaluator::new(&fit, options.level);
     let step = (high - low) / (options.n - 1) as f64;
+    let points: Vec<f64> = (0..options.n)
+        .map(|index| low + index as f64 * step)
+        .collect();
+    let (errors, t_critical) = match options.se {
+        true => fit.standard_errors(&points, options.level),
+        false => (vec![f64::NAN; points.len()], f64::NAN),
+    };
     let mut curve = Curve::default();
-    for index in 0..options.n {
-        let at = low + index as f64 * step;
+    for (&at, se) in points.iter().zip(errors) {
         let value = fit.value(at.clamp(low, high));
-        let se = evaluator.se(at.clamp(low, high));
-        let half = evaluator.t_critical * se;
+        let half = t_critical * se;
         curve.x.push(at);
         curve.y.push(value);
         curve.low.push(value - half);
@@ -291,14 +298,20 @@ struct Fit {
     xs: Vec<f64>,
     ys: Vec<f64>,
     model: Model,
-    /// Degree used for the degrees of freedom (`n - degree - 1`).
-    degree: f64,
 }
 
 enum Model {
-    Line { slope: f64, intercept: f64 },
+    Line {
+        slope: f64,
+        intercept: f64,
+    },
     Orthogonal(OrthogonalPolynomial),
-    Spline(Spline),
+    /// The spline through the loess fit and the smoother matrix `L` (row-major,
+    /// fitted values `L y`).
+    Spline {
+        spline: Spline,
+        smoother: Vec<f64>,
+    },
 }
 
 impl Fit {
@@ -320,12 +333,7 @@ impl Fit {
             slope,
             intercept: mean_y - slope * mean_x,
         };
-        Some(Fit {
-            xs,
-            ys,
-            model,
-            degree: 1.0,
-        })
+        Some(Fit { xs, ys, model })
     }
 
     /// lets-plot `PolynomialRegression.fit`.
@@ -334,12 +342,7 @@ impl Fit {
             return None;
         }
         let model = Model::Orthogonal(OrthogonalPolynomial::fit(&xs, &ys, degree));
-        Some(Fit {
-            xs,
-            ys,
-            model,
-            degree: degree as f64,
-        })
+        Some(Fit { xs, ys, model })
     }
 
     /// lets-plot `LocalPolynomialRegression.fit`.
@@ -348,63 +351,133 @@ impl Fit {
         if n < 3 || span * (n as f64) < 2.0 {
             return None;
         }
-        let fitted = loess_smooth(&xs, &ys, span, 4);
-        let model = Model::Spline(Spline::natural(&xs, &fitted));
-        Some(Fit {
-            xs,
-            ys,
-            model,
-            degree: 1.0,
-        })
+        let (fitted, smoother) = loess_smooth(&xs, &ys, span, 4);
+        let model = Model::Spline {
+            spline: Spline::natural(&xs, &fitted),
+            smoother,
+        };
+        Some(Fit { xs, ys, model })
     }
 
     fn value(&self, x: f64) -> f64 {
         match &self.model {
             Model::Line { slope, intercept } => slope * x + intercept,
             Model::Orthogonal(polynomial) => polynomial.value(x),
-            Model::Spline(spline) => spline.value(x),
+            Model::Spline { spline, .. } => spline.value(x),
         }
     }
-}
 
-/// lets-plot `RegressionEvaluator`: the standard error of the mean at x.
-struct Evaluator {
-    n: f64,
-    mean_x: f64,
-    sum_xx: f64,
-    standard_error: f64,
-    t_critical: f64,
-}
-
-impl Evaluator {
-    fn new(fit: &Fit, level: f64) -> Self {
-        let n = fit.xs.len() as f64;
-        let mean_x = mean(&fit.xs);
-        let sum_xx = fit.xs.iter().map(|x| (x - mean_x).powi(2)).sum();
-        let freedom = n - fit.degree - 1.0;
-        let residuals: f64 = fit
+    /// Standard errors of the fitted mean at `points` (clamped to the data
+    /// range) and the two-sided t quantile at `level`.
+    fn standard_errors(&self, points: &[f64], level: f64) -> (Vec<f64>, f64) {
+        let n = self.xs.len();
+        let (low, high) = (
+            self.xs[0].min(self.xs[n - 1]),
+            self.xs[0].max(self.xs[n - 1]),
+        );
+        let (low, high) = self
             .xs
             .iter()
-            .zip(&fit.ys)
-            .map(|(&x, y)| (y - fit.value(x)).powi(2))
+            .fold((low, high), |(a, b), &x| (a.min(x), b.max(x)));
+        let points: Vec<f64> = points.iter().map(|x| x.clamp(low, high)).collect();
+        let residuals: f64 = self
+            .xs
+            .iter()
+            .zip(&self.ys)
+            .map(|(&x, y)| (y - self.value(x)).powi(2))
             .sum();
+        // Per point: the squared norm of the row that maps y to the fit there.
+        let (leverages, freedom, scale_freedom): (Vec<f64>, f64, f64) = match &self.model {
+            Model::Line { .. } => {
+                let mean_x = mean(&self.xs);
+                let sum_xx: f64 = self.xs.iter().map(|x| (x - mean_x).powi(2)).sum();
+                let leverages = points
+                    .iter()
+                    .map(|x| 1.0 / n as f64 + (x - mean_x).powi(2) / sum_xx)
+                    .collect();
+                let freedom = n as f64 - 2.0;
+                (leverages, freedom, freedom)
+            }
+            Model::Orthogonal(polynomial) => {
+                let leverages = points.iter().map(|&x| polynomial.leverage(x)).collect();
+                let freedom = (n - polynomial.coefficients.len()) as f64;
+                (leverages, freedom, freedom)
+            }
+            Model::Spline { smoother, .. } => {
+                let (delta1, delta2) = smoother_deltas(smoother, n);
+                let freedom = if delta2 > 0.0 {
+                    delta1 * delta1 / delta2
+                } else {
+                    delta1
+                };
+                (
+                    smoother_leverages(&self.xs, smoother, &points),
+                    freedom,
+                    delta1,
+                )
+            }
+        };
+        let scale = (residuals / scale_freedom).sqrt();
         let t_critical = if freedom > 0.0 {
             t_quantile(1.0 - (1.0 - level) / 2.0, freedom)
         } else {
             f64::NAN
         };
-        Evaluator {
-            n,
-            mean_x,
-            sum_xx,
-            standard_error: (residuals / freedom).sqrt(),
-            t_critical,
+        let errors = leverages
+            .iter()
+            .map(|leverage| scale * leverage.sqrt())
+            .collect();
+        (errors, t_critical)
+    }
+}
+
+/// `|l(x0)|^2` at each point, where `l(x0)` maps y to the spline through `L y`
+/// at `x0`: the spline is linear in its values, so column `j` of `L` gives `l_j`.
+fn smoother_leverages(xs: &[f64], smoother: &[f64], points: &[f64]) -> Vec<f64> {
+    let n = xs.len();
+    let mut leverages = vec![0.0; points.len()];
+    let mut column = vec![0.0; n];
+    for j in 0..n {
+        for (i, value) in column.iter_mut().enumerate() {
+            *value = smoother[i * n + j];
+        }
+        let spline = Spline::natural(xs, &column);
+        for (leverage, &x) in leverages.iter_mut().zip(points) {
+            *leverage += spline.value(x).powi(2);
         }
     }
+    leverages
+}
 
-    fn se(&self, x: f64) -> f64 {
-        self.standard_error * (1.0 / self.n + (x - self.mean_x).powi(2) / self.sum_xx).sqrt()
+/// Points up to which `delta2` is computed exactly (O(n^3)); above, `delta1`.
+const EXACT_DELTA2_POINTS: usize = 500;
+
+/// R loess `one.delta = tr(M'M)` and `two.delta = tr((M'M)^2)`, `M = I - L`
+/// (`two.delta` is 0 above [`EXACT_DELTA2_POINTS`]).
+fn smoother_deltas(smoother: &[f64], n: usize) -> (f64, f64) {
+    let residual_operator = |i: usize, j: usize| f64::from(u8::from(i == j)) - smoother[i * n + j];
+    let delta1 = (0..n * n)
+        .map(|index| residual_operator(index / n, index % n).powi(2))
+        .sum();
+    if n > EXACT_DELTA2_POINTS {
+        return (delta1, 0.0);
     }
+    // A = M'M is symmetric: tr(A^2) is the sum of its squared entries.
+    let columns: Vec<Vec<f64>> = (0..n)
+        .map(|j| (0..n).map(|i| residual_operator(i, j)).collect())
+        .collect();
+    let mut delta2 = 0.0;
+    for a in 0..n {
+        for b in a..n {
+            let entry: f64 = columns[a].iter().zip(&columns[b]).map(|(p, q)| p * q).sum();
+            delta2 += if a == b {
+                entry * entry
+            } else {
+                2.0 * entry * entry
+            };
+        }
+    }
+    (delta1, delta2)
 }
 
 fn mean(values: &[f64]) -> f64 {
@@ -419,6 +492,8 @@ struct OrthogonalPolynomial {
     recurrence: Vec<(f64, f64)>,
     mean: f64,
     coefficients: Vec<f64>,
+    /// `sum p_k^2` over the fitted points: `X'X` of the orthogonal basis.
+    norms: Vec<f64>,
 }
 
 impl OrthogonalPolynomial {
@@ -427,20 +502,22 @@ impl OrthogonalPolynomial {
             recurrence: Vec::new(),
             mean: mean(xs),
             coefficients: Vec::new(),
+            norms: Vec::new(),
         };
         // Values of p(k-1) and p(k) at the knots.
         let mut previous = vec![1.0; xs.len()];
         let mut current: Vec<f64> = xs.iter().map(|x| x - polynomial.mean).collect();
-        let coefficient = |values: &[f64]| {
+        let add = |polynomial: &mut OrthogonalPolynomial, values: &[f64]| {
             let (weighted, squared) = values
                 .iter()
                 .zip(ys)
                 .fold((0.0, 0.0), |(w, s), (p, y)| (w + y * p, s + p * p));
-            weighted / squared
+            polynomial.coefficients.push(weighted / squared);
+            polynomial.norms.push(squared);
         };
-        polynomial.coefficients.push(coefficient(&previous));
+        add(&mut polynomial, &previous);
         if degree >= 1 {
-            polynomial.coefficients.push(coefficient(&current));
+            add(&mut polynomial, &current);
         }
         for _ in 2..=degree {
             let (mut sum_xp, mut sum_p, mut sum_previous) = (0.0, 0.0, 0.0);
@@ -457,36 +534,58 @@ impl OrthogonalPolynomial {
                 .zip(&previous)
                 .map(|((x, p), q)| (x - alpha) * p - beta * q)
                 .collect();
-            polynomial.coefficients.push(coefficient(&next));
+            add(&mut polynomial, &next);
             previous = std::mem::replace(&mut current, next);
         }
         polynomial
     }
 
+    /// `p_0(x), p_1(x), ...`, one per coefficient.
+    fn basis(&self, x: f64) -> Vec<f64> {
+        let mut values = vec![1.0, x - self.mean];
+        for &(alpha, beta) in &self.recurrence {
+            let (previous, current) = (values[values.len() - 2], values[values.len() - 1]);
+            values.push((x - alpha) * current - beta * previous);
+        }
+        values.truncate(self.coefficients.len());
+        values
+    }
+
     fn value(&self, x: f64) -> f64 {
-        let (mut previous, mut current) = (1.0, x - self.mean);
-        let mut sum = self.coefficients[0] * previous;
-        if let Some(coefficient) = self.coefficients.get(1) {
-            sum += coefficient * current;
-        }
-        for (&(alpha, beta), coefficient) in self.recurrence.iter().zip(&self.coefficients[2..]) {
-            let next = (x - alpha) * current - beta * previous;
-            sum += coefficient * next;
-            (previous, current) = (current, next);
-        }
-        sum
+        self.basis(x)
+            .iter()
+            .zip(&self.coefficients)
+            .map(|(p, coefficient)| p * coefficient)
+            .sum()
+    }
+
+    /// `x0' (X'X)^-1 x0`: the basis is orthogonal, so `X'X` is diagonal.
+    fn leverage(&self, x: f64) -> f64 {
+        self.basis(x)
+            .iter()
+            .zip(&self.norms)
+            .map(|(p, norm)| p * p / norm)
+            .sum()
     }
 }
 
 /// Apache Commons Math `LoessInterpolator.smooth` with unit weights: fitted
-/// values at every x (sorted, distinct).
-fn loess_smooth(xs: &[f64], ys: &[f64], span: f64, robustness_iterations: usize) -> Vec<f64> {
+/// values at every x (sorted, distinct), and the smoother matrix of the last
+/// pass (row-major, `fitted = L y` with that pass's robustness weights fixed).
+fn loess_smooth(
+    xs: &[f64],
+    ys: &[f64],
+    span: f64,
+    robustness_iterations: usize,
+) -> (Vec<f64>, Vec<f64>) {
     const ACCURACY: f64 = 1e-12;
     let n = xs.len();
     if n <= 2 {
-        return ys.to_vec();
+        let identity = (0..n * n).map(|index| f64::from(u8::from(index % (n + 1) == 0)));
+        return (ys.to_vec(), identity.collect());
     }
     let window = (span * n as f64) as usize;
+    let mut smoother = vec![0.0; n * n];
     let mut fitted = vec![0.0; n];
     let mut residuals = vec![0.0; n];
     let mut robustness = vec![1.0; n];
@@ -525,6 +624,18 @@ fn loess_smooth(xs: &[f64], ys: &[f64], span: f64, robustness_iterations: usize)
                 (mean_xy - mean_x * mean_y) / (mean_xx - mean_x * mean_x)
             };
             fitted[i] = beta * x + mean_y - beta * mean_x;
+            // The same fit as weights on y: w_k / W * (1 + beta's share).
+            let variance = mean_xx - mean_x * mean_x;
+            for k in left..=right {
+                let distance = if k < i { x - xs[k] } else { xs[k] - x };
+                let w = tricube(distance * denominator) * robustness[k];
+                let slope_share = if variance.abs().sqrt() < ACCURACY {
+                    0.0
+                } else {
+                    (x - mean_x) * (xs[k] - mean_x) / variance
+                };
+                smoother[i * n + k] = w / sum_w * (1.0 + slope_share);
+            }
             residuals[i] = (ys[i] - fitted[i]).abs();
         }
         if iteration == robustness_iterations {
@@ -545,7 +656,7 @@ fn loess_smooth(xs: &[f64], ys: &[f64], span: f64, robustness_iterations: usize)
             };
         }
     }
-    fitted
+    (fitted, smoother)
 }
 
 fn tricube(x: f64) -> f64 {
@@ -737,18 +848,46 @@ mod tests {
         let fit = Fit::linear(xs, ys).unwrap();
         // lm(y ~ x): slope 0.8, intercept 0.5, residual s.e. sqrt(0.9).
         assert!((fit.value(0.0) - 0.5).abs() < 1e-12);
-        let evaluator = Evaluator::new(&fit, 0.95);
+        let (errors, t_critical) = fit.standard_errors(&[2.5], 0.95);
         let expected = 0.9_f64.sqrt() * (0.25_f64 + 0.0).sqrt();
-        assert!((evaluator.se(2.5) - expected).abs() < 1e-12);
+        assert!((errors[0] - expected).abs() < 1e-12);
+        assert!((t_critical - 4.302_652_729_911_275).abs() < 1e-6);
+    }
+
+    #[test]
+    fn polynomial_band_matches_r() {
+        // predict(lm(y ~ poly(x, 2)), se.fit = TRUE) at 0, 2.5 and 9 (df 7).
+        let xs: Vec<f64> = (0..10).map(f64::from).collect();
+        let ys = vec![1.2, 0.1, -0.4, 0.3, -0.2, 1.1, 2.9, 4.2, 7.0, 9.9];
+        let fit = Fit::polynomial(xs, ys, 2).unwrap();
+        let (errors, t_critical) = fit.standard_errors(&[0.0, 2.5, 9.0], 0.95);
+        for (error, r) in
+            errors
+                .iter()
+                .zip([0.254262675333384, 0.138225062149778, 0.254262675333384])
+        {
+            assert!((error - r).abs() < 1e-12, "{error} vs {r}");
+        }
+        assert!((t_critical - 2.36462425159278).abs() < 1e-6);
     }
 
     #[test]
     fn loess_is_exact_on_a_line_and_spline_interpolates() {
         let xs: Vec<f64> = (0..20).map(f64::from).collect();
         let ys: Vec<f64> = xs.iter().map(|x| 3.0 * x + 1.0).collect();
-        let fitted = loess_smooth(&xs, &ys, 0.5, 4);
+        let (fitted, _) = loess_smooth(&xs, &ys, 0.5, 4);
         for (value, y) in fitted.iter().zip(&ys) {
             assert!((value - y).abs() < 1e-9);
+        }
+        // The smoother matrix reproduces the robust fit of noisy data.
+        let noisy: Vec<f64> = xs
+            .iter()
+            .map(|x| (x * 0.7).sin() + (x * 3.1).cos() * 0.3)
+            .collect();
+        let (fitted, smoother) = loess_smooth(&xs, &noisy, 0.4, 4);
+        for (i, value) in fitted.iter().enumerate() {
+            let applied: f64 = (0..20).map(|k| smoother[i * 20 + k] * noisy[k]).sum();
+            assert!((applied - value).abs() < 1e-9, "{applied} vs {value}");
         }
         let spline = Spline::natural(&xs, &ys);
         assert!((spline.value(4.5) - 14.5).abs() < 1e-9);

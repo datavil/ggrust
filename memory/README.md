@@ -47,6 +47,6 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Docs site: Zensical, generated live plots](docs_site_zensical.md): examples render to gitignored iframes in CI; src is relative to the .md file; ruff mangles snippet lines in md.
 - [PNG marker sprites](png_marker_sprites.md): coverage per geometry, colors at stamp, 1/16 px steps, test against shift noise, rare geometries traced.
 - [Large output memory](large_output_memory.md): exact reserve + 1 byte doubles, no format!/escape copies of payloads, encoded tooltip texts, measure RSS.
-- [Density, smooth, abline follow lets-plot](letsplot_density_smooth_abline.md): line-by-line stat ports, repeated first vertex, Kotlin Random for loess sampling, lets-plot's straight-line SE, seam-free quantile bands, abline() = y = x.
+- [Density, smooth, abline follow lets-plot](letsplot_density_smooth_abline.md): line-by-line stat ports, repeated first vertex, Kotlin Random for loess sampling, ggplot2 per-model SE (user's choice), seam-free quantile bands, abline() = y = x.
 - [Date-time axes](letsplot_datetime_axes.md): DateTimeBreaksHelper port in epoch ms, compare under TZ=UTC, exact time multiples, break_width = fixed layout, zoom keeps date breaks, UTC only.
 - [Exact port speedups](exact_port_speedups.md): cache + provable skips only; ported predicates are not geometric (degenerate boxes); ties break on 1e-13 changes.

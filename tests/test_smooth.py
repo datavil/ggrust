@@ -2,6 +2,8 @@
 
 The curve and band paths are compared as fractions of the curve's own extent
 (panel sizes differ with real fonts), and the axis labels as sorted texts.
+Polynomial and loess bands use each model's own standard error (ggplot2), not
+lets-plot's straight-line one, so those cases compare curves without bands.
 """
 
 import math
@@ -73,13 +75,14 @@ CASES: dict[str, tuple[Case, str, str]] = {
         "rgb(255,0,255)",
     ),
     "polynomial": (
-        lambda m: m.ggplot(DATA, m.aes("x", "y")) + m.geom_smooth(deg=3, level=0.99, color="red"),
+        lambda m: m.ggplot(DATA, m.aes("x", "y")) + m.geom_smooth(deg=3, se=False, color="red"),
         "#ff0000",
         "rgb(255,0,0)",
     ),
     "loess": (
         lambda m: (
-            m.ggplot(DATA, m.aes("x", "y")) + m.geom_smooth(method="loess", span=0.3, color="red")
+            m.ggplot(DATA, m.aes("x", "y"))
+            + m.geom_smooth(method="loess", span=0.3, se=False, color="red")
         ),
         "#ff0000",
         "rgb(255,0,0)",

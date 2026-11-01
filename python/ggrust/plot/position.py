@@ -121,7 +121,10 @@ def position_stack(vjust: Number | None = None, mode: str | None = None) -> Feat
     vjust : float, optional
         Vertical anchor within each stacked object.
     mode : {"groups", "all"}, optional
-        What gets stacked.
+        ``"groups"`` stacks groups only: rows of one group at the same x overlap
+        and the group adds its largest value. ``"all"`` stacks every row. By
+        default bars with ``stat="identity"`` use ``"all"``, as ggplot2, and
+        everything else ``"groups"``, as lets-plot.
 
     Returns
     -------
@@ -139,7 +142,10 @@ def position_fill(vjust: Number | None = None, mode: str | None = None) -> Featu
     vjust : float, optional
         Vertical anchor within each stacked object.
     mode : {"groups", "all"}, optional
-        What gets stacked.
+        ``"groups"`` stacks groups only: rows of one group at the same x overlap
+        and the group adds its largest value. ``"all"`` stacks every row. By
+        default bars with ``stat="identity"`` use ``"all"``, as ggplot2, and
+        everything else ``"groups"``, as lets-plot.
 
     Returns
     -------

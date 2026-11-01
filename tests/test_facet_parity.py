@@ -256,3 +256,39 @@ def _fills(svg: str) -> list[str]:
 def test_breaks_lead_the_color_domain_in_every_panel():
     expected_svg, actual_svg = _both(CASES["color_breaks_lead"])
     assert _fills(actual_svg) == _fills(expected_svg)
+
+
+@pytest.mark.parametrize(
+    ("layer", "scales"),
+    [("geom_histogram", "free_x"), ("geom_histogram", "free"), ("geom_density", "free_x")],
+)
+def test_free_scales_bin_each_panel_over_its_own_range(layer, scales):
+    """Deliberate difference (lets-plot #1443): on a free axis a binned stat uses the
+    panel's range, as ggplot2; lets-plot bins every panel over the whole plot's range."""
+    data = {"v": [0.0, 1.0, 1.5, 2.0, 3.0, 100.0, 104.0, 105.0, 110.0], "g": list("aaaaabbbb")}
+    options = {"bins": 6} if layer == "geom_histogram" else {}
+    svg = (
+        gg.ggplot(data, gg.aes("v"))
+        + getattr(gg, layer)(**options)
+        + gg.facet_wrap("g", scales=scales)
+    ).to_svg()
+    panels = _ggrust_panels(svg)
+    if layer == "geom_histogram":
+        # Six bins per panel, spanning most of each panel (not 3 % of it).
+        for panel in panels:
+            bars = [rect for rect in panel["rects"] if rect[3] > 0]
+            assert len(panel["rects"]) == 6
+            assert sum(rect[2] for rect in panel["rects"]) > 0.8
+            assert bars
+    else:
+        # Each density curve spans its own panel.
+        paths = re.findall(r'<g class="panel".*?</g>', svg, flags=re.DOTALL)
+        assert len(paths) == 2
+    # The shared-scale plot keeps the plot-wide bins (lets-plot parity).
+    shared = (
+        gg.ggplot(data, gg.aes("v")) + getattr(gg, layer)(**options) + gg.facet_wrap("g")
+    ).to_svg()
+    if layer == "geom_histogram":
+        assert all(
+            sum(rect[2] for rect in panel["rects"]) > 0.8 for panel in _ggrust_panels(shared)
+        )

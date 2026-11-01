@@ -349,13 +349,15 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         x_range: overall_range(&mapped, Aesthetic::X, &x_scale),
         y_range: overall_range(&mapped, Aesthetic::Y, &y_scale),
     };
-    // Per panel: its layers (stats and positions run per panel, as in lets-plot)
-    // and its position scales before training (free axes: discrete levels of the
-    // panel only, in the plot's order).
+    // Per panel: its layers (stats and positions run per panel, as in lets-plot),
+    // its position scales before training (free axes: discrete levels of the
+    // panel only, in the plot's order) and its stat context: on a free axis the
+    // panel's own range, as ggplot2 (lets-plot bins every panel over the whole
+    // plot's range, #1443).
     let level_order = facets.as_ref().map(|_| style_level_order(&mapped));
     let parallel = parallel::is_worth(mapped.iter().map(|layer| layer.row_count).sum());
-    let tiles: Vec<(Vec<MappedLayer>, PositionScale, PositionScale)> = match &facets {
-        None => vec![(mapped, x_scale.clone(), y_scale.clone())],
+    let tiles: Vec<(Vec<MappedLayer>, PositionScale, PositionScale, StatContext)> = match &facets {
+        None => vec![(mapped, x_scale.clone(), y_scale.clone(), context)],
         Some(facets) => {
             let rows: Vec<Vec<Vec<u32>>> = mapped
                 .iter()
@@ -377,14 +379,26 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
                     };
                     let tile_x = free(&x_scale, facets.free_x, Aesthetic::is_x_position);
                     let tile_y = free(&y_scale, facets.free_y, Aesthetic::is_y_position);
-                    (layers, tile_x, tile_y)
+                    let tile_context = StatContext {
+                        x_range: if facets.free_x {
+                            overall_range(&layers, Aesthetic::X, &x_scale)
+                        } else {
+                            context.x_range
+                        },
+                        y_range: if facets.free_y {
+                            overall_range(&layers, Aesthetic::Y, &y_scale)
+                        } else {
+                            context.y_range
+                        },
+                    };
+                    (layers, tile_x, tile_y, tile_context)
                 })
                 .collect()
         }
     };
     // Tiles and layers compute in parallel; results are taken in order, so
     // warnings and the first error are those of a sequential run.
-    let results = parallel::ordered_map(tiles, parallel, |(layers, tile_x, tile_y)| {
+    let results = parallel::ordered_map(tiles, parallel, |(layers, tile_x, tile_y, context)| {
         let results = parallel::ordered_map(layers, parallel, |layer| {
             compute_layer(layer, [&tile_x, &tile_y], &context)
         });
@@ -2414,7 +2428,15 @@ fn layer_positions(
     };
     chain
         .into_iter()
-        .map(|(name, options, option_path)| {
+        .map(|(name, mut options, option_path)| {
+            // Only data rows: stats may repeat x within a group (ydensity, density).
+            if geom.stacks_each_row()
+                && stat.name() == "identity"
+                && matches!(name, "stack" | "fill")
+                && options.get("mode").is_none_or(|value| value.is_null())
+            {
+                options.insert("mode".to_owned(), Value::from("all"));
+            }
             let position = position::position(name).ok_or_else(|| {
                 let planned = position::NOT_APPLIED_YET.contains(&name);
                 unknown(

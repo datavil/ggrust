@@ -4,8 +4,10 @@
 //! Groups stack in group order (rows in data order within a group). Positive and
 //! negative values stack separately, away from 0. With `mode="groups"` (default)
 //! rows of one group at the same x do not stack on each other: the group adds its
-//! largest value. `mode="all"` stacks every row. `vjust` (default 1) places a
-//! row's y within its stacked span (0 bottom, 1 top); bars move as a whole.
+//! largest value. `mode="all"` stacks every row. Identity bars default to
+//! `"all"`, as ggplot2 ([`crate::geom::Geom::stacks_each_row`]); lets-plot
+//! overlaps them (#1398). `vjust` (default 1) places a row's y
+//! within its stacked span (0 bottom, 1 top); bars move as a whole.
 //!
 //! `position="fill"` stacks the same way, then divides each x's stack by its
 //! total height (positive and negative stacks each by their own total), so every

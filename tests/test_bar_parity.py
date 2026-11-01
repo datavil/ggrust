@@ -152,9 +152,19 @@ CASES = {
         m.ggplot(DATA, m.aes("g"))
         + m.geom_bar(width=0.5, alpha=0.4, color="black", size=1.5, fill="#ff8800")
     ),
-    "identity_signed": lambda m: m.ggplot(SIGNED, m.aes("x", "y")) + m.geom_bar(stat="identity"),
+    # Rows of one group share an x: lets-plot's default `mode="groups"`, explicit since
+    # ggrust's bars stack every row (test_identity_bars_stack_rows_of_one_group).
+    "identity_signed": lambda m: (
+        m.ggplot(SIGNED, m.aes("x", "y"))
+        + m.geom_bar(stat="identity", position=m.position_stack(mode="groups"))
+    ),
     "identity_signed_stack": lambda m: (
-        m.ggplot(SIGNED, m.aes("x", "y", fill="k")) + m.geom_bar(stat="identity")
+        m.ggplot(SIGNED, m.aes("x", "y", fill="k"))
+        + m.geom_bar(stat="identity", position=m.position_stack(mode="groups"))
+    ),
+    "identity_signed_all": lambda m: (
+        m.ggplot(SIGNED, m.aes("x", "y", fill="k"))
+        + m.geom_bar(stat="identity", position=m.position_stack(mode="all"))
     ),
     "fill_count": lambda m: m.ggplot(DATA, m.aes("g", fill="..count..")) + m.geom_bar(),
     "proportion": lambda m: (
@@ -255,3 +265,42 @@ def test_discrete_order_ignores_the_stat_grouping():
     svg = (gg.ggplot(data, gg.aes("x", fill="fill")) + gg.geom_bar()).to_svg()
     labels = [text for text in _texts(svg) if text in ("a", "b")]
     assert labels == ["a", "b"]
+
+
+@pytest.mark.parametrize("position", [None, "stack", "fill"])
+def test_identity_bars_stack_rows_of_one_group(position):
+    """Deliberate difference (lets-plot #1398): bars of one group at the same x stack,
+    as ggplot2; lets-plot draws 80 over 90. Same bars as an explicit `mode="all"`."""
+    data = {"x": ["a", "a", "b"], "y": [90.0, 80.0, 50.0]}
+    options = {} if position is None else {"position": position}
+    implicit = gg.ggplot(data, gg.aes("x", "y")) + gg.geom_bar(stat="identity", **options)
+    explicit = gg.ggplot(data, gg.aes("x", "y")) + gg.geom_bar(
+        stat="identity", position=getattr(gg, f"position_{position or 'stack'}")(mode="all")
+    )
+    bars = _ggrust_bars(implicit.to_svg())
+    assert bars == _ggrust_bars(explicit.to_svg())
+    tops = sorted(round(bar[1], 3) for bar in bars)
+    if position == "fill":
+        assert "1" in _texts(implicit.to_svg())
+        assert tops[0] == pytest.approx(0.0, abs=0.06)
+    else:
+        assert "160" in _texts(implicit.to_svg())  # y axis reaches the 170 stack
+
+
+def test_stacked_density_keeps_one_shape_per_group():
+    """Density band ends repeat an x inside a group; they must not stack on themselves."""
+    data = {"v": [0.0, 0.5, 1.0, 1.2, 2.0, 2.2, 3.0], "g": list("aaabbbb")}
+    expected_svg, actual_svg = _both(
+        lambda m: m.ggplot(data, m.aes("v", fill="g")) + m.geom_density(position="stack")
+    )
+    assert sorted(_texts(actual_svg)) == sorted(_texts(expected_svg))
+
+
+def test_bars_on_a_density_stat_stack_groups_only():
+    """ydensity repeats x inside a group: bars on it keep lets-plot's `mode="groups"`."""
+    data = {"v": [1.0, 1.5, 2.0, 2.2, 3.0], "g": list("aabbb")}
+    implicit = gg.ggplot(data, gg.aes("g", "v")) + gg.geom_bar(stat="ydensity")
+    explicit = gg.ggplot(data, gg.aes("g", "v")) + gg.geom_bar(
+        stat="ydensity", position=gg.position_stack(mode="groups")
+    )
+    assert _ggrust_bars(implicit.to_svg()) == _ggrust_bars(explicit.to_svg())

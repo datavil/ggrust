@@ -7,7 +7,8 @@ Source: lets-plot `FacetConfig.createWrap`, `FacetWrap`, `PlotFacets`,
   default is `order=1`: sorted, so an Enum's order shows only with `order=0`). A single
   `order`/`format` value applies to the first faceting column only. Null/NaN values are
   in no panel. Combinations without rows are dropped (`drop`, default true).
-- **Stats and positions run per panel; the stat context (bin ranges) is the whole plot.**
+- **Stats and positions run per panel; the stat context (bin ranges) is the whole plot**,
+  except on a free axis: the panel's range there, as ggplot2 (deviation, lets-plot #1443).
   Style scales train on all panels. A layer without the faceting column (or with no
   mapped columns: `geom_hline(yintercept=..)`) shows all its rows in every panel.
 - **Group order trap:** stats number output groups by first appearance *in the panel*.

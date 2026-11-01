@@ -8,7 +8,9 @@ Measured against `to_svg()`; parity tests in `tests/test_bar_parity.py`.
 - **Histogram breaks bin as `(low, high]`**, the first bin closed (`bracketingIndicesOrNull`):
   a value on an inner break goes to the LEFT bin.
 - **Stack**: groups sorted by group index, positive and negative stacks apart;
-  `mode="groups"` (default) means rows of one group at one x take their max, not a sum.
+  `mode="groups"` (lets-plot default) means rows of one group at one x take their max, not a sum.
+  Deviation (lp3.1, #1398): identity bars default to `mode="all"` (`Geom::stacks_each_row`);
+  never make `all` global: stats repeat x within a group (density band ends, ydensity).
   `vjust` moves the whole bar, so bars can dip below 0 and get clipped (lets-plot too).
 - **Dodge**: slot = group index, `(v + (slot - (n-1)/2) * resolution * width - x) / n + x`;
   width from the option, else the row's `width`, else 1 (points).

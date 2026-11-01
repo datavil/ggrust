@@ -82,6 +82,16 @@ pub trait Geom: Sync {
         DefaultPosition::IDENTITY
     }
 
+    /// Whether every row is its own object, so with `stat="identity"`,
+    /// `position="stack"`/`"fill"` stacks rows of one group at the same x when no
+    /// `mode` is given (`mode="all"`, as ggplot2). Otherwise lets-plot's
+    /// `mode="groups"`: right where a group is one shape, or a stat repeats x
+    /// within a group (density band ends, ydensity). Deviation for bars:
+    /// lets-plot overlaps them (#1398).
+    fn stacks_each_row(&self) -> bool {
+        false
+    }
+
     /// Coordinate system used when the plot names none (lets-plot
     /// `GeomProto.preferredCoordinateSystem`: `fixed` for rasters); the first
     /// layer that has one decides.

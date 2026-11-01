@@ -90,6 +90,10 @@ impl Geom for BarGeom {
         DefaultPosition::named("stack")
     }
 
+    fn stacks_each_row(&self) -> bool {
+        true
+    }
+
     fn required_aesthetics(&self) -> &'static [Aesthetic] {
         &[Aesthetic::X, Aesthetic::Y]
     }
@@ -162,6 +166,10 @@ impl Geom for HistogramGeom {
 
     fn default_position(&self) -> DefaultPosition {
         DefaultPosition::named("stack")
+    }
+
+    fn stacks_each_row(&self) -> bool {
+        true
     }
 
     fn required_aesthetics(&self) -> &'static [Aesthetic] {

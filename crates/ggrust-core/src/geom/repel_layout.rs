@@ -461,6 +461,76 @@ struct Label {
     hidden: bool,
     clamped: bool,
     velocity: Vector,
+    /// Derived from `quad`, `padding` and `point`; refreshed whenever the label
+    /// moves, so pair tests do not rebuild them (same values, computed once).
+    shape: Shape,
+}
+
+/// A label's derived geometry and the bounding boxes used to skip pair tests.
+#[derive(Clone, Copy)]
+struct Shape {
+    quad_bounds: Bounds,
+    expanded: Quad,
+    expanded_bounds: Bounds,
+    segment: Option<(Segment, Bounds)>,
+}
+
+impl Shape {
+    fn of(quad: &Quad, padding: f64, point: Vector) -> Self {
+        let expanded = quad.expand(padding / 2.0);
+        // A zero-width or zero-height box `contains` every point of an unbounded
+        // strip (lets-plot `pointInRectangle`), so its bounds must never skip a test.
+        let edge_squared = |a: Vector, b: Vector| a.subtract(b).dot(a.subtract(b));
+        let degenerate = edge_squared(quad.right_top, quad.left_top) == 0.0
+            || edge_squared(quad.left_bottom, quad.left_top) == 0.0;
+        Shape {
+            quad_bounds: if degenerate {
+                Bounds {
+                    left: f64::NAN,
+                    top: f64::NAN,
+                    right: f64::NAN,
+                    bottom: f64::NAN,
+                }
+            } else {
+                quad.bbox()
+            },
+            expanded,
+            expanded_bounds: expanded.bbox(),
+            segment: quad
+                .segment_to_edge_center(point)
+                .map(|segment| (segment, segment_bounds(&segment))),
+        }
+    }
+}
+
+/// Bounds further apart than this cannot hold intersecting shapes, so the exact
+/// test is skipped. Far above rounding error, so results never change; NaN
+/// bounds are never apart (the exact test decides).
+const SEPARATION: f64 = 1e-6;
+
+fn apart(a: &Bounds, b: &Bounds) -> bool {
+    a.right + SEPARATION < b.left
+        || b.right + SEPARATION < a.left
+        || a.bottom + SEPARATION < b.top
+        || b.bottom + SEPARATION < a.top
+}
+
+fn segment_bounds(segment: &Segment) -> Bounds {
+    Bounds {
+        left: segment.start.x.min(segment.end.x),
+        top: segment.start.y.min(segment.end.y),
+        right: segment.start.x.max(segment.end.x),
+        bottom: segment.start.y.max(segment.end.y),
+    }
+}
+
+fn circle_bounds(circle: &Circle) -> Bounds {
+    Bounds {
+        left: circle.center.x - circle.radius,
+        top: circle.center.y - circle.radius,
+        right: circle.center.x + circle.radius,
+        bottom: circle.center.y + circle.radius,
+    }
 }
 
 const FRICTION: f64 = 0.7;
@@ -468,14 +538,6 @@ const FRICTION: f64 = 0.7;
 impl Label {
     fn d_length(&self) -> f64 {
         self.quad.hypot() / 2.0
-    }
-
-    fn expanded(&self) -> Quad {
-        self.quad.expand(self.padding / 2.0)
-    }
-
-    fn segment(&self) -> Option<Segment> {
-        self.quad.segment_to_edge_center(self.point)
     }
 
     fn set_force(&mut self, force: Vector) {
@@ -486,6 +548,7 @@ impl Label {
     fn update_position(&mut self, delta: Vector) {
         self.position = self.position.add(delta);
         self.quad = self.quad.translated(delta);
+        self.shape = Shape::of(&self.quad, self.padding, self.point);
     }
 }
 
@@ -518,6 +581,7 @@ pub fn layout(
                 hidden: false,
                 clamped: false,
                 velocity: Vector::ZERO,
+                shape: Shape::of(&input.quad, input.padding, input.point.center),
             })
             .collect(),
         items: (0..labels.len())
@@ -622,31 +686,39 @@ impl Solver {
                         continue;
                     }
                     let (label, other_label) = (&self.labels[index], &self.labels[other]);
-                    if label.expanded().intersects_quad(&other_label.expanded()) {
+                    let (shape, other_shape) = (&label.shape, &other_label.shape);
+                    if !apart(&shape.expanded_bounds, &other_shape.expanded_bounds)
+                        && shape.expanded.intersects_quad(&other_shape.expanded)
+                    {
                         overlaps += 1;
                         force = force.add(self.repulsion(index, item));
                         continue;
                     }
-                    if let Some(other_segment) = other_label.segment()
-                        && label.quad.intersects_segment(&other_segment)
+                    if let Some((other_segment, other_bounds)) = &other_shape.segment
+                        && !apart(&shape.quad_bounds, other_bounds)
+                        && label.quad.intersects_segment(other_segment)
                     {
-                        let delta = perpendicular_from_segment(label.position, &other_segment)
+                        let delta = perpendicular_from_segment(label.position, other_segment)
                             .saved_normalize();
                         force = force.add(self.apply_direction(delta));
                         overlaps += 1;
                     }
                     let (label, other_label) = (&self.labels[index], &self.labels[other]);
-                    if let Some(segment) = label.segment()
-                        && other_label.quad.intersects_segment(&segment)
+                    if let Some((segment, bounds)) = &label.shape.segment
+                        && !apart(&other_label.shape.quad_bounds, bounds)
+                        && other_label.quad.intersects_segment(segment)
                     {
-                        let delta = perpendicular_from_segment(other_label.position, &segment)
+                        let delta = perpendicular_from_segment(other_label.position, segment)
                             .saved_normalize();
                         force = force.add(self.apply_direction(delta.negate()));
                         overlaps += 1;
                     }
                 }
                 Item::Point { circle, .. } => {
-                    if self.labels[index].quad.intersects_circle(&circle) {
+                    let label = &self.labels[index];
+                    if !apart(&label.shape.quad_bounds, &circle_bounds(&circle))
+                        && label.quad.intersects_circle(&circle)
+                    {
                         overlaps += 1;
                         force = force.add(self.repulsion(index, item));
                     }
@@ -838,6 +910,19 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[test]
+    fn degenerate_boxes_are_never_apart() {
+        // Zero width: `contains` holds for any point in the box's y range.
+        let quad = quad_at(10.0, 10.0, 0.0, 6.0);
+        let far = Circle {
+            center: Vector::new(500.0, 10.0),
+            radius: 1.0,
+        };
+        assert!(quad.intersects_circle(&far));
+        let shape = Shape::of(&quad, 0.0, Vector::new(0.0, 0.0));
+        assert!(!apart(&shape.quad_bounds, &circle_bounds(&far)));
     }
 
     #[test]

@@ -212,3 +212,19 @@ Level lookup uses ahash (already in the tree via arrow) instead of SipHash; leve
 is first appearance as before. The integer cast was not parallelised: it is 29-42 ms at
 50M rows (the plan's 0.6 s did not reproduce), and an int column adds 0.1-0.17 s to a
 0.9 s 50M-row histogram end to end, so a parallel cast would save under 5%.
+
+## Repel layout (step 6.1d): 2026-11-01, macOS arm64 (Apple M4 Pro, 12 cores)
+
+`geom_point() + geom_text_repel(max_time=-1, seed=1)` over normal x/y, uncapped:
+
+| labels | output | before | after |
+|---:|---|---:|---:|
+| 100 | SVG | 1.767 s | 0.148 s |
+| 100 | HTML | 3.463 s | 0.294 s |
+| 300 | SVG | 1.521 s | 0.198 s |
+| 300 | HTML | 3.042 s | 0.390 s |
+
+Placements unchanged (byte-identical SVG on 9 cases, lets-plot parity tests pass). Each
+label caches its expanded box and leader segment (refreshed when it moves, so the same
+values), and pair tests are skipped when bounding boxes are more than 1e-6 px apart. No
+spatial grid was needed. HTML still runs the layout twice (draw and hover targets).

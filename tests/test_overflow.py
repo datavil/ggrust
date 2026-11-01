@@ -186,3 +186,41 @@ def test_facet_axis_labels_wrap_like_a_single_plot():
     assert not any("..." in text for _, _, text in found)
     for x, y, text in found:
         assert 0 <= x <= 500 and 0 <= y <= 300, (text, x, y)
+
+
+def test_stacked_legends_wrap_into_columns_before_keys_are_cut():
+    # lets-plot#1506: several short legends too tall for one stack sit side by side.
+    frame = {"x": list(range(6)), "y": list(range(6))}
+    for name in "abcd":
+        frame[name] = [f"{name}{index}" for index in range(6)]
+    svg = (
+        gg.ggplot(frame, gg.aes("x", "y", color="a", shape="b", fill="c"))
+        + gg.geom_point()
+        + gg.geom_tile(gg.aes(alpha="d"))
+        + gg.ggsize(500, 350)
+    ).to_svg()
+    shown = [text for _, _, text in texts(svg)]
+    assert "more" not in " ".join(shown)
+    for name in "abcd":
+        assert all(f"{name}{index}" in shown for index in range(6)), name
+    for x, y, text in texts(svg):
+        assert 0 <= x <= 500 and 0 <= y <= 350, (text, x, y)
+    titles = {text: x for x, _, text in texts(svg) if text in "abcd"}
+    assert len(set(titles.values())) > 1
+
+
+def test_axis_title_angle_rotates_the_title():
+    # lets-plot#1504: lets-plot ignores the angle; ggplot2 turns the title.
+    import warnings
+
+    frame = {"x": [1, 2], "y": [1, 4]}
+    plot = (
+        gg.ggplot(frame, gg.aes("x", "y"))
+        + gg.geom_point()
+        + gg.theme(axis_title_x=gg.element_text(angle=90, vjust=0.5))
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        svg = plot.to_svg()
+    title = re.search(r"<text[^>]*>x</text>", svg)
+    assert title is not None and "rotate(-90" in title.group(0)

@@ -180,8 +180,8 @@ CASES = {
     "size_reverse": lambda m: point(m, size="p") + m.scale_size(trans="reverse"),
     "size_range": lambda m: point(m, size="p") + m.scale_size(range=[1, 4]),
     "size_range_discrete": lambda m: point(m, size="c") + m.scale_size(range=[2, 6]),
-    "size_area": lambda m: point(m, size="p") + m.scale_size_area(max_size=8),
-    "size_area_default": lambda m: point(m, size="p") + m.scale_size_area(),
+    # scale_size_area is a recorded deviation (area, not diameter, follows the
+    # value; lets-plot#1452): see test_identity_parity.py.
     "alpha_range": lambda m: point(m, alpha="p") + m.scale_alpha(range=[0.5, 0.9]),
     "size_manual": lambda m: point(m, size="c") + m.scale_size_manual(values=[2, 4, 8]),
     "alpha_manual": lambda m: (

@@ -212,7 +212,7 @@ fn layout_with(
     let x_axis_band = x_axis_band(labels_height, theme);
     let bottom = content.y + content.height
         - legend_space.bottom
-        - band(theme.axis_title_x, &titles.x, 0.0)
+        - axis_title_band(theme.axis_title_x, &titles.x, 0.0, 0.0)
         - inset.bottom
         - x_axis_band;
     let panel_height = (bottom - top).max(PANEL_MIN_SIZE);
@@ -234,7 +234,12 @@ fn layout_with(
     let y_axis_width = y_axis_width(&y_breaks, theme);
     let left = content.x
         + legend_space.left
-        + band(theme.axis_title_y, &titles.y, theme.axis_title_spacing)
+        + axis_title_band(
+            theme.axis_title_y,
+            &titles.y,
+            theme.axis_title_spacing,
+            90.0,
+        )
         + inset.left
         + y_axis_width;
     let panel_width =
@@ -377,7 +382,7 @@ pub fn legend_origin(
             panel.y
                 + panel.height
                 + layout.x_axis_band
-                + band(theme.axis_title_x, &titles.x, 0.0)
+                + axis_title_band(theme.axis_title_x, &titles.x, 0.0, 0.0)
                 + inset.bottom
                 + spacing,
         ),
@@ -714,8 +719,7 @@ pub fn draw_panel_background(layout: &PlotLayout, theme: &Theme, mapper: &Panel)
 
 /// Centre of a justified text in `[start, start + span]` (lets-plot
 /// `TextJustification`: the text box moves by `(span - width) * hjust`).
-fn justified_centre(start: f64, span: f64, text: &str, style: TextStyle) -> f64 {
-    let width = measure(text, style.size, style.font).width;
+fn justified_centre(start: f64, span: f64, width: f64, style: TextStyle) -> f64 {
     let hjust = if style.hjust.is_finite() {
         style.hjust
     } else {
@@ -876,28 +880,35 @@ pub fn draw_titles(layout: &PlotLayout, theme: &Theme, titles: &Titles) -> Node 
     if let (Some(style), Some(title)) = (theme.axis_title_x, present(&titles.x)) {
         // Below the x axis, not at the plot edge: they differ only when the panel is
         // at its minimum size and the axis runs past the plot (lets-plot does the same).
-        let y = bottom + layout.x_axis_band + theme.plot_inset.bottom + text_band(style) / 2.0;
-        let x = justified_centre(panel.x, panel.width, title, style);
+        let (along, across) = axis_title_extent(style, title, 0.0);
+        let y = bottom + layout.x_axis_band + theme.plot_inset.bottom + across / 2.0;
+        let x = justified_centre(panel.x, panel.width, along, style);
         titles_nodes.push(text_node(
             title,
             style,
             (x, y),
             HorizontalAlign::Middle,
-            0.0,
+            rotated::angle(style),
         ));
     }
     if let (Some(style), Some(title)) = (theme.axis_title_y, present(&titles.y)) {
         // Rotated: hjust runs from the bottom of the panel up.
-        let along = justified_centre(0.0, panel.height, title, style);
+        let (along, across) = axis_title_extent(style, title, 90.0);
+        let centre = justified_centre(0.0, panel.height, along, style);
+        let angle = if style.angle.is_finite() {
+            style.angle
+        } else {
+            90.0
+        };
         titles_nodes.push(text_node(
             title,
             style,
             (
-                content.x + layout.legend_space.left + text_band(style) / 2.0,
-                panel.y + panel.height - along,
+                content.x + layout.legend_space.left + across / 2.0,
+                panel.y + panel.height - centre,
             ),
             HorizontalAlign::Middle,
-            90.0,
+            angle,
         ));
     }
     titles_nodes.extend(heading_nodes(
@@ -991,7 +1002,12 @@ pub fn heading_nodes(
     let mut top = top;
     let mut lines = |style: TextStyle, text: &str, top: &mut f64| {
         for line in text.split(LINE_BREAK) {
-            let x = justified_centre(start, width, line, style);
+            let x = justified_centre(
+                start,
+                width,
+                measure(line, style.size, style.font).width,
+                style,
+            );
             nodes.push(text_node(
                 line,
                 style,
@@ -1084,6 +1100,38 @@ fn band(style: Option<TextStyle>, text: &Option<String>, gap: f64) -> f64 {
     match (style, present(text)) {
         (Some(style), Some(_)) => gap + text_band(style),
         _ => 0.0,
+    }
+}
+
+/// Thickness of an axis title band (`band` with the title's theme angle).
+fn axis_title_band(
+    style: Option<TextStyle>,
+    text: &Option<String>,
+    gap: f64,
+    default_angle: f64,
+) -> f64 {
+    match (style, present(text)) {
+        (Some(style), Some(text)) => gap + axis_title_extent(style, text, default_angle).1,
+        _ => 0.0,
+    }
+}
+
+/// Extent of an axis title (along its axis, across it). A theme `angle` turns the
+/// title's box (as ggplot2 does; lets-plot ignores it); unset, the title lies
+/// along its axis (`default_angle`: 0 for x, 90 for y).
+fn axis_title_extent(style: TextStyle, text: &str, default_angle: f64) -> (f64, f64) {
+    let size = (
+        measure(text, style.size, style.font).width,
+        text_band(style),
+    );
+    if !style.angle.is_finite() {
+        return size;
+    }
+    let (width, height) = rotated::rotated_size(size, style.angle);
+    if default_angle == 0.0 {
+        (width, height)
+    } else {
+        (height, width)
     }
 }
 

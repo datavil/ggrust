@@ -140,11 +140,16 @@ fn layout_grid(
     let top = content.y + headings_band(theme, titles) + legend_space.top + inset.top;
     let bottom = content.y + content.height
         - legend_space.bottom
-        - band(theme.axis_title_x, &titles.x, 0.0)
+        - axis_title_band(theme.axis_title_x, &titles.x, 0.0, 0.0)
         - inset.bottom;
     let left = content.x
         + legend_space.left
-        + band(theme.axis_title_y, &titles.y, theme.axis_title_spacing)
+        + axis_title_band(
+            theme.axis_title_y,
+            &titles.y,
+            theme.axis_title_spacing,
+            90.0,
+        )
         + inset.left;
     let right = content.x + content.width - legend_space.right - inset.right;
     let label_count = grid.panels.first().map_or(0, |panel| panel.labels.len());

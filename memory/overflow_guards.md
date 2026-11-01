@@ -9,7 +9,7 @@ lets-plot and ggplot2 4.0.1 both let big legends, long axis labels and long titl
 (survey script reproduced 7 cases on 2026-11-01). ggrust fits them, only when they would overflow, so
 plots that fit stay pixel-identical to lets-plot.
 
-- Legends: `layout/legend.rs::fit_legend` with `layout::legend_budget` (preferred 50% across for automatic
+- Legends: overflowing stacks first wrap into side-by-side stacks (`wrap_stacks`); then `layout/legend.rs::fit_legend` with `layout::legend_budget` (preferred 50% across for automatic
   grids, `most` for user ncol/nrow grids). Order: reflow grid, narrower label wrap, then first keys + "+K more".
 - Axis labels (discrete, only past 1/2 of the content: 1/3 caught lets-plot's normal vertical labels): first wrapped at
   spaces (`wrap_labels`; x into each tick slot, laid out flat; y if lines fit the slot), else cut in the middle

@@ -304,8 +304,16 @@ pub fn measure_legends<'a>(
     if measured.is_empty() {
         return Ok(None);
     }
-    // Stacked legends share the budget along the stack: key legends split what
-    // colorbars and spacing leave, equally.
+    // Legends too long for one stack wrap into more stacks side by side (issue
+    // lets-plot#1506), if those fit the budget across.
+    if let Some(budget) = budget
+        && let Some((offsets, size)) = wrap_stacks(&measured, budget.preferred, theme)
+    {
+        let legends = measured.into_iter().zip(offsets).collect();
+        return Ok(Some(LegendBlock { legends, size }));
+    }
+    // Otherwise stacked legends share the budget along the stack: key legends
+    // split what colorbars and spacing leave, equally.
     if let Some(budget) = budget {
         let total = measured
             .iter()
@@ -710,6 +718,96 @@ fn running_offsets(extents: &[f64], spacing: f64) -> Vec<f64> {
         position += extent + spacing;
     }
     offsets
+}
+
+/// Offsets of legends wrapped into stacks, and the block size.
+type WrappedStacks = (Vec<(f64, f64)>, (f64, f64));
+
+/// Legends packed in order into stacks no longer than `budget` along the stack,
+/// the stacks placed side by side (top to bottom for `legend_box="horizontal"`
+/// rows). `None` when one stack already fits (nothing
+/// changes), when a single legend is longer than the budget, or when the stacks
+/// together are too thick for the budget across. Returns each legend's offset and
+/// the block size.
+fn wrap_stacks(
+    measured: &[MeasuredLegend],
+    budget: (f64, f64),
+    theme: &Theme,
+) -> Option<WrappedStacks> {
+    let side_by_side = theme.legend_box_horizontal;
+    let (along_spacing, across_spacing) = if side_by_side {
+        theme.legend_spacing
+    } else {
+        (theme.legend_spacing.1, theme.legend_spacing.0)
+    };
+    let along = |size: (f64, f64)| if side_by_side { size.0 } else { size.1 };
+    let across = |size: (f64, f64)| if side_by_side { size.1 } else { size.0 };
+    let (budget_along, budget_across) = (along(budget), across(budget));
+    let total = measured
+        .iter()
+        .map(|legend| along(legend.size))
+        .sum::<f64>()
+        + along_spacing * measured.len().saturating_sub(1) as f64;
+    if measured.len() < 2
+        || total <= budget_along + 1e-9
+        || measured
+            .iter()
+            .any(|legend| along(legend.size) > budget_along + 1e-9)
+    {
+        return None;
+    }
+    // Greedy packing: each stack holds legend indices.
+    let mut stacks: Vec<Vec<usize>> = vec![Vec::new()];
+    let mut length = 0.0;
+    for (index, legend) in measured.iter().enumerate() {
+        let extent = along(legend.size);
+        let stack = stacks.last_mut()?;
+        if !stack.is_empty() && length + along_spacing + extent > budget_along + 1e-9 {
+            stacks.push(vec![index]);
+            length = extent;
+        } else {
+            length += if stack.is_empty() { 0.0 } else { along_spacing } + extent;
+            stack.push(index);
+        }
+    }
+    let thicknesses: Vec<f64> = stacks
+        .iter()
+        .map(|stack| {
+            stack
+                .iter()
+                .map(|&index| across(measured[index].size))
+                .fold(0.0, f64::max)
+        })
+        .collect();
+    let thickness = thicknesses.iter().sum::<f64>() + across_spacing * (stacks.len() - 1) as f64;
+    if thickness > budget_across + 1e-9 {
+        return None;
+    }
+    let justification = theme.legend_box_justification();
+    let mut offsets = vec![(0.0, 0.0); measured.len()];
+    let mut longest: f64 = 0.0;
+    let mut start = 0.0;
+    for (stack, stack_thickness) in stacks.iter().zip(&thicknesses) {
+        let mut position = 0.0;
+        for &index in stack {
+            let size = measured[index].size;
+            let shift = start + (stack_thickness - across(size)) * justification;
+            offsets[index] = if side_by_side {
+                (position, shift)
+            } else {
+                (shift, position)
+            };
+            position += along(size) + along_spacing;
+        }
+        longest = longest.max(position - along_spacing);
+        start += stack_thickness + across_spacing;
+    }
+    let size = if side_by_side {
+        (longest, thickness)
+    } else {
+        (thickness, longest)
+    };
+    Some((offsets, size))
 }
 
 /// Draw the block with its top-left corner at `origin`.

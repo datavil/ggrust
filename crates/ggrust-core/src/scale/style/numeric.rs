@@ -1,8 +1,9 @@
 //! Numeric style mappings: `size` and `alpha` (lets-plot `SizeMapperProvider`,
 //! `AlphaMapperProvider`, both `LinearNormalizingMapperProvider`): data mapped
 //! linearly onto an output range (values outside the domain extrapolate, as in
-//! lets-plot); categories spread evenly over the range. `scale_size_area` is
-//! `DirectlyProportionalMapperProvider`: 0..max of the data onto 0..`max_size`.
+//! lets-plot); categories spread evenly over the range. `scale_size_area` maps
+//! 0..max of the data onto 0..`max_size` with area proportional to the value
+//! (ggplot2 `abs_area`, not lets-plot's linear diameter).
 
 use super::{StyleMapper, linear};
 use crate::data::ContinuousColumn;
@@ -38,7 +39,8 @@ impl LinearMapper {
     }
 }
 
-/// `scale_size_area`: values from 0 to the largest one onto sizes 0..`max`
+/// `scale_size_area`: values from 0 to the largest one onto sizes 0..`max`,
+/// the circle area proportional to the value
 /// (continuous data only).
 #[derive(Debug, Clone, PartialEq)]
 pub struct ProportionalMapper {
@@ -61,15 +63,23 @@ impl StyleMapper for ProportionalMapper {
     }
 
     fn map_continuous(&self, column: &ContinuousColumn, domain: (f64, f64)) -> StyleValues {
-        // lets-plot `DoubleSpan(0, dataMax)` sorts its ends: a negative maximum
-        // maps it to 0 and smaller values below (nothing is drawn).
-        let map = linear((domain.1.min(0.0), domain.1.max(0.0)), (0.0, self.max));
+        // Area, not diameter, grows with the value (ggplot2 `abs_area`; lets-plot
+        // scales the diameter linearly, issue lets-plot#1452). Values at or below 0,
+        // or a maximum at or below 0, draw nothing.
+        let largest = domain.1;
+        let map = |value: f64| {
+            if largest > 0.0 {
+                self.max * (value / largest).max(0.0).sqrt()
+            } else {
+                0.0
+            }
+        };
         let values = (0..column.len())
             .map(|row| {
                 column
                     .get(row)
                     .filter(|value| value.is_finite())
-                    .map_or(self.missing, &map)
+                    .map_or(self.missing, map)
             })
             .collect();
         StyleValues::Numbers(PerItem::Varying(values))
@@ -147,6 +157,24 @@ mod tests {
         let diameters: Vec<f64> = sizes.iter().map(|size| size * POINT_UNIT_SIZE).collect();
         assert!((diameters[0] - 3.0).abs() < 1e-12 && (diameters[1] - 21.0).abs() < 1e-12);
         assert!((diameters[2] - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn size_area_scales_the_area_not_the_diameter() {
+        let mapper = ProportionalMapper {
+            max: 10.0,
+            missing: 1.0,
+        };
+        let column = ContinuousColumn::from_options(vec![Some(20.0), Some(40.0), Some(-5.0)]);
+        let StyleValues::Numbers(PerItem::Varying(sizes)) =
+            mapper.map_continuous(&column, (-5.0, 40.0))
+        else {
+            panic!("expected varying sizes");
+        };
+        // Twice the value, twice the area.
+        assert!(((sizes[1] / sizes[0]).powi(2) - 2.0).abs() < 1e-12);
+        assert_eq!(sizes[1], 10.0);
+        assert_eq!(sizes[2], 0.0);
     }
 
     #[test]

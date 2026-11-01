@@ -104,3 +104,16 @@ def test_size_area_with_a_negative_maximum_draws_nothing_visible():
     svg = plot.to_svg()
     panel = svg[svg.find('<g class="panel"') :]
     assert "<circle" not in panel[: panel.find('<g class="axis-x"')]
+
+
+def test_size_area_scales_the_circle_area():
+    frame = {"x": [1, 2], "y": [1, 2], "v": [20, 40]}
+    plot = (
+        gg.ggplot(frame, gg.aes("x", "y", size="v"))
+        + gg.geom_point()
+        + gg.scale_size_area(max_size=20, guide="none")
+    )
+    svg = plot.to_svg()
+    radii = [float(part.split('"')[0]) for part in svg.split(' r="')[1:]]
+    assert len(radii) == 2
+    assert abs((radii[1] / radii[0]) ** 2 - 2.0) < 1e-3

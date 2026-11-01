@@ -7,7 +7,7 @@
 //! `axis_text` <- `text` ...). Layout and drawing read only this struct.
 //!
 //! What it does not do (yet): line types, text margins other than on strips, text
-//! angles and vertical justification other than on axis labels, and the vertical
+//! angles and vertical justification other than on axis labels and titles, and the vertical
 //! strips of `facet_grid`; options that set them are reported as warnings.
 
 mod values;
@@ -371,13 +371,22 @@ fn report_unbuilt(spec: &ThemeSpec, warnings: &mut Vec<String>) {
         };
         // Axis labels read angle and vjust (layout/rotated.rs); other text does not yet.
         let axis_text = matches!(key.as_str(), "axis_text" | "axis_text_x" | "axis_text_y");
+        // Axis titles read angle (layout `axis_title_extent`); vjust has no room to
+        // move a title inside its own band, so it is accepted as a no-op.
+        let axis_title = matches!(key.as_str(), "axis_title" | "axis_title_x" | "axis_title_y");
         // Strip labels read their margins (layout/facet.rs).
         let strip_text = matches!(key.as_str(), "strip_text" | "strip_text_x");
         let unbuilt = [
             ("linetype", element.linetype.is_some()),
             ("margin", element.margin.is_some() && !strip_text),
-            ("vjust", element.vjust.is_some() && !axis_text),
-            ("angle", element.angle.is_some() && !axis_text),
+            (
+                "vjust",
+                element.vjust.is_some() && !axis_text && !axis_title,
+            ),
+            (
+                "angle",
+                element.angle.is_some() && !axis_text && !axis_title,
+            ),
             ("lineheight", element.lineheight.is_some()),
         ];
         for (property, present) in unbuilt {
@@ -874,14 +883,14 @@ mod tests {
         assert!(error.contains("theme.legend_position"), "{error}");
         let mut warnings = Vec::new();
         Theme::from_spec(
-            Some(&spec(r#"{"strip_text_y": {"size": 3, "blank": false}, "axis_title_x": {"angle": 45, "blank": false}}"#)),
+            Some(&spec(r#"{"strip_text_y": {"size": 3, "blank": false}, "plot_title": {"angle": 45, "blank": false}}"#)),
             &mut warnings,
         )
         .unwrap();
         assert_eq!(
             warnings,
             [
-                "at 'theme.axis_title_x.angle': not supported yet; ignored",
+                "at 'theme.plot_title.angle': not supported yet; ignored",
                 "at 'theme.strip_text_y': not supported yet; ignored"
             ]
         );

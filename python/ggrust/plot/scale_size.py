@@ -69,7 +69,10 @@ def scale_size_area(
     trans: Transform | None = None,
     format: str | None = None,
 ) -> FeatureSpec:
-    """Sizes proportional to the data: 0 is size 0, the largest value ``max_size``.
+    """Sizes whose circle area is proportional to the data.
+
+    0 is size 0 and the largest value ``max_size``; a value twice as large draws a
+    circle with twice the area (as ggplot2; lets-plot scales the diameter instead).
 
     Parameters
     ----------

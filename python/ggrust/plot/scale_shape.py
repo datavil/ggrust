@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 
     from ggrust._typing import Breaks, Color, Guide, Labels, Limits, Number
 
-__all__ = ["scale_shape", "scale_shape_manual"]
+__all__ = ["scale_linetype_manual", "scale_shape", "scale_shape_manual"]
 
 
 def scale_shape(
@@ -120,3 +120,57 @@ def scale_shape_manual(
         The scale.
     """
     return _manual("shape", **locals())
+
+
+def scale_linetype_manual(
+    values: Sequence[Any] | dict[Any, Any],
+    name: str | None = None,
+    breaks: Breaks | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    na_value: str | int | None = None,
+    guide: Guide | None = None,
+    format: str | None = None,
+) -> FeatureSpec:
+    """Your own line types for ``linetype``.
+
+    Parameters
+    ----------
+    values : list or dict
+        Line types matched in order with the scale's categories, or a dict from
+        category to line type. A line type is a code 0..6, a name (``"solid"``,
+        ``"dashed"``, ``"dotted"``, ``"dotdash"``, ``"longdash"``, ``"twodash"``,
+        ``"blank"``) or a dash list in line widths, e.g. ``[5, 2]``.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        The levels (and their order). Data outside the limits gets ``na_value``.
+    na_value : str or int, optional
+        Line type drawn for missing data and data outside ``limits``; solid by default.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"none"``, or a ``guide_legend()`` spec.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
+        (``"{.1f} %"``). ``labels`` take precedence.
+
+    Returns
+    -------
+    FeatureSpec
+        The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"t": [1, 2, 3, 1, 2, 3], "v": [1, 3, 2, 2, 1, 3], "g": list("aaabbb")}
+    >>> plot = ggplot(data, aes("t", "v", linetype="g")) + geom_line() + scale_linetype_manual(
+    ...     values=["solid", "dotted"]
+    ... )
+    """
+    return _manual("linetype", **locals())

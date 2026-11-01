@@ -22,6 +22,7 @@ __all__ = [
     "scale_alpha_identity",
     "scale_color_identity",
     "scale_fill_identity",
+    "scale_linetype_identity",
     "scale_shape_identity",
     "scale_size_identity",
 ]
@@ -229,3 +230,43 @@ def scale_shape_identity(
         The scale.
     """
     return _identity("shape", **locals())
+
+
+def scale_linetype_identity(
+    name: str | None = None,
+    breaks: Breaks | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    na_value: str | int | None = None,
+    guide: Guide = "none",
+    format: str | None = None,
+) -> FeatureSpec:
+    """Use the data as line types (codes 0..6 or names such as ``"dashed"``); no legend by default.
+
+    Parameters
+    ----------
+    name : str, optional
+        Title of the scale, shown on the axis or the legend.
+    breaks : list or dict, optional
+        Positions of the ticks or legend keys: a list, or a dict of labels to values.
+    labels : list or dict, optional
+        Texts at the breaks: a list, or a dict of break values to texts.
+    lablim : int, optional
+        Maximum number of characters of a label; longer labels are cut.
+    limits : list, optional
+        Data range of the scale: ``[low, high]`` for continuous scales (None keeps a side), or the
+        levels of a discrete scale.
+    na_value : str or int, optional
+        Line type used for missing data.
+    guide : str or FeatureSpec, default='none'
+        Guide: ``"legend"``, ``"colorbar"``, ``"none"``, or a ``guide_*()`` spec.
+    format : str, optional
+        Format pattern of the labels, e.g. ``".2f"`` or ``"{d} %"``.
+
+    Returns
+    -------
+    FeatureSpec
+        The scale.
+    """
+    return _identity("linetype", **locals())

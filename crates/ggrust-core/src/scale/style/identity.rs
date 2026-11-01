@@ -8,7 +8,7 @@ use super::{Level, StyleMapper};
 use crate::data::ContinuousColumn;
 use crate::scene::{Color, PerItem};
 use crate::spec::Value;
-use crate::style::{StyleValues, ValueKind, parse_constant};
+use crate::style::{LineType, StyleValues, ValueKind, parse_constant};
 
 /// Identity mapping onto one value kind.
 #[derive(Debug, Clone, PartialEq)]
@@ -34,6 +34,18 @@ impl IdentityMapper {
                 (0.0..=25.0)
                     .contains(&code)
                     .then(|| Value::from(code as u64))?
+            }
+            // Line type codes: "2" and 2.0 are code 2.
+            (ValueKind::Linetype, Value::String(text)) => match text.trim().parse::<i64>() {
+                Ok(code) => Value::from(code),
+                Err(_) => value.clone(),
+            },
+            (ValueKind::Linetype, Value::Number(number)) => {
+                let code = number.as_f64()?;
+                if code.fract() != 0.0 {
+                    return None;
+                }
+                Value::from(code as i64)
             }
             (_, value) => value.clone(),
         };
@@ -76,8 +88,20 @@ impl IdentityMapper {
                     })
                     .collect(),
             )),
-            ValueKind::Linetype | ValueKind::Text => {
-                // Not style-scaled yet (no default mapper reaches here).
+            ValueKind::Linetype => StyleValues::Linetypes(PerItem::Varying(
+                values
+                    .iter()
+                    .map(|value| match value {
+                        StyleValues::Linetypes(PerItem::Uniform(linetype)) => linetype.clone(),
+                        StyleValues::Linetypes(PerItem::Varying(linetypes)) => {
+                            linetypes.first().cloned().unwrap_or_default()
+                        }
+                        _ => LineType::default(),
+                    })
+                    .collect(),
+            )),
+            ValueKind::Text => {
+                // Not style-scaled (no default mapper reaches here).
                 self.na.clone()
             }
         }
@@ -154,7 +178,11 @@ impl IdentityMapper {
             ValueKind::Color => StyleValues::Colors(PerItem::Uniform(Color::TRANSPARENT)),
             ValueKind::Number => StyleValues::Numbers(PerItem::Uniform(f64::NAN)),
             ValueKind::Shape => StyleValues::Shapes(PerItem::Uniform(super::HIDDEN_SHAPE)),
-            ValueKind::Linetype | ValueKind::Text => self.na.clone(),
+            // lets-plot `blank`: the line is not drawn.
+            ValueKind::Linetype => {
+                StyleValues::Linetypes(PerItem::Uniform(LineType(vec![0.0, 1.0])))
+            }
+            ValueKind::Text => self.na.clone(),
         }
     }
 }

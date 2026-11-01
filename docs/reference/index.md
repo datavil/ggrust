@@ -112,6 +112,7 @@ Axes: breaks, labels, limits and transforms.
 | [`scale_y_datetime()`](api/scale_y_datetime.md) | Date-time position scale y. See ``scale_x_datetime``. |
 | [`scale_x_time()`](api/scale_x_time.md) | Duration position scale x. |
 | [`scale_y_time()`](api/scale_y_time.md) | Duration position scale y. See ``scale_x_time``. |
+| [`expand_limits()`](api/expand_limits.md) | Widen the scales of the plot so they include the given values. |
 | [`lims()`](api/lims.md) | Limits for both axes: ``xlim(*x) + ylim(*y)``. |
 | [`xlim()`](api/xlim.md) | Limits of the x axis, e.g. ``xlim(0, 10)``, ``xlim(None, 10)`` or ``xlim("B", "T")``. |
 | [`ylim()`](api/ylim.md) | Limits of the y axis. See ``xlim``. |
@@ -158,6 +159,8 @@ Map data to point size, point shape and transparency.
 | [`scale_shape()`](api/scale_shape.md) | Point shapes for categories. |
 | [`scale_shape_manual()`](api/scale_shape_manual.md) | Your own point shapes (lets-plot codes 0..25) for ``shape``. |
 | [`scale_shape_identity()`](api/scale_shape_identity.md) | Use the data as shape codes (0..25); no legend by default. |
+| [`scale_linetype_manual()`](api/scale_linetype_manual.md) | Your own line types for ``linetype``. |
+| [`scale_linetype_identity()`](api/scale_linetype_identity.md) | Use the data as line types (codes 0..6 or names such as ``"dashed"``); no legend by default. |
 | [`scale_alpha()`](api/scale_alpha.md) | Transparency for ``alpha``: data mapped linearly onto ``range``. |
 | [`scale_alpha_manual()`](api/scale_alpha_manual.md) | Your own alphas for ``alpha``, matched in order with the categories (or a dict). |
 | [`scale_alpha_identity()`](api/scale_alpha_identity.md) | Use the data as alphas; no legend by default. |

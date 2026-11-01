@@ -4,6 +4,8 @@
 //! lets-plot (`PlotConfigUtil.mergeScaleOptions`). The merged options choose the
 //! mapper (lets-plot `ScaleConfig.createMapperProvider`) and the discrete domain.
 
+use crate::scale::style::LinetypeMapper;
+use crate::style::LineType;
 use std::collections::BTreeMap;
 use std::sync::Arc;
 
@@ -245,6 +247,11 @@ impl StyleScaleSpec {
             if is_shape {
                 return self
                     .manual_shapes(values, path)
+                    .map(|mapper| Arc::new(mapper) as Arc<dyn StyleMapper>);
+            }
+            if kind == ValueKind::Linetype {
+                return self
+                    .manual_linetypes(values, path)
                     .map(|mapper| Arc::new(mapper) as Arc<dyn StyleMapper>);
             }
             if is_number {
@@ -705,6 +712,33 @@ impl StyleScaleSpec {
             colors,
             na: self.na_color()?,
         })
+    }
+
+    fn manual_linetypes(&self, values: &Value, path: &str) -> Result<LinetypeMapper> {
+        let items = values.as_array().ok_or_else(|| {
+            Error::spec(path, format!("expected a list of line types, got {values}"))
+        })?;
+        let linetype = |item: &Value, at: &str| {
+            LineType::parse(item).map_err(|message| Error::spec(at, message))
+        };
+        // lets-plot skips null values (`filterNotNull`).
+        let linetypes = items
+            .iter()
+            .enumerate()
+            .filter(|(_, item)| !item.is_null())
+            .map(|(index, item)| linetype(item, &format!("{path}[{index}]")))
+            .collect::<Result<Vec<_>>>()?;
+        if linetypes.is_empty() {
+            return Err(Error::spec(
+                path,
+                "manual scales need at least one line type",
+            ));
+        }
+        let na = match &self.na_value {
+            None => LinetypeMapper::all().na,
+            Some((value, path)) => linetype(value, path)?,
+        };
+        Ok(LinetypeMapper { linetypes, na })
     }
 
     fn manual_shapes(&self, values: &Value, path: &str) -> Result<ShapeMapper> {

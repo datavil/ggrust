@@ -266,8 +266,10 @@ Group 4: score 4.
   (`stat/ecdf.rs`, lets-plot's `ECDFStat`: distinct x in first appearance or `n` evenly spaced points, `pad` (default true) adds (-inf, 0) and (inf, 1), drawn to the panel edges by `geom_step`'s `pad` (lp4.1's option renamed from `padded` to lets-plot's `pad`). Python `stat_ecdf` (default geom step). Vertices match lets-plot in 5 cases (padded, unpadded, groups, points with `n`, line). Not yet: `orientation="y"`.)
 - [x] lp4.4 `scale_color_grey`, `scale_fill_grey`, `scale_color_discrete`, `scale_fill_discrete`.
   (Grey: Python functions over the existing `color_grey` mapper, lets_plot's 0..100 rescaling with a warning. Discrete: `discrete=True` on a style scale makes the mapped column discrete (first appearance, as lets-plot) and, without values or a mapper kind, picks `color_brewer` as lets-plot's `ScaleConfig`, so `direction=-1` reverses Set1. Colors and legend labels match lets-plot in 14 cases.)
-- [ ] lp4.5 `scale_linetype_manual`, `scale_linetype_identity` (#1147).
-- [ ] lp4.6 `expand_limits`.
+- [x] lp4.5 `scale_linetype_manual`, `scale_linetype_identity` (#1147).
+  (`scale/style/linetype.rs`: lets-plot's `LineTypeMapper`, the six named types cycling over categories and quantized over continuous data, NA solid, now the default linetype mapper; `scale_linetype_manual` values (names, codes, dash lists, dicts, `na_value`) and `scale_linetype_identity` (names and codes 0..6). Dashes match lets-plot on 20 line geoms, legends (merged with color too), facets and the manual/identity cases (bug hunt). Rect geoms draw dashed outlines and keys, as ggplot2 (lets-plot ignores linetype there; deviation). Not yet: hex dash strings and `(offset, dashes)` (gap), out-of-range identity codes are drawn blank silently (gap).)
+- [x] lp4.6 `expand_limits`.
+  (Python only, as lets_plot: a `geom_blank` over `x`/`y`/`size`/`color`/`fill`/`alpha`/`shape` lists padded with None; specs equal lets_plot's and axis/legend labels match in 7 cases. The `x1`/`y1` axis titles when nothing else maps x/y are inherited from lets-plot.)
 - [ ] lp4.7 `orientation` on bar, histogram, boxplot, violin.
 - [ ] lp4.8 Score-4 theme parameters: `legend_key_width/_height`, `axis_ticks_length_x/_y`, `plot_caption`, `plot_title_position`, `plot_caption_position`, `strip_text_y`, `strip_background_y`, `strip_spacing_x`, `axis_text_spacing_x/_y`, `element_line/rect(linetype=)`, `element_text(margin=...)` (#1265). Undo the periodic table caption and title margin workarounds (gaps file section 12).
 

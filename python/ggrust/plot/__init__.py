@@ -2,6 +2,7 @@
 
 from ggrust.plot.coord import coord_cartesian, coord_fixed, coord_flip
 from ggrust.plot.core import aes, layer
+from ggrust.plot.expand_limits import expand_limits
 from ggrust.plot.facet import facet_grid, facet_wrap
 from ggrust.plot.geom import (
     geom_abline,
@@ -102,10 +103,11 @@ from ggrust.plot.scale_identity import (
     scale_alpha_identity,
     scale_color_identity,
     scale_fill_identity,
+    scale_linetype_identity,
     scale_shape_identity,
     scale_size_identity,
 )
-from ggrust.plot.scale_shape import scale_shape, scale_shape_manual
+from ggrust.plot.scale_shape import scale_linetype_manual, scale_shape, scale_shape_manual
 from ggrust.plot.scale_size import (
     scale_alpha,
     scale_alpha_manual,
@@ -156,6 +158,7 @@ __all__ = [
     "element_markdown",
     "element_rect",
     "element_text",
+    "expand_limits",
     "facet_grid",
     "facet_wrap",
     "flavor_darcula",
@@ -244,6 +247,8 @@ __all__ = [
     "scale_fill_identity",
     "scale_fill_manual",
     "scale_fill_viridis",
+    "scale_linetype_identity",
+    "scale_linetype_manual",
     "scale_shape",
     "scale_shape_identity",
     "scale_shape_manual",

@@ -18,6 +18,7 @@ mod colormap_data;
 mod gradient;
 mod hue;
 mod identity;
+mod linetype;
 mod manual;
 mod numeric;
 mod shape;
@@ -36,6 +37,7 @@ pub use gradient::{
 };
 pub use hue::HueMapper;
 pub use identity::IdentityMapper;
+pub use linetype::{ALL_LINETYPES, LinetypeMapper};
 pub use manual::ManualColorMapper;
 pub use manual::ManualNumberMapper;
 pub use numeric::{ALPHA, LinearMapper, ProportionalMapper, SIZE, SIZE_AREA_MAX};
@@ -92,6 +94,7 @@ pub fn default_mapper(aesthetic: Aesthetic) -> Option<Arc<dyn StyleMapper>> {
         Aesthetic::Size => Some(Arc::new(SIZE.clone())),
         Aesthetic::Alpha => Some(Arc::new(ALPHA.clone())),
         Aesthetic::Shape => Some(Arc::new(ShapeMapper::all())),
+        Aesthetic::Linetype => Some(Arc::new(LinetypeMapper::all())),
         _ => None,
     }
 }

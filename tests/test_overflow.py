@@ -8,6 +8,7 @@ exactly as before.
 import re
 
 import ggrust as gg
+import pytest
 
 NUMBER = r"([\d.\-]+)"
 GROUPS = [f"group {index:02d}" for index in range(50)]
@@ -265,3 +266,46 @@ def test_justified_axis_title_longer_than_its_axis_is_centred():
     match = re.search(r'<text x="([\d.-]+)"[^>]*>L{120}</text>', plot.to_svg())
     assert match is not None
     assert 0 < float(match.group(1)) < 600
+
+
+def _collected_grid(box: str, height: int) -> gg.SupPlotsSpec:
+    n = 10
+    frame = {
+        "x": list(range(n)),
+        "y": list(range(n)),
+        "cell_type": [f"cell type {index}" for index in range(n)],
+        "batch": [f"batch_{index % 4}" for index in range(n)],
+        "condition": [f"condition {index % 3}" for index in range(n)],
+        "c": list(range(n)),
+    }
+    plots = [
+        gg.ggplot(frame, gg.aes("x", "y", color="cell_type", shape="batch")) + gg.geom_point(),
+        gg.ggplot(frame, gg.aes("x", "y", fill="condition", size="c")) + gg.geom_point(shape=21),
+    ]
+    return (
+        gg.gggrid(plots, ncol=2, guides="collect")
+        + gg.ggsize(700, height)
+        + gg.theme(legend_position="bottom", legend_box=box)
+    )
+
+
+@pytest.mark.parametrize(("box", "height"), [("vertical", 500), ("horizontal", 350)])
+def test_collected_legends_fit_the_grid(box, height):
+    # lets-plot#1506 (plan 9.1): collected legends wrap within the grid, every key shown.
+    svg = _collected_grid(box, height).to_svg()
+    shown = [text for _, _, text in texts(svg)]
+    assert "more" not in " ".join(shown)
+    for label in ["cell type 9", "batch_3", "condition 2", "8"]:
+        assert label in shown, label
+    for x, y, text in texts(svg):
+        assert 0 <= x <= 700 and 0 <= y <= height, (text, x, y)
+    # The legends take at most half the height: the panels keep the rest.
+    legend_tops = [y for _, y, text in texts(svg) if text in ("cell_type", "batch", "c")]
+    assert min(legend_tops) > height / 2
+
+
+def test_small_collected_legends_are_cut_inside_the_grid():
+    svg = _collected_grid("vertical", 350).to_svg()
+    assert "more" in " ".join(text for _, _, text in texts(svg))
+    for x, y, text in texts(svg):
+        assert 0 <= x <= 700 and 0 <= y <= 350, (text, x, y)

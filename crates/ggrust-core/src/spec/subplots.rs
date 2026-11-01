@@ -101,6 +101,12 @@ pub struct GridLayoutSpec {
     /// `auto` or `collect`: share legends across cells.
     #[serde(default)]
     pub guides: Option<String>,
+    /// Share horizontal axis ranges: `all`, `none`, `row` or `col`.
+    #[serde(default)]
+    pub sharex: Option<String>,
+    /// Share vertical axis ranges: `all`, `none`, `row` or `col`.
+    #[serde(default)]
+    pub sharey: Option<String>,
     /// Keys no component consumes.
     #[serde(flatten)]
     pub unsupported: Options,

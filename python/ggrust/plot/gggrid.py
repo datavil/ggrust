@@ -33,7 +33,11 @@ def gggrid(
     ncol : int, optional
         Number of columns; all plots in one row when None.
     sharex, sharey : bool or {"all", "none", "row", "col"}, optional
-        Share axis limits between plots.
+        Share the horizontal (vertical) axis range between all plots
+        (``True``/``"all"``), the plots of a row, or of a column. Continuous axes
+        take the union of the plots' ranges; discrete axes the union of their
+        categories (lets-plot shares only continuous axes). Plots with their own
+        scale limits keep them; nested grids do not take part.
     widths, heights : list of float, optional
         Relative column widths and row heights.
     hspace, vspace : float, optional

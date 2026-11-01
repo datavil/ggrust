@@ -28,6 +28,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Lessons: [memory/](memory/README.md
 | Axis title angle | `theme(axis_title*=element_text(angle=...))` turns the title and its band, as ggplot2; lets-plot ignores it (lets-plot#1504). `hjust`/`vjust` place the title along its axis turned by its angle (ggplot2 `rotate_just`), so `vjust` moves a horizontal y title; unset they centre it (ggplot2 inherits `vjust=1`: top) (decided (user) 2026-11-01; vjust by lp3.5) |
 | Identity bar stacking (lp3.1) | `geom_bar`/`geom_histogram` with `stat="identity"` and no `mode` stack every row (`mode="all"`), as ggplot2: rows of one group at one x stack. lets-plot's default `mode="groups"` overlaps them (lets-plot#1398). Other geoms and stats keep `groups` (density band ends and ydensity repeat x inside a group) (planned step lp3.1, 2026-11-01) |
 | Free facet stat ranges (lp3.2) | On a free facet axis, binned and density stats use the panel's own range, as ggplot2; lets-plot bins every panel over the whole plot's range (lets-plot#1443). Shared axes unchanged (planned step lp3.2, 2026-11-01) |
+| Shared discrete axes (lp3.6) | `gggrid(sharex/sharey)` shares discrete axes too (union of categories as limits); lets-plot shares only continuous ones (lets-plot#1015) (planned step lp3.6, 2026-11-01) |
 | Panel minimum in grid cells | Inside a `gggrid` cell a panel shrinks to what the cell leaves (at least 1 px), as ggplot2/patchwork; standalone plots keep lets-plot's 50 px `GEOM_MIN_SIZE`. lets-plot keeps 50 px in cells too, so thin cells (cellestial annotation tracks) ran past their cell and their axis titles centred off the visible strip (decided (user) 2026-11-01) |
 | scale_size_area | Circle area proportional to the value (`max_size * sqrt(|v| / max|v|)`, ggplot2 `rescale_max` + `abs_area`: negative values draw by their absolute value); lets-plot scales the diameter linearly (lets-plot#1452) (decided (user) 2026-11-01) |
 | Legend stacks wrap | Stacked legends too long for the budget wrap into more stacks side by side (in order, greedy) when those fit the budget across; otherwise the earlier share/reflow/cut rules apply (lets-plot#1506) (decided (user) 2026-11-01) |
@@ -246,10 +247,12 @@ Group 3: open lets-plot bugs we copied (score 4, gaps file section 11).
 - [x] lp3.2 Free facet scales with binned stats use each panel's range (#1443), as ggplot2.
   (Each facet tile gets its own `StatContext`: on a free axis `overall_range` over the tile's layers (scale limits still replace the ends). Not yet: `facet_grid` (not built); ggplot2 shares a free range per grid column/row there, not per tile.)
 - [ ] lp3.3 Text at the plot edge and wide last axis labels are not clipped (#339, #906).
-- [ ] lp3.4 Legend overflow: legends wrap or grow the canvas so they fit (#1506; see also 9.1).
+- [x] lp3.4 Legend overflow: legends wrap or grow the canvas so they fit (#1506; see also 9.1).
+  (Single plots: already wrapping since the overflow guards commit. Now gggrid collected legends get a `LegendBudget` over the grid inside its margins, titles and inset, so they wrap/reflow/cut as a single plot's (closes 9.1); a block wider than the figures is kept inside the grid instead of centred past both edges. Stacked legends split the room by water-filling (legends fitting an equal share keep their size), so short legends no longer cut a long one. Bug hunt: 43 renders, non-overflowing plots byte-identical. Not done: legends that cannot fit at one key each still overflow (tiny canvases); the canvas never grows.)
 - [x] lp3.5 Axis title `element_text(angle=, vjust=)` applied (#1504).
   (Angle was applied by the overflow guards commit; now `hjust`/`vjust` place the title along its axis turned by its angle, as ggplot2's `rotate_just` (`axis_title_justification`), checked against ggplot2 4.0.1 in R. Unset they centre (ggplot2 inherits `vjust=1`). A title longer than its axis is centred (bug hunt). Kept: justification outside 0..1 moves the title off the panel, as ggplot2. Known, pre-existing: a rotated title's band can exceed the plot.)
-- [ ] lp3.6 `gggrid(sharex=, sharey=)` shared axes (#1015).
+- [x] lp3.6 `gggrid(sharex=, sharey=)` shared axes (#1015).
+  (`grid_share.rs`: all/none/row/col on screen axes (coord_flip aware). Continuous: each plot's scales widened to the union of trained ranges after its stats (lets-plot parity, 3 parity cases). Discrete: plots re-prepared with the union of trained categories as limits (lets-plot does not share discrete, #1015). Plots with own limits keep them; mixed transforms do not share; nested grids do not take part; free facet scales inside a shared plot take the shared range. Bug hunt: union now from trained levels (reverse/breaks leaked). Known: `as_discrete(levels=)` orders are not merged across plots.)
 
 Group 4: score 4.
 
@@ -293,7 +296,7 @@ Row tracks are thin (`widths` 0.025 each) and get their title as one x-axis tick
 (`scale_x_continuous(breaks=[0], labels=[name])` + `axis_text_x=element_text(angle=90, hjust=1)`).
 Cellestial work is on branch `ggrust-port-track-titles` (row titles only, uncommitted).
 
-- [ ] 9.1 Collected legends do not wrap (lets-plot #1506, "Copied" in the gaps table).
+- [x] 9.1 Collected legends do not wrap (fixed by lp3.4) (lets-plot #1506, "Copied" in the gaps table).
   Five legends (four categorical, two colorbars) in one bottom row are wider than 900 px;
   the row is centred, so both ends are cut off (lets-plot only cut the right end).
   Expected (ggplot2): the legend box wraps to more rows, or grows the canvas, so every legend fits.

@@ -8,20 +8,22 @@
 //! background, title and collected legends. Figures inherit the grid's theme as in
 //! lets-plot ([`child_theme`]).
 //!
-//! What it does not do (warned): shared axes (`sharex`/`sharey`), captions, tags and
-//! grid-level `guides(...)`.
+//! Shared axes (`sharex`/`sharey`): [`crate::grid_share`].
+//!
+//! What it does not do (warned): captions, tags and grid-level `guides(...)`.
 
 use crate::build::{Arrangement, BuiltPlot, DEFAULT_SIZE, PlotData, PreparedPlot, build_plot_with};
 use crate::data::DataFrame;
+use crate::grid_share;
 use crate::layout::grid::{DEFAULT_SPACING, cell_rects, shrink_to_aspect};
 use crate::layout::zoom::Zoom;
 use crate::layout::{
-    LegendBlock, LegendBox, Titles, draw_legends, heading_nodes, headings_band, measure_legends,
-    shrink,
+    LegendBlock, LegendBox, Titles, draw_legends, heading_nodes, headings_band, legend_budget,
+    measure_legends, shrink,
 };
 use crate::parallel;
 use crate::scene::{Color, Group, Node, PerItem, Rect, Rects, Scene};
-use crate::spec::{ElementSpec, Figure, SubplotsSpec, ThemeSpec, ThemeValue};
+use crate::spec::{ElementSpec, Figure, PlotSpec, SubplotsSpec, ThemeSpec, ThemeValue};
 use crate::theme::{LegendPosition, Margins, Theme};
 use crate::tooltip::Interaction;
 use crate::{Error, Result};
@@ -277,22 +279,34 @@ impl<'s> PreparedGrid<'s> {
         };
         let mut collected = Vec::new();
         let mut elements = Vec::with_capacity(spec.figures.len());
+        grid_share::validate(layout).map_err(|error| nest_error(error, path))?;
         // Plots prepare in parallel; their results are taken in figure order below.
         let rows = context.frames.iter().map(DataFrame::row_count).sum();
-        let figures = spec.figures.iter().collect();
-        let mut prepared: Vec<Option<Result<PreparedPlot>>> =
-            parallel::ordered_map(figures, parallel::is_worth(rows), |figure| match figure {
+        let plot_specs: Vec<Option<PlotSpec>> = spec
+            .figures
+            .iter()
+            .map(|figure| match figure {
                 Some(Figure::Plot(plot_spec)) => {
-                    let mut plot_spec = plot_spec.clone();
+                    let mut plot_spec = PlotSpec::clone(plot_spec);
                     plot_spec.theme =
                         Some(child_theme(&theme_spec, &theme, plot_spec.theme.as_ref()));
-                    Some(
-                        PlotData::from_frames(&plot_spec, context.frames)
-                            .and_then(|data| crate::build::prepare_plot(&plot_spec, &data)),
-                    )
+                    Some(plot_spec)
                 }
                 _ => None,
-            });
+            })
+            .collect();
+        let mut prepared: Vec<Option<Result<PreparedPlot>>> = parallel::ordered_map(
+            plot_specs.iter().collect(),
+            parallel::is_worth(rows),
+            |plot_spec| {
+                plot_spec.as_ref().map(|plot_spec| {
+                    PlotData::from_frames(plot_spec, context.frames)
+                        .and_then(|data| crate::build::prepare_plot(plot_spec, &data))
+                })
+            },
+        );
+        grid_share::share_axes(layout, &plot_specs, &mut prepared, context.frames)
+            .map_err(|error| nest_error(error, path))?;
         for (index, figure) in spec.figures.iter().enumerate() {
             let figure_path = format!("{path}figures[{index}]");
             let element = match figure {
@@ -401,7 +415,7 @@ impl<'s> PreparedGrid<'s> {
             height: (content.height - headings).max(1.0),
             ..content
         };
-        let blocks = self.measure_legend_groups()?;
+        let blocks = self.measure_legend_groups(shrink(without_titles, theme.plot_inset))?;
         let elements_area = shrink(
             shrink(without_titles, theme.plot_inset),
             legend_space(&blocks, theme.legend_box_spacing),
@@ -522,8 +536,13 @@ impl<'s> PreparedGrid<'s> {
 
     /// Each legend group measured, with the theme it is measured and drawn with
     /// (its first figure's, at the group's position and justification, with the
-    /// grid's box arrangement).
-    fn measure_legend_groups(&self) -> Result<Vec<(&Collected, LegendBlock<'_>, Theme)>> {
+    /// grid's box arrangement). Blocks are fitted to `area` (the grid inside its
+    /// margins, titles and inset) as a single plot's legends are: wrapped, reflowed,
+    /// then cut (lets-plot#1506; lets-plot runs them off the canvas).
+    fn measure_legend_groups(
+        &self,
+        area: Rect,
+    ) -> Result<Vec<(&Collected, LegendBlock<'_>, Theme)>> {
         let mut blocks = Vec::new();
         for group in &self.legend_groups {
             // Boxes keep their figure's theme; the grid's theme arranges them
@@ -534,7 +553,15 @@ impl<'s> PreparedGrid<'s> {
             block_theme.legend_box_horizontal = self.theme.legend_box_horizontal;
             block_theme.legend_box_just = self.theme.legend_box_just;
             block_theme.legend_spacing = self.theme.legend_spacing;
-            if let Some(block) = measure_legends(&group.boxes, &block_theme, None)? {
+            // `area` is already inside the grid's margins.
+            let budget = legend_budget(
+                &Theme {
+                    plot_margin: Margins::uniform(0.0),
+                    ..block_theme.clone()
+                },
+                area,
+            );
+            if let Some(block) = measure_legends(&group.boxes, &block_theme, Some(budget))? {
                 blocks.push((group, block, block_theme));
             }
         }
@@ -620,8 +647,23 @@ fn legend_space(blocks: &[(&Collected, LegendBlock, Theme)], spacing: f64) -> Ma
 /// (the grid without titles), justified along `inner` (the figures).
 fn legend_origin(inner: Rect, outer: Rect, size: (f64, f64), group: &Collected) -> (f64, f64) {
     let (justify_x, justify_y) = group.justification;
-    let along_y = inner.y + (inner.height - size.1) * (1.0 - justify_y);
-    let along_x = inner.x + (inner.width - size.0) * justify_x;
+    // Kept inside `outer` along its side, as a single plot's legends (a block
+    // wider than the figures was centred past both canvas edges).
+    let keep_in = |position: f64, extent: f64, start: f64, span: f64| {
+        position.min(start + span - extent).max(start)
+    };
+    let along_y = keep_in(
+        inner.y + (inner.height - size.1) * (1.0 - justify_y),
+        size.1,
+        outer.y,
+        outer.height,
+    );
+    let along_x = keep_in(
+        inner.x + (inner.width - size.0) * justify_x,
+        size.0,
+        outer.x,
+        outer.width,
+    );
     match group.position {
         LegendPosition::Left => (outer.x, along_y),
         LegendPosition::Top => (along_x, outer.y),

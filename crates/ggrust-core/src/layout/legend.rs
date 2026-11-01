@@ -291,16 +291,14 @@ pub fn measure_legends<'a>(
         .iter()
         .filter(|legend_box| !legend_box.is_empty())
         .collect();
-    let measure_all = |budget: Option<LegendBudget>| -> Result<Vec<MeasuredLegend<'a>>> {
-        shown
-            .iter()
-            .map(|legend_box| match legend_box {
-                LegendBox::Keys(legend) => fit_legend(legend, horizontal, theme, budget),
-                LegendBox::Colorbar(colorbar) => Ok(measure_colorbar(colorbar, horizontal, theme)),
-            })
-            .collect()
+    let measure_one = |legend_box: &&'a LegendBox, budget: Option<LegendBudget>| match legend_box {
+        LegendBox::Keys(legend) => fit_legend(legend, horizontal, theme, budget),
+        LegendBox::Colorbar(colorbar) => Ok(measure_colorbar(colorbar, horizontal, theme)),
     };
-    let mut measured = measure_all(budget)?;
+    let mut measured = shown
+        .iter()
+        .map(|legend_box| measure_one(legend_box, budget))
+        .collect::<Result<Vec<MeasuredLegend<'a>>>>()?;
     if measured.is_empty() {
         return Ok(None);
     }
@@ -313,7 +311,8 @@ pub fn measure_legends<'a>(
         return Ok(Some(LegendBlock { legends, size }));
     }
     // Otherwise stacked legends share the budget along the stack: key legends
-    // split what colorbars and spacing leave, equally.
+    // split what colorbars and spacing leave. Legends that fit an equal share
+    // keep their size; the rest split what those leave (water-filling).
     if let Some(budget) = budget {
         let total = measured
             .iter()
@@ -332,18 +331,35 @@ pub fn measure_legends<'a>(
                 .map(|(_, legend)| along(legend.size))
                 .sum::<f64>()
                 + spacing * (measured.len() - 1) as f64;
-            let share = |size: (f64, f64)| {
-                let part = ((along(size) - fixed) / keys as f64).max(1.0);
+            let needs: Vec<Option<f64>> = shown
+                .iter()
+                .zip(&measured)
+                .map(|(legend_box, legend)| {
+                    matches!(legend_box, LegendBox::Keys(_)).then(|| along(legend.size))
+                })
+                .collect();
+            let preferred = water_fill(&needs, along(budget.preferred) - fixed);
+            let most = water_fill(&needs, along(budget.most) - fixed);
+            let with_along = |size: (f64, f64), part: f64| {
                 if side_by_side {
                     (part, size.1)
                 } else {
                     (size.0, part)
                 }
             };
-            measured = measure_all(Some(LegendBudget {
-                preferred: share(budget.preferred),
-                most: share(budget.most),
-            }))?;
+            measured = shown
+                .iter()
+                .zip(preferred.iter().zip(&most))
+                .map(|(legend_box, (preferred, most))| {
+                    measure_one(
+                        legend_box,
+                        Some(LegendBudget {
+                            preferred: with_along(budget.preferred, *preferred),
+                            most: with_along(budget.most, *most),
+                        }),
+                    )
+                })
+                .collect::<Result<_>>()?;
         }
     }
     let justification = theme.legend_box_justification();
@@ -371,6 +387,25 @@ pub fn measure_legends<'a>(
         (thickness, length)
     };
     Ok(Some(LegendBlock { legends, size }))
+}
+
+/// Split `room` among the legends with a need (`None`: colorbars, not split):
+/// in order of need, each takes its need if it is within an equal share of what
+/// is left, else that share (at least 1 px).
+fn water_fill(needs: &[Option<f64>], room: f64) -> Vec<f64> {
+    let mut order: Vec<usize> = (0..needs.len())
+        .filter(|&index| needs[index].is_some())
+        .collect();
+    order.sort_by(|&a, &b| needs[a].unwrap_or(0.0).total_cmp(&needs[b].unwrap_or(0.0)));
+    let mut parts = vec![f64::INFINITY; needs.len()];
+    let mut left = room;
+    for (taken, &index) in order.iter().enumerate() {
+        let share = left / (order.len() - taken) as f64;
+        let part = needs[index].unwrap_or(0.0).min(share).max(1.0);
+        parts[index] = part;
+        left -= part;
+    }
+    parts
 }
 
 fn measure_colorbar<'a>(

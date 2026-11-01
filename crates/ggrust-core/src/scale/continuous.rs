@@ -115,6 +115,12 @@ impl ContinuousPositionScale {
 
     /// Trained domain with limits applied, ordered; may be zero-width. `None`
     /// without data or limits.
+    /// Domain after limits, before expansion; `None` without data or limits
+    /// (a grid sharing axes takes the union of these).
+    pub fn trained_domain(&self) -> Option<(f64, f64)> {
+        self.raw_domain()
+    }
+
     fn raw_domain(&self) -> Option<(f64, f64)> {
         let finite = |limit: Option<f64>| limit.filter(|value| value.is_finite());
         let (low_limit, high_limit) = (finite(self.limits[0]), finite(self.limits[1]));

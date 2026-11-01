@@ -719,6 +719,34 @@ impl PreparedPlot {
         }
     }
 
+    /// The data aesthetic drawn along a screen axis (`horizontal`: x), swapped
+    /// under `coord_flip`.
+    pub(crate) fn screen_aesthetic(&self, horizontal: bool) -> Aesthetic {
+        if horizontal != self.flipped {
+            Aesthetic::X
+        } else {
+            Aesthetic::Y
+        }
+    }
+
+    /// Every panel's scale along a screen axis (`horizontal`: x).
+    pub(crate) fn screen_axis_scales(&self, horizontal: bool) -> Vec<&PositionScale> {
+        let data_x = self.screen_aesthetic(horizontal) == Aesthetic::X;
+        self.tiles
+            .iter()
+            .map(|(_, x, y)| if data_x { x } else { y })
+            .collect()
+    }
+
+    /// Mutable [`Self::screen_axis_scales`].
+    pub(crate) fn screen_axis_scales_mut(&mut self, horizontal: bool) -> Vec<&mut PositionScale> {
+        let data_x = self.screen_aesthetic(horizontal) == Aesthetic::X;
+        self.tiles
+            .iter_mut()
+            .map(|(_, x, y)| if data_x { x } else { y })
+            .collect()
+    }
+
     /// Rows of every prepared layer in every panel.
     pub(crate) fn prepared_rows(&self) -> usize {
         self.tiles

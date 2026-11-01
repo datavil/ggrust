@@ -43,6 +43,9 @@ def _case(build):
 
 CASES = {
     "one_row": _case(lambda m, a, b, c, d: m.gggrid([a, b])),
+    "share_all": _case(lambda m, a, b, c, d: m.gggrid([a, b, d], sharex=True, sharey="all")),
+    "share_row": _case(lambda m, a, b, c, d: m.gggrid([a, d, b, a], ncol=2, sharey="row")),
+    "share_col": _case(lambda m, a, b, c, d: m.gggrid([a, d, b, a], ncol=2, sharex="col")),
     "ncol_sizes_title": _case(
         lambda m, a, b, c, d: (
             m.gggrid([a, b, c, d], ncol=2, widths=[2, 1], heights=[1, 2], hspace=20, vspace=0)
@@ -270,12 +273,69 @@ def test_figure_warnings_name_the_figure():
         gg.gggrid([plot]).to_svg()
 
 
-def test_shared_axes_are_reported_as_ignored():
-    with pytest.warns(gg.GgrustWarning, match="layout.sharex"):
-        gg.gggrid(_plots(gg), sharex=True).to_svg()
+def test_bad_share_value_names_the_option():
+    with pytest.raises(ValueError, match=r"layout\.sharey.*all, none, row, col"):
+        gg.gggrid(_plots(gg), sharey="rows").to_svg()
+
+
+def _axis_labels(svg: str) -> list[str]:
+    return re.findall(r">([pqr])</text>", svg)
+
+
+def test_shared_discrete_axes_take_every_category():
+    """Deliberate difference (lets-plot#1015): lets-plot does not share discrete axes."""
+    first = gg.ggplot({"x": ["p", "q"], "y": [1, 2]}, gg.aes("x", "y")) + gg.geom_point()
+    second = gg.ggplot({"x": ["q", "r"], "y": [3, 4]}, gg.aes("x", "y")) + gg.geom_point()
+    shared = gg.gggrid([first, second], sharex=True).to_svg()
+    assert _axis_labels(shared) == ["p", "q", "r", "p", "q", "r"]
+    # Same category, same place: q is the middle of both panels.
+    panels = _ggrust_panels(shared)
+    assert [point[0] for point in panels[0]["points"]] == pytest.approx(
+        [0.5 - 0.5 / 1.2, 0.5], abs=1e-3
+    )
+    assert [point[0] for point in panels[1]["points"]] == pytest.approx(
+        [0.5, 0.5 + 0.5 / 1.2], abs=1e-3
+    )
+    # Without sharing, and with own limits, each plot keeps its categories.
+    assert _axis_labels(gg.gggrid([first, second]).to_svg()) == ["p", "q", "q", "r"]
+    limited = second + gg.scale_x_discrete(limits=["r", "q"])
+    assert _axis_labels(gg.gggrid([first, limited], sharex=True).to_svg())[-2:] == ["r", "q"]
+
+
+def test_shared_axes_follow_coord_flip():
+    """sharex shares the horizontal axes, whatever data axis a plot draws there."""
+    plain = gg.ggplot({"x": [0.0, 1.0], "y": [0.0, 1.0]}, gg.aes("x", "y")) + gg.geom_point()
+    flipped = (
+        gg.ggplot({"x": [0.0, 1.0], "y": [0.0, 50.0]}, gg.aes("x", "y"))
+        + gg.geom_point()
+        + gg.coord_flip()
+    )
+    svg = gg.gggrid([plain, flipped], sharex=True).to_svg()
+    assert re.findall(r">(50)</text>", svg) == ["50", "50"]
 
 
 @pytest.mark.parametrize("widths", [[0, 0], [-1, 1]])
 def test_invalid_widths_name_the_option(widths):
     with pytest.raises(ValueError, match=r"layout\.widths"):
         gg.gggrid(_plots(gg)[:2], widths=widths).to_svg()
+
+
+def test_reverse_and_breaks_order_only_their_own_plot():
+    # Bug hunt: the union came from reversed / breaks-first levels.
+    first = {"x": ["p", "q"], "y": [1, 2]}
+    second = {"x": ["q", "r"], "y": [3, 4]}
+    reversed_plot = (
+        gg.ggplot(first, gg.aes("x", "y")) + gg.geom_point() + gg.scale_x_discrete(reverse=True)
+    )
+    plain = gg.ggplot(second, gg.aes("x", "y")) + gg.geom_point()
+    assert _axis_labels(gg.gggrid([reversed_plot, plain], sharex=True).to_svg()) == [
+        "r", "q", "p", "p", "q", "r",
+    ]  # fmt: skip
+    with_breaks = (
+        gg.ggplot({"x": ["p", "q", "r"], "y": [1, 2, 3]}, gg.aes("x", "y"))
+        + gg.geom_point()
+        + gg.scale_x_discrete(breaks=["p", "r"])
+    )
+    other = gg.ggplot({"x": ["q", "r", "s"], "y": [1, 2, 3]}, gg.aes("x", "y")) + gg.geom_point()
+    labels = re.findall(r">([pqrs])</text>", gg.gggrid([with_breaks, other], sharex=True).to_svg())
+    assert labels[-4:] == ["p", "q", "r", "s"]

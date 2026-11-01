@@ -73,6 +73,17 @@ impl DiscretePositionScale {
         self.limits = (!unique.is_empty()).then_some(unique);
     }
 
+    /// The trained categories in their data order (before limits, breaks and
+    /// `reverse`).
+    pub fn trained_levels(&self) -> &[String] {
+        &self.levels
+    }
+
+    /// Whether `limits=[...]` fix the categories.
+    pub fn has_limits(&self) -> bool {
+        self.limits.is_some()
+    }
+
     /// Add the levels of a column that are not known yet, keeping their order.
     pub fn train_levels(&mut self, levels: &[String]) {
         for level in levels {

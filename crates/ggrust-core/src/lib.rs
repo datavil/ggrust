@@ -10,6 +10,7 @@ pub mod error;
 pub mod facet;
 pub mod geom;
 pub mod grid;
+pub mod grid_share;
 pub mod layout;
 pub mod parallel;
 pub mod parameters;

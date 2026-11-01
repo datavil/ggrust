@@ -18,6 +18,11 @@ Source: lets-plot `CompositeFigureBuildInfo.layoutedByOuterSize`, `CompositeFigu
 - **`guides`**: top grid collects only on "collect"; inside a collecting grid "auto" passes
   legends up, "collect" keeps them at its level, "keep" never collects.
 
+- **Shared axes** (`grid_share.rs`): continuous = widen scales after prepare (stats keep their own
+  range, as lets-plot); discrete = prepare again with the union as limits (positions are indices,
+  so widening cannot work). Build unions from trained levels, never `effective_levels()` (reversed,
+  breaks first).
+
 **How to apply:** compare with `tests/test_grid_parity.py` (absolute panel rects through nested
 `<svg>`/translate in lets-plot). Under `align` lets-plot sizes figures inside out, so compare
 panels, not figure bounds. Few-px offsets are text metrics, not grid bugs.

@@ -23,7 +23,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Lessons: [memory/](memory/README.md
 | Tooltip runtime (4.2) | Rust computes targets (scene pixels) and every row's text; the JS runtime builds the grid-bucket hit index at mount (no index in the payload) and draws tooltips as HTML divs over the SVG (decided 2026-10-28) |
 | cellestial browser tests (5.4) | cellestial's helper is rewritten on ggrust's HTML; ggrust does not emulate lets-plot's HTML hooks (`plt-container`, `lets-plot.min.js`) (decided (user) 2026-10-31) |
 | Stat caching (6.3) | No stat-result cache across subplots: a hit needs equal layer, data, scales, facets and grouping, no cellestial grid has that, and the key would be large and fragile. Only Arrow column conversion is cached (decided (user) 2026-10-31) |
-| Line colour along a path (8.6) | A line whose colour, size or linetype varies within a group styles each segment from its start point, as ggplot2 4.0.1 (checked in R). lets-plot switches at segment midpoints; not copied. Applies to `geom_line`/`geom_path` and area/ribbon edges (decided (user) 2026-11-01) |
+| Line colour along a path (lp2.2) | A line whose colour, size or linetype varies within a group styles each segment from its start point, as ggplot2 4.0.1 (checked in R). lets-plot switches at segment midpoints; not copied. Applies to `geom_line`/`geom_path` and area/ribbon edges (decided (user) 2026-11-01) |
 | Overflow guards | Deviation from lets-plot and ggplot2 (both overflow; surveyed 2026-11-01). Only plots that would overflow change: key legends reflow into more columns/rows within 50% of the plot across (all but a 50 px panel for a user `guide_legend(ncol/nrow)` grid), then wrap labels narrower (30, 20, 14, 10 chars), then keep the first keys plus a "+K more" entry; outside legends stay inside the plot along their side. Stacked legends share the budget. Discrete axis labels needing more than 1/2 of the plot (x height, y width) wrap at spaces (x into each tick slot, laid out flat), else are cut in the middle with "..."; numeric labels are never cut. Title and subtitle wrap at spaces (over-long words break) to the room right of the panel. Geoms stay clipped to the panel (as both references). Facet panels fit their axis labels too (the budget split among the axis bands). Not yet: colorbars, gggrid collected legends and titles (decided (user) 2026-11-01) |
 | Axis title angle | `theme(axis_title*=element_text(angle=...))` turns the title and its band, as ggplot2; lets-plot ignores it (lets-plot#1504). `vjust` on axis titles is accepted as a no-op (decided (user) 2026-11-01) |
 | Panel minimum in grid cells | Inside a `gggrid` cell a panel shrinks to what the cell leaves (at least 1 px), as ggplot2/patchwork; standalone plots keep lets-plot's 50 px `GEOM_MIN_SIZE`. lets-plot keeps 50 px in cells too, so thin cells (cellestial annotation tracks) ran past their cell and their axis titles centred off the visible strip (decided (user) 2026-11-01) |
@@ -207,33 +207,101 @@ Steps inside a phase are ordered; each builds on the previous.
   (CI: `make check` on ubuntu with Chromium, visual diffs uploaded on failure. Release: abi3 wheels via maturin-action for linux x86_64/aarch64 (manylinux 2_28), macOS intel/arm, windows x64/arm64, plus an sdist; every wheel and the sdist build are smoke-tested (`.github/smoke_test.py`); PyPI trusted publishing only on a `v*` tag matching the version. sdist now ships `js/` (it did not compile from source before). Docs: mkdocs-material + mkdocstrings (numpy style, runtime inspection so assignment-built scales get signatures), strict build on PRs, Pages deploy from main; home page, migration note, 124-entry reference. Material reaches end of life in May 2027; Zensical reads the same mkdocs.yml.)
 - [ ] 7.2 cellestial switches dependency `lets-plot` -> `ggrust` (with user approval).
 
-### Phase 8: lets-plot gaps (score 5, see [plan-letsplot-gaps.md](plan-letsplot-gaps.md))
+### Phase 8: lets-plot gaps (see [plan-letsplot-gaps.md](plan-letsplot-gaps.md))
+
+Steps are numbered `lpG.N`: group G of the proposed order in the gaps file, item N.
 
 Group 1: exposed in the API but erroring or ignored.
 
-- [x] 8.1 `as_discrete`: `order`, `order_by`, `label`, and `levels` on numeric columns.
+- [x] lp1.1 `as_discrete`: `order`, `order_by`, `label`, and `levels` on numeric columns.
   (`data/as_discrete.rs` makes the mapped column discrete in the mapping stage. Rules measured against lets_plot: numeric levels in first appearance; `order` sorts by value (numbers numerically); `order_by` sorts by the per-level mean, descending by default, ties by level value in the same direction, levels without a value last; `levels=` puts given levels first, the rest in first appearance, `order=-1` reverses. `label` names the scale. Deviations: numbers of 1e15+ print plainly (lets-plot uses powers); `order_by` with a stat variable (`..count..`) warns and keeps the order; lets-plot orders after the stat, so on stat layers a data column is gone and the levels sort by value (matched), except violins, where lets-plot uses the density output's y and ggrust sorts by value. Bug hunt: same column with labels on plot and layer gives "A, B" (lets-plot "B"); `order` on an ordered categorical/Enum is applied (lets-plot ignores it); `facet_wrap(as_discrete(...))` errors in both.)
-- [x] 8.2 `position_fill` and `position_nudge`.
+- [x] lp1.2 `position_fill` and `position_nudge`.
   (`FillPosition` shares the stacking code and divides each x's stack by its total, positive and negative stacks separately; matches lets-plot axes and bars. `NudgePosition` adds `x`/`y` in data units; `unit='size'|'px'` is an error for now. Axes train on the positions before the nudge (`Position::trains_axes`), as lets-plot: a discrete axis keeps its spacing (bug hunt), and labels nudged past the edge clip as in lets-plot.)
-- [x] 8.3 `geom_sina` / `stat_sina`.
+- [x] lp1.3 `geom_sina` / `stat_sina`.
   (Ported from lets-plot's `SinaStat`/`SinaGeom` source: per x the violin grid, each point gets interpolated density/count/scaled and the ceiling quantile band, widths normalised by the layer's grid; rows keep their input row (per-point aesthetics, tooltips). The geom spreads `sign x u x violinwidth x width x res / 2` with Kotlin's `Random(seed)` (x groups in first appearance, sorted by y, `nextBoolean` then `nextDouble`), stored in `xend` before the default dodge 0.95 so dodging narrows it; `xmin`/`xmax` span the width for the axis. Seeded points match lets-plot within pixel rounding. Not done: quantile bands drawn as separate groups.)
-- [x] 8.4 `PlotSpec.show()`.
+- [x] lp1.4 `PlotSpec.show()`.
   (`PlotSpec.show()` and `SupPlotsSpec.show()`: inline `display()` in a running IPython/Jupyter session; elsewhere the interactive HTML page goes to a temp file opened in the default browser. Deviation: lets_plot prints the spec dict outside IPython; ggrust opens the page, as lets_plot's `setup_show_ext`.)
 
 Group 2: everyday grammar.
 
-- [x] 8.5 Interval family: `geom_errorbar`, `geom_linerange`, `geom_pointrange`, `geom_crossbar`.
+- [x] lp2.1 Interval family: `geom_errorbar`, `geom_linerange`, `geom_pointrange`, `geom_crossbar`.
   (`geom/interval.rs`, ported from lets-plot's four geoms and measured against its SVG: errorbar fences `width` 0.45 and crossbar boxes 0.9 of the x resolution as `xmin`/`xmax` spans (mapped `width` too, and a `width` column so dodging uses it); crossbar dodge 0.95 and midline x `fatten` 2.5; pointrange line from `linewidth`, point `size` x `fatten` 5 (`point::markers` takes a fatten). Legend keys as lets-plot's factories. Not yet: horizontal intervals, `width_unit` other than `res`, crossbar `labels`, a `linewidth` scale. Known: point range legend keys fit the fattened point, so big mapped sizes make a tall legend (lets-plot's keys are smaller than its own points); point ranges draw all lines, then all points.)
-- [x] 8.6 `geom_ribbon`, `geom_area`.
-  (`geom/area.rs`, ported from lets-plot's `AreaGeom`/`RibbonGeom` and checked path by path against its SVG (fills, strokes, vertex counts, axis labels). Area: setup sets `ymin` = 0, so the default `position="stack"` (and `fill`) lifts the base to the stack below; groups drawn last first, bands then top lines; y axis includes 0. Ribbon: all bands, then all `ymax` lines, then all `ymin` lines. Rows sort by x per group and split at missing values; edges without `alpha`, ridge style defaults. Not yet: quantile bands/lines (8.8), `outline_type` (warned), fill split where a mapped fill varies within a group. Edges split by style at segment start points as `geom_line` and ggplot2; lets-plot's midpoint split is a recorded deviation.)
-- [x] 8.7 `geom_abline`.
+- [x] lp2.2 `geom_ribbon`, `geom_area`.
+  (`geom/area.rs`, ported from lets-plot's `AreaGeom`/`RibbonGeom` and checked path by path against its SVG (fills, strokes, vertex counts, axis labels). Area: setup sets `ymin` = 0, so the default `position="stack"` (and `fill`) lifts the base to the stack below; groups drawn last first, bands then top lines; y axis includes 0. Ribbon: all bands, then all `ymax` lines, then all `ymin` lines. Rows sort by x per group and split at missing values; edges without `alpha`, ridge style defaults. Not yet: quantile bands/lines (lp2.4), `outline_type` (warned), fill split where a mapped fill varies within a group. Edges split by style at segment start points as `geom_line` and ggplot2; lets-plot's midpoint split is a recorded deviation.)
+- [x] lp2.3 `geom_abline`.
   (`geom/abline.rs`: line clipped to the panel's expanded data box per row; constant or mapped `intercept`/`slope` drawn as they are (no scale, as lets-plot); flip-aware; line legend key. Matches lets-plot line ends. Deviation: `geom_abline()` with no arguments draws y = x (ggplot2); lets-plot draws nothing.)
-- [x] 8.8 `geom_density` / `stat_density`.
+- [x] lp2.4 `geom_density` / `stat_density`.
   (`stat/density_1d.rs` on the shared kernel density code (bw nrd0/nrd/number, adjust, kernels, n, trim, fs_max, weight); `..density..`, `..count..`, `..scaled..`, `..quantile..`; `geom_density` draws through the area code with `quantiles`/`quantile_lines`. Labels and vertex counts match lets-plot. lets_plot has no `stat_density()` function; `stat="density"` works on any geom. Deviation: quantile bands split only when fill/alpha varies, so no seams (lets-plot #985).)
-- [x] 8.9 `geom_smooth` / `stat_smooth` (lm, loess, CI band).
+- [x] lp2.5 `geom_smooth` / `stat_smooth` (lm, loess, CI band).
   (`stat/smooth.rs`: lm (deg 1, polynomial deg >= 2 via orthogonal polynomials), loess/lowess (Apache port, 4 robustness iterations, natural spline), Kotlin-Random row sampling over `max_n`, t-quantile band; `geom/smooth.rs` bands then curves. Curves match lets-plot to 0.005 px, including sampled loess. The band uses each model's own SE, as ggplot2 (deviation, see decisions): polynomial matches R `predict(lm(y ~ poly(x, d)), se.fit = TRUE)` to 1e-12; loess as a linear smoother (R `predict.loess` formula). Not yet: `orientation="y"`, `labels` (warned), glm/gam/rlm (error).)
-- [x] 8.10 Datetime and time scales (`scale_x_datetime`, ..., `date_breaks`).
+- [x] lp2.6 Datetime and time scales (`scale_x_datetime`, ..., `date_breaks`).
   (`scale/datetime.rs`: lets-plot's DateTimeBreaksHelper, calendar intervals, `break_width="2 weeks"` (lets-plot's name for `date_breaks`), date `format` patterns, `scale_*_time()` duration breaks and labels. Arrow Timestamp/Date/Time/Duration columns become milliseconds; datetime/date/time columns get a date-time axis automatically. Labels match lets-plot in 15 cases (minutes to decades, dates, polars, y axis, durations). UTC only: zoned columns warn. Fixed `breaks` get the axis pattern (lets-plot writes ISO). Not yet: date-formatted tooltips; zoomed HTML date axes keep their breaks.)
+
+Group 3: open lets-plot bugs we copied (score 4, gaps file section 11).
+
+- [ ] lp3.1 Single-group identity stacking: `geom_bar(stat='identity')` with one group per x stacks (#1398).
+- [ ] lp3.2 Free facet scales with binned stats use each panel's range (#1443), as ggplot2.
+- [ ] lp3.3 Text at the plot edge and wide last axis labels are not clipped (#339, #906).
+- [ ] lp3.4 Legend overflow: legends wrap or grow the canvas so they fit (#1506; see also 9.1).
+- [ ] lp3.5 Axis title `element_text(angle=, vjust=)` applied (#1504).
+- [ ] lp3.6 `gggrid(sharex=, sharey=)` shared axes (#1015).
+
+Group 4: score 4.
+
+- [ ] lp4.1 `geom_step` (with `direction='mid'`, #838) and `geom_freqpoly`.
+- [ ] lp4.2 `stat_summary` / `stat_summary_bin` (with `mean_se`, `mean_sdl`, #1507).
+- [ ] lp4.3 `stat_ecdf`.
+- [ ] lp4.4 `scale_color_grey`, `scale_fill_grey`, `scale_color_discrete`, `scale_fill_discrete`.
+- [ ] lp4.5 `scale_linetype_manual`, `scale_linetype_identity` (#1147).
+- [ ] lp4.6 `expand_limits`.
+- [ ] lp4.7 `orientation` on bar, histogram, boxplot, violin.
+- [ ] lp4.8 Score-4 theme parameters: `legend_key_width/_height`, `axis_ticks_length_x/_y`, `plot_caption`, `plot_title_position`, `plot_caption_position`, `strip_text_y`, `strip_background_y`, `strip_spacing_x`, `axis_text_spacing_x/_y`, `element_line/rect(linetype=)`, `element_text(margin=...)` (#1265). Undo the periodic table caption and title margin workarounds (gaps file section 12).
+
+Group 5: score 3.
+
+- [ ] lp5.1 `geom_count` / `stat_sum`.
+- [ ] lp5.2 `geom_bin2d`, `geom_hex` (#1290).
+- [ ] lp5.3 Contour family: `geom_contour(f)`, `geom_density2d(f)` on a marching-squares core, any row order (#1356, #1357).
+- [ ] lp5.4 qq family: `geom_qq`, `geom_qq_line`, `geom_qq2`, `geom_qq2_line`.
+- [ ] lp5.5 `coord_polar` (designed from ggplot2).
+- [ ] lp5.6 `ggmarginal` (#972).
+- [ ] lp5.7 Facet label options: `facet_grid` `x/y_order`, `x/y_format`, `x/y_labwidth`; `facet_wrap(labwidth=)`.
+- [ ] lp5.8 Minor ticks (`axis_minor_ticks*`, #1183), `exponent_format`, `label_text` (#1474).
+- [ ] lp5.9 Text layer options: `label_format`, `check_overlap`, `na_text` (#270); `manual_key`. Undo the periodic table mass rounding (gaps file section 12).
+- [ ] lp5.10 Positional scale options: `break_width`, `lablim`, `na_value`; `scale_linewidth*`, `scale_stroke*` (#1158).
+- [ ] lp5.11 Mapped `hjust`/`vjust` on text and label (#1143).
+- [ ] lp5.12 Bistro: `corr_plot`, `joint_plot`, `qq_plot` (#866, #295).
+- [ ] lp5.13 Vector PDF output.
+
+Group 6: score 2 and 1, only on demand.
+
+- [ ] lp6.1 Record the score-1 items (geo and maps, sampling, cmapmpl, runtime plumbing) as decisions in the table above.
+- [ ] lp6.2 Score-2 items as requested (see the gaps file); `geom_curve` first, to undo the periodic table arrow workaround.
+
+### Phase 9: cellestial `annotated_heatmap` layout (found 2026-11-01)
+
+Found by rendering `cl.annotated_heatmap` (pbmc3k, 13 keys, `group_by="louvain"`, 4 row
+tracks, 1 column track) at a notebook size (`ggsave(..., w=900, h=450, unit="px", dpi=96)`).
+The grid is `gggrid(..., widths=, heights=, align=True, guides="collect")` with
+`theme(legend_position="bottom", legend_box="horizontal", legend_direction="horizontal")`.
+Row tracks are thin (`widths` 0.025 each) and get their title as one x-axis tick label
+(`scale_x_continuous(breaks=[0], labels=[name])` + `axis_text_x=element_text(angle=90, hjust=1)`).
+Cellestial work is on branch `ggrust-port-track-titles` (row titles only, uncommitted).
+
+- [ ] 9.1 Collected legends do not wrap (lets-plot #1506, "Copied" in the gaps table).
+  Five legends (four categorical, two colorbars) in one bottom row are wider than 900 px;
+  the row is centred, so both ends are cut off (lets-plot only cut the right end).
+  Expected (ggplot2): the legend box wraps to more rows, or grows the canvas, so every legend fits.
+- [ ] 9.2 `align=True` does not give a grid row's axis area the tallest cell's axis height.
+  At 900 px the rotated row-track titles (e.g. "n_genes", "louvain") are clipped at the bottom:
+  the axis area under the strips is only as tall as the heatmap's one-line key labels.
+  At 1800x600 they fit. Expected: the aligned axis band in a grid row is as tall as the tallest
+  cell's axis text, so no cell clips.
+- [ ] 9.3 Position scale `position=` is ignored (`GgrustWarning: at 'scales[0].position': not supported yet; ignored`).
+  Repro: `ggplot(f) + geom_tile(aes("x", "y", fill="v")) + scale_y_continuous(breaks=[0], labels=["track"], position="right")`.
+  Cellestial needs it to title column tracks on the right; with the label on the left, `align=True`
+  widens the heatmap column's left axis and pushes the heatmap away from the row tracks.
+  Expected: `"left"`/`"right"` for y and `"top"`/`"bottom"` for x move the axis (ticks, labels, title), as lets-plot and ggplot2.
 
 ## Performance strategy (honest)
 

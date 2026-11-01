@@ -751,6 +751,36 @@ fn justified_centre(start: f64, span: f64, width: f64, style: TextStyle) -> f64 
     start + width / 2.0 + (span - width) * hjust
 }
 
+/// Centre of a text box of `width` justified at `justification` in
+/// `[start, start + span]` (as [`justified_centre`]); a box longer than the span
+/// is centred on it (justifying it would push it off the plot).
+fn justified_at(start: f64, span: f64, width: f64, justification: f64) -> f64 {
+    if width >= span {
+        return start + span / 2.0;
+    }
+    start + width / 2.0 + (span - width) * justification
+}
+
+/// An axis title's justification on the page (horizontal, vertical): its
+/// `hjust`/`vjust` turned by its angle (`default_angle` when unset), as ggplot2's
+/// `rotate_just`. So `vjust` moves a horizontal y title along the panel (#1504).
+/// Unset `hjust`/`vjust` are 0.5 (centred, as lets-plot; ggplot2 inherits
+/// `vjust = 1`, which puts a horizontal y title at the top).
+fn axis_title_justification(style: TextStyle, default_angle: f64) -> (f64, f64) {
+    let or_centre = |value: f64| if value.is_finite() { value } else { 0.5 };
+    let (hjust, vjust) = (or_centre(style.hjust), or_centre(style.vjust));
+    let angle = if style.angle.is_finite() {
+        style.angle
+    } else {
+        default_angle
+    };
+    let (sin, cos) = angle.to_radians().sin_cos();
+    (
+        cos * hjust - sin * vjust + (1.0 - cos + sin) / 2.0,
+        sin * hjust + cos * vjust + (1.0 - cos - sin) / 2.0,
+    )
+}
+
 /// lets-plot `AxisUtil.minorDomainBreaks`: half a step before the first major break,
 /// then one step apart, one more than the majors (none for a single break).
 fn minor_breaks(major: &[f64]) -> Vec<f64> {
@@ -905,7 +935,12 @@ pub fn draw_titles(layout: &PlotLayout, theme: &Theme, titles: &Titles) -> Node 
         // at its minimum size and the axis runs past the plot (lets-plot does the same).
         let (along, across) = axis_title_extent(style, title, 0.0);
         let y = bottom + layout.x_axis_band + theme.plot_inset.bottom + across / 2.0;
-        let x = justified_centre(panel.x, panel.width, along, style);
+        let x = justified_at(
+            panel.x,
+            panel.width,
+            along,
+            axis_title_justification(style, 0.0).0,
+        );
         titles_nodes.push(text_node(
             title,
             style,
@@ -915,9 +950,14 @@ pub fn draw_titles(layout: &PlotLayout, theme: &Theme, titles: &Titles) -> Node 
         ));
     }
     if let (Some(style), Some(title)) = (theme.axis_title_y, present(&titles.y)) {
-        // Rotated: hjust runs from the bottom of the panel up.
+        // Rotated: the justification runs from the bottom of the panel up.
         let (along, across) = axis_title_extent(style, title, 90.0);
-        let centre = justified_centre(0.0, panel.height, along, style);
+        let centre = justified_at(
+            0.0,
+            panel.height,
+            along,
+            axis_title_justification(style, 90.0).1,
+        );
         let angle = if style.angle.is_finite() {
             style.angle
         } else {

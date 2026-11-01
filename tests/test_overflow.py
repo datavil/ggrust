@@ -224,3 +224,44 @@ def test_axis_title_angle_rotates_the_title():
         svg = plot.to_svg()
     title = re.search(r"<text[^>]*>x</text>", svg)
     assert title is not None and "rotate(-90" in title.group(0)
+
+
+def _title_y(svg: str, title: str) -> float:
+    match = re.search(rf'<text[^>]* y="([\d.]+)"[^>]*>{title}</text>', svg)
+    assert match is not None
+    return float(match.group(1))
+
+
+def test_vjust_moves_a_horizontal_y_title_along_the_panel():
+    # lets-plot#1504, as ggplot2's rotate_just: with angle=0, vjust runs bottom (0) to top (1).
+    frame = {"x": [1, 2], "y": [1, 4]}
+
+    def title_y(**element: float) -> float:
+        plot = (
+            gg.ggplot(frame, gg.aes("x", "y"))
+            + gg.geom_point()
+            + gg.theme(axis_title_y=gg.element_text(angle=0, **element))
+        )
+        return _title_y(plot.to_svg(), "y")
+
+    top, middle, bottom = title_y(vjust=1), title_y(vjust=0.5), title_y(vjust=0)
+    assert top < middle < bottom
+    assert title_y() == middle  # unset vjust centres, as lets-plot
+    assert bottom - top > 300  # spans the panel (400 px plot)
+    # The default rotated y title follows hjust, not vjust.
+    default = gg.ggplot(frame, gg.aes("x", "y")) + gg.geom_point()
+    moved = default + gg.theme(axis_title_y=gg.element_text(vjust=0))
+    assert _title_y(moved.to_svg(), "y") == _title_y(default.to_svg(), "y")
+
+
+def test_justified_axis_title_longer_than_its_axis_is_centred():
+    frame = {"x": [1, 2], "y": [1, 4]}
+    plot = (
+        gg.ggplot(frame, gg.aes("x", "y"))
+        + gg.geom_point()
+        + gg.labs(x="L" * 120)
+        + gg.theme(axis_title_x=gg.element_text(hjust=1))
+    )
+    match = re.search(r'<text x="([\d.-]+)"[^>]*>L{120}</text>', plot.to_svg())
+    assert match is not None
+    assert 0 < float(match.group(1)) < 600

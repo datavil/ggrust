@@ -38,7 +38,7 @@ pub struct TextStyle {
     pub font: Font,
     /// Horizontal justification 0..1 (titles, axis labels); NaN: the element's default.
     pub hjust: f64,
-    /// Vertical justification 0..1 (axis labels); NaN: the element's default.
+    /// Vertical justification 0..1 (axis labels and titles); NaN: the element's default.
     pub vjust: f64,
     /// Counter-clockwise angle in degrees (axis labels); NaN: unset.
     pub angle: f64,
@@ -371,8 +371,8 @@ fn report_unbuilt(spec: &ThemeSpec, warnings: &mut Vec<String>) {
         };
         // Axis labels read angle and vjust (layout/rotated.rs); other text does not yet.
         let axis_text = matches!(key.as_str(), "axis_text" | "axis_text_x" | "axis_text_y");
-        // Axis titles read angle (layout `axis_title_extent`); vjust has no room to
-        // move a title inside its own band, so it is accepted as a no-op.
+        // Axis titles read angle and vjust (layout `axis_title_justification`):
+        // turned by the angle, vjust moves a title along its axis.
         let axis_title = matches!(key.as_str(), "axis_title" | "axis_title_x" | "axis_title_y");
         // Strip labels read their margins (layout/facet.rs).
         let strip_text = matches!(key.as_str(), "strip_text" | "strip_text_x");

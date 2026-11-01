@@ -247,7 +247,8 @@ Group 3: open lets-plot bugs we copied (score 4, gaps file section 11).
   (Each facet tile gets its own `StatContext`: on a free axis `overall_range` over the tile's layers (scale limits still replace the ends). Not yet: `facet_grid` (not built); ggplot2 shares a free range per grid column/row there, not per tile.)
 - [ ] lp3.3 Text at the plot edge and wide last axis labels are not clipped (#339, #906).
 - [ ] lp3.4 Legend overflow: legends wrap or grow the canvas so they fit (#1506; see also 9.1).
-- [ ] lp3.5 Axis title `element_text(angle=, vjust=)` applied (#1504).
+- [x] lp3.5 Axis title `element_text(angle=, vjust=)` applied (#1504).
+  (Angle was applied by the overflow guards commit; now `hjust`/`vjust` place the title along its axis turned by its angle, as ggplot2's `rotate_just` (`axis_title_justification`), checked against ggplot2 4.0.1 in R. Unset they centre (ggplot2 inherits `vjust=1`). A title longer than its axis is centred (bug hunt). Kept: justification outside 0..1 moves the title off the panel, as ggplot2. Known, pre-existing: a rotated title's band can exceed the plot.)
 - [ ] lp3.6 `gggrid(sharex=, sharey=)` shared axes (#1015).
 
 Group 4: score 4.

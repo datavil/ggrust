@@ -28,6 +28,8 @@ const MAX_ROWS_PER_COLUMN: usize = 15;
 const MAX_COLUMNS_PER_ROW: usize = 5;
 /// lets-plot `Legend.LINES_MAX_LENGTH`: labels wrap at this many characters.
 const LABEL_LINE_LENGTH: usize = 30;
+/// Shorter line lengths tried, in order, when a legend is too wide for its budget.
+const NARROW_LINE_LENGTHS: [usize; 3] = [20, 14, 10];
 /// lets-plot `Legend.LINES_MAX_COUNT`.
 const LABEL_MAX_LINES: usize = 5;
 
@@ -109,6 +111,15 @@ impl KeyGrid {
     }
 }
 
+/// Room a legend block may take (see [`super::legend_budget`]).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct LegendBudget {
+    /// Width and height automatic key grids are reflowed and cut to.
+    pub preferred: (f64, f64),
+    /// Width and height grids fixed by `guide_legend(ncol, nrow)` are cut to.
+    pub most: (f64, f64),
+}
+
 /// A guide box: a key legend or a colorbar.
 pub enum LegendBox {
     /// Keys with labels.
@@ -173,10 +184,14 @@ struct MeasuredLegend<'a> {
 }
 
 enum Measured<'a> {
-    /// Per key: the key cell, the label anchor (left, vertical middle) and lines.
-    Keys(&'a Legend, Vec<(Rect, (f64, f64), Vec<Label>)>),
+    /// Per entry: the index of the key drawn (`None`: the label-only "+K more"
+    /// entry of a truncated legend), the key cell, the label anchor (left, vertical
+    /// middle) and lines.
+    Keys(&'a Legend, Vec<KeyCell>),
     Colorbar(&'a Colorbar, ColorbarLayout),
 }
+
+type KeyCell = (Option<usize>, Rect, (f64, f64), Vec<Label>);
 
 /// Legends arranged in a block (stacked, or side by side), measured.
 pub struct LegendBlock<'a> {
@@ -253,33 +268,82 @@ fn arrange_title(
 /// and left-justified, or side by side and top-justified with
 /// `legend_box="horizontal"`; `legend_box_just` changes the justification.
 /// `None` when there is nothing to show.
+///
+/// With a `budget` (the most width and height the block may take), a key legend
+/// that would overflow it is reflowed into more columns (rows when horizontal),
+/// then truncated to the keys that fit plus a "+K more" entry. This is a ggrust
+/// deviation: lets-plot and ggplot2 let such legends run off the canvas. Legends
+/// with an explicit `guide_legend(ncol, nrow)` are only truncated.
 pub fn measure_legends<'a>(
     boxes: &'a [LegendBox],
     theme: &Theme,
+    budget: Option<LegendBudget>,
 ) -> Result<Option<LegendBlock<'a>>> {
     let horizontal = theme.legends_horizontal();
-    let mut measured = Vec::new();
-    for legend_box in boxes.iter().filter(|legend_box| !legend_box.is_empty()) {
-        measured.push(match legend_box {
-            LegendBox::Keys(legend) => measure_legend(legend, horizontal, theme)?,
-            LegendBox::Colorbar(colorbar) => measure_colorbar(colorbar, horizontal, theme),
-        });
-    }
+    let side_by_side = theme.legend_box_horizontal;
+    let spacing = if side_by_side {
+        theme.legend_spacing.0
+    } else {
+        theme.legend_spacing.1
+    };
+    let along = |size: (f64, f64)| if side_by_side { size.0 } else { size.1 };
+    let shown: Vec<&LegendBox> = boxes
+        .iter()
+        .filter(|legend_box| !legend_box.is_empty())
+        .collect();
+    let measure_all = |budget: Option<LegendBudget>| -> Result<Vec<MeasuredLegend<'a>>> {
+        shown
+            .iter()
+            .map(|legend_box| match legend_box {
+                LegendBox::Keys(legend) => fit_legend(legend, horizontal, theme, budget),
+                LegendBox::Colorbar(colorbar) => Ok(measure_colorbar(colorbar, horizontal, theme)),
+            })
+            .collect()
+    };
+    let mut measured = measure_all(budget)?;
     if measured.is_empty() {
         return Ok(None);
     }
-    let side_by_side = theme.legend_box_horizontal;
+    // Stacked legends share the budget along the stack: key legends split what
+    // colorbars and spacing leave, equally.
+    if let Some(budget) = budget {
+        let total = measured
+            .iter()
+            .map(|legend| along(legend.size))
+            .sum::<f64>()
+            + spacing * (measured.len() - 1) as f64;
+        let keys = shown
+            .iter()
+            .filter(|legend_box| matches!(legend_box, LegendBox::Keys(_)))
+            .count();
+        if keys > 1 && total > along(budget.preferred) + 1e-9 {
+            let fixed: f64 = shown
+                .iter()
+                .zip(&measured)
+                .filter(|(legend_box, _)| matches!(legend_box, LegendBox::Colorbar(_)))
+                .map(|(_, legend)| along(legend.size))
+                .sum::<f64>()
+                + spacing * (measured.len() - 1) as f64;
+            let share = |size: (f64, f64)| {
+                let part = ((along(size) - fixed) / keys as f64).max(1.0);
+                if side_by_side {
+                    (part, size.1)
+                } else {
+                    (size.0, part)
+                }
+            };
+            measured = measure_all(Some(LegendBudget {
+                preferred: share(budget.preferred),
+                most: share(budget.most),
+            }))?;
+        }
+    }
     let justification = theme.legend_box_justification();
     let across = |size: (f64, f64)| if side_by_side { size.1 } else { size.0 };
     let thickness = measured
         .iter()
         .map(|legend| across(legend.size))
         .fold(0.0, f64::max);
-    let spacing = if side_by_side {
-        theme.legend_spacing.0
-    } else {
-        theme.legend_spacing.1
-    };
     let mut legends = Vec::with_capacity(measured.len());
     let mut along = 0.0;
     for legend in measured {
@@ -317,11 +381,125 @@ fn measure_colorbar<'a>(
     }
 }
 
-fn measure_legend<'a>(
+/// Keys a legend needs at least before it is truncated further.
+const MIN_SHOWN_KEYS: usize = 1;
+
+/// [`measure_legend`] within `budget`: the natural grid if it fits, else more
+/// columns (vertical) or rows (horizontal), else the fewest keys dropped.
+fn fit_legend<'a>(
     legend: &'a Legend,
     horizontal: bool,
     theme: &Theme,
+    budget: Option<LegendBudget>,
 ) -> Result<MeasuredLegend<'a>> {
+    let count = legend.keys.len();
+    let fixed = legend.grid.columns.is_some() || legend.grid.rows.is_some();
+    let natural = measure_legend(
+        legend,
+        count,
+        legend.grid,
+        LABEL_LINE_LENGTH,
+        horizontal,
+        theme,
+    )?;
+    let Some(budget) = budget.map(|budget| if fixed { budget.most } else { budget.preferred })
+    else {
+        return Ok(natural);
+    };
+    let fits = |size: (f64, f64)| size.0 <= budget.0 + 1e-9 && size.1 <= budget.1 + 1e-9;
+    if fits(natural.size) {
+        return Ok(natural);
+    }
+    // The first reflowed grid of `shown` keys with labels wrapped at `line_length`
+    // that fits, if any.
+    let reflow_wrapped = |shown: usize, line_length: usize| -> Result<Option<MeasuredLegend<'a>>> {
+        let entries = shown + usize::from(shown < count);
+        let natural_shape = legend.grid.shape(entries, horizontal);
+        let grids: Vec<KeyGrid> = if fixed {
+            vec![legend.grid]
+        } else if horizontal {
+            (natural_shape.1..=entries)
+                .map(|rows| KeyGrid {
+                    columns: None,
+                    rows: Some(rows),
+                    by_row: false,
+                })
+                .collect()
+        } else {
+            (natural_shape.0..=entries)
+                .map(|columns| KeyGrid {
+                    columns: Some(columns),
+                    rows: None,
+                    by_row: false,
+                })
+                .collect()
+        };
+        for grid in grids {
+            let measured = measure_legend(legend, shown, grid, line_length, horizontal, theme)?;
+            if fits(measured.size) {
+                return Ok(Some(measured));
+            }
+            // More columns (rows) only grow the block across: stop once it is too wide
+            // (tall).
+            let across = if horizontal {
+                measured.size.1
+            } else {
+                measured.size.0
+            };
+            let limit = if horizontal { budget.1 } else { budget.0 };
+            if across > limit + 1e-9 {
+                break;
+            }
+        }
+        Ok(None)
+    };
+    // The first reflowed grid of `shown` keys that fits, labels wrapped ever
+    // narrower, if any.
+    let reflow = |shown: usize| -> Result<Option<MeasuredLegend<'a>>> {
+        for line_length in std::iter::once(LABEL_LINE_LENGTH).chain(NARROW_LINE_LENGTHS) {
+            if let Some(measured) = reflow_wrapped(shown, line_length)? {
+                return Ok(Some(measured));
+            }
+        }
+        Ok(None)
+    };
+    if let Some(measured) = reflow(count)? {
+        return Ok(measured);
+    }
+    // Binary search the most keys that fit (fewer keys never need more space).
+    let (mut low, mut high) = (MIN_SHOWN_KEYS.min(count), count - 1);
+    let mut best = None;
+    while low <= high && high > 0 {
+        let middle = (low + high).div_ceil(2);
+        match reflow(middle)? {
+            Some(measured) => {
+                best = Some(measured);
+                low = middle + 1;
+            }
+            None => high = middle - 1,
+        }
+    }
+    match best {
+        Some(measured) => Ok(measured),
+        None => {
+            let shown = MIN_SHOWN_KEYS.min(count);
+            let narrowest = NARROW_LINE_LENGTHS[NARROW_LINE_LENGTHS.len() - 1];
+            measure_legend(legend, shown, legend.grid, narrowest, horizontal, theme)
+        }
+    }
+}
+
+/// Measure the first `shown` keys of `legend` in `grid`; fewer than all keys adds
+/// a label-only "+K more" entry.
+fn measure_legend<'a>(
+    legend: &'a Legend,
+    shown: usize,
+    grid: KeyGrid,
+    line_length: usize,
+    horizontal: bool,
+    theme: &Theme,
+) -> Result<MeasuredLegend<'a>> {
+    let hidden = legend.keys.len() - shown;
     let (label_gap, label_extra) = match theme.legend_text {
         // lets-plot: half the width of "_" between key and label; a third of a line
         // between labels.
@@ -349,14 +527,16 @@ fn measure_legend<'a>(
         ),
         None => (0.0, 0.0),
     };
-    let labels: Vec<Vec<Label>> = legend
-        .keys
+    let mut labels: Vec<Vec<Label>> = legend.keys[..shown]
         .iter()
-        .map(|key| label_lines(&key.label))
+        .map(|key| label_lines(&key.label, line_length))
         .collect();
+    if hidden > 0 {
+        labels.push(vec![Label::plain(format!("+{hidden} more"))]);
+    }
 
-    let mut key_sizes = Vec::with_capacity(legend.keys.len());
-    for key in &legend.keys {
+    let mut key_sizes = Vec::with_capacity(labels.len());
+    for key in &legend.keys[..shown] {
         let mut size = (0.0_f64, 0.0_f64);
         for layer in &key.layers {
             let (width, height) = layer.geom.minimum_key_size(&layer.styles)?;
@@ -364,6 +544,9 @@ fn measure_legend<'a>(
             size.1 = size.1.max(theme.legend_key_size.max(pretty(height)));
         }
         key_sizes.push(size);
+    }
+    if hidden > 0 {
+        key_sizes.push((theme.legend_key_size, theme.legend_key_size));
     }
     // lets-plot: every key as tall as the tallest in a horizontal legend, as wide as
     // the widest in a vertical one.
@@ -375,14 +558,14 @@ fn measure_legend<'a>(
         key_sizes.iter_mut().for_each(|size| size.0 = width);
     }
 
-    let count = legend.keys.len();
-    let shape = legend.grid.shape(count, horizontal);
+    let count = labels.len();
+    let shape = grid.shape(count, horizontal);
     let (columns, rows) = shape;
     let mut column_widths = vec![0.0_f64; columns];
     let mut row_heights = vec![0.0_f64; rows];
     let mut label_offsets = Vec::with_capacity(count);
     for index in 0..count {
-        let (column, row) = legend.grid.position(index, shape);
+        let (column, row) = grid.position(index, shape);
         let extra = if row == rows - 1 { 0.0 } else { label_extra };
         let (label_width, label_height) = label_size(&labels[index]);
         let (key_width, key_height) = key_sizes[index];
@@ -401,7 +584,7 @@ fn measure_legend<'a>(
     let mut cells = Vec::with_capacity(count);
     let (mut graph_width, mut graph_height) = (0.0_f64, 0.0_f64);
     for index in 0..count {
-        let (column, row) = legend.grid.position(index, shape);
+        let (column, row) = grid.position(index, shape);
         let (x, y) = (column_x[column], row_y[row]);
         graph_width = graph_width.max(x + column_widths[column]);
         graph_height = graph_height.max(y + row_heights[row]);
@@ -414,7 +597,8 @@ fn measure_legend<'a>(
             height: key_sizes[index].1,
         };
         let (dx, dy) = label_offsets[index];
-        cells.push((cell, (x + dx, y + shift + dy), labels[index].clone()));
+        let key = (index < shown).then_some(index);
+        cells.push((key, cell, (x + dx, y + shift + dy), labels[index].clone()));
     }
     let (origin, title_anchor, size) = arrange_title(
         &legend.title,
@@ -424,13 +608,13 @@ fn measure_legend<'a>(
     );
     let cells = cells
         .into_iter()
-        .map(|(cell, (x, y), lines)| {
+        .map(|(key, cell, (x, y), lines)| {
             let cell = Rect {
                 x: cell.x + origin.0,
                 y: cell.y + origin.1,
                 ..cell
             };
-            (cell, (x + origin.0, y + origin.1), lines)
+            (key, cell, (x + origin.0, y + origin.1), lines)
         })
         .collect();
     Ok(MeasuredLegend {
@@ -443,20 +627,20 @@ fn measure_legend<'a>(
 
 /// Lines of a label: plain labels wrap; a power label (`2·10` + superscript) stays
 /// on one line.
-fn label_lines(label: &Label) -> Vec<Label> {
+fn label_lines(label: &Label, line_length: usize) -> Vec<Label> {
     if label.superscript.is_some() {
         return vec![label.clone()];
     }
-    wrap_label(&label.text)
+    wrap_label(&label.text, line_length)
         .into_iter()
         .map(Label::plain)
         .collect()
 }
 
 /// Label lines, lets-plot `RichText.wrap(label, 30, 5)`: split at newlines, then
-/// words fill lines of up to 30 characters (longer words are cut); 5 lines or
-/// more keep the first 5 and add a line "...".
-fn wrap_label(label: &str) -> Vec<String> {
+/// words fill lines of up to `line_length` characters (30 in lets-plot; longer
+/// words are cut); 5 lines or more keep the first 5 and add a line "...".
+fn wrap_label(label: &str, line_length: usize) -> Vec<String> {
     let mut lines: Vec<String> = Vec::new();
     for segment in label.split('\n') {
         let mut line = String::new();
@@ -468,13 +652,13 @@ fn wrap_label(label: &str) -> Vec<String> {
             } else {
                 length + 1 + word_length
             };
-            if needed <= LABEL_LINE_LENGTH {
+            if needed <= line_length {
                 if length > 0 {
                     line.push(' ');
                 }
                 line.push_str(word);
                 length = needed;
-            } else if word_length <= LABEL_LINE_LENGTH {
+            } else if word_length <= line_length {
                 lines.push(std::mem::take(&mut line));
                 line.push_str(word);
                 length = word_length;
@@ -482,7 +666,7 @@ fn wrap_label(label: &str) -> Vec<String> {
                 // Cut the word: fill the current line, then whole chunks.
                 let mut characters: Vec<char> = word.chars().collect();
                 if length > 0 {
-                    let room = LABEL_LINE_LENGTH.saturating_sub(length + 1);
+                    let room = line_length.saturating_sub(length + 1);
                     if room > 0 {
                         line.push(' ');
                         line.extend(characters.drain(..room.min(characters.len())));
@@ -490,7 +674,7 @@ fn wrap_label(label: &str) -> Vec<String> {
                     lines.push(std::mem::take(&mut line));
                 }
                 let chunks: Vec<String> = characters
-                    .chunks(LABEL_LINE_LENGTH)
+                    .chunks(line_length)
                     .map(|chunk| chunk.iter().collect())
                     .collect();
                 let (last, full) = chunks
@@ -563,17 +747,19 @@ pub fn draw_legends(block: &LegendBlock, origin: (f64, f64), theme: &Theme) -> R
                 legend_nodes.extend(draw_colorbar(colorbar, &layout.translated((x, y)), theme));
             }
             Measured::Keys(legend, cells) => {
-                for (key, (cell, label_anchor, lines)) in legend.keys.iter().zip(cells) {
+                for (key, cell, label_anchor, lines) in cells {
                     let cell = Rect {
                         x: x + cell.x,
                         y: y + cell.y,
                         ..*cell
                     };
-                    if let Some(style) = theme.legend_key_background {
-                        legend_nodes.push(super::rect_node(cell, style));
-                    }
-                    for layer in &key.layers {
-                        legend_nodes.extend(layer.geom.draw_key(&layer.styles, cell)?);
+                    if let Some(key) = key.map(|index| &legend.keys[index]) {
+                        if let Some(style) = theme.legend_key_background {
+                            legend_nodes.push(super::rect_node(cell, style));
+                        }
+                        for layer in &key.layers {
+                            legend_nodes.extend(layer.geom.draw_key(&layer.styles, cell)?);
+                        }
                     }
                     if let Some(style) = theme.legend_text {
                         // Lines centred as a block on the key's middle.
@@ -615,16 +801,22 @@ mod tests {
 
     #[test]
     fn labels_wrap_like_lets_plot() {
-        assert_eq!(wrap_label("short"), ["short"]);
+        assert_eq!(wrap_label("short", LABEL_LINE_LENGTH), ["short"]);
         assert_eq!(
-            wrap_label("this is a fairly long label with spaces in it ok"),
+            wrap_label(
+                "this is a fairly long label with spaces in it ok",
+                LABEL_LINE_LENGTH
+            ),
             ["this is a fairly long label", "with spaces in it ok"]
         );
         let long = "a".repeat(60);
-        assert_eq!(wrap_label(&long), ["a".repeat(30), "a".repeat(30)]);
-        assert_eq!(wrap_label("one\ntwo"), ["one", "two"]);
         assert_eq!(
-            wrap_label("1\n2\n3\n4\n5\n6"),
+            wrap_label(&long, LABEL_LINE_LENGTH),
+            ["a".repeat(30), "a".repeat(30)]
+        );
+        assert_eq!(wrap_label("one\ntwo", LABEL_LINE_LENGTH), ["one", "two"]);
+        assert_eq!(
+            wrap_label("1\n2\n3\n4\n5\n6", LABEL_LINE_LENGTH),
             ["1", "2", "3", "4", "5", "..."]
         );
     }

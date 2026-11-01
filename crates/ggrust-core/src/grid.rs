@@ -532,7 +532,7 @@ impl<'s> PreparedGrid<'s> {
             block_theme.legend_box_horizontal = self.theme.legend_box_horizontal;
             block_theme.legend_box_just = self.theme.legend_box_just;
             block_theme.legend_spacing = self.theme.legend_spacing;
-            if let Some(block) = measure_legends(&group.boxes, &block_theme)? {
+            if let Some(block) = measure_legends(&group.boxes, &block_theme, None)? {
                 blocks.push((group, block, block_theme));
             }
         }

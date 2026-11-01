@@ -23,7 +23,7 @@ use crate::layout::zoom::{Zoom, ZoomPlot, zoom_tile};
 use crate::layout::{
     Colorbar, DEFAULT_BINS, KeyGrid, KeyLayer, Legend, LegendBox, LegendKey, PlotLayout, Titles,
     draw_axes, draw_legends, draw_panel_background, draw_panel_border, draw_titles, layout_plot,
-    legend_origin, legend_space, measure_legends,
+    legend_budget, legend_origin, legend_space, measure_legends, wrap_headings,
 };
 use crate::parallel;
 use crate::parameters::Parameters;
@@ -648,6 +648,8 @@ fn tile_group(nodes: Vec<Node>) -> Node {
 pub struct Arrangement {
     area: Rect,
     layout: Arranged,
+    /// The titles, wrapped to the plot width.
+    titles: Titles,
 }
 
 enum Arranged {
@@ -692,11 +694,12 @@ impl PreparedPlot {
         self.theme.plot_background.map(|background| background.fill)
     }
 
-    fn legend_block(&self) -> Result<Option<crate::layout::LegendBlock<'_>>> {
+    fn legend_block(&self, area: Rect) -> Result<Option<crate::layout::LegendBlock<'_>>> {
         if self.theme.legend_position == LegendPosition::None {
             Ok(None)
         } else {
-            measure_legends(&self.legends, &self.theme)
+            let budget = legend_budget(&self.theme, area);
+            measure_legends(&self.legends, &self.theme, Some(budget))
         }
     }
 
@@ -757,17 +760,19 @@ impl PreparedPlot {
 
     /// Lay the plot out to fill `area`.
     pub fn arrange(&self, area: Rect) -> Result<Arrangement> {
-        let legend_space = self.legend_block()?.map_or(Margins::uniform(0.0), |block| {
-            legend_space(&self.theme, block.size)
-        });
-        let layout = match &self.facets {
+        let legend_space = self
+            .legend_block(area)?
+            .map_or(Margins::uniform(0.0), |block| {
+                legend_space(&self.theme, block.size)
+            });
+        let layout_with = |titles: &Titles| match &self.facets {
             None => {
                 let (_, tile_x, tile_y) = &self.tiles[0];
                 let (horizontal, vertical) = self.screen_scales(tile_x, tile_y);
                 Arranged::Single(layout_plot(
                     area,
                     &self.theme,
-                    &self.titles,
+                    titles,
                     horizontal,
                     vertical,
                     legend_space,
@@ -777,13 +782,31 @@ impl PreparedPlot {
             Some(facets) => Arranged::Facets(layout_facets(
                 area,
                 &self.theme,
-                &self.titles,
+                titles,
                 &self.facet_grid(facets),
                 legend_space,
                 self.aspect,
             )),
         };
-        Ok(Arrangement { area, layout })
+        let layout = layout_with(&self.titles);
+        // Titles start at the panel: wrap them to the room right of it, and lay out
+        // again for the taller heading band if that wrapped anything.
+        let plot = match &layout {
+            Arranged::Single(layout) => layout,
+            Arranged::Facets(layout) => &layout.plot,
+        };
+        let room = plot.content.x + plot.content.width - plot.panel.x;
+        let titles = wrap_headings(&self.titles, &self.theme, room);
+        let layout = if titles == self.titles {
+            layout
+        } else {
+            layout_with(&titles)
+        };
+        Ok(Arrangement {
+            area,
+            layout,
+            titles,
+        })
     }
 
     /// Lay the plot out with its panel bounds at `target` (lets-plot
@@ -1073,9 +1096,9 @@ impl PreparedPlot {
             }
         }
         let plot_layout = arrangement.plot_layout();
-        nodes.push(draw_titles(plot_layout, theme, &self.titles));
-        if let Some(block) = &self.legend_block()? {
-            let origin = legend_origin(plot_layout, theme, &self.titles, block.size);
+        nodes.push(draw_titles(plot_layout, theme, &arrangement.titles));
+        if let Some(block) = &self.legend_block(arrangement.area)? {
+            let origin = legend_origin(plot_layout, theme, &arrangement.titles, block.size);
             nodes.extend(draw_legends(block, origin, theme)?);
         }
         // The plot background's border, drawn last over the whole plot (lets-plot

@@ -105,6 +105,8 @@ CASES = {
     "exact_spec_numbers": lambda m: (
         point(m, {"x": [0.0, 1e30], "y": [1.0, 2.0]})
         + m.scale_x_continuous(breaks=[1e30, 5e29], format=",d")
+        # Tall enough that ggrust does not cut the 40-character vertical labels.
+        + m.ggsize(600, 1000)
     ),
     "cellestial_heatmap_axis": lambda m: (
         m.ggplot({"x": [0.0, 1.0, 2.0], "y": [0.0, 1.0, 2.0]}, m.aes("x", "y"))

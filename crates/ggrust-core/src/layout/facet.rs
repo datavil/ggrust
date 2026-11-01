@@ -137,15 +137,7 @@ fn layout_grid(
 ) -> FacetLayout {
     let inset = theme.plot_inset;
     let content = shrink(area, theme.plot_margin);
-    let top = content.y
-        + band(theme.plot_title, &titles.title, 0.0)
-        + band(
-            theme.plot_subtitle,
-            &titles.subtitle,
-            theme.plot_subtitle_margin_top,
-        )
-        + legend_space.top
-        + inset.top;
+    let top = content.y + headings_band(theme, titles) + legend_space.top + inset.top;
     let bottom = content.y + content.height
         - legend_space.bottom
         - band(theme.axis_title_x, &titles.x, 0.0)

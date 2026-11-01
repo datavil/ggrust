@@ -23,7 +23,8 @@ pub mod zoom;
 pub use axis::{AxisBreaks, LabelArrangement, Orientation, choose_breaks};
 pub use colorbar::{Colorbar, DEFAULT_BINS};
 pub use legend::{
-    KeyGrid, KeyLayer, Legend, LegendBlock, LegendBox, LegendKey, draw_legends, measure_legends,
+    KeyGrid, KeyLayer, Legend, LegendBlock, LegendBox, LegendBudget, LegendKey, draw_legends,
+    measure_legends,
 };
 
 use axis::{LABELS_OVERFLOW, TILT_DEGREES};
@@ -37,6 +38,11 @@ use crate::text::{measure, measure_label};
 /// lets-plot `GEOM_MIN_SIZE`: the panel never shrinks below 50 x 50 px; axes and
 /// labels that do not fit then run past the plot edge instead.
 pub const PANEL_MIN_SIZE: f64 = 50.0;
+
+/// Largest share of the plot (inside its margin) the x labels may take in height,
+/// or the y labels in width: longer labels are cut with "...". A ggrust deviation
+/// (lets-plot squeezes the panel and lets the labels run off the canvas).
+pub const AXIS_LABELS_MAX_SHARE: f64 = 1.0 / 3.0;
 
 /// Height of a text band: the real line box of the font at this size.
 pub fn text_band(style: TextStyle) -> f64 {
@@ -175,7 +181,11 @@ fn layout_free(
     if needed <= simple {
         return first;
     }
-    let x_breaks = first.x_breaks;
+    let limit = first.content.height * AXIS_LABELS_MAX_SHARE;
+    let x_breaks = fit_labels(first.x_breaks, x_scale.is_discrete(), limit, |breaks| {
+        x_labels_height(breaks, theme)
+    });
+    let needed = x_labels_height(&x_breaks, theme);
     layout_with(
         area,
         theme,
@@ -215,6 +225,12 @@ fn layout_with(
         Orientation::Vertical,
         theme.axis_text_y,
         (0.0, 0.0),
+    );
+    let y_breaks = fit_labels(
+        y_breaks,
+        y_scale.is_discrete(),
+        content.width * AXIS_LABELS_MAX_SHARE,
+        |breaks| y_axis_width(breaks, theme),
     );
     let y_axis_width = y_axis_width(&y_breaks, theme);
     let left = content.x
@@ -291,11 +307,36 @@ pub fn legend_space(theme: &Theme, size: (f64, f64)) -> Margins {
     space
 }
 
+/// Largest share of the plot (inside its margin) an outside legend block may take
+/// across: the panel keeps the rest. A ggrust deviation (lets-plot and ggplot2 have
+/// no limit and let legends run off the canvas).
+pub const LEGEND_MAX_SHARE: f64 = 0.5;
+
+/// Room for the legend block of a plot filling `area`: the whole content along its
+/// side; across, [`LEGEND_MAX_SHARE`] of it for automatic grids and all but a
+/// minimum panel for grids the user fixed (`guide_legend(ncol, nrow)`).
+pub fn legend_budget(theme: &Theme, area: Rect) -> LegendBudget {
+    let content = shrink(area, theme.plot_margin);
+    let spacing = theme.legend_box_spacing;
+    let room = |share: f64, extent: f64| (extent * share - spacing).max(1.0);
+    let sized = |across: &dyn Fn(f64) -> f64| match theme.legend_position {
+        LegendPosition::Right | LegendPosition::Left => (across(content.width), content.height),
+        LegendPosition::Top | LegendPosition::Bottom => (content.width, across(content.height)),
+        LegendPosition::None | LegendPosition::Inside(..) => (content.width, content.height),
+    };
+    LegendBudget {
+        preferred: sized(&|extent| room(LEGEND_MAX_SHARE, extent)),
+        most: sized(&|extent| (extent - PANEL_MIN_SIZE - spacing).max(1.0)),
+    }
+}
+
 /// Top-left corner of a legend block of `size` (lets-plot `LegendBoxesLayoutUtil`):
 /// at the side of the plot, justified along the panel by `legend_justification`, or
 /// inside the panel at `legend_position`. Outside legends sit at the plot margin
 /// (beyond the inset). Right and bottom legends are placed from the panel, so with a
 /// minimum-size panel they run past the plot edge instead of covering the data.
+/// Outside legends longer than the panel are kept inside the plot along their side
+/// (a ggrust deviation: lets-plot centres them on the panel, past the canvas).
 pub fn legend_origin(
     layout: &PlotLayout,
     theme: &Theme,
@@ -306,8 +347,23 @@ pub fn legend_origin(
     let inset = theme.plot_inset;
     let spacing = theme.legend_box_spacing;
     let (justify_x, justify_y) = theme.legend_justification;
-    let along_y = panel.y + (panel.height - size.1) * (1.0 - justify_y);
-    let along_x = panel.x + (panel.width - size.0) * justify_x;
+    let content = layout.content;
+    // Within the content when it fits there, else from its start.
+    let keep_in = |position: f64, extent: f64, start: f64, span: f64| {
+        position.min(start + span - extent).max(start)
+    };
+    let along_y = keep_in(
+        panel.y + (panel.height - size.1) * (1.0 - justify_y),
+        size.1,
+        content.y,
+        content.height,
+    );
+    let along_x = keep_in(
+        panel.x + (panel.width - size.0) * justify_x,
+        size.0,
+        content.x,
+        content.width,
+    );
     match theme.legend_position {
         LegendPosition::Right | LegendPosition::None => {
             (panel.x + panel.width + inset.right + spacing, along_y)
@@ -333,6 +389,63 @@ pub fn legend_origin(
             panel.y + panel.height * (1.0 - y) - size.1 * (1.0 - justify_y),
         ),
     }
+}
+
+/// `breaks` of a discrete axis with plain labels cut to the most characters
+/// (start and end kept around "...") for which `extent` stays within `limit`;
+/// unchanged when they already fit. Numeric axes and superscripts are kept whole.
+fn fit_labels(
+    breaks: AxisBreaks,
+    discrete: bool,
+    limit: f64,
+    extent: impl Fn(&AxisBreaks) -> f64,
+) -> AxisBreaks {
+    // A cut number reads as a different number: only category names are cut.
+    if !discrete || extent(&breaks) <= limit {
+        return breaks;
+    }
+    let cut = |characters: usize| AxisBreaks {
+        labels: breaks
+            .labels
+            .iter()
+            .map(|label| cut_label(label, characters))
+            .collect(),
+        ..breaks.clone()
+    };
+    let longest = breaks
+        .labels
+        .iter()
+        .map(|label| label.text.chars().count())
+        .max()
+        .unwrap_or(0);
+    // The most characters that fit (fewer never take more space).
+    let (mut low, mut high) = (1, longest.saturating_sub(1));
+    let mut best = cut(1);
+    while low <= high {
+        let middle = (low + high) / 2;
+        let candidate = cut(middle);
+        if extent(&candidate) <= limit {
+            best = candidate;
+            low = middle + 1;
+        } else {
+            high = middle - 1;
+        }
+    }
+    best
+}
+
+/// `label` cut to `characters` characters, its middle replaced by "..." (the end
+/// often tells similar categories apart), if longer.
+fn cut_label(label: &Label, characters: usize) -> Label {
+    let text: Vec<char> = label.text.chars().collect();
+    if label.superscript.is_some() || text.len() <= characters {
+        return label.clone();
+    }
+    let kept = characters.saturating_sub(3);
+    let tail = kept / 2;
+    let head: String = text[..kept - tail].iter().collect();
+    let end: String = text[text.len() - tail..].iter().collect();
+    Label::plain(format!("{}...{}", head.trim_end(), end.trim_start()))
 }
 
 /// Unrotated size of each label (real font metrics; height = the line box).
@@ -639,13 +752,76 @@ pub fn draw_titles(layout: &PlotLayout, theme: &Theme, titles: &Titles) -> Node 
 }
 
 /// Height of the title and subtitle bands at the top of a figure.
+/// Titles may hold several lines (see [`wrap_headings`]).
 pub fn headings_band(theme: &Theme, titles: &Titles) -> f64 {
-    band(theme.plot_title, &titles.title, 0.0)
-        + band(
+    let lines_band = |style: Option<TextStyle>, text: &Option<String>, gap: f64| {
+        band(style, text, gap)
+            + match (style, present(text)) {
+                (Some(style), Some(text)) => text_band(style) * text.matches('\n').count() as f64,
+                _ => 0.0,
+            }
+    };
+    lines_band(theme.plot_title, &titles.title, 0.0)
+        + lines_band(
             theme.plot_subtitle,
             &titles.subtitle,
             theme.plot_subtitle_margin_top,
         )
+}
+
+/// `titles` with the title and subtitle wrapped at spaces to lines no wider than
+/// `width` (a word longer than a line is broken). A ggrust deviation: lets-plot
+/// and ggplot2 cut long titles at the canvas edge.
+pub fn wrap_headings(titles: &Titles, theme: &Theme, width: f64) -> Titles {
+    let wrap = |style: Option<TextStyle>, text: &Option<String>| match (style, text) {
+        (Some(style), Some(text)) => Some(
+            text.split('\n')
+                .map(|line| wrap_line(line, style, width))
+                .collect::<Vec<_>>()
+                .join("\n"),
+        ),
+        _ => text.clone(),
+    };
+    Titles {
+        title: wrap(theme.plot_title, &titles.title),
+        subtitle: wrap(theme.plot_subtitle, &titles.subtitle),
+        x: titles.x.clone(),
+        y: titles.y.clone(),
+    }
+}
+
+/// One line of text broken at spaces into lines no wider than `width`.
+fn wrap_line(line: &str, style: TextStyle, width: f64) -> String {
+    let fits = |text: &str| measure(text, style.size, style.font).width <= width;
+    if fits(line) {
+        return line.to_owned();
+    }
+    let mut lines: Vec<String> = Vec::new();
+    let mut current = String::new();
+    for word in line.split(' ').filter(|word| !word.is_empty()) {
+        let candidate = if current.is_empty() {
+            word.to_owned()
+        } else {
+            format!("{current} {word}")
+        };
+        if fits(&candidate) {
+            current = candidate;
+            continue;
+        }
+        if !current.is_empty() {
+            lines.push(std::mem::take(&mut current));
+        }
+        // A word wider than a line is broken between characters.
+        for character in word.chars() {
+            current.push(character);
+            if !fits(&current) && current.chars().count() > 1 {
+                current.pop();
+                lines.push(std::mem::replace(&mut current, character.to_string()));
+            }
+        }
+    }
+    lines.push(current);
+    lines.join("\n")
 }
 
 /// The title and subtitle, from `top` down, justified along `(start, width)` (the
@@ -658,27 +834,25 @@ pub fn heading_nodes(
 ) -> Vec<Node> {
     let mut nodes = Vec::new();
     let mut top = top;
+    let mut lines = |style: TextStyle, text: &str, top: &mut f64| {
+        for line in text.split('\n') {
+            let x = justified_centre(start, width, line, style);
+            nodes.push(text_node(
+                line,
+                style,
+                (x, *top + text_band(style) / 2.0),
+                HorizontalAlign::Middle,
+                0.0,
+            ));
+            *top += text_band(style);
+        }
+    };
     if let (Some(style), Some(title)) = (theme.plot_title, present(&titles.title)) {
-        let x = justified_centre(start, width, title, style);
-        nodes.push(text_node(
-            title,
-            style,
-            (x, top + text_band(style) / 2.0),
-            HorizontalAlign::Middle,
-            0.0,
-        ));
-        top += text_band(style);
+        lines(style, title, &mut top);
     }
     if let (Some(style), Some(subtitle)) = (theme.plot_subtitle, present(&titles.subtitle)) {
         top += theme.plot_subtitle_margin_top;
-        let x = justified_centre(start, width, subtitle, style);
-        nodes.push(text_node(
-            subtitle,
-            style,
-            (x, top + text_band(style) / 2.0),
-            HorizontalAlign::Middle,
-            0.0,
-        ));
+        lines(style, subtitle, &mut top);
     }
     nodes
 }

@@ -258,7 +258,8 @@ Group 3: open lets-plot bugs we copied (score 4, gaps file section 11).
 
 Group 4: score 4.
 
-- [ ] lp4.1 `geom_step` (with `direction='mid'`, #838) and `geom_freqpoly`.
+- [x] lp4.1 `geom_step` (with `direction='mid'`, #838) and `geom_freqpoly`.
+  (`geom/step.rs`, ported from lets-plot's `StepGeom`: rows sorted by x, `hv`/`vh` stairs built in data units (so `coord_flip` keeps the data direction), `"mid"` as ggplot2's `stairstep` (vertices and row styles), `padded=True` draws x = -inf/+inf at the panel's x edges (lets-plot drops them; deviation), `arrow`. `draw_paths` takes the steps; `geom_freqpoly` is `geom_line` with `stat="bin"` as lets-plot's `FreqpolyGeom` (no ggplot2 end padding, inherited). Shapes and labels match lets-plot in 5 parity cases. Not yet: `color_by`, freqpoly `orientation`.)
 - [ ] lp4.2 `stat_summary` / `stat_summary_bin` (with `mean_se`, `mean_sdl`, #1507).
 - [ ] lp4.3 `stat_ecdf`.
 - [ ] lp4.4 `scale_color_grey`, `scale_fill_grey`, `scale_color_discrete`, `scale_fill_discrete`.

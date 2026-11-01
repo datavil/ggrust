@@ -1869,6 +1869,7 @@ fn compute_layer(
             report_missing_values(
                 &format!("stat_{}", stat.name()),
                 stat.required_aesthetics(),
+                false,
                 &layer_data,
                 &path,
                 &mut warnings,
@@ -1975,6 +1976,8 @@ fn compute_layer(
         report_missing_values(
             &format!("geom_{}", geom.name()),
             geom.required_aesthetics(),
+            // Padded steps draw x = -inf / +inf at the panel edges.
+            geom.draws_infinite_x(&parameters)?,
             &layer_data,
             &path,
             &mut warnings,
@@ -3193,23 +3196,30 @@ fn label_texts(column: &Column) -> StyleValues {
 }
 
 /// Warn when rows cannot be used because a required aesthetic is missing.
-/// `owner` names who needs them, e.g. `geom_point`.
+/// `owner` names who needs them, e.g. `geom_point`. With `infinite_x_drawn`
+/// (padded steps), x = -inf / +inf counts as usable.
 fn report_missing_values(
     owner: &str,
     required: &[Aesthetic],
+    infinite_x_drawn: bool,
     data: &LayerData,
     path: &str,
     warnings: &mut Vec<String>,
 ) {
     let required: Vec<_> = required
         .iter()
-        .filter_map(|aesthetic| data.continuous(*aesthetic))
+        .filter_map(|aesthetic| Some((*aesthetic, data.continuous(*aesthetic)?)))
         .collect();
     let removed = (0..data.row_count())
         .filter(|&row| {
-            required
-                .iter()
-                .any(|column| !column.get(row).is_some_and(f64::is_finite))
+            required.iter().any(|(aesthetic, column)| {
+                let usable = if infinite_x_drawn && *aesthetic == Aesthetic::X {
+                    |value: f64| !value.is_nan()
+                } else {
+                    f64::is_finite
+                };
+                !column.get(row).is_some_and(usable)
+            })
         })
         .count();
     if removed > 0 {

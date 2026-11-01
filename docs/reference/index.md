@@ -33,6 +33,7 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_jitter()`](api/geom_jitter.md) | Points with random noise added to their positions. Not drawn yet. |
 | [`geom_sina()`](api/geom_sina.md) | Sina plot: points spread within the violin outline. |
 | [`geom_line()`](api/geom_line.md) | Connect observations sorted by x. |
+| [`geom_step()`](api/geom_step.md) | Connect observations sorted by x with stairs. |
 | [`geom_path()`](api/geom_path.md) | Connect observations in data order. |
 | [`geom_segment()`](api/geom_segment.md) | Line segments from (x, y) to (xend, yend), optionally with arrows. |
 | [`geom_hline()`](api/geom_hline.md) | Horizontal reference lines at ``yintercept``. |
@@ -47,6 +48,7 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_rect()`](api/geom_rect.md) | Rectangles from ``xmin``, ``xmax``, ``ymin``, ``ymax``. Not drawn yet. |
 | [`geom_bar()`](api/geom_bar.md) | Bars, by default the count of rows per x (``stat="count"``), stacked. |
 | [`geom_histogram()`](api/geom_histogram.md) | Histogram of binned x values (``stat="bin"``), stacked. |
+| [`geom_freqpoly()`](api/geom_freqpoly.md) | Frequency polygon: a line through the counts of binned x (``stat="bin"``). |
 | [`geom_boxplot()`](api/geom_boxplot.md) | Box and whiskers plot, dodged by group. |
 | [`geom_violin()`](api/geom_violin.md) | Violin plot: mirrored kernel density per x (``stat="ydensity"``). Not drawn yet. |
 | [`geom_density()`](api/geom_density.md) | Kernel density estimate of ``x``, drawn as a filled area (``stat="density"``). |

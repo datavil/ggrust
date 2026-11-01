@@ -41,6 +41,7 @@ __all__ = [
     "geom_crossbar",
     "geom_density",
     "geom_errorbar",
+    "geom_freqpoly",
     "geom_histogram",
     "geom_hline",
     "geom_jitter",
@@ -57,6 +58,7 @@ __all__ = [
     "geom_segment",
     "geom_sina",
     "geom_smooth",
+    "geom_step",
     "geom_text",
     "geom_text_repel",
     "geom_tile",
@@ -267,6 +269,165 @@ def geom_line(
         manual_key=manual_key,
         sampling=sampling,
         tooltips=tooltips,
+        color_by=color_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
+def geom_step(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    direction: Literal["hv", "vh", "mid"] | None = None,
+    color_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Connect observations sorted by x with stairs.
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    direction : {"hv", "vh", "mid"}, default="hv"
+        ``"hv"`` steps along x first, then y; ``"vh"`` along y first; ``"mid"`` steps
+        halfway between adjacent x values (as ggplot2).
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Constant aesthetics such as ``color="red"`` or ``size=2``, and the geom's
+        options, e.g. ``padded=True`` to draw rows at x = -inf / inf at the panel edges.
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"day": [1, 2, 3, 4, 5], "stock": [10, 7, 7, 4, 9]}
+    >>> plot = ggplot(data, aes("day", "stock")) + geom_step(direction="mid")
+    """
+    return _geom(
+        "step",
+        mapping=mapping,
+        data=data,
+        stat=stat,
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        manual_key=manual_key,
+        sampling=sampling,
+        tooltips=tooltips,
+        direction=direction,
+        color_by=color_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
+def geom_freqpoly(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    orientation: str | None = None,
+    color_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Frequency polygon: a line through the counts of binned x (``stat="bin"``).
+
+    Takes the binning options of ``geom_histogram`` (``bins``, ``binwidth``,
+    ``center``, ``boundary``, ``breaks``) as keyword arguments.
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name; ``"bin"`` when None.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    orientation : str, optional
+        ``"y"`` bins y instead of x; not supported yet (ggrust warns).
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Constant aesthetics such as ``color="red"`` or ``size=2``, and binning options.
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"height": [160, 172, 181, 168, 175, 190, 158, 177]}
+    >>> plot = ggplot(data, aes("height")) + geom_freqpoly(bins=5)
+    """
+    return _geom(
+        "freqpoly",
+        mapping=mapping,
+        data=data,
+        stat=stat,
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        manual_key=manual_key,
+        sampling=sampling,
+        tooltips=tooltips,
+        orientation=orientation,
         color_by=color_by,
         na_rm=na_rm,
         **other_args,

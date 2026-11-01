@@ -29,6 +29,7 @@ mod repel_layout;
 mod segment;
 mod sina;
 mod smooth;
+mod step;
 mod text;
 mod tile;
 mod violin;
@@ -43,7 +44,7 @@ pub use bracket::BracketGeom;
 pub use image::ImageGeom;
 pub use interval::{CrossBarGeom, ErrorBarGeom, LineRangeGeom, PointRangeGeom};
 pub use jitter::JitterGeom;
-pub use path::{LineGeom, PathGeom};
+pub use path::{FreqpolyGeom, LineGeom, PathGeom};
 pub use point::PointGeom;
 pub use polygon::PolygonGeom;
 pub use raster::RasterGeom;
@@ -53,6 +54,7 @@ pub use repel::{LabelRepelGeom, TextRepelGeom};
 pub use segment::SegmentGeom;
 pub use sina::SinaGeom;
 pub use smooth::SmoothGeom;
+pub use step::StepGeom;
 pub use text::{LabelGeom, TextGeom};
 pub use tile::TileGeom;
 pub use violin::ViolinGeom;
@@ -108,6 +110,12 @@ pub trait Geom: Sync {
     /// Whether the layer has legends when `show_legend` is not given.
     fn shows_legend(&self) -> bool {
         true
+    }
+
+    /// Whether rows at x = -inf / +inf are drawn (padded steps), so they are
+    /// not reported as missing.
+    fn draws_infinite_x(&self, _parameters: &Parameters) -> Result<bool> {
+        Ok(false)
     }
 
     /// Position aesthetics that must be mapped.
@@ -187,6 +195,8 @@ pub static GEOMS: &[&dyn Geom] = &[
     &PointGeom,
     &PathGeom,
     &LineGeom,
+    &StepGeom,
+    &FreqpolyGeom,
     &SegmentGeom,
     &PolygonGeom,
     &VerticalLineGeom,

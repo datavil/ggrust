@@ -8,6 +8,7 @@
 //! What it does not do (yet): `color_by`, maps (`flat`, `geodesic`).
 
 use super::lines::{self, Arrow, LINE_STYLE_DEFAULTS};
+use super::step::Steps;
 use super::{DrawLayer, Geom};
 use crate::Result;
 use crate::coord::Panel;
@@ -20,6 +21,10 @@ pub struct PathGeom;
 
 /// Lines sorted by x within each group.
 pub struct LineGeom;
+
+/// `geom_freqpoly`: lines through binned counts (lets-plot `FreqpolyGeom` is a
+/// `LineGeom` with `stat="bin"`).
+pub struct FreqpolyGeom;
 
 impl Geom for PathGeom {
     /// lets-plot `bivariateFunction(area = true)`: hover near the path.
@@ -56,7 +61,7 @@ impl Geom for PathGeom {
     }
 
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
-        draw_paths(layer, panel, false)
+        draw_paths(layer, panel, false, None)
     }
 
     fn minimum_key_size(&self, styles: &Styles) -> Result<(f64, f64)> {
@@ -101,7 +106,7 @@ impl Geom for LineGeom {
     }
 
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
-        draw_paths(layer, panel, true)
+        draw_paths(layer, panel, true, None)
     }
 
     fn minimum_key_size(&self, styles: &Styles) -> Result<(f64, f64)> {
@@ -113,7 +118,56 @@ impl Geom for LineGeom {
     }
 }
 
-fn draw_paths(layer: &DrawLayer, panel: &Panel, sort_by_x: bool) -> Result<Vec<Node>> {
+impl Geom for FreqpolyGeom {
+    fn tooltip_behavior(&self) -> crate::tooltip::TooltipBehavior {
+        LineGeom.tooltip_behavior()
+    }
+
+    fn hover_targets(
+        &self,
+        layer: &DrawLayer,
+        panel: &Panel,
+    ) -> Result<Option<crate::tooltip::HoverTargets>> {
+        LineGeom.hover_targets(layer, panel)
+    }
+
+    fn name(&self) -> &'static str {
+        "freqpoly"
+    }
+
+    fn default_stat(&self) -> &'static str {
+        "bin"
+    }
+
+    fn required_aesthetics(&self) -> &'static [Aesthetic] {
+        &[Aesthetic::X, Aesthetic::Y]
+    }
+
+    fn style_defaults(&self) -> &'static [(Aesthetic, StyleDefault)] {
+        LINE_STYLE_DEFAULTS
+    }
+
+    fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
+        draw_paths(layer, panel, true, None)
+    }
+
+    fn minimum_key_size(&self, styles: &Styles) -> Result<(f64, f64)> {
+        lines::key_size(styles)
+    }
+
+    fn draw_key(&self, styles: &Styles, cell: Rect) -> Result<Vec<Node>> {
+        lines::key_line(styles, cell, false)
+    }
+}
+
+/// Draw each group as a line through its rows; `steps` turns every run into a
+/// staircase ([`super::step`]).
+pub(super) fn draw_paths(
+    layer: &DrawLayer,
+    panel: &Panel,
+    sort_by_x: bool,
+    steps: Option<Steps>,
+) -> Result<Vec<Node>> {
     let (Some(x), Some(y)) = (
         layer.data.continuous(Aesthetic::X),
         layer.data.continuous(Aesthetic::Y),
@@ -147,7 +201,8 @@ fn draw_paths(layer: &DrawLayer, panel: &Panel, sort_by_x: bool) -> Result<Vec<N
     for mut rows in rows_by_group {
         if sort_by_x {
             rows.sort_by(|left, right| {
-                let key = |row: usize| x.get(row).filter(|value| value.is_finite());
+                // Infinite x sorts to its end (padded steps).
+                let key = |row: usize| x.get(row).filter(|value| !value.is_nan());
                 // Missing x last, as a stable sort keeps data order for ties.
                 match (key(*left), key(*right)) {
                     (Some(left), Some(right)) => left.total_cmp(&right),
@@ -159,7 +214,6 @@ fn draw_paths(layer: &DrawLayer, panel: &Panel, sort_by_x: bool) -> Result<Vec<N
         }
         // A missing coordinate breaks the line: carry the row with the point.
         let mut run_rows: Vec<usize> = Vec::new();
-        let mut run_points: Vec<(f64, f64)> = Vec::new();
         let flush = |run_rows: &mut Vec<usize>,
                      run_points: &mut Vec<(f64, f64)>,
                      nodes: &mut Vec<Node>|
@@ -205,19 +259,43 @@ fn draw_paths(layer: &DrawLayer, panel: &Panel, sort_by_x: bool) -> Result<Vec<N
             run_points.clear();
             Ok(())
         };
+        let location = |row: usize| -> (f64, f64) {
+            let mut row_x = x.get(row).unwrap_or(f64::NAN);
+            if let Some(steps) = steps {
+                row_x = steps.padded_x(row_x, panel);
+            }
+            (row_x, y.get(row).unwrap_or(f64::NAN))
+        };
+        // Runs in data units; steps add their corners before mapping.
+        let mut run_locations: Vec<(f64, f64)> = Vec::new();
+        let flush_run = |run_rows: &mut Vec<usize>,
+                         run_locations: &mut Vec<(f64, f64)>,
+                         nodes: &mut Vec<Node>|
+         -> Result<()> {
+            let (mut vertex_rows, vertices) = match steps {
+                Some(steps) => steps.stairs(run_rows, run_locations),
+                None => (std::mem::take(run_rows), std::mem::take(run_locations)),
+            };
+            let mut points: Vec<(f64, f64)> = vertices
+                .into_iter()
+                .map(|(vertex_x, vertex_y)| panel.map(vertex_x, vertex_y))
+                .collect();
+            flush(&mut vertex_rows, &mut points, nodes)?;
+            run_rows.clear();
+            run_locations.clear();
+            Ok(())
+        };
         for row in rows {
-            let (px, py) = panel.map(
-                x.get(row).unwrap_or(f64::NAN),
-                y.get(row).unwrap_or(f64::NAN),
-            );
+            let (row_x, row_y) = location(row);
+            let (px, py) = panel.map(row_x, row_y);
             if px.is_finite() && py.is_finite() {
                 run_rows.push(row);
-                run_points.push((px, py));
+                run_locations.push((row_x, row_y));
             } else {
-                flush(&mut run_rows, &mut run_points, &mut nodes)?;
+                flush_run(&mut run_rows, &mut run_locations, &mut nodes)?;
             }
         }
-        flush(&mut run_rows, &mut run_points, &mut nodes)?;
+        flush_run(&mut run_rows, &mut run_locations, &mut nodes)?;
     }
     Ok(nodes)
 }

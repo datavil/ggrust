@@ -5,6 +5,7 @@ Ported from lets-plot's ``lets_plot/plot/scale.py`` (MIT, see THIRD_PARTY_NOTICE
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Any, cast
 
 from ggrust.plot.core import FeatureSpec
@@ -18,17 +19,21 @@ if TYPE_CHECKING:
 __all__ = [
     "scale_color_brewer",
     "scale_color_continuous",
+    "scale_color_discrete",
     "scale_color_gradient",
     "scale_color_gradient2",
     "scale_color_gradientn",
+    "scale_color_grey",
     "scale_color_hue",
     "scale_color_manual",
     "scale_color_viridis",
     "scale_fill_brewer",
     "scale_fill_continuous",
+    "scale_fill_discrete",
     "scale_fill_gradient",
     "scale_fill_gradient2",
     "scale_fill_gradientn",
+    "scale_fill_grey",
     "scale_fill_hue",
     "scale_fill_manual",
     "scale_fill_viridis",
@@ -949,3 +954,239 @@ def scale_fill_brewer(
         The scale.
     """
     return _scale("fill", **locals(), scale_mapper_kind="color_brewer")
+
+
+def scale_color_discrete(
+    direction: int | None = None,
+    name: str | None = None,
+    breaks: Breaks | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    na_value: Color | None = None,
+    guide: Guide | None = None,
+    format: str | None = None,
+    scale_mapper_kind: str | None = None,
+) -> FeatureSpec:
+    """Map ``color`` as categories with the default discrete palette.
+
+    Numbers become categories too, in order of first appearance.
+
+    Parameters
+    ----------
+    direction : {1, -1}, default=1
+        -1 reverses the colors.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Categories that get a legend key.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        The categories and their order. Data outside the limits gets ``na_value``.
+    na_value : str, optional
+        Color drawn for missing data and data outside ``limits``.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"none"``, or a ``guide_legend()`` spec.
+    format : str, optional
+        Label format, e.g. ``".1f"``. ``labels`` take precedence.
+    scale_mapper_kind : str, optional
+        Mapper that builds the colors, e.g. ``"color_brewer"`` or ``"color_hue"``.
+
+    Returns
+    -------
+    FeatureSpec
+        The scale.
+    """
+    return _scale("color", **locals(), discrete=True)
+
+
+def scale_fill_discrete(
+    direction: int | None = None,
+    name: str | None = None,
+    breaks: Breaks | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    na_value: Color | None = None,
+    guide: Guide | None = None,
+    format: str | None = None,
+    scale_mapper_kind: str | None = None,
+) -> FeatureSpec:
+    """Map ``fill`` as categories with the default discrete palette.
+
+    Numbers become categories too, in order of first appearance.
+
+    Parameters
+    ----------
+    direction : {1, -1}, default=1
+        -1 reverses the colors.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Categories that get a legend key.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        The categories and their order. Data outside the limits gets ``na_value``.
+    na_value : str, optional
+        Color drawn for missing data and data outside ``limits``.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"none"``, or a ``guide_legend()`` spec.
+    format : str, optional
+        Label format, e.g. ``".1f"``. ``labels`` take precedence.
+    scale_mapper_kind : str, optional
+        Mapper that builds the colors, e.g. ``"color_brewer"`` or ``"color_hue"``.
+
+    Returns
+    -------
+    FeatureSpec
+        The scale.
+    """
+    return _scale("fill", **locals(), discrete=True)
+
+
+def scale_color_grey(
+    start: Number | None = None,
+    end: Number | None = None,
+    name: str | None = None,
+    breaks: Breaks | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    na_value: Color | None = None,
+    guide: Guide | None = None,
+    trans: Transform | None = None,
+    format: str | None = None,
+) -> FeatureSpec:
+    """Map ``color`` to greys, from lightness ``start`` to ``end``.
+
+    Works for categories and continuous data (a grey gradient).
+
+    Parameters
+    ----------
+    start : float, default=0.2
+        Lightness of the low end, 0 (black) to 1 (white).
+    end : float, default=0.8
+        Lightness of the high end, 0 to 1.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key or a colorbar tick.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        ``[low, high]`` data range of a continuous scale, or the levels (and their
+        order) of a discrete one. Data outside the limits gets ``na_value``.
+    na_value : str, optional
+        Color drawn for missing data and data outside ``limits``.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"colorbar"``, ``"none"``, or a guide spec.
+    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
+        Transformation of the data.
+    format : str, optional
+        Label format, e.g. ``".1f"``. ``labels`` take precedence.
+
+    Returns
+    -------
+    FeatureSpec
+        The scale.
+
+    Raises
+    ------
+    ValueError
+        ``start`` or ``end`` outside 0..1 (after lets_plot's rescaling of 0..100 values).
+    """
+    start, end = _grey_ends(start, end)
+    return _scale("color", **locals(), scale_mapper_kind="color_grey")
+
+
+def scale_fill_grey(
+    start: Number | None = None,
+    end: Number | None = None,
+    name: str | None = None,
+    breaks: Breaks | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    na_value: Color | None = None,
+    guide: Guide | None = None,
+    trans: Transform | None = None,
+    format: str | None = None,
+) -> FeatureSpec:
+    """Map ``fill`` to greys, from lightness ``start`` to ``end``.
+
+    Works for categories and continuous data (a grey gradient).
+
+    Parameters
+    ----------
+    start : float, default=0.2
+        Lightness of the low end, 0 (black) to 1 (white).
+    end : float, default=0.8
+        Lightness of the high end, 0 to 1.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key or a colorbar tick.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        ``[low, high]`` data range of a continuous scale, or the levels (and their
+        order) of a discrete one. Data outside the limits gets ``na_value``.
+    na_value : str, optional
+        Color drawn for missing data and data outside ``limits``.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"colorbar"``, ``"none"``, or a guide spec.
+    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
+        Transformation of the data.
+    format : str, optional
+        Label format, e.g. ``".1f"``. ``labels`` take precedence.
+
+    Returns
+    -------
+    FeatureSpec
+        The scale.
+
+    Raises
+    ------
+    ValueError
+        ``start`` or ``end`` outside 0..1 (after lets_plot's rescaling of 0..100 values).
+    """
+    start, end = _grey_ends(start, end)
+    return _scale("fill", **locals(), scale_mapper_kind="color_grey")
+
+
+def _grey_ends(start: Number | None, end: Number | None) -> tuple[Number | None, Number | None]:
+    """lets_plot ``_greyscale_check_parameters``: 0..100 values are rescaled to 0..1.
+
+    Raises
+    ------
+    ValueError
+        A value still outside 0..1.
+    """
+    checked: list[Number | None] = []
+    for label, value in (("start", start), ("end", end)):
+        if value is not None and not 0 <= value <= 1:
+            rescaled = value / 100
+            warnings.warn(
+                f"scale_*_grey(): '{label}' {value} is outside 0..1; read as {rescaled} "
+                "(lets_plot's old 0..100 range)",
+                stacklevel=3,
+            )
+            value = rescaled
+        if value is not None and not 0 <= value <= 1:
+            message = (
+                f"scale_*_grey(): '{label}' must be a lightness between 0 (black) and 1 "
+                f"(white), got {value * 100}"
+            )
+            raise ValueError(message)
+        checked.append(value)
+    return checked[0], checked[1]

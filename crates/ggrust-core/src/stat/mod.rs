@@ -7,10 +7,12 @@ mod count;
 mod density;
 mod density_1d;
 mod densityridges;
+mod ecdf;
 pub(crate) mod groups;
 mod identity;
 mod sina;
 mod smooth;
+mod summary;
 mod ydensity;
 
 pub use bin::{BinStat, bracketing_index};
@@ -18,9 +20,11 @@ pub use boxplot::{BoxplotOutlierStat, BoxplotStat};
 pub use count::CountStat;
 pub use density_1d::DensityStat;
 pub use densityridges::DensityRidgesStat;
+pub use ecdf::EcdfStat;
 pub use identity::IdentityStat;
 pub use sina::SinaStat;
 pub use smooth::SmoothStat;
+pub use summary::{SummaryBinStat, SummaryStat};
 pub use ydensity::{YDensityStat, quantiles as ydensity_quantiles};
 
 use crate::Result;
@@ -92,6 +96,9 @@ pub static STATS: &[&dyn Stat] = &[
     &DensityRidgesStat,
     &SinaStat,
     &SmoothStat,
+    &SummaryStat,
+    &SummaryBinStat,
+    &EcdfStat,
 ];
 
 /// lets-plot stats the Python API builds but the engine does not compute yet

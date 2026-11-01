@@ -259,10 +259,13 @@ Group 3: open lets-plot bugs we copied (score 4, gaps file section 11).
 Group 4: score 4.
 
 - [x] lp4.1 `geom_step` (with `direction='mid'`, #838) and `geom_freqpoly`.
-  (`geom/step.rs`, ported from lets-plot's `StepGeom`: rows sorted by x, `hv`/`vh` stairs built in data units (so `coord_flip` keeps the data direction), `"mid"` as ggplot2's `stairstep` (vertices and row styles), `padded=True` draws x = -inf/+inf at the panel's x edges (lets-plot drops them; deviation), `arrow`. `draw_paths` takes the steps; `geom_freqpoly` is `geom_line` with `stat="bin"` as lets-plot's `FreqpolyGeom` (no ggplot2 end padding, inherited). Shapes and labels match lets-plot in 5 parity cases. Not yet: `color_by`, freqpoly `orientation`.)
-- [ ] lp4.2 `stat_summary` / `stat_summary_bin` (with `mean_se`, `mean_sdl`, #1507).
-- [ ] lp4.3 `stat_ecdf`.
-- [ ] lp4.4 `scale_color_grey`, `scale_fill_grey`, `scale_color_discrete`, `scale_fill_discrete`.
+  (`geom/step.rs`, ported from lets-plot's `StepGeom`: rows sorted by x, `hv`/`vh` stairs built in data units (so `coord_flip` keeps the data direction), `"mid"` as ggplot2's `stairstep` (vertices and row styles), `pad=True` draws x = -inf/+inf at the panel's x edges (lets-plot drops them; deviation), `arrow`. `draw_paths` takes the steps; `geom_freqpoly` is `geom_line` with `stat="bin"` as lets-plot's `FreqpolyGeom` (no ggplot2 end padding, inherited). Shapes and labels match lets-plot in 5 parity cases. Not yet: `color_by`, freqpoly `orientation`.)
+- [x] lp4.2 `stat_summary` / `stat_summary_bin` (with `mean_se`, `mean_sdl`, #1507).
+  (`stat/summary.rs`, ported from lets-plot's `SummaryStat`/`SummaryBinStat` (`summarybin`): `fun`/`fun_min`/`fun_max` names with lets-plot's quantile rule and `quantiles`; summary bins over the plot's x range with `bins`/`binwidth`/`center`/`boundary`, all bins kept, a one-point range in one bin (bug hunt). ggplot2's shortcuts as `fun_data="mean_se"`/`"mean_sdl"` + `fun_args={"mult": k}` (ggrust-only, deviation). Python `stat_summary`/`stat_summary_bin` (default geom pointrange). Marks match lets-plot in 9 parity cases; mean_se/mean_sdl match R. Not yet: `orientation="y"`, Python callables. Found: discrete x order with groups follows the stat output in lets-plot (also count/boxplot), recorded as a gap.)
+- [x] lp4.3 `stat_ecdf`.
+  (`stat/ecdf.rs`, lets-plot's `ECDFStat`: distinct x in first appearance or `n` evenly spaced points, `pad` (default true) adds (-inf, 0) and (inf, 1), drawn to the panel edges by `geom_step`'s `pad` (lp4.1's option renamed from `padded` to lets-plot's `pad`). Python `stat_ecdf` (default geom step). Vertices match lets-plot in 5 cases (padded, unpadded, groups, points with `n`, line). Not yet: `orientation="y"`.)
+- [x] lp4.4 `scale_color_grey`, `scale_fill_grey`, `scale_color_discrete`, `scale_fill_discrete`.
+  (Grey: Python functions over the existing `color_grey` mapper, lets_plot's 0..100 rescaling with a warning. Discrete: `discrete=True` on a style scale makes the mapped column discrete (first appearance, as lets-plot) and, without values or a mapper kind, picks `color_brewer` as lets-plot's `ScaleConfig`, so `direction=-1` reverses Set1. Colors and legend labels match lets-plot in 14 cases.)
 - [ ] lp4.5 `scale_linetype_manual`, `scale_linetype_identity` (#1147).
 - [ ] lp4.6 `expand_limits`.
 - [ ] lp4.7 `orientation` on bar, histogram, boxplot, violin.

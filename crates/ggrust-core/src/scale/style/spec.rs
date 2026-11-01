@@ -64,6 +64,8 @@ pub struct StyleScaleSpec {
     limits: Set<Vec<Value>>,
     na_value: Set<Value>,
     kind: Set<String>,
+    /// `discrete=True` (`scale_color_discrete()`).
+    discrete: bool,
     trans: Set<String>,
     guide: Set<GuideSpec>,
     /// `format=...`, parsed (an unsupported pattern is reported and dropped).
@@ -134,6 +136,9 @@ fn merge(target: &mut StyleScaleSpec, scale: &ScaleSpec, path: &str, warnings: &
     if let Some(kind) = &scale.scale_mapper_kind {
         target.kind = Some((kind.clone(), at("scale_mapper_kind")));
     }
+    if let Some(discrete) = scale.discrete {
+        target.discrete = discrete;
+    }
     if let Some(trans) = &scale.trans {
         target.trans = Some((trans.clone(), at("trans")));
     }
@@ -156,7 +161,6 @@ fn report_unbuilt(scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
         ),
         ("expand", scale.expand.is_some()),
         ("position", scale.position.is_some()),
-        ("discrete", scale.discrete.is_some()),
         ("reverse", scale.reverse.is_some()),
     ];
     for (key, _) in present.iter().filter(|(_, present)| *present) {
@@ -185,7 +189,11 @@ impl StyleScaleSpec {
         let is_color = kind == ValueKind::Color;
         let is_shape = kind == ValueKind::Shape;
         let is_number = kind == ValueKind::Number;
-        match &self.kind {
+        // lets-plot: a discrete color scale without values defaults to brewer
+        // (Set1), which reads `direction`.
+        let default_kind = (self.discrete && is_color && !self.options.contains_key("values"))
+            .then(|| ("color_brewer".to_owned(), String::new()));
+        match self.kind.as_ref().or(default_kind.as_ref()) {
             Some((name, _)) if name == "identity" => {
                 return Ok(Arc::new(IdentityMapper {
                     kind,

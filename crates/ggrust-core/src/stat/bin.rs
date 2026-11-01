@@ -100,7 +100,7 @@ impl Stat for BinStat {
 }
 
 /// `bins` and `binwidth`.
-struct BinOptions {
+pub(super) struct BinOptions {
     count: usize,
     /// Positive, or `None`.
     width: Option<f64>,
@@ -116,7 +116,7 @@ enum Anchor {
 }
 
 impl BinOptions {
-    fn from_parameters(parameters: &Parameters) -> Result<Self> {
+    pub(super) fn from_parameters(parameters: &Parameters) -> Result<Self> {
         let count = parameters.number("bins")?.unwrap_or(DEFAULT_BIN_COUNT);
         // lets-plot reads `bins` as an integer and clamps it to 1..500.
         let count = (count.trunc().max(1.0) as usize).min(MAX_BIN_COUNT);
@@ -177,7 +177,7 @@ fn breaks(parameters: &Parameters) -> Result<Vec<f64>> {
     Ok(breaks)
 }
 
-fn finite_range(column: &ContinuousColumn) -> Option<(f64, f64)> {
+pub(super) fn finite_range(column: &ContinuousColumn) -> Option<(f64, f64)> {
     (0..column.len())
         .filter_map(|row| column.get(row).filter(|value| value.is_finite()))
         .fold(None, |range, value| match range {
@@ -187,7 +187,10 @@ fn finite_range(column: &ContinuousColumn) -> Option<(f64, f64)> {
 }
 
 /// lets-plot `getBinningParameters`: (bin count, bin width, left edge of the first bin).
-fn binning_parameters((low, high): (f64, f64), options: &BinOptions) -> (usize, f64, f64) {
+pub(super) fn binning_parameters(
+    (low, high): (f64, f64),
+    options: &BinOptions,
+) -> (usize, f64, f64) {
     let mut start = low;
     let mut span = high - start;
     let (_, initial_width) = options.count_and_width(span);

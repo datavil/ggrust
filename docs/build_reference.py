@@ -88,6 +88,14 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "arrow",
         ],
     ),
+    "Statistics": (
+        "Layers named after their stat: each summarises the data, then draws it with a geom.",
+        [
+            "stat_summary",
+            "stat_summary_bin",
+            "stat_ecdf",
+        ],
+    ),
     "Positions": (
         "Arrange marks that would overlap.",
         [
@@ -127,6 +135,8 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
         "Map data to `color` (lines, points, text) and `fill` (areas).",
         [
             "scale_color_continuous",
+            "scale_color_discrete",
+            "scale_color_grey",
             "scale_color_gradient",
             "scale_color_gradient2",
             "scale_color_gradientn",
@@ -136,6 +146,8 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "scale_color_manual",
             "scale_color_identity",
             "scale_fill_continuous",
+            "scale_fill_discrete",
+            "scale_fill_grey",
             "scale_fill_gradient",
             "scale_fill_gradient2",
             "scale_fill_gradientn",

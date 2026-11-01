@@ -105,7 +105,7 @@ def test_step_mid_as_ggplot2() -> None:
 
 def test_step_padded_reaches_panel_edges() -> None:
     data = {"x": [float("-inf"), 1, 2, float("inf")], "y": [0, 1, 2, 3]}
-    plot = gg.ggplot(data, gg.aes("x", "y")) + gg.geom_step(padded=True)
+    plot = gg.ggplot(data, gg.aes("x", "y")) + gg.geom_step(pad=True)
     shapes = _line_shapes(plot.to_svg())
     assert shapes == ["hvhvhv"]
     unpadded = gg.ggplot(data, gg.aes("x", "y")) + gg.geom_step()
@@ -127,7 +127,7 @@ def test_spec_matches_lets_plot() -> None:
 
 def test_padded_infinite_rows_dropped_by_limits_are_reported() -> None:
     data = {"x": [float("-inf"), 1, 2, float("inf")], "y": [0, 1, 2, 3]}
-    plot = gg.ggplot(data, gg.aes("x", "y")) + gg.geom_step(padded=True) + gg.xlim(0, 10)
+    plot = gg.ggplot(data, gg.aes("x", "y")) + gg.geom_step(pad=True) + gg.xlim(0, 10)
     with pytest.warns(UserWarning, match="removed 2 rows"):
         plot.to_svg()
 

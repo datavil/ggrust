@@ -2097,6 +2097,17 @@ fn discrete_annotation<'a>(
         .find(|annotation| annotation.aes == aesthetic && annotation.annotation == "as_discrete")
 }
 
+/// Whether the scales of a style aesthetic ask for `discrete=True`: options
+/// merge over the scales (lets-plot), so the last scale that sets it decides.
+fn forces_discrete(plot: &PlotSpec, aesthetic: Aesthetic) -> bool {
+    plot.scales
+        .iter()
+        .rev()
+        .filter(|scale| scale.aesthetic.as_slice().contains(&aesthetic))
+        .find_map(|scale| scale.discrete)
+        .unwrap_or(false)
+}
+
 /// Factor levels of a column (`as_discrete(levels=...)`, ordered categoricals):
 /// the layer's annotation, else the plot's.
 /// The date-time kind of a column from its series annotation; a time zone
@@ -2159,6 +2170,10 @@ fn annotated_column(
     let annotation = discrete_annotation(plot, layer, aesthetic, inherited);
     let series = factor_levels(plot, layer, name);
     if annotation.is_none() && series.is_none() {
+        // `scale_color_discrete()`: numbers become categories in first appearance.
+        if aesthetic.kind().style().is_some() && forces_discrete(plot, aesthetic) {
+            return Ok(as_discrete(&column, DiscreteOrder::default()));
+        }
         return Ok(column);
     }
     let parameters = annotation.map(|annotation| &annotation.parameters);

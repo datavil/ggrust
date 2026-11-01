@@ -67,6 +67,16 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_blank()`](api/geom_blank.md) | Draw nothing; the mapped data still trains the scales. No tooltips (as lets_plot). |
 | [`arrow()`](api/arrow.md) | Describe the arrow heads of a line (``geom_segment``, ``geom_path``). |
 
+## Statistics
+
+Layers named after their stat: each summarises the data, then draws it with a geom.
+
+| Name | Description |
+|---|---|
+| [`stat_summary()`](api/stat_summary.md) | Summarise y at every distinct x (``stat="summary"``), drawn as point ranges. |
+| [`stat_summary_bin()`](api/stat_summary_bin.md) | Summarise y in bins of x (``stat="summarybin"``), drawn as point ranges. |
+| [`stat_ecdf()`](api/stat_ecdf.md) | Empirical cumulative distribution of x (``stat="ecdf"``), drawn as steps. |
+
 ## Positions
 
 Arrange marks that would overlap.
@@ -113,6 +123,8 @@ Map data to `color` (lines, points, text) and `fill` (areas).
 | Name | Description |
 |---|---|
 | [`scale_color_continuous()`](api/scale_color_continuous.md) | Map ``color`` continuously: a gradient unless ``scale_mapper_kind`` says otherwise. |
+| [`scale_color_discrete()`](api/scale_color_discrete.md) | Map ``color`` as categories with the default discrete palette. |
+| [`scale_color_grey()`](api/scale_color_grey.md) | Map ``color`` to greys, from lightness ``start`` to ``end``. |
 | [`scale_color_gradient()`](api/scale_color_gradient.md) | Map ``color`` to a two-color gradient (in LAB space). |
 | [`scale_color_gradient2()`](api/scale_color_gradient2.md) | Map ``color`` to a diverging gradient around ``midpoint`` (continuous data only). |
 | [`scale_color_gradientn()`](api/scale_color_gradientn.md) | Map ``color`` to a gradient through several colors, evenly spaced over the data. |
@@ -122,6 +134,8 @@ Map data to `color` (lines, points, text) and `fill` (areas).
 | [`scale_color_manual()`](api/scale_color_manual.md) | Your own colors for ``color``. |
 | [`scale_color_identity()`](api/scale_color_identity.md) | Use the data as colors (names or hex codes); no legend by default. |
 | [`scale_fill_continuous()`](api/scale_fill_continuous.md) | Map ``fill`` continuously. See ``scale_color_continuous``. |
+| [`scale_fill_discrete()`](api/scale_fill_discrete.md) | Map ``fill`` as categories with the default discrete palette. |
+| [`scale_fill_grey()`](api/scale_fill_grey.md) | Map ``fill`` to greys, from lightness ``start`` to ``end``. |
 | [`scale_fill_gradient()`](api/scale_fill_gradient.md) | Map ``fill`` to a two-color gradient. See ``scale_color_gradient``. |
 | [`scale_fill_gradient2()`](api/scale_fill_gradient2.md) | Map ``fill`` to a diverging gradient. See ``scale_color_gradient2``. |
 | [`scale_fill_gradientn()`](api/scale_fill_gradientn.md) | Map ``fill`` to a gradient through several colors. See ``scale_color_gradientn``. |

@@ -323,7 +323,7 @@ def geom_step(
         True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args
         Constant aesthetics such as ``color="red"`` or ``size=2``, and the geom's
-        options, e.g. ``padded=True`` to draw rows at x = -inf / inf at the panel edges.
+        options, e.g. ``pad=True`` to draw rows at x = -inf / inf at the panel edges.
 
     Returns
     -------

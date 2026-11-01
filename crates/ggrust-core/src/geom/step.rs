@@ -1,7 +1,7 @@
 //! `geom_step`: connect the rows of each group, sorted by x, with stairs.
 //!
 //! Ported from lets-plot's `StepGeom` (`LinesHelper.createSteps`): `direction`
-//! `"hv"` (default) moves along x first, `"vh"` along y first; `padded=True`
+//! `"hv"` (default) moves along x first, `"vh"` along y first; `pad=True`
 //! draws rows at x = -inf / +inf at the panel edges. `"mid"` steps halfway
 //! between adjacent x values, as ggplot2's `stairstep` (lets-plot lacks it,
 //! #838). Corners take the style of the row ggplot2 gives them, so varying
@@ -45,7 +45,7 @@ pub struct Steps {
 }
 
 impl Steps {
-    /// Read `direction` and `padded` from the layer options.
+    /// Read `direction` and `pad` from the layer options.
     pub fn parse(parameters: &Parameters) -> Result<Steps> {
         let direction = match parameters.string("direction")? {
             None => Direction::HorizontalVertical,
@@ -64,7 +64,7 @@ impl Steps {
                 }
             },
         };
-        let padded = parameters.boolean("padded")?.unwrap_or(false);
+        let padded = parameters.boolean("pad")?.unwrap_or(false);
         Ok(Steps { direction, padded })
     }
 
@@ -157,11 +157,11 @@ impl Geom for StepGeom {
     }
 
     fn parameters(&self) -> &'static [&'static str] {
-        &["direction", "padded", "arrow"]
+        &["direction", "pad", "arrow"]
     }
 
     fn draws_infinite_x(&self, parameters: &Parameters) -> Result<bool> {
-        Ok(parameters.boolean("padded")?.unwrap_or(false))
+        Ok(parameters.boolean("pad")?.unwrap_or(false))
     }
 
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {

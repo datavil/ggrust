@@ -28,6 +28,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Lessons: [memory/](memory/README.md
 | Axis title angle | `theme(axis_title*=element_text(angle=...))` turns the title and its band, as ggplot2; lets-plot ignores it (lets-plot#1504). `vjust` on axis titles is accepted as a no-op (decided (user) 2026-11-01) |
 | scale_size_area | Circle area proportional to the value (`max_size * sqrt(|v| / max|v|)`, ggplot2 `rescale_max` + `abs_area`: negative values draw by their absolute value); lets-plot scales the diameter linearly (lets-plot#1452) (decided (user) 2026-11-01) |
 | Legend stacks wrap | Stacked legends too long for the budget wrap into more stacks side by side (in order, greedy) when those fit the budget across; otherwise the earlier share/reflow/cut rules apply (lets-plot#1506) (decided (user) 2026-11-01) |
+| Toolbar style (`ggtb`) | Deviation from lets-plot's look, chosen by the user (2026-11-01): "soft frost ink", a 10 px rounded translucent white bar with a hairline border and faint shadow, 24 px buttons, grey icons, an ink-filled (rgb 44, 44, 42) selected tool and a divider before Reset. Same tools, icons and place, and the same 33 px above the plot |
 
 ## Scope: what cellestial actually uses
 

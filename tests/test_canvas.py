@@ -213,3 +213,36 @@ def test_zoomed_canvas_matches_static_limits(page, tmp_path: Path) -> None:
     static = base + gg.coord_cartesian(xlim=tile["views"]["h"], ylim=tile["views"]["v"])
     load(page, svg_page(static.to_svg()), tmp_path, "static.html")
     assert_close(zoomed, screenshot(page, "svg")[inside])
+
+
+def test_toolbar_style_and_height(page, tmp_path: Path) -> None:
+    """The ``ggtb()`` toolbar is a soft frosted bar whose selected tool is ink filled.
+
+    It fills the 33 px the engine reserves above the plot (see ``test_zoom.py``).
+    """
+    plot = gg.ggplot(dense_frame(10), gg.aes("x", "y")) + gg.geom_point() + gg.ggtb()
+    load(page, plot.to_html(), tmp_path)
+    page.locator(".ggrust-toolbar button").first.click()
+    page.mouse.move(0, 0)
+    page.wait_for_timeout(200)  # the button background fades in
+    style = page.evaluate(
+        """() => {
+          const holder = document.querySelector('.ggrust-toolbar');
+          const bar = holder.firstChild;
+          const first = bar.querySelector('button');
+          const margin = parseFloat(getComputedStyle(holder).marginBottom);
+          const height = holder.getBoundingClientRect().height + margin;
+          return {
+            height: height,
+            radius: getComputedStyle(bar).borderRadius,
+            background: getComputedStyle(bar).backgroundColor,
+            selected: getComputedStyle(first).backgroundColor,
+            buttons: bar.querySelectorAll('button').length,
+          };
+        }"""
+    )
+    assert style["height"] == pytest.approx(33, abs=0.5)
+    assert style["radius"] == "10px"
+    assert style["background"] == "rgba(255, 255, 255, 0.85)"
+    assert style["selected"] == "rgb(44, 44, 42)"
+    assert style["buttons"] == 4

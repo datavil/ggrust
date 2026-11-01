@@ -569,11 +569,14 @@
 
   var SVG_NS = "http://www.w3.org/2000/svg";
   var CLOSE_G = "<" + "/g>";
-  // lets-plot DefaultToolbarJs colors; the background is C_BACKGR with alpha 0.8.
-  var BAR_BACKGROUND = "rgba(245, 246, 248, 0.8)";
-  var BUTTON_STROKE = "rgb(110, 110, 110)";
-  var BUTTON_HOVER = "rgb(218, 219, 221)";
-  var BUTTON_SELECTED = "rgb(69, 114, 232)";
+  // Toolbar style ("soft frost ink", agreed with the user; lets-plot's
+  // DefaultToolbarJs uses a grey bordered bar and a blue selected button).
+  var BAR_BACKGROUND = "rgba(255, 255, 255, 0.85)";
+  var BAR_BORDER = "0.5px solid rgba(0, 0, 0, 0.12)";
+  var BAR_SHADOW = "0 1px 2px rgba(0, 0, 0, 0.06)";
+  var BUTTON_STROKE = "rgb(95, 94, 90)";
+  var BUTTON_HOVER = "rgba(0, 0, 0, 0.05)";
+  var BUTTON_SELECTED = "rgb(44, 44, 42)";
   var MIN_SELECTION = 15; // px (DrawRectFeedback.MIN_SIZE)
   var WHEEL_STEP = 0.08; // WheelZoomFeedback: one wheel notch
   var MIN_EXPONENT = -7, MAX_EXPONENT = 6; // number format: decimal notation range
@@ -1342,8 +1345,8 @@
   }
 
   function button(label, svg, parent, action) {
-    var b = element("button", "width:22px;height:22px;margin:0 3px;padding:0;display:flex;justify-content:center;" +
-      "align-items:center;border:none;border-radius:4px;cursor:pointer;", parent);
+    var b = element("button", "width:24px;height:24px;margin:0;padding:0;display:flex;justify-content:center;" +
+      "align-items:center;border:none;border-radius:7px;cursor:pointer;transition:background-color 0.12s;", parent);
     b.type = "button";
     b.title = label;
     b.innerHTML = svg;
@@ -1366,14 +1369,15 @@
   }
 
   function toolbar(plot) {
-    var holder = element("div", "display:flex;justify-content:center;align-items:center;margin:0 0 5px 0;line-height:normal;");
+    var holder = element("div", "display:flex;justify-content:center;align-items:center;margin:0 0 2px 0;line-height:normal;");
     holder.className = "ggrust-toolbar";
     var bar = element("div", "position:relative;display:inline-flex;justify-content:center;align-items:center;" +
-      "box-sizing:border-box;padding:2px 5px;background-color:" + BAR_BACKGROUND +
-      ";border:1px solid rgb(200, 200, 200);border-radius:8px;", holder);
+      "box-sizing:border-box;height:31px;gap:2px;padding:3px;background-color:" + BAR_BACKGROUND +
+      ";border:" + BAR_BORDER + ";border-radius:10px;box-shadow:" + BAR_SHADOW + ";", holder);
     plot.zoom.buttons = TOOLS.map(function (tool) {
       return { name: tool.name, button: button(tool.label, tool.icon, bar, function () { selectTool(plot, tool.name); }) };
     });
+    element("span", "width:0.5px;height:14px;margin:0 3px;background-color:rgba(0, 0, 0, 0.18);", bar);
     button("Reset", RESET_ICON, bar, function () {
       if (plot.zoom.tool) selectTool(plot, plot.zoom.tool);
       resetViews(plot);

@@ -197,3 +197,18 @@ images unchanged. Batches under 1000 markers are traced exactly as before.
   serde_json formatter), not assembled from copies by `format!`.
 - SVG: a parent reserving exactly its children's size doubled on the closing tag (output
   capacity was 2x its length); large point batches reserve their projected size.
+
+## Data bridge (step 6.1b): 2026-11-01, macOS arm64 (Apple M4 Pro, 12 cores)
+
+`DataFrame::column` conversion, best of 5 (cold within 10%):
+
+| column | before | after |
+|---|---:|---:|
+| strings 5M, 1000 levels | 70.5 ms | 38.9 ms |
+| strings 5M, all distinct | 763 ms | 446 ms |
+| int64 50M with nulls (cast to f64, unchanged) | 29 ms | 29 ms |
+
+Level lookup uses ahash (already in the tree via arrow) instead of SipHash; level order
+is first appearance as before. The integer cast was not parallelised: it is 29-42 ms at
+50M rows (the plan's 0.6 s did not reproduce), and an int column adds 0.1-0.17 s to a
+0.9 s 50M-row histogram end to end, so a parallel cast would save under 5%.

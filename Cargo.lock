@@ -450,6 +450,7 @@ dependencies = [
 name = "ggrust-core"
 version = "0.1.0"
 dependencies = [
+ "ahash",
  "arrow-array",
  "arrow-cast",
  "arrow-schema",

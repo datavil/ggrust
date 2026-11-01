@@ -260,7 +260,7 @@ impl DiscreteColumn {
     }
 
     fn from_strings<'a>(strings: impl Iterator<Item = Option<&'a str>>) -> Self {
-        let mut level_index: HashMap<&str, u32> = HashMap::new();
+        let mut level_index: HashMap<&str, u32, ahash::RandomState> = HashMap::default();
         let mut levels: Vec<String> = Vec::new();
         let codes: UInt32Array = strings
             .map(|value| {
@@ -330,7 +330,7 @@ impl DiscreteColumn {
 
     /// Union of levels in first-seen order, with codes remapped.
     fn merge(columns: &[&DiscreteColumn]) -> Self {
-        let mut level_index: HashMap<&str, u32> = HashMap::new();
+        let mut level_index: HashMap<&str, u32, ahash::RandomState> = HashMap::default();
         let mut levels: Vec<String> = Vec::new();
         let remaps: Vec<Vec<u32>> = columns
             .iter()
@@ -375,7 +375,7 @@ impl DiscreteColumn {
             })?;
             *slot = true;
         }
-        let mut level_index: HashMap<&str, u32> = HashMap::new();
+        let mut level_index: HashMap<&str, u32, ahash::RandomState> = HashMap::default();
         let mut levels: Vec<String> = Vec::new();
         let remap: Vec<Option<u32>> = values
             .iter()

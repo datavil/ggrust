@@ -10,6 +10,7 @@ repository = "https://github.com/datavil/ggrust"
 rust-version = "1.85"
 
 [workspace.dependencies]
+ahash = "0.8"
 arrow-array = "59.3"
 arrow-cast = "59.3"
 arrow-schema = "59.3"

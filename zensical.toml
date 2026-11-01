@@ -38,6 +38,7 @@ nav = [
       "gallery/stacked_bars.md",
       "gallery/dodged_bars.md",
       "gallery/heatmap.md",
+      "gallery/periodic_table.md",
     ] },
     { "Distributions" = [
       "gallery/histogram.md",

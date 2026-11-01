@@ -33,7 +33,7 @@ END = "# --8<-- [end:code]"
 # Gallery sections, in order. Every example listed here gets a gallery page.
 GALLERY: dict[str, list[str]] = {
     "Points and lines": ["scatter", "line", "ribbon", "function"],
-    "Bars and tiles": ["stacked_bars", "dodged_bars", "heatmap"],
+    "Bars and tiles": ["stacked_bars", "dodged_bars", "heatmap", "periodic_table"],
     "Distributions": ["histogram", "boxplot", "violin", "ridges"],
     "Labels, facets and grids": ["text_repel", "facets", "grid"],
     "Interactivity": ["tooltips", "many_points"],

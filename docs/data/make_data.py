@@ -3,14 +3,39 @@
 Run once after changing a dataset: ``uv run python docs/data/make_data.py``.
 The random datasets are seeded, so the CSV files only change on purpose.
 Climate and fruit numbers are rounded, approximate public figures.
+The chemical elements come from the lets-plot docs (CC BY-SA 4.0, see ``ELEMENTS_URL``).
 """
 
+import io
+import urllib.request
 from pathlib import Path
 
 import numpy as np
 import polars as pl
 
 DATA = Path(__file__).parent
+
+# Source of the periodic table data, as used by the lets-plot periodic table demo.
+# Licensed CC BY-SA 4.0; the cleaned copy in elements.csv is shared under the same license.
+ELEMENTS_URL = (
+    "https://raw.githubusercontent.com/JetBrains/lets-plot-docs/master/data/chemical_elements.csv"
+)
+
+# Names, symbols and types that changed after the source was written.
+ELEMENT_FIXES = {
+    113: ("Nihonium", "Nh", "Metal"),
+    114: ("Flerovium", "Fl", "Metal"),
+    115: ("Moscovium", "Mc", "Metal"),
+    116: ("Livermorium", "Lv", "Metal"),
+    117: ("Tennessine", "Ts", "Halogen"),
+    118: ("Oganesson", "Og", "Noble Gas"),
+}
+TYPE_FIXES = {
+    "Francium": "Alkali Metal",
+    "Radium": "Alkaline Earth Metal",
+    "Astatine": "Halogen",
+    "Radon": "Noble Gas",
+}
 
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
@@ -139,6 +164,39 @@ def fruit() -> pl.DataFrame:
     )
 
 
+def elements() -> pl.DataFrame:
+    """Return the 118 chemical elements with their position in the periodic table.
+
+    Applies the same fixes as the lets-plot demo (new names for 113 to 118, a few
+    types) and rounds atomic masses to 3 decimals for the tile labels.
+    """
+    with urllib.request.urlopen(ELEMENTS_URL) as response:
+        text = response.read().decode("mac_roman")
+    source = pl.read_csv(io.StringIO(text))
+    rows = []
+    for row in source.iter_rows(named=True):
+        number = row["Atomic Number"]
+        name, symbol = row["Element"].strip(), row["Symbol"].strip()
+        kind = TYPE_FIXES.get(name, row["Type"])
+        if number in ELEMENT_FIXES:
+            name, symbol, kind = ELEMENT_FIXES[number]
+        if kind == "Transactinide":
+            kind = "Transition Metal"
+        rows.append(
+            {
+                "atomic_number": number,
+                "element": name,
+                "symbol": symbol,
+                "atomic_mass": round(float(row["Atomic Weight"]), 3),
+                "period": row["Period"],
+                "group": row["Group"],
+                "type": kind,
+                "electron_configuration": row["Electron Configuration"],
+            }
+        )
+    return pl.DataFrame(rows)
+
+
 if __name__ == "__main__":
     generator = np.random.default_rng(2026)
     cities().write_csv(DATA / "cities.csv")
@@ -146,3 +204,4 @@ if __name__ == "__main__":
     coffee(generator).write_csv(DATA / "coffee.csv")
     homes(generator).write_csv(DATA / "homes.csv")
     fruit().write_csv(DATA / "fruit.csv")
+    elements().write_csv(DATA / "elements.csv")

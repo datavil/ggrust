@@ -177,7 +177,106 @@ fn fit_ratio(mut layout: PlotLayout, ratio: f64, x_span: f64, y_span: f64) -> Pl
 }
 
 /// [`layout_plot`] without an aspect ratio: the panel takes the space left.
+///
+/// End x labels that would run past the edge of `area` (a wide last label,
+/// lets-plot#906) get room: the plot is laid out again in an area narrowed by
+/// their overhang. A ggrust deviation (lets-plot and ggplot2 cut such labels);
+/// plots whose labels fit are unchanged.
 fn layout_free(
+    area: Rect,
+    theme: &Theme,
+    titles: &Titles,
+    x_scale: &PositionScale,
+    y_scale: &PositionScale,
+    legend_space: Margins,
+    panel_min_size: f64,
+) -> PlotLayout {
+    let layout = layout_free_once(
+        area,
+        theme,
+        titles,
+        x_scale,
+        y_scale,
+        legend_space,
+        panel_min_size,
+    );
+    // Same x breaks and arrangement: only the room changes (choosing again at a
+    // few px less could turn simple labels vertical). A label moves by its share
+    // of the panel only, so narrowing repeats until it fits (converges fast).
+    let labels_height = x_labels_height(&layout.x_breaks, theme);
+    let mut layout = layout;
+    let mut narrowed = area;
+    for _ in 0..FIT_PASSES {
+        let (left, right) = x_labels_overhang(&layout, x_scale, theme, area);
+        if left <= 0.0 && right <= 0.0 {
+            break;
+        }
+        narrowed = Rect {
+            x: narrowed.x + left.max(0.0),
+            width: (narrowed.width - left.max(0.0) - right.max(0.0)).max(1.0),
+            ..narrowed
+        };
+        let x_breaks = layout.x_breaks;
+        layout = layout_with(
+            narrowed,
+            theme,
+            titles,
+            (x_scale, y_scale),
+            legend_space,
+            labels_height,
+            Some(x_breaks),
+            panel_min_size,
+        );
+    }
+    layout
+}
+
+/// Narrowing passes [`layout_free`] makes at most for overflowing end labels.
+const FIT_PASSES: usize = 4;
+
+/// Room (px) an overflowing end x label keeps from the edge once fitted.
+const EDGE_CLEARANCE: f64 = 1.0;
+
+/// How far the first x label reaches left of `area` and the last one right of
+/// it (px; 0 or less: inside). Centred labels only (simple and two-row layouts);
+/// rotated labels end at their tick.
+fn x_labels_overhang(
+    layout: &PlotLayout,
+    x_scale: &PositionScale,
+    theme: &Theme,
+    area: Rect,
+) -> (f64, f64) {
+    let breaks = &layout.x_breaks;
+    let centred = matches!(
+        breaks.arrangement,
+        LabelArrangement::Simple | LabelArrangement::TwoRows(_)
+    );
+    let Some(text) = theme.axis_text_x.filter(|_| centred) else {
+        return (0.0, 0.0);
+    };
+    let sizes = label_sizes(&breaks.labels, text);
+    let mut overhang = (0.0_f64, 0.0_f64);
+    for (value, (width, _)) in breaks.values.iter().zip(sizes) {
+        let centre = layout.panel.x + x_scale.map(*value) * layout.panel.width;
+        if !centre.is_finite() {
+            continue;
+        }
+        overhang.0 = overhang.0.max(area.x - (centre - width / 2.0));
+        overhang.1 = overhang.1.max(centre + width / 2.0 - (area.x + area.width));
+    }
+    // Overflowing labels end 1 px clear of the edge, so glyph edges are not cut.
+    let clear = |overhang: f64| {
+        if overhang > 0.0 {
+            overhang + EDGE_CLEARANCE
+        } else {
+            overhang
+        }
+    };
+    (clear(overhang.0), clear(overhang.1))
+}
+
+/// One [`layout_free`] pass in `area`.
+fn layout_free_once(
     area: Rect,
     theme: &Theme,
     titles: &Titles,

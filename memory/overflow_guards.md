@@ -15,7 +15,10 @@ plots that fit stay pixel-identical to lets-plot.
   spaces (`wrap_labels`; x into each tick slot, laid out flat; y if lines fit the slot), else cut in the middle
   (`fit_labels`). Numbers are never cut (a cut number misleads).
 - Titles: `wrap_headings` in `PreparedPlot::arrange` (two layout passes); `Arrangement.titles` is what is drawn.
-- Geoms stay clipped to the panel, as in both references.
+- End x labels (lp3.3, #906): an overflowing first/last centred label narrows the area by its overhang
+  (+1 px), keeping the first pass's breaks (re-choosing flipped a parity case to vertical); repeat, since
+  a label moves only by its share of the panel. Single panels only.
+- Geoms stay clipped to the panel, as in both references (text too: #339 is not a ggrust bug).
 
 **Why:** the user chose robustness over copying shared bugs ([[deviate-from-lets-plot-via-ggplot2]]).
 **How to apply:** parity tests with extreme labels may need a bigger `ggsize`; new layout code must keep

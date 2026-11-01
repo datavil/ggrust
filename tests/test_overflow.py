@@ -309,3 +309,34 @@ def test_small_collected_legends_are_cut_inside_the_grid():
     assert "more" in " ".join(text for _, _, text in texts(svg))
     for x, y, text in texts(svg):
         assert 0 <= x <= 700 and 0 <= y <= 350, (text, x, y)
+
+
+def test_wide_last_axis_label_fits_the_canvas():
+    # lets-plot#906 (ggplot2 cuts it too): an overflowing end label gets room.
+    n = 5
+    frame = {"x": [index * 1e-5 for index in range(n)], "y": [0] * n}
+    plot = (
+        gg.ggplot(frame, gg.aes("x", "y")) + gg.geom_point() + gg.scale_x_continuous(format=".7e")
+    )
+    svg = plot.to_svg()
+    match = re.search(r'<text x="([\d.]+)"[^>]*>4\.0000000', svg)
+    assert match is not None
+    centre = float(match.group(1))
+    # The label (about 89 px) ends inside the 600 px canvas.
+    assert centre + 44 < 600
+    # Plots whose labels fit keep lets-plot's layout: the panel reaches the margin.
+    fitting = (gg.ggplot(frame, gg.aes("x", "y")) + gg.geom_point()).to_svg()
+    clip = re.search(
+        r'<clipPath id="[^"]+"><rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)"', fitting
+    )
+    assert clip is not None and float(clip.group(1)) + float(clip.group(2)) == pytest.approx(594)
+
+
+def test_text_at_the_panel_edge_is_clipped_to_the_panel():
+    # lets-plot#339: text geoms are clipped to the panel, as ggplot2 (decided (user)).
+    frame = {"x": [0, 1], "y": [0, 1], "text": ["Lorem ipsum #1", "Lorem ipsum #2"]}
+    svg = (gg.ggplot(frame, gg.aes("x", "y")) + gg.geom_text(gg.aes(label="text"))).to_svg()
+    panel = svg[svg.index('<g class="panel"') :]
+    panel = panel[: panel.index("</g>")]
+    assert "clip-path=" in panel.split(">", 1)[0]
+    assert "Lorem ipsum #1" in panel and "Lorem ipsum #2" in panel

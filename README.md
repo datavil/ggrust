@@ -2,7 +2,7 @@
 
 [![GitHub](https://img.shields.io/badge/GitHub-100000?style=flat&logo=github&logoColor=white)](https://github.com/datavil/ggrust)
 [![License: MIT](https://img.shields.io/badge/License-MIT-ff0000)](https://opensource.org/licenses/MIT)
-[![Docs](https://img.shields.io/badge/Docs-datavil.github.io-377eb8)](https://datavil.github.io/ggrust/)
+[![Docs](https://img.shields.io/badge/Docs-ggrust.datavil.org-377eb8)](https://ggrust.datavil.org/)
 
 The __Grammar of Graphics__, written in Rust, used from Python.
 
@@ -132,7 +132,7 @@ temperature = pl.DataFrame(
 - __Layout__: `facet_wrap`, `gggrid` with collected legends, `coord_fixed`, `coord_flip`, themes (`theme_classic`, `theme_bw`, `theme_void`).
 - __Outputs__: SVG, PNG, PDF, and HTML through `ggsave`. Dense scatter layers are drawn on a canvas in HTML.
 
-ggrust is a __subset__ of Lets-Plot, not all of it. Features follow what Cellestial and everyday plotting need. See the [migration note](https://datavil.github.io/ggrust/migration/) for the differences.
+ggrust is a __subset__ of Lets-Plot, not all of it. Features follow what Cellestial and everyday plotting need. See the [migration note](https://ggrust.datavil.org/migration/) for the differences.
 
 ## Performance
 

@@ -5,7 +5,7 @@
 [project]
 site_name = "ggrust"
 site_description = "Grammar-of-graphics plotting in Rust with a lets_plot-compatible Python API"
-site_url = "https://datavil.github.io/ggrust/"
+site_url = "https://ggrust.datavil.org/"
 repo_url = "https://github.com/datavil/ggrust"
 repo_name = "datavil/ggrust"
 edit_uri = "edit/main/docs/"

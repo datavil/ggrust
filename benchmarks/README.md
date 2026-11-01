@@ -179,3 +179,21 @@ instead of traced per marker. PNG at scale 2 (`profiling.py --outputs png`, warm
 Pictures: markers move at most 1/32 px; tiny-skia's quarter-scanline anti-aliasing makes the
 difference about that of shifting every marker by 1/32 px (`tests/render_sprites.rs`). Golden
 images unchanged. Batches under 1000 markers are traced exactly as before.
+
+## Memory of large outputs (step 6.1i): 2026-11-01, macOS arm64 (Apple M4 Pro, 12 cores), Python 3.14
+
+`profiling.py --outputs svg html`, peak RSS above the plot build (MB). Outputs byte-identical.
+
+| case | before | after |
+|---|---:|---:|
+| color_continuous 1M SVG | 452 | 141 |
+| color_continuous 1M HTML | 490 | 296 |
+| scatter 1M SVG | 293 | 91 |
+| scatter 1M HTML | 279 | 163 |
+
+- Tooltip text columns are stored dictionary-encoded (codes + one text buffer), not one
+  `String` per row: build memory of the 1M HTML case 178 -> 82 MB live.
+- HTML is written into one buffer (SVG, then JSON payloads streamed through an escaping
+  serde_json formatter), not assembled from copies by `format!`.
+- SVG: a parent reserving exactly its children's size doubled on the closing tag (output
+  capacity was 2x its length); large point batches reserve their projected size.

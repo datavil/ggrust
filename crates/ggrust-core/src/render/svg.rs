@@ -65,12 +65,17 @@ pub fn to_svg(scene: &Scene) -> String {
 
 /// Render a scene to SVG text.
 pub fn to_svg_with(scene: &Scene, options: &SvgOptions) -> String {
-    write_svg(scene, options, None).0
+    write_svg(scene, options, None, String::with_capacity(4096)).0
 }
 
-/// The SVG of an HTML display: dense point batches become canvas placeholders
-/// and are returned as their payloads, in placeholder order (see `canvas`).
-pub(super) fn to_svg_with_canvas(scene: &Scene, options: &SvgOptions) -> (String, Vec<Value>) {
+/// The SVG of an HTML display, appended to `output` (the document so far):
+/// dense point batches become canvas placeholders and are returned as their
+/// payloads, in placeholder order (see `canvas`).
+pub(super) fn to_svg_with_canvas(
+    scene: &Scene,
+    options: &SvgOptions,
+    output: String,
+) -> (String, Vec<Value>) {
     write_svg(
         scene,
         options,
@@ -79,6 +84,7 @@ pub(super) fn to_svg_with_canvas(scene: &Scene, options: &SvgOptions) -> (String
             height: scene.height,
             batches: Vec::new(),
         }),
+        output,
     )
 }
 
@@ -86,9 +92,10 @@ fn write_svg(
     scene: &Scene,
     options: &SvgOptions,
     canvas: Option<CanvasBatches>,
+    output: String,
 ) -> (String, Vec<Value>) {
     let mut writer = SvgWriter {
-        output: String::with_capacity(4096),
+        output,
         id_prefix: match &options.id_prefix {
             Some(prefix) => sanitize_id(prefix),
             None => "g".repeat(HASH_PREFIX_LENGTH),
@@ -228,8 +235,10 @@ impl SvgWriter {
                 part
             })
             .collect();
+        // Slack for the closing tags written next: an exact reserve would make
+        // the first byte after it double the whole buffer.
         self.output
-            .reserve(parts.iter().map(|part| part.output.len()).sum());
+            .reserve(parts.iter().map(|part| part.output.len()).sum::<usize>() + 4096);
         for part in parts {
             let base = self.output.len();
             self.id_positions
@@ -361,7 +370,15 @@ impl SvgWriter {
         self.raw(">\n");
         // One buffer for every marker's parts (no allocation per point).
         let mut parts = Vec::new();
+        let start = self.output.len();
         for index in 0..points.len() {
+            if index == RESERVE_SAMPLE && points.len() > 2 * RESERVE_SAMPLE {
+                // Grow once to the projected size instead of doubling (a doubling
+                // copy holds the old and new buffers at once on large batches).
+                let per_marker = (self.output.len() - start) / RESERVE_SAMPLE;
+                self.output
+                    .reserve((points.len() - index) * per_marker * 11 / 10);
+            }
             let (x, y, size) = (points.x[index], points.y[index], points.size.get(index));
             if !is_drawable_marker(x, y, size) || !self.clip_box.contains(x, y) {
                 continue;
@@ -700,6 +717,9 @@ impl SvgWriter {
 }
 
 /// Rough writing cost of a node: its marks and vertices (one per text or image).
+/// Markers written before a large point batch reserves its projected size.
+const RESERVE_SAMPLE: usize = 256;
+
 fn node_weight(node: &Node) -> usize {
     match node {
         Node::Group(group) => group.nodes.iter().map(node_weight).sum(),

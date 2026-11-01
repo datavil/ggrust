@@ -9,12 +9,14 @@
 //! runtime from a third payload (see `canvas`): without JavaScript they are
 //! missing from the static view.
 
+use std::fmt::Write as _;
+
 use serde_json::{Value, json};
 
 use super::svg::{SvgOptions, fragment, sanitize_id, to_svg_with_canvas};
 use crate::layout::zoom::{Zoom, ZoomAxis};
 use crate::scene::{Node, Scene};
-use crate::tooltip::{Interaction, script_safe_json};
+use crate::tooltip::{Interaction, write_script_json};
 
 /// The runtime: one JavaScript function expression called with the engine version.
 const RUNTIME: &str = include_str!("../../../../js/ggrust.js");
@@ -45,54 +47,20 @@ pub struct HtmlOptions {
 /// Render a scene to HTML, with the hover tooltips of `interaction` if given.
 pub fn to_html(scene: &Scene, interaction: Option<&Interaction>, options: &HtmlOptions) -> String {
     let id = sanitize_id(&options.id);
-    let (svg, canvas_batches) = to_svg_with_canvas(
-        scene,
-        &SvgOptions {
-            id_prefix: Some(id.clone()),
-            zoomable: interaction.is_some_and(|interaction| interaction.zoom.is_some()),
-        },
-    );
-    // Escaped so that it cannot end its script element (see `to_script_json`).
-    let mut data = interaction
-        .filter(|interaction| !interaction.layers.is_empty())
-        .map(|interaction| {
-            format!(
-                "<script type=\"application/json\" class=\"ggrust-tooltips\">{}</script>\n",
-                interaction.to_script_json()
-            )
-        })
-        .unwrap_or_default();
-    if !canvas_batches.is_empty() {
-        data.push_str(&format!(
-            "<script type=\"application/json\" class=\"ggrust-canvas\">{}</script>\n",
-            script_safe_json(&Value::Array(canvas_batches).to_string())
-        ));
-    }
     let zoom = interaction.and_then(|interaction| interaction.zoom.as_ref());
-    if let Some(zoom) = zoom {
-        data.push_str(&format!(
-            "<script type=\"application/json\" class=\"ggrust-zoom\">{}</script>\n",
-            script_safe_json(&zoom_json(zoom, scene).to_string())
-        ));
-    }
     // The toolbar sits above the plot (lets-plot `DefaultToolbar`).
     let toolbar_height = if zoom.is_some() { TOOLBAR_HEIGHT } else { 0.0 };
-    // `id` is sanitized to [A-Za-z0-9_-], so it needs no escaping in HTML or JS.
-    let fragment = format!(
-        "<div id=\"{id}\" class=\"ggrust-plot\" \
-         style=\"display:inline-block;position:relative;line-height:0;vertical-align:top\">\n\
-         {svg}{data}</div>\n\
-         <script type=\"text/javascript\">\n\
-         {RUNTIME}(\"{version}\");\n\
-         window.ggrust.mount(\"{id}\");\n\
-         </script>\n",
-        version = crate::VERSION,
-    );
     match options.document {
-        HtmlDocument::Fragment => fragment,
-        HtmlDocument::Page => page(&fragment, ""),
+        HtmlDocument::Fragment => write_fragment(String::new(), &id, scene, interaction),
+        HtmlDocument::Page => {
+            let mut document = write_fragment(page_start(""), &id, scene, interaction);
+            document.push_str(PAGE_END);
+            document
+        }
         HtmlDocument::Iframe => {
-            let document = page(&fragment, " overflow: hidden;");
+            let mut document =
+                write_fragment(page_start(" overflow: hidden;"), &id, scene, interaction);
+            document.push_str(PAGE_END);
             format!(
                 "<iframe src=\"about:blank\" style=\"border:none !important;\" \
                  width=\"{width}\" height=\"{height}\" srcdoc=\"{srcdoc}\"></iframe>\n",
@@ -102,6 +70,70 @@ pub fn to_html(scene: &Scene, interaction: Option<&Interaction>, options: &HtmlO
             )
         }
     }
+}
+
+/// Append the root `<div>` (SVG and JSON payloads) and its mounting script to
+/// `output`. Everything is written into the one buffer: a million-point display
+/// is never held twice.
+fn write_fragment(
+    mut output: String,
+    id: &str,
+    scene: &Scene,
+    interaction: Option<&Interaction>,
+) -> String {
+    // `id` is sanitized to [A-Za-z0-9_-], so it needs no escaping in HTML or JS.
+    let _ = writeln!(
+        output,
+        "<div id=\"{id}\" class=\"ggrust-plot\" \
+         style=\"display:inline-block;position:relative;line-height:0;vertical-align:top\">"
+    );
+    let (svg, canvas_batches) = to_svg_with_canvas(
+        scene,
+        &SvgOptions {
+            id_prefix: Some(id.to_owned()),
+            zoomable: interaction.is_some_and(|interaction| interaction.zoom.is_some()),
+        },
+        output,
+    );
+    let mut output = svg.into_bytes();
+    // Escaped so that they cannot end their script elements (see `write_script_json`).
+    if let Some(interaction) = interaction.filter(|interaction| !interaction.layers.is_empty()) {
+        script_element(&mut output, "ggrust-tooltips", interaction);
+    }
+    if !canvas_batches.is_empty() {
+        script_element(&mut output, "ggrust-canvas", &canvas_batches);
+    }
+    drop(canvas_batches);
+    if let Some(zoom) = interaction.and_then(|interaction| interaction.zoom.as_ref()) {
+        script_element(&mut output, "ggrust-zoom", &zoom_json(zoom, scene));
+    }
+    output.extend_from_slice(
+        format!(
+            "</div>\n\
+             <script type=\"text/javascript\">\n\
+             {RUNTIME}(\"{version}\");\n\
+             window.ggrust.mount(\"{id}\");\n\
+             </script>\n",
+            version = crate::VERSION,
+        )
+        .as_bytes(),
+    );
+    // Only `&str` text and serde_json output were written.
+    String::from_utf8(output)
+        .unwrap_or_else(|error| String::from_utf8_lossy(error.as_bytes()).into_owned())
+}
+
+/// `<script type="application/json" class="{class}">{json}</script>`.
+fn script_element<T: serde::Serialize + ?Sized>(output: &mut Vec<u8>, class: &str, value: &T) {
+    output.extend_from_slice(
+        format!("<script type=\"application/json\" class=\"{class}\">").as_bytes(),
+    );
+    let start = output.len();
+    if write_script_json(output, value).is_err() {
+        output.truncate(start);
+        output.extend_from_slice(b"null");
+    }
+    output.extend_from_slice(b"</script>\n");
 }
 
 /// lets-plot `DefaultToolbarJs.EXPECTED_TOOLBAR_HEIGHT`: 22 px buttons, 2 px
@@ -165,14 +197,18 @@ fn zoom_json(zoom: &Zoom, scene: &Scene) -> Value {
     })
 }
 
-fn page(fragment: &str, extra_body_style: &str) -> String {
+/// A standalone page up to its fragment; [`PAGE_END`] closes it.
+fn page_start(extra_body_style: &str) -> String {
     format!(
         "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n\
          <title>ggrust plot</title>\n\
          <style> html, body {{ margin: 0; padding: 0;{extra_body_style} }} </style>\n\
-         </head>\n<body>\n{fragment}</body>\n</html>\n"
+         </head>\n<body>\n"
     )
 }
+
+/// The end of a [`page_start`] page.
+const PAGE_END: &str = "</body>\n</html>\n";
 
 /// Escape text for a double-quoted HTML attribute value.
 fn escape_attribute(text: &str) -> String {

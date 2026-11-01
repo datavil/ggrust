@@ -46,3 +46,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Overflow guards](overflow_guards.md): legends reflow/wrap/"+K more", discrete axis labels wrap then cut past 1/2, titles wrap; only overflowing plots change; gggrid/colorbars not yet.
 - [Docs site: Zensical, generated live plots](docs_site_zensical.md): examples render to gitignored iframes in CI; src is relative to the .md file; ruff mangles snippet lines in md.
 - [PNG marker sprites](png_marker_sprites.md): coverage per geometry, colors at stamp, 1/16 px steps, test against shift noise, rare geometries traced.
+- [Large output memory](large_output_memory.md): exact reserve + 1 byte doubles, no format!/escape copies of payloads, encoded tooltip texts, measure RSS.

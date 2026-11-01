@@ -34,35 +34,76 @@ const MIN_LEVELS_FOR_TOOLTIP: usize = 5;
 const TOOLTIP_BREAK_COUNT: usize = 100;
 
 /// One text per layer row (`None`: nothing to show for that row), with an
-/// optional label. Serialized dictionary-encoded: `values` (distinct texts) and
-/// `codes` (index per row, -1 for none).
+/// optional label. Stored and serialized dictionary-encoded: distinct texts in
+/// first-appearance order (`values`) and an index per row (`codes`, -1 for
+/// none), so a million rows cost a code each, not a `String` each.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct TextColumn {
     /// The line's label (bold, left), if any.
     pub label: Option<String>,
-    /// The text of every row.
-    pub values: Vec<Option<String>>,
+    /// Distinct texts, concatenated.
+    texts: String,
+    /// End of each distinct text in `texts`.
+    ends: Vec<usize>,
+    /// Distinct text index per row, -1 for none.
+    codes: Vec<i32>,
 }
 
-impl Serialize for TextColumn {
-    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
-        let mut distinct: Vec<&str> = Vec::new();
-        let mut index_of: std::collections::HashMap<&str, i64> = Default::default();
-        let codes: Vec<i64> = self
-            .values
+impl TextColumn {
+    /// Encode the text of every row.
+    pub fn new(label: Option<String>, values: Vec<Option<String>>) -> Self {
+        let mut index_of: std::collections::HashMap<&str, i32> = Default::default();
+        let (mut texts, mut ends) = (String::new(), Vec::new());
+        let codes = values
             .iter()
             .map(|value| match value {
                 None => -1,
                 Some(text) => *index_of.entry(text.as_str()).or_insert_with(|| {
-                    distinct.push(text);
-                    distinct.len() as i64 - 1
+                    texts.push_str(text);
+                    ends.push(texts.len());
+                    ends.len() as i32 - 1
                 }),
             })
+            .collect();
+        TextColumn {
+            label,
+            texts,
+            ends,
+            codes,
+        }
+    }
+
+    /// Number of rows.
+    pub fn len(&self) -> usize {
+        self.codes.len()
+    }
+
+    /// Whether there are no rows.
+    pub fn is_empty(&self) -> bool {
+        self.codes.is_empty()
+    }
+
+    /// The text of `row`, or `None` when the row shows nothing (or is out of range).
+    pub fn get(&self, row: usize) -> Option<&str> {
+        let code = usize::try_from(*self.codes.get(row)?).ok()?;
+        Some(self.distinct(code))
+    }
+
+    fn distinct(&self, index: usize) -> &str {
+        let start = if index == 0 { 0 } else { self.ends[index - 1] };
+        &self.texts[start..self.ends[index]]
+    }
+}
+
+impl Serialize for TextColumn {
+    fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        let distinct: Vec<&str> = (0..self.ends.len())
+            .map(|index| self.distinct(index))
             .collect();
         let mut state = serializer.serialize_struct("TextColumn", 3)?;
         state.serialize_field("label", &self.label)?;
         state.serialize_field("values", &distinct)?;
-        state.serialize_field("codes", &codes)?;
+        state.serialize_field("codes", &self.codes)?;
         state.end()
     }
 }
@@ -160,10 +201,10 @@ pub fn layer_content(
         for name in user.variables.iter().flatten() {
             let field = Field::Variable(name.clone());
             match builder.resolve(&field) {
-                Some(found) => content.lines.push(TextColumn {
-                    label: Some(builder.label_of(found, name)),
-                    values: builder.values(found),
-                }),
+                Some(found) => content.lines.push(TextColumn::new(
+                    Some(builder.label_of(found, name)),
+                    builder.values(found),
+                )),
                 None => warn_unknown(&field, path, warnings),
             }
         }
@@ -219,10 +260,7 @@ pub fn layer_content(
         if !visible {
             continue;
         }
-        let column = TextColumn {
-            label: None,
-            values: builder.aesthetic_values(aesthetic, true),
-        };
+        let column = TextColumn::new(None, builder.aesthetic_values(aesthetic, true));
         if horizontal {
             content.axis_x = Some(column);
         } else {
@@ -380,14 +418,14 @@ impl Builder<'_> {
     }
 
     fn default_line(&self, aesthetic: Aesthetic, unlabelled: bool) -> TextColumn {
-        TextColumn {
-            label: Some(if unlabelled {
+        TextColumn::new(
+            Some(if unlabelled {
                 String::new()
             } else {
                 self.aesthetic_label(aesthetic)
             }),
-            values: self.aesthetic_values(aesthetic, false),
-        }
+            self.aesthetic_values(aesthetic, false),
+        )
     }
 
     fn aesthetic_label(&self, aesthetic: Aesthetic) -> String {
@@ -492,10 +530,7 @@ impl Builder<'_> {
             }
             Some(text)
         });
-        Some(TextColumn {
-            label: line.label.clone(),
-            values,
-        })
+        Some(TextColumn::new(line.label.clone(), values))
     }
 
     fn values(&self, found: Source) -> Vec<Option<String>> {
@@ -622,10 +657,7 @@ impl Builder<'_> {
                 (color.alpha > 0).then(|| css_color(color))
             })
             .collect();
-        Some(TextColumn {
-            label: None,
-            values,
-        })
+        Some(TextColumn::new(None, values))
     }
 }
 

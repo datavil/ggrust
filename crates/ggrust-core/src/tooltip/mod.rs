@@ -240,8 +240,52 @@ impl Interaction {
     /// The payload as JSON that is safe inside an HTML `<script>` element: `<`,
     /// `>` and `&` are written as `<`-style escapes.
     pub fn to_script_json(&self) -> String {
-        let json = serde_json::to_string(self).unwrap_or_else(|_| "{\"layers\":[]}".into());
-        script_safe_json(&json)
+        let mut json = Vec::new();
+        if write_script_json(&mut json, self).is_err() {
+            return "{\"layers\":[]}".into();
+        }
+        String::from_utf8(json).unwrap_or_else(|_| "{\"layers\":[]}".into())
+    }
+}
+
+/// Append `value` as JSON that is safe inside an HTML `<script>` element (the
+/// same text as [`script_safe_json`] of its JSON), without an intermediate copy.
+/// On error, `output` may hold a partial document.
+pub fn write_script_json<T: Serialize + ?Sized>(
+    output: &mut Vec<u8>,
+    value: &T,
+) -> serde_json::Result<()> {
+    value.serialize(&mut serde_json::Serializer::with_formatter(
+        output,
+        ScriptSafeFormatter,
+    ))
+}
+
+/// Compact JSON whose string fragments escape what [`script_safe_json`] escapes.
+/// Those characters only occur inside strings, so the output is identical.
+struct ScriptSafeFormatter;
+
+impl serde_json::ser::Formatter for ScriptSafeFormatter {
+    fn write_string_fragment<W: std::io::Write + ?Sized>(
+        &mut self,
+        writer: &mut W,
+        fragment: &str,
+    ) -> std::io::Result<()> {
+        let mut start = 0;
+        for (index, character) in fragment.char_indices() {
+            let escape = match character {
+                '<' => "\\u003c",
+                '>' => "\\u003e",
+                '&' => "\\u0026",
+                '\u{2028}' => "\\u2028",
+                '\u{2029}' => "\\u2029",
+                _ => continue,
+            };
+            writer.write_all(&fragment.as_bytes()[start..index])?;
+            writer.write_all(escape.as_bytes())?;
+            start = index + character.len_utf8();
+        }
+        writer.write_all(&fragment.as_bytes()[start..])
     }
 }
 
@@ -269,10 +313,10 @@ mod tests {
     #[test]
     fn script_json_cannot_close_the_script() {
         let mut content = LayerContent::default();
-        content.lines.push(TextColumn {
-            label: Some("</script><!--".into()),
-            values: vec![Some("a & b > c".into())],
-        });
+        content.lines.push(TextColumn::new(
+            Some("</script><!--".into()),
+            vec![Some("a & b > c".into())],
+        ));
         let interaction = Interaction {
             layers: vec![LayerInteraction {
                 panel: [0.0, 0.0, 10.0, 10.0],

@@ -46,4 +46,4 @@ the axis itself. Here the x axis is logarithmic and `size` maps calories:
 `"right"`, `"left"`, `"top"`, `"bottom"` or hides them with `"none"`; `guides()` and
 `guide_legend()` / `guide_colorbar()` tune a single legend.
 
-All scales are listed in the [API reference](../reference/scales.md).
+All scales are listed in the [API reference](../reference/index.md#position-scales).

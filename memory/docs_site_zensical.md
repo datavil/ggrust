@@ -21,3 +21,8 @@ Traps found while building it (2026-11-01):
   `box-sizing: content-box` (the border otherwise shrinks the plot) and
   `scrolling="no"`; `docs/javascripts/ggrust.js` scales them with CSS `zoom` on narrow
   screens, which keeps tooltips aligned.
+- **API reference is generated and committed**: `docs/build_reference.py` (SECTIONS)
+  writes the grouped overview, one page per public name, and the nav between markers in
+  `zensical.toml`. It fails when a name in `ggrust.__all__` is missing; CI fails when
+  the committed pages are stale. Examples use `from ggrust import *`, so never bind a
+  variable to a ggrust name in them (`theme` in a loop broke the themes example).

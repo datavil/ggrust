@@ -4,8 +4,8 @@ Tiles colored by temperature, with the value printed in each tile.
 """
 
 # --8<-- [start:code]
-import ggrust as gg
 import polars as pl
+from ggrust import *
 
 DATA = "https://raw.githubusercontent.com/datavil/ggrust/main/docs/data/"
 cities = pl.read_csv(DATA + "cities.csv").with_columns(
@@ -14,14 +14,14 @@ cities = pl.read_csv(DATA + "cities.csv").with_columns(
 months = cities["month_name"][:12].to_list()
 
 plot = (
-    gg.ggplot(cities, gg.aes("month_name", "city"))
-    + gg.geom_tile(gg.aes(fill="temperature"), color="white", size=0.5)
-    + gg.geom_text(gg.aes(label="label"), size=6)
-    + gg.scale_x_discrete(limits=months)
-    + gg.scale_fill_gradient2(low="#2c7bb6", mid="#ffffbf", high="#d7191c", midpoint=12)
-    + gg.labs(x="", y="", fill="°C")
-    + gg.theme_minimal()
-    + gg.ggsize(700, 300)
+    ggplot(cities, aes("month_name", "city"))
+    + geom_tile(aes(fill="temperature"), color="white", size=0.5)
+    + geom_text(aes(label="label"), size=6)
+    + scale_x_discrete(limits=months)
+    + scale_fill_gradient2(low="#2c7bb6", mid="#ffffbf", high="#d7191c", midpoint=12)
+    + labs(x="", y="", fill="°C")
+    + theme_minimal()
+    + ggsize(700, 300)
 )
 plot
 # --8<-- [end:code]

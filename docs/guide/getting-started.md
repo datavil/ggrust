@@ -10,6 +10,12 @@ ggrust works in Jupyter, VS Code notebooks and plain Python scripts. In a notebo
 plot shows itself when it is the last expression of a cell. In a script, call
 `plot.show()` to open it in the browser, or [export it](export.md) to a file.
 
+Import everything, as with lets-plot:
+
+```python
+from ggrust import *
+```
+
 ## A first plot
 
 A plot has three parts: **data**, a **mapping** from columns to visual properties
@@ -34,8 +40,8 @@ Inside `aes()`, an aesthetic follows a column, and a scale and a legend are made
 it. Outside `aes()`, as a layer argument, it is one constant value for the whole layer.
 
 ```python
-gg.geom_point(gg.aes(color="neighbourhood"))  # one color per neighbourhood, with a legend
-gg.geom_point(color="#b7410e")  # every point the same color
+geom_point(aes(color="neighbourhood"))  # one color per neighbourhood, with a legend
+geom_point(color="#b7410e")  # every point the same color
 ```
 
 ## Labels, a theme and a size

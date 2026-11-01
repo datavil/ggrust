@@ -136,3 +136,17 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* API overview: full-width tables, names on one line. */
+.md-typeset .md-typeset__table {
+  display: block;
+}
+
+.md-typeset .md-typeset__table table:not([class]) {
+  display: table;
+  width: 100%;
+}
+
+.md-typeset .md-typeset__table td:first-child {
+  white-space: nowrap;
+}

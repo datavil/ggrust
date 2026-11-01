@@ -62,4 +62,4 @@ side instead; `"fill"` stacks them to 100 percent. `position_dodge(width=...)`,
 | Tiles and images | `geom_tile`, `geom_raster`, `geom_imshow` |
 | Text | `geom_text`, `geom_label`, `geom_text_repel`, `geom_label_repel`, `geom_bracket` |
 
-Each one is documented, with every parameter, in the [API reference](../reference/geoms.md).
+Each one is documented, with every parameter, in the [API reference](../reference/index.md#geometries).

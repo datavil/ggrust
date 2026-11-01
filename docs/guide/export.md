@@ -11,7 +11,7 @@ plot.to_png("prices.png", scale=2)  # twice the pixels, for sharp slides
 plot.to_pdf("prices.pdf")
 plot.to_html("prices.html")  # interactive, opens in any browser
 
-gg.ggsave(plot, "prices.png", path="figures")  # the extension picks the format
+ggsave(plot, "prices.png", path="figures")  # the extension picks the format
 ```
 
 Without a path, `to_svg()` and `to_html()` return the text instead of writing a file.

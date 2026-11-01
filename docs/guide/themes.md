@@ -23,12 +23,12 @@ them.
 ```python
 (
     plot
-    + gg.theme_minimal()
-    + gg.theme(
+    + theme_minimal()
+    + theme(
         legend_position="bottom",
-        axis_title=gg.element_text(size=14, face="bold"),
-        panel_grid_minor=gg.element_blank(),
-        plot_background=gg.element_rect(fill="#fbf8f4"),
+        axis_title=element_text(size=14, face="bold"),
+        panel_grid_minor=element_blank(),
+        plot_background=element_rect(fill="#fbf8f4"),
     )
 )
 ```
@@ -38,4 +38,4 @@ them.
 - `element_rect(...)` styles boxes: `fill`, `color`, `size`.
 - `element_blank()` removes the element.
 
-Every theme option is listed in the [API reference](../reference/themes.md).
+Every theme option is listed in the [API reference](../reference/index.md#themes).

@@ -28,8 +28,13 @@ jobs:
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
+      - name: Check the API reference pages are up to date
+        run: |
+          uv run --group docs python docs/build_reference.py
+          git status --porcelain docs/reference zensical.toml
+          test -z "$(git status --porcelain docs/reference zensical.toml)"
       - name: Render the example plots
-        run: uv run python docs/build_examples.py
+        run: uv run --group docs python docs/build_examples.py
       - name: Build the docs
         run: uv run --group docs zensical build --strict
       - uses: actions/upload-pages-artifact@v3

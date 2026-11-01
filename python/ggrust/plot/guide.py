@@ -59,8 +59,12 @@ def guide_legend(
     ----------
     title : str, optional
         Legend title.
-    nrow, ncol, byrow, override_aes : optional
-        As in lets_plot (not drawn by ggrust yet; reported as warnings).
+    nrow, ncol : int, optional
+        Number of rows or columns of legend keys.
+    byrow : bool, optional
+        True fills the keys row by row instead of column by column.
+    override_aes : dict, optional
+        Constant aesthetics for the legend keys only, e.g. ``{"size": 5}``.
 
     Returns
     -------

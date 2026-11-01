@@ -1,7 +1,7 @@
 """``layer_tooltips()``: hover tooltip content of a layer.
 
 Ported from lets-plot's ``lets_plot/plot/tooltip.py`` (MIT, see THIRD_PARTY_NOTICES.md).
-The spec is complete; drawing tooltips arrives with interactivity (Phase 4).
+HTML output draws the tooltips (``js/ggrust.js``).
 """
 
 from __future__ import annotations

@@ -1,7 +1,7 @@
 """Themes: ``theme()``, ``element_*()``, named themes and flavors.
 
 Ported from lets-plot's ``lets_plot/plot/theme_.py`` and ``theme_set.py`` (MIT, see
-THIRD_PARTY_NOTICES.md). The engine draws the options listed in plan.md (Phase 1.4) and
+THIRD_PARTY_NOTICES.md). The engine draws the options documented on ``theme()`` and
 warns about the rest.
 """
 

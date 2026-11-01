@@ -26,3 +26,5 @@ Traps found while building it (2026-11-01):
   `zensical.toml`. It fails when a name in `ggrust.__all__` is missing; CI fails when
   the committed pages are stale. Examples use `from ggrust import *`, so never bind a
   variable to a ggrust name in them (`theme` in a loop broke the themes example).
+- **Zensical caches rendered docstrings.** After editing docstrings, build with
+  `--clean` (`make docs` does) or pages keep the old text.

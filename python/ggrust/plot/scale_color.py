@@ -65,8 +65,27 @@ def scale_color_hue(
         Hue offset in degrees.
     direction : {1, -1}, default=1
         Direction around the color wheel.
-    name, breaks, labels, lablim, limits, na_value, guide, trans, format : optional
-        As in lets_plot.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key or a colorbar tick.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        ``[low, high]`` data range of a continuous scale, or the levels (and their
+        order) of a discrete one. Data outside the limits gets ``na_value``.
+    na_value : str, optional
+        Value drawn for missing data and data outside ``limits``.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
+        ``guide_legend()`` / ``guide_colorbar()`` spec.
+    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
+        Transformation of the data.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
+        (``"{.1f} %"``). ``labels`` take precedence.
 
     Returns
     -------
@@ -108,8 +127,27 @@ def scale_fill_hue(
         Hue offset in degrees.
     direction : {1, -1}, default=1
         Direction around the color wheel.
-    name, breaks, labels, lablim, limits, na_value, guide, trans, format : optional
-        As in lets_plot.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key or a colorbar tick.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        ``[low, high]`` data range of a continuous scale, or the levels (and their
+        order) of a discrete one. Data outside the limits gets ``na_value``.
+    na_value : str, optional
+        Value drawn for missing data and data outside ``limits``.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
+        ``guide_legend()`` / ``guide_colorbar()`` spec.
+    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
+        Transformation of the data.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
+        (``"{.1f} %"``). ``labels`` take precedence.
 
     Returns
     -------
@@ -137,8 +175,25 @@ def scale_color_manual(
     values : list of str or dict
         Colors matched in order with the scale's categories, or a dict from
         category to color.
-    name, breaks, labels, lablim, limits, na_value, guide, format : optional
-        As in lets_plot.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key or a colorbar tick.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        ``[low, high]`` data range of a continuous scale, or the levels (and their
+        order) of a discrete one. Data outside the limits gets ``na_value``.
+    na_value : str, optional
+        Value drawn for missing data and data outside ``limits``.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
+        ``guide_legend()`` / ``guide_colorbar()`` spec.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
+        (``"{.1f} %"``). ``labels`` take precedence.
 
     Returns
     -------
@@ -168,8 +223,25 @@ def scale_fill_manual(
     values : list of str or dict
         Colors matched in order with the scale's categories, or a dict from
         category to color.
-    name, breaks, labels, lablim, limits, na_value, guide, format : optional
-        As in lets_plot.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key or a colorbar tick.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        ``[low, high]`` data range of a continuous scale, or the levels (and their
+        order) of a discrete one. Data outside the limits gets ``na_value``.
+    na_value : str, optional
+        Value drawn for missing data and data outside ``limits``.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
+        ``guide_legend()`` / ``guide_colorbar()`` spec.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
+        (``"{.1f} %"``). ``labels`` take precedence.
 
     Returns
     -------
@@ -253,8 +325,27 @@ def scale_color_gradient(
     ----------
     low, high : str, default="#132B43", "#56B1F7"
         Colors at the low and high end of the data.
-    name, breaks, labels, lablim, limits, na_value, guide, trans, format : optional
-        As in lets_plot.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key or a colorbar tick.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        ``[low, high]`` data range of a continuous scale, or the levels (and their
+        order) of a discrete one. Data outside the limits gets ``na_value``.
+    na_value : str, optional
+        Value drawn for missing data and data outside ``limits``.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
+        ``guide_legend()`` / ``guide_colorbar()`` spec.
+    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
+        Transformation of the data.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
+        (``"{.1f} %"``). ``labels`` take precedence.
 
     Returns
     -------
@@ -283,8 +374,27 @@ def scale_fill_gradient(
     ----------
     low, high : str, default="#132B43", "#56B1F7"
         Colors at the low and high end of the data.
-    name, breaks, labels, lablim, limits, na_value, guide, trans, format : optional
-        As in lets_plot.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key or a colorbar tick.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        ``[low, high]`` data range of a continuous scale, or the levels (and their
+        order) of a discrete one. Data outside the limits gets ``na_value``.
+    na_value : str, optional
+        Value drawn for missing data and data outside ``limits``.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
+        ``guide_legend()`` / ``guide_colorbar()`` spec.
+    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
+        Transformation of the data.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
+        (``"{.1f} %"``). ``labels`` take precedence.
 
     Returns
     -------
@@ -317,8 +427,27 @@ def scale_color_gradient2(
         Colors below, at and above the midpoint.
     midpoint : float, default=0
         Data value of the middle color.
-    name, breaks, labels, lablim, limits, na_value, guide, trans, format : optional
-        As in lets_plot.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key or a colorbar tick.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        ``[low, high]`` data range of a continuous scale, or the levels (and their
+        order) of a discrete one. Data outside the limits gets ``na_value``.
+    na_value : str, optional
+        Value drawn for missing data and data outside ``limits``.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
+        ``guide_legend()`` / ``guide_colorbar()`` spec.
+    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
+        Transformation of the data.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
+        (``"{.1f} %"``). ``labels`` take precedence.
 
     Returns
     -------
@@ -351,8 +480,27 @@ def scale_fill_gradient2(
         Colors below, at and above the midpoint.
     midpoint : float, default=0
         Data value of the middle color.
-    name, breaks, labels, lablim, limits, na_value, guide, trans, format : optional
-        As in lets_plot.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key or a colorbar tick.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        ``[low, high]`` data range of a continuous scale, or the levels (and their
+        order) of a discrete one. Data outside the limits gets ``na_value``.
+    na_value : str, optional
+        Value drawn for missing data and data outside ``limits``.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
+        ``guide_legend()`` / ``guide_colorbar()`` spec.
+    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
+        Transformation of the data.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
+        (``"{.1f} %"``). ``labels`` take precedence.
 
     Returns
     -------
@@ -380,8 +528,27 @@ def scale_color_gradientn(
     ----------
     colors : list of str
         Two or more colors.
-    name, breaks, labels, lablim, limits, na_value, guide, trans, format : optional
-        As in lets_plot.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key or a colorbar tick.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        ``[low, high]`` data range of a continuous scale, or the levels (and their
+        order) of a discrete one. Data outside the limits gets ``na_value``.
+    na_value : str, optional
+        Value drawn for missing data and data outside ``limits``.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
+        ``guide_legend()`` / ``guide_colorbar()`` spec.
+    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
+        Transformation of the data.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
+        (``"{.1f} %"``). ``labels`` take precedence.
 
     Returns
     -------
@@ -409,8 +576,27 @@ def scale_fill_gradientn(
     ----------
     colors : list of str
         Two or more colors.
-    name, breaks, labels, lablim, limits, na_value, guide, trans, format : optional
-        As in lets_plot.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key or a colorbar tick.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        ``[low, high]`` data range of a continuous scale, or the levels (and their
+        order) of a discrete one. Data outside the limits gets ``na_value``.
+    na_value : str, optional
+        Value drawn for missing data and data outside ``limits``.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
+        ``guide_legend()`` / ``guide_colorbar()`` spec.
+    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
+        Transformation of the data.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
+        (``"{.1f} %"``). ``labels`` take precedence.
 
     Returns
     -------
@@ -449,8 +635,27 @@ def scale_color_viridis(
     option : str, default="viridis"
         "magma" ("A"), "inferno" ("B"), "plasma" ("C"), "viridis" ("D"),
         "cividis" ("E"), "turbo" or "twilight".
-    name, breaks, labels, lablim, limits, na_value, guide, trans, format : optional
-        As in lets_plot.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key or a colorbar tick.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        ``[low, high]`` data range of a continuous scale, or the levels (and their
+        order) of a discrete one. Data outside the limits gets ``na_value``.
+    na_value : str, optional
+        Value drawn for missing data and data outside ``limits``.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
+        ``guide_legend()`` / ``guide_colorbar()`` spec.
+    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
+        Transformation of the data.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
+        (``"{.1f} %"``). ``labels`` take precedence.
 
     Returns
     -------
@@ -489,8 +694,27 @@ def scale_fill_viridis(
     option : str, default="viridis"
         "magma" ("A"), "inferno" ("B"), "plasma" ("C"), "viridis" ("D"),
         "cividis" ("E"), "turbo" or "twilight".
-    name, breaks, labels, lablim, limits, na_value, guide, trans, format : optional
-        As in lets_plot.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key or a colorbar tick.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        ``[low, high]`` data range of a continuous scale, or the levels (and their
+        order) of a discrete one. Data outside the limits gets ``na_value``.
+    na_value : str, optional
+        Value drawn for missing data and data outside ``limits``.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
+        ``guide_legend()`` / ``guide_colorbar()`` spec.
+    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
+        Transformation of the data.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
+        (``"{.1f} %"``). ``labels`` take precedence.
 
     Returns
     -------
@@ -517,8 +741,27 @@ def scale_color_continuous(
 
     Parameters
     ----------
-    name, breaks, labels, lablim, limits, na_value, guide, trans, format : optional
-        As in lets_plot.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key or a colorbar tick.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        ``[low, high]`` data range of a continuous scale, or the levels (and their
+        order) of a discrete one. Data outside the limits gets ``na_value``.
+    na_value : str, optional
+        Value drawn for missing data and data outside ``limits``.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
+        ``guide_legend()`` / ``guide_colorbar()`` spec.
+    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
+        Transformation of the data.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
+        (``"{.1f} %"``). ``labels`` take precedence.
     scale_mapper_kind : str, optional
         Default ``"color_gradient"``.
     **kwargs
@@ -549,8 +792,27 @@ def scale_fill_continuous(
 
     Parameters
     ----------
-    name, breaks, labels, lablim, limits, na_value, guide, trans, format : optional
-        As in lets_plot.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key or a colorbar tick.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        ``[low, high]`` data range of a continuous scale, or the levels (and their
+        order) of a discrete one. Data outside the limits gets ``na_value``.
+    na_value : str, optional
+        Value drawn for missing data and data outside ``limits``.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
+        ``guide_legend()`` / ``guide_colorbar()`` spec.
+    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
+        Transformation of the data.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
+        (``"{.1f} %"``). ``labels`` take precedence.
     scale_mapper_kind : str, optional
         Default ``"color_gradient"``.
     **kwargs
@@ -601,8 +863,27 @@ def scale_color_brewer(
         -1 reverses the colors.
     overflow : {"interpolate", "cycle", "generate"}, optional
         How to get more colors than the palette has (``"i"``, ``"c"``, ``"g"``).
-    name, breaks, labels, lablim, limits, na_value, guide, trans, format : optional
-        As in lets_plot.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key or a colorbar tick.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        ``[low, high]`` data range of a continuous scale, or the levels (and their
+        order) of a discrete one. Data outside the limits gets ``na_value``.
+    na_value : str, optional
+        Value drawn for missing data and data outside ``limits``.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
+        ``guide_legend()`` / ``guide_colorbar()`` spec.
+    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
+        Transformation of the data.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
+        (``"{.1f} %"``). ``labels`` take precedence.
 
     Returns
     -------
@@ -640,8 +921,27 @@ def scale_fill_brewer(
         -1 reverses the colors.
     overflow : {"interpolate", "cycle", "generate"}, optional
         How to get more colors than the palette has (``"i"``, ``"c"``, ``"g"``).
-    name, breaks, labels, lablim, limits, na_value, guide, trans, format : optional
-        As in lets_plot.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key or a colorbar tick.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        ``[low, high]`` data range of a continuous scale, or the levels (and their
+        order) of a discrete one. Data outside the limits gets ``na_value``.
+    na_value : str, optional
+        Value drawn for missing data and data outside ``limits``.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
+        ``guide_legend()`` / ``guide_colorbar()`` spec.
+    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
+        Transformation of the data.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
+        (``"{.1f} %"``). ``labels`` take precedence.
 
     Returns
     -------

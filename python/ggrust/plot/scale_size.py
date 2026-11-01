@@ -46,8 +46,25 @@ def scale_size(
         ``[smallest, largest]`` size (default about 1.4..9.5, 3..21 px circles).
     trans : {'identity', 'log10', 'log2', 'sqrt', 'reverse'}, optional
         Map (and pick legend breaks) in transformed units.
-    name, breaks, labels, lablim, limits, na_value, guide, format : optional
-        As in lets_plot.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key or a colorbar tick.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        ``[low, high]`` data range of a continuous scale, or the levels (and their
+        order) of a discrete one. Data outside the limits gets ``na_value``.
+    na_value : float, optional
+        Value drawn for missing data and data outside ``limits``.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
+        ``guide_legend()`` / ``guide_colorbar()`` spec.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
+        (``"{.1f} %"``). ``labels`` take precedence.
 
     Returns
     -------
@@ -78,8 +95,27 @@ def scale_size_area(
     ----------
     max_size : float, optional
         Size of the largest value (default about 9.5, a 21 px circle).
-    name, breaks, labels, lablim, limits, na_value, guide, trans, format : optional
-        As in lets_plot.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key or a colorbar tick.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        ``[low, high]`` data range of a continuous scale, or the levels (and their
+        order) of a discrete one. Data outside the limits gets ``na_value``.
+    na_value : float, optional
+        Value drawn for missing data and data outside ``limits``.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
+        ``guide_legend()`` / ``guide_colorbar()`` spec.
+    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
+        Transformation of the data.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
+        (``"{.1f} %"``). ``labels`` take precedence.
 
     Returns
     -------
@@ -107,8 +143,27 @@ def scale_alpha(
     ----------
     range : list of float, optional
         ``[lowest, highest]`` alpha (default 0.1..1).
-    name, breaks, labels, lablim, limits, na_value, guide, trans, format : optional
-        As in lets_plot.
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key or a colorbar tick.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        ``[low, high]`` data range of a continuous scale, or the levels (and their
+        order) of a discrete one. Data outside the limits gets ``na_value``.
+    na_value : float, optional
+        Value drawn for missing data and data outside ``limits``.
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
+        ``guide_legend()`` / ``guide_colorbar()`` spec.
+    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
+        Transformation of the data.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
+        (``"{.1f} %"``). ``labels`` take precedence.
 
     Returns
     -------

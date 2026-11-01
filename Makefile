@@ -33,7 +33,7 @@ check:  ## everything an agent must run before committing (sequential, -j safe)
 
 docs: venv  ## render the example plots and build the site into site/
 	uv run --group docs python docs/build_examples.py
-	uv run --group docs zensical build --strict
+	uv run --group docs zensical build --clean --strict
 
 docs-serve: venv  ## render the example plots and serve the site with live reload
 	uv run --group docs python docs/build_examples.py

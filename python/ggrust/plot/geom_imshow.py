@@ -187,8 +187,16 @@ def geom_imshow(
         Greyscale only: show a colorbar.
     color_by : {"paint_a", "paint_b", "paint_c"}, default="paint_c"
         The aesthetic the colorbar uses.
-    cguide, breaks, labels, lablim, format : optional
-        Colorbar guide and labels, as in lets_plot.
+    cguide : FeatureSpec, optional
+        Greyscale only: the colorbar, a ``guide_colorbar()`` spec.
+    breaks : list of float, optional
+        Greyscale only: colorbar ticks.
+    labels : list of str, optional
+        Greyscale only: one label per break.
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    format : str, optional
+        Label format of the colorbar, e.g. ``".2f"``.
 
     Returns
     -------

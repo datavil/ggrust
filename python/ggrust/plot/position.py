@@ -1,8 +1,7 @@
 """Position adjustments: ``position_dodge``, ``position_jitter``, ...
 
 Ported from lets-plot's ``lets_plot/plot/pos.py`` (MIT, see THIRD_PARTY_NOTICES.md).
-The engine applies ``identity`` only so far; the others build lets_plot-identical
-specs and rendering reports them (plan.md Phase 2).
+The specs are lets_plot-identical; the engine applies every adjustment listed here.
 """
 
 from __future__ import annotations

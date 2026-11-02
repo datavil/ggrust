@@ -160,7 +160,10 @@ impl Bin2dOptions {
 }
 
 /// An `[x, y]` option: a list of two numbers (or nulls), or one number for both.
-fn number_pair(parameters: &Parameters, name: &str) -> Result<(Option<f64>, Option<f64>)> {
+pub(super) fn number_pair(
+    parameters: &Parameters,
+    name: &str,
+) -> Result<(Option<f64>, Option<f64>)> {
     let invalid = |value: &Value| {
         Error::spec(
             parameters.path_of(name),

@@ -2922,6 +2922,402 @@ def geom_hex(
     )
 
 
+def geom_contour(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    bins: int | None = None,
+    binwidth: float | None = None,
+    color_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Draw contour lines of z over a grid of x and y (``stat="contour"``).
+
+    The rows give z at grid nodes, in any order; a missing node leaves a gap. The stat
+    computes ``..level..``, the z value of each line (map ``color="..level.."`` to tell the
+    lines apart).
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``: ``x``, ``y``, ``z`` (required), ``color``,
+        ``alpha``, ``size``, ``linetype``.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name; ``"contour"`` when None.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"identity"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    bins : int, default=10
+        Number of levels, evenly spaced over the z range.
+    binwidth : float, optional
+        Distance between levels; wins over ``bins``.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Constant aesthetics such as ``color="steelblue"`` or ``size=1``.
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> import numpy as np
+    >>> x, y = np.meshgrid(np.linspace(-2, 2, 40), np.linspace(-2, 2, 40))
+    >>> data = {"x": x.ravel(), "y": y.ravel(), "z": np.exp(-(x**2 + y**2)).ravel()}
+    >>> plot = ggplot(data, aes("x", "y", z="z")) + geom_contour(aes(color="..level.."), bins=6)
+    """
+    return _geom(
+        "contour",
+        mapping=mapping,
+        data=data,
+        stat=stat,
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        manual_key=manual_key,
+        sampling=sampling,
+        tooltips=tooltips,
+        bins=bins,
+        binwidth=binwidth,
+        color_by=color_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
+def geom_contourf(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    bins: int | None = None,
+    binwidth: float | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Fill the bands between the contour lines of z (``stat="contourf"``).
+
+    The rows give z at grid nodes, in any order; a missing node leaves a hole. The stat
+    computes ``..level..``: the z minimum for the lowest band, the z maximum for the
+    highest, and the mean of its two lines for the others (map ``fill="..level.."`` to
+    color the bands).
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``: ``x``, ``y``, ``z`` (required), ``fill``,
+        ``color``, ``alpha``, ``size``, ``linetype``.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name; ``"contourf"`` when None.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"identity"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    bins : int, default=10
+        Number of levels, evenly spaced over the z range.
+    binwidth : float, optional
+        Distance between levels; wins over ``bins``.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Constant aesthetics such as ``fill="steelblue"`` or ``alpha=0.5``.
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> import numpy as np
+    >>> x, y = np.meshgrid(np.linspace(-2, 2, 40), np.linspace(-2, 2, 40))
+    >>> data = {"x": x.ravel(), "y": y.ravel(), "z": np.exp(-(x**2 + y**2)).ravel()}
+    >>> plot = ggplot(data, aes("x", "y", z="z")) + geom_contourf(aes(fill="..level.."))
+    """
+    return _geom(
+        "contourf",
+        mapping=mapping,
+        data=data,
+        stat=stat,
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        manual_key=manual_key,
+        sampling=sampling,
+        tooltips=tooltips,
+        bins=bins,
+        binwidth=binwidth,
+        color_by=color_by,
+        fill_by=fill_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
+def geom_density2d(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    kernel: str | None = None,
+    adjust: float | None = None,
+    bw: str | float | Sequence[float] | None = None,
+    n: int | Sequence[int] | None = None,
+    bins: int | None = None,
+    binwidth: float | None = None,
+    color_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Draw contour lines of a 2D kernel density estimate (``stat="density2d"``).
+
+    The density is estimated on an ``n`` x ``n`` grid over the x and y ranges, then
+    contoured. The stat computes ``..level..``, the density of each line.
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``: ``x``, ``y`` (required), ``color``, ``alpha``,
+        ``size``, ``linetype``, ``weight``.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name; ``"density2d"`` when None.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"identity"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    kernel : str, default="gaussian"
+        Smoothing kernel: ``"gaussian"``, ``"rectangular"``, ``"triangular"``,
+        ``"biweight"``, ``"epanechikov"``, ``"optcosine"`` or ``"cosine"``.
+    adjust : float, default=1
+        Multiplies the bandwidth; above 1 smooths more.
+    bw : str or float or list of float, default="nrd0"
+        Bandwidth: a rule (``"nrd0"`` or ``"nrd"``, per axis), one number for both
+        axes, or ``[x, y]``.
+    n : int or list of int, default=100
+        Grid points along x and y (2 to 999); one number is used for both axes.
+    bins : int, default=10
+        Number of levels, evenly spaced over the z range.
+    binwidth : float, optional
+        Distance between levels; wins over ``bins``.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Constant aesthetics such as ``color="steelblue"`` or ``size=1``.
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> import numpy as np
+    >>> rng = np.random.default_rng(1)
+    >>> data = {"duration": rng.normal(3, 1, 300), "wait": rng.normal(70, 12, 300)}
+    >>> plot = ggplot(data, aes("duration", "wait")) + geom_point() + geom_density2d()
+    """
+    return _geom(
+        "density2d",
+        mapping=mapping,
+        data=data,
+        stat=stat,
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        manual_key=manual_key,
+        sampling=sampling,
+        tooltips=tooltips,
+        kernel=kernel,
+        adjust=adjust,
+        bw=bw,
+        n=n,
+        bins=bins,
+        binwidth=binwidth,
+        color_by=color_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
+def geom_density2df(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    kernel: str | None = None,
+    adjust: float | None = None,
+    bw: str | float | Sequence[float] | None = None,
+    n: int | Sequence[int] | None = None,
+    bins: int | None = None,
+    binwidth: float | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Fill the bands of a 2D kernel density estimate (``stat="density2df"``).
+
+    The density is estimated on an ``n`` x ``n`` grid over the x and y ranges, then
+    split into bands; the band below the lowest level is left out. The stat computes
+    ``..level..``, the mean density of each band's two lines (the maximum for the top band).
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``: ``x``, ``y`` (required), ``fill``, ``color``,
+        ``alpha``, ``size``, ``linetype``, ``weight``.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name; ``"density2df"`` when None.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"identity"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    kernel : str, default="gaussian"
+        Smoothing kernel: ``"gaussian"``, ``"rectangular"``, ``"triangular"``,
+        ``"biweight"``, ``"epanechikov"``, ``"optcosine"`` or ``"cosine"``.
+    adjust : float, default=1
+        Multiplies the bandwidth; above 1 smooths more.
+    bw : str or float or list of float, default="nrd0"
+        Bandwidth: a rule (``"nrd0"`` or ``"nrd"``, per axis), one number for both
+        axes, or ``[x, y]``.
+    n : int or list of int, default=100
+        Grid points along x and y (2 to 999); one number is used for both axes.
+    bins : int, default=10
+        Number of levels, evenly spaced over the z range.
+    binwidth : float, optional
+        Distance between levels; wins over ``bins``.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Constant aesthetics such as ``fill="steelblue"`` or ``alpha=0.5``.
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> import numpy as np
+    >>> rng = np.random.default_rng(1)
+    >>> data = {"duration": rng.normal(3, 1, 300), "wait": rng.normal(70, 12, 300)}
+    >>> plot = ggplot(data, aes("duration", "wait")) + geom_density2df(aes(fill="..level.."))
+    """
+    return _geom(
+        "density2df",
+        mapping=mapping,
+        data=data,
+        stat=stat,
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        manual_key=manual_key,
+        sampling=sampling,
+        tooltips=tooltips,
+        kernel=kernel,
+        adjust=adjust,
+        bw=bw,
+        n=n,
+        bins=bins,
+        binwidth=binwidth,
+        color_by=color_by,
+        fill_by=fill_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
 def geom_raster(
     mapping: FeatureSpec | None = None,
     *,

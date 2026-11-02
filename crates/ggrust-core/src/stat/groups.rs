@@ -47,6 +47,16 @@ pub fn per_group(
     data: &LayerData,
     compute: impl Fn(&[usize]) -> Result<GroupColumns> + Sync,
 ) -> Result<LayerData> {
+    per_group_pieces(data, |rows| compute(rows).map(|columns| (columns, None)))
+}
+
+/// As [`per_group`], but `compute` may split a group's stat rows into pieces
+/// (row counts, in order) that each become their own output group (contour
+/// paths); `None` keeps the group whole.
+pub fn per_group_pieces(
+    data: &LayerData,
+    compute: impl Fn(&[usize]) -> Result<(GroupColumns, Option<Vec<usize>>)> + Sync,
+) -> Result<LayerData> {
     let mut groups = rows_by_group(data);
     if groups.is_empty() {
         // No rows: one empty group, so the stat still names its variables.
@@ -54,10 +64,19 @@ pub fn per_group(
     }
     let mut stat_columns: Vec<(Variable, Vec<f64>)> = Vec::new();
     let mut sizes: Vec<usize> = Vec::with_capacity(groups.len());
-    let computed: Vec<Result<GroupColumns>> = groups.par_iter().map(|rows| compute(rows)).collect();
-    for columns in computed {
-        let columns = columns?;
+    let mut piece_sizes: Vec<usize> = Vec::new();
+    let computed: Vec<Result<(GroupColumns, Option<Vec<usize>>)>> =
+        groups.par_iter().map(|rows| compute(rows)).collect();
+    for result in computed {
+        let (columns, pieces) = result?;
         let size = columns.first().map_or(0, |(_, values)| values.len());
+        match pieces {
+            Some(pieces) => {
+                debug_assert_eq!(pieces.iter().sum::<usize>(), size);
+                piece_sizes.extend(pieces);
+            }
+            None => piece_sizes.push(size),
+        }
         for (variable, values) in columns {
             match stat_columns
                 .iter_mut()
@@ -93,12 +112,12 @@ pub fn per_group(
         };
         result.insert(aesthetic, carried(column, &groups, &sizes))?;
     }
-    let group_index: Vec<u32> = sizes
+    let group_index: Vec<u32> = piece_sizes
         .iter()
         .enumerate()
         .flat_map(|(group, size)| std::iter::repeat_n(group as u32, *size))
         .collect();
-    result.set_group_index((groups.len() > 1).then_some(group_index))?;
+    result.set_group_index((piece_sizes.len() > 1).then_some(group_index))?;
     result.set_source_rows(SourceRows::Aggregated)?;
     Ok(result)
 }

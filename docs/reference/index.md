@@ -60,6 +60,10 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_tile()`](api/geom_tile.md) | Rectangles centred on (x, y), e.g. heatmap cells. Not drawn yet. |
 | [`geom_bin2d()`](api/geom_bin2d.md) | Tiles counting the rows in a grid of rectangles (``stat="bin2d"``). |
 | [`geom_hex()`](api/geom_hex.md) | Hexagons counting the rows in a hexagonal grid (``stat="binhex"``). |
+| [`geom_contour()`](api/geom_contour.md) | Draw contour lines of z over a grid of x and y (``stat="contour"``). |
+| [`geom_contourf()`](api/geom_contourf.md) | Fill the bands between the contour lines of z (``stat="contourf"``). |
+| [`geom_density2d()`](api/geom_density2d.md) | Draw contour lines of a 2D kernel density estimate (``stat="density2d"``). |
+| [`geom_density2df()`](api/geom_density2df.md) | Fill the bands of a 2D kernel density estimate (``stat="density2df"``). |
 | [`geom_raster()`](api/geom_raster.md) | Equal-sized tiles on a regular grid. Not drawn yet. |
 | [`geom_imshow()`](api/geom_imshow.md) | Display an image array, as lets_plot ``geom_imshow``. |
 | [`geom_text()`](api/geom_text.md) | Text labels at (x, y); the text comes from the ``label`` aesthetic. |

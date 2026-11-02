@@ -13,6 +13,7 @@ mod bin2d;
 mod blank;
 mod boxplot;
 mod bracket;
+mod contour;
 mod hex;
 mod hover;
 mod image;
@@ -44,6 +45,7 @@ pub use bin2d::Bin2dGeom;
 pub use blank::BlankGeom;
 pub use boxplot::BoxplotGeom;
 pub use bracket::BracketGeom;
+pub use contour::{ContourGeom, ContourfGeom, Density2dGeom, Density2dfGeom};
 pub use hex::HexGeom;
 pub use image::ImageGeom;
 pub use interval::{CrossBarGeom, ErrorBarGeom, LineRangeGeom, PointRangeGeom};
@@ -230,6 +232,10 @@ pub static GEOMS: &[&dyn Geom] = &[
     &TileGeom,
     &Bin2dGeom,
     &HexGeom,
+    &ContourGeom,
+    &ContourfGeom,
+    &Density2dGeom,
+    &Density2dfGeom,
     &RectGeom,
     &RasterGeom,
     &ImageGeom,

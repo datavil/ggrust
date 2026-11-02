@@ -5,8 +5,10 @@ mod bin;
 mod bin2d;
 mod binhex;
 mod boxplot;
+mod contour;
 mod count;
 mod density;
+mod density2d;
 mod density_1d;
 mod densityridges;
 mod ecdf;
@@ -22,8 +24,10 @@ pub use bin::{BinStat, bracketing_index};
 pub use bin2d::Bin2dStat;
 pub use binhex::BinHexStat;
 pub use boxplot::{BoxplotOutlierStat, BoxplotStat};
+pub use contour::{ContourStat, ContourfStat};
 pub use count::CountStat;
 pub use density_1d::DensityStat;
+pub use density2d::{Density2dStat, Density2dfStat};
 pub use densityridges::DensityRidgesStat;
 pub use ecdf::EcdfStat;
 pub use identity::IdentityStat;
@@ -108,6 +112,10 @@ pub static STATS: &[&dyn Stat] = &[
     &SumStat,
     &Bin2dStat,
     &BinHexStat,
+    &ContourStat,
+    &ContourfStat,
+    &Density2dStat,
+    &Density2dfStat,
 ];
 
 /// lets-plot stats the Python API builds but the engine does not compute yet

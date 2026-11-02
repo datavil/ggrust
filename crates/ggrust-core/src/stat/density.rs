@@ -41,7 +41,7 @@ pub enum Kernel {
 
 impl Kernel {
     /// lets-plot names, aliases included.
-    fn parse(name: &str) -> Option<Kernel> {
+    pub(super) fn parse(name: &str) -> Option<Kernel> {
         Some(match name {
             "gaussian" => Kernel::Gaussian,
             "rectangular" | "uniform" => Kernel::Rectangular,
@@ -54,7 +54,7 @@ impl Kernel {
         })
     }
 
-    fn weight(self, value: f64) -> f64 {
+    pub(super) fn weight(self, value: f64) -> f64 {
         let inside = value.abs() <= 1.0;
         match self {
             Kernel::Gaussian => (-0.5 * value * value).exp() / (2.0 * PI).sqrt(),
@@ -325,7 +325,7 @@ pub fn estimate_bins(
 
 /// lets-plot `createStepValues`: `n` points from low to high (a zero-width range
 /// is widened by 0.5 each side).
-fn step_values(mut low: f64, mut high: f64, n: usize) -> Vec<f64> {
+pub(super) fn step_values(mut low: f64, mut high: f64, n: usize) -> Vec<f64> {
     if high == low {
         low -= 0.5;
         high += 0.5;

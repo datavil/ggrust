@@ -3,7 +3,8 @@
 //! Fill and outline come from the group's first row. `alpha` replaces the alpha
 //! of the fill only (lets-plot leaves the outline opaque).
 //!
-//! What it does not do (yet): holes, maps (`map`, `use_crs`), `color_by`/`fill_by`.
+//! What it does not do (yet): rings or holes in `geom_polygon` (contour bands
+//! use [`draw_polygons`] with `split_rings`), maps (`map`, `use_crs`), `color_by`/`fill_by`.
 
 use super::lines;
 use super::point::POINT_UNIT_SIZE;
@@ -43,58 +44,7 @@ impl Geom for PolygonGeom {
     }
 
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
-        let (Some(x), Some(y)) = (
-            layer.data.continuous(Aesthetic::X),
-            layer.data.continuous(Aesthetic::Y),
-        ) else {
-            return Ok(Vec::new());
-        };
-        let group_index = layer.data.group_index();
-        let group_count = group_index
-            .map(|groups| {
-                groups
-                    .iter()
-                    .copied()
-                    .max()
-                    .map_or(0, |last| last as usize + 1)
-            })
-            .unwrap_or(1);
-        let mut rows_by_group = vec![Vec::new(); group_count];
-        for row in 0..layer.data.row_count() {
-            let group = group_index.map_or(0, |groups| groups[row] as usize);
-            rows_by_group[group].push(row);
-        }
-        let mut nodes = Vec::new();
-        for rows in rows_by_group {
-            let Some(&first) = rows.first() else { continue };
-            // A missing vertex is dropped, as the shape stays one ring.
-            let points: Vec<(f64, f64)> = rows
-                .iter()
-                .map(|&row| {
-                    panel.map(
-                        x.get(row).unwrap_or(f64::NAN),
-                        y.get(row).unwrap_or(f64::NAN),
-                    )
-                })
-                .filter(|(px, py)| px.is_finite() && py.is_finite())
-                .collect();
-            if points.len() < 2 {
-                continue;
-            }
-            let alpha = layer.styles.numbers(Aesthetic::Alpha)?.get(first);
-            let fill = layer
-                .styles
-                .colors(Aesthetic::Fill)?
-                .get(first)
-                .with_opacity(alpha);
-            nodes.push(Node::Path(Path {
-                points,
-                closed: true,
-                fill: (fill.alpha > 0).then_some(fill),
-                stroke: lines::stroke_with_alpha(layer.styles, first, false)?,
-            }));
-        }
-        Ok(nodes)
+        draw_polygons(layer, panel, false)
     }
 
     fn minimum_key_size(&self, styles: &Styles) -> Result<(f64, f64)> {
@@ -117,4 +67,87 @@ impl Geom for PolygonGeom {
             stroke: lines::stroke_with_alpha(styles, 0, false)?,
         })])
     }
+}
+
+/// One closed shape per group. With `split_rings`, a group is several rings one
+/// after another, each ending on its first vertex (lets-plot multi-ring polygons:
+/// contour bands with holes), drawn as one path with the nonzero rule.
+pub(super) fn draw_polygons(
+    layer: &DrawLayer,
+    panel: &Panel,
+    split_rings: bool,
+) -> Result<Vec<Node>> {
+    let (Some(x), Some(y)) = (
+        layer.data.continuous(Aesthetic::X),
+        layer.data.continuous(Aesthetic::Y),
+    ) else {
+        return Ok(Vec::new());
+    };
+    let group_index = layer.data.group_index();
+    let group_count = group_index
+        .map(|groups| {
+            groups
+                .iter()
+                .copied()
+                .max()
+                .map_or(0, |last| last as usize + 1)
+        })
+        .unwrap_or(1);
+    let mut rows_by_group = vec![Vec::new(); group_count];
+    for row in 0..layer.data.row_count() {
+        let group = group_index.map_or(0, |groups| groups[row] as usize);
+        rows_by_group[group].push(row);
+    }
+    let mut nodes = Vec::new();
+    for rows in rows_by_group {
+        let Some(&first) = rows.first() else { continue };
+        let location = |row: usize| {
+            (
+                x.get(row).unwrap_or(f64::NAN),
+                y.get(row).unwrap_or(f64::NAN),
+            )
+        };
+        let mut points: Vec<(f64, f64)> = Vec::with_capacity(rows.len());
+        let mut ring_start: Option<(f64, f64)> = None;
+        for &row in &rows {
+            let (row_x, row_y) = location(row);
+            let (px, py) = panel.map(row_x, row_y);
+            // A missing vertex is dropped, as the shape stays one ring.
+            if !(px.is_finite() && py.is_finite()) {
+                continue;
+            }
+            points.push((px, py));
+            if !split_rings {
+                continue;
+            }
+            match ring_start {
+                None => ring_start = Some((row_x, row_y)),
+                Some(start) if start == (row_x, row_y) => {
+                    // The ring is closed: a gap starts the next one.
+                    points.push((f64::NAN, f64::NAN));
+                    ring_start = None;
+                }
+                Some(_) => {}
+            }
+        }
+        if points.last().is_some_and(|(px, _)| px.is_nan()) {
+            points.pop();
+        }
+        if points.iter().filter(|(px, _)| px.is_finite()).count() < 2 {
+            continue;
+        }
+        let alpha = layer.styles.numbers(Aesthetic::Alpha)?.get(first);
+        let fill = layer
+            .styles
+            .colors(Aesthetic::Fill)?
+            .get(first)
+            .with_opacity(alpha);
+        nodes.push(Node::Path(Path {
+            points,
+            closed: true,
+            fill: (fill.alpha > 0).then_some(fill),
+            stroke: lines::stroke_with_alpha(layer.styles, first, false)?,
+        }));
+    }
+    Ok(nodes)
 }

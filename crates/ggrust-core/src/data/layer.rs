@@ -44,10 +44,12 @@ pub enum Computed {
     BinWidth,
     /// `..binheight..`: bin height of a 2D bin (hexagon row spacing for `binhex`).
     BinHeight,
+    /// `..level..`: level of a contour line, or fill level of a contour band.
+    Level,
 }
 
 impl Computed {
-    const ALL: [(Computed, &'static str); 17] = [
+    const ALL: [(Computed, &'static str); 18] = [
         (Computed::Count, "count"),
         (Computed::Density, "density"),
         (Computed::NormalizedCount, "ncount"),
@@ -65,6 +67,7 @@ impl Computed {
         (Computed::N, "n"),
         (Computed::BinWidth, "binwidth"),
         (Computed::BinHeight, "binheight"),
+        (Computed::Level, "level"),
     ];
 
     /// lets-plot name without dots, e.g. `count`.

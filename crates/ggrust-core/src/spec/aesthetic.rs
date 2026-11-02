@@ -154,6 +154,28 @@ impl Aesthetic {
                 | Aesthetic::Upper
         )
     }
+
+    /// The aesthetic a `orientation="y"` layer computes this one as (lets-plot
+    /// `YOrientationBaseUtil.flipAes`): x and y swap, with their ranges and box
+    /// parts. Other aesthetics stay.
+    pub fn flip_orientation(self) -> Aesthetic {
+        use Aesthetic::*;
+        match self {
+            X => Y,
+            Y => X,
+            Xmin => Ymin,
+            Ymin => Xmin,
+            Xmax => Ymax,
+            Ymax => Xmax,
+            Lower => Xlower,
+            Xlower => Lower,
+            Middle => Xmiddle,
+            Xmiddle => Middle,
+            Upper => Xupper,
+            Xupper => Upper,
+            other => other,
+        }
+    }
 }
 
 /// Error for a name that is not an aesthetic.

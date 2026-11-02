@@ -54,7 +54,19 @@ pub struct Panel<'a> {
     pub flipped: bool,
 }
 
-impl Panel<'_> {
+impl<'a> Panel<'a> {
+    /// The panel a layer draws on: a y-oriented layer's data has x and y swapped
+    /// (see `build::layer_orientation`), so the flip toggles.
+    pub fn oriented(&self, y_oriented: bool) -> Panel<'a> {
+        Panel {
+            rect: self.rect,
+            x_scale: self.x_scale,
+            y_scale: self.y_scale,
+            coord: self.coord,
+            flipped: self.flipped != y_oriented,
+        }
+    }
+
     /// Pixel position of a data point (data x, data y). Missing values give NaN.
     pub fn map(&self, x: f64, y: f64) -> (f64, f64) {
         let (horizontal, vertical) = if self.flipped { (y, x) } else { (x, y) };

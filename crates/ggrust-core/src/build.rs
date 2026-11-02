@@ -300,8 +300,11 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         .map(|y| (x, y))
     });
     let (mut x_scale, mut y_scale) = axis_scales.map_err(|error| error.with_notes(&warnings))?;
-    if mapped.iter().any(|layer| layer.geom.includes_zero_y()) {
-        y_scale.set_include_zero();
+    for layer in mapped.iter().filter(|layer| layer.geom.includes_zero_y()) {
+        match layer.y_oriented {
+            true => x_scale.set_include_zero(),
+            false => y_scale.set_include_zero(),
+        }
     }
     if let Some(coord_spec) = &spec.coord {
         for (limits, scale, key) in [
@@ -497,7 +500,12 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     }
     let theme = Theme::from_spec(spec.theme.as_ref(), &mut warnings)
         .map_err(|error| error.with_notes(&warnings))?;
-    let titles = plot_titles(spec, &scales);
+    // Per layer: whether it runs in y orientation (the same in every panel).
+    let orientations: Vec<bool> = prepared_tiles
+        .first()
+        .map(|(layers, _, _)| layers.iter().map(|layer| layer.y_oriented).collect())
+        .unwrap_or_default();
+    let titles = plot_titles(spec, &scales, &orientations);
     // Legends: each layer once, from the first panel where it has rows.
     let legend_layers: Vec<&PreparedLayer> = (0..spec.layers.len())
         .filter_map(|index| {
@@ -512,7 +520,7 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         .collect();
     let legends = assemble_legends(spec, &legend_layers, &style_scales, &style_specs)
         .map_err(|error| error.with_notes(&warnings))?;
-    let tooltip_setups = tooltip_setups(spec, &titles, &style_specs);
+    let tooltip_setups = tooltip_setups(spec, &titles, &style_specs, &orientations);
     // coord_flip: the screen axes take the other scale, title and theme elements.
     let flipped = spec
         .coord
@@ -591,15 +599,23 @@ const TOOLTIP_ANCHORS: [&str; 9] = [
 ];
 
 /// The tooltip setup of every layer: bound variables (mapped columns, then the
-/// stat's default mappings) and their labels.
+/// stat's default mappings) and their labels, keyed as the layer's data (x and y
+/// swapped in a y-oriented layer, see [`layer_orientation`]).
 fn tooltip_setups(
     spec: &PlotSpec,
     titles: &Titles,
     style_specs: &BTreeMap<Aesthetic, StyleScaleSpec>,
+    orientations: &[bool],
 ) -> Vec<LayerTooltipSetup> {
     spec.layers
         .iter()
-        .map(|layer| {
+        .enumerate()
+        .map(|(index, layer)| {
+            let y_oriented = orientations.get(index).copied().unwrap_or(false);
+            let oriented = |aesthetic: Aesthetic| match y_oriented {
+                true => aesthetic.flip_orientation(),
+                false => aesthetic,
+            };
             let (mapping, _) = merged_mapping(spec, layer);
             let mut bindings = BTreeMap::new();
             for (aesthetic, value) in &mapping {
@@ -611,7 +627,7 @@ fn tooltip_setups(
                     continue;
                 }
                 if let Some(name) = value.as_column() {
-                    bindings.insert(*aesthetic, name.to_owned());
+                    bindings.insert(oriented(*aesthetic), name.to_owned());
                 }
             }
             if let Some(stat) = layer_stat(layer) {
@@ -629,7 +645,7 @@ fn tooltip_setups(
                         Some(GuideSpec::Full(options)) => options.title.clone(),
                         _ => None,
                     };
-                    let label = match aesthetic {
+                    let label = match oriented(aesthetic) {
                         Aesthetic::X => titles.x.clone(),
                         Aesthetic::Y => titles.y.clone(),
                         _ if aesthetic.kind().style().is_some() => guide_title.or_else(|| {
@@ -949,7 +965,12 @@ impl PreparedPlot {
                 x_scale: horizontal,
                 y_scale: vertical,
                 coord: self.coord,
-                flipped: self.flipped,
+                flipped: self.flipped != layer.y_oriented,
+            };
+            // A y-oriented layer's data x is on the y scale.
+            let (tile_x, tile_y) = match layer.y_oriented {
+                true => (tile_y, tile_x),
+                false => (tile_x, tile_y),
             };
             let behavior = layer.geom.tooltip_behavior();
             let Some(lookup) = behavior.lookup else {
@@ -976,7 +997,7 @@ impl PreparedPlot {
                 bindings: &setup.bindings,
                 labels: &setup.labels,
                 columns: &layer.tooltip_columns,
-                flipped: self.flipped,
+                flipped: panel.flipped,
                 axis_labels,
             };
             let content = layer_content(&source, &layer.path, notes);
@@ -1083,7 +1104,9 @@ impl PreparedPlot {
                     styles: &layer.styles,
                     parameters: Parameters::new(&layer.options, &layer.path),
                 };
-                layer.geom.draw(&draw_layer, panel)
+                layer
+                    .geom
+                    .draw(&draw_layer, &panel.oriented(layer.y_oriented))
             });
             let mut layer_nodes = Vec::new();
             for nodes in drawn {
@@ -1194,6 +1217,10 @@ fn train_positions(
                 continue;
             }
             if let Some(column) = data.continuous(aesthetic) {
+                let aesthetic = match layer.y_oriented {
+                    true => aesthetic.flip_orientation(),
+                    false => aesthetic,
+                };
                 if aesthetic.is_x_position() {
                     x_scale.train(column);
                 } else if aesthetic.is_y_position() {
@@ -1249,6 +1276,7 @@ fn split_layer<'a>(layer: &MappedLayer<'a>, rows: &[u32]) -> MappedLayer<'a> {
             .collect(),
         stat_mappings: layer.stat_mappings.clone(),
         temporal: layer.temporal.clone(),
+        y_oriented: layer.y_oriented,
         group_index,
         group_rank,
         facet_columns: Vec::new(),
@@ -1377,7 +1405,7 @@ fn merge_tile_warnings(warnings: Vec<String>) -> Vec<String> {
 /// Title, subtitle and axis titles. Axis titles follow lets-plot: `labs(x=...)`
 /// first, then the scale's `name`, otherwise `defaultScaleName` (see
 /// [`default_axis_title`]).
-fn plot_titles(spec: &PlotSpec, scales: &PositionScales) -> Titles {
+fn plot_titles(spec: &PlotSpec, scales: &PositionScales, orientations: &[bool]) -> Titles {
     let axis_title = |aesthetic: Aesthetic, scale_name: &Option<String>| {
         let from_labs = match spec.guides.get(aesthetic.as_str()) {
             Some(GuideSpec::Full(options)) => options.title.clone(),
@@ -1385,7 +1413,7 @@ fn plot_titles(spec: &PlotSpec, scales: &PositionScales) -> Titles {
         };
         from_labs
             .or_else(|| scale_name.clone())
-            .unwrap_or_else(|| default_scale_name(spec, aesthetic))
+            .unwrap_or_else(|| default_scale_name(spec, aesthetic, orientations))
     };
     let title = spec.ggtitle.as_ref();
     Titles {
@@ -1399,9 +1427,14 @@ fn plot_titles(spec: &PlotSpec, scales: &PositionScales) -> Titles {
 /// lets-plot `PlotConfigUtil.defaultScaleName`: the distinct columns mapped to the
 /// aesthetic across layers, ignoring one named like the aesthetic. None -> the
 /// aesthetic name; several -> joined with ", " (the aesthetic name for x and y).
-fn default_scale_name(spec: &PlotSpec, aesthetic: Aesthetic) -> String {
+fn default_scale_name(spec: &PlotSpec, aesthetic: Aesthetic, orientations: &[bool]) -> String {
     let mut labels: Vec<String> = Vec::new();
-    for layer in &spec.layers {
+    for (index, layer) in spec.layers.iter().enumerate() {
+        // A y-oriented layer's stat maps its variables to the swapped aesthetic.
+        let stat_aesthetic = match orientations.get(index).copied().unwrap_or(false) {
+            true => aesthetic.flip_orientation(),
+            false => aesthetic,
+        };
         let (mapping, inherited) = merged_mapping(spec, layer);
         let label = discrete_annotation(spec, layer, aesthetic, inherited.contains(&aesthetic))
             .and_then(|annotation| annotation.parameters.label.clone());
@@ -1417,7 +1450,7 @@ fn default_scale_name(spec: &PlotSpec, aesthetic: Aesthetic) -> String {
             None => layer_stat(layer).and_then(|stat| {
                 stat.default_mapping()
                     .iter()
-                    .find(|(mapped, _)| *mapped == aesthetic)
+                    .find(|(mapped, _)| *mapped == stat_aesthetic)
                     .map(|(_, computed)| computed.as_str().to_owned())
             }),
         };
@@ -1485,6 +1518,8 @@ struct PreparedLayer {
     trains_unadjusted: bool,
     /// See [`ComputedLayer::y_span`].
     y_span: Option<(f64, f64)>,
+    /// See [`ComputedLayer::y_oriented`].
+    y_oriented: bool,
     styles: Styles,
     /// `show_legend` (default: the geom's).
     show_legend: bool,
@@ -1650,6 +1685,7 @@ fn map_layer_into<'a>(
             .map(|(_, column)| column)
             .collect(),
     };
+    let y_oriented = layer_orientation(geom, stat, &options, &columns, &at("orientation"))?;
     let unbound = columns.is_empty();
     // A layer without data columns is drawn in every panel.
     let facet_columns = facet_variables
@@ -1705,12 +1741,53 @@ fn map_layer_into<'a>(
         columns,
         stat_mappings,
         temporal,
+        y_oriented,
         group_index,
         group_rank: None,
         facet_columns,
         tooltip_columns,
         warnings: std::mem::take(warnings),
     })
+}
+
+/// Whether a layer runs in y orientation (lets-plot `LayerConfig.initYOrientation`):
+/// `orientation="y"`, or, without the option, a counting or distribution layer
+/// (count, summary, boxplot, ydensity stats; bar, violin, sina geoms) with a
+/// discrete y and a non-discrete x. Such a layer computes and draws with x and y
+/// swapped (see [`Aesthetic::flip_orientation`]): `geom_bar(aes(y="g"))` draws
+/// horizontal bars. Geoms that read `orientation` themselves are left alone.
+fn layer_orientation(
+    geom: &dyn Geom,
+    stat: &dyn Stat,
+    options: &Options,
+    columns: &[(Aesthetic, Column, String)],
+    path: &str,
+) -> Result<bool> {
+    // A geom that reads the option itself (brackets) handles it.
+    if geom.parameters().contains(&"orientation") {
+        return Ok(false);
+    }
+    match options.get("orientation") {
+        None | Some(Value::Null) => {}
+        Some(Value::String(text)) if text.eq_ignore_ascii_case("x") => return Ok(false),
+        Some(Value::String(text)) if text.eq_ignore_ascii_case("y") => return Ok(true),
+        Some(other) => {
+            return Err(Error::spec(
+                path,
+                format!("orientation must be 'x' or 'y', got {other}"),
+            ));
+        }
+    }
+    let auto = matches!(
+        stat.name(),
+        "count" | "summary" | "boxplot" | "boxplot_outlier" | "ydensity"
+    ) || matches!(geom.name(), "bar" | "violin" | "sina");
+    let discrete = |wanted: Aesthetic| {
+        columns.iter().any(|(aesthetic, column, _)| {
+            *aesthetic == wanted && matches!(column, Column::Discrete(_))
+        })
+    };
+    Ok(auto && !discrete(Aesthetic::X) && discrete(Aesthetic::Y))
 }
 
 /// A layer after [`map_layer`].
@@ -1731,6 +1808,8 @@ struct MappedLayer<'a> {
     /// Position aesthetics mapped to date-time columns (series type `datetime`,
     /// `date` or `time`): their axes get date-time breaks.
     temporal: Vec<(Aesthetic, TemporalKind)>,
+    /// `orientation="y"` (see [`layer_orientation`]).
+    y_oriented: bool,
     group_index: Option<Vec<u32>>,
     /// A facet panel's groups: each group's rank in the whole layer (see
     /// [`split_layer`]); `None` without facets.
@@ -1808,6 +1887,7 @@ fn compute_layer(
         row_count,
         columns,
         stat_mappings,
+        y_oriented,
         group_index,
         group_rank,
         tooltip_columns,
@@ -1815,7 +1895,15 @@ fn compute_layer(
         ..
     } = layer;
     let at = |key: &str| format!("{path}.{key}");
+    // A y-oriented layer computes with x and y swapped (lets-plot flips the
+    // aesthetics around the stat, position and geom): `oriented` maps between
+    // the plot's aesthetics and the layer's.
+    let oriented = |aesthetic: Aesthetic| match y_oriented {
+        true => aesthetic.flip_orientation(),
+        false => aesthetic,
+    };
     let scale_of = |aesthetic: Aesthetic| {
+        let aesthetic = oriented(aesthetic);
         if aesthetic.is_x_position() {
             Some(x_scale)
         } else if aesthetic.is_y_position() {
@@ -1824,9 +1912,25 @@ fn compute_layer(
             None
         }
     };
+    let swapped_context;
+    let context = match y_oriented {
+        true => {
+            swapped_context = StatContext {
+                x_range: context.y_range,
+                y_range: context.x_range,
+            };
+            &swapped_context
+        }
+        false => context,
+    };
+    let (x_discrete, y_discrete) = match y_oriented {
+        true => (y_scale.is_discrete(), x_scale.is_discrete()),
+        false => (x_scale.is_discrete(), y_scale.is_discrete()),
+    };
     let mut layer_data = LayerData::new(row_count);
     let mut mapping_paths = BTreeMap::new();
     for (aesthetic, column, mapping_path) in columns {
+        let aesthetic = oriented(aesthetic);
         let column = match scale_of(aesthetic) {
             Some(scale) => scale
                 .positions(column)
@@ -1844,12 +1948,12 @@ fn compute_layer(
             continue;
         }
         let parameters = Parameters::new(&options, &path);
-        if let Some(value) = parameters.number(aesthetic.as_str())? {
+        if let Some(value) = parameters.number(oriented(aesthetic).as_str())? {
             let column = ContinuousColumn::from_values(vec![value; layer_data.row_count()]);
             let column = match scale_of(aesthetic) {
                 Some(scale) => scale
                     .positions(Column::Continuous(column))
-                    .map_err(|message| Error::spec(at(aesthetic.as_str()), message))?,
+                    .map_err(|message| Error::spec(at(oriented(aesthetic).as_str()), message))?,
                 None => Column::Continuous(column),
             };
             layer_data.insert(aesthetic, column)?;
@@ -1864,6 +1968,7 @@ fn compute_layer(
             stat.required_aesthetics(),
             &layer_data,
             &path,
+            y_oriented,
         )?;
         if !spec.na_rm.unwrap_or(false) {
             report_missing_values(
@@ -1884,7 +1989,7 @@ fn compute_layer(
             .collect()
     });
     let mut layer_data = stat.compute(layer_data, &parameters, context)?;
-    layer_data.set_discrete_axes(x_scale.is_discrete(), y_scale.is_discrete());
+    layer_data.set_discrete_axes(x_discrete, y_discrete);
     if let (Some(visited), Some(rank)) = (&visited, &group_rank) {
         regroup_by_rank(&mut layer_data, visited, rank)?;
     }
@@ -1894,6 +1999,7 @@ fn compute_layer(
     // for aesthetics the layer leaves to it (lets-plot replaces a mapped column
     // there too).
     for (aesthetic, computed, mapping_path) in stat_mappings.iter() {
+        let aesthetic = &oriented(*aesthetic);
         let column = layer_data.get(*computed).cloned().ok_or_else(|| {
             Error::spec(
                 mapping_path,
@@ -1911,7 +2017,7 @@ fn compute_layer(
     for (aesthetic, computed) in stat.default_mapping() {
         if stat_mappings
             .iter()
-            .any(|(mapped, _, _)| mapped == aesthetic)
+            .any(|(mapped, _, _)| oriented(*mapped) == *aesthetic)
         {
             continue;
         }
@@ -1953,10 +2059,15 @@ fn compute_layer(
         geom.required_aesthetics(),
         &layer_data,
         &path,
+        y_oriented,
     )?;
     let layer_data = geom.setup(layer_data, &parameters)?;
     let x_span = setup_span(geom, &layer_data, Aesthetic::is_x_position);
     let y_span = setup_span(geom, &layer_data, Aesthetic::is_y_position);
+    let (x_span, y_span) = match y_oriented {
+        true => (y_span, x_span),
+        false => (x_span, y_span),
+    };
     // Tooltips show values before the position adjustment (lets-plot adjusts
     // positions while drawing). Columns are shared, so this costs no copy.
     let unadjusted = layer_data.clone();
@@ -1993,6 +2104,7 @@ fn compute_layer(
         trains_unadjusted,
         x_span,
         y_span,
+        y_oriented,
         mapping_paths,
         show_legend: spec.show_legend.unwrap_or(geom.shows_legend()),
         warnings,
@@ -2018,6 +2130,9 @@ struct ComputedLayer {
     x_span: Option<(f64, f64)>,
     /// The same for y (ridge heights).
     y_span: Option<(f64, f64)>,
+    /// The data holds x and y swapped (see [`layer_orientation`]): drawn with the
+    /// panel's flip toggled, trained on the other axis.
+    y_oriented: bool,
     /// Where each mapped aesthetic was mapped, for error messages.
     mapping_paths: BTreeMap<Aesthetic, String>,
     /// `show_legend` (default: the geom's).
@@ -2055,6 +2170,7 @@ fn style_layer(
             unadjusted: layer.unadjusted,
             tooltip_columns: layer.tooltip_columns,
             x_span: layer.x_span,
+            y_oriented: layer.y_oriented,
             trains_unadjusted: layer.trains_unadjusted,
             y_span: layer.y_span,
             styles,
@@ -2500,30 +2616,38 @@ fn layer_positions(
 
 /// Error unless every aesthetic in `required` has a column (mapped, constant or
 /// computed). `owner` names who needs them, e.g. `geom_bar`.
+/// `y_oriented`: `data` holds x and y swapped (see [`layer_orientation`]); the
+/// message names the user's aesthetics.
 fn require_aesthetics(
     owner: &str,
     required: &[Aesthetic],
     data: &LayerData,
     path: &str,
+    y_oriented: bool,
 ) -> Result<()> {
+    let name = |aesthetic: &Aesthetic| match y_oriented {
+        true => aesthetic.flip_orientation().as_str(),
+        false => aesthetic.as_str(),
+    };
     let missing: Vec<&str> = required
         .iter()
         .filter(|aesthetic| !data.contains(**aesthetic))
-        .map(|aesthetic| aesthetic.as_str())
+        .map(name)
         .collect();
     if missing.is_empty() {
         return Ok(());
     }
+    let orientation = if y_oriented {
+        " with orientation='y'"
+    } else {
+        ""
+    };
     Err(Error::spec(
         path,
         format!(
-            "{owner} requires aesthetics {} (mapped to columns or given as \
+            "{owner} requires aesthetics {}{orientation} (mapped to columns or given as \
          constants); missing: {}",
-            required
-                .iter()
-                .map(|aesthetic| aesthetic.as_str())
-                .collect::<Vec<_>>()
-                .join(", "),
+            required.iter().map(name).collect::<Vec<_>>().join(", "),
             missing.join(", ")
         ),
     ))
@@ -2625,6 +2749,8 @@ fn validate_parameters(
                 .iter()
                 .map(|(aesthetic, _)| aesthetic.as_str()),
         )
+        // Every layer: see `layer_orientation`.
+        .chain(["orientation"])
         // Constant positions: geom_point(x=1.5).
         .chain(
             geom.required_aesthetics()
@@ -3131,7 +3257,7 @@ fn key_styles(layer: &PreparedLayer, values: &[(Aesthetic, &StyleValues)]) -> Re
 fn legend_title(spec: &PlotSpec, aesthetic: Aesthetic, scale: Option<&StyleScaleSpec>) -> String {
     scale
         .and_then(|scale| scale.name.clone())
-        .unwrap_or_else(|| default_scale_name(spec, aesthetic))
+        .unwrap_or_else(|| default_scale_name(spec, aesthetic, &[]))
 }
 
 /// Style values per aesthetic: mapped column (through its style scale) -> constant

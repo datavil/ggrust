@@ -72,7 +72,7 @@ def stat_summary(
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
     orientation : str, optional
-        ``"y"`` summarises x per y; not supported yet (ggrust warns).
+        ``"y"`` summarises x per y (a discrete y and a continuous x pick it by default).
     fun : {"count", "sum", "mean", "median", "min", "max", "lq", "mq", "uq"}, default="mean"
         Aggregate for ``y``. ``lq``, ``mq`` and ``uq`` are the three ``quantiles``.
     fun_min : str, default="min"
@@ -182,7 +182,7 @@ def stat_summary_bin(
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
     orientation : str, optional
-        ``"y"`` bins y instead; not supported yet (ggrust warns).
+        ``"y"`` bins y and summarises x per bin.
     fun : str, default="mean"
         Aggregate for ``y``; see ``stat_summary``.
     fun_min : str, default="min"
@@ -292,7 +292,7 @@ def stat_ecdf(
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
     orientation : str, optional
-        ``"y"`` uses y instead of x; not supported yet (ggrust warns).
+        ``"y"`` uses y instead of x.
     n : int, optional
         Number of evenly spaced points from the smallest to the largest x; None uses
         every distinct x.

@@ -397,7 +397,7 @@ def geom_freqpoly(
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
     orientation : str, optional
-        ``"y"`` bins y instead of x; not supported yet (ggrust warns).
+        ``"y"`` bins y instead of x.
     color_by : str, optional
         Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
     na_rm : bool, optional
@@ -1447,7 +1447,7 @@ def geom_bar(
     labels : list or dict, optional
         Texts at the breaks: a list, or a dict of break values to texts.
     orientation : str, optional
-        Set to ``"y"`` to draw the geom along the y axis.
+        ``"y"`` draws along the y axis; a discrete y with a continuous x picks it by default.
     color_by : str, optional
         Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
     fill_by : str, optional
@@ -1641,7 +1641,7 @@ def geom_boxplot(
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
     orientation : str, optional
-        Set to ``"y"`` to draw the geom along the y axis.
+        ``"y"`` draws along the y axis; a discrete y with a continuous x picks it by default.
     fatten : float, optional
         Multiplier of the median line width.
     outlier_shape : int or str, optional
@@ -1777,7 +1777,7 @@ def geom_violin(
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
     orientation : str, optional
-        Set to ``"y"`` to draw the geom along the y axis.
+        ``"y"`` draws along the y axis; a discrete y with a continuous x picks it by default.
     show_half : float, optional
         Draw only half of each violin: ``-1`` left, ``1`` right, ``0`` both.
     quantiles : list of float, optional
@@ -1903,7 +1903,7 @@ def geom_sina(
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
     orientation : str, optional
-        Set to ``"y"`` to draw the geom along the y axis.
+        ``"y"`` draws along the y axis; a discrete y with a continuous x picks it by default.
     seed : int, optional
         Random seed, for reproducible results.
     show_half : float, optional
@@ -2025,7 +2025,7 @@ def geom_density(
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
     orientation : str, optional
-        ``"y"`` estimates the density of ``y``; not supported yet (ggrust warns).
+        ``"y"`` estimates the density of ``y``.
     trim : bool, default=False
         True evaluates the density over the group's data range only; otherwise over
         the x range of every layer.
@@ -2149,7 +2149,7 @@ def geom_smooth(
         lets_plot's model summary annotation (``smooth_labels()``); not supported yet
         (ggrust warns).
     orientation : str, optional
-        ``"y"`` smooths x along y; not supported yet (ggrust warns).
+        ``"y"`` smooths x along y.
     method : {"lm", "loess", "lowess"}, default="lm"
         Fitting method: least squares (``"lm"``) or local regression (``"loess"``,
         ``"lowess"``).

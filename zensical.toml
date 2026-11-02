@@ -97,6 +97,8 @@ nav = [
       "reference/api/geom_linerange.md",
       "reference/api/geom_pointrange.md",
       "reference/api/geom_tile.md",
+      "reference/api/geom_bin2d.md",
+      "reference/api/geom_hex.md",
       "reference/api/geom_raster.md",
       "reference/api/geom_imshow.md",
       "reference/api/geom_text.md",

@@ -2,8 +2,8 @@
 //! `LegendBreak`, `LegendBoxesLayoutUtil`).
 //!
 //! A [`Legend`] is a title plus keys; each key draws one entry per layer through
-//! its geom. Keys are at least `legend_key_size` square (lets-plot rounds a geom's
-//! minimum key size up to an odd number + 1). Keys fill a grid: by default up to 15
+//! its geom. Keys are at least `legend_key_width` x `legend_key_height` (lets-plot
+//! rounds a geom's minimum key size up to an odd number + 1). Keys fill a grid: by default up to 15
 //! rows per column (vertical legends) or 5 columns per row (horizontal legends),
 //! or as `guide_legend(ncol, nrow, byrow)` asks. Horizontal legends put the title
 //! at the left. Several legends stack vertically, or side by side with
@@ -583,13 +583,13 @@ fn measure_legend<'a>(
         let mut size = (0.0_f64, 0.0_f64);
         for layer in &key.layers {
             let (width, height) = layer.geom.minimum_key_size(&layer.styles)?;
-            size.0 = size.0.max(theme.legend_key_size.max(pretty(width)));
-            size.1 = size.1.max(theme.legend_key_size.max(pretty(height)));
+            size.0 = size.0.max(theme.legend_key_size.0.max(pretty(width)));
+            size.1 = size.1.max(theme.legend_key_size.1.max(pretty(height)));
         }
         key_sizes.push(size);
     }
     if hidden > 0 {
-        key_sizes.push((theme.legend_key_size, theme.legend_key_size));
+        key_sizes.push(theme.legend_key_size);
     }
     // lets-plot: every key as tall as the tallest in a horizontal legend, as wide as
     // the widest in a vertical one.

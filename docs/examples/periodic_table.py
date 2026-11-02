@@ -123,10 +123,11 @@ plot = (
     + scale_y_reverse()
     + scale_fill_brewer(name="", type="qual", palette="Set2", guide=guide_legend(ncol=2))
     + coord_fixed(ratio=1.2)
-    + labs(title="Periodic Table of Chemical Elements")
+    + labs(title="Periodic Table of Chemical Elements", caption="© 1869, Dmitri Mendeleev")
     + theme_void()
     + theme(
-        plot_title=element_text(size=26, face="bold", hjust=0.5),
+        plot_title=element_text(size=26, face="bold", hjust=0.5, margin=[30, 0, 5, 0]),
+        plot_caption=element_text(size=18),
         plot_background=element_rect(color="black", size=3),
         legend_position=[0.36, 0.85],
         legend_background="blank",

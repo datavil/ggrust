@@ -6,9 +6,10 @@
 //! element resolved through lets-plot's inheritance chains (`axis_text_x` <-
 //! `axis_text` <- `text` ...). Layout and drawing read only this struct.
 //!
-//! What it does not do (yet): line types, text margins other than on strips, text
-//! angles and vertical justification other than on axis labels and titles, and the vertical
-//! strips of `facet_grid`; options that set them are reported as warnings.
+//! What it does not do (yet): text margins other than on strips and plot and axis
+//! titles, text angles and vertical justification other than on axis labels and
+//! titles, and the vertical strips of `facet_grid`; options that set them are
+//! reported as warnings.
 
 mod values;
 
@@ -18,6 +19,7 @@ use values::{Paint, Props, Values, theme_values};
 
 use crate::scene::{Color, Stroke};
 use crate::spec::{ThemeSpec, ThemeValue, Value};
+use crate::style::LineType;
 use crate::text::{Font, FontFace, FontFamily};
 use crate::{Error, Result};
 
@@ -51,12 +53,52 @@ pub struct LineStyle {
     pub color: Color,
     /// Line width in pixels.
     pub width: f64,
+    /// Dash pattern (`linetype=`).
+    pub dash: Dash,
 }
 
 impl LineStyle {
-    /// As a solid stroke.
+    /// As a stroke: the dash pattern scales with the width, as geom line types.
     pub fn stroke(self) -> Stroke {
-        Stroke::solid(self.color, self.width)
+        Stroke {
+            dash: self
+                .dash
+                .lengths()
+                .iter()
+                .map(|length| length * self.width)
+                .collect(),
+            ..Stroke::solid(self.color, self.width)
+        }
+    }
+}
+
+/// Dash pattern of a theme line in units of its width (lets-plot line types:
+/// codes, names or a dash list of at most [`Dash::MAX`] numbers). Empty is solid.
+/// Fixed size so styles stay `Copy`.
+#[derive(Debug, Clone, Copy, PartialEq, Default)]
+pub struct Dash {
+    lengths: [f64; Dash::MAX],
+    count: usize,
+}
+
+impl Dash {
+    /// Longest dash list a theme line takes.
+    pub const MAX: usize = 8;
+
+    /// A pattern from a line type (see [`LineType`]); `None` if longer than [`Dash::MAX`].
+    pub fn new(linetype: &LineType) -> Option<Dash> {
+        let mut dash = Dash::default();
+        if linetype.0.len() > Dash::MAX {
+            return None;
+        }
+        dash.lengths[..linetype.0.len()].copy_from_slice(&linetype.0);
+        dash.count = linetype.0.len();
+        Some(dash)
+    }
+
+    /// Dash and gap lengths, in units of the line width.
+    pub fn lengths(&self) -> &[f64] {
+        &self.lengths[..self.count]
     }
 }
 
@@ -121,6 +163,15 @@ pub enum LegendPosition {
     Inside(f64, f64),
 }
 
+/// What a plot title or caption is justified along (lets-plot `TitlePosition`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TitlePosition {
+    /// The panels (lets-plot's default).
+    Panel,
+    /// The whole plot, inside its margin.
+    Plot,
+}
+
 /// Direction of legend keys (`legend_direction`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LegendDirection {
@@ -162,18 +213,33 @@ pub struct Theme {
     pub plot_title: Option<TextStyle>,
     /// Plot subtitle.
     pub plot_subtitle: Option<TextStyle>,
-    /// Space above the subtitle (its top margin).
-    pub plot_subtitle_margin_top: f64,
+    /// Space around the title (`plot_title` margins).
+    pub plot_title_margin: Margins,
+    /// Space around the subtitle (`plot_subtitle` margins; 4 px on top by default).
+    pub plot_subtitle_margin: Margins,
+    /// Plot caption, below everything (`plot_caption`).
+    pub plot_caption: Option<TextStyle>,
+    /// Space around the caption (`plot_caption` margins).
+    pub plot_caption_margin: Margins,
+    /// What the title and subtitle are justified along (`plot_title_position`).
+    pub plot_title_position: TitlePosition,
+    /// What the caption is justified along (`plot_caption_position`).
+    pub plot_caption_position: TitlePosition,
     /// x axis title.
     pub axis_title_x: Option<TextStyle>,
     /// y axis title.
     pub axis_title_y: Option<TextStyle>,
+    /// Space around the x axis title; only top and bottom are used, as lets-plot.
+    pub axis_title_x_margin: Margins,
+    /// Space around the y axis title; only left and right are used.
+    pub axis_title_y_margin: Margins,
     /// x tick labels.
     pub axis_text_x: Option<TextStyle>,
     /// y tick labels.
     pub axis_text_y: Option<TextStyle>,
-    /// Space between ticks and their labels (`axis_text_spacing`).
-    pub axis_text_spacing: f64,
+    /// Space between ticks and their labels, x and y axis (`axis_text_spacing_x`,
+    /// `axis_text_spacing_y`, `axis_text_spacing`).
+    pub axis_text_spacing: (f64, f64),
     /// Space between the y title and the y labels (ggrust: lets-plot gets it from
     /// its baseline placement).
     pub axis_title_spacing: f64,
@@ -181,8 +247,9 @@ pub struct Theme {
     pub axis_ticks_x: Option<LineStyle>,
     /// y ticks.
     pub axis_ticks_y: Option<LineStyle>,
-    /// Tick length (`axis_ticks_length`).
-    pub axis_ticks_length: f64,
+    /// Tick length, x and y axis (`axis_ticks_length_x`, `axis_ticks_length_y`,
+    /// `axis_ticks_length`).
+    pub axis_ticks_length: (f64, f64),
     /// x axis line.
     pub axis_line_x: Option<LineStyle>,
     /// y axis line.
@@ -210,8 +277,9 @@ pub struct Theme {
     pub legend_key_background: Option<RectStyle>,
     /// Inner padding of a legend box (`legend_margin`).
     pub legend_margin: Margins,
-    /// Smallest key cell, square (`legend_key_size`).
-    pub legend_key_size: f64,
+    /// Smallest key cell, width and height (`legend_key_width`,
+    /// `legend_key_height`, `legend_key_size`).
+    pub legend_key_size: (f64, f64),
     /// Space between key cells (`legend_key_spacing`), horizontal and vertical.
     pub legend_key_spacing: (f64, f64),
     /// Space between legend boxes (`legend_spacing`), horizontal and vertical.
@@ -269,10 +337,14 @@ const BUILT_OPTIONS: &[&str] = &[
     "axis_text_x",
     "axis_text_y",
     "axis_text_spacing",
+    "axis_text_spacing_x",
+    "axis_text_spacing_y",
     "axis_ticks",
     "axis_ticks_x",
     "axis_ticks_y",
     "axis_ticks_length",
+    "axis_ticks_length_x",
+    "axis_ticks_length_y",
     "axis_line",
     "axis_line_x",
     "axis_line_y",
@@ -290,6 +362,9 @@ const BUILT_OPTIONS: &[&str] = &[
     "plot_background",
     "plot_title",
     "plot_subtitle",
+    "plot_caption",
+    "plot_title_position",
+    "plot_caption_position",
     "plot_margin",
     "plot_inset",
     "legend_background",
@@ -304,6 +379,8 @@ const BUILT_OPTIONS: &[&str] = &[
     "legend_spacing_x",
     "legend_spacing_y",
     "legend_key_size",
+    "legend_key_width",
+    "legend_key_height",
     "legend_key_spacing",
     "legend_key_spacing_x",
     "legend_key_spacing_y",
@@ -330,11 +407,18 @@ impl Theme {
     pub fn flipped(&self) -> Theme {
         let mut theme = self.clone();
         std::mem::swap(&mut theme.axis_title_x, &mut theme.axis_title_y);
+        std::mem::swap(
+            &mut theme.axis_title_x_margin,
+            &mut theme.axis_title_y_margin,
+        );
         std::mem::swap(&mut theme.axis_text_x, &mut theme.axis_text_y);
         std::mem::swap(&mut theme.axis_ticks_x, &mut theme.axis_ticks_y);
         std::mem::swap(&mut theme.axis_line_x, &mut theme.axis_line_y);
         std::mem::swap(&mut theme.panel_grid_major_x, &mut theme.panel_grid_major_y);
         std::mem::swap(&mut theme.panel_grid_minor_x, &mut theme.panel_grid_minor_y);
+        let swap = |(x, y): (f64, f64)| (y, x);
+        theme.axis_text_spacing = swap(theme.axis_text_spacing);
+        theme.axis_ticks_length = swap(theme.axis_ticks_length);
         theme
     }
 
@@ -374,10 +458,21 @@ fn report_unbuilt(spec: &ThemeSpec, warnings: &mut Vec<String>) {
         // Axis titles read angle and vjust (layout `axis_title_justification`):
         // turned by the angle, vjust moves a title along its axis.
         let axis_title = matches!(key.as_str(), "axis_title" | "axis_title_x" | "axis_title_y");
-        // Strip labels read their margins (layout/facet.rs).
-        let strip_text = matches!(key.as_str(), "strip_text" | "strip_text_x");
+        // Strip labels (layout/facet.rs), plot and axis titles and captions read
+        // their margins.
+        let strip_text = matches!(
+            key.as_str(),
+            "strip_text"
+                | "strip_text_x"
+                | "title"
+                | "plot_title"
+                | "plot_subtitle"
+                | "plot_caption"
+                | "axis_title"
+                | "axis_title_x"
+                | "axis_title_y"
+        );
         let unbuilt = [
-            ("linetype", element.linetype.is_some()),
             ("margin", element.margin.is_some() && !strip_text),
             (
                 "vjust",
@@ -465,6 +560,7 @@ impl Resolver<'_> {
         Some(LineStyle {
             color: self.color(props.color).unwrap_or(INK),
             width: props.size.unwrap_or(1.0),
+            dash: dash(&props),
         })
     }
 
@@ -476,6 +572,7 @@ impl Resolver<'_> {
             border: (width > 0.0).then(|| LineStyle {
                 color: self.color(props.color).unwrap_or(INK),
                 width,
+                dash: dash(&props),
             }),
         })
     }
@@ -534,10 +631,8 @@ impl Resolver<'_> {
         let legend_ticks = self.props(&["legend_ticks"]).map(|props| LineStyle {
             color: self.color(props.color).unwrap_or(tick_default),
             width: props.size.unwrap_or(1.0),
+            dash: dash(&props),
         });
-        let subtitle_margin = self
-            .values
-            .element_props(&["plot_subtitle", "title", "text"]);
         let strip_text = self.text(&["strip_text_x", "strip_text", "text"]);
         Ok(Theme {
             plot_margin: self.margins(&["plot_margin"], 3.0),
@@ -545,16 +640,41 @@ impl Resolver<'_> {
             plot_background: self.rect(&["plot_background", "rect"]),
             plot_title: self.text(&["plot_title", "title", "text"]),
             plot_subtitle: self.text(&["plot_subtitle", "title", "text"]),
-            plot_subtitle_margin_top: subtitle_margin.margin[0].unwrap_or(0.0),
+            plot_title_margin: self.margins(&["plot_title", "title", "text"], 0.0),
+            plot_subtitle_margin: self.margins(&["plot_subtitle", "title", "text"], 0.0),
+            plot_caption: self.text(&["plot_caption", "title", "text"]),
+            plot_caption_margin: self.margins(&["plot_caption", "title", "text"], 0.0),
+            plot_title_position: title_position(
+                "plot_title_position",
+                self.values.value_of(&["plot_title_position"]),
+            )?,
+            plot_caption_position: title_position(
+                "plot_caption_position",
+                self.values.value_of(&["plot_caption_position"]),
+            )?,
             axis_title_x: self.text(&[&title_x, "axis_title", "title", "text", &axis_x, "axis"]),
             axis_title_y: self.text(&[&title_y, "axis_title", "title", "text", &axis_y, "axis"]),
+            axis_title_x_margin: self.margins(
+                &[&title_x, "axis_title", "title", "text", &axis_x, "axis"],
+                0.0,
+            ),
+            axis_title_y_margin: self.margins(
+                &[&title_y, "axis_title", "title", "text", &axis_y, "axis"],
+                0.0,
+            ),
             axis_text_x: self.text(&[&text_x, "axis_text", "text", &axis_x, "axis"]),
             axis_text_y: self.text(&[&text_y, "axis_text", "text", &axis_y, "axis"]),
-            axis_text_spacing: self.number(&["axis_text_spacing"], 2.0)?,
+            axis_text_spacing: (
+                self.number(&["axis_text_spacing_x", "axis_text_spacing"], 2.0)?,
+                self.number(&["axis_text_spacing_y", "axis_text_spacing"], 2.0)?,
+            ),
             axis_title_spacing: 3.0,
             axis_ticks_x: self.line(&[&ticks_x, "axis_ticks", &axis_x, "axis", "line"]),
             axis_ticks_y: self.line(&[&ticks_y, "axis_ticks", &axis_y, "axis", "line"]),
-            axis_ticks_length: self.number(&["axis_ticks_length"], 4.0)?,
+            axis_ticks_length: (
+                self.number(&["axis_ticks_length_x", "axis_ticks_length"], 4.0)?,
+                self.number(&["axis_ticks_length_y", "axis_ticks_length"], 4.0)?,
+            ),
             axis_line_x: self.line(&[&line_x, "axis_line", &axis_x, "axis", "line"]),
             axis_line_y: self.line(&[&line_y, "axis_line", &axis_y, "axis", "line"]),
             panel_grid_major_x: self.line(&as_refs(&grid("major", "x"))),
@@ -576,7 +696,10 @@ impl Resolver<'_> {
                     })
             }),
             legend_margin: self.margins(&["legend_margin"], 5.0),
-            legend_key_size: self.number(&["legend_key_size"], 23.0)?,
+            legend_key_size: (
+                self.number(&["legend_key_width", "legend_key_size"], 23.0)?,
+                self.number(&["legend_key_height", "legend_key_size"], 23.0)?,
+            ),
             legend_key_spacing: (
                 self.number(&["legend_key_spacing_x", "legend_key_spacing"], 0.0)?,
                 self.number(&["legend_key_spacing_y", "legend_key_spacing"], 0.0)?,
@@ -719,6 +842,29 @@ fn legend_justification(value: Option<&Value>) -> Result<(f64, f64)> {
     })
 }
 
+/// The dash pattern of resolved element properties (validated when the theme
+/// options were read, see `values::user_props`).
+fn dash(props: &Props) -> Dash {
+    props
+        .linetype
+        .as_ref()
+        .and_then(|value| LineType::parse(value).ok())
+        .and_then(|linetype| Dash::new(&linetype))
+        .unwrap_or_default()
+}
+
+fn title_position(key: &str, value: Option<&Value>) -> Result<TitlePosition> {
+    match value {
+        None => Ok(TitlePosition::Panel),
+        Some(Value::String(name)) if name == "panel" => Ok(TitlePosition::Panel),
+        Some(Value::String(name)) if name == "plot" => Ok(TitlePosition::Plot),
+        Some(other) => Err(Error::spec(
+            format!("theme.{key}"),
+            format!("expected 'panel' or 'plot', got {other}"),
+        )),
+    }
+}
+
 fn legend_direction(value: Option<&Value>) -> Result<LegendDirection> {
     match value {
         None => Ok(LegendDirection::Auto),
@@ -777,6 +923,7 @@ mod tests {
         let ink = LineStyle {
             color: INK,
             width: 1.0,
+            dash: Dash::default(),
         };
         assert_eq!(theme.plot_margin, Margins::uniform(3.0));
         assert_eq!(theme.plot_inset, Margins::uniform(3.0));
@@ -788,7 +935,8 @@ mod tests {
             })
         );
         assert_eq!(theme.plot_title.map(|text| text.size), Some(16.0));
-        assert_eq!(theme.plot_subtitle_margin_top, 4.0);
+        assert_eq!(theme.plot_subtitle_margin.top, 4.0);
+        assert_eq!(theme.plot_title_position, TitlePosition::Panel);
         let text_x = theme.axis_text_x.unwrap();
         assert_eq!(
             (text_x.size, text_x.color, text_x.font),
@@ -803,6 +951,7 @@ mod tests {
         let grid = LineStyle {
             color: GRID,
             width: 1.0,
+            dash: Dash::default(),
         };
         assert_eq!(theme.panel_grid_major_x, Some(grid));
         assert_eq!(theme.panel_grid_major_y, Some(grid));
@@ -814,7 +963,8 @@ mod tests {
             theme.legend_ticks,
             Some(LineStyle {
                 color: Color::WHITE,
-                width: 1.0
+                width: 1.0,
+                dash: Dash::default(),
             })
         );
         assert_eq!(theme.legend_position, LegendPosition::Right);
@@ -854,7 +1004,8 @@ mod tests {
             custom.axis_line_y,
             Some(LineStyle {
                 color: Color::rgb(255, 0, 0),
-                width: 1.0
+                width: 1.0,
+                dash: Dash::default(),
             })
         );
         assert_eq!(custom.axis_text_x.unwrap().font.family, FontFamily::Mono);

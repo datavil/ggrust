@@ -364,6 +364,7 @@ impl<'s> PreparedGrid<'s> {
         let titles = Titles {
             title: title.and_then(|title| title.text.clone()),
             subtitle: title.and_then(|title| title.subtitle.clone()),
+            caption: None,
             x: None,
             y: None,
         };

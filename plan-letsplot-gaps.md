@@ -189,8 +189,6 @@ around it, then rebuild with `uv run python docs/build_examples.py`.
 | --- | --- | --- |
 | `geom_curve` (section 1) | `docs/examples/periodic_table.py` | Two key arrows drawn straight with `geom_segment`. lets-plot uses `geom_curve(curvature=.4, ncp=1)` and `geom_curve(curvature=-.4, ncp=1)` for the first and third arrows. |
 | `label_format` (section 7) | `docs/examples/periodic_table.py` | Atomic masses rounded to 3 decimals in `docs/data/make_data.py` (`elements()`). lets-plot uses `label_format=".3~f"` on the mass `geom_text`. |
-| `plot_caption` (section 6) | `docs/examples/periodic_table.py` | Caption dropped. lets-plot: `labs(caption="© 1869, Dmitri Mendeleev")` and `plot_caption=element_text(size=18)`. |
-| `element_text(margin=...)` (section 6) | `docs/examples/periodic_table.py` | Title margin dropped. lets-plot: `plot_title=element_text(..., margin=[30, 0, 5, 0])` (a list, not only the dict form of #1265). |
 
 ## Proposed order
 

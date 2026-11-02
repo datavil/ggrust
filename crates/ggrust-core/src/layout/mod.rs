@@ -48,7 +48,9 @@ pub const AXIS_LABELS_MAX_SHARE: f64 = 0.5;
 pub fn text_band(style: TextStyle) -> f64 {
     measure("", style.size, style.font).height()
 }
-use crate::theme::{LegendPosition, LineStyle, Margins, RectStyle, TextStyle, Theme};
+use crate::theme::{
+    LegendPosition, LineStyle, Margins, RectStyle, TextStyle, Theme, TitlePosition,
+};
 
 /// Plot-level texts. `None` or empty means absent (takes no space).
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -57,6 +59,8 @@ pub struct Titles {
     pub title: Option<String>,
     /// Plot subtitle.
     pub subtitle: Option<String>,
+    /// Plot caption (`labs(caption=...)`).
+    pub caption: Option<String>,
     /// x axis title.
     pub x: Option<String>,
     /// y axis title.
@@ -328,13 +332,13 @@ fn layout_with(
     panel_min_size: f64,
 ) -> PlotLayout {
     let inset = theme.plot_inset;
-    let content = shrink(area, theme.plot_margin);
+    let content = plot_content(area, theme, titles);
 
     let top = content.y + headings_band(theme, titles) + legend_space.top + inset.top;
     let x_axis_band = x_axis_band(labels_height, theme);
     let bottom = content.y + content.height
         - legend_space.bottom
-        - axis_title_band(theme.axis_title_x, &titles.x, 0.0, 0.0)
+        - axis_title_band(theme.axis_title_x, &titles.x, x_title_margin(theme), 0.0)
         - inset.bottom
         - x_axis_band;
     let panel_height = (bottom - top).max(panel_min_size);
@@ -359,7 +363,7 @@ fn layout_with(
         + axis_title_band(
             theme.axis_title_y,
             &titles.y,
-            theme.axis_title_spacing,
+            theme.axis_title_spacing + y_title_margin(theme),
             90.0,
         )
         + inset.left
@@ -395,10 +399,10 @@ fn layout_with(
 
 /// Ticks, spacing and labels below a panel, with labels `labels_height` px tall.
 fn x_axis_band(labels_height: f64, theme: &Theme) -> f64 {
-    tick_band(theme.axis_ticks_x, theme)
+    tick_band(theme.axis_ticks_x, theme.axis_ticks_length.0)
         + theme
             .axis_text_x
-            .map_or(0.0, |_| theme.axis_text_spacing + labels_height)
+            .map_or(0.0, |_| theme.axis_text_spacing.0 + labels_height)
 }
 
 /// Ticks, spacing and labels left of a panel with these y breaks.
@@ -411,10 +415,10 @@ fn y_axis_width(y_breaks: &AxisBreaks, theme: &Theme) -> f64 {
             sizes.iter().map(|(width, _)| *width).fold(0.0, f64::max)
         }
     });
-    tick_band(theme.axis_ticks_y, theme)
+    tick_band(theme.axis_ticks_y, theme.axis_ticks_length.1)
         + theme
             .axis_text_y
-            .map_or(0.0, |_| theme.axis_text_spacing + y_label_width)
+            .map_or(0.0, |_| theme.axis_text_spacing.1 + y_label_width)
 }
 
 /// Space legends of `size` take on each side (lets-plot `PlotLegendsLayoutUtil`):
@@ -504,7 +508,7 @@ pub fn legend_origin(
             panel.y
                 + panel.height
                 + layout.x_axis_band
-                + axis_title_band(theme.axis_title_x, &titles.x, 0.0, 0.0)
+                + axis_title_band(theme.axis_title_x, &titles.x, x_title_margin(theme), 0.0)
                 + inset.bottom
                 + spacing,
         ),
@@ -943,7 +947,9 @@ pub fn draw_axes(
             line,
         ));
     }
-    let x_label_top = bottom + tick_band(theme.axis_ticks_x, theme) + theme.axis_text_spacing;
+    let x_label_top = bottom
+        + tick_band(theme.axis_ticks_x, theme.axis_ticks_length.0)
+        + theme.axis_text_spacing.0;
     let x_rotated = match (theme.axis_text_x, &layout.x_breaks.arrangement) {
         (Some(text), LabelArrangement::Rotated) => {
             rotated::bottom(&label_sizes(&layout.x_breaks.labels, text), text).0
@@ -961,7 +967,7 @@ pub fn draw_axes(
         if let Some(tick) = theme.axis_ticks_x {
             axis_x.push(segment(
                 (x, bottom),
-                (x, bottom + theme.axis_ticks_length),
+                (x, bottom + theme.axis_ticks_length.0),
                 tick,
             ));
         }
@@ -983,7 +989,9 @@ pub fn draw_axes(
     if let Some(line) = theme.axis_line_y {
         axis_y.push(segment((panel.x, panel.y), (panel.x, bottom), line));
     }
-    let y_label_right = panel.x - tick_band(theme.axis_ticks_y, theme) - theme.axis_text_spacing;
+    let y_label_right = panel.x
+        - tick_band(theme.axis_ticks_y, theme.axis_ticks_length.1)
+        - theme.axis_text_spacing.1;
     let y_rotated = match theme.axis_text_y {
         Some(text) if rotated::rotates(text) => {
             rotated::left(&label_sizes(&layout.y_breaks.labels, text), text).0
@@ -1000,7 +1008,7 @@ pub fn draw_axes(
         let y = mapper.y_pixel(*value);
         if let Some(tick) = theme.axis_ticks_y {
             axis_y.push(segment(
-                (panel.x - theme.axis_ticks_length, y),
+                (panel.x - theme.axis_ticks_length.1, y),
                 (panel.x, y),
                 tick,
             ));
@@ -1033,7 +1041,11 @@ pub fn draw_titles(layout: &PlotLayout, theme: &Theme, titles: &Titles) -> Node 
         // Below the x axis, not at the plot edge: they differ only when the panel is
         // at its minimum size and the axis runs past the plot (lets-plot does the same).
         let (along, across) = axis_title_extent(style, title, 0.0);
-        let y = bottom + layout.x_axis_band + theme.plot_inset.bottom + across / 2.0;
+        let y = bottom
+            + layout.x_axis_band
+            + theme.plot_inset.bottom
+            + theme.axis_title_x_margin.top
+            + across / 2.0;
         let x = justified_at(
             panel.x,
             panel.width,
@@ -1066,40 +1078,77 @@ pub fn draw_titles(layout: &PlotLayout, theme: &Theme, titles: &Titles) -> Node 
             title,
             style,
             (
-                content.x + layout.legend_space.left + across / 2.0,
+                content.x
+                    + layout.legend_space.left
+                    + theme.axis_title_y_margin.left
+                    + across / 2.0,
                 panel.y + panel.height - centre,
             ),
             HorizontalAlign::Middle,
             angle,
         ));
     }
+    let span = |position: TitlePosition| match position {
+        TitlePosition::Panel => (panel.x, panel.width),
+        TitlePosition::Plot => (content.x, content.width),
+    };
     titles_nodes.extend(heading_nodes(
         content.y,
-        (panel.x, panel.width),
+        span(theme.plot_title_position),
+        theme,
+        titles,
+    ));
+    titles_nodes.extend(caption_nodes(
+        content.y + content.height,
+        span(theme.plot_caption_position),
         theme,
         titles,
     ));
     role_group("titles", titles_nodes)
 }
 
+/// Height of a plot title, subtitle or caption band: its lines and its top and
+/// bottom margins (lets-plot `PlotLayoutUtil.titleThickness`). Titles may hold
+/// several lines (see [`wrap_headings`]).
+fn heading_band(style: Option<TextStyle>, text: &Option<String>, margin: Margins) -> f64 {
+    match (style, present(text)) {
+        (Some(style), Some(text)) => {
+            let lines = text.matches(LINE_BREAK).count() as f64 + 1.0;
+            text_band(style) * lines + margin.top + margin.bottom
+        }
+        _ => 0.0,
+    }
+}
+
 /// Height of the title and subtitle bands at the top of a figure.
-/// Titles may hold several lines (see [`wrap_headings`]).
 pub fn headings_band(theme: &Theme, titles: &Titles) -> f64 {
-    let lines_band = |style: Option<TextStyle>, text: &Option<String>, gap: f64| {
-        band(style, text, gap)
-            + match (style, present(text)) {
-                (Some(style), Some(text)) => {
-                    text_band(style) * text.matches(LINE_BREAK).count() as f64
-                }
-                _ => 0.0,
-            }
-    };
-    lines_band(theme.plot_title, &titles.title, 0.0)
-        + lines_band(
+    heading_band(theme.plot_title, &titles.title, theme.plot_title_margin)
+        + heading_band(
             theme.plot_subtitle,
             &titles.subtitle,
-            theme.plot_subtitle_margin_top,
+            theme.plot_subtitle_margin,
         )
+}
+
+/// Height of the caption band at the bottom of a plot.
+pub fn caption_band(theme: &Theme, titles: &Titles) -> f64 {
+    heading_band(
+        theme.plot_caption,
+        &titles.caption,
+        theme.plot_caption_margin,
+    )
+}
+
+/// The area inside the plot margin that titles, legends, axes and panels share:
+/// the caption takes its band at the bottom (lets-plot lays it out below the
+/// legends).
+pub fn plot_content(area: Rect, theme: &Theme, titles: &Titles) -> Rect {
+    let content = shrink(area, theme.plot_margin);
+    let caption = caption_band(theme, titles);
+    Rect {
+        height: (content.height - caption).max(1.0),
+        ..content
+    }
 }
 
 /// `titles` with the title and subtitle wrapped at spaces to lines no wider than
@@ -1113,6 +1162,7 @@ pub fn wrap_headings(titles: &Titles, theme: &Theme, width: f64) -> Titles {
     Titles {
         title: wrap(theme.plot_title, &titles.title),
         subtitle: wrap(theme.plot_subtitle, &titles.subtitle),
+        caption: wrap(theme.plot_caption, &titles.caption),
         x: titles.x.clone(),
         y: titles.y.clone(),
     }
@@ -1152,40 +1202,61 @@ fn wrap_line(line: &str, style: TextStyle, width: f64) -> String {
     lines.join(&LINE_BREAK.to_string())
 }
 
-/// The title and subtitle, from `top` down, justified along `(start, width)` (the
-/// panels of a plot, the cells of a grid).
-pub fn heading_nodes(
+/// The lines of a title, subtitle or caption band from `top` down, inside its
+/// margins, each justified along `(start, width)`. Returns the band's bottom.
+fn heading_lines(
+    nodes: &mut Vec<Node>,
+    (style, text, margin): (TextStyle, &str, Margins),
     top: f64,
     (start, width): (f64, f64),
-    theme: &Theme,
-    titles: &Titles,
-) -> Vec<Node> {
+) -> f64 {
+    let (start, width) = (start + margin.left, width - margin.left - margin.right);
+    let mut top = top + margin.top;
+    for line in text.split(LINE_BREAK) {
+        let x = justified_centre(
+            start,
+            width,
+            measure(line, style.size, style.font).width,
+            style,
+        );
+        nodes.push(text_node(
+            line,
+            style,
+            (x, top + text_band(style) / 2.0),
+            HorizontalAlign::Middle,
+            0.0,
+        ));
+        top += text_band(style);
+    }
+    top + margin.bottom
+}
+
+/// The title and subtitle, from `top` down, justified along `span` (the panels of
+/// a plot, the cells of a grid, or the whole plot).
+pub fn heading_nodes(top: f64, span: (f64, f64), theme: &Theme, titles: &Titles) -> Vec<Node> {
     let mut nodes = Vec::new();
     let mut top = top;
-    let mut lines = |style: TextStyle, text: &str, top: &mut f64| {
-        for line in text.split(LINE_BREAK) {
-            let x = justified_centre(
-                start,
-                width,
-                measure(line, style.size, style.font).width,
-                style,
-            );
-            nodes.push(text_node(
-                line,
-                style,
-                (x, *top + text_band(style) / 2.0),
-                HorizontalAlign::Middle,
-                0.0,
-            ));
-            *top += text_band(style);
-        }
-    };
     if let (Some(style), Some(title)) = (theme.plot_title, present(&titles.title)) {
-        lines(style, title, &mut top);
+        top = heading_lines(
+            &mut nodes,
+            (style, title, theme.plot_title_margin),
+            top,
+            span,
+        );
     }
     if let (Some(style), Some(subtitle)) = (theme.plot_subtitle, present(&titles.subtitle)) {
-        top += theme.plot_subtitle_margin_top;
-        lines(style, subtitle, &mut top);
+        let subtitle = (style, subtitle, theme.plot_subtitle_margin);
+        heading_lines(&mut nodes, subtitle, top, span);
+    }
+    nodes
+}
+
+/// The caption, from `top` down, justified along `span`.
+pub fn caption_nodes(top: f64, span: (f64, f64), theme: &Theme, titles: &Titles) -> Vec<Node> {
+    let mut nodes = Vec::new();
+    if let (Some(style), Some(caption)) = (theme.plot_caption, present(&titles.caption)) {
+        let caption = (style, caption, theme.plot_caption_margin);
+        heading_lines(&mut nodes, caption, top, span);
     }
     nodes
 }
@@ -1257,15 +1328,18 @@ fn present(text: &Option<String>) -> Option<&str> {
     text.as_deref().filter(|text| !text.is_empty())
 }
 
-/// Thickness of a text band (`gap` + line box), or 0 when blank or absent.
-fn band(style: Option<TextStyle>, text: &Option<String>, gap: f64) -> f64 {
-    match (style, present(text)) {
-        (Some(style), Some(_)) => gap + text_band(style),
-        _ => 0.0,
-    }
+/// Space the x axis title's margins add across it (top and bottom, as lets-plot).
+pub(crate) fn x_title_margin(theme: &Theme) -> f64 {
+    theme.axis_title_x_margin.top + theme.axis_title_x_margin.bottom
 }
 
-/// Thickness of an axis title band (`band` with the title's theme angle).
+/// Space the y axis title's margins add across it (left and right).
+pub(crate) fn y_title_margin(theme: &Theme) -> f64 {
+    theme.axis_title_y_margin.left + theme.axis_title_y_margin.right
+}
+
+/// Thickness of an axis title band: `gap` plus the title box across its axis, or 0
+/// when blank or absent.
 fn axis_title_band(
     style: Option<TextStyle>,
     text: &Option<String>,
@@ -1297,8 +1371,9 @@ fn axis_title_extent(style: TextStyle, text: &str, default_angle: f64) -> (f64, 
     }
 }
 
-fn tick_band(ticks: Option<LineStyle>, theme: &Theme) -> f64 {
-    ticks.map_or(0.0, |_| theme.axis_ticks_length)
+/// Room the ticks of one axis take: their `length` when drawn.
+fn tick_band(ticks: Option<LineStyle>, length: f64) -> f64 {
+    ticks.map_or(0.0, |_| length)
 }
 
 /// `rect` without `margins` (at least 1 px left each way).

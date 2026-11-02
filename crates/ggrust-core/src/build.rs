@@ -1422,6 +1422,10 @@ fn plot_titles(spec: &PlotSpec, scales: &PositionScales, orientations: &[bool]) 
     Titles {
         title: title.and_then(|title| title.text.clone()),
         subtitle: title.and_then(|title| title.subtitle.clone()),
+        caption: spec
+            .caption
+            .as_ref()
+            .and_then(|caption| caption.text.clone()),
         x: Some(axis_title(Aesthetic::X, &scales.x.name)),
         y: Some(axis_title(Aesthetic::Y, &scales.y.name)),
     }
@@ -3483,7 +3487,6 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
             .is_some_and(|facet| facet.name != "wrap"),
         "facet_grid",
     );
-    ignored(spec.caption.is_some(), "caption");
     for (index, layer) in spec.layers.iter().enumerate() {
         let mut layer_ignored = |present: bool, feature: &str| {
             if present {

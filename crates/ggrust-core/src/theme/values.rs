@@ -11,6 +11,7 @@ use std::collections::BTreeMap;
 
 use crate::scene::Color;
 use crate::spec::{ElementSpec, ThemeSpec, ThemeValue, Value};
+use crate::style::LineType;
 
 /// lets-plot `ThemeFlavor.SymbolicColor`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -709,7 +710,21 @@ fn user_props(element: &ElementSpec) -> Result<Props, String> {
             Some(value) => thickness(value)?,
             None => [None; 4],
         },
-        linetype: element.linetype.clone(),
+        linetype: match &element.linetype {
+            Some(value) => {
+                let linetype =
+                    LineType::parse(value).map_err(|message| format!("linetype: {message}"))?;
+                if super::Dash::new(&linetype).is_none() {
+                    return Err(format!(
+                        "linetype: a dash list takes at most {} numbers, got {}",
+                        super::Dash::MAX,
+                        linetype.0.len()
+                    ));
+                }
+                Some(value.clone())
+            }
+            None => None,
+        },
     })
 }
 

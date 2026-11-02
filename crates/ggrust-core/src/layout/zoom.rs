@@ -188,7 +188,9 @@ pub fn zoom_tile(
 
     // Horizontal axis.
     let x_domain = domain(mapper.x_scale);
-    let x_label_top = bottom + tick_band(theme.axis_ticks_x, theme) + theme.axis_text_spacing;
+    let x_label_top = bottom
+        + tick_band(theme.axis_ticks_x, theme.axis_ticks_length.0)
+        + theme.axis_text_spacing.0;
     let x_breaks = &layout.x_breaks;
     let x_rotated = match (theme.axis_text_x, &x_breaks.arrangement) {
         (Some(text), LabelArrangement::Rotated) => {
@@ -237,10 +239,13 @@ pub fn zoom_tile(
         minor: theme
             .panel_grid_minor_x
             .map(|line| segment((0.0, panel.y), (0.0, bottom), line)),
-        tick: theme
-            .axis_ticks_x
-            .filter(|_| show_x)
-            .map(|tick| segment((0.0, bottom), (0.0, bottom + theme.axis_ticks_length), tick)),
+        tick: theme.axis_ticks_x.filter(|_| show_x).map(|tick| {
+            segment(
+                (0.0, bottom),
+                (0.0, bottom + theme.axis_ticks_length.0),
+                tick,
+            )
+        }),
         label: show_x.then(|| x_template(&placeholder(false))).flatten(),
         label_superscript: show_x.then(|| x_template(&placeholder(true))).flatten(),
         line: theme
@@ -251,7 +256,9 @@ pub fn zoom_tile(
 
     // Vertical axis.
     let y_domain = domain(mapper.y_scale);
-    let y_label_right = panel.x - tick_band(theme.axis_ticks_y, theme) - theme.axis_text_spacing;
+    let y_label_right = panel.x
+        - tick_band(theme.axis_ticks_y, theme.axis_ticks_length.1)
+        - theme.axis_text_spacing.1;
     let y_breaks = &layout.y_breaks;
     let y_rotated = match theme.axis_text_y {
         Some(text) if rotated::rotates(text) => {
@@ -297,7 +304,7 @@ pub fn zoom_tile(
             .map(|line| segment((panel.x, 0.0), (panel.x + panel.width, 0.0), line)),
         tick: theme.axis_ticks_y.filter(|_| show_y).map(|tick| {
             segment(
-                (panel.x - theme.axis_ticks_length, 0.0),
+                (panel.x - theme.axis_ticks_length.1, 0.0),
                 (panel.x, 0.0),
                 tick,
             )

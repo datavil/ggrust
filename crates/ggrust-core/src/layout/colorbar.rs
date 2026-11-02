@@ -6,7 +6,7 @@
 use super::axis::estimated_label_width;
 use super::{label_node, text_band};
 use crate::scale::format::Label;
-use crate::scene::{Color, HorizontalAlign, Node, Path, PerItem, Rect, Rects, Stroke};
+use crate::scene::{Color, HorizontalAlign, Node, Path, PerItem, Rect, Rects};
 use crate::text::{measure, measure_label};
 use crate::theme::Theme;
 
@@ -101,7 +101,9 @@ pub(super) fn layout_colorbar(
     theme: &Theme,
 ) -> ColorbarLayout {
     let lines = |label: &Label| label_lines(label).len() as f64;
-    let key = theme.legend_key_size;
+    // lets-plot `ColorBarComponentSpec`: the bar runs `BAR_LENGTH_IN_KEYS` key
+    // widths (horizontal) or heights (vertical), one key thick.
+    let (key_width, key_height) = theme.legend_key_size;
     // lets-plot sizes the bar by its text estimates (lines x font size, estimated
     // widths), not the real font: this keeps bar lengths identical.
     let (estimated_height, estimated_width) = theme.legend_text.map_or((0.0, 0.0), |style| {
@@ -125,15 +127,15 @@ pub(super) fn layout_colorbar(
         (
             colorbar
                 .bar_width
-                .unwrap_or_else(|| (BAR_LENGTH_IN_KEYS * key).max(estimated_width * slots)),
-            colorbar.bar_height.unwrap_or(key),
+                .unwrap_or_else(|| (BAR_LENGTH_IN_KEYS * key_width).max(estimated_width * slots)),
+            colorbar.bar_height.unwrap_or(key_height),
         )
     } else {
         (
-            colorbar.bar_width.unwrap_or(key),
+            colorbar.bar_width.unwrap_or(key_width),
             colorbar
                 .bar_height
-                .unwrap_or_else(|| (BAR_LENGTH_IN_KEYS * key).max(estimated_height * slots)),
+                .unwrap_or_else(|| (BAR_LENGTH_IN_KEYS * key_height).max(estimated_height * slots)),
         )
     };
     let bar = Rect {
@@ -310,7 +312,7 @@ pub(super) fn draw_colorbar(
                     points: vec![start, end],
                     closed: false,
                     fill: None,
-                    stroke: Some(Stroke::solid(line.color, line.width)),
+                    stroke: Some(line.stroke()),
                 }));
             }
         }

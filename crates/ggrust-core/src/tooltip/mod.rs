@@ -214,6 +214,9 @@ pub struct LayerInteraction {
     /// The panel, `[x, y, width, height]` in scene pixels: axis tooltips sit on
     /// its edges, anchored tooltips in its corners.
     pub panel: [f64; 4],
+    /// The layer's toggle index in its plot (`ggtb(layers=...)`, layers as the user
+    /// added them): hidden layers do not answer the cursor.
+    pub layer: usize,
     /// How targets are found.
     pub lookup: Lookup,
     /// The targets.
@@ -320,6 +323,7 @@ mod tests {
         let interaction = Interaction {
             layers: vec![LayerInteraction {
                 panel: [0.0, 0.0, 10.0, 10.0],
+                layer: 0,
                 lookup: Lookup::Nearest,
                 targets: HoverTargets::Points {
                     x: vec![1.0],

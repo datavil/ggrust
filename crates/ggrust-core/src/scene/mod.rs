@@ -101,14 +101,23 @@ impl Scene {
     }
 }
 
+/// Role of the group holding one layer's marks in a panel (one per layer, in
+/// layer order, empty when the layer draws nothing): the HTML runtime hides and
+/// shows layers by it (`ggtb(layers=...)`). Static output draws it inline.
+pub const LAYER_ROLE: &str = "layer";
+
 impl Group {
-    /// The children, with anchored groups ([`Group::anchor`]) replaced by their
-    /// own children: what is drawn, in order.
+    /// The children, with anchored groups ([`Group::anchor`]) and layer groups
+    /// ([`LAYER_ROLE`]) replaced by their own children: what is drawn, in order.
     pub fn flattened(&self) -> Vec<&Node> {
         fn walk<'a>(nodes: &'a [Node], flat: &mut Vec<&'a Node>) {
             for node in nodes {
                 match node {
-                    Node::Group(group) if group.anchor.is_some() => walk(&group.nodes, flat),
+                    Node::Group(group)
+                        if group.anchor.is_some() || group.role == Some(LAYER_ROLE) =>
+                    {
+                        walk(&group.nodes, flat)
+                    }
                     other => flat.push(other),
                 }
             }

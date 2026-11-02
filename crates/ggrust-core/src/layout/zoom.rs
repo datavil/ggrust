@@ -72,6 +72,9 @@ pub struct Zoom {
     pub size_zoomin: f64,
     /// Every plot of the figure (one, or the plots of a grid), in drawing order.
     pub plots: Vec<ZoomPlot>,
+    /// Layer visibility toggles (`ggtb(layers=...)`): `None` without them,
+    /// else the user's labels as (label, layer index), possibly empty.
+    pub layer_labels: Option<Vec<(String, usize)>>,
 }
 
 /// One plot: its panels zoom together on the axes they share.
@@ -82,6 +85,8 @@ pub struct ZoomPlot {
     /// Whether every panel has the same horizontal / vertical scale (facets with
     /// fixed scales): zooming one panel then zooms all of them on that axis.
     pub shared: (bool, bool),
+    /// The geom of each layer, in layer order (the default toggle labels).
+    pub geoms: Vec<&'static str>,
 }
 
 /// One panel.
@@ -160,7 +165,106 @@ impl Zoom {
             size_basis,
             size_zoomin,
             plots: Vec::new(),
+            layer_labels: parse_layer_labels(toolbar.layers.as_ref(), &format!("{path}.layers"))?,
         }))
+    }
+
+    /// The toggle label of every layer of `plot`, or `None` without toggles:
+    /// the user's label, else the geom name, numbered from its second unlabelled
+    /// use (`point`, `point 2`). `geom_imshow` layers (geom `image`) read `imshow`.
+    pub fn layer_toggle_labels(&self, plot: &ZoomPlot) -> Option<Vec<String>> {
+        let named = self.layer_labels.as_ref()?;
+        let mut seen: Vec<(&str, usize)> = Vec::new();
+        let labels = plot
+            .geoms
+            .iter()
+            .enumerate()
+            .map(|(index, geom)| {
+                if let Some((label, _)) = named.iter().find(|(_, layer)| *layer == index) {
+                    return label.clone();
+                }
+                let geom = if *geom == "image" { "imshow" } else { geom };
+                let count = match seen.iter_mut().find(|(name, _)| *name == geom) {
+                    Some((_, count)) => {
+                        *count += 1;
+                        *count
+                    }
+                    None => {
+                        seen.push((geom, 1));
+                        1
+                    }
+                };
+                match count {
+                    1 => geom.to_string(),
+                    _ => format!("{geom} {count}"),
+                }
+            })
+            .collect();
+        Some(labels)
+    }
+
+    /// Check, once every plot is collected, that each labelled layer index
+    /// exists in at least one plot; `path` locates `ggtb` in error messages.
+    pub fn check_layer_labels(&self, path: &str) -> crate::Result<()> {
+        let Some(named) = &self.layer_labels else {
+            return Ok(());
+        };
+        let count = self
+            .plots
+            .iter()
+            .map(|plot| plot.geoms.len())
+            .max()
+            .unwrap_or(0);
+        match named.iter().find(|(_, layer)| *layer >= count) {
+            Some((label, layer)) => Err(crate::Error::spec(
+                format!("{path}.layers.{label}"),
+                format!(
+                    "layer index {layer} does not exist; the plot has {count} layer(s), \
+                     indexed from 0 in the order they were added"
+                ),
+            )),
+            None => Ok(()),
+        }
+    }
+}
+
+/// `ggtb(layers=...)`: `true` gives toggles with default labels, `false` or
+/// nothing none, an object maps labels to layer indices.
+fn parse_layer_labels(
+    value: Option<&crate::spec::Value>,
+    path: &str,
+) -> crate::Result<Option<Vec<(String, usize)>>> {
+    use crate::spec::Value;
+    let accepted = "use true, false, or a dict of labels to layer indices such as {\"spots\": 1}";
+    match value {
+        None | Some(Value::Null) | Some(Value::Bool(false)) => Ok(None),
+        Some(Value::Bool(true)) => Ok(Some(Vec::new())),
+        Some(Value::Object(entries)) => {
+            let mut labels: Vec<(String, usize)> = Vec::new();
+            for (label, index) in entries {
+                let Some(layer) = index.as_u64().and_then(|value| usize::try_from(value).ok())
+                else {
+                    return Err(crate::Error::spec(
+                        format!("{path}.{label}"),
+                        format!("{index} is not a layer index; use an integer >= 0"),
+                    ));
+                };
+                if let Some((other, _)) = labels.iter().find(|(_, existing)| *existing == layer) {
+                    return Err(crate::Error::spec(
+                        format!("{path}.{label}"),
+                        format!(
+                            "layer {layer} is already labelled '{other}'; give each layer one label"
+                        ),
+                    ));
+                }
+                labels.push((label.clone(), layer));
+            }
+            Ok(Some(labels))
+        }
+        Some(other) => Err(crate::Error::spec(
+            path,
+            format!("{other} is not accepted; {accepted}"),
+        )),
     }
 }
 

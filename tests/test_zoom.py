@@ -16,6 +16,7 @@ import subprocess
 from pathlib import Path
 
 import ggrust as gg
+import numpy as np
 import polars as pl
 import pytest
 
@@ -119,6 +120,82 @@ def test_facets_share_fixed_scales_and_grids_list_every_plot():
     )
     assert [len(plot["tiles"]) for plot in zoom_payload(grid)["plots"]] == [3, 1]
     assert grid._repr_html_().count('class="tile"') == 4
+
+
+def test_layer_toggles_are_opt_in():
+    """``ggtb(layers=...)`` lists each plot's layers; without it there is no list."""
+    plot = gg.ggplot(FRAME, gg.aes("x", "y")) + gg.geom_point() + gg.geom_text(gg.aes(label="g"))
+    assert "layers" not in zoom_payload(plot + gg.ggtb())["plots"][0]
+    assert "layers" not in zoom_payload(plot + gg.ggtb(layers=False))["plots"][0]
+    layered = plot + gg.geom_point(color="red") + gg.ggtb(layers=True)
+    assert zoom_payload(layered)["plots"][0]["layers"] == ["point", "text", "point 2"]
+    named = plot + gg.geom_point() + gg.ggtb(layers={"spots": 2, "names": 1})
+    assert zoom_payload(named)["plots"][0]["layers"] == ["point", "names", "spots"]
+    assert named.as_dict()["ggtoolbar"]["layers"] == {"spots": 2, "names": 1}
+    relabelled = plot + gg.geom_point() + gg.ggtb(layers={"spots": 0})
+    assert zoom_payload(relabelled)["plots"][0]["layers"] == ["spots", "text", "point"]
+    # One group per layer, in layer order, in zoomable HTML only.
+    svg = svg_of(layered._repr_html_())
+    assert svg.count('<g class="layer">') == 3
+    assert '<g class="layer">' not in layered.to_svg()
+
+
+def test_layer_toggles_in_a_grid_list_each_plot():
+    image = np.zeros((2, 3, 3), dtype=np.uint8)
+    spatial = (
+        gg.ggplot(FRAME, gg.aes("x", "y")) + gg.geom_imshow(image_data=image) + gg.geom_point()
+    )
+    scatter = gg.ggplot(FRAME, gg.aes("x", "y")) + gg.geom_point()
+    grid = gg.gggrid([spatial, scatter], ncol=2) + gg.ggtb(layers={"tissue": 0})
+    assert [plot["layers"] for plot in zoom_payload(grid)["plots"]] == [
+        ["tissue", "point"],
+        ["tissue"],
+    ]
+
+
+def test_boxplot_outliers_share_their_layer_toggle():
+    """``geom_boxplot`` adds an outlier point layer; it is part of the boxplot's toggle."""
+    frame = pl.DataFrame({"g": ["a"] * 5 + ["b"] * 5, "y": [1, 2, 3, 4, 40, 2, 3, 4, 5, -30]})
+    plot = (
+        gg.ggplot(frame, gg.aes("g", "y"))
+        + gg.geom_boxplot()
+        + gg.geom_point(color="red")
+        + gg.ggtb(layers={"trend": 1})
+    )
+    assert len(plot.as_dict()["layers"]) == 3
+    assert zoom_payload(plot)["plots"][0]["layers"] == ["boxplot", "trend"]
+    assert svg_of(plot._repr_html_()).count('<g class="layer">') == 2
+    found = re.search(r'class="ggrust-tooltips">(.*?)</script>', plot._repr_html_())
+    assert {layer["layer"] for layer in json.loads(found.group(1))["layers"]} <= {0, 1}
+    with pytest.raises(gg.errors.SpecError, match=r"index 2 does not exist"):
+        (
+            gg.ggplot(frame, gg.aes("g", "y")) + gg.geom_boxplot() + gg.ggtb(layers={"x": 2})
+        ).to_html()
+
+
+def test_tooltip_targets_know_their_layer():
+    plot = (
+        gg.ggplot(FRAME, gg.aes("x", "y")) + gg.geom_line() + gg.geom_point() + gg.ggtb(layers=True)
+    )
+    found = re.search(r'class="ggrust-tooltips">(.*?)</script>', plot._repr_html_())
+    assert [layer["layer"] for layer in json.loads(found.group(1))["layers"]] == [0, 1]
+
+
+def test_layer_options_are_checked():
+    plot = gg.ggplot(FRAME, gg.aes("x", "y")) + gg.geom_point()
+    for bad, message in [
+        ("yes", r"str is not accepted; use True, False, or a dict"),
+        ({"spots": -1}, r"'spots' maps to -1, not a layer index"),
+        ({"spots": True}, r"'spots' maps to True, not a layer index"),
+        ({1: 0}, r"label 1 is not a string"),
+        ({"a": 0, "b": 0}, r"layer 0 is labelled both 'a' and 'b'"),
+    ]:
+        with pytest.raises(gg.errors.SpecError, match=message):
+            gg.ggtb(layers=bad)
+    with pytest.raises(
+        gg.errors.SpecError, match=r"ggtoolbar.layers.spots.*index 3 does not exist"
+    ):
+        (plot + gg.ggtb(layers={"spots": 3})).to_html()
 
 
 def test_size_options_are_checked():

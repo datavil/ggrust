@@ -60,13 +60,19 @@ def without_data(value):
     return value
 
 
+# ggrust extensions: extra trailing parameters lets_plot does not have (deviations.md).
+EXTENSIONS = {"ggtb": ("layers",)}
+
+
 @pytest.mark.parametrize("name", NEW_NAMES)
 def test_signatures_match_lets_plot(name):
     ours = inspect.signature(getattr(gg, name))
     theirs = inspect.signature(getattr(lp, name))
-    assert [(p.name, p.kind, p.default) for p in ours.parameters.values()] == [
-        (p.name, p.kind, p.default) for p in theirs.parameters.values()
-    ]
+    extra = EXTENSIONS.get(name, ())
+    assert [p.name for p in ours.parameters.values()][len(theirs.parameters) :] == list(extra)
+    assert [
+        (p.name, p.kind, p.default) for p in ours.parameters.values() if p.name not in extra
+    ] == [(p.name, p.kind, p.default) for p in theirs.parameters.values()]
     assert name in gg.__all__
 
 

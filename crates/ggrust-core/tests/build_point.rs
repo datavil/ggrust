@@ -66,8 +66,8 @@ fn panel(built: &BuiltPlot) -> &Group {
 
 fn points(built: &BuiltPlot) -> &Points {
     panel(built)
-        .nodes
-        .iter()
+        .flattened()
+        .into_iter()
         .find_map(|node| match node {
             Node::Points(points) => Some(points),
             _ => None,

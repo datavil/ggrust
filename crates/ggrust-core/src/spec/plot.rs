@@ -216,7 +216,7 @@ pub struct CaptionSpec {
     pub unsupported: Options,
 }
 
-/// `ggtb(size_basis=..., size_zoomin=...)`.
+/// `ggtb(size_basis=..., size_zoomin=..., layers=...)`.
 #[derive(Debug, Clone, Default, PartialEq, Deserialize)]
 #[serde(default)]
 pub struct ToolbarSpec {
@@ -224,6 +224,9 @@ pub struct ToolbarSpec {
     pub size_basis: Option<String>,
     /// How symbol sizes react to zoom-in; `-1` means unlimited growth.
     pub size_zoomin: Option<f64>,
+    /// Layer visibility toggles (a ggrust extension): `true`, or an object of
+    /// labels to layer indices (`{"spots": 1}`). Parsed by `Zoom::from_spec`.
+    pub layers: Option<super::Value>,
     /// Keys no component consumes.
     #[serde(flatten)]
     pub unsupported: Options,

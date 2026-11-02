@@ -187,7 +187,11 @@ fn zoom_json(zoom: &Zoom, scene: &Scene) -> Value {
                     })
                 })
                 .collect();
-            json!({ "tiles": tiles, "shared": [plot.shared.0, plot.shared.1] })
+            let mut value = json!({ "tiles": tiles, "shared": [plot.shared.0, plot.shared.1] });
+            if let Some(labels) = zoom.layer_toggle_labels(plot) {
+                value["layers"] = json!(labels);
+            }
+            value
         })
         .collect();
     json!({

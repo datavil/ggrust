@@ -16,8 +16,9 @@ use super::canvas;
 use crate::parallel;
 use crate::scene::geometry::{ClipBox, is_drawable_marker, is_drawable_stroke, is_drawable_width};
 use crate::scene::{
-    Bitmap, Color, Group, HorizontalAlign, Image, MarkerPart, Node, Orientation, Path, PerItem,
-    Points, Rect, Rects, SUPERSCRIPT_RISE, SUPERSCRIPT_SCALE, Scene, Stroke, Text, VerticalAlign,
+    Bitmap, Color, Group, HorizontalAlign, Image, LAYER_ROLE, MarkerPart, Node, Orientation, Path,
+    PerItem, Points, Rect, Rects, SUPERSCRIPT_RISE, SUPERSCRIPT_SCALE, Scene, Stroke, Text,
+    VerticalAlign,
 };
 use crate::text::{CSS_FONT_FAMILY, FontFamily, measure, single_line};
 
@@ -273,6 +274,11 @@ impl SvgWriter {
     }
 
     fn group(&mut self, group: &Group) {
+        if group.role == Some(LAYER_ROLE) && group.clip.is_none() && !self.zoomable {
+            // Static output draws layer groups inline.
+            self.nodes(&group.nodes);
+            return;
+        }
         if let Some((x, y)) = group
             .anchor
             .filter(|_| group.clip.is_none() && group.role.is_none())

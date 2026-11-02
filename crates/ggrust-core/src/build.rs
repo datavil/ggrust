@@ -35,7 +35,7 @@ use crate::scale::number_format::{ExponentStyle, NumberFormat};
 use crate::scale::style::spec::{StyleScaleSpec, style_scale_specs};
 use crate::scale::style::{LegendEntry, StyleScale, default_mapper};
 use crate::scale::{AxisScaleSpec, PositionScale, PositionScales, position_scales};
-use crate::scene::{Group, Node, PerItem, Rect, Rects, Scene};
+use crate::scene::{Group, LAYER_ROLE, Node, PerItem, Rect, Rects, Scene};
 use crate::spec::{
     Aesthetic, DataSource, GuideOptions, GuideSpec, LayerSpec, Mapping, MappingAnnotation,
     MappingValue, Options, PlotSpec, SeriesAnnotation, TooltipsSpec, Value,
@@ -139,6 +139,9 @@ pub fn build_plot_with(spec: &PlotSpec, data: &PlotData, interactive: bool) -> R
             ..Interaction::default()
         };
         plot.interaction(&arrangement, &mut interaction, &mut warnings)?;
+        if let Some(zoom) = &interaction.zoom {
+            zoom.check_layer_labels("ggtoolbar")?;
+        }
         Some(interaction)
     } else {
         None
@@ -949,14 +952,16 @@ impl PreparedPlot {
             let Some((layers, tile_x, tile_y)) = self.tiles.get(tile) else {
                 continue;
             };
-            for (layer, setup) in layers.iter().zip(&self.tooltip_setups) {
-                jobs.push((rect, tile_x, tile_y, layer, setup));
+            let indices = toggle_indices(layers);
+            for ((layer, setup), index) in layers.iter().zip(&self.tooltip_setups).zip(indices) {
+                jobs.push((rect, tile_x, tile_y, index, layer, setup));
             }
         }
-        let layer_interaction = |&(rect, tile_x, tile_y, layer, setup): &(
+        let layer_interaction = |&(rect, tile_x, tile_y, layer_index, layer, setup): &(
             Rect,
             &PositionScale,
             &PositionScale,
+            usize,
             &PreparedLayer,
             &LayerTooltipSetup,
         ),
@@ -1031,6 +1036,7 @@ impl PreparedPlot {
             };
             Ok(Some(LayerInteraction {
                 panel: LayerInteraction::panel_of(rect),
+                layer: layer_index,
                 lookup,
                 targets,
                 content,
@@ -1091,7 +1097,22 @@ impl PreparedPlot {
             scales.windows(2).all(|pair| pair[0].0 == pair[1].0),
             scales.windows(2).all(|pair| pair[0].1 == pair[1].1),
         );
-        ZoomPlot { tiles, shared }
+        let geoms = self
+            .tiles
+            .first()
+            .map(|(layers, _, _)| {
+                layers
+                    .iter()
+                    .filter(|layer| !layer.companion)
+                    .map(|layer| layer.geom.name())
+                    .collect()
+            })
+            .unwrap_or_default();
+        ZoomPlot {
+            tiles,
+            shared,
+            geoms,
+        }
     }
 
     /// Draw the plot as laid out by `arrangement`: everything but the background
@@ -1111,9 +1132,21 @@ impl PreparedPlot {
                     .geom
                     .draw(&draw_layer, &panel.oriented(layer.y_oriented))
             });
-            let mut layer_nodes = Vec::new();
-            for nodes in drawn {
-                layer_nodes.extend(nodes?);
+            let mut layer_nodes: Vec<Node> = Vec::new();
+            for (nodes, layer) in drawn.into_iter().zip(layers) {
+                let nodes = nodes?;
+                if layer.companion
+                    && let Some(Node::Group(group)) = layer_nodes.last_mut()
+                {
+                    group.nodes.extend(nodes);
+                    continue;
+                }
+                layer_nodes.push(Node::Group(Group {
+                    clip: None,
+                    role: Some(LAYER_ROLE),
+                    anchor: None,
+                    nodes,
+                }));
             }
             Ok(layer_nodes)
         };
@@ -1540,6 +1573,26 @@ struct PreparedLayer {
     styles: Styles,
     /// `show_legend` (default: the geom's).
     show_legend: bool,
+    /// Drawn on behalf of the layer before it: the outlier points the Python
+    /// `geom_boxplot` adds as a second spec layer. It shares that layer's group
+    /// and toggle (`ggtb(layers=...)`), so toggle indices count the layers the
+    /// user added.
+    companion: bool,
+}
+
+/// The toggle index (`ggtb(layers=...)`) of every layer: companion layers take
+/// the index of the layer they belong to.
+fn toggle_indices(layers: &[PreparedLayer]) -> Vec<usize> {
+    let mut next = 0;
+    layers
+        .iter()
+        .map(|layer| {
+            if !layer.companion || next == 0 {
+                next += 1;
+            }
+            next - 1
+        })
+        .collect()
 }
 
 /// Stage 1 of a layer: look up geom/stat/position, validate options, fetch the
@@ -2138,12 +2191,15 @@ fn compute_layer(
         y_oriented,
         mapping_paths,
         show_legend: spec.show_legend.unwrap_or(geom.shows_legend()),
+        companion: layer_stat(spec).is_some_and(|stat| stat.name() == "boxplot_outlier"),
         warnings,
     })
 }
 
 /// A layer after [`compute_layer`]: positions scaled, stat and position applied.
 struct ComputedLayer {
+    /// See [`PreparedLayer::companion`].
+    companion: bool,
     /// Layer options with aliases normalised (`colour` -> `color`).
     options: Options,
     path: String,
@@ -2206,6 +2262,7 @@ fn style_layer(
             y_span: layer.y_span,
             styles,
             show_legend: layer.show_legend,
+            companion: layer.companion,
         },
         warnings,
     ))

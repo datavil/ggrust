@@ -17,6 +17,7 @@ Kind: `chosen` (deliberate), `gap` (not implemented yet or known difference to f
 | Wide end axis labels (#906) | cut at the canvas edge | cut at the device edge | the panel narrows so the label fits (only when it overflows) | chosen | labels are never cut | user, 2026-11-01 |
 | Shared axes order of `as_discrete(levels=)` | n/a | n/a | union in order of appearance; explicit level orders not merged across plots | gap | rare | lp3.6 bug hunt, 2026-11-01 |
 | Free scales in `facet_grid` stats | whole range | per grid column/row | facet_grid not built | gap | facet_grid parsed only | lp3.2, 2026-11-01 |
+| Layer toggles (`ggtb(layers=...)`) | no layer toggles (`ggtb` has none) | no toolbar | opt-in Layers menu hides and shows layers per subplot; legends stay | chosen | extension; default toolbar unchanged | user, 2026-11-02 |
 | `geom_step(direction="mid")` (#838) | not accepted (error) | steps halfway between x values | ggplot2's `stairstep` vertices and row styles | chosen | ggplot2 has it; lets-plot asks for it | plan step lp4.1, 2026-11-01 |
 | `geom_step(pad=True)` with x = -inf / +inf | drops the infinite rows ("Removed 2 rows") | no `pad` | draws them at the panel's x edges; a transform or limits on x still drop them (reported) | chosen | the option's documented intent | lp4.1 bug hunt, 2026-11-01 |
 | `geom_freqpoly` end bins | no padding | `pad = TRUE`: a zero-count bin added at both ends | no padding | inherited | parity | plan step lp4.1, 2026-11-01 |

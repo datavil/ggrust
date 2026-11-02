@@ -258,6 +258,95 @@ def test_zoom_keeps_a_mirrored_image(page, tmp_path: Path) -> None:
     )
 
 
+def layer_toggles(page) -> list[tuple[str, bool]]:
+    """Open the ``ggtb(layers=...)`` menu and read its (label, checked) rows."""
+    if not page.locator(".ggrust-layers").is_visible():
+        page.locator(".ggrust-toolbar button[title='Layers']").click()
+    return page.evaluate(
+        """() => Array.from(document.querySelectorAll('.ggrust-layers label')).map(
+          (row) => [row.textContent, row.querySelector('input').checked])"""
+    )
+
+
+def test_layer_toggles_hide_canvas_points_and_their_tooltips(page, tmp_path: Path) -> None:
+    """Hiding a canvas layer clears it, keeps it clear while zoomed, and mutes its tooltips."""
+    image = np.full((8, 8, 3), 200, dtype=np.uint8)
+    frame = dense_frame(THRESHOLD + 1)
+    plot = (
+        gg.ggplot(frame, gg.aes("x", "y"))
+        + gg.geom_imshow(image_data=image, extent=[-6, 7, -6, 7])
+        + gg.geom_point(tooltips=gg.layer_tooltips().line("@name"))
+        + gg.ggsize(500, 400)
+        + gg.ggtb(layers=True)
+    )
+    load(page, plot.to_html(), tmp_path)
+    assert layer_toggles(page) == [["imshow", True], ["point", True]]
+    painted = """() => {
+      const canvas = document.querySelector('foreignObject.ggrust-canvas canvas');
+      const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
+      return pixels.some((value, i) => i % 4 === 3 && value > 0);
+    }"""
+    assert page.evaluate(painted)
+    page.locator(".ggrust-layers input").nth(1).uncheck()
+    page.wait_for_function(f"!({painted})()")
+    assert (
+        page.evaluate("getComputedStyle(document.querySelectorAll('g.layer')[1]).display") == "none"
+    )
+    assert (
+        page.evaluate("getComputedStyle(document.querySelectorAll('g.layer')[0]).display") != "none"
+    )
+    # Zooming keeps it hidden; the image layer still zooms.
+    page.mouse.click(0, 0)  # close the menu
+    page.locator(".ggrust-toolbar button").first.click()
+    box = page.locator(".ggrust-plot > svg").bounding_box()
+    page.mouse.move(box["x"] + 250, box["y"] + 200)
+    for _ in range(3):
+        page.mouse.wheel(0, -100)
+    page.wait_for_function(
+        """() => {
+          const tile = document.querySelector('.ggrust-plot').ggrust.zoom.plots[0].tiles[0];
+          return !tile.dirty && tile.views.h[0] !== tile.spec.horizontal.domain[0];
+        }"""
+    )
+    assert not page.evaluate(painted)
+    assert page.evaluate("document.querySelector('image').getAttribute('transform')") is not None
+    # No tooltip from the hidden layer.
+    page.locator(".ggrust-toolbar button").last.click()  # reset
+    page.wait_for_function(
+        "!document.querySelector('.ggrust-plot').ggrust.zoom.plots[0].tiles[0].dirty"
+    )
+    x, y = outlier_client_point(page)
+    page.mouse.move(x + 1, y + 1)
+    page.wait_for_timeout(150)
+    assert "outlier" not in page.locator(".ggrust-plot").inner_text()
+    # Shown again: drawn and answering.
+    assert layer_toggles(page) == [["imshow", True], ["point", False]]
+    page.locator(".ggrust-layers input").nth(1).check()
+    page.wait_for_function(painted)
+    page.mouse.click(0, 0)
+    page.mouse.move(x + 1, y + 1)
+    page.wait_for_function("document.querySelector('.ggrust-plot').innerText.includes('outlier')")
+    assert page.errors == []
+
+
+def test_layer_toggles_act_on_one_subplot(page, tmp_path: Path) -> None:
+    frame = dense_frame(200)
+    left = gg.ggplot(frame, gg.aes("x", "y")) + gg.geom_point() + gg.geom_density2d()
+    right = gg.ggplot(frame, gg.aes("x", "y")) + gg.geom_point()
+    grid = gg.gggrid([left, right], ncol=2) + gg.ggsize(800, 300) + gg.ggtb(layers={"spots": 0})
+    load(page, grid.to_html(), tmp_path)
+    assert layer_toggles(page) == [["spots", True], ["density2d", True], ["spots", True]]
+    headings = page.locator(".ggrust-layers div").all_inner_texts()
+    assert headings == ["Plot 1", "Plot 2"]
+    page.locator(".ggrust-layers input").first.uncheck()
+    displays = page.evaluate(
+        """() => Array.from(document.querySelectorAll('g.tile')).map((tile) =>
+          Array.from(tile.querySelectorAll('g.layer')).map((g) => getComputedStyle(g).display))"""
+    )
+    assert displays == [["none", "inline"], ["inline"]]
+    assert page.errors == []
+
+
 def test_toolbar_style_and_height(page, tmp_path: Path) -> None:
     """The ``ggtb()`` toolbar is a soft frosted bar whose selected tool is ink filled.
 

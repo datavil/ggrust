@@ -11,7 +11,8 @@
 // The SVG is complete without this script: notebooks that do not run JavaScript
 // (GitHub, nbviewer) still show the static plot.
 // With `ggtb()` it also adds lets-plot's toolbar (pan, rubber band zoom,
-// centerpoint zoom, reset) and zooms panels: see "Zoom and pan" below.
+// centerpoint zoom, reset) and zooms panels: see "Zoom and pan" below. With
+// `ggtb(layers=...)` the toolbar also hides and shows layers: see "Layer toggles".
 // Dense point batches (more than 50k markers) arrive as base64 typed arrays
 // and are stamped on a canvas inside their SVG placeholder: see "Canvas points".
 //
@@ -238,7 +239,7 @@
   function lookup(plot, x, y) {
     var best = null;
     plot.layers.forEach(function (layer) {
-      if (!inPanel(layer, x, y)) {
+      if (layer.hidden || !inPanel(layer, x, y)) {
         return;
       }
       var result = search(layer, x, y);
@@ -530,6 +531,7 @@
     var width = layer.canvas.width, height = layer.canvas.height;
     context.setTransform(1, 0, 0, 1, 0, 0);
     context.clearRect(0, 0, width, height);
+    if (layer.hidden) return;
     var direct = layer.styles.length > MAX_SPRITES;
     if (!direct && layer.sprites.k !== k) layer.sprites = { k: k };
     var hs = h.scale * ratio, ho = h.offset * ratio, vs = v.scale * ratio, vo = v.offset * ratio;
@@ -976,7 +978,9 @@
   // with their anchor, everything else is scaled.
   function collectMarks(container, marks) {
     for (var child = container.firstElementChild; child; child = child.nextElementSibling) {
-      if (child.getAttribute("class") === "ggrust-canvas") {
+      if (child.getAttribute("class") === "layer") {
+        collectMarks(child, marks); // one layer's marks (see "Layer toggles")
+      } else if (child.getAttribute("class") === "ggrust-canvas") {
         if (child.ggrustCanvas) marks.push({ kind: "canvas", layer: child.ggrustCanvas });
       } else if (child.getAttribute("class") === "ggrust-points") {
         for (var m = child.firstElementChild; m; m = m.nextElementSibling) {
@@ -1388,7 +1392,86 @@
       if (plot.zoom.tool) selectTool(plot, plot.zoom.tool);
       resetViews(plot);
     });
+    if (plot.zoom.plots.some(function (zoomPlot) { return zoomPlot.layers; })) {
+      layersMenu(plot, bar);
+    }
     plot.root.insertBefore(holder, plot.svg);
+  }
+
+  // -- Layer toggles (`ggtb(layers=...)`, a ggrust extension) --
+  //
+  // Every panel holds one `g.layer` per layer, in layer order (empty when the
+  // layer draws nothing). Hiding layer i of a plot hides that group in each of
+  // its panels, stops its canvas points from drawing and its tooltip targets
+  // from answering. Each plot of a grid has its own list; legends stay.
+
+  var LAYERS_ICON = icon('<path fill-rule="evenodd" d="M8,1.5 1.5,5 8,8.5 14.5,5ZM8,2.64 12.39,5 8,7.36 3.61,5Z"/>' +
+    '<path d="M2.24,7.6 1.76,8.48 8,11.84 14.24,8.48 13.76,7.6 8,10.7Z"/>' +
+    '<path d="M2.24,10.6 1.76,11.48 8,14.84 14.24,11.48 13.76,10.6 8,13.7Z"/>');
+
+  function layerGroup(tile, index) {
+    var panel = childByClass(tile.element, "panel");
+    var count = 0;
+    for (var child = panel ? panel.firstElementChild : null; child; child = child.nextElementSibling) {
+      if (child.getAttribute("class") === "layer" && count++ === index) return child;
+    }
+    return null;
+  }
+
+  function setLayerVisible(plot, zoomPlot, index, visible) {
+    zoomPlot.hidden[index] = !visible;
+    zoomPlot.tiles.forEach(function (tile) {
+      var group = layerGroup(tile, index);
+      if (group) {
+        group.style.display = visible ? "" : "none";
+        var holders = group.querySelectorAll("foreignObject.ggrust-canvas");
+        for (var i = 0; i < holders.length; i++) {
+          if (holders[i].ggrustCanvas) holders[i].ggrustCanvas.hidden = !visible;
+        }
+      }
+      (plot.layers || []).forEach(function (entry) {
+        if (entry.layer === index && samePanel(entry.panel, tile.spec.panel)) entry.hidden = !visible;
+      });
+      tile.dirty = true; // redraws its canvas points at the current view
+    });
+    if (plot.overlay) show(plot, null);
+    schedule(plot);
+  }
+
+  function layersMenu(plot, bar) {
+    var menu = element("div", "position:absolute;top:34px;left:50%;transform:translateX(-50%);z-index:2;" +
+      "display:none;box-sizing:border-box;min-width:120px;padding:6px 8px;background-color:rgba(255, 255, 255, 0.97);" +
+      "border:" + BAR_BORDER + ";border-radius:10px;box-shadow:0 2px 8px rgba(0, 0, 0, 0.12);" +
+      "font:12px sans-serif;color:" + BUTTON_SELECTED + ";text-align:left;white-space:nowrap;", bar);
+    menu.className = "ggrust-layers";
+    var listed = plot.zoom.plots.filter(function (zoomPlot) { return zoomPlot.layers; });
+    plot.zoom.plots.forEach(function (zoomPlot, plotIndex) {
+      if (!zoomPlot.layers) return;
+      if (listed.length > 1) {
+        var heading = element("div", "margin:4px 0 2px 0;font-weight:bold;color:" + BUTTON_STROKE + ";", menu);
+        heading.textContent = "Plot " + (plotIndex + 1);
+      }
+      zoomPlot.layers.forEach(function (label, index) {
+        var row = element("label", "display:flex;align-items:center;gap:6px;padding:2px 0;cursor:pointer;", menu);
+        var box = element("input", "margin:0;cursor:pointer;", row);
+        box.type = "checkbox";
+        box.checked = !zoomPlot.hidden[index];
+        box.addEventListener("change", function () { setLayerVisible(plot, zoomPlot, index, box.checked); });
+        element("span", "", row).textContent = label;
+      });
+    });
+    var toggle = button("Layers", LAYERS_ICON, bar, function () {
+      var open = menu.style.display === "none";
+      menu.style.display = open ? "block" : "none";
+      setButton(toggle, open);
+    });
+    bar.insertBefore(toggle, bar.children[TOOLS.length]); // after the zoom tools, before Reset
+    document.addEventListener("mousedown", function (event) {
+      if (menu.style.display !== "none" && !bar.contains(event.target)) {
+        menu.style.display = "none";
+        setButton(toggle, false);
+      }
+    });
   }
 
   // Set up zoom/pan when the engine wrote a zoom payload (`ggtb()`).
@@ -1410,6 +1493,8 @@
       plots: payload.plots.map(function (zoomPlot) {
         return {
           shared: zoomPlot.shared,
+          layers: zoomPlot.layers || null,
+          hidden: [],
           tiles: zoomPlot.tiles.map(function (spec) {
             var tile = { spec: spec, element: tileElements[next++] || null };
             tile.views = { h: spec.horizontal.domain.slice(), v: spec.vertical.domain.slice() };

@@ -225,7 +225,7 @@ fn intercepts_train_the_scales() {
             .groups_with_role("panel")
             .into_iter()
             .filter_map(|group| {
-                group.nodes.iter().find_map(|node| match node {
+                group.flattened().into_iter().find_map(|node| match node {
                     Node::Points(points) => Some(points.x[1]),
                     _ => None,
                 })
@@ -318,7 +318,7 @@ fn blank_draws_nothing_but_trains_the_scales() {
         frame(vec![0.0, 10.0], vec![0.0, 10.0], vec!["a", "a"]),
     );
     assert!(built.warnings.is_empty(), "{:?}", built.warnings);
-    assert!(panel(&built).nodes.is_empty());
+    assert!(panel(&built).flattened().is_empty());
     // The axis shows the data range, so tick labels exist.
     let has_text = built
         .scene

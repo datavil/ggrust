@@ -81,6 +81,12 @@ pub fn build_figure_with(
                 nodes,
             };
             scene.validate()?;
+            if let Some(zoom) = collected
+                .as_ref()
+                .and_then(|(interaction, _)| interaction.zoom.as_ref())
+            {
+                zoom.check_layer_labels("ggtoolbar")?;
+            }
             let interaction = collected.map(|(interaction, notes)| {
                 for note in notes {
                     if !warnings.contains(&note) {

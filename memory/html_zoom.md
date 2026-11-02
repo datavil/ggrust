@@ -29,5 +29,9 @@ writes; marks are repositioned at their size, never re-rendered.
 - **Shapes may own a transform:** a mirrored `geom_imshow` is a unit-square
   `<image>` with its own `matrix()`; zoom must compose (`zoom own`), never replace
   it, or the image shrinks to 1 px and seems to vanish.
+- **Layer groups:** each panel holds one `g.layer` per layer (`LAYER_ROLE`), drawn
+  inline outside zoomable HTML; Rust tests read panels via `Group::flattened`, which
+  flattens them. `collectMarks` must recurse into them. Toggles (`ggtb(layers=)`)
+  find layer i as the i-th `g.layer` of a panel, so empty layers keep their group.
 - Not done: the layout is not redone while zoomed (lets-plot re-lays out), a
   user `format` on generated breaks falls back to the default format.

@@ -58,6 +58,8 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_linerange()`](api/geom_linerange.md) | Draw a vertical line from ymin to ymax at x. |
 | [`geom_pointrange()`](api/geom_pointrange.md) | Draw a vertical line from ymin to ymax at x with a point at y. |
 | [`geom_tile()`](api/geom_tile.md) | Rectangles centred on (x, y), e.g. heatmap cells. Not drawn yet. |
+| [`geom_bin2d()`](api/geom_bin2d.md) | Tiles counting the rows in a grid of rectangles (``stat="bin2d"``). |
+| [`geom_hex()`](api/geom_hex.md) | Hexagons counting the rows in a hexagonal grid (``stat="binhex"``). |
 | [`geom_raster()`](api/geom_raster.md) | Equal-sized tiles on a regular grid. Not drawn yet. |
 | [`geom_imshow()`](api/geom_imshow.md) | Display an image array, as lets_plot ``geom_imshow``. |
 | [`geom_text()`](api/geom_text.md) | Text labels at (x, y); the text comes from the ``label`` aesthetic. |

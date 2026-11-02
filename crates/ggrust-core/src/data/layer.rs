@@ -40,10 +40,14 @@ pub enum Computed {
     Se,
     /// `..n..`: rows (or summed weights) at one (x, y) location (`stat="sum"`).
     N,
+    /// `..binwidth..`: bin width of a 2D bin (`bin2d`, `binhex`).
+    BinWidth,
+    /// `..binheight..`: bin height of a 2D bin (hexagon row spacing for `binhex`).
+    BinHeight,
 }
 
 impl Computed {
-    const ALL: [(Computed, &'static str); 15] = [
+    const ALL: [(Computed, &'static str); 17] = [
         (Computed::Count, "count"),
         (Computed::Density, "density"),
         (Computed::NormalizedCount, "ncount"),
@@ -59,6 +63,8 @@ impl Computed {
         (Computed::Height, "height"),
         (Computed::Se, "se"),
         (Computed::N, "n"),
+        (Computed::BinWidth, "binwidth"),
+        (Computed::BinHeight, "binheight"),
     ];
 
     /// lets-plot name without dots, e.g. `count`.

@@ -9,9 +9,11 @@ mod abline;
 mod area;
 mod area_ridges;
 mod bar;
+mod bin2d;
 mod blank;
 mod boxplot;
 mod bracket;
+mod hex;
 mod hover;
 mod image;
 mod interval;
@@ -38,9 +40,11 @@ pub use abline::AbLineGeom;
 pub use area::{AreaGeom, DensityGeom, RibbonGeom};
 pub use area_ridges::AreaRidgesGeom;
 pub use bar::{BarGeom, HistogramGeom};
+pub use bin2d::Bin2dGeom;
 pub use blank::BlankGeom;
 pub use boxplot::BoxplotGeom;
 pub use bracket::BracketGeom;
+pub use hex::HexGeom;
 pub use image::ImageGeom;
 pub use interval::{CrossBarGeom, ErrorBarGeom, LineRangeGeom, PointRangeGeom};
 pub use jitter::JitterGeom;
@@ -224,6 +228,8 @@ pub static GEOMS: &[&dyn Geom] = &[
     &AreaRidgesGeom,
     &BracketGeom,
     &TileGeom,
+    &Bin2dGeom,
+    &HexGeom,
     &RectGeom,
     &RasterGeom,
     &ImageGeom,

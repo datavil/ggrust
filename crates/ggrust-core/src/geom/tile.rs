@@ -13,7 +13,7 @@
 use super::bar::{draw_key, draw_rectangles, key_size};
 use super::{DrawLayer, Geom};
 use crate::coord::Panel;
-use crate::data::{Column, ContinuousColumn, LayerData};
+use crate::data::{Column, Computed, ContinuousColumn, LayerData};
 use crate::parameters::Parameters;
 use crate::scene::{Color, Node, Rect};
 use crate::spec::Aesthetic;
@@ -91,21 +91,8 @@ impl Geom for TileGeom {
         RECTANGLE_AESTHETICS
     }
 
-    fn setup(&self, mut data: LayerData, parameters: &Parameters) -> Result<LayerData> {
-        let (Some(x), Some(y)) = (
-            data.continuous(Aesthetic::X).cloned(),
-            data.continuous(Aesthetic::Y).cloned(),
-        ) else {
-            return Ok(data);
-        };
-        let (xmin, xmax) = spans(&data, parameters, &x, Aesthetic::Width, "width")?;
-        let (ymin, ymax) = spans(&data, parameters, &y, Aesthetic::Height, "height")?;
-        let continuous = |values| Column::Continuous(ContinuousColumn::from_values(values));
-        data.insert(Aesthetic::Xmin, continuous(xmin))?;
-        data.insert(Aesthetic::Xmax, continuous(xmax))?;
-        data.insert(Aesthetic::Ymin, continuous(ymin))?;
-        data.insert(Aesthetic::Ymax, continuous(ymax))?;
-        Ok(data)
+    fn setup(&self, data: LayerData, parameters: &Parameters) -> Result<LayerData> {
+        setup_tiles(data, parameters, None)
     }
 
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
@@ -121,12 +108,55 @@ impl Geom for TileGeom {
     }
 }
 
+/// Tile `xmin`/`xmax`/`ymin`/`ymax`. `bin_sizes` (width, height) replace the x
+/// and y resolutions as the `"res"` unit where the data has them (2D bins).
+pub(super) fn setup_tiles(
+    mut data: LayerData,
+    parameters: &Parameters,
+    bin_sizes: Option<(Computed, Computed)>,
+) -> Result<LayerData> {
+    let (Some(x), Some(y)) = (
+        data.continuous(Aesthetic::X).cloned(),
+        data.continuous(Aesthetic::Y).cloned(),
+    ) else {
+        return Ok(data);
+    };
+    let bin_size = |variable: Computed| data.continuous(variable).cloned();
+    let (x_bins, y_bins) = match bin_sizes {
+        Some((width, height)) => (bin_size(width), bin_size(height)),
+        None => (None, None),
+    };
+    let (xmin, xmax) = spans(
+        &data,
+        parameters,
+        &x,
+        x_bins.as_ref(),
+        Aesthetic::Width,
+        "width",
+    )?;
+    let (ymin, ymax) = spans(
+        &data,
+        parameters,
+        &y,
+        y_bins.as_ref(),
+        Aesthetic::Height,
+        "height",
+    )?;
+    let continuous = |values| Column::Continuous(ContinuousColumn::from_values(values));
+    data.insert(Aesthetic::Xmin, continuous(xmin))?;
+    data.insert(Aesthetic::Xmax, continuous(xmax))?;
+    data.insert(Aesthetic::Ymin, continuous(ymin))?;
+    data.insert(Aesthetic::Ymax, continuous(ymax))?;
+    Ok(data)
+}
+
 /// Low and high ends of each tile along one axis: `location` -/+ half the size
 /// (mapped column, else the `name` option, else 1) in the option's unit.
-fn spans(
+pub(super) fn spans(
     data: &LayerData,
     parameters: &Parameters,
     location: &ContinuousColumn,
+    bin_size: Option<&ContinuousColumn>,
     size: Aesthetic,
     name: &str,
 ) -> Result<(Vec<f64>, Vec<f64>)> {
@@ -136,9 +166,9 @@ fn spans(
     } else {
         Aesthetic::Y
     };
-    let unit = match parameters.string(&unit_option)?.unwrap_or("res") {
-        "res" => data.resolution(axis),
-        "identity" => 1.0,
+    let resolution_unit = match parameters.string(&unit_option)?.unwrap_or("res") {
+        "res" => true,
+        "identity" => false,
         other => {
             return Err(Error::spec(
                 parameters.path_of(&unit_option),
@@ -158,12 +188,21 @@ fn spans(
         }
         None => None,
     };
+    let unit = if resolution_unit && bin_size.is_none() {
+        data.resolution(axis)
+    } else {
+        1.0
+    };
     let constant = parameters.number(name)?.unwrap_or(1.0);
     let mut low = Vec::with_capacity(location.len());
     let mut high = Vec::with_capacity(location.len());
     for row in 0..location.len() {
         let center = location.get(row).unwrap_or(f64::NAN);
         let extent = mapped.map_or(constant, |column| column.get(row).unwrap_or(f64::NAN));
+        let unit = match bin_size {
+            Some(sizes) if resolution_unit => sizes.get(row).unwrap_or(f64::NAN),
+            _ => unit,
+        };
         let half = extent * unit / 2.0;
         low.push(center - half);
         high.push(center + half);

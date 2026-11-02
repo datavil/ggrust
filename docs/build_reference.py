@@ -78,6 +78,8 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "geom_linerange",
             "geom_pointrange",
             "geom_tile",
+            "geom_bin2d",
+            "geom_hex",
             "geom_raster",
             "geom_imshow",
             "geom_text",

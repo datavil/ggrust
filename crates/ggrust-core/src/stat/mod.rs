@@ -2,6 +2,8 @@
 //! statistics, ...). One file per stat; add it to [`STATS`].
 
 mod bin;
+mod bin2d;
+mod binhex;
 mod boxplot;
 mod count;
 mod density;
@@ -17,6 +19,8 @@ mod summary;
 mod ydensity;
 
 pub use bin::{BinStat, bracketing_index};
+pub use bin2d::Bin2dStat;
+pub use binhex::BinHexStat;
 pub use boxplot::{BoxplotOutlierStat, BoxplotStat};
 pub use count::CountStat;
 pub use density_1d::DensityStat;
@@ -102,6 +106,8 @@ pub static STATS: &[&dyn Stat] = &[
     &SummaryBinStat,
     &EcdfStat,
     &SumStat,
+    &Bin2dStat,
+    &BinHexStat,
 ];
 
 /// lets-plot stats the Python API builds but the engine does not compute yet

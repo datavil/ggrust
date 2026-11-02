@@ -2722,6 +2722,206 @@ def geom_tile(
     )
 
 
+def geom_bin2d(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    bins: int | Sequence[int] | None = None,
+    binwidth: float | Sequence[float | None] | None = None,
+    drop: bool | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Tiles counting the rows in a grid of rectangles (``stat="bin2d"``).
+
+    The grid spans the x and y ranges, widened by half a bin on each side. The stat
+    computes ``..count..`` (rows, or summed ``weight``, per bin; ``fill`` by default)
+    and ``..density..`` (integrates to 1 over the grid).
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``: ``x``, ``y`` (required), ``fill``, ``color``,
+        ``alpha``, ``size``, ``linetype``, ``width``, ``height``, ``weight``.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name; ``"bin2d"`` when None.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"identity"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    bins : int or list of int, default=[30, 30]
+        Number of bins along x and y; one number is used for both axes.
+    binwidth : float or list of float, optional
+        Bin width along x and y (a None entry keeps ``bins`` for that axis); wins over
+        ``bins``.
+    drop : bool, default=True
+        False also draws the empty bins (count 0).
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Constant aesthetics such as ``alpha=0.8``, and ``width``/``height`` (tile size
+        as a share of the bin).
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"height": [160, 172, 181, 165, 170, 158], "weight": [55, 70, 82, 61, 68, 52]}
+    >>> plot = ggplot(data, aes("height", "weight")) + geom_bin2d(bins=[4, 3])
+    """
+    return _geom(
+        "bin2d",
+        mapping=mapping,
+        data=data,
+        stat=stat,
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        manual_key=manual_key,
+        sampling=sampling,
+        tooltips=tooltips,
+        bins=bins,
+        binwidth=binwidth,
+        drop=drop,
+        color_by=color_by,
+        fill_by=fill_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
+def geom_hex(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    bins: int | Sequence[int] | None = None,
+    binwidth: float | Sequence[float | None] | None = None,
+    drop: bool | None = None,
+    width_unit: Literal["res", "identity"] | None = None,
+    height_unit: Literal["res", "identity"] | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Hexagons counting the rows in a hexagonal grid (``stat="binhex"``).
+
+    Hexagons stand on a point; every other row is shifted by half a bin. The stat
+    computes ``..count..`` (rows, or summed ``weight``, per hexagon; ``fill`` by
+    default) and ``..density..`` (integrates to 1 over the grid).
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``: ``x``, ``y`` (required), ``fill``, ``color``,
+        ``alpha``, ``size``, ``linetype``, ``width``, ``height``, ``weight``.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name; ``"binhex"`` when None.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"identity"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    bins : int or list of int, default=[30, 30]
+        Number of hexagons along x and of rows along y; one number is used for both.
+    binwidth : float or list of float, optional
+        Hexagon width and height (a None entry keeps ``bins`` for that axis); wins
+        over ``bins``.
+    drop : bool, default=True
+        False also draws the empty hexagons (count 0).
+    width_unit : {"res", "identity"}, default="res"
+        Unit of ``width``: the bin width (``"res"``) or x axis units (``"identity"``).
+    height_unit : {"res", "identity"}, default="res"
+        Unit of ``height``: the row spacing (``"res"``) or y axis units (``"identity"``).
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Constant aesthetics such as ``alpha=0.8``, and ``width``/``height`` (hexagon
+        size in ``width_unit``/``height_unit``).
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"height": [160, 172, 181, 165, 170, 158], "weight": [55, 70, 82, 61, 68, 52]}
+    >>> plot = ggplot(data, aes("height", "weight")) + geom_hex(bins=[4, 3])
+    """
+    return _geom(
+        "hex",
+        mapping=mapping,
+        data=data,
+        stat=stat,
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        manual_key=manual_key,
+        sampling=sampling,
+        tooltips=tooltips,
+        bins=bins,
+        binwidth=binwidth,
+        drop=drop,
+        width_unit=width_unit,
+        height_unit=height_unit,
+        color_by=color_by,
+        fill_by=fill_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
 def geom_raster(
     mapping: FeatureSpec | None = None,
     *,

@@ -24,7 +24,7 @@ use crate::{Error, Result};
 /// lets-plot `BinStat.DEF_BIN_COUNT`.
 const DEFAULT_BIN_COUNT: f64 = 30.0;
 /// lets-plot `BinStatUtil.MAX_BIN_COUNT`.
-const MAX_BIN_COUNT: usize = 500;
+pub(super) const MAX_BIN_COUNT: usize = 500;
 
 /// Counts x per bin.
 pub struct BinStat;

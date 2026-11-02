@@ -50,3 +50,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Density, smooth, abline follow lets-plot](letsplot_density_smooth_abline.md): line-by-line stat ports, repeated first vertex, Kotlin Random for loess sampling, ggplot2 per-model SE (user's choice), seam-free quantile bands, abline() = y = x.
 - [Date-time axes](letsplot_datetime_axes.md): DateTimeBreaksHelper port in epoch ms, compare under TZ=UTC, exact time multiples, break_width = fixed layout, zoom keeps date breaks, UTC only.
 - [Exact port speedups](exact_port_speedups.md): cache + provable skips only; ported predicates are not geometric (degenerate boxes); ties break on 1e-13 changes.
+- [2D bins follow lets-plot](letsplot_bin2d_hex.md): bin2d/binhex grid rules, literal hex border port, NaN corner rows train axes, bin-size columns fix #1290.

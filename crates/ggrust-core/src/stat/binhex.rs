@@ -145,8 +145,22 @@ struct Grid {
 }
 
 impl Grid {
-    /// lets-plot `getHexagonCenter`.
+    /// lets-plot `getHexagonCenter`, used to place points. The odd-row shift is added
+    /// to the column offset first, as lets-plot does: points on a border tie on it.
     fn center(&self, (column, row): (i64, i64)) -> (f64, f64) {
+        let offset = if row % 2 == 0 {
+            column as f64 * self.width
+        } else {
+            column as f64 * self.width + self.width / 2.0
+        };
+        (
+            self.x_start + self.width / 2.0 + offset,
+            self.y_start + self.height / 2.0 + row as f64 * self.height,
+        )
+    }
+
+    /// The centre lets-plot `computeBins` reports (summed left to right).
+    fn reported_center(&self, (column, row): (i64, i64)) -> (f64, f64) {
         let shift = if row % 2 == 0 { 0.0 } else { self.width / 2.0 };
         (
             self.x_start + self.width / 2.0 + column as f64 * self.width + shift,
@@ -287,7 +301,7 @@ fn count_hexagons(
     let mut densities = Vec::with_capacity(cells.len());
     for (column, row) in cells {
         let count = counts.get(column, row);
-        let (center_x, center_y) = grid.center((column as i64, row as i64));
+        let (center_x, center_y) = grid.reported_center((column as i64, row as i64));
         if drop && count == 0.0 {
             // lets-plot's "resolution hack": an empty corner hexagon becomes two
             // rows, one without y and one without x; each still trains its axis.

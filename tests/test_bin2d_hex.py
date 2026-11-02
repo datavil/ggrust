@@ -28,6 +28,14 @@ NORMAL = {
     "g": RANDOM.choice(["a", "b"], size=400).tolist(),
     "w": RANDOM.uniform(0, 2, size=400).tolist(),
 }
+# Uniform data whose largest x sits on a hexagon border: the tie depends on lets-plot's
+# exact summation order of the hexagon centre.
+UNIFORM_RANDOM = np.random.default_rng(8)
+UNIFORM_N = int(UNIFORM_RANDOM.integers(50, 400))
+UNIFORM = {
+    "x": UNIFORM_RANDOM.uniform(0, 10, UNIFORM_N).tolist(),
+    "y": UNIFORM_RANDOM.uniform(100, 500, UNIFORM_N).tolist(),
+}
 # Integer data puts many points on bin and hexagon borders.
 INTEGERS = {"x": [x % 7 for x in range(60)], "y": [(x * 3) % 5 for x in range(60)]}
 
@@ -106,6 +114,16 @@ CASES: dict[str, Callable[[ModuleType], object]] = {
     "hex_vertex_points": lambda m: (
         m.ggplot({"x": [0, 5, 0, 5], "y": [0, 3, 2, 2]}, m.aes("x", "y"))
         + m.geom_text(m.aes(label="..count.."), stat="binhex", bins=[2, 2], drop=False)
+    ),
+    "hex_border_tie": lambda m: m.ggplot(UNIFORM, m.aes("x", "y")) + m.geom_hex(bins=[6, 6]),
+    "hex_ylim": lambda m: (
+        m.ggplot(UNIFORM, m.aes("x", "y")) + m.geom_hex(bins=[6, 6]) + m.ylim(100, 500)
+    ),
+    "hex_ylim_wide": lambda m: (
+        m.ggplot(UNIFORM, m.aes("x", "y")) + m.geom_hex(bins=[6, 6]) + m.ylim(100, 600)
+    ),
+    "bin2d_xlim": lambda m: (
+        m.ggplot(UNIFORM, m.aes("x", "y")) + m.geom_bin2d(binwidth=[3, 100]) + m.xlim(0, 10)
     ),
     "hex_one_column": lambda m: m.ggplot(NORMAL, m.aes("x", "y")) + m.geom_hex(bins=[1, 4]),
     "hex_identity_units": lambda m: (
@@ -191,3 +209,49 @@ def test_identity_hexagons_are_twice_the_x_resolution_wide() -> None:
         shapes = _shapes(plot.to_svg())
         widths.append(shapes[0][1] / shapes[0][2])
     assert widths[0] == pytest.approx(widths[1], rel=0.03)
+
+
+def _red_texts(svg: str) -> list[float]:
+    """Values of the red texts (the stat layer's labels), sorted."""
+    found = re.findall(r"<text([^>]*)>(.*?)</text>", svg, re.S)
+    return sorted(
+        round(float(re.sub(r"<[^>]+>", "", text)), 4)
+        for attributes, text in found
+        if re.search(r"ff0000|255, ?0, ?0", attributes, re.I)
+    )
+
+
+LIMIT_CASES: dict[str, Callable[[ModuleType], object]] = {
+    # Bin centres past xlim (the last bin is centred at 10.5).
+    "bin_x": lambda m: (
+        m.ggplot(UNIFORM, m.aes("x"))
+        + m.geom_text(m.aes(label="..count.."), stat="bin", binwidth=3, boundary=0, color="red")
+        + m.xlim(0, 10)
+    ),
+    # Counts past ylim.
+    "bin_count": lambda m: (
+        m.ggplot(UNIFORM, m.aes("x"))
+        + m.geom_text(m.aes(label="..count.."), stat="bin", bins=5, color="red")
+        + m.ylim(0, 61)
+    ),
+    "density": lambda m: (
+        m.ggplot(UNIFORM, m.aes("x"))
+        + m.geom_text(m.aes(label="..density.."), stat="density", n=20, color="red")
+        + m.ylim(0, 0.1)
+    ),
+    "hex": lambda m: (
+        m.ggplot(UNIFORM, m.aes("x", "y"))
+        + m.geom_text(m.aes(label="..count.."), stat="binhex", bins=[6, 6], color="red")
+        + m.ylim(150, 450)
+    ),
+}
+
+
+@pytest.mark.parametrize("name", LIMIT_CASES)
+def test_stat_rows_past_limits_match_lets_plot(name: str) -> None:
+    # Stat rows outside xlim/ylim are dropped, as in lets-plot and ggplot2.
+    ours = _red_texts(LIMIT_CASES[name](gg).to_svg())
+    theirs = _red_texts(LIMIT_CASES[name](lp).to_svg())
+    assert ours
+    # Same rows; text labels may round the last digit differently.
+    assert ours == pytest.approx(theirs, rel=2e-3)

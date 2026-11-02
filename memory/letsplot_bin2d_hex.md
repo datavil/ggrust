@@ -19,6 +19,12 @@ Parity tests: `tests/test_bin2d_hex.py` (fills + texts in 14 cases). Kotlin sour
 - **Sizes**: ggrust ships `..binwidth..`/`..binheight..` and uses them as the
   `"res"` unit (fixes #1290; deviation). Hex y span is `h*res/sqrt3` (lets-plot),
   drawn tips `2h*res/3`: slightly past the span, covered by default expansion.
+- **Border ties depend on summation order**: lets-plot `getHexagonCenter` adds the odd
+  row shift to `i*w` first (`start + w/2 + (i*w + w/2)`), while `computeBins` reports
+  centres left to right. Keep both orders: a point exactly on a border (the max-x point
+  of a range, often) otherwise lands in the neighbour hexagon. This, not the limit
+  filter, was the "hex + ylim" difference: stat rows past limits are dropped in
+  lets-plot and ggplot2 too (tested in `test_stat_rows_past_limits_match_lets_plot`).
 - 1M points: 16 ms (bin2d) / 28 ms (hex) vs lets-plot 0.8 s / 1.8 s; no rayon.
 
 **How to apply:** read before contours/density2d (lp5.3) or any 2D stat.

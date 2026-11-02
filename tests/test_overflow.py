@@ -9,6 +9,7 @@ import re
 
 import ggrust as gg
 import pytest
+from ggrust.plot.core import PlotSpec
 
 NUMBER = r"([\d.\-]+)"
 GROUPS = [f"group {index:02d}" for index in range(50)]
@@ -22,7 +23,7 @@ def texts(svg: str) -> list[tuple[float, float, str]]:
     ]
 
 
-def many_levels(position: str) -> gg.PlotSpec:
+def many_levels(position: str) -> PlotSpec:
     """50 colour levels in a 400 x 300 plot."""
     frame = {"x": list(range(50)), "y": list(range(50)), "c": GROUPS}
     return (

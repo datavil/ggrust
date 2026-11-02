@@ -18,6 +18,7 @@ from ggrust.errors import (
     UnsupportedValueError,
     did_you_mean,
 )
+from ggrust.plot.core import PlotSpec
 
 FRAME = pl.DataFrame(
     {
@@ -28,7 +29,7 @@ FRAME = pl.DataFrame(
 )
 
 
-def scatter(**point: object) -> gg.PlotSpec:
+def scatter(**point: object) -> PlotSpec:
     return gg.ggplot(FRAME, gg.aes("sepal_length", "sepal_width")) + gg.geom_point(**point)
 
 

@@ -5,16 +5,17 @@ from pathlib import Path
 
 import ggrust as gg
 import pytest
+from ggrust.plot.core import PlotSpec
 
 
-def plots() -> list[gg.PlotSpec | gg.SupPlotsSpec]:
+def plots() -> list[PlotSpec | gg.SupPlotsSpec]:
     plot = gg.ggplot() + gg.geom_point(x=0, y=0)
     return [plot, gg.gggrid([plot, plot])]
 
 
 @pytest.mark.parametrize("plot", plots(), ids=["plot", "grid"])
 def test_show_outside_ipython_opens_the_html_page(
-    plot: gg.PlotSpec | gg.SupPlotsSpec, monkeypatch: pytest.MonkeyPatch
+    plot: PlotSpec | gg.SupPlotsSpec, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     opened: list[str] = []
     monkeypatch.setattr(webbrowser, "open", lambda url: opened.append(url) or True)

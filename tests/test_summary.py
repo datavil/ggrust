@@ -155,3 +155,16 @@ def test_spec_matches_lets_plot() -> None:
         assert {key: ours[key] for key in ("geom", "stat")} == {
             key: theirs[key] for key in ("geom", "stat")
         }
+
+
+@pytest.mark.parametrize("oriented", [False, True])
+def test_unused_summary_bounds_do_not_train_the_axis(oriented: bool) -> None:
+    """Points of `fun="mean"` train the axis on the means only, as lets-plot (bug hunt)."""
+    data = {"g": list("aaabbbbbccc"), "y": [1.0, 2, 3, 2, 3, 4, 5, 9, 1, 2, 3]}
+
+    def ticks(module: ModuleType) -> list[str]:
+        mapping = module.aes("y", "g") if oriented else module.aes("g", "y")
+        plot = module.ggplot(data, mapping) + module.stat_summary(fun="mean", geom="point")
+        return sorted(re.findall(r">(-?[\d.]+)</t", plot.to_svg()))
+
+    assert ticks(gg) == ticks(lp)

@@ -1989,6 +1989,19 @@ fn compute_layer(
             .collect()
     });
     let mut layer_data = stat.compute(layer_data, &parameters, context)?;
+    // Stat positions the geom does not draw (a summary's ymin/ymax under
+    // `geom="point"`) neither train the axes nor reach the geom, as lets-plot
+    // trains only a geom's rendered aesthetics.
+    if !is_identity {
+        let unused: Vec<Aesthetic> = layer_data
+            .aesthetics()
+            .filter(|aesthetic| aesthetic.is_x_position() || aesthetic.is_y_position())
+            .filter(|aesthetic| !geom_uses(geom, stat, *aesthetic))
+            .collect();
+        for aesthetic in unused {
+            layer_data.remove(aesthetic);
+        }
+    }
     layer_data.set_discrete_axes(x_discrete, y_discrete);
     if let (Some(visited), Some(rank)) = (&visited, &group_rank) {
         regroup_by_rank(&mut layer_data, visited, rank)?;

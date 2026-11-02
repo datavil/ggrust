@@ -172,6 +172,11 @@ impl LayerData {
         Ok(())
     }
 
+    /// Remove a variable's column, if any.
+    pub fn remove(&mut self, variable: impl Into<Variable>) {
+        self.columns.remove(&variable.into());
+    }
+
     /// The column of a variable.
     pub fn get(&self, variable: impl Into<Variable>) -> Option<&Column> {
         self.columns.get(&variable.into())

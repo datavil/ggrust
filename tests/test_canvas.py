@@ -215,6 +215,49 @@ def test_zoomed_canvas_matches_static_limits(page, tmp_path: Path) -> None:
     assert_close(zoomed, screenshot(page, "svg")[inside])
 
 
+def test_zoom_keeps_a_mirrored_image(page, tmp_path: Path) -> None:
+    """A mirrored ``geom_imshow`` (own ``transform`` matrix) stays drawn when zoomed.
+
+    The zoom matrix composes with the image's own transform; replacing it shrank
+    the image to its 1 x 1 unit square (cellestial's spatial plots, y reversed).
+    """
+    image = np.random.default_rng(1).integers(0, 255, size=(40, 60, 3)).astype(np.uint8)
+    plot = (
+        gg.ggplot()
+        + gg.geom_imshow(image_data=image, show_legend=False)
+        + gg.scale_y_reverse()
+        + gg.ggsize(500, 400)
+        + gg.ggtb()
+    )
+    load(page, plot.to_html(), tmp_path)
+    assert page.evaluate("document.querySelector('image').getAttribute('transform')")
+    page.locator(".ggrust-toolbar button").first.click()
+    box = page.locator(".ggrust-plot > svg").bounding_box()
+    page.mouse.move(box["x"] + 250, box["y"] + 200)
+    for _ in range(3):
+        page.mouse.wheel(0, -100)
+    page.wait_for_function(
+        """() => {
+          const tile = document.querySelector('.ggrust-plot').ggrust.zoom.plots[0].tiles[0];
+          return !tile.dirty && tile.views.h[0] !== tile.spec.horizontal.domain[0];
+        }"""
+    )
+    sizes = page.evaluate(
+        """() => {
+          const tile = document.querySelector('.ggrust-plot').ggrust.zoom.plots[0].tiles[0];
+          const image = document.querySelector('image').getBoundingClientRect();
+          return [image.width, image.height, tile.spec.panel[2], tile.spec.panel[3]];
+        }"""
+    )
+    image_width, image_height, panel_width, panel_height = sizes
+    assert image_width > panel_width
+    assert image_height > panel_height
+    page.locator(".ggrust-toolbar button").last.click()  # reset
+    page.wait_for_function(
+        "document.querySelector('image').getBoundingClientRect().width < " + str(image_width)
+    )
+
+
 def test_toolbar_style_and_height(page, tmp_path: Path) -> None:
     """The ``ggtb()`` toolbar is a soft frosted bar whose selected tool is ink filled.
 

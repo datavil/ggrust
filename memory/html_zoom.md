@@ -26,5 +26,8 @@ writes; marks are repositioned at their size, never re-rendered.
   `root.querySelector("svg")` finds an icon: use `root.ggrust.svg`. The browser
   pane, when hidden, never fires `requestAnimationFrame`: tests stub it with
   `setTimeout`. Synthetic `MouseEvent`s work for the runtime's own listeners.
+- **Shapes may own a transform:** a mirrored `geom_imshow` is a unit-square
+  `<image>` with its own `matrix()`; zoom must compose (`zoom own`), never replace
+  it, or the image shrinks to 1 px and seems to vanish.
 - Not done: the layout is not redone while zoomed (lets-plot re-lays out), a
   user `format` on generated breaks falls back to the default format.

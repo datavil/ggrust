@@ -994,7 +994,8 @@
       } else if (child.tagName.toLowerCase() === "g" && child.querySelector(".ggrust-points,.ggrust-canvas,[data-anchor]")) {
         collectMarks(child, marks);
       } else {
-        marks.push({ kind: "shape", element: child });
+        // A shape may carry its own transform (a mirrored image): zoom composes with it.
+        marks.push({ kind: "shape", element: child, transform: child.getAttribute("transform") });
       }
     }
   }
@@ -1049,8 +1050,13 @@
       }
       var e = mark.element;
       if (mark.kind === "shape") {
-        if (reset) e.removeAttribute("transform");
-        else e.setAttribute("transform", matrix);
+        var own = mark.transform;
+        if (reset) {
+          if (own) e.setAttribute("transform", own);
+          else e.removeAttribute("transform");
+        } else {
+          e.setAttribute("transform", own ? matrix + " " + own : matrix);
+        }
         return;
       }
       var x = h.scale * mark.x + h.offset, y = v.scale * mark.y + v.offset;

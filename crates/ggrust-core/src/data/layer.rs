@@ -38,10 +38,12 @@ pub enum Computed {
     Height,
     /// `..se..`: standard error of a smooth's fitted value.
     Se,
+    /// `..n..`: rows (or summed weights) at one (x, y) location (`stat="sum"`).
+    N,
 }
 
 impl Computed {
-    const ALL: [(Computed, &'static str); 14] = [
+    const ALL: [(Computed, &'static str); 15] = [
         (Computed::Count, "count"),
         (Computed::Density, "density"),
         (Computed::NormalizedCount, "ncount"),
@@ -56,6 +58,7 @@ impl Computed {
         (Computed::Quantile, "quantile"),
         (Computed::Height, "height"),
         (Computed::Se, "se"),
+        (Computed::N, "n"),
     ];
 
     /// lets-plot name without dots, e.g. `count`.

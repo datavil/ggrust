@@ -276,7 +276,8 @@ Group 4: score 4.
 
 Group 5: score 3.
 
-- [ ] lp5.1 `geom_count` / `stat_sum`.
+- [x] lp5.1 `geom_count` / `stat_sum`.
+  (`stat/sum.rs`, measured against lets-plot: per group one row per distinct finite (x, y) in first appearance, `..n..`, `..prop..` (n over the group total), `..proppct..`; default `size = ..n..`. `geom_count()` is `geom="point"` + `stat="sum"`, as lets_plot's spec. Radii and texts match lets-plot in 7 cases (discrete, `..prop..` by x, groups, `stat_sum(geom="text")`). A mapped `weight` is summed, as ggplot2 (lets-plot ignores it; deviation). A constant aesthetic (`size=5`, `geom_bar(y=3)`) now replaces the stat's default mapping in the data, axis titles and legend titles, as lets-plot (bug hunt). Found, not fixed (pre-existing): empty data draws a size legend; `scale_size_area(max_size=)` radii differ from lets-plot.)
 - [ ] lp5.2 `geom_bin2d`, `geom_hex` (#1290).
 - [ ] lp5.3 Contour family: `geom_contour(f)`, `geom_density2d(f)` on a marching-squares core, any row order (#1356, #1357).
 - [ ] lp5.4 qq family: `geom_qq`, `geom_qq_line`, `geom_qq2`, `geom_qq2_line`.

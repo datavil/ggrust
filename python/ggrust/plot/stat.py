@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from ggrust._typing import Number, PlotData, Position, Sampling, Tooltips
     from ggrust.plot.core import FeatureSpec, LayerSpec
 
-__all__ = ["stat_ecdf", "stat_summary", "stat_summary_bin"]
+__all__ = ["stat_ecdf", "stat_sum", "stat_summary", "stat_summary_bin"]
 
 SummaryFunction = Literal["count", "sum", "mean", "median", "min", "max", "lq", "mq", "uq"]
 """Aggregate names ``fun``, ``fun_min`` and ``fun_max`` accept."""
@@ -330,6 +330,83 @@ def stat_ecdf(
         n=n,
         pad=pad if pad is not None else True,
         color_by=color_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
+def stat_sum(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    geom: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Rows at each distinct (x, y) (``stat="sum"``), drawn as points sized by the count.
+
+    Computes ``..n..`` (rows, or summed ``weight``, at the location), ``..prop..``
+    (``n`` over the group's total) and ``..proppct..`` (the same in percent);
+    ``size`` is mapped to ``..n..`` by default.
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    geom : str, default="point"
+        Geom that draws the counts, e.g. ``"text"`` with ``aes(label="..n..")``.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"jitter"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"color"`` or ``"fill"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Constant aesthetics such as ``color="red"``, and the geom's options.
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"cylinders": [4, 4, 6, 8, 4, 6, 8, 8], "gears": [4, 4, 4, 3, 5, 4, 3, 3]}
+    >>> plot = ggplot(data, aes("cylinders", "gears")) + stat_sum(aes(color="..prop.."))
+    """
+    return _geom(
+        geom if geom is not None else "point",
+        mapping=mapping,
+        data=data,
+        stat="sum",
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        sampling=sampling,
+        tooltips=tooltips,
+        color_by=color_by,
+        fill_by=fill_by,
         na_rm=na_rm,
         **other_args,
     )

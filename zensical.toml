@@ -69,6 +69,7 @@ nav = [
     ] },
     { "Geometries" = [
       "reference/api/geom_point.md",
+      "reference/api/geom_count.md",
       "reference/api/geom_jitter.md",
       "reference/api/geom_sina.md",
       "reference/api/geom_line.md",
@@ -110,6 +111,7 @@ nav = [
       "reference/api/stat_summary.md",
       "reference/api/stat_summary_bin.md",
       "reference/api/stat_ecdf.md",
+      "reference/api/stat_sum.md",
     ] },
     { "Positions" = [
       "reference/api/position_dodge.md",

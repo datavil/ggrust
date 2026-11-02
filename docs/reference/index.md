@@ -30,6 +30,7 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | Name | Description |
 |---|---|
 | [`geom_point()`](api/geom_point.md) | Scatter points. |
+| [`geom_count()`](api/geom_count.md) | Points at each distinct (x, y), sized by the number of rows there (``stat="sum"``). |
 | [`geom_jitter()`](api/geom_jitter.md) | Points with random noise added to their positions. Not drawn yet. |
 | [`geom_sina()`](api/geom_sina.md) | Sina plot: points spread within the violin outline. |
 | [`geom_line()`](api/geom_line.md) | Connect observations sorted by x. |
@@ -76,6 +77,7 @@ Layers named after their stat: each summarises the data, then draws it with a ge
 | [`stat_summary()`](api/stat_summary.md) | Summarise y at every distinct x (``stat="summary"``), drawn as point ranges. |
 | [`stat_summary_bin()`](api/stat_summary_bin.md) | Summarise y in bins of x (``stat="summarybin"``), drawn as point ranges. |
 | [`stat_ecdf()`](api/stat_ecdf.md) | Empirical cumulative distribution of x (``stat="ecdf"``), drawn as steps. |
+| [`stat_sum()`](api/stat_sum.md) | Rows at each distinct (x, y) (``stat="sum"``), drawn as points sized by the count. |
 
 ## Positions
 

@@ -2480,6 +2480,88 @@ def geom_area_ridges(
     )
 
 
+def geom_count(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Points at each distinct (x, y), sized by the number of rows there (``stat="sum"``).
+
+    The stat computes ``..n..`` (rows, or summed ``weight``, at the location),
+    ``..prop..`` (``n`` over the group's total) and ``..proppct..`` (the same in
+    percent); ``size`` is mapped to ``..n..`` by default.
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``: ``x``, ``y`` (required), ``color``, ``fill``,
+        ``size``, ``shape``, ``alpha``, ``stroke``, ``weight``.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name; ``"sum"`` when None.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"jitter"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"color"`` or ``"fill"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Constant aesthetics such as ``color="red"`` or ``alpha=0.5``.
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"cylinders": [4, 4, 6, 8, 4, 6, 8, 8], "gears": [4, 4, 4, 3, 5, 4, 3, 3]}
+    >>> plot = ggplot(data, aes("cylinders", "gears")) + geom_count()
+    """
+    return _geom(
+        "point",
+        mapping=mapping,
+        data=data,
+        stat=stat if stat is not None else "sum",
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        manual_key=manual_key,
+        sampling=sampling,
+        tooltips=tooltips,
+        color_by=color_by,
+        fill_by=fill_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
 def geom_jitter(
     mapping: FeatureSpec | None = None,
     *,

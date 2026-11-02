@@ -50,6 +50,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
         "Layers that draw data. Each one sets a geom, a default stat and a position.",
         [
             "geom_point",
+            "geom_count",
             "geom_jitter",
             "geom_sina",
             "geom_line",
@@ -94,6 +95,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "stat_summary",
             "stat_summary_bin",
             "stat_ecdf",
+            "stat_sum",
         ],
     ),
     "Positions": (

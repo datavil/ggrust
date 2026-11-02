@@ -12,6 +12,7 @@ from ggrust.plot.geom import (
     geom_blank,
     geom_boxplot,
     geom_bracket,
+    geom_count,
     geom_crossbar,
     geom_density,
     geom_errorbar,
@@ -115,7 +116,7 @@ from ggrust.plot.scale_size import (
     scale_size_area,
     scale_size_manual,
 )
-from ggrust.plot.stat import stat_ecdf, stat_summary, stat_summary_bin
+from ggrust.plot.stat import stat_ecdf, stat_sum, stat_summary, stat_summary_bin
 from ggrust.plot.subplots import SupPlotsSpec
 from ggrust.plot.theme import (
     element_blank,
@@ -174,6 +175,7 @@ __all__ = [
     "geom_blank",
     "geom_boxplot",
     "geom_bracket",
+    "geom_count",
     "geom_crossbar",
     "geom_density",
     "geom_errorbar",
@@ -273,6 +275,7 @@ __all__ = [
     "scale_y_reverse",
     "scale_y_time",
     "stat_ecdf",
+    "stat_sum",
     "stat_summary",
     "stat_summary_bin",
     "theme",

@@ -632,6 +632,9 @@ fn tooltip_setups(
             }
             if let Some(stat) = layer_stat(layer) {
                 for (aesthetic, computed) in stat.default_mapping() {
+                    if sets_constant(layer, oriented(*aesthetic)) {
+                        continue;
+                    }
                     bindings
                         .entry(*aesthetic)
                         .or_insert_with(|| format!("..{}..", computed.as_str()));
@@ -1447,6 +1450,7 @@ fn default_scale_name(spec: &PlotSpec, aesthetic: Aesthetic, orientations: &[boo
                     Some(computed) => computed.as_str().to_owned(),
                     None => name.to_owned(),
                 }),
+            None if sets_constant(layer, aesthetic) => None,
             None => layer_stat(layer).and_then(|stat| {
                 stat.default_mapping()
                     .iter()
@@ -1473,6 +1477,15 @@ fn default_scale_name(spec: &PlotSpec, aesthetic: Aesthetic, orientations: &[boo
 
 /// The stat a layer runs: its own, else its geom's default. `None` for unknown
 /// names (reported when the layer is mapped).
+/// Whether the layer sets `aesthetic` as a constant (`size=5`), which wins over
+/// the stat's default mapping, as in lets-plot.
+fn sets_constant(layer: &LayerSpec, aesthetic: Aesthetic) -> bool {
+    layer
+        .parameters
+        .get(aesthetic.as_str())
+        .is_some_and(|value| !value.is_null())
+}
+
 fn layer_stat(layer: &LayerSpec) -> Option<&'static dyn Stat> {
     let name = match &layer.stat {
         Some(name) => name.as_str(),
@@ -2028,9 +2041,10 @@ fn compute_layer(
         from_variables.insert(*aesthetic);
     }
     for (aesthetic, computed) in stat.default_mapping() {
-        if stat_mappings
-            .iter()
-            .any(|(mapped, _, _)| oriented(*mapped) == *aesthetic)
+        if sets_constant(spec, oriented(*aesthetic))
+            || stat_mappings
+                .iter()
+                .any(|(mapped, _, _)| oriented(*mapped) == *aesthetic)
         {
             continue;
         }

@@ -12,6 +12,7 @@ pub(crate) mod groups;
 mod identity;
 mod sina;
 mod smooth;
+mod sum;
 mod summary;
 mod ydensity;
 
@@ -24,6 +25,7 @@ pub use ecdf::EcdfStat;
 pub use identity::IdentityStat;
 pub use sina::SinaStat;
 pub use smooth::SmoothStat;
+pub use sum::SumStat;
 pub use summary::{SummaryBinStat, SummaryStat};
 pub use ydensity::{YDensityStat, quantiles as ydensity_quantiles};
 
@@ -99,6 +101,7 @@ pub static STATS: &[&dyn Stat] = &[
     &SummaryStat,
     &SummaryBinStat,
     &EcdfStat,
+    &SumStat,
 ];
 
 /// lets-plot stats the Python API builds but the engine does not compute yet

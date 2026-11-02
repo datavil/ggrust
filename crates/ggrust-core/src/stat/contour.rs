@@ -21,7 +21,8 @@
 //! Levels: `bins` (default 10) equal steps over the z range, or `binwidth` steps,
 //! each shifted half a step up (lets-plot `computeLevels`). `..level..` of a line is
 //! its level; of a band, lets-plot's fill level: the z minimum (lowest band), the
-//! mean of its two levels, or the z maximum (highest band).
+//! mean of its two levels, or the z maximum (highest band). Bands fill by
+//! `..level..` by default, as ggplot2 (lets-plot draws them all in one blue).
 //!
 //! What it does not do: scattered (non-grid) x/y, interpolation of missing nodes.
 
@@ -90,6 +91,12 @@ impl Stat for ContourfStat {
 
     fn required_aesthetics(&self) -> &'static [Aesthetic] {
         ContourStat.required_aesthetics()
+    }
+
+    /// ggplot2's default (`fill = after_stat(level)`); lets-plot draws every band
+    /// in one blue (deviation, the user's choice).
+    fn default_mapping(&self) -> &'static [(Aesthetic, Computed)] {
+        &[(Aesthetic::Fill, Computed::Level)]
     }
 
     fn compute(

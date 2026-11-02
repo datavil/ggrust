@@ -233,3 +233,21 @@ def test_discrete_z_is_refused(geom: str) -> None:
     plot = gg.ggplot(data, gg.aes("x", "y", z="z")) + getattr(gg, geom)()
     with pytest.raises(SpecError, match="z must be numeric"):
         plot.to_svg()
+
+
+@pytest.mark.parametrize("geom", ["geom_contourf", "geom_density2df"])
+def test_bands_fill_by_level_by_default(geom: str) -> None:
+    # ggplot2's default (user's choice); lets-plot draws every band in one blue.
+    base = (
+        gg.ggplot(GRID, gg.aes("x", "y", z="z"))
+        if geom == "geom_contourf"
+        else gg.ggplot(FAITHFUL, gg.aes("eruptions", "waiting"))
+    )
+    default = (base + getattr(gg, geom)()).to_svg()
+    explicit = (base + getattr(gg, geom)(gg.aes(fill="..level.."))).to_svg()
+    assert default == explicit
+    assert "level" in _texts(default)
+    constant = (base + getattr(gg, geom)(fill="#118ed8")).to_svg()
+    fills = {fill for _, vertices, fill in _paths(constant) if vertices > 5}
+    assert fills == {"#118ed8"}
+    assert "level" not in _texts(constant)

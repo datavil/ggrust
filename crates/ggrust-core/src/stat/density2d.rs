@@ -7,7 +7,8 @@
 //! `h = bw * adjust`. Bandwidths per axis come from `density.rs` (R's `bw.nrd0` /
 //! `bw.nrd`, as the 1D densities), or `bw` as one number or `[x, y]`. The grid
 //! then goes through the contour core (`contour.rs`): lines for `density2d`, bands
-//! for `density2df`, which leaves out the band below the first level (lets-plot).
+//! for `density2df`, which leaves out the band below the first level (lets-plot)
+//! and fills by `..level..` by default (ggplot2).
 //!
 //! What it does not do: `contour=False` raw density output (lets_plot's Python API
 //! does not expose it).
@@ -18,7 +19,7 @@ use super::count::row_weight;
 use super::density::{Bandwidth, Kernel, step_values};
 use super::groups::per_group_pieces;
 use super::{Stat, StatContext};
-use crate::data::{ContinuousColumn, LayerData};
+use crate::data::{Computed, ContinuousColumn, LayerData};
 use crate::parallel;
 use crate::parameters::Parameters;
 use crate::spec::{Aesthetic, Value};
@@ -80,6 +81,12 @@ impl Stat for Density2dfStat {
 
     fn required_aesthetics(&self) -> &'static [Aesthetic] {
         Density2dStat.required_aesthetics()
+    }
+
+    /// ggplot2's default (`fill = after_stat(level)`); lets-plot draws every band
+    /// in one blue (deviation, the user's choice).
+    fn default_mapping(&self) -> &'static [(Aesthetic, Computed)] {
+        &[(Aesthetic::Fill, Computed::Level)]
     }
 
     fn compute(

@@ -6,8 +6,8 @@ GitHub): `ContourStatUtil.kt`, `ContourFillHelper.kt`, `Contour.kt`,
 
 - **Spec**: lets_plot emits `geom="contour"|"contourf"|"density2d"|"density2df"` with no
   stat; each geom defaults to the stat of the same name. Contour lines draw as paths
-  (grey, size 0.5), bands as polygons (blue, transparent outline). No default
-  `..level..` mapping in lets-plot.
+  (grey, size 0.5), bands as polygons (transparent outline). lets-plot has no default
+  `..level..` mapping; the user chose ggplot2's `fill = ..level..` for bands (2026-11-02).
 - **Lines = lets-plot exactly**: each cell is four triangles around a centre valued at
   the mean of the two middle corners; a level is traced only in cells with
   `min < level <= max`. Ported, the vertex counts match lets-plot path for path.

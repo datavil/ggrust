@@ -2,9 +2,9 @@
 //! contour stats drawn as paths (lines) or multi-ring polygons (bands), as
 //! lets-plot's `ContourGeom` (a `PathGeom`) and `ContourfGeom` (a `PolygonGeom`).
 //!
-//! Defaults as lets-plot: lines 0.5 wide in grey, bands blue with no outline, and
-//! no default `..level..` mapping (map `color`/`fill` to `..level..` to tell the
-//! levels apart).
+//! Defaults as lets-plot: lines 0.5 wide in grey (map `color="..level.."` to tell
+//! them apart), bands with no outline. Bands fill by `..level..` by default (the
+//! stats' default mapping, as ggplot2); a constant `fill` gives lets-plot's blue.
 //!
 //! What it does not do: anything `geom_path` / `geom_polygon` do not.
 

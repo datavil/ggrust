@@ -3032,8 +3032,9 @@ def geom_contourf(
 
     The rows give z at grid nodes, in any order; a missing node leaves a hole. The stat
     computes ``..level..``: the z minimum for the lowest band, the z maximum for the
-    highest, and the mean of its two lines for the others (map ``fill="..level.."`` to
-    color the bands).
+    highest, and the mean of its two lines for the others. Bands fill by ``..level..``
+    by default, as in ggplot2 (lets_plot draws them all in one blue); pass a constant
+    ``fill`` for one color.
 
     Parameters
     ----------
@@ -3081,7 +3082,7 @@ def geom_contourf(
     >>> import numpy as np
     >>> x, y = np.meshgrid(np.linspace(-2, 2, 40), np.linspace(-2, 2, 40))
     >>> data = {"x": x.ravel(), "y": y.ravel(), "z": np.exp(-(x**2 + y**2)).ravel()}
-    >>> plot = ggplot(data, aes("x", "y", z="z")) + geom_contourf(aes(fill="..level.."))
+    >>> plot = ggplot(data, aes("x", "y", z="z")) + geom_contourf()
     """
     return _geom(
         "contourf",
@@ -3235,6 +3236,8 @@ def geom_density2df(
     The density is estimated on an ``n`` x ``n`` grid over the x and y ranges, then
     split into bands; the band below the lowest level is left out. The stat computes
     ``..level..``, the mean density of each band's two lines (the maximum for the top band).
+    Bands fill by ``..level..`` by default, as in ggplot2 (lets_plot draws them all in
+    one blue); pass a constant ``fill`` for one color.
 
     Parameters
     ----------
@@ -3292,7 +3295,7 @@ def geom_density2df(
     >>> import numpy as np
     >>> rng = np.random.default_rng(1)
     >>> data = {"duration": rng.normal(3, 1, 300), "wait": rng.normal(70, 12, 300)}
-    >>> plot = ggplot(data, aes("duration", "wait")) + geom_density2df(aes(fill="..level.."))
+    >>> plot = ggplot(data, aes("duration", "wait")) + geom_density2df()
     """
     return _geom(
         "density2df",

@@ -17,7 +17,7 @@ pub enum GuideSpec {
 impl GuideSpec {
     /// Whether a style aesthetic's guide uses only options ggrust draws: `"none"`,
     /// `"legend"`, `"colorbar"`, a title, `guide_legend(ncol, nrow, byrow)` and
-    /// `guide_colorbar(barwidth, barheight, nbin)`. Anything else (`override_aes`,
+    /// `guide_colorbar(barwidth, barheight, nbin, label_position)`. Anything else (`override_aes`,
     /// ...) is not built yet.
     pub fn is_built_style_guide(&self) -> bool {
         match self {
@@ -37,6 +37,7 @@ impl GuideSpec {
                     barwidth: options.barwidth.filter(|_| !colorbar),
                     barheight: options.barheight.filter(|_| !colorbar),
                     nbin: options.nbin.filter(|_| !colorbar),
+                    label_position: options.label_position.clone().filter(|_| !colorbar),
                     unsupported: Default::default(),
                     ..(**options).clone()
                 };
@@ -71,6 +72,9 @@ pub struct GuideOptions {
     /// Number of colorbar bins.
     #[serde(deserialize_with = "optional_count")]
     pub nbin: Option<u32>,
+    /// Colorbar label placement: `"ends"` puts the lowest and highest break labels
+    /// beside the bar's ends (a ggrust option).
+    pub label_position: Option<String>,
     /// Legend order among guides.
     pub order: Option<i64>,
     /// Manual legend entries.

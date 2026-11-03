@@ -3126,6 +3126,7 @@ fn assemble_legends(
                     colors,
                     bar_width: options.bar_width,
                     bar_height: options.bar_height,
+                    label_ends: options.label_ends,
                 };
                 // lets-plot: an equal colorbar under the same title is shown once; a
                 // different one gets "title (aesthetic)", which replaces an earlier
@@ -3273,6 +3274,7 @@ fn same_colorbar(left: &Colorbar, right: &Colorbar) -> bool {
         && left.colors == right.colors
         && left.bar_width == right.bar_width
         && left.bar_height == right.bar_height
+        && left.label_ends == right.label_ends
 }
 
 /// lets-plot has no limit; this keeps a typo from allocating billions of segments.
@@ -3283,6 +3285,8 @@ struct ColorbarOptions {
     bins: usize,
     bar_width: Option<f64>,
     bar_height: Option<f64>,
+    /// `label_position="ends"`.
+    label_ends: bool,
 }
 
 /// The guides of one aesthetic: `guides(...)` first, then the scale's own `guide`.
@@ -3403,7 +3407,7 @@ impl<'a> Guides<'a> {
         Ok(parsed)
     }
 
-    /// `guide_colorbar(barwidth, barheight, nbin)`, validated. As lets-plot
+    /// `guide_colorbar(barwidth, barheight, nbin, label_position)`, validated. As lets-plot
     /// (`GuideOptionsList.getColorBarOptions`), one colorbar guide gives all of them:
     /// `guides()` over the scale's own guide, never mixed.
     fn colorbar_options(&self, aesthetic: Aesthetic) -> Result<ColorbarOptions> {
@@ -3415,6 +3419,7 @@ impl<'a> Guides<'a> {
                 bins: DEFAULT_BINS,
                 bar_width: None,
                 bar_height: None,
+                label_ends: false,
             });
         };
         let size = |value: Option<f64>, key: &str| -> Result<Option<f64>> {
@@ -3440,10 +3445,25 @@ impl<'a> Guides<'a> {
                 ));
             }
         };
+        let label_ends = match options.label_position.as_deref() {
+            None => false,
+            Some("ends") => true,
+            Some(other) => {
+                return Err(Error::spec(
+                    format!("{path}.label_position"),
+                    format!(
+                        "unknown colorbar label_position '{other}'; expected 'ends' \
+                         (or leave it unset for labels along the bar){}",
+                        crate::suggest::did_you_mean(other, ["ends"])
+                    ),
+                ));
+            }
+        };
         Ok(ColorbarOptions {
             bins,
             bar_width: size(options.barwidth, "barwidth")?,
             bar_height: size(options.barheight, "barheight")?,
+            label_ends,
         })
     }
 }

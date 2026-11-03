@@ -44,6 +44,9 @@ pub struct Colorbar {
     pub bar_width: Option<f64>,
     /// `guide_colorbar(barheight=...)`.
     pub bar_height: Option<f64>,
+    /// `guide_colorbar(label_position="ends")`: only the lowest and highest break
+    /// labels, beside the bar's ends (left and right, or below and above).
+    pub label_ends: bool,
 }
 
 impl Colorbar {
@@ -66,8 +69,12 @@ pub(super) struct ColorbarLayout {
     /// Whether the bar runs left to right.
     pub horizontal: bool,
     /// Per break: tick position along the bar (y, or x when horizontal) and label
-    /// anchor (vertical: left end, vertical middle; horizontal: centre, top).
+    /// anchor (vertical: left end, vertical middle; horizontal: centre, top). With
+    /// `ends`: the end labels' anchors (horizontal: the bar-side edge, vertical
+    /// middle; vertical: centre, top), and NaN for breaks without a label.
     pub ticks: Vec<(f64, (f64, f64))>,
+    /// Labels beside the bar's ends (`Colorbar::label_ends`).
+    pub ends: bool,
     /// Bar plus labels.
     pub size: (f64, f64),
 }
@@ -77,6 +84,7 @@ impl ColorbarLayout {
     pub fn translated(&self, (dx, dy): (f64, f64)) -> ColorbarLayout {
         let along = if self.horizontal { dx } else { dy };
         ColorbarLayout {
+            ends: self.ends,
             bar: Rect {
                 x: self.bar.x + dx,
                 y: self.bar.y + dy,
@@ -163,6 +171,7 @@ pub(super) fn layout_colorbar(
             })
             .collect();
         return ColorbarLayout {
+            ends: false,
             bar,
             horizontal,
             ticks,
@@ -170,6 +179,9 @@ pub(super) fn layout_colorbar(
         };
     };
     let band = text_band(style);
+    if colorbar.label_ends {
+        return layout_end_labels(colorbar, bar, horizontal, style, band, &fraction);
+    }
     if horizontal {
         // lets-plot: labels a third of a line below the bar, centred on their ticks.
         let distance = band / 3.0;
@@ -223,6 +235,7 @@ pub(super) fn layout_colorbar(
             })
             .collect();
         return ColorbarLayout {
+            ends: false,
             bar,
             horizontal,
             ticks,
@@ -256,10 +269,126 @@ pub(super) fn layout_colorbar(
         })
         .collect();
     ColorbarLayout {
+        ends: false,
         bar,
         horizontal,
         ticks,
         size: (width + label_gap + label_width, height),
+    }
+}
+
+/// [`layout_colorbar`] with `label_position="ends"`: the lowest break's label
+/// before the bar (left, or below a vertical bar) and the highest's after it
+/// (right, or above), half a line from the bar. Other breaks keep their ticks only.
+fn layout_end_labels(
+    colorbar: &Colorbar,
+    bar: Rect,
+    horizontal: bool,
+    style: crate::theme::TextStyle,
+    band: f64,
+    fraction: &dyn Fn(f64) -> f64,
+) -> ColorbarLayout {
+    let inside = |value: f64| (0.0..=1.0).contains(&fraction(value));
+    let pick = |better: fn(f64, f64) -> bool| {
+        colorbar
+            .breaks
+            .iter()
+            .enumerate()
+            .filter(|(_, (value, _))| inside(*value))
+            .fold(
+                None,
+                |best: Option<(usize, f64)>, (index, (value, _))| match best {
+                    Some((_, kept)) if !better(*value, kept) => best,
+                    _ => Some((index, *value)),
+                },
+            )
+            .map(|(index, _)| index)
+    };
+    let low = pick(|value, kept| value < kept);
+    let high = pick(|value, kept| value > kept).filter(|high| Some(*high) != low);
+    let block = |index: Option<usize>| {
+        index.map_or((0.0, 0.0), |index| {
+            let lines = label_lines(&colorbar.breaks[index].1);
+            let width = lines
+                .iter()
+                .map(|line| {
+                    measure_label(
+                        &line.text,
+                        line.superscript.as_deref(),
+                        line.suffix.as_deref(),
+                        style.size,
+                        style.font,
+                    )
+                })
+                .fold(0.0, f64::max);
+            (width, lines.len() as f64 * band)
+        })
+    };
+    let (low_size, high_size) = (block(low), block(high));
+    let gap = |size: (f64, f64)| if size.0 > 0.0 { band / 2.0 } else { 0.0 };
+    // The title sits right before the graph: keep a wider gap from the left label.
+    let lead = if horizontal && low_size.0 > 0.0 && !colorbar.title.trim().is_empty() {
+        band * 0.75
+    } else {
+        0.0
+    };
+    let (origin_x, origin_y) = (bar.x + lead, bar.y);
+    let (bar, size, low_anchor, high_anchor) = if horizontal {
+        let height = bar.height.max(low_size.1).max(high_size.1);
+        let bar = Rect {
+            x: origin_x + low_size.0 + gap(low_size),
+            y: origin_y + (height - bar.height) / 2.0,
+            ..bar
+        };
+        let middle = bar.y + bar.height / 2.0;
+        (
+            bar,
+            (
+                lead + low_size.0 + gap(low_size) + bar.width + gap(high_size) + high_size.0,
+                height,
+            ),
+            (bar.x - gap(low_size), middle),
+            (bar.x + bar.width + gap(high_size), middle),
+        )
+    } else {
+        let width = bar.width.max(low_size.0).max(high_size.0);
+        let bar = Rect {
+            x: origin_x + (width - bar.width) / 2.0,
+            y: origin_y + high_size.1 + gap(high_size),
+            ..bar
+        };
+        let centre = bar.x + bar.width / 2.0;
+        (
+            bar,
+            (
+                width,
+                high_size.1 + gap(high_size) + bar.height + gap(low_size) + low_size.1,
+            ),
+            (centre, bar.y + bar.height + gap(low_size)),
+            (centre, origin_y),
+        )
+    };
+    let ticks = colorbar
+        .breaks
+        .iter()
+        .enumerate()
+        .map(|(index, (value, _))| {
+            let anchor = if Some(index) == low {
+                low_anchor
+            } else if Some(index) == high {
+                high_anchor
+            } else {
+                (f64::NAN, f64::NAN)
+            };
+            (tick_position(bar, horizontal, fraction(*value)), anchor)
+        })
+        .collect();
+    ColorbarLayout {
+        ends: true,
+        bar,
+        horizontal,
+        ticks,
+        size,
     }
 }
 
@@ -360,6 +489,33 @@ pub(super) fn draw_colorbar(
         let band = text_band(style);
         for ((_, anchor), (_, label)) in layout.ticks.iter().zip(&colorbar.breaks) {
             let lines = label_lines(label);
+            if layout.ends {
+                if !anchor.0.is_finite() {
+                    continue; // a middle break: tick only
+                }
+                // Horizontal: centred on the bar, flush to it; vertical: stacked
+                // down from the anchor, centred on the bar.
+                let (first, horizontal_align) = if horizontal {
+                    let align = if anchor.0 <= bar.x {
+                        HorizontalAlign::End
+                    } else {
+                        HorizontalAlign::Start
+                    };
+                    (anchor.1 - band * (lines.len() as f64 - 1.0) / 2.0, align)
+                } else {
+                    (anchor.1 + band / 2.0, HorizontalAlign::Middle)
+                };
+                for (index, line) in lines.iter().enumerate() {
+                    nodes.push(label_node(
+                        line,
+                        style,
+                        (anchor.0, first + band * index as f64),
+                        horizontal_align,
+                        0.0,
+                    ));
+                }
+                continue;
+            }
             // Vertical: lines centred as a block on the tick. Horizontal: lines
             // stacked down from the anchor, centred on the tick.
             let (first, horizontal_align) = if horizontal {
@@ -417,6 +573,7 @@ mod tests {
             colors: vec![Color::WHITE; DEFAULT_BINS],
             bar_width: None,
             bar_height: None,
+            label_ends: false,
         };
         let theme = Theme::default();
         let layout = layout_colorbar(&colorbar, (0.0, 0.0), true, &theme);
@@ -447,6 +604,7 @@ mod tests {
             colors: vec![Color::WHITE; DEFAULT_BINS],
             bar_width: Some(80.0),
             bar_height: Some(8.0),
+            label_ends: false,
         };
         let theme = Theme::default();
         let layout = layout_colorbar(&colorbar, (0.0, 0.0), true, &theme);
@@ -466,6 +624,7 @@ mod tests {
             colors: vec![Color::WHITE; DEFAULT_BINS],
             bar_width: Some(80.0),
             bar_height: Some(8.0),
+            label_ends: false,
         };
         let kept = layout_colorbar(&outside, (0.0, 0.0), true, &theme);
         assert_eq!((kept.bar.x, kept.size.0), (0.0, 80.0));
@@ -476,5 +635,52 @@ mod tests {
         };
         let fitted = layout_colorbar(&short, (0.0, 0.0), true, &theme);
         assert_eq!((fitted.bar.x, fitted.size.0), (0.0, 80.0));
+    }
+
+    #[test]
+    fn end_labels_sit_beside_the_bar_and_middle_breaks_lose_theirs() {
+        let colorbar = Colorbar {
+            title: "RNA".into(),
+            domain: (0.0, 1.0),
+            breaks: vec![
+                (0.0, Label::plain("Min")),
+                (0.5, Label::plain("mid")),
+                (1.0, Label::plain("Max")),
+            ],
+            colors: vec![Color::WHITE; DEFAULT_BINS],
+            bar_width: Some(80.0),
+            bar_height: Some(8.0),
+            label_ends: true,
+        };
+        let theme = Theme::default();
+        let style = theme.legend_text.expect("default theme has legend text");
+        let width = |text: &str| measure(text, style.size, style.font).width;
+        let layout = layout_colorbar(&colorbar, (0.0, 0.0), true, &theme);
+        assert!(layout.ends);
+        let [(_, low), (_, middle), (_, high)] = layout.ticks[..] else {
+            panic!("three breaks")
+        };
+        // Low label right-aligned before the bar, high label after it, both on the
+        // bar's middle; the middle break has a tick only.
+        assert!(low.0 < layout.bar.x && low.0 - width("Min") > 0.0);
+        assert!(high.0 > layout.bar.x + layout.bar.width);
+        assert!((low.1 - (layout.bar.y + layout.bar.height / 2.0)).abs() < 1e-9);
+        assert_eq!(low.1, high.1);
+        assert!(middle.0.is_nan());
+        assert!((layout.size.0 - (high.0 + width("Max"))).abs() < 1e-9);
+        // Vertical: high above the bar, low below.
+        let vertical = layout_colorbar(&colorbar, (0.0, 0.0), false, &theme);
+        let (low, high) = (vertical.ticks[0].1, vertical.ticks[2].1);
+        assert!(high.1 < vertical.bar.y);
+        assert!(low.1 > vertical.bar.y + vertical.bar.height);
+        assert!((vertical.size.1 - (low.1 + text_band(style))).abs() < 1e-9);
+        // Breaks outside the domain are never end labels.
+        let outside = Colorbar {
+            breaks: vec![(-5.0, Label::plain("far")), (0.5, Label::plain("only"))],
+            ..colorbar
+        };
+        let single = layout_colorbar(&outside, (0.0, 0.0), true, &theme);
+        assert!(single.ticks[0].1.0.is_nan());
+        assert!(single.ticks[1].1.0 < single.bar.x);
     }
 }

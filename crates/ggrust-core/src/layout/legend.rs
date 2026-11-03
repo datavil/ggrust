@@ -161,6 +161,7 @@ impl LegendBox {
                     && left.colors == right.colors
                     && left.bar_width == right.bar_width
                     && left.bar_height == right.bar_height
+                    && left.label_ends == right.label_ends
             }
             _ => false,
         }

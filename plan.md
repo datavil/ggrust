@@ -359,6 +359,10 @@ Cellestial work is on branch `ggrust-port-track-titles` (row titles only, uncomm
   so every colorbar took the first track's legend text. Now each box keeps its figure's theme
   (`measure_themed_legends`); the grid theme still arranges the block. Test:
   `test_collected_legends_keep_each_figure_theme` (flat and nested grids).
+- [x] 9.7 Colorbar end labels: `guide_colorbar(label_position="ends")` (user request, 2026-11-03).
+  Lowest and highest break labels beside the bar's ends (`RNA  Min ▬ Max`), below/above a vertical bar;
+  middle breaks keep their ticks. Breaks outside the domain are never end labels. Tests:
+  `tests/test_colorbar_label_ends.py`, colorbar unit. Deviation row.
 - [x] 9.7 `oob=` on continuous color and fill scales (found reproducing Zamboni et al. 2025 Fig. 1f, 2026-11-03).
   `"censor"` (default, NA color) or `"squish"` (finite values clamped to `limits` in data units before `trans`)
   on `scale_color/fill_gradient/gradient2/gradientn/viridis/continuous/brewer/grey`; agreed with the user:

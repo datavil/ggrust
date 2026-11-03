@@ -5,9 +5,9 @@ Ported from lets-plot's ``lets_plot/plot/guide.py`` (MIT, see THIRD_PARTY_NOTICE
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
-from ggrust.errors import SpecError
+from ggrust.errors import SpecError, did_you_mean
 from ggrust.plot.core import FeatureSpec
 
 if TYPE_CHECKING:
@@ -80,6 +80,7 @@ def guide_colorbar(
     barwidth: Number | None = None,
     barheight: Number | None = None,
     nbin: int | None = None,
+    label_position: Literal["ends"] | None = None,
 ) -> FeatureSpec:
     """Show a colorbar for a continuous color or fill scale.
 
@@ -91,10 +92,32 @@ def guide_colorbar(
         Bar size in pixels.
     nbin : int, optional
         Number of color segments (default 20).
+    label_position : {"ends"}, optional
+        ``"ends"`` draws only the labels of the lowest and highest breaks, beside
+        the bar's ends: left and right of a horizontal bar (``RNA  Min ▬ Max``),
+        below and above a vertical one. Other breaks keep their ticks. The default
+        (None) puts every label below a horizontal bar or right of a vertical one.
+        A ggrust option; lets-plot and ggplot2 have no equivalent.
 
     Returns
     -------
     FeatureSpec
         The guide.
+
+    Raises
+    ------
+    SpecError
+        If ``label_position`` is not ``"ends"`` or None.
+
+    Examples
+    --------
+    >>> from ggrust import guide_colorbar, guides
+    >>> spec = guides(fill=guide_colorbar(label_position="ends"))
     """
+    if label_position is not None and label_position != "ends":
+        message = (
+            f"guide_colorbar(label_position={label_position!r}) is not supported; "
+            f"expected 'ends' or None{did_you_mean(str(label_position), ['ends'])}"
+        )
+        raise SpecError(message)
     return _guide("colorbar", **locals())

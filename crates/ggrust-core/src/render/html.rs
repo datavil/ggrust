@@ -82,10 +82,13 @@ fn write_fragment(
     interaction: Option<&Interaction>,
 ) -> String {
     // `id` is sanitized to [A-Za-z0-9_-], so it needs no escaping in HTML or JS.
+    // A plot wider than its container shrinks to fit, keeping its aspect ratio
+    // (lets-plot's notebook sizing), instead of scrolling the container.
     let _ = writeln!(
         output,
         "<div id=\"{id}\" class=\"ggrust-plot\" \
-         style=\"display:inline-block;position:relative;line-height:0;vertical-align:top\">"
+         style=\"display:inline-block;position:relative;line-height:0;vertical-align:top;max-width:100%\">\n\
+         <style>#{id}>svg{{max-width:100%;height:auto}}</style>"
     );
     let (svg, canvas_batches) = to_svg_with_canvas(
         scene,
@@ -290,6 +293,7 @@ mod tests {
     fn fragment_uses_the_display_id_everywhere() {
         let html = render("plot 1", HtmlDocument::Fragment);
         assert!(html.starts_with("<div id=\"plot_1\" class=\"ggrust-plot\""));
+        assert!(html.contains("<style>#plot_1>svg{max-width:100%;height:auto}</style>"));
         assert!(html.contains("<clipPath id=\"plot_1-clip0\""), "{html}");
         assert!(html.contains("url(#plot_1-clip0)"), "{html}");
         assert!(html.contains("window.ggrust.mount(\"plot_1\");"));

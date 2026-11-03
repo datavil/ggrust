@@ -18,3 +18,8 @@ inlines `js/ggrust.js` in one `<script>`.
 - Verify in the built-in browser: open the file, check `data-ggrust-mounted`,
   duplicate ids, unresolved `clip-path` refs, console errors, document scroll size.
   Rebuilds track `js/**/*.js` via `[tool.uv] cache-keys`.
+- **Fit the container, keep the aspect ratio.** The root div has `max-width:100%`
+  and a scoped `<style>#id>svg{max-width:100%;height:auto}</style>`, so a plot wider
+  than its notebook cell or docs column shrinks (viewBox scaling) instead of making
+  the container scroll, like lets-plot. Pointer math already divides by the CSS scale
+  (`bounds.width / plot.width`), so tooltips and zoom keep working when scaled.

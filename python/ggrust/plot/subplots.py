@@ -139,7 +139,7 @@ class SupPlotsSpec(FeatureSpec):
 
         Examples
         --------
-        >>> from ggrust import ggplot, geom_point
+        >>> from ggrust import *
         >>> (ggplot() + geom_point(x=0, y=0)).show()  # doctest: +SKIP
         """
         from ggrust._render import show

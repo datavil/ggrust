@@ -841,7 +841,7 @@ def geom_errorbar(
 
     Examples
     --------
-    >>> from ggrust import aes, geom_errorbar, ggplot
+    >>> from ggrust import *
     >>> data = {"x": ["a", "b"], "y": [2.0, 3.0], "low": [1.0, 2.5], "high": [3.0, 4.0]}
     >>> plot = ggplot(data, aes(x="x", y="y", ymin="low", ymax="high")) + geom_errorbar()
     """
@@ -931,7 +931,7 @@ def geom_crossbar(
 
     Examples
     --------
-    >>> from ggrust import aes, geom_crossbar, ggplot
+    >>> from ggrust import *
     >>> data = {"x": ["a", "b"], "y": [2.0, 3.0], "low": [1.0, 2.5], "high": [3.0, 4.0]}
     >>> plot = ggplot(data, aes(x="x", y="y", ymin="low", ymax="high")) + geom_crossbar()
     """
@@ -1018,7 +1018,7 @@ def geom_pointrange(
 
     Examples
     --------
-    >>> from ggrust import aes, geom_pointrange, ggplot
+    >>> from ggrust import *
     >>> data = {"x": ["a", "b"], "y": [2.0, 3.0], "low": [1.0, 2.5], "high": [3.0, 4.0]}
     >>> plot = ggplot(data, aes(x="x", y="y", ymin="low", ymax="high")) + geom_pointrange()
     """
@@ -1095,7 +1095,7 @@ def geom_linerange(
 
     Examples
     --------
-    >>> from ggrust import aes, geom_linerange, ggplot
+    >>> from ggrust import *
     >>> data = {"x": ["a", "b"], "y": [2.0, 3.0], "low": [1.0, 2.5], "high": [3.0, 4.0]}
     >>> plot = ggplot(data, aes(x="x", y="y", ymin="low", ymax="high")) + geom_linerange()
     """
@@ -1268,7 +1268,7 @@ def geom_curve(
 
     Examples
     --------
-    >>> from ggrust import arrow, geom_curve, ggplot
+    >>> from ggrust import *
     >>> plot = ggplot() + geom_curve(
     ...     x=0, y=0, xend=1, yend=1, curvature=-0.3, arrow=arrow(type="closed")
     ... )
@@ -2485,7 +2485,7 @@ def geom_area(
 
     Examples
     --------
-    >>> from ggrust import aes, geom_area, ggplot
+    >>> from ggrust import *
     >>> data = {"day": [1, 2, 3, 1, 2, 3], "sales": [3, 5, 4, 1, 2, 2], "shop": list("aaabbb")}
     >>> plot = ggplot(data, aes(x="day", y="sales", fill="shop")) + geom_area()
     """
@@ -2560,7 +2560,7 @@ def geom_ribbon(
 
     Examples
     --------
-    >>> from ggrust import aes, geom_ribbon, ggplot
+    >>> from ggrust import *
     >>> data = {"day": [1, 2, 3], "low": [1.0, 2.0, 1.5], "high": [3.0, 4.0, 3.5]}
     >>> plot = ggplot(data, aes(x="day", ymin="low", ymax="high")) + geom_ribbon()
     """

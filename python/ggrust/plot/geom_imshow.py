@@ -212,7 +212,7 @@ def geom_imshow(
     Examples
     --------
     >>> import numpy as np
-    >>> from ggrust import ggplot, geom_imshow
+    >>> from ggrust import *
     >>> image = np.random.default_rng(0).random((20, 30))
     >>> plot = ggplot() + geom_imshow(image, cmap=["#000000", "#ff8800"])
     """

@@ -129,7 +129,7 @@ def guide_colorbar(
 
     Examples
     --------
-    >>> from ggrust import guide_colorbar, guides
+    >>> from ggrust import *
     >>> spec = guides(fill=guide_colorbar(label_position="ends"))
     """
     if label_position is not None and label_position != "ends":

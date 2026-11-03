@@ -413,7 +413,7 @@ def element_line(
     --------
     Corner arrows with titles next to them, as on UMAP plots:
 
-    >>> from ggrust import arrow, element_blank, element_line, element_text, theme
+    >>> from ggrust import *
     >>> corner = theme(
     ...     axis_line=element_line(arrow=arrow(length=8, type="closed"), extent=0.25),
     ...     axis_text=element_blank(),

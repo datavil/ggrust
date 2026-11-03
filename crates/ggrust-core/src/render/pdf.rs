@@ -24,7 +24,7 @@ use std::io::Write as _;
 use flate2::Compression;
 use flate2::write::ZlibEncoder;
 use pdf_writer::types::{
-    CidFontType, FontFlags, LineCapStyle, LineJoinStyle, SystemInfo, UnicodeCmap,
+    CidFontType, FontFlags, LineCapStyle, LineJoinStyle, SystemInfo, TextRenderingMode, UnicodeCmap,
 };
 use pdf_writer::{Content, Filter, Finish, Name, Pdf, Rect as PdfRect, Ref, Str, TextStr};
 use read_fonts::types::GlyphId;
@@ -532,7 +532,10 @@ impl Writer {
 
     fn text(&mut self, text: &Text) {
         let drawable = text.size.is_finite() && text.size > 0.0 && !text.content.is_empty();
-        if !drawable || !self.clip_box.contains(text.x, text.y) || text.color.is_transparent() {
+        // A halo is an outline-only copy of the text (as the SVG writer), painted
+        // in the halo colour; the text colour does not apply to it.
+        let paint = text.halo.map_or(text.color, |(color, _)| color);
+        if !drawable || !self.clip_box.contains(text.x, text.y) || paint.is_transparent() {
             return;
         }
         // Placement as the SVG writer: baseline from the font metrics, the anchor
@@ -581,10 +584,20 @@ impl Writer {
             number(text.x + u * a + v * c),
             number(text.y + u * b + v * d),
         ];
-        self.set_fill(text.color);
+        match text.halo {
+            Some((color, width)) => {
+                self.set_stroke(color, width, &[]);
+                self.content.set_line_join(LineJoinStyle::RoundJoin);
+            }
+            None => self.set_fill(text.color),
+        }
         let font = self.font_index(text.font);
         let name = format!("F{font}");
         self.content.begin_text();
+        if text.halo.is_some() {
+            self.content
+                .set_text_rendering_mode(TextRenderingMode::Stroke);
+        }
         self.content.set_text_matrix(matrix);
         self.content
             .set_font(Name(name.as_bytes()), number(text.size));
@@ -603,7 +616,16 @@ impl Writer {
                 self.glyph_run(font, suffix);
             }
         }
+        if text.halo.is_some() {
+            // Rendering mode is text state, which outlives `ET`; joins are
+            // graphics state. Back to plain filled text and the SVG miter joins.
+            self.content
+                .set_text_rendering_mode(TextRenderingMode::Fill);
+        }
         self.content.end_text();
+        if text.halo.is_some() {
+            self.content.set_line_join(LineJoinStyle::MiterJoin);
+        }
     }
 
     fn font_index(&mut self, font: Font) -> usize {
@@ -1124,6 +1146,7 @@ mod tests {
             horizontal: HorizontalAlign::Start,
             vertical: VerticalAlign::Baseline,
             angle: 0.0,
+            halo: None,
         })
     }
 
@@ -1206,6 +1229,25 @@ mod tests {
         let text = String::from_utf8_lossy(&pdf);
         assert!(text.contains("/ca 0.5019608"), "{text}");
         assert!(!text.contains("/Subtype /Image"));
+    }
+
+    #[test]
+    fn halo_text_is_stroked_outline_then_back_to_fill() {
+        let mut halo = label("Oslo");
+        if let Node::Text(text) = &mut halo {
+            text.halo = Some((Color::WHITE, 4.0));
+        }
+        let pdf = to_pdf(&scene(vec![halo, label("Oslo")]), 1.0, 72.0).unwrap();
+        let streams = streams(&pdf);
+        let content = String::from_utf8_lossy(&streams[0]);
+        // Outline only, round joins, in the halo colour and width.
+        assert!(content.contains("1 1 1 RG"), "{content}");
+        assert!(content.contains("4 w"), "{content}");
+        assert!(content.contains("1 j"), "{content}");
+        assert!(content.contains("BT\n1 Tr"), "{content}");
+        // The rendering mode and joins are reset before the plain text.
+        let halo_end = content.find("0 Tr\nET\n0 j").unwrap();
+        assert!(content[halo_end..].contains("0 0 0 rg"), "{content}");
     }
 
     #[test]

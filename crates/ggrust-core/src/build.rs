@@ -3984,7 +3984,8 @@ mod tests {
             let computed =
                 compute_layer(mapped, [&scale, &scale], &StatContext::default()).unwrap();
             let (layer, layer_warnings) =
-                style_layer(computed, &BTreeMap::new()).unwrap_or_else(|_| panic!());
+                style_layer(computed, &BTreeMap::new(), ExponentFormat::default())
+                    .unwrap_or_else(|_| panic!());
             warnings.extend(layer_warnings);
             let read = |aesthetic| {
                 let values = layer.styles.numbers(aesthetic).unwrap();

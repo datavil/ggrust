@@ -71,7 +71,13 @@ const LABEL_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
 ];
 
 /// `geom_text` options.
-const TEXT_PARAMETERS: &[&str] = &["nudge_x", "nudge_y", "size_unit", "halo_width", "halo_color"];
+const TEXT_PARAMETERS: &[&str] = &[
+    "nudge_x",
+    "nudge_y",
+    "size_unit",
+    "halo_width",
+    "halo_color",
+];
 
 const PARAMETERS: &[&str] = &[
     "nudge_x",

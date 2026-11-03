@@ -257,9 +257,9 @@ def test_rendering_ignored_features_warns():
     with warnings.catch_warnings():
         warnings.simplefilter("error", gg.GgrustWarning)
         (plot + gg.ggtb()).to_svg()
-    # facet_grid also reports the grid options it does not read yet.
-    with pytest.warns(gg.GgrustWarning, match="'facet_grid' is not supported yet"):
-        (plot + gg.facet_grid(x="c")).to_svg()
+    # facet_grid reports the grid options it does not read yet.
+    with pytest.warns(gg.GgrustWarning, match=r"facet\.x_order"):
+        (plot + gg.facet_grid(x="c", x_order=-1)).to_svg()
 
 
 def test_rendering_a_grid_draws_every_figure():

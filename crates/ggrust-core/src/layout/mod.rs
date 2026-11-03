@@ -86,6 +86,9 @@ pub struct PlotLayout {
     /// Space above the panel taken by facet strips (0 without facets): a top
     /// legend goes above it.
     pub top_band: f64,
+    /// Space right of the panel taken by `facet_grid` row strips (0 without
+    /// them): a right legend goes beyond it.
+    pub right_band: f64,
 }
 
 /// Lay out a plot inside `area` (the whole canvas for a single plot; a grid cell
@@ -394,6 +397,7 @@ fn layout_with(
         x_axis_band,
         legend_space,
         top_band: 0.0,
+        right_band: 0.0,
     }
 }
 
@@ -495,9 +499,10 @@ pub fn legend_origin(
         content.width,
     );
     match theme.legend_position {
-        LegendPosition::Right | LegendPosition::None => {
-            (panel.x + panel.width + inset.right + spacing, along_y)
-        }
+        LegendPosition::Right | LegendPosition::None => (
+            panel.x + panel.width + layout.right_band + inset.right + spacing,
+            along_y,
+        ),
         LegendPosition::Left => (layout.content.x, along_y),
         LegendPosition::Top => (
             along_x,

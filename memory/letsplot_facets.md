@@ -26,6 +26,13 @@ Source: lets-plot `FacetConfig.createWrap`, `FacetWrap`, `PlotFacets`,
   `400*(0.5+0.5/nrow)*nrow`. Strips: label line box + `strip_text` margins (3), stacked
   per variable, `strip_spacing` 0, `panel_spacing` 10.
 
+- **facet_grid** (lets-plot `FacetGrid`): panels for every (x, y) level pair, empty
+  ones too; x strips on the top row only, y strips right of the last column (19 px
+  at 13 px text, `strip_spacing_x` 0, text `rotate(90)` in SVG, centred); axes only on
+  the bottom row and left column even with free scales. Free x is shared per grid
+  column, free y per row: build uses one scale per `Tile::x_scale_group` /
+  `y_scale_group` (stat range, discrete levels, training), never per panel.
+
 **How to apply:** compare faceted output with `tests/test_facet_parity.py` (marks as
 fractions of their panel). Break-count differences of a fraction of a pixel are the known
 near-tie (see letsplot_reference_svg.md), not a facet bug.

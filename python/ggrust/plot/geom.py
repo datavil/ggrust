@@ -1140,6 +1140,104 @@ def geom_segment(
     )
 
 
+def geom_curve(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    arrow: FeatureSpec | None = None,
+    curvature: float | None = None,
+    angle: float | None = None,
+    ncp: int | None = None,
+    spacer: float | None = None,
+    color_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Curved lines from (x, y) to (xend, yend), optionally with arrows.
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    arrow : FeatureSpec, optional
+        Arrow spec from ``arrow()``.
+    curvature : float, default=0.5
+        Amount of curvature: negative values bend left, positive values bend right,
+        zero draws a straight line.
+    angle : float, default=90
+        Skew of the control points, in degrees: below 90 towards the start point,
+        above 90 towards the end point.
+    ncp : int, default=5
+        Number of control points; more give a smoother curve.
+    spacer : float, default=0.0
+        Pixels to cut off both ends, leaving gaps at the start and end points.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Constant aesthetics such as ``color="red"`` or ``size=2``, and the geom's
+        options. As in lets_plot; options ggrust does not read yet are reported as
+        not supported.
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Examples
+    --------
+    >>> from ggrust import arrow, geom_curve, ggplot
+    >>> plot = ggplot() + geom_curve(
+    ...     x=0, y=0, xend=1, yend=1, curvature=-0.3, arrow=arrow(type="closed")
+    ... )
+    """
+    return _geom(
+        "curve",
+        mapping=mapping,
+        data=data,
+        stat=stat,
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        manual_key=manual_key,
+        sampling=sampling,
+        tooltips=tooltips,
+        arrow=arrow,
+        curvature=curvature,
+        angle=angle,
+        ncp=ncp,
+        spacer=spacer,
+        color_by=color_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
 def geom_text(
     mapping: FeatureSpec | None = None,
     *,

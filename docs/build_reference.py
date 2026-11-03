@@ -57,6 +57,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "geom_step",
             "geom_path",
             "geom_segment",
+            "geom_curve",
             "geom_hline",
             "geom_vline",
             "geom_abline",

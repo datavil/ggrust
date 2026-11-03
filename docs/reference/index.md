@@ -37,6 +37,7 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_step()`](api/geom_step.md) | Connect observations sorted by x with stairs. |
 | [`geom_path()`](api/geom_path.md) | Connect observations in data order. |
 | [`geom_segment()`](api/geom_segment.md) | Line segments from (x, y) to (xend, yend), optionally with arrows. |
+| [`geom_curve()`](api/geom_curve.md) | Curved lines from (x, y) to (xend, yend), optionally with arrows. |
 | [`geom_hline()`](api/geom_hline.md) | Horizontal reference lines at ``yintercept``. |
 | [`geom_vline()`](api/geom_vline.md) | Vertical reference lines at ``xintercept``. |
 | [`geom_abline()`](api/geom_abline.md) | Straight reference lines ``y = intercept + slope * x`` across the panel. |

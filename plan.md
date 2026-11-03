@@ -302,6 +302,7 @@ Group 6: score 2 and 1, only on demand.
 
 - [ ] lp6.1 Record the score-1 items (geo and maps, sampling, cmapmpl, runtime plumbing) as decisions in the table above.
 - [ ] lp6.2 Score-2 items as requested (see the gaps file); `geom_curve` first, to undo the periodic table arrow workaround.
+  (`geom_curve` done: `geom/curve.rs`, lets-plot's R-grid control points + BSPLINE path in pixels, `curvature`/`angle`/`ncp`/`spacer`/`arrow`; heads aim along the control polygon; matches lets-plot within 0.5 px (`tests/test_geom_curve.py`). Periodic table arrows curved again. Not yet: `size_start`/`size_end`/`stroke_start`/`stroke_end`.)
 
 ### Phase 9: cellestial `annotated_heatmap` layout (found 2026-11-01)
 

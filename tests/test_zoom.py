@@ -210,6 +210,52 @@ def test_size_options_are_checked():
         gg.ggtb(size_basis="z")
 
 
+def test_fixed_aspect_is_in_the_payload():
+    plot = gg.ggplot(FRAME, gg.aes("x", "y")) + gg.geom_point() + gg.ggtb()
+    assert zoom_payload(plot)["plots"][0]["fixed_aspect"] is False
+    assert zoom_payload(plot + gg.coord_fixed())["plots"][0]["fixed_aspect"] is True
+
+
+def run_selections(drags: list[dict]) -> list[dict]:
+    """The runtime's box zoom selection for each drag, via node."""
+    script = (
+        "global.window = {}; global.document = {};"
+        f"eval(require('fs').readFileSync({json.dumps(str(RUNTIME))}, 'utf8') + '(\"test\")');"
+        f"const drags = {json.dumps(drags)};"
+        "const result = drags.map(d => window.ggrust.selection("
+        "{bounds: d.bounds, from: d.from, mode: null, fixed: d.fixed}, d.to, false));"
+        "console.log(JSON.stringify(result));"
+    )
+    output = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    return json.loads(output.stdout)
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs node")
+def test_fixed_aspect_box_zoom_keeps_the_panel_shape():
+    # A 400 x 200 panel at (100, 50); a tall narrow drag and a near-vertical one.
+    panel = [100, 50, 400, 200]
+    tall = {"bounds": panel, "from": [300, 60], "to": [340, 240]}
+    upright = {"bounds": panel, "from": [120, 60], "to": [124, 200]}
+    free, fixed, free_band, fixed_band = run_selections(
+        [
+            {**tall, "fixed": False},
+            {**tall, "fixed": True},
+            {**upright, "fixed": False},
+            {**upright, "fixed": True},
+        ]
+    )
+    assert free["rect"] == [300, 60, 340, 240]
+    # Widened about its centre to 2:1, then kept inside the panel.
+    left, top, right, bottom = fixed["rect"]
+    assert (right - left) / (bottom - top) == pytest.approx(2.0)
+    assert (bottom - top) == pytest.approx(180) and (left + right) / 2 == pytest.approx(320)
+    assert free_band["only"] == "vertical"
+    # No band on a fixed aspect panel: a box, shifted right to stay inside.
+    left, top, right, bottom = fixed_band["rect"]
+    assert "only" not in fixed_band and left == pytest.approx(100)
+    assert (right - left) / (bottom - top) == pytest.approx(2.0)
+
+
 def run_breaks(queries: list[tuple[str, float, float, int]]) -> list[dict]:
     """The runtime's breaks for each (transform, low, high, count), via node."""
     script = (

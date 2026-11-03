@@ -1228,6 +1228,8 @@
   // The selection of a box zoom (DrawRectFeedback selectors): {rect: [l, t, r, b],
   // acceptable (large enough), only: the one axis a band zooms}. Bands span the
   // panel: a horizontal band zooms the vertical axis, a vertical band the other.
+  // A fixed aspect panel (`coord_fixed`) has no bands, and its box widens to the
+  // panel's shape so both axes zoom equally (deviations.md).
   function selection(drag, to, centre) {
     var r = drag.bounds, from = drag.from;
     var limit = function (p) {
@@ -1236,7 +1238,7 @@
     var dx = to[0] - from[0], dy = to[1] - from[1];
     if (!drag.mode) {
       if (Math.sqrt(dx * dx + dy * dy) > 20) {
-        drag.mode = Math.abs(dx) < 7 ? "horizontal" : Math.abs(dy) < 7 ? "vertical" : "box";
+        drag.mode = drag.fixed ? "box" : Math.abs(dx) < 7 ? "horizontal" : Math.abs(dy) < 7 ? "vertical" : "box";
       } else {
         return { rect: span(from, to), acceptable: false };
       }
@@ -1267,8 +1269,20 @@
       rect = [from[0] - w, from[1] - hh, from[0] + w, from[1] + hh];
     } else {
       rect = span(from, limit(to));
+      if (drag.fixed) rect = panelShaped(rect, r);
     }
     return { rect: rect, acceptable: rect[2] - rect[0] > MIN_SELECTION || rect[3] - rect[1] > MIN_SELECTION };
+  }
+
+  // `rect` grown about its centre to the shape of `panel` ([x, y, w, h]), then
+  // moved back inside it (a grown selection is never larger than the panel).
+  function panelShaped(rect, panel) {
+    var w = rect[2] - rect[0], h = rect[3] - rect[1], ratio = panel[2] / panel[3];
+    if (w < h * ratio) w = h * ratio;
+    else h = w / ratio;
+    var left = clamp((rect[0] + rect[2] - w) / 2, panel[0], panel[0] + panel[2] - w);
+    var top = clamp((rect[1] + rect[3] - h) / 2, panel[1], panel[1] + panel[3] - h);
+    return [left, top, left + w, top + h];
   }
 
   function span(a, b) {
@@ -1295,7 +1309,10 @@
     if (!ref) return;
     event.preventDefault();
     var tile = tileOf(plot, ref);
-    zoom.drag = { ref: ref, from: from, start: currentViews(tile), bounds: tile.spec.panel, mode: null };
+    zoom.drag = {
+      ref: ref, from: from, start: currentViews(tile), bounds: tile.spec.panel, mode: null,
+      fixed: zoom.plots[ref.plot].fixedAspect,
+    };
     plot.dragging = true;
     if (plot.overlay) show(plot, null);
     var move = function (e) { onDrag(plot, e); };
@@ -1513,6 +1530,7 @@
       plots: payload.plots.map(function (zoomPlot) {
         return {
           shared: zoomPlot.shared,
+          fixedAspect: !!zoomPlot.fixed_aspect,
           layers: zoomPlot.layers || null,
           hidden: [],
           tiles: zoomPlot.tiles.map(function (spec) {
@@ -1612,6 +1630,6 @@
     return plot;
   }
 
-  // `breaks` is the zoom's break generator, exposed for tests.
-  window.ggrust = { version: version, mount: mount, lookup: lookup, breaks: flexBreaks };
+  // `breaks` (the zoom's break generator) and `selection` are exposed for tests.
+  window.ggrust = { version: version, mount: mount, lookup: lookup, breaks: flexBreaks, selection: selection };
 })

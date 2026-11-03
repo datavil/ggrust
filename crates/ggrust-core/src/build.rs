@@ -1236,6 +1236,7 @@ impl PreparedPlot {
         ZoomPlot {
             tiles,
             shared,
+            fixed_aspect: self.coord.fixes_aspect(),
             geoms,
         }
     }

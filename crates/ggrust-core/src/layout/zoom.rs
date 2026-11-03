@@ -86,6 +86,9 @@ pub struct ZoomPlot {
     /// Whether every panel has the same horizontal / vertical scale (facets with
     /// fixed scales): zooming one panel then zooms all of them on that axis.
     pub shared: (bool, bool),
+    /// Whether the panels keep a fixed aspect ratio (`coord_fixed`): box zooms
+    /// then widen the selection to the panel's shape so both axes zoom equally.
+    pub fixed_aspect: bool,
     /// The geom of each layer, in layer order (the default toggle labels).
     pub geoms: Vec<&'static str>,
 }

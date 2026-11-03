@@ -144,7 +144,7 @@ projections and tile fetching, and carry many open lets-plot bugs (#1448, #795, 
 | Score | Gap | lets-plot issues | Note |
 | --- | --- | --- | --- |
 | 5 | `PlotSpec.show()` | | Missing method; notebooks and scripts call it. |
-| 3 | Vector PDF | #1509 (`to_png` drops titles and axes when a layer has `linetype=0`), #1440 (Japanese fonts in `ggsave`) | ggrust writes a raster PDF; lets-plot's is vector. |
+| 3 | Vector PDF | #1509 (`to_png` drops titles and axes when a layer has `linetype=0`), #1440 (Japanese fonts in `ggsave`) | ggrust writes a raster PDF; lets-plot's is vector. Done in lp5.13 (vector; lets-plot 4.8 itself writes a raster PDF via Pillow). |
 | 1 | `LetsPlot.setup_html` options, `NO_JS`, `OFFLINE`, `frontend_context`, `cfg`, settings utilities, `is_production`, `get_global_bool` | | ggrust inlines its runtime; keep names only if users hit import errors. |
 | 1 | `font_family_info`, `font_metrics_adjustment` | | |
 

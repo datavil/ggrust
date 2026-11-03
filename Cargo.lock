@@ -456,7 +456,9 @@ dependencies = [
  "arrow-schema",
  "arrow-select",
  "crc32fast",
+ "flate2",
  "harfrust",
+ "pdf-writer",
  "png",
  "rayon",
  "read-fonts",
@@ -465,6 +467,7 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_path_to_error",
+ "subsetter",
  "thiserror",
 ]
 
@@ -768,6 +771,18 @@ name = "once_cell"
 version = "1.21.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9f7c3e4beb33f85d45ae3e3a1792185706c8e16d043238c593331cc7cd313b50"
+
+[[package]]
+name = "pdf-writer"
+version = "0.15.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f5e456864a7a304047bff84977dc6fb162bd956475d40ba50b2dcecaada7f753"
+dependencies = [
+ "bitflags",
+ "itoa",
+ "memchr",
+ "ryu",
+]
 
 [[package]]
 name = "phf"
@@ -1148,6 +1163,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6637bab7722d379c8b41ba849228d680cc12d0a45ba1fa2b48f2a30577a06731"
 dependencies = [
  "float-cmp",
+]
+
+[[package]]
+name = "subsetter"
+version = "0.2.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38803281d1c23166c5ebcb455439a5d2afe711cc909cf88af72448c297756ad6"
+dependencies = [
+ "rustc-hash",
 ]
 
 [[package]]

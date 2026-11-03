@@ -38,7 +38,7 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Zoom/pan follows lets-plot via coord limits](html_zoom.md): JS breaks ported from Rust and tested against it, SVG templates stamped at new breaks, anchored marks, `g.tile` order, toolbar svg trap.
 - [Canvas points: placeholder + quarter-pixel sprites](html_canvas_points.md): dense batches as foreignObject canvas in HTML, Rust marker parts, sprites at quarter pixels, cull before quantizing.
 - [Repel follows lets-plot's force layout](letsplot_repel.md): exact LabelForceLayout port (1e-6 with lets-plot widths), font widths cause the visible differences, nudge moves labels not segment starts.
-- [geom_imshow and export sizes follow lets-plot](letsplot_imshow_and_export.md): fast Rust-encoded imshow href (pixels, not bytes, match) kept encoded in SVG, L* grey mapper, style label format/lablim, measured scale/dpi/unit rules, dependency-free raster PDF.
+- [geom_imshow and export sizes follow lets-plot](letsplot_imshow_and_export.md): fast Rust-encoded imshow href (pixels, not bytes, match) kept encoded in SVG, L* grey mapper, style label format/lablim, measured scale/dpi/unit rules, raster PDF (replaced by vector in lp5.13).
 - [Profiling on macOS](profiling_macos.md): `sample` + inferno (no root), v0 symbols need llvm-cxxfilt per frame, drop sleeping and polars threads, never name a script profile.py.
 - [Rayon parallel levels: gated, ordered](rayon_parallel_levels.md): `parallel::ordered_map` + 10k-row gate (pool wake ~50 us), results consumed in order, outputs byte-identical, PNG left to 6.1c/6.1f.
 - [Frame column cache](frame_column_cache.md): per-frame OnceLock column cache shared by clones, blocking init for parallel subplots, no stat cache by decision.
@@ -52,3 +52,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Exact port speedups](exact_port_speedups.md): cache + provable skips only; ported predicates are not geometric (degenerate boxes); ties break on 1e-13 changes.
 - [2D bins follow lets-plot](letsplot_bin2d_hex.md): bin2d/binhex grid rules, literal hex border port, NaN corner rows train axes, bin-size columns fix #1290.
 - [Contours follow lets-plot triangles](letsplot_contours.md): ported isolines (vertex counts match), own isobands (lets-plot fill helper breaks), symbolic vertices cancel shared edges, R bandwidths, chunked KDE.
+- [Vector PDF output](pdf_vector_output.md): pdf-writer + subsetter, text via `text::shape`, rise survives ET, Quartz blurs images, sips writes Display P3, marker forms for dense points.

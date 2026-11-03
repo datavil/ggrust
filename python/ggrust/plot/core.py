@@ -353,14 +353,15 @@ class PlotSpec(FeatureSpec):
         unit: str | None = None,
         dpi: Number | None = None,
     ) -> str | None:
-        """Render to a one-page raster PDF (the PNG at its resolution), as lets_plot.
+        """Render to a one-page vector PDF (paths, selectable text in embedded fonts).
 
         Parameters
         ----------
         path : str or file-like
             Where to write.
         scale, w, h, unit, dpi : optional
-            As ``to_png``; the page size is the pixel size divided by the resolution.
+            As ``to_png``; the page size is the PNG's pixel size divided by the
+            resolution, the same page as lets_plot's (raster) PDF.
 
         Returns
         -------

@@ -59,20 +59,20 @@ def ggtb(
 
     Examples
     --------
-    >>> import ggrust as gg
-    >>> plot = gg.ggplot({"x": [1, 2, 3], "y": [3, 1, 2]}, gg.aes("x", "y")) + gg.geom_point()
-    >>> html = (plot + gg.ggtb(size_zoomin=-1)).to_html()
+    >>> from ggrust import *
+    >>> plot = ggplot({"x": [1, 2, 3], "y": [3, 1, 2]}, aes("x", "y")) + geom_point()
+    >>> html = (plot + ggtb(size_zoomin=-1)).to_html()
 
     Toggle the image under a scatter, with custom labels:
 
     >>> import numpy as np
     >>> image = np.zeros((3, 4, 3), dtype=np.uint8)
     >>> layered = (
-    ...     gg.ggplot({"x": [1, 2], "y": [1, 2]}, gg.aes("x", "y"))
-    ...     + gg.geom_imshow(image_data=image)
-    ...     + gg.geom_point()
+    ...     ggplot({"x": [1, 2], "y": [1, 2]}, aes("x", "y"))
+    ...     + geom_imshow(image_data=image)
+    ...     + geom_point()
     ... )
-    >>> html = (layered + gg.ggtb(layers={"tissue": 0, "spots": 1})).to_html()
+    >>> html = (layered + ggtb(layers={"tissue": 0, "spots": 1})).to_html()
     """
     if size_basis is not None and size_basis not in SIZE_BASES:
         raise SpecError(

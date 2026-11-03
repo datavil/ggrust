@@ -1,22 +1,27 @@
-/* ggrust docs theme: rust accent, type sizes, live plot frames, gallery cards and the home hero. */
+/* ggrust docs theme: plum and rose palette, type sizes, live plot frames, gallery cards
+   and the home hero. */
 
 :root,
 [data-md-color-scheme="default"] {
-  --md-primary-fg-color: #b7410e;
-  --md-primary-fg-color--light: #d4622c;
-  --md-primary-fg-color--dark: #8c300a;
-  --md-accent-fg-color: #d4622c;
-  --ggrust-card-border: #e7e2de;
-  --ggrust-card-shadow: 0 1px 3px rgba(60, 30, 10, 0.08);
+  --md-primary-fg-color: #5e2750;
+  --md-primary-fg-color--light: #7e5273;
+  --md-primary-fg-color--dark: #4b1f40;
+  --md-primary-bg-color: #ffffff;
+  --md-accent-fg-color: #d6336c;
+  --md-typeset-a-color: #7a2f68;
+  --ggrust-card-border: #ebe3ea;
+  --ggrust-card-shadow: 0 1px 3px rgba(60, 20, 50, 0.08);
 }
 
 [data-md-color-scheme="slate"] {
-  --md-primary-fg-color: #c2511d;
-  --md-primary-fg-color--light: #e0763f;
-  --md-primary-fg-color--dark: #8c300a;
-  --md-accent-fg-color: #f08a50;
-  --md-typeset-a-color: #f08a50;
-  --ggrust-card-border: #3a3533;
+  --md-hue: 315;
+  --md-primary-fg-color: #9b4f8a;
+  --md-primary-fg-color--light: #af72a1;
+  --md-primary-fg-color--dark: #7c3f6e;
+  --md-primary-bg-color: #ffffff;
+  --md-accent-fg-color: #f783ac;
+  --md-typeset-a-color: #d79bc8;
+  --ggrust-card-border: #342a32;
   --ggrust-card-shadow: none;
 }
 

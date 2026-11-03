@@ -1,7 +1,8 @@
 //! Style scales from `scale_color_*()`, `scale_fill_*()`, ... calls.
 //!
 //! Several calls for one aesthetic merge key by key, later ones winning, as in
-//! lets-plot (`PlotConfigUtil.mergeScaleOptions`). The merged options choose the
+//! lets-plot (`PlotConfigUtil.mergeScaleOptions`), except that a call picking a
+//! mapper (palette or `values`) replaces the earlier mapper. The merged options choose the
 //! mapper (lets-plot `ScaleConfig.createMapperProvider`) and the discrete domain.
 
 use crate::scale::style::LinetypeMapper;
@@ -99,6 +100,23 @@ pub fn style_scale_specs(
 
 fn merge(target: &mut StyleScaleSpec, scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
     let at = |key: &str| format!("{path}.{key}");
+    // A call that picks a mapper (a palette scale, manual `values`, or a size or
+    // alpha `range`) replaces the mapper of earlier calls, its `na_value` included,
+    // instead of merging into it, as in ggplot2. lets-plot merges, so
+    // `scale_color_brewer() + scale_color_manual(values)` keeps brewer there
+    // (deviations.md). Names, breaks, labels, limits and transforms still merge.
+    let picks_mapper = scale.scale_mapper_kind.is_some()
+        || ["values", "range"].iter().any(|key| {
+            scale
+                .parameters
+                .get(*key)
+                .is_some_and(|value| !value.is_null())
+        });
+    if picks_mapper {
+        target.kind = None;
+        target.options.clear();
+        target.na_value = None;
+    }
     if let Some(format) = &scale.format {
         // A later call wins even when its pattern is not supported (lets-plot).
         target.format = LabelPattern::parse(format)

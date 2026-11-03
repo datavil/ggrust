@@ -234,7 +234,17 @@ fn arrange_title(
     theme: &Theme,
 ) -> ((f64, f64), (f64, f64), (f64, f64)) {
     let margin = theme.legend_margin;
-    let (title_width, title_height) = title_size(title, theme);
+    let (text_width, text_height) = title_size(title, theme);
+    // `legend_title` margins pad the title box (ggplot2); unset, they are zero.
+    let title_margin = theme.legend_title_margin;
+    let (title_width, title_height) = if text_width > 0.0 {
+        (
+            text_width + title_margin.left + title_margin.right,
+            text_height + title_margin.top + title_margin.bottom,
+        )
+    } else {
+        (0.0, 0.0)
+    };
     let (graph_origin, content) = if horizontal {
         let height = title_height.max(graph.1);
         (
@@ -256,7 +266,10 @@ fn arrange_title(
     };
     (
         (margin.left + graph_origin.0, margin.top + graph_origin.1),
-        (margin.left, margin.top + title_top),
+        (
+            margin.left + title_margin.left,
+            margin.top + title_top + title_margin.top,
+        ),
         (
             margin.left + content.0 + margin.right,
             margin.top + content.1 + margin.bottom,
@@ -931,6 +944,34 @@ pub fn draw_legends(block: &LegendBlock, origin: (f64, f64), theme: &Theme) -> R
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::theme::Margins;
+
+    #[test]
+    fn legend_title_margins_pad_the_title_box() {
+        let plain = Theme::default();
+        let padded = Theme {
+            legend_title_margin: Margins {
+                top: 3.0,
+                right: 10.0,
+                bottom: 3.0,
+                left: 4.0,
+            },
+            ..Theme::default()
+        };
+        let graph = (80.0, 30.0);
+        let (origin, anchor, size) = arrange_title("RNA", graph, true, &plain);
+        let (padded_origin, padded_anchor, padded_size) =
+            arrange_title("RNA", graph, true, &padded);
+        // Horizontal: the graph moves right by the side margins, the title by the left one.
+        assert_eq!(padded_origin.0 - origin.0, 14.0);
+        assert_eq!(padded_anchor.0 - anchor.0, 4.0);
+        assert_eq!(padded_size.0 - size.0, 14.0);
+        // No title: margins add nothing.
+        assert_eq!(
+            arrange_title("", graph, true, &padded).2,
+            arrange_title("", graph, true, &plain).2
+        );
+    }
 
     #[test]
     fn pretty_rounds_up_to_odd_plus_one() {

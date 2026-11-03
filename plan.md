@@ -345,6 +345,15 @@ Cellestial work is on branch `ggrust-port-track-titles` (row titles only, uncomm
   backend or runtime changes (zoom verified in the browser: paths unchanged). Titles with `hjust=0` sit
   next to the arrows. Python checks `arrow`/`extent` early; the engine checks raw values. Tests:
   `tests/test_arrow_axis.py`, Rust theme and layout units, golden `umap_corner_arrows`. Deviation row.)
+- [x] 9.5 ggrust fixes found reproducing Zamboni et al. 2025 Fig. 1f (2026-11-03).
+  (a) A later style scale that picks a mapper (kind, `values`, size/alpha `range`) replaces the earlier
+  mapper and its `na_value` (ggplot2); cellestial's default brewer no longer beats a user's
+  `scale_color_manual`. (b) Horizontal colorbars reserve room for end labels that reach past the bar
+  (no overlap with the title); `legend_title` margins pad the title (`text` margins stay unsupported).
+  (c) `geom_text`/`geom_label` `lineheight` (lets-plot spacing, checked by SVG). Not bugs: `gggrid`
+  `vspace` works with `align`; the residual gap between grid cells is each plot's `plot_inset` (3 px).
+  Tests: `tests/test_scale_replace.py`, `tests/test_text_lineheight.py`, colorbar and legend units.
+  Deviation rows: scale replacement, colorbar end labels, repel/bracket `lineheight` gap.
 
 ## Performance strategy (honest)
 

@@ -11,8 +11,9 @@
 //! else the plot background, else white) faded by `alpha`, under the text.
 //! `geom_label` has no halo (lets-plot).
 //!
+//! Lines of a multi-line text are `lineheight` (1.0) x font size apart.
+//!
 //! What it does not do (yet): `label_format`, `na_text`, `check_overlap`,
-//! `halo_*`, `lineheight` (lines are one font size apart), `size_unit`,
 //! `hjust`/`vjust` `inward`/`outward`.
 //!
 //! `size_unit="x"`/`"y"` scales the font by one axis unit / 6 px (lets-plot's
@@ -77,6 +78,7 @@ const TEXT_PARAMETERS: &[&str] = &[
     "size_unit",
     "halo_width",
     "halo_color",
+    "lineheight",
 ];
 
 const PARAMETERS: &[&str] = &[
@@ -86,6 +88,7 @@ const PARAMETERS: &[&str] = &[
     "label_r",
     "label_size",
     "size_unit",
+    "lineheight",
 ];
 
 /// lets-plot `TextGeom` `BASELINE_TEXT_WIDTH`: pixels per unit of `size` under `size_unit`.
@@ -205,6 +208,8 @@ pub(super) struct Look {
     alpha: f64,
     /// Layer halo `(color, stroke width px)`, see [`halo`]; faded by `alpha`.
     pub(super) halo: Option<(Color, f64)>,
+    /// Distance between line centres, in font sizes (`lineheight`).
+    pub(super) line_height: f64,
 }
 
 pub(super) fn look(styles: &Styles, row: usize, label: bool) -> Result<Look> {
@@ -232,6 +237,7 @@ pub(super) fn look(styles: &Styles, row: usize, label: bool) -> Result<Look> {
         },
         alpha,
         halo: None,
+        line_height: 1.0,
     })
 }
 
@@ -247,6 +253,21 @@ pub(super) fn halo(layer: &DrawLayer) -> Result<Option<(Color, f64)>> {
         .color("halo_color")?
         .unwrap_or(layer.background);
     Ok(Some((color, 2.0 * width)))
+}
+
+/// `lineheight=...`: a finite, non-negative multiple of the font size (1.0).
+fn line_height(layer: &DrawLayer) -> Result<f64> {
+    match layer.parameters.number("lineheight")? {
+        None => Ok(1.0),
+        Some(value) if value.is_finite() && value >= 0.0 => Ok(value),
+        Some(value) => Err(crate::Error::spec(
+            layer.parameters.path_of("lineheight"),
+            format!(
+                "lineheight must be a non-negative number of font sizes (1.0 is single \
+                 spacing), got {value}"
+            ),
+        )),
+    }
 }
 
 pub(super) fn key_size(styles: &Styles) -> Result<(f64, f64)> {
@@ -290,6 +311,7 @@ fn draw_texts(layer: &DrawLayer, panel: &Panel, label: bool) -> Result<Vec<Node>
         .number("label_size")?
         .unwrap_or(LABEL_BORDER);
     let halo = if label { None } else { halo(layer)? };
+    let line_height = line_height(layer)?;
     let ratio = size_unit_ratio(&layer.parameters, panel, SIZE_UNIT_TEXT_WIDTH)?;
     let mut nodes = Vec::new();
     for row in 0..layer.data.row_count() {
@@ -306,6 +328,7 @@ fn draw_texts(layer: &DrawLayer, panel: &Panel, label: bool) -> Result<Vec<Node>
             continue;
         }
         look.halo = halo;
+        look.line_height = line_height;
         // Anchored, so interactive zoom moves each text with its point.
         nodes.push(Node::Group(Group {
             clip: None,
@@ -318,7 +341,7 @@ fn draw_texts(layer: &DrawLayer, panel: &Panel, label: bool) -> Result<Vec<Node>
 }
 
 /// The text (and box) of one row, placed so that the point sits at (`hjust`,
-/// `vjust`) of the text block. Lines are one font size apart; `vjust` spans
+/// `vjust`) of the text block. Lines are `line_height` font sizes apart; `vjust` spans
 /// 0.7 em of the block's height (lets-plot's baseline placement). A power of ten
 /// in the text (`·\(10^{8}\)`) is drawn as a superscript.
 pub(super) fn draw_one(
@@ -334,7 +357,9 @@ pub(super) fn draw_one(
     let line_count = lines.len() as f64;
     let (sin, cos) = look.angle.to_radians().sin_cos();
     // Offset of the block centre from the point, in the text's own frame (y down).
-    let block_height = line_count * look.size;
+    let spacing = look.line_height * look.size;
+    // The block is one font size for the first line plus the spacing per extra line.
+    let block_height = look.size + (line_count - 1.0) * spacing;
     let pad = if label { padding * look.size } else { 0.0 };
     // A label is placed by its box (its top at the point for vjust = 1, as
     // lets-plot); plain text by its baselines.
@@ -347,8 +372,8 @@ pub(super) fn draw_one(
         (
             (0.5 - look.hjust) * width,
             (look.vjust - 0.5) * VJUST_SPAN * look.size
-                - (1.0 - look.vjust) * (line_count - 1.0) * look.size
-                + (line_count - 1.0) * look.size / 2.0,
+                - (1.0 - look.vjust) * (line_count - 1.0) * spacing
+                + (line_count - 1.0) * spacing / 2.0,
         )
     };
     let rotate =
@@ -371,8 +396,8 @@ pub(super) fn draw_one(
     }
     let mut texts = Vec::with_capacity(lines.len());
     for (index, (line, line_width)) in lines.into_iter().zip(widths).enumerate() {
-        // Line centres, one font size apart, around the block centre.
-        let line_offset = (index as f64 - (line_count - 1.0) / 2.0) * look.size;
+        // Line centres, `spacing` apart, around the block centre.
+        let line_offset = (index as f64 - (line_count - 1.0) / 2.0) * spacing;
         // Each line aligned within the block by hjust (left-aligned for 0).
         let line_shift = (look.hjust - 0.5) * (width - line_width);
         let (x, y) = rotate((centre_offset.0 + line_shift, centre_offset.1 + line_offset));
@@ -428,11 +453,16 @@ fn measured_lines(look: &Look) -> (Vec<Label>, Vec<f64>) {
 }
 
 /// Width and height of a text block as [`draw_one`] lays it out: the widest
-/// line, one font size per line (lets-plot `TextUtil.measure` at line height 1).
+/// line, one font size for the first line plus `line_height` font sizes per extra
+/// line (lets-plot `TextUtil.measure`).
 pub(super) fn block_size(look: &Look) -> (f64, f64) {
     let (lines, widths) = measured_lines(look);
     let width = widths.into_iter().fold(0.0, f64::max);
-    (width, lines.len() as f64 * look.size)
+    let extra_lines = lines.len().saturating_sub(1) as f64;
+    (
+        width,
+        look.size + extra_lines * look.line_height * look.size,
+    )
 }
 
 /// Outline of a box centred on the origin with rounded corners.

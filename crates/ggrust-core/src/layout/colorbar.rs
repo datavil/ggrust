@@ -178,6 +178,42 @@ pub(super) fn layout_colorbar(
             .iter()
             .map(|(_, label)| lines(label) * band)
             .fold(0.0, f64::max);
+        // Labels centred on the end ticks can reach past the bar; reserve that room
+        // so they do not run into the title on the left (lets-plot overlaps them,
+        // deviations.md).
+        let (overhang_left, overhang_right) =
+            colorbar
+                .breaks
+                .iter()
+                .fold((0.0_f64, 0.0_f64), |(left, right), (value, label)| {
+                    // Breaks outside the domain get no room (their ticks are off the bar).
+                    let at = fraction(*value);
+                    if !(0.0..=1.0).contains(&at) {
+                        return (left, right);
+                    }
+                    let x = tick_position(bar, true, at);
+                    let half = label_lines(label)
+                        .iter()
+                        .map(|line| {
+                            measure_label(
+                                &line.text,
+                                line.superscript.as_deref(),
+                                line.suffix.as_deref(),
+                                style.size,
+                                style.font,
+                            )
+                        })
+                        .fold(0.0, f64::max)
+                        / 2.0;
+                    (
+                        left.max(half - (x - bar.x)),
+                        right.max(x + half - (bar.x + width)),
+                    )
+                });
+        let bar = Rect {
+            x: bar.x + overhang_left,
+            ..bar
+        };
         let ticks = colorbar
             .breaks
             .iter()
@@ -190,7 +226,10 @@ pub(super) fn layout_colorbar(
             bar,
             horizontal,
             ticks,
-            size: (width, height + distance + label_height),
+            size: (
+                overhang_left + width + overhang_right,
+                height + distance + label_height,
+            ),
         };
     }
     let label_gap = measure("_", style.size, style.font).width / 2.0;
@@ -384,15 +423,58 @@ mod tests {
         assert_eq!((layout.bar.width, layout.bar.height), (115.0, 23.0));
         assert!(layout.horizontal);
         let (first, (label_x, label_y)) = layout.ticks[0];
-        assert_eq!((first, label_x), (2.0, 2.0));
+        assert_eq!((first, label_x), (layout.bar.x + 2.0, layout.bar.x + 2.0));
         assert!(label_y > 23.0 && layout.size.1 > label_y);
         let moved = layout.translated((5.0, 7.0));
-        assert_eq!(moved.ticks[0].0, 7.0);
+        assert_eq!(moved.ticks[0].0, layout.bar.x + 7.0);
         let vertical = layout_colorbar(&colorbar, (0.0, 0.0), false, &theme);
         assert_eq!((vertical.bar.width, vertical.bar.height), (23.0, 115.0));
         assert_eq!(
             vertical.translated((5.0, 7.0)).ticks[0].0,
             115.0 - 2.0 + 7.0
         );
+    }
+
+    #[test]
+    fn horizontal_end_labels_reaching_past_the_bar_get_room() {
+        let colorbar = Colorbar {
+            title: "RNA".into(),
+            domain: (0.0, 1.0),
+            breaks: vec![
+                (0.0, Label::plain("Minimum")),
+                (1.0, Label::plain("Maximum")),
+            ],
+            colors: vec![Color::WHITE; DEFAULT_BINS],
+            bar_width: Some(80.0),
+            bar_height: Some(8.0),
+        };
+        let theme = Theme::default();
+        let layout = layout_colorbar(&colorbar, (0.0, 0.0), true, &theme);
+        let style = theme.legend_text.expect("default theme has legend text");
+        let half = measure("Minimum", style.size, style.font).width / 2.0;
+        // The first label starts at the layout's left edge, not before it.
+        assert!((layout.ticks[0].1.0 - half).abs() < 1e-9);
+        assert!(layout.bar.x > 0.0);
+        // The last label ends at the layout's right edge.
+        let right = layout.ticks[1].1.0 + measure("Maximum", style.size, style.font).width / 2.0;
+        assert!((layout.size.0 - right).abs() < 1e-9);
+        // Breaks outside the domain add no room.
+        let outside = Colorbar {
+            title: "RNA".into(),
+            domain: (0.0, 1.0),
+            breaks: vec![(-100.0, Label::plain("far left")), (0.5, Label::plain("a"))],
+            colors: vec![Color::WHITE; DEFAULT_BINS],
+            bar_width: Some(80.0),
+            bar_height: Some(8.0),
+        };
+        let kept = layout_colorbar(&outside, (0.0, 0.0), true, &theme);
+        assert_eq!((kept.bar.x, kept.size.0), (0.0, 80.0));
+        // Labels that fit inside the bar add no room.
+        let short = Colorbar {
+            breaks: vec![(0.5, Label::plain("a"))],
+            ..colorbar
+        };
+        let fitted = layout_colorbar(&short, (0.0, 0.0), true, &theme);
+        assert_eq!((fitted.bar.x, fitted.size.0), (0.0, 80.0));
     }
 }

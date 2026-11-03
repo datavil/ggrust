@@ -299,6 +299,8 @@ pub struct Theme {
     pub legend_key_background: Option<RectStyle>,
     /// Inner padding of a legend box (`legend_margin`).
     pub legend_margin: Margins,
+    /// Space around the legend title (`legend_title` margins, ggplot2).
+    pub legend_title_margin: Margins,
     /// Smallest key cell, width and height (`legend_key_width`,
     /// `legend_key_height`, `legend_key_size`).
     pub legend_key_size: (f64, f64),
@@ -504,8 +506,8 @@ fn report_unbuilt(spec: &ThemeSpec, warnings: &mut Vec<String>) {
         // Axis titles read angle and vjust (layout `axis_title_justification`):
         // turned by the angle, vjust moves a title along its axis.
         let axis_title = matches!(key.as_str(), "axis_title" | "axis_title_x" | "axis_title_y");
-        // Strip labels (layout/facet.rs), plot and axis titles and captions read
-        // their margins.
+        // Strip labels (layout/facet.rs), plot, axis and legend titles and captions
+        // read their margins.
         let strip_text = matches!(
             key.as_str(),
             "strip_text"
@@ -518,6 +520,7 @@ fn report_unbuilt(spec: &ThemeSpec, warnings: &mut Vec<String>) {
                 | "axis_title"
                 | "axis_title_x"
                 | "axis_title_y"
+                | "legend_title"
         );
         let unbuilt = [
             ("margin", element.margin.is_some() && !strip_text),
@@ -794,6 +797,7 @@ impl Resolver<'_> {
                     })
             }),
             legend_margin: self.margins(&["legend_margin"], 5.0),
+            legend_title_margin: self.margins(&["legend_title", "title", "text"], 0.0),
             legend_key_size: (
                 self.number(&["legend_key_width", "legend_key_size"], 23.0)?,
                 self.number(&["legend_key_height", "legend_key_size"], 23.0)?,

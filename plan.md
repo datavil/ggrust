@@ -359,6 +359,12 @@ Cellestial work is on branch `ggrust-port-track-titles` (row titles only, uncomm
   so every colorbar took the first track's legend text. Now each box keeps its figure's theme
   (`measure_themed_legends`); the grid theme still arranges the block. Test:
   `test_collected_legends_keep_each_figure_theme` (flat and nested grids).
+- [x] 9.7 `oob=` on continuous color and fill scales (found reproducing Zamboni et al. 2025 Fig. 1f, 2026-11-03).
+  `"censor"` (default, NA color) or `"squish"` (finite values clamped to `limits` in data units before `trans`)
+  on `scale_color/fill_gradient/gradient2/gradientn/viridis/continuous/brewer/grey`; agreed with the user:
+  `oob: Literal["censor", "squish"] | None`, merges like `limits`. `scale::style::Oob` on `ContinuousDomain`,
+  clamped in `StyleScale::map`; colorbar unchanged. Errors at `scales[i].oob` with did-you-mean (Python
+  fails first). Tests: `tests/test_scale_oob.py`, style mod/spec units. Deviation row (lets-plot has no `oob`).
 
 ## Performance strategy (honest)
 

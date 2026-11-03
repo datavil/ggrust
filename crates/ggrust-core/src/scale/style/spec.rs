@@ -14,7 +14,7 @@ use super::{
     ALPHA, BrewerMapper, COLORMAP_NAMES, ColormapMapper, ContinuousDomain, DiscreteDomain,
     GRADIENT_HIGH, GRADIENT_LOW, GRADIENT2_HIGH, GRADIENT2_LOW, GRADIENT2_MID, Gradient2Mapper,
     GradientMapper, GreyMapper, HOLLOW_SHAPES, HueMapper, IdentityMapper, Level, ManualColorMapper,
-    ManualNumberMapper, NA_COLOR, NA_SHAPE, Overflow, PaletteChoice, PaletteType,
+    ManualNumberMapper, NA_COLOR, NA_SHAPE, Oob, Overflow, PaletteChoice, PaletteType,
     ProportionalMapper, SIZE, SIZE_AREA_MAX, ShapeMapper, StyleMapper, colormap, default_mapper,
     scheme_by_name, scheme_names,
 };
@@ -57,6 +57,9 @@ const MAPPER_OPTIONS: &[&str] = &[
 /// The `parameters` key of `lablim=...`.
 const LABEL_LIMIT: &str = "lablim";
 
+/// The `parameters` key of `oob=...` (ggplot2; lets-plot has no such option).
+const OOB: &str = "oob";
+
 /// Merged `scale_*()` options of one style aesthetic.
 #[derive(Debug, Clone, Default)]
 pub struct StyleScaleSpec {
@@ -75,6 +78,8 @@ pub struct StyleScaleSpec {
     format: Option<LabelPattern>,
     /// `lablim=...`: discrete labels longer than this are cut (0: no limit).
     label_limit: Option<usize>,
+    /// `oob=...`, checked by [`StyleScaleSpec::oob`]. Merges like `limits`.
+    oob: Set<Value>,
     options: BTreeMap<String, (Value, String)>,
 }
 
@@ -147,6 +152,9 @@ fn merge(target: &mut StyleScaleSpec, scale: &ScaleSpec, path: &str, warnings: &
     if let Some(limits) = &scale.limits {
         target.limits = Some((limits.clone(), at("limits")));
     }
+    if let Some(oob) = scale.parameters.get(OOB).filter(|value| !value.is_null()) {
+        target.oob = Some((oob.clone(), at(OOB)));
+    }
     if let Some(na_value) = &scale.na_value {
         target.na_value = Some((na_value.clone(), at("na_value")));
     }
@@ -187,7 +195,11 @@ fn report_unbuilt(scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
         warnings.push(format!("at '{path}.{key}': not supported yet; ignored"));
     }
     for (key, value) in &scale.parameters {
-        if !MAPPER_OPTIONS.contains(&key.as_str()) && key != LABEL_LIMIT && !value.is_null() {
+        if !MAPPER_OPTIONS.contains(&key.as_str())
+            && key != LABEL_LIMIT
+            && key != OOB
+            && !value.is_null()
+        {
             warnings.push(format!("at '{path}.{key}': not supported yet; ignored"));
         }
     }
@@ -424,6 +436,7 @@ impl StyleScaleSpec {
             domain.breaks = Some(values);
         }
         domain.format = self.format.clone();
+        domain.oob = self.oob().map_err(|error| error.to_string())?;
         domain.labels = self
             .discrete_domain()
             .map_err(|error| error.to_string())?
@@ -432,6 +445,29 @@ impl StyleScaleSpec {
             domain.transform = Transform::parse(name, path).map_err(|error| error.to_string())?;
         }
         Ok(domain)
+    }
+
+    /// `oob=...`: `censor` (the default) or `squish`.
+    pub fn oob(&self) -> Result<Oob> {
+        let Some((value, path)) = &self.oob else {
+            return Ok(Oob::Censor);
+        };
+        let accepted = format!("use {}", Oob::NAMES);
+        match value {
+            Value::String(name) => Oob::parse(name).ok_or_else(|| {
+                Error::spec(
+                    path,
+                    format!(
+                        "unknown oob \"{name}\"; {accepted}{}",
+                        crate::suggest::did_you_mean(name, crate::suggest::quoted(Oob::NAMES))
+                    ),
+                )
+            }),
+            other => Err(Error::spec(
+                path,
+                format!("expected an oob name, got {other}; {accepted}"),
+            )),
+        }
     }
 
     /// Gradient, gradient2, gradientn and color map scales; `None` for other kinds.
@@ -883,4 +919,64 @@ fn positive_number(value: &Value, path: &str) -> Result<f64> {
         .as_f64()
         .filter(|value| value.is_finite() && *value > 0.0)
         .ok_or_else(|| Error::spec(path, format!("expected a positive number, got {value}")))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::spec::Figure;
+
+    /// The merged fill scale of `scales` (JSON scale objects), with warnings.
+    fn fill(scales: &str) -> (StyleScaleSpec, Vec<String>) {
+        let json = format!(r#"{{"kind": "plot", "scales": [{scales}]}}"#);
+        let Figure::Plot(plot) = Figure::from_json(&json).unwrap() else {
+            panic!("expected a plot");
+        };
+        let mut warnings = Vec::new();
+        let mut merged = style_scale_specs(&plot, &mut warnings);
+        (merged.remove(&Aesthetic::Fill).unwrap(), warnings)
+    }
+
+    #[test]
+    fn oob_defaults_to_censor_and_is_not_reported() {
+        let (spec, warnings) = fill(r#"{"aesthetic": "fill", "limits": [0, 1]}"#);
+        assert_eq!(spec.oob().unwrap(), Oob::Censor);
+        let (spec, warnings_squish) = fill(r#"{"aesthetic": "fill", "oob": "squish"}"#);
+        assert_eq!(spec.oob().unwrap(), Oob::Squish);
+        assert_eq!(spec.continuous_domain().unwrap().oob, Oob::Squish);
+        assert!(warnings.is_empty() && warnings_squish.is_empty());
+    }
+
+    #[test]
+    fn oob_merges_like_limits_across_a_new_mapper() {
+        // A later palette replaces the mapper but keeps limits and oob.
+        let (spec, _) = fill(
+            r#"{"aesthetic": "fill", "limits": [-2.5, 2.5], "oob": "squish"},
+               {"aesthetic": "fill", "scale_mapper_kind": "color_gradientn",
+                "colors": ["black", "yellow"]}"#,
+        );
+        assert_eq!(spec.oob().unwrap(), Oob::Squish);
+        assert_eq!(
+            spec.continuous_domain().unwrap().limits,
+            [Some(-2.5), Some(2.5)]
+        );
+        // A later explicit oob wins.
+        let (spec, _) = fill(
+            r#"{"aesthetic": "fill", "oob": "squish"},
+               {"aesthetic": "fill", "scale_mapper_kind": "color_gradient", "oob": "censor"}"#,
+        );
+        assert_eq!(spec.oob().unwrap(), Oob::Censor);
+    }
+
+    #[test]
+    fn unknown_oob_names_the_path_and_a_close_match() {
+        let (spec, _) = fill(r#"{"aesthetic": "fill"}, {"aesthetic": "fill", "oob": "sqush"}"#);
+        let message = spec.oob().unwrap_err().to_string();
+        assert!(message.contains("scales[1].oob"), "{message}");
+        assert!(message.contains("'censor', 'squish'"), "{message}");
+        assert!(message.contains("did you mean 'squish'?"), "{message}");
+        let (spec, _) = fill(r#"{"aesthetic": "fill", "oob": 1}"#);
+        let message = spec.oob().unwrap_err().to_string();
+        assert!(message.contains("expected an oob name, got 1"), "{message}");
+    }
 }

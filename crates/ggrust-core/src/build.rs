@@ -3034,6 +3034,8 @@ fn train_style_scales(
                 let spec = specs.get(&aesthetic).unwrap_or(&default_spec);
                 let mapper = spec.mapper(aesthetic, warnings)?;
                 let domain = spec.discrete_domain()?;
+                // Fail early on a bad `oob`, also when the data turns out discrete.
+                spec.oob()?;
                 let scale = if discrete.contains(&aesthetic) {
                     StyleScale::discrete(mapper, domain)
                 } else {

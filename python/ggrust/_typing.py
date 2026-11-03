@@ -44,6 +44,9 @@ Shape: TypeAlias = int | str
 Transform: TypeAlias = Literal["identity", "log10", "log2", "symlog", "sqrt", "reverse"]
 """A continuous scale transform."""
 
+Oob: TypeAlias = Literal["censor", "squish"]
+"""What a continuous color scale does with values outside its limits."""
+
 Position: TypeAlias = str | FeatureSpec
 """A position name such as ``"dodge"``, or a ``position_*()`` spec."""
 

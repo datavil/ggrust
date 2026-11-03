@@ -194,8 +194,10 @@ pub struct DiscreteDomain {
 /// Continuous domain options from `scale_*()`: numeric `limits`, `breaks`, `labels`.
 #[derive(Debug, Clone, PartialEq, Default)]
 pub struct ContinuousDomain {
-    /// `[low, high]`, either side open; values outside map to the NA value.
+    /// `[low, high]`, either side open; values outside follow `oob`.
     pub limits: [Option<f64>; 2],
+    /// `oob=...`: what values outside `limits` map to.
+    pub oob: Oob,
     /// Breaks shown in the legend (default: about 5 nice breaks).
     pub breaks: Option<Vec<f64>>,
     /// Labels aligned with the breaks.
@@ -204,6 +206,31 @@ pub struct ContinuousDomain {
     pub transform: Transform,
     /// `format=...` for break labels not given in `labels`.
     pub format: Option<LabelPattern>,
+}
+
+/// What a continuous style scale does with values outside its `limits`
+/// (ggplot2 `oob`; lets-plot always censors).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Oob {
+    /// Map to the NA value (lets-plot, ggplot2 `scales::censor`).
+    #[default]
+    Censor,
+    /// Clamp to the nearest limit, so they take the end colors (`scales::squish`).
+    Squish,
+}
+
+impl Oob {
+    /// The accepted names, for messages.
+    pub const NAMES: &'static str = "'censor', 'squish'";
+
+    /// `censor` or `squish`.
+    pub fn parse(name: &str) -> Option<Self> {
+        match name {
+            "censor" => Some(Oob::Censor),
+            "squish" => Some(Oob::Squish),
+            _ => None,
+        }
+    }
 }
 
 /// Breaks of a continuous style scale, for a colorbar or a legend.
@@ -444,26 +471,34 @@ impl StyleScale {
         match (&self.trained, column) {
             (Trained::Continuous(_), Column::Continuous(column)) => {
                 let domain = self.continuous_domain();
-                let limits = self
+                let (limits, oob) = self
                     .continuous
                     .as_ref()
-                    .map_or([None, None], |domain| domain.limits);
+                    .map_or(([None, None], Oob::Censor), |domain| {
+                        (domain.limits, domain.oob)
+                    });
                 let transform = self.transform();
                 if limits == [None, None] && transform == Transform::Identity {
                     return Ok(self.mapper.map_continuous(column, domain));
                 }
                 // lets-plot: values outside the limits (or the transform's domain)
-                // are missing.
+                // are missing. Squished values are clamped to the limits first;
+                // non-finite values stay as they are (ggplot2 `only.finite`).
                 let limited = ContinuousColumn::from_options(
                     (0..column.len())
                         .map(|row| {
-                            column
-                                .get(row)
-                                .filter(|value| {
-                                    limits[0].is_none_or(|low| *value >= low)
-                                        && limits[1].is_none_or(|high| *value <= high)
-                                })
-                                .and_then(|value| transform.apply(value))
+                            let value = column.get(row)?;
+                            let value = match oob {
+                                Oob::Squish if value.is_finite() => {
+                                    let value = limits[0].map_or(value, |low| value.max(low));
+                                    limits[1].map_or(value, |high| value.min(high))
+                                }
+                                _ => value,
+                            };
+                            (limits[0].is_none_or(|low| value >= low)
+                                && limits[1].is_none_or(|high| value <= high))
+                            .then_some(value)
+                            .and_then(|value| transform.apply(value))
                         })
                         .collect(),
                 );
@@ -767,7 +802,7 @@ mod tests {
 
     use super::*;
     use crate::data::DataFrame;
-    use crate::scene::PerItem;
+    use crate::scene::{Color, PerItem};
 
     fn strings(values: Vec<&str>) -> Column {
         let array: ArrayRef = Arc::new(StringArray::from(values));
@@ -975,5 +1010,70 @@ mod tests {
             panic!("expected sizes");
         };
         assert!((sizes[0] * 2.2 - 12.0).abs() < 1e-12, "{sizes:?}");
+    }
+
+    /// Colors of `values` on a gradient scale with `limits` and `oob`, trained on
+    /// the same values.
+    fn limited_colors(
+        values: Vec<f64>,
+        limits: [Option<f64>; 2],
+        oob: Oob,
+        transform: Transform,
+    ) -> Vec<Color> {
+        let mut scale = scale(Aesthetic::Fill);
+        scale.continuous = Ok(ContinuousDomain {
+            limits,
+            oob,
+            transform,
+            ..ContinuousDomain::default()
+        });
+        let column = Column::Continuous(ContinuousColumn::from_values(values));
+        scale.train(&column).unwrap();
+        let StyleValues::Colors(PerItem::Varying(colors)) = scale.map(&column).unwrap() else {
+            panic!("expected colors");
+        };
+        colors
+    }
+
+    #[test]
+    fn squish_clamps_to_the_limits_and_censor_drops() {
+        let values = vec![-5.0, -2.5, 0.0, 2.5, 5.0, f64::NAN];
+        let limits = [Some(-2.5), Some(2.5)];
+        let squished = limited_colors(values.clone(), limits, Oob::Squish, Transform::Identity);
+        assert_eq!(squished[0], squished[1]);
+        assert_eq!(squished[4], squished[3]);
+        assert_ne!(squished[0], squished[4]);
+        assert_eq!(squished[5], NA_COLOR);
+        let censored = limited_colors(values, limits, Oob::Censor, Transform::Identity);
+        assert_eq!(censored[0], NA_COLOR);
+        assert_eq!(censored[4], NA_COLOR);
+        assert_eq!(censored[1..4], squished[1..4]);
+    }
+
+    #[test]
+    fn squish_keeps_infinite_values_missing_and_open_ends_open() {
+        let squished = limited_colors(
+            vec![f64::INFINITY, 10.0, 2.0, 0.0, -10.0],
+            [None, Some(2.0)],
+            Oob::Squish,
+            Transform::Identity,
+        );
+        assert_eq!(squished[0], NA_COLOR);
+        assert_eq!(squished[1], squished[2]);
+        // No low limit: -10 is the data minimum, not clamped.
+        assert_ne!(squished[4], squished[3]);
+    }
+
+    #[test]
+    fn squish_clamps_in_data_units_before_the_transform() {
+        let squished = limited_colors(
+            vec![1.0, 10.0, 100.0, 1000.0],
+            [Some(10.0), Some(100.0)],
+            Oob::Squish,
+            Transform::Log10,
+        );
+        assert_eq!(squished[0], squished[1]);
+        assert_eq!(squished[3], squished[2]);
+        assert_ne!(squished[1], squished[2]);
     }
 }

@@ -14,7 +14,7 @@ from ggrust.plot.scale import _scale
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from ggrust._typing import Breaks, Color, Guide, Labels, Limits, Number, Transform
+    from ggrust._typing import Breaks, Color, Guide, Labels, Limits, Number, Oob, Transform
 
 __all__ = [
     "scale_color_brewer",
@@ -319,6 +319,7 @@ def scale_color_gradient(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
+    oob: Oob | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -341,6 +342,11 @@ def scale_color_gradient(
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
+    oob : {"censor", "squish"}, optional
+        What continuous data outside ``limits`` maps to: ``"censor"`` (the
+        default) draws ``na_value``, ``"squish"`` clamps it to the nearest limit
+        so it takes the end color. Missing data stays ``na_value``. Not in
+        lets-plot (ggplot2 ``oob``).
     na_value : str, optional
         Value drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
@@ -368,6 +374,7 @@ def scale_fill_gradient(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
+    oob: Oob | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -390,6 +397,11 @@ def scale_fill_gradient(
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
+    oob : {"censor", "squish"}, optional
+        What continuous data outside ``limits`` maps to: ``"censor"`` (the
+        default) draws ``na_value``, ``"squish"`` clamps it to the nearest limit
+        so it takes the end color. Missing data stays ``na_value``. Not in
+        lets-plot (ggplot2 ``oob``).
     na_value : str, optional
         Value drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
@@ -419,6 +431,7 @@ def scale_color_gradient2(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
+    oob: Oob | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -443,6 +456,11 @@ def scale_color_gradient2(
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
+    oob : {"censor", "squish"}, optional
+        What continuous data outside ``limits`` maps to: ``"censor"`` (the
+        default) draws ``na_value``, ``"squish"`` clamps it to the nearest limit
+        so it takes the end color. Missing data stays ``na_value``. Not in
+        lets-plot (ggplot2 ``oob``).
     na_value : str, optional
         Value drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
@@ -472,6 +490,7 @@ def scale_fill_gradient2(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
+    oob: Oob | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -496,6 +515,11 @@ def scale_fill_gradient2(
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
+    oob : {"censor", "squish"}, optional
+        What continuous data outside ``limits`` maps to: ``"censor"`` (the
+        default) draws ``na_value``, ``"squish"`` clamps it to the nearest limit
+        so it takes the end color. Missing data stays ``na_value``. Not in
+        lets-plot (ggplot2 ``oob``).
     na_value : str, optional
         Value drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
@@ -522,6 +546,7 @@ def scale_color_gradientn(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
+    oob: Oob | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -544,6 +569,11 @@ def scale_color_gradientn(
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
+    oob : {"censor", "squish"}, optional
+        What continuous data outside ``limits`` maps to: ``"censor"`` (the
+        default) draws ``na_value``, ``"squish"`` clamps it to the nearest limit
+        so it takes the end color. Missing data stays ``na_value``. Not in
+        lets-plot (ggplot2 ``oob``).
     na_value : str, optional
         Value drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
@@ -570,6 +600,7 @@ def scale_fill_gradientn(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
+    oob: Oob | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -592,6 +623,11 @@ def scale_fill_gradientn(
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
+    oob : {"censor", "squish"}, optional
+        What continuous data outside ``limits`` maps to: ``"censor"`` (the
+        default) draws ``na_value``, ``"squish"`` clamps it to the nearest limit
+        so it takes the end color. Missing data stays ``na_value``. Not in
+        lets-plot (ggplot2 ``oob``).
     na_value : str, optional
         Value drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
@@ -622,6 +658,7 @@ def scale_color_viridis(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
+    oob: Oob | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -651,6 +688,11 @@ def scale_color_viridis(
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
+    oob : {"censor", "squish"}, optional
+        What continuous data outside ``limits`` maps to: ``"censor"`` (the
+        default) draws ``na_value``, ``"squish"`` clamps it to the nearest limit
+        so it takes the end color. Missing data stays ``na_value``. Not in
+        lets-plot (ggplot2 ``oob``).
     na_value : str, optional
         Value drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
@@ -681,6 +723,7 @@ def scale_fill_viridis(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
+    oob: Oob | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -710,6 +753,11 @@ def scale_fill_viridis(
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
+    oob : {"censor", "squish"}, optional
+        What continuous data outside ``limits`` maps to: ``"censor"`` (the
+        default) draws ``na_value``, ``"squish"`` clamps it to the nearest limit
+        so it takes the end color. Missing data stays ``na_value``. Not in
+        lets-plot (ggplot2 ``oob``).
     na_value : str, optional
         Value drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
@@ -735,6 +783,7 @@ def scale_color_continuous(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
+    oob: Oob | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -757,6 +806,11 @@ def scale_color_continuous(
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
+    oob : {"censor", "squish"}, optional
+        What continuous data outside ``limits`` maps to: ``"censor"`` (the
+        default) draws ``na_value``, ``"squish"`` clamps it to the nearest limit
+        so it takes the end color. Missing data stays ``na_value``. Not in
+        lets-plot (ggplot2 ``oob``).
     na_value : str, optional
         Value drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
@@ -786,6 +840,7 @@ def scale_fill_continuous(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
+    oob: Oob | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -808,6 +863,11 @@ def scale_fill_continuous(
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
+    oob : {"censor", "squish"}, optional
+        What continuous data outside ``limits`` maps to: ``"censor"`` (the
+        default) draws ``na_value``, ``"squish"`` clamps it to the nearest limit
+        so it takes the end color. Missing data stays ``na_value``. Not in
+        lets-plot (ggplot2 ``oob``).
     na_value : str, optional
         Value drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
@@ -850,6 +910,7 @@ def scale_color_brewer(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
+    oob: Oob | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -879,6 +940,11 @@ def scale_color_brewer(
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
+    oob : {"censor", "squish"}, optional
+        What continuous data outside ``limits`` maps to: ``"censor"`` (the
+        default) draws ``na_value``, ``"squish"`` clamps it to the nearest limit
+        so it takes the end color. Missing data stays ``na_value``. Not in
+        lets-plot (ggplot2 ``oob``).
     na_value : str, optional
         Value drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
@@ -908,6 +974,7 @@ def scale_fill_brewer(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
+    oob: Oob | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -937,6 +1004,11 @@ def scale_fill_brewer(
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
+    oob : {"censor", "squish"}, optional
+        What continuous data outside ``limits`` maps to: ``"censor"`` (the
+        default) draws ``na_value``, ``"squish"`` clamps it to the nearest limit
+        so it takes the end color. Missing data stays ``na_value``. Not in
+        lets-plot (ggplot2 ``oob``).
     na_value : str, optional
         Value drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
@@ -1058,6 +1130,7 @@ def scale_color_grey(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
+    oob: Oob | None = None,
     na_value: Color | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -1084,6 +1157,11 @@ def scale_color_grey(
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
+    oob : {"censor", "squish"}, optional
+        What continuous data outside ``limits`` maps to: ``"censor"`` (the
+        default) draws ``na_value``, ``"squish"`` clamps it to the nearest limit
+        so it takes the end color. Missing data stays ``na_value``. Not in
+        lets-plot (ggplot2 ``oob``).
     na_value : str, optional
         Color drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
@@ -1115,6 +1193,7 @@ def scale_fill_grey(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
+    oob: Oob | None = None,
     na_value: Color | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -1141,6 +1220,11 @@ def scale_fill_grey(
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
+    oob : {"censor", "squish"}, optional
+        What continuous data outside ``limits`` maps to: ``"censor"`` (the
+        default) draws ``na_value``, ``"squish"`` clamps it to the nearest limit
+        so it takes the end color. Missing data stays ``na_value``. Not in
+        lets-plot (ggplot2 ``oob``).
     na_value : str, optional
         Color drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional

@@ -11,12 +11,23 @@ from collections.abc import Callable
 from types import FunctionType
 from typing import TYPE_CHECKING, Any, cast
 
+from ggrust.errors import SpecError, UnsupportedValueError, did_you_mean
 from ggrust.plot.core import DummySpec, FeatureSpec, FeatureSpecArray
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from ggrust._typing import Breaks, Color, Guide, Labels, Limits, Number, Position, Transform
+    from ggrust._typing import (
+        Breaks,
+        Color,
+        Guide,
+        Labels,
+        Limits,
+        Number,
+        Oob,
+        Position,
+        Transform,
+    )
 
 
 __all__ = [
@@ -42,6 +53,9 @@ __all__ = [
 ]
 
 
+_OOB_NAMES = ("censor", "squish")
+
+
 def _scale(
     aesthetic: str | Sequence[str],
     *,
@@ -56,12 +70,26 @@ def _scale(
     guide: Guide | None = None,
     format: str | None = None,
     position: Position | None = None,
+    oob: Oob | None = None,
     **kwargs: Any,
 ) -> FeatureSpec:
     """Create a scale spec for one aesthetic, or an array of specs for a list of them.
 
     ``breaks`` / ``labels`` given as dicts are split into lists as lets-plot does.
+
+    Raises
+    ------
+    SpecError
+        If ``oob`` is not ``"censor"`` or ``"squish"``.
+    UnsupportedValueError
+        If ``oob`` is not a string.
     """
+    if oob is not None and not isinstance(oob, str):
+        reason = f"expected an oob name, got {type(oob).__name__}; use 'censor' or 'squish'"
+        raise UnsupportedValueError(f"scale_*(oob={oob!r}): {reason}", path="oob", reason=reason)
+    if oob is not None and oob not in _OOB_NAMES:
+        reason = f"unknown oob; use one of 'censor', 'squish'{did_you_mean(str(oob), _OOB_NAMES)}"
+        raise SpecError(f"scale_*(oob={oob!r}): {reason}", path="oob", reason=reason)
     args: dict[str, Any] = {
         "aesthetic": aesthetic,
         "name": name,
@@ -75,6 +103,7 @@ def _scale(
         "guide": guide,
         "format": format,
         "position": position,
+        "oob": oob,
     }
     if isinstance(breaks, dict):
         if labels is None:

@@ -36,6 +36,14 @@ def aes(
     -------
     FeatureSpec
         Aesthetic mapping specification (kind ``"mapping"``).
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"height": [150, 165, 180, 172], "weight": [52, 61, 80, 70],
+    ...         "sex": ["f", "f", "m", "m"]}
+    >>> mapping = aes(x="height", y="weight", color="sex")
+    >>> plot = ggplot(data, mapping) + geom_point(size=5)
     """
     return FeatureSpec("mapping", name=None, x=x, y=y, **kwargs)
 
@@ -69,8 +77,16 @@ def layer(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> plot = ggplot(data, aes("weight", "mpg")) + layer(geom="point", stat="identity", size=4)
     """
-    return LayerSpec(**locals())
+    # lets_plot sends **kwargs as one ``kwargs`` option, which drops them; spread them
+    # like ``geom_*`` does (see deviations.md).
+    return LayerSpec(geom=geom, stat=stat, data=data, mapping=mapping, position=position, **kwargs)
 
 
 def _filter_none(original: dict[str, Any]) -> dict[str, Any]:
@@ -132,7 +148,16 @@ class FeatureSpec:
 
 
 class PlotSpec(FeatureSpec):
-    """A plot: data, mapping, layers, scales and features. Build it with ``ggplot()``."""
+    """A plot: data, mapping, layers, scales and features. Build it with ``ggplot()``.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
+    >>> plot = plot + geom_smooth(method="lm") + ggtitle("Heavier cars use more fuel")
+    >>> spec = plot.as_dict()
+    """
 
     @classmethod
     def duplicate(cls, other: PlotSpec) -> PlotSpec:

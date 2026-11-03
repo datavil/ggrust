@@ -40,7 +40,18 @@ class SupPlotsLayoutSpec:
 
 
 class SupPlotsSpec(FeatureSpec):
-    """Several plots in one figure. Build it with ``gggrid()``."""
+    """Several plots in one figure. Build it with ``gggrid()``.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> points = ggplot(data, aes("weight", "mpg")) + geom_point()
+    >>> line = ggplot(data, aes("weight", "mpg")) + geom_line()
+    >>> plot = gggrid([points, line])
+    >>> isinstance(plot, SupPlotsSpec)
+    True
+    """
 
     @classmethod
     def duplicate(cls, other: SupPlotsSpec) -> SupPlotsSpec:

@@ -96,6 +96,15 @@ def scale_color_hue(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + scale_color_hue(l=40)
     """
     return _hue("color", **locals())
 
@@ -158,6 +167,15 @@ def scale_fill_hue(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", fill="pet")) + geom_point(shape=21, size=6)
+    >>> plot = plot + scale_fill_hue(c=60)
     """
     return _hue("fill", **locals())
 
@@ -204,6 +222,17 @@ def scale_color_manual(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + scale_color_manual(
+    ...     values={"cat": "orange", "dog": "saddlebrown", "rabbit": "grey"}
+    ... )
     """
     return _manual("color", **locals())
 
@@ -252,6 +281,15 @@ def scale_fill_manual(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", fill="pet")) + geom_point(shape=21, size=6)
+    >>> plot = plot + scale_fill_manual(values=["orange", "saddlebrown", "grey"])
     """
     return _manual("fill", **locals())
 
@@ -362,6 +400,14 @@ def scale_color_gradient(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": [1, 2, 3] * 3, "y": [1] * 3 + [2] * 3 + [3] * 3,
+    ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
+    >>> plot = ggplot(data, aes("x", "y", color="change")) + geom_point(size=12)
+    >>> plot = plot + scale_color_gradient(low="lightyellow", high="firebrick")
     """
     return _scale("color", **locals(), scale_mapper_kind="color_gradient")
 
@@ -417,6 +463,14 @@ def scale_fill_gradient(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": [1, 2, 3] * 3, "y": [1] * 3 + [2] * 3 + [3] * 3,
+    ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
+    >>> plot = ggplot(data, aes("x", "y", fill="change")) + geom_tile()
+    >>> plot = plot + scale_fill_gradient(low="lightyellow", high="firebrick")
     """
     return _scale("fill", **locals(), scale_mapper_kind="color_gradient")
 
@@ -476,6 +530,14 @@ def scale_color_gradient2(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": [1, 2, 3] * 3, "y": [1] * 3 + [2] * 3 + [3] * 3,
+    ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
+    >>> plot = ggplot(data, aes("x", "y", color="change")) + geom_point(size=12)
+    >>> plot = plot + scale_color_gradient2(low="blue", mid="white", high="red")
     """
     return _scale("color", **locals(), scale_mapper_kind="color_gradient2")
 
@@ -535,6 +597,14 @@ def scale_fill_gradient2(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": [1, 2, 3] * 3, "y": [1] * 3 + [2] * 3 + [3] * 3,
+    ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
+    >>> plot = ggplot(data, aes("x", "y", fill="change")) + geom_tile()
+    >>> plot = plot + scale_fill_gradient2(low="blue", mid="white", high="red")
     """
     return _scale("fill", **locals(), scale_mapper_kind="color_gradient2")
 
@@ -589,6 +659,14 @@ def scale_color_gradientn(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": [1, 2, 3] * 3, "y": [1] * 3 + [2] * 3 + [3] * 3,
+    ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
+    >>> plot = ggplot(data, aes("x", "y", color="change")) + geom_point(size=12)
+    >>> plot = plot + scale_color_gradientn(colors=["navy", "gold", "darkred"])
     """
     return _scale("color", **locals(), scale_mapper_kind="color_gradientn")
 
@@ -643,6 +721,14 @@ def scale_fill_gradientn(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": [1, 2, 3] * 3, "y": [1] * 3 + [2] * 3 + [3] * 3,
+    ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
+    >>> plot = ggplot(data, aes("x", "y", fill="change")) + geom_tile()
+    >>> plot = plot + scale_fill_gradientn(colors=["navy", "gold", "darkred"])
     """
     return _scale("fill", **locals(), scale_mapper_kind="color_gradientn")
 
@@ -708,6 +794,14 @@ def scale_color_viridis(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": [1, 2, 3] * 3, "y": [1] * 3 + [2] * 3 + [3] * 3,
+    ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
+    >>> plot = ggplot(data, aes("x", "y", color="change")) + geom_point(size=12)
+    >>> plot = plot + scale_color_viridis(option="magma")
     """
     return _scale("color", **locals(), scale_mapper_kind="color_cmap")
 
@@ -773,6 +867,14 @@ def scale_fill_viridis(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": [1, 2, 3] * 3, "y": [1] * 3 + [2] * 3 + [3] * 3,
+    ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
+    >>> plot = ggplot(data, aes("x", "y", fill="change")) + geom_tile()
+    >>> plot = plot + scale_fill_viridis(option="magma")
     """
     return _scale("fill", **locals(), scale_mapper_kind="color_cmap")
 
@@ -830,6 +932,14 @@ def scale_color_continuous(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": [1, 2, 3] * 3, "y": [1] * 3 + [2] * 3 + [3] * 3,
+    ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
+    >>> plot = ggplot(data, aes("x", "y", color="change")) + geom_point(size=12)
+    >>> plot = plot + scale_color_continuous(low="white", high="darkgreen")
     """
     return _continuous("color", locals())
 
@@ -887,6 +997,14 @@ def scale_fill_continuous(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": [1, 2, 3] * 3, "y": [1] * 3 + [2] * 3 + [3] * 3,
+    ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
+    >>> plot = ggplot(data, aes("x", "y", fill="change")) + geom_tile()
+    >>> plot = plot + scale_fill_continuous(low="white", high="darkgreen")
     """
     return _continuous("fill", locals())
 
@@ -960,6 +1078,15 @@ def scale_color_brewer(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + scale_color_brewer(palette="Dark2")
     """
     return _scale("color", **locals(), scale_mapper_kind="color_brewer")
 
@@ -1024,6 +1151,15 @@ def scale_fill_brewer(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", fill="pet")) + geom_point(shape=21, size=6)
+    >>> plot = plot + scale_fill_brewer(palette="Pastel1")
     """
     return _scale("fill", **locals(), scale_mapper_kind="color_brewer")
 
@@ -1071,6 +1207,15 @@ def scale_color_discrete(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + scale_color_discrete(name="Animal")
     """
     return _scale("color", **locals(), discrete=True)
 
@@ -1118,6 +1263,15 @@ def scale_fill_discrete(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", fill="pet")) + geom_point(shape=21, size=6)
+    >>> plot = plot + scale_fill_discrete(name="Animal")
     """
     return _scale("fill", **locals(), discrete=True)
 
@@ -1180,6 +1334,15 @@ def scale_color_grey(
     ------
     ValueError
         ``start`` or ``end`` outside 0..1 (after lets_plot's rescaling of 0..100 values).
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + scale_color_grey(start=0.1, end=0.7)
     """
     start, end = _grey_ends(start, end)
     return _scale("color", **locals(), scale_mapper_kind="color_grey")
@@ -1243,6 +1406,15 @@ def scale_fill_grey(
     ------
     ValueError
         ``start`` or ``end`` outside 0..1 (after lets_plot's rescaling of 0..100 values).
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", fill="pet")) + geom_point(shape=21, size=6)
+    >>> plot = plot + scale_fill_grey(start=0.1, end=0.7)
     """
     start, end = _grey_ends(start, end)
     return _scale("fill", **locals(), scale_mapper_kind="color_grey")

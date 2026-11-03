@@ -56,6 +56,14 @@ def facet_grid(
     -------
     FeatureSpec
         The facet specification.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"hours": [2, 4, 6, 8] * 4, "score": [50, 60, 70, 75, 55, 62, 74, 85] * 2,
+    ...         "subject": (["math"] * 4 + ["art"] * 4) * 2, "year": [1] * 8 + [2] * 8}
+    >>> plot = ggplot(data, aes("hours", "score")) + geom_line()
+    >>> plot = plot + facet_grid(x="subject", y="year")
     """
     return FeatureSpec(
         "facet",
@@ -111,6 +119,15 @@ def facet_wrap(
     -------
     FeatureSpec
         The facet specification.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight")) + geom_point()
+    >>> plot = plot + facet_wrap(facets="pet", ncol=3)
     """
     return FeatureSpec(
         "facet",

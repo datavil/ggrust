@@ -82,6 +82,12 @@ def geom_function(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> import math
+    >>> plot = ggplot() + geom_function(fun=math.sin, xlim=[0, 2 * math.pi], n=100)
     """
     return _geom(
         geom if geom is not None else "line",

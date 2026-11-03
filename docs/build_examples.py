@@ -14,11 +14,22 @@ For each example this writes:
   include with ``--8<-- "figures/<name>.html"``;
 - ``docs/gallery/<name>.md``: the gallery page.
 
-It also writes ``docs/gallery/index.md``. Run after changing an example:
+It also writes ``docs/gallery/index.md``.
+
+It also runs the ``Examples`` section of every API reference docstring (see
+``build_reference.SECTIONS``). An example that binds ``plot`` is rendered to
+``docs/plots/reference/<name>.html`` with its iframe markup in
+``docs/examples/figures/reference/<name>.html``, which the reference page includes.
+
+Run after changing an example or a docstring example:
 ``uv run python docs/build_examples.py``.
 """
 
 import ast
+import contextlib
+import doctest
+import inspect
+import io
 import re
 import warnings
 from dataclasses import dataclass
@@ -71,15 +82,56 @@ def render(path: Path) -> Example:
     return Example(path.stem, title.strip(), description.strip(), code, width, height)
 
 
-def figure(name: str, title: str, width: int, height: int) -> str:
+def figure(name: str, title: str, width: int, height: int, prefix: str = "../") -> str:
     """Return the iframe markup that embeds one interactive plot.
 
     Zensical resolves the ``src`` from the page's Markdown file, so the path is
-    relative to a page one folder below ``docs/`` (``guide/``, ``gallery/``).
+    relative to the page: ``prefix`` leads from the page's folder to ``docs/``
+    (``../`` for ``guide/`` and ``gallery/`` pages).
     """
     return (
-        f'<div class="ggrust-figure"><iframe src="../plots/{name}.html" title="{title}" '
+        f'<div class="ggrust-figure"><iframe src="{prefix}plots/{name}.html" title="{title}" '
         f'width="{width}" height="{height}" scrolling="no" loading="lazy"></iframe></div>\n'
+    )
+
+
+def docstring_example(item: object) -> str:
+    """Return the runnable code of an object's docstring ``Examples`` section.
+
+    Lines marked ``# doctest: +SKIP`` are left out. The result is empty when the
+    docstring has no examples.
+    """
+    parser = doctest.DocTestParser()
+    examples = parser.get_examples(inspect.getdoc(item) or "")
+    return "".join(example.source for example in examples if not example.options.get(doctest.SKIP))
+
+
+def binds_plot(code: str) -> bool:
+    """Return whether example code assigns the name ``plot`` at top level."""
+    tree = ast.parse(code)
+    return any(
+        isinstance(node, ast.Assign)
+        and any(isinstance(target, ast.Name) and target.id == "plot" for target in node.targets)
+        for node in tree.body
+    )
+
+
+def render_reference(name: str, item: object) -> None:
+    """Run one docstring example and, if it binds ``plot``, write its plot and iframe."""
+    code = docstring_example(item)
+    namespace: dict[str, object] = {}
+    with contextlib.redirect_stdout(io.StringIO()):  # examples may print
+        exec(code, namespace)
+    if not binds_plot(code):
+        return
+    plot = namespace["plot"]
+    iframe = plot.to_html(iframe=True)
+    width, height = (
+        int(re.search(rf'{key}="(\d+)"', iframe).group(1)) for key in ("width", "height")
+    )
+    plot.to_html(DOCS / "plots" / "reference" / f"{name}.html")
+    (EXAMPLES / "figures" / "reference" / f"{name}.html").write_text(
+        figure(f"reference/{name}", f"{name} example", width, height, prefix="../../")
     )
 
 
@@ -121,11 +173,13 @@ def gallery_index(sections: dict[str, list[Example]]) -> str:
 
 def main() -> None:
     """Render every example and write the gallery."""
+    import build_reference  # imports this module for the docstring helpers
+
     warnings.simplefilter("error")  # examples must render without warnings
     for directory in (
-        DOCS / "plots",
+        DOCS / "plots" / "reference",
         DOCS / "images" / "gallery",
-        EXAMPLES / "figures",
+        EXAMPLES / "figures" / "reference",
         DOCS / "gallery",
     ):
         directory.mkdir(parents=True, exist_ok=True)
@@ -135,6 +189,9 @@ def main() -> None:
         for example in section_examples:
             (DOCS / "gallery" / f"{example.name}.md").write_text(gallery_page(example))
     (DOCS / "gallery" / "index.md").write_text(gallery_index(sections))
+    for _, paths in build_reference.SECTIONS.values():
+        for path in paths:
+            render_reference(path.rpartition(".")[2], build_reference.resolve(path))
 
 
 if __name__ == "__main__":

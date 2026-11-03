@@ -63,6 +63,12 @@ def as_discrete(
     MappingMeta
         Variable annotation, to be used inside ``aes()``. Non-string ``variable``
         values (e.g. a list of values) are returned unchanged, as in lets_plot.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"cylinders": [4, 6, 8, 4, 6, 8], "mpg": [30, 21, 15, 28, 20, 14]}
+    >>> plot = ggplot(data, aes(x=as_discrete("cylinders"), y="mpg")) + geom_boxplot()
     """
     if isinstance(variable, str):
         label = variable if label is None else label

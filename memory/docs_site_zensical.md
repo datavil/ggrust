@@ -28,3 +28,13 @@ Traps found while building it (2026-11-01):
   variable to a ggrust name in them (`theme` in a loop broke the themes example).
 - **Zensical caches rendered docstrings.** After editing docstrings, build with
   `--clean` (`make docs` does) or pages keep the old text.
+- **Every public name has a docstring example, run as a doctest** (2026-11-04):
+  `tests/test_docstring_examples.py` fails when a name in `build_reference.SECTIONS`
+  has none, when printed output differs, or when it warns. An example that binds `plot`
+  at top level is rendered by `build_examples.py` and embedded at the end of its
+  reference page, so error and warning examples bind another name (`chart`), and
+  examples of features ggrust does not draw yet bind no plot (they would show an
+  unstyled picture). Factory-made functions (`_transformed`, `_discrete_reversed`) get
+  their examples in the generated `__doc__`; `inspect.getsourcelines` points at the
+  inner `def`, so never script docstring edits by source line for them.
+

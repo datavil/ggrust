@@ -25,7 +25,18 @@ class ColumnSummary(TypedDict, total=False):
     error: str
 
 def engine_version() -> str:
-    """Return the version of the Rust engine."""
+    """Return the version of the Rust engine.
+
+    Returns
+    -------
+    str
+        The engine version, e.g. ``"0.4.0"``.
+
+    Examples
+    --------
+    >>> from ggrust import engine_version
+    >>> version = engine_version()
+    """
 
 def png_data_url(rgba: bytes, width: int, height: int, compression: int | None = None) -> str:
     """Encode straight-alpha RGBA rows as a ``data:image/png;base64,...`` URL.

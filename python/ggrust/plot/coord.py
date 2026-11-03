@@ -30,12 +30,19 @@ def coord_cartesian(
         ``[low, high]`` in data units (``None`` keeps that side); the axis shows
         exactly this range, data outside is clipped, not removed.
     flip : bool, default False
-        Swap x and y (not drawn yet; ggrust warns).
+        Swap x and y.
 
     Returns
     -------
     FeatureSpec
         The coordinate system.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
+    >>> plot = plot + coord_cartesian(xlim=[3, 4], ylim=[15, 25])
     """
     return FeatureSpec("coord", name="cartesian", xlim=xlim, ylim=ylim, flip=flip)
 
@@ -56,12 +63,18 @@ def coord_fixed(
     xlim, ylim : list, optional
         As in ``coord_cartesian``.
     flip : bool, default False
-        Swap x and y (not drawn yet; ggrust warns).
+        Swap x and y.
 
     Returns
     -------
     FeatureSpec
         The coordinate system.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": [0, 1, 2, 3, 4], "y": [0, 1, 4, 9, 16]}
+    >>> plot = ggplot(data, aes("x", "y")) + geom_line() + coord_fixed(ratio=0.25)
     """
     return FeatureSpec("coord", name="fixed", ratio=ratio, xlim=xlim, ylim=ylim, flip=flip)
 
@@ -69,7 +82,7 @@ def coord_fixed(
 def coord_flip(
     xlim: Sequence[Number | None] | None = None, ylim: Sequence[Number | None] | None = None
 ) -> FeatureSpec:
-    """Swap the x and y axes (not drawn yet; ggrust warns and keeps them).
+    """Swap the x and y axes.
 
     Parameters
     ----------
@@ -80,5 +93,12 @@ def coord_flip(
     -------
     FeatureSpec
         The coordinate system.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"size": ["S", "M", "L", "XL"], "sold": [40, 65, 52, 18]}
+    >>> plot = ggplot(data, aes("size", "sold")) + geom_bar(stat="identity")
+    >>> plot = plot + coord_flip()
     """
     return FeatureSpec("coord", name="flip", xlim=xlim, ylim=ylim, flip=True)

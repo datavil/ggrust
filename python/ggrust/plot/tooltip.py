@@ -31,6 +31,19 @@ def layer_tooltips(variables: Sequence[str] | None = None) -> LayerTooltipsSpec:
     -------
     LayerTooltipsSpec
         Chain ``.line()``, ``.format()``, ``.title()``, ``.anchor()``, ... on it.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"city": ["Oslo", "Rome", "Lima"], "rain": [763, 798, 16],
+    ...         "sun": [1668, 2473, 1230]}
+    >>> tooltips = (
+    ...     layer_tooltips()
+    ...     .title("@city")
+    ...     .line("rain|@rain mm")
+    ...     .line("sun|@sun hours")
+    ... )
+    >>> plot = ggplot(data, aes("sun", "rain")) + geom_point(size=6, tooltips=tooltips)
     """
     return LayerTooltipsSpec(variables=variables)
 

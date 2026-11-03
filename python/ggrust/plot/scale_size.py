@@ -70,6 +70,14 @@ def scale_size(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"country": ["Iceland", "Norway", "Spain", "Japan", "India"],
+    ...         "people": [0.38, 5.5, 48, 124, 1430], "area": [103, 385, 506, 378, 3287]}
+    >>> plot = ggplot(data, aes("area", "people", size="people")) + geom_point()
+    >>> plot = plot + scale_size(range=[2, 12])
     """
     return _scale("size", **locals())
 
@@ -121,6 +129,14 @@ def scale_size_area(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"country": ["Iceland", "Norway", "Spain", "Japan", "India"],
+    ...         "people": [0.38, 5.5, 48, 124, 1430], "area": [103, 385, 506, 378, 3287]}
+    >>> plot = ggplot(data, aes("area", "people", size="people")) + geom_point()
+    >>> plot = plot + scale_size_area(max_size=15)
     """
     return _scale("size", scale_mapper_kind="size_area", **locals())
 
@@ -169,6 +185,14 @@ def scale_alpha(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"country": ["Iceland", "Norway", "Spain", "Japan", "India"],
+    ...         "people": [0.38, 5.5, 48, 124, 1430], "area": [103, 385, 506, 378, 3287]}
+    >>> plot = ggplot(data, aes("area", "people", alpha="people")) + geom_point(size=8)
+    >>> plot = plot + scale_alpha(range=[0.2, 1])
     """
     return _scale("alpha", **locals())
 
@@ -212,6 +236,15 @@ def scale_size_manual(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", size="pet")) + geom_point()
+    >>> plot = plot + scale_size_manual(values=[3, 6, 9])
     """
     return _manual("size", **locals())
 
@@ -255,5 +288,14 @@ def scale_alpha_manual(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", alpha="pet")) + geom_point(size=6)
+    >>> plot = plot + scale_alpha_manual(values=[1, 0.5, 0.2])
     """
     return _manual("alpha", **locals())

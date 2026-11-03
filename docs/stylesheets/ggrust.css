@@ -1,4 +1,4 @@
-/* ggrust docs theme: rust accent, live plot frames, gallery cards and the home hero. */
+/* ggrust docs theme: rust accent, type sizes, live plot frames, gallery cards and the home hero. */
 
 :root,
 [data-md-color-scheme="default"] {
@@ -18,6 +18,37 @@
   --md-typeset-a-color: #f08a50;
   --ggrust-card-border: #3a3533;
   --ggrust-card-shadow: none;
+}
+
+/* Type: larger than the theme defaults (body 0.8rem, code 0.85em, tables 0.64rem,
+   nav 0.7rem). Code uses JetBrains Mono (`project.theme.font.code`). */
+.md-typeset {
+  font-size: 0.875rem;
+  line-height: 1.65;
+}
+
+.md-typeset code,
+.md-typeset kbd,
+.md-typeset pre {
+  font-size: 0.9em;
+  font-variant-ligatures: none;
+}
+
+.md-typeset table:not([class]) {
+  font-size: 0.8rem;
+}
+
+.md-typeset table:not([class]) code {
+  font-size: 0.9em;
+}
+
+.md-nav {
+  font-size: 0.75rem;
+}
+
+.md-typeset .admonition,
+.md-typeset details {
+  font-size: 0.8rem;
 }
 
 /* Live plots: a white card that scrolls sideways on narrow screens. */

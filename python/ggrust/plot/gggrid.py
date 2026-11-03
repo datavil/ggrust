@@ -53,6 +53,14 @@ def gggrid(
     -------
     SupPlotsSpec
         The grid.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> points = ggplot(data, aes("weight", "mpg")) + geom_point()
+    >>> bars = ggplot(data, aes("mpg")) + geom_histogram(bins=4)
+    >>> plot = gggrid([points, bars], ncol=2) + ggsize(700, 300)
     """
     if not len(plots):
         message = "gggrid(): 'plots' is empty; pass a list of plots (None leaves a cell empty)"

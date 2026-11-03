@@ -31,7 +31,20 @@ INCHES_PER_UNIT = {"in": 1.0, "cm": 1 / 2.54, "mm": 1 / 25.4}
 
 
 class GgrustWarning(UserWarning):
-    """Something in the plot was ignored or adjusted; the message says what and where."""
+    """Something in the plot was ignored or adjusted; the message says what and where.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> import warnings
+    >>> data = {"weight": [2.6, 2.9, None], "mpg": [31, 28, 20]}
+    >>> chart = ggplot(data, aes("weight", "mpg")) + geom_point()
+    >>> with warnings.catch_warnings(record=True) as caught:
+    ...     warnings.simplefilter("always")
+    ...     svg = chart.to_svg()
+    >>> caught[0].category is GgrustWarning
+    True
+    """
 
 
 def render_bytes(

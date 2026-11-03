@@ -41,6 +41,15 @@ def guides(**kwargs: object) -> FeatureSpec:
     -------
     FeatureSpec
         The guides feature.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + guides(color=guide_legend(title="Animal", ncol=3))
     """
     return FeatureSpec("guides", name=None, **kwargs)
 
@@ -70,6 +79,15 @@ def guide_legend(
     -------
     FeatureSpec
         The guide.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + guides(color=guide_legend(nrow=1, override_aes={"size": 8}))
     """
     return _guide("legend", **locals())
 

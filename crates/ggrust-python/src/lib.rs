@@ -20,6 +20,16 @@ mod _ggrust {
     use pyo3_arrow::input::AnyRecordBatch;
 
     /// Return the version of the Rust engine.
+    ///
+    /// Returns
+    /// -------
+    /// str
+    ///     The engine version, e.g. ``"0.4.0"``.
+    ///
+    /// Examples
+    /// --------
+    /// >>> from ggrust import engine_version
+    /// >>> version = engine_version()
     #[pyfunction]
     fn engine_version() -> &'static str {
         ggrust_core::VERSION

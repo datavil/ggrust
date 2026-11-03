@@ -167,6 +167,13 @@ def scale_x_continuous(
     -------
     FeatureSpec
         Scale specification.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
+    >>> plot = plot + scale_x_continuous("Weight (1000 lb)", breaks=[3, 3.5, 4])
     """
     return _scale(
         "x",
@@ -225,6 +232,13 @@ def scale_y_continuous(
     -------
     FeatureSpec
         Scale specification.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
+    >>> plot = plot + scale_y_continuous("Miles per gallon", limits=[0, 35])
     """
     return _scale(
         "y",
@@ -273,10 +287,16 @@ def _transformed(scale: FunctionType, trans: Transform) -> Callable[..., Feature
     axis = scale.__name__.split("_")[1]
     scale_function.__name__ = f"scale_{axis}_{trans}"
     scale_function.__qualname__ = scale_function.__name__
+    mapping = '"people", "area"' if axis == "x" else '"area", "people"'
     scale_function.__doc__ = (
         f"Continuous position scale {axis} with the '{trans}' transformation. "
         f"See ``scale_{axis}_continuous``.\n\n"
-        "Returns\n-------\nFeatureSpec\n    Scale specification.\n"
+        "Returns\n-------\nFeatureSpec\n    Scale specification.\n\n"
+        "Examples\n--------\n"
+        ">>> from ggrust import *\n"
+        '>>> data = {"country": ["Iceland", "Norway", "Spain", "Japan", "India"],\n'
+        '...         "people": [0.38, 5.5, 48, 124, 1430], "area": [103, 385, 506, 378, 3287]}\n'
+        f">>> plot = ggplot(data, aes({mapping})) + geom_point() + scale_{axis}_{trans}()\n"
     )
     return scale_function
 
@@ -386,6 +406,17 @@ def scale_y_datetime(
     -------
     FeatureSpec
         Scale specification.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> from datetime import datetime
+    >>> data = {
+    ...     "day": [datetime(2026, 3, day) for day in range(1, 8)],
+    ...     "steps": [6400, 8100, 7300, 10200, 5600, 12000, 9100],
+    ... }
+    >>> plot = ggplot(data, aes("steps", "day")) + geom_point(size=4)
+    >>> plot = plot + scale_y_datetime(format="%a %d")
     """
     return _scale(
         "y",
@@ -486,6 +517,17 @@ def scale_y_time(
     -------
     FeatureSpec
         Scale specification.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> from datetime import timedelta
+    >>> data = {
+    ...     "runner": ["Ann", "Bo", "Cy"],
+    ...     "time": [timedelta(minutes=m) for m in (48, 55, 61)],
+    ... }
+    >>> plot = ggplot(data, aes("runner", "time")) + geom_bar(stat="identity")
+    >>> plot = plot + scale_y_time()
     """
     return _scale(
         "y",
@@ -549,6 +591,13 @@ def scale_x_discrete(
     -------
     FeatureSpec
         Scale specification.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"size": ["S", "M", "L", "XL"], "sold": [40, 65, 52, 18]}
+    >>> plot = ggplot(data, aes("size", "sold")) + geom_bar(stat="identity")
+    >>> plot = plot + scale_x_discrete(limits=["XL", "L", "M", "S"])
     """
     return _scale(
         "x",
@@ -608,6 +657,13 @@ def scale_y_discrete(
     -------
     FeatureSpec
         Scale specification.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"size": ["S", "M", "L", "XL"], "sold": [40, 65, 52, 18]}
+    >>> plot = ggplot(data, aes("sold", "size")) + geom_point(size=5)
+    >>> plot = plot + scale_y_discrete(labels=["small", "medium", "large", "extra large"])
     """
     return _scale(
         "y",
@@ -655,9 +711,20 @@ def _discrete_reversed(scale: FunctionType) -> Callable[..., FeatureSpec]:
 
     scale_function.__name__ = f"{scale.__name__}_reversed"
     scale_function.__qualname__ = scale_function.__name__
+    axis = scale.__name__.split("_")[1]
+    plot = (
+        'ggplot(data, aes("size", "sold")) + geom_bar(stat="identity")'
+        if axis == "x"
+        else 'ggplot(data, aes("sold", "size")) + geom_point(size=5)'
+    )
     scale_function.__doc__ = (
         f"``{scale.__name__}(reverse=True)``.\n\n"
-        "Returns\n-------\nFeatureSpec\n    Scale specification.\n"
+        "Returns\n-------\nFeatureSpec\n    Scale specification.\n\n"
+        "Examples\n--------\n"
+        ">>> from ggrust import *\n"
+        '>>> data = {"size": ["S", "M", "L", "XL"], "sold": [40, 65, 52, 18]}\n'
+        f">>> plot = {plot}\n"
+        f">>> plot = plot + {scale_function.__name__}()\n"
     )
     return scale_function
 
@@ -678,6 +745,13 @@ def lims(x: Sequence[Any] | None, y: Sequence[Any] | None) -> FeatureSpec:
     -------
     FeatureSpec
         Scale specifications.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
+    >>> plot = plot + lims(x=[2, 5], y=[0, 40])
     """
     return xlim(*list(x or [])) + ylim(*list(y or []))
 
@@ -695,6 +769,13 @@ def xlim(*limits: object) -> FeatureSpec:
     -------
     FeatureSpec
         Scale specification.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
+    >>> plot = plot + xlim(2, 5)
     """
     return _limits("x", *limits)
 
@@ -712,6 +793,13 @@ def ylim(*limits: object) -> FeatureSpec:
     -------
     FeatureSpec
         Scale specification.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
+    >>> plot = plot + ylim(0, None)
     """
     return _limits("y", *limits)
 

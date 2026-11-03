@@ -119,6 +119,12 @@ def geom_point(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point(color="steelblue", size=4)
     """
     return _geom(
         "point",
@@ -188,6 +194,12 @@ def geom_path(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"east": [0, 2, 3, 2, 4, 5], "north": [0, 1, 3, 4, 4, 2]}
+    >>> plot = ggplot(data, aes("east", "north")) + geom_path() + geom_point()
     """
     return _geom(
         "path",
@@ -257,6 +269,13 @@ def geom_line(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"day": [1, 2, 3, 4, 5, 6, 7],
+    ...         "temperature": [14.2, 15.1, 13.8, 16.4, 18.0, 17.2, 19.5]}
+    >>> plot = ggplot(data, aes("day", "temperature")) + geom_line(size=1.5)
     """
     return _geom(
         "line",
@@ -488,6 +507,13 @@ def geom_polygon(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": [0, 2, 3, 1, 4, 6, 5], "y": [0, 0, 2, 2, 0, 0, 3],
+    ...         "shape": ["a", "a", "a", "a", "b", "b", "b"]}
+    >>> plot = ggplot(data, aes("x", "y", fill="shape")) + geom_polygon(alpha=0.7)
     """
     return _geom(
         "polygon",
@@ -567,6 +593,13 @@ def geom_abline(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"predicted": [1.0, 2.1, 2.9, 4.2, 5.1], "observed": [1.2, 1.9, 3.1, 3.8, 5.4]}
+    >>> plot = ggplot(data, aes("predicted", "observed")) + geom_point()
+    >>> plot = plot + geom_abline(slope=1, intercept=0)
     """
     return _geom(
         "abline",
@@ -641,6 +674,14 @@ def geom_hline(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"day": [1, 2, 3, 4, 5, 6, 7],
+    ...         "temperature": [14.2, 15.1, 13.8, 16.4, 18.0, 17.2, 19.5]}
+    >>> plot = ggplot(data, aes("day", "temperature")) + geom_line()
+    >>> plot = plot + geom_hline(yintercept=16, linetype="dashed")
     """
     return _geom(
         "hline",
@@ -714,6 +755,14 @@ def geom_vline(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"day": [1, 2, 3, 4, 5, 6, 7],
+    ...         "temperature": [14.2, 15.1, 13.8, 16.4, 18.0, 17.2, 19.5]}
+    >>> plot = ggplot(data, aes("day", "temperature")) + geom_line()
+    >>> plot = plot + geom_vline(xintercept=4, color="red")
     """
     return _geom(
         "vline",
@@ -1121,6 +1170,14 @@ def geom_segment(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"task": ["plan", "build", "test"], "start": [1, 3, 7], "end": [3, 8, 10]}
+    >>> plot = ggplot(data) + geom_segment(
+    ...     aes(x="start", xend="end", y="task", yend="task"), size=3
+    ... )
     """
     return _geom(
         "segment",
@@ -1309,6 +1366,12 @@ def geom_text(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"city": ["Oslo", "Rome", "Lima"], "rain": [763, 798, 16], "sun": [1668, 2473, 1230]}
+    >>> plot = ggplot(data, aes("sun", "rain", label="city")) + geom_text(size=8)
     """
     return _geom(
         "text",
@@ -1402,6 +1465,12 @@ def geom_label(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"city": ["Oslo", "Rome", "Lima"], "rain": [763, 798, 16], "sun": [1668, 2473, 1230]}
+    >>> plot = ggplot(data, aes("sun", "rain", label="city")) + geom_label(fill="lightyellow")
     """
     return _geom(
         "label",
@@ -1485,6 +1554,12 @@ def geom_blank(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> plot = ggplot(data, aes("weight", "mpg")) + geom_blank()
     """
     return _geom(
         "blank",
@@ -1569,6 +1644,12 @@ def geom_bar(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"fruit": ["apple", "banana", "cherry", "apple", "banana", "apple"]}
+    >>> plot = ggplot(data, aes("fruit")) + geom_bar(fill="seagreen")
     """
     return _geom(
         "bar",
@@ -1666,6 +1747,12 @@ def geom_histogram(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"minutes": [12, 15, 17, 18, 21, 22, 22, 24, 25, 27, 29, 31, 34, 38, 45]}
+    >>> plot = ggplot(data, aes("minutes")) + geom_histogram(bins=6, color="white")
     """
     return _geom(
         "histogram",
@@ -1777,6 +1864,13 @@ def geom_boxplot(
     -------
     LayerSpec or FeatureSpecArray
         The box layer, plus the outlier layer with the default stat.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"team": ["red"] * 6 + ["blue"] * 6,
+    ...         "height": [168, 172, 175, 169, 181, 177, 160, 165, 171, 158, 166, 163]}
+    >>> plot = ggplot(data, aes("team", "height")) + geom_boxplot()
     """
     boxplot_layer = _geom(
         "boxplot",
@@ -1861,7 +1955,7 @@ def geom_violin(
     na_rm: bool | None = None,
     **other_args: Any,
 ) -> LayerSpec:
-    """Violin plot: mirrored kernel density per x (``stat="ydensity"``). Not drawn yet.
+    """Violin plot: mirrored kernel density per x (``stat="ydensity"``).
 
     Parameters
     ----------
@@ -1922,6 +2016,13 @@ def geom_violin(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"team": ["red"] * 6 + ["blue"] * 6,
+    ...         "height": [168, 172, 175, 169, 181, 177, 160, 165, 171, 158, 166, 163]}
+    >>> plot = ggplot(data, aes("team", "height", fill="team")) + geom_violin()
     """
     if "draw_quantiles" in other_args:
         message = (
@@ -2047,6 +2148,13 @@ def geom_sina(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"team": ["red"] * 6 + ["blue"] * 6,
+    ...         "height": [168, 172, 175, 169, 181, 177, 160, 165, 171, 158, 166, 163]}
+    >>> plot = ggplot(data, aes("team", "height")) + geom_violin() + geom_sina()
     """
     return _geom(
         "sina",
@@ -2500,7 +2608,7 @@ def geom_area_ridges(
     na_rm: bool | None = None,
     **other_args: Any,
 ) -> LayerSpec:
-    """Ridgeline plot: one density curve per y level. Not drawn yet.
+    """Ridgeline plot: one density curve per y level.
 
     Parameters
     ----------
@@ -2558,6 +2666,13 @@ def geom_area_ridges(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"season": ["winter"] * 6 + ["summer"] * 6,
+    ...         "temperature": [-2, 0, 1, 3, 2, -1, 22, 25, 27, 24, 29, 26]}
+    >>> plot = ggplot(data, aes("temperature", "season")) + geom_area_ridges()
     """
     return _geom(
         "area_ridges",
@@ -2689,7 +2804,7 @@ def geom_jitter(
     na_rm: bool | None = None,
     **other_args: Any,
 ) -> LayerSpec:
-    """Points with random noise added to their positions. Not drawn yet.
+    """Points with random noise added to their positions.
 
     Parameters
     ----------
@@ -2729,6 +2844,12 @@ def geom_jitter(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"rating": [1, 2, 2, 3, 3, 3, 4, 4, 5] * 2, "app": ["web"] * 9 + ["mobile"] * 9}
+    >>> plot = ggplot(data, aes("app", "rating")) + geom_jitter(width=0.2, height=0.1)
     """
     return _geom(
         "jitter",
@@ -2769,7 +2890,7 @@ def geom_tile(
     na_rm: bool | None = None,
     **other_args: Any,
 ) -> LayerSpec:
-    """Rectangles centred on (x, y), e.g. heatmap cells. Not drawn yet.
+    """Rectangles centred on (x, y), e.g. heatmap cells.
 
     Parameters
     ----------
@@ -2809,6 +2930,13 @@ def geom_tile(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"day": ["Mon", "Tue", "Wed"] * 2, "time": ["am"] * 3 + ["pm"] * 3,
+    ...         "visitors": [12, 18, 9, 30, 25, 21]}
+    >>> plot = ggplot(data, aes("day", "time", fill="visitors")) + geom_tile()
     """
     return _geom(
         "tile",
@@ -3443,7 +3571,7 @@ def geom_raster(
     na_rm: bool | None = None,
     **other_args: Any,
 ) -> LayerSpec:
-    """Equal-sized tiles on a regular grid. Not drawn yet.
+    """Equal-sized tiles on a regular grid.
 
     Parameters
     ----------
@@ -3474,6 +3602,13 @@ def geom_raster(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": [1, 2, 3] * 3, "y": [1] * 3 + [2] * 3 + [3] * 3,
+    ...         "height": [1, 2, 1, 2, 4, 2, 1, 2, 1]}
+    >>> plot = ggplot(data, aes("x", "y", fill="height")) + geom_raster()
     """
     return _geom(
         "raster",
@@ -3510,7 +3645,7 @@ def geom_rect(
     na_rm: bool | None = None,
     **other_args: Any,
 ) -> LayerSpec:
-    """Rectangles from ``xmin``, ``xmax``, ``ymin``, ``ymax``. Not drawn yet.
+    """Rectangles from ``xmin``, ``xmax``, ``ymin``, ``ymax``.
 
     Parameters
     ----------
@@ -3548,6 +3683,15 @@ def geom_rect(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"room": ["kitchen", "hall", "office"], "left": [0, 4, 0], "right": [4, 6, 3],
+    ...         "bottom": [0, 0, 3], "top": [3, 5, 5]}
+    >>> plot = ggplot(data) + geom_rect(
+    ...     aes(xmin="left", xmax="right", ymin="bottom", ymax="top", fill="room"), color="white"
+    ... )
     """
     return _geom(
         "rect",
@@ -3646,6 +3790,18 @@ def geom_bracket(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"team": ["red"] * 6 + ["blue"] * 6,
+    ...         "height": [168, 172, 175, 169, 181, 177, 160, 165, 171, 158, 166, 163]}
+    >>> marks = {"xmin": ["red"], "xmax": ["blue"], "y": [185], "label": ["p < 0.01"]}
+    >>> plot = (
+    ...     ggplot(data, aes("team", "height"))
+    ...     + geom_boxplot()
+    ...     + geom_bracket(aes(xmin="xmin", xmax="xmax", y="y", label="label"), data=marks)
+    ... )
     """
     return _geom(
         "bracket",
@@ -3785,6 +3941,13 @@ def geom_text_repel(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"city": ["Oslo", "Bergen", "Rome", "Milan", "Lima"],
+    ...         "rain": [763, 2250, 798, 1000, 16], "sun": [1668, 1270, 2473, 1900, 1230]}
+    >>> plot = ggplot(data, aes("sun", "rain")) + geom_point() + geom_text_repel(aes(label="city"))
     """
     return _geom(
         "text_repel",
@@ -3945,6 +4108,13 @@ def geom_label_repel(
     -------
     LayerSpec
         The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"city": ["Oslo", "Bergen", "Rome", "Milan", "Lima"],
+    ...         "rain": [763, 2250, 798, 1000, 16], "sun": [1668, 1270, 2473, 1900, 1230]}
+    >>> plot = ggplot(data, aes("sun", "rain")) + geom_point() + geom_label_repel(aes(label="city"))
     """
     return _geom(
         "label_repel",

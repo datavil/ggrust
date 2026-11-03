@@ -25,6 +25,13 @@ def ggtitle(label: str, subtitle: str | None = None) -> FeatureSpec:
     -------
     FeatureSpec
         The title feature.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
+    >>> plot = plot + ggtitle("Fuel use", subtitle="Heavier cars go less far")
     """
     return labs(title=label, subtitle=subtitle)
 
@@ -41,6 +48,13 @@ def xlab(label: str | None) -> FeatureSpec:
     -------
     FeatureSpec
         The label feature.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
+    >>> plot = plot + xlab("Weight (1000 lb)")
     """
     return labs(x=label)
 
@@ -57,6 +71,13 @@ def ylab(label: str | None) -> FeatureSpec:
     -------
     FeatureSpec
         The label feature.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
+    >>> plot = plot + ylab("Miles per gallon")
     """
     return labs(y=label)
 
@@ -81,6 +102,15 @@ def labs(
     -------
     FeatureSpec or FeatureSpecArray
         One feature, or several combined.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
+    >>> plot = plot + labs(
+    ...     title="Fuel use", subtitle="Six cars", x="Weight (1000 lb)", y="Miles per gallon"
+    ... )
     """
     specs = []
     if title is not None or subtitle is not None:

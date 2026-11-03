@@ -31,7 +31,7 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 |---|---|
 | [`geom_point()`](api/geom_point.md) | Scatter points. |
 | [`geom_count()`](api/geom_count.md) | Points at each distinct (x, y), sized by the number of rows there (``stat="sum"``). |
-| [`geom_jitter()`](api/geom_jitter.md) | Points with random noise added to their positions. Not drawn yet. |
+| [`geom_jitter()`](api/geom_jitter.md) | Points with random noise added to their positions. |
 | [`geom_sina()`](api/geom_sina.md) | Sina plot: points spread within the violin outline. |
 | [`geom_line()`](api/geom_line.md) | Connect observations sorted by x. |
 | [`geom_step()`](api/geom_step.md) | Connect observations sorted by x with stairs. |
@@ -45,27 +45,27 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_smooth()`](api/geom_smooth.md) | Draw a fitted curve with a confidence band (``stat="smooth"``), one per group. |
 | [`geom_area()`](api/geom_area.md) | Fill the area under a line, stacked by default (``position="stack"``). |
 | [`geom_ribbon()`](api/geom_ribbon.md) | Fill the band between ymin and ymax along x. |
-| [`geom_area_ridges()`](api/geom_area_ridges.md) | Ridgeline plot: one density curve per y level. Not drawn yet. |
+| [`geom_area_ridges()`](api/geom_area_ridges.md) | Ridgeline plot: one density curve per y level. |
 | [`geom_polygon()`](api/geom_polygon.md) | Draw filled polygons, one per group. |
-| [`geom_rect()`](api/geom_rect.md) | Rectangles from ``xmin``, ``xmax``, ``ymin``, ``ymax``. Not drawn yet. |
+| [`geom_rect()`](api/geom_rect.md) | Rectangles from ``xmin``, ``xmax``, ``ymin``, ``ymax``. |
 | [`geom_bar()`](api/geom_bar.md) | Bars, by default the count of rows per x (``stat="count"``), stacked. |
 | [`geom_histogram()`](api/geom_histogram.md) | Histogram of binned x values (``stat="bin"``), stacked. |
 | [`geom_freqpoly()`](api/geom_freqpoly.md) | Frequency polygon: a line through the counts of binned x (``stat="bin"``). |
 | [`geom_boxplot()`](api/geom_boxplot.md) | Box and whiskers plot, dodged by group. |
-| [`geom_violin()`](api/geom_violin.md) | Violin plot: mirrored kernel density per x (``stat="ydensity"``). Not drawn yet. |
+| [`geom_violin()`](api/geom_violin.md) | Violin plot: mirrored kernel density per x (``stat="ydensity"``). |
 | [`geom_density()`](api/geom_density.md) | Kernel density estimate of ``x``, drawn as a filled area (``stat="density"``). |
 | [`geom_errorbar()`](api/geom_errorbar.md) | Error bars from ymin to ymax at x, with fences ``width`` wide (default 0.45). |
 | [`geom_crossbar()`](api/geom_crossbar.md) | Boxes from ymin to ymax at x with a midline at y, dodged by group. |
 | [`geom_linerange()`](api/geom_linerange.md) | Draw a vertical line from ymin to ymax at x. |
 | [`geom_pointrange()`](api/geom_pointrange.md) | Draw a vertical line from ymin to ymax at x with a point at y. |
-| [`geom_tile()`](api/geom_tile.md) | Rectangles centred on (x, y), e.g. heatmap cells. Not drawn yet. |
+| [`geom_tile()`](api/geom_tile.md) | Rectangles centred on (x, y), e.g. heatmap cells. |
 | [`geom_bin2d()`](api/geom_bin2d.md) | Tiles counting the rows in a grid of rectangles (``stat="bin2d"``). |
 | [`geom_hex()`](api/geom_hex.md) | Hexagons counting the rows in a hexagonal grid (``stat="binhex"``). |
 | [`geom_contour()`](api/geom_contour.md) | Draw contour lines of z over a grid of x and y (``stat="contour"``). |
 | [`geom_contourf()`](api/geom_contourf.md) | Fill the bands between the contour lines of z (``stat="contourf"``). |
 | [`geom_density2d()`](api/geom_density2d.md) | Draw contour lines of a 2D kernel density estimate (``stat="density2d"``). |
 | [`geom_density2df()`](api/geom_density2df.md) | Fill the bands of a 2D kernel density estimate (``stat="density2df"``). |
-| [`geom_raster()`](api/geom_raster.md) | Equal-sized tiles on a regular grid. Not drawn yet. |
+| [`geom_raster()`](api/geom_raster.md) | Equal-sized tiles on a regular grid. |
 | [`geom_imshow()`](api/geom_imshow.md) | Display an image array, as lets_plot ``geom_imshow``. |
 | [`geom_text()`](api/geom_text.md) | Text labels at (x, y); the text comes from the ``label`` aesthetic. |
 | [`geom_label()`](api/geom_label.md) | Text labels in a rounded box at (x, y). |
@@ -182,7 +182,7 @@ Coordinate systems, and small multiples.
 |---|---|
 | [`coord_cartesian()`](api/coord_cartesian.md) | Cartesian coordinates; limits zoom without dropping data. |
 | [`coord_fixed()`](api/coord_fixed.md) | Cartesian coordinates with a fixed aspect ratio. |
-| [`coord_flip()`](api/coord_flip.md) | Swap the x and y axes (not drawn yet; ggrust warns and keeps them). |
+| [`coord_flip()`](api/coord_flip.md) | Swap the x and y axes. |
 | [`facet_wrap()`](api/facet_wrap.md) | Wrap one panel per level of ``facets`` into rows. |
 | [`facet_grid()`](api/facet_grid.md) | Lay panels out in a grid: columns by ``x``, rows by ``y``. |
 

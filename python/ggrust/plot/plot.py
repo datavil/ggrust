@@ -37,6 +37,12 @@ def ggplot(data: PlotData | None = None, mapping: FeatureSpec | None = None) -> 
     -------
     PlotSpec
         The plot. Add layers, scales and features with ``+``.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> plot = ggplot(data, aes(x="weight", y="mpg")) + geom_point()
     """
     if isinstance(data, FeatureSpec):
         message = (
@@ -61,6 +67,12 @@ def ggsize(width: Number, height: Number) -> FeatureSpec:
     -------
     FeatureSpec
         The size feature.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point() + ggsize(400, 250)
     """
     # Same checks and exception type (AssertionError) as lets_plot.
     if not isinstance(width, numbers.Number):
@@ -78,6 +90,15 @@ class GGBunch(FeatureSpec):
     """lets_plot's deprecated free-layout bunch of plots. Not supported; use ``gggrid``.
 
     Exported so code that names it (type hints, ``isinstance``) keeps importing.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> try:
+    ...     GGBunch()
+    ... except NotImplementedError:
+    ...     print("use gggrid() instead")
+    use gggrid() instead
     """
 
     def __init__(self) -> None:

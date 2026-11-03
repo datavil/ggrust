@@ -54,6 +54,14 @@ def ggsave(
     -------
     str
         Absolute path of the written file.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> import tempfile
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
+    >>> path = ggsave(plot, "fuel.svg", path=tempfile.mkdtemp())
     """
     from ggrust._render import export_html, export_pdf, export_png, export_svg
 

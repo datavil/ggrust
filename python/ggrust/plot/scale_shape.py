@@ -61,6 +61,15 @@ def scale_shape(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", shape="pet")) + geom_point(size=5)
+    >>> plot = plot + scale_shape(solid=False)
     """
     return _scale(
         "shape",
@@ -118,6 +127,15 @@ def scale_shape_manual(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", shape="pet")) + geom_point(size=5)
+    >>> plot = plot + scale_shape_manual(values=[15, 17, 8])
     """
     return _manual("shape", **locals())
 

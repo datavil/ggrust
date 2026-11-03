@@ -16,6 +16,7 @@ import inspect
 import shutil
 from pathlib import Path
 
+import build_examples
 import ggrust
 
 DOCS = Path(__file__).parent
@@ -277,11 +278,18 @@ def display_name(path: str) -> str:
 
 
 def object_page(path: str) -> str:
-    """Return the Markdown of one object's page."""
+    """Return the Markdown of one object's page.
+
+    When the docstring example binds ``plot``, the page ends with that plot, rendered
+    by ``build_examples.py`` into ``docs/examples/figures/reference/<name>.html``.
+    """
     name = path.rpartition(".")[2]
-    return (
+    page = (
         f"---\ntitle: {name}\n---\n\n::: {full_path(path)}\n    options:\n      heading_level: 1\n"
     )
+    if build_examples.binds_plot(build_examples.docstring_example(resolve(path))):
+        page += f'\n--8<-- "figures/reference/{name}.html"\n'
+    return page
 
 
 def overview_page() -> str:

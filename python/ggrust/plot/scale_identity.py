@@ -68,6 +68,13 @@ def scale_color_identity(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": [1, 2, 3], "y": [3, 1, 2], "paint": ["tomato", "gold", "teal"]}
+    >>> plot = ggplot(data, aes("x", "y", color="paint")) + geom_point(size=8)
+    >>> plot = plot + scale_color_identity()
     """
     return _identity("color", **locals())
 
@@ -108,6 +115,13 @@ def scale_fill_identity(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": ["a", "b", "c"], "y": [3, 1, 2], "paint": ["tomato", "gold", "teal"]}
+    >>> plot = ggplot(data, aes("x", "y", fill="paint")) + geom_bar(stat="identity")
+    >>> plot = plot + scale_fill_identity()
     """
     return _identity("fill", **locals())
 
@@ -148,6 +162,13 @@ def scale_size_identity(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": [1, 2, 3], "y": [1, 2, 3], "radius": [3, 6, 12]}
+    >>> plot = ggplot(data, aes("x", "y", size="radius")) + geom_point()
+    >>> plot = plot + scale_size_identity()
     """
     return _identity("size", **locals())
 
@@ -188,6 +209,13 @@ def scale_alpha_identity(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": [1, 2, 3], "y": [1, 2, 3], "opacity": [0.2, 0.5, 1.0]}
+    >>> plot = ggplot(data, aes("x", "y", alpha="opacity")) + geom_point(size=10)
+    >>> plot = plot + scale_alpha_identity()
     """
     return _identity("alpha", **locals())
 
@@ -228,6 +256,13 @@ def scale_shape_identity(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": [1, 2, 3, 4], "y": [1, 1, 1, 1], "shape": [0, 1, 2, 5]}
+    >>> plot = ggplot(data, aes("x", "y", shape="shape")) + geom_point(size=8)
+    >>> plot = plot + scale_shape_identity()
     """
     return _identity("shape", **locals())
 
@@ -268,5 +303,12 @@ def scale_linetype_identity(
     -------
     FeatureSpec
         The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"y": [1, 2, 3], "style": ["solid", "dashed", "dotted"]}
+    >>> plot = ggplot(data) + geom_hline(aes(yintercept="y", linetype="style"), size=1)
+    >>> plot = plot + scale_linetype_identity()
     """
     return _identity("linetype", **locals())

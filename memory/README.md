@@ -44,7 +44,7 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Frame column cache](frame_column_cache.md): per-frame OnceLock column cache shared by clones, blocking init for parallel subplots, no stat cache by decision.
 - [Error model](error_model.md): structured spec paths (`Error::spec`, `nested`), one `ggrust.errors` class per kind, shared did-you-mean rule; `uv run` rebuilds after Rust edits.
 - [Overflow guards](overflow_guards.md): legends reflow/wrap/"+K more", discrete axis labels wrap then cut past 1/2, titles wrap; only overflowing plots change; gggrid/colorbars not yet.
-- [Docs site: Zensical, generated live plots](docs_site_zensical.md): examples render to gitignored iframes in CI; src is relative to the .md file; ruff mangles snippet lines in md.
+- [Docs site: Zensical, generated live plots](docs_site_zensical.md): examples render to gitignored iframes in CI; src is relative to the .md file; ruff mangles snippet lines in md; every API docstring example is a doctest and its `plot` is embedded.
 - [PNG marker sprites](png_marker_sprites.md): coverage per geometry, colors at stamp, 1/16 px steps, test against shift noise, rare geometries traced.
 - [Large output memory](large_output_memory.md): exact reserve + 1 byte doubles, no format!/escape copies of payloads, encoded tooltip texts, measure RSS.
 - [Density, smooth, abline follow lets-plot](letsplot_density_smooth_abline.md): line-by-line stat ports, repeated first vertex, Kotlin Random for loess sampling, ggplot2 per-model SE (user's choice), seam-free quantile bands, abline() = y = x.

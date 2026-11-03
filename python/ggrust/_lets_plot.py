@@ -4,7 +4,13 @@ from __future__ import annotations
 
 
 class LetsPlot:
-    """lets_plot's global settings object. ggrust needs no setup; calls are accepted."""
+    """lets_plot's global settings object. ggrust needs no setup; calls are accepted.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> LetsPlot.setup_html()  # accepted and ignored: ggrust needs no setup
+    """
 
     @classmethod
     def setup_html(cls, *args: object, **kwargs: object) -> None:

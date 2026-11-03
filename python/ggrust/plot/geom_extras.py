@@ -37,5 +37,13 @@ def arrow(
     -------
     FeatureSpec
         The arrow specification.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": [1, 2], "y": [1, 3], "xend": [3, 4], "yend": [2, 1]}
+    >>> plot = ggplot(data, aes("x", "y", xend="xend", yend="yend")) + geom_segment(
+    ...     arrow=arrow(length=12, ends="last", type="closed")
+    ... )
     """
     return FeatureSpec("arrow", "arrow", angle=angle, length=length, ends=ends, type=type)

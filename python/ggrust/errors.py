@@ -28,7 +28,20 @@ __all__ = [
 
 
 class GgrustError(Exception):
-    """Base class of every ggrust error."""
+    """Base class of every ggrust error.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> from ggrust.errors import GgrustError
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> chart = ggplot(data, aes("weight", "mpg")) + geom_point(size="big")
+    >>> try:
+    ...     svg = chart.to_svg()
+    ... except GgrustError as error:
+    ...     print(type(error).__name__)
+    SpecError
+    """
 
 
 class SpecError(GgrustError, ValueError):
@@ -43,6 +56,18 @@ class SpecError(GgrustError, ValueError):
         ``"theme.axis_text.size"``; empty when the error concerns the whole spec.
     reason : str, default=""
         What was wrong and what is accepted, without the location.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> from ggrust.errors import SpecError
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> chart = ggplot(data, aes("weight", "mpg")) + geom_point(shape="star")
+    >>> try:
+    ...     svg = chart.to_svg()
+    ... except SpecError as error:
+    ...     print(error.path)
+    layers[0].shape
     """
 
     def __init__(self, message: str, *, path: str = "", reason: str = "") -> None:
@@ -62,6 +87,18 @@ class UnsupportedValueError(SpecError, TypeError):
         Spec path of the value.
     reason : str, default=""
         What was wrong, without the location.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> from ggrust.errors import UnsupportedValueError
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> chart = ggplot(data, aes("weight", "mpg")) + geom_point(size=object())
+    >>> try:
+    ...     svg = chart.to_svg()
+    ... except UnsupportedValueError as error:
+    ...     print(error.path)
+    layers[0].size
     """
 
 
@@ -72,6 +109,18 @@ class DataError(GgrustError, ValueError):
     ----------
     message : str
         The full message.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> from ggrust.errors import DataError
+    >>> data = {"weight": [2.6, 2.9, 3.2], "mpg": [31, 28]}  # columns of different lengths
+    >>> chart = ggplot(data, aes("weight", "mpg")) + geom_point()
+    >>> try:
+    ...     svg = chart.to_svg()
+    ... except DataError:
+    ...     print("the columns do not line up")
+    the columns do not line up
     """
 
     def __init__(self, message: str) -> None:
@@ -85,6 +134,18 @@ class UnsupportedDataError(DataError, TypeError):
     ----------
     message : str
         The full message, listing the accepted kinds.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> import polars as pl
+    >>> from ggrust.errors import UnsupportedDataError
+    >>> series = pl.Series("mpg", [31, 28, 24])
+    >>> chart = ggplot(series, aes("mpg")) + geom_histogram()
+    >>> try:
+    ...     svg = chart.to_svg()
+    ... except UnsupportedDataError:
+    ...     chart = ggplot(series.to_frame(), aes("mpg")) + geom_histogram()
     """
 
 
@@ -101,6 +162,18 @@ class ColumnNotFoundError(DataError):
         Names of the columns the data has.
     path : str, default=""
         Spec path of the mapping that names the column, e.g. ``"layers[0].mapping.x"``.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> from ggrust.errors import ColumnNotFoundError
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> chart = ggplot(data, aes("wieght", "mpg")) + geom_point()
+    >>> try:
+    ...     svg = chart.to_svg()
+    ... except ColumnNotFoundError as error:
+    ...     print(error.column, error.available)
+    wieght ['weight', 'mpg']
     """
 
     def __init__(self, message: str, *, column: str, available: list[str], path: str = "") -> None:
@@ -123,6 +196,19 @@ class UnsupportedColumnTypeError(DataError, TypeError):
         Its Arrow type, e.g. ``"Duration(ms)"``.
     path : str, default=""
         Spec path of the mapping that reads the column.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> import polars as pl
+    >>> from ggrust.errors import UnsupportedColumnTypeError
+    >>> data = pl.DataFrame({"tags": [["a"], ["b", "c"]], "count": [1, 2]})
+    >>> chart = ggplot(data, aes("tags", "count")) + geom_point()
+    >>> try:
+    ...     svg = chart.to_svg()
+    ... except UnsupportedColumnTypeError as error:
+    ...     print(error.column)
+    tags
     """
 
     def __init__(self, message: str, *, column: str, data_type: str, path: str = "") -> None:
@@ -139,6 +225,18 @@ class RenderError(GgrustError, ValueError):
     ----------
     message : str
         The full message.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> from ggrust.errors import RenderError
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> chart = ggplot(data, aes("weight", "mpg")) + geom_point()
+    >>> try:
+    ...     png = chart.to_png(None, w=100_000, h=100_000, unit="px")
+    ... except RenderError:
+    ...     print("too large to draw")
+    too large to draw
     """
 
     def __init__(self, message: str) -> None:
@@ -152,6 +250,18 @@ class ExportError(GgrustError, ValueError):
     ----------
     message : str
         The full message.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> from ggrust.errors import ExportError
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> chart = ggplot(data, aes("weight", "mpg")) + geom_point()
+    >>> try:
+    ...     ggsave(chart, "fuel.xyz")
+    ... except ExportError:
+    ...     print("use .svg, .png, .pdf or .html")
+    use .svg, .png, .pdf or .html
     """
 
     def __init__(self, message: str) -> None:

@@ -77,7 +77,6 @@ PARITY_CASES = {
     "dict data": lambda m: (
         m.ggplot({"x": [1, 2], "y": [1.5, None], "s": ["p", "q"]}, m.aes("x", "y")) + m.geom_point()
     ),
-    "layer function": lambda m: m.ggplot(FRAME) + m.layer("point", mapping=m.aes("x", "y")),
     "guides": lambda m: m.ggplot(FRAME, m.aes("x", "y")) + m.geom_point() + m.guides(color="none"),
     "layer plus aes": lambda m: m.ggplot(FRAME) + (m.geom_point() + m.aes("x", "y")),
     "shape scales": lambda m: (
@@ -99,6 +98,16 @@ PARITY_CASES = {
 def test_as_dict_matches_lets_plot(name):
     theirs, ours = build_both(PARITY_CASES[name])
     assert without_data(ours.as_dict()) == without_data(theirs.as_dict())
+
+
+def test_layer_spreads_its_options():
+    # Deviation (deviations.md): lets_plot nests them under "kwargs" and drops them.
+    layer = gg.layer("point", mapping=gg.aes("x", "y"), size=4, color="red").as_dict()
+    assert "kwargs" not in layer
+    assert (layer["geom"], layer["size"], layer["color"]) == ("point", 4, "red")
+    svg = (gg.ggplot(FRAME) + gg.layer("point", mapping=gg.aes("x", "y"), size=4)).to_svg()
+    reference = (gg.ggplot(FRAME) + gg.geom_point(gg.aes("x", "y"), size=4)).to_svg()
+    assert svg == reference
 
 
 def test_as_dict_keeps_the_data_object():

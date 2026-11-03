@@ -38,6 +38,16 @@ def position_dodge(width: Number | None = None) -> FeatureSpec:
     -------
     FeatureSpec
         The position adjustment.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"month": ["Jan", "Jan", "Feb", "Feb", "Mar", "Mar"],
+    ...         "shop": ["north", "south", "north", "south", "north", "south"],
+    ...         "sales": [12, 9, 15, 11, 14, 16]}
+    >>> plot = ggplot(data, aes("month", "sales", fill="shop")) + geom_bar(
+    ...     stat="identity", position=position_dodge(width=0.8), width=0.7
+    ... )
     """
     return _position("dodge", width=width)
 
@@ -58,6 +68,14 @@ def position_jitter(
     -------
     FeatureSpec
         The position adjustment.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"rating": [1, 2, 2, 3, 3, 3, 4, 4, 5] * 2, "app": ["web"] * 9 + ["mobile"] * 9}
+    >>> plot = ggplot(data, aes("app", "rating")) + geom_point(
+    ...     position=position_jitter(width=0.2, height=0, seed=42)
+    ... )
     """
     return _position("jitter", width=width, height=height, seed=seed)
 
@@ -78,6 +96,16 @@ def position_nudge(
     -------
     FeatureSpec
         The position adjustment.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"size": ["S", "M", "L", "XL"], "sold": [40, 65, 52, 18]}
+    >>> plot = (
+    ...     ggplot(data, aes("size", "sold"))
+    ...     + geom_bar(stat="identity")
+    ...     + geom_text(aes(label="sold"), position=position_nudge(y=3))
+    ... )
     """
     return _position("nudge", x=x, y=y, unit=unit)
 
@@ -103,6 +131,17 @@ def position_jitterdodge(
     -------
     FeatureSpec
         The position adjustment.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"team": ["red"] * 6 + ["blue"] * 6, "sex": ["f", "m"] * 6,
+    ...         "height": [168, 172, 175, 169, 181, 177, 160, 165, 171, 158, 166, 163]}
+    >>> plot = (
+    ...     ggplot(data, aes("team", "height", color="sex"))
+    ...     + geom_boxplot()
+    ...     + geom_point(position=position_jitterdodge(jitter_width=0.2, seed=1))
+    ... )
     """
     return _position(
         "jitterdodge",
@@ -130,6 +169,16 @@ def position_stack(vjust: Number | None = None, mode: str | None = None) -> Feat
     -------
     FeatureSpec
         The position adjustment.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"month": ["Jan", "Jan", "Feb", "Feb", "Mar", "Mar"],
+    ...         "shop": ["north", "south", "north", "south", "north", "south"],
+    ...         "sales": [12, 9, 15, 11, 14, 16]}
+    >>> plot = ggplot(data, aes("month", "sales", fill="shop")) + geom_bar(
+    ...     stat="identity", position=position_stack()
+    ... )
     """
     return _position("stack", vjust=vjust, mode=mode)
 
@@ -151,6 +200,16 @@ def position_fill(vjust: Number | None = None, mode: str | None = None) -> Featu
     -------
     FeatureSpec
         The position adjustment.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"month": ["Jan", "Jan", "Feb", "Feb", "Mar", "Mar"],
+    ...         "shop": ["north", "south", "north", "south", "north", "south"],
+    ...         "sales": [12, 9, 15, 11, 14, 16]}
+    >>> plot = ggplot(data, aes("month", "sales", fill="shop")) + geom_bar(
+    ...     stat="identity", position=position_fill()
+    ... )
     """
     return _position("fill", vjust=vjust, mode=mode)
 

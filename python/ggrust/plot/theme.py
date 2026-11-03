@@ -282,6 +282,19 @@ def theme(
     -------
     FeatureSpec
         The theme feature.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + theme(
+    ...     legend_position="bottom",
+    ...     axis_title=element_text(size=15, face="bold"),
+    ...     panel_grid_minor=element_blank(),
+    ... )
     """
     return FeatureSpec("theme", name=None, **_filter_none(locals()))
 
@@ -300,6 +313,15 @@ def element_blank() -> dict[str, Any]:
     -------
     dict
         The element.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + theme(panel_grid=element_blank(), axis_ticks=element_blank())
     """
     return dict(blank=True)
 
@@ -330,6 +352,15 @@ def element_rect(
     -------
     dict
         The element.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + theme(panel_background=element_rect(fill="ivory", color="tan", size=2))
     """
     return locals()
 
@@ -445,6 +476,15 @@ def element_text(
     -------
     dict
         The element.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + theme(axis_text=element_text(size=14, color="darkred", angle=30))
     """
     return locals()
 
@@ -487,6 +527,12 @@ def element_markdown(
     -------
     dict
         The element.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> title = ggtitle("Fuel use: **heavier** cars go *less* far")
+    >>> style = theme(plot_title=element_markdown())  # not drawn yet: warns
     """
     return {"markdown": True, **locals()}
 
@@ -514,6 +560,17 @@ def margin(
     -------
     list
         The margins.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + theme(
+    ...     plot_margin=margin(t=30, r=60, b=30, l=60), plot_background=element_rect(fill="linen")
+    ... )
     """
     return [t, r, b, l]
 
@@ -536,6 +593,11 @@ def element_geom(
     -------
     dict
         The element.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> style = theme(geom=element_geom(pen="navy", brush="orange"))  # not drawn yet: warns
     """
     return locals()
 
@@ -551,6 +613,15 @@ def theme_grey() -> FeatureSpec:
     -------
     FeatureSpec
         The theme.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + theme_grey()
     """
     return _named("grey")
 
@@ -562,6 +633,15 @@ def theme_gray() -> FeatureSpec:
     -------
     FeatureSpec
         The theme.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + theme_gray()
     """
     return _named("gray")
 
@@ -573,6 +653,15 @@ def theme_light() -> FeatureSpec:
     -------
     FeatureSpec
         The theme.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + theme_light()
     """
     return _named("light")
 
@@ -584,6 +673,15 @@ def theme_classic() -> FeatureSpec:
     -------
     FeatureSpec
         The theme.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + theme_classic()
     """
     return _named("classic")
 
@@ -595,6 +693,15 @@ def theme_minimal() -> FeatureSpec:
     -------
     FeatureSpec
         The theme.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + theme_minimal()
     """
     return _named("minimal")
 
@@ -606,6 +713,15 @@ def theme_minimal2() -> FeatureSpec:
     -------
     FeatureSpec
         The theme.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + theme_minimal2()
     """
     return _named("minimal2")
 
@@ -617,6 +733,15 @@ def theme_none() -> FeatureSpec:
     -------
     FeatureSpec
         The theme.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + theme_none()
     """
     return _named("none")
 
@@ -628,6 +753,15 @@ def theme_bw() -> FeatureSpec:
     -------
     FeatureSpec
         The theme.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + theme_bw()
     """
     return _named("bw")
 
@@ -639,6 +773,15 @@ def theme_void() -> FeatureSpec:
     -------
     FeatureSpec
         The theme.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + theme_void()
     """
     return theme_classic() + FeatureSpec("theme", name=None, line="blank", axis="blank")
 
@@ -654,6 +797,15 @@ def flavor_darcula() -> FeatureSpec:
     -------
     FeatureSpec
         The flavor.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + flavor_darcula()
     """
     return _flavor("darcula")
 
@@ -665,6 +817,15 @@ def flavor_solarized_light() -> FeatureSpec:
     -------
     FeatureSpec
         The flavor.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + flavor_solarized_light()
     """
     return _flavor("solarized_light")
 
@@ -676,6 +837,15 @@ def flavor_solarized_dark() -> FeatureSpec:
     -------
     FeatureSpec
         The flavor.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + flavor_solarized_dark()
     """
     return _flavor("solarized_dark")
 
@@ -687,6 +857,15 @@ def flavor_high_contrast_light() -> FeatureSpec:
     -------
     FeatureSpec
         The flavor.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + flavor_high_contrast_light()
     """
     return _flavor("high_contrast_light")
 
@@ -698,6 +877,15 @@ def flavor_high_contrast_dark() -> FeatureSpec:
     -------
     FeatureSpec
         The flavor.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + flavor_high_contrast_dark()
     """
     return _flavor("high_contrast_dark")
 
@@ -709,5 +897,14 @@ def flavor_standard() -> FeatureSpec:
     -------
     FeatureSpec
         The flavor.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + theme_bw() + flavor_standard()
     """
     return _flavor("standard")

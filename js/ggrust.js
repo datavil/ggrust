@@ -938,33 +938,39 @@
     var spec = tile.spec, views = tile.views;
     var h = visibleBreaks(spec.horizontal, views.h), v = visibleBreaks(spec.vertical, views.v);
     var panel = spec.panel;
-    var minor = function (axis, view, breaks, horizontal, out) {
-      if (!axis.minor || breaks.length < 2) return;
+    // Minor grid lines and minor ticks (template `which`) between the breaks.
+    var minor = function (axis, view, breaks, horizontal, which, out) {
+      if (!axis[which] || breaks.length < 2) return;
       var step = breaks[1].position - breaks[0].position;
       var start = breaks[0].position - step / 2;
       var from = horizontal ? panel[0] : panel[1], to = from + (horizontal ? panel[2] : panel[3]);
       for (var i = 0; i <= breaks.length; i++) {
         var pixel = pixelOf(axis, view, start + i * step);
-        if (pixel >= from && pixel <= to) out.push(translated(axis.minor, horizontal, pixel));
+        if (pixel >= from && pixel <= to) out.push(translated(axis[which], horizontal, pixel));
       }
     };
     var grid = [];
-    minor(spec.horizontal, views.h, h, true, grid);
-    minor(spec.vertical, views.v, v, false, grid);
+    minor(spec.horizontal, views.h, h, true, "minor", grid);
+    minor(spec.vertical, views.v, v, false, "minor", grid);
     [[spec.horizontal, h, true], [spec.vertical, v, false]].forEach(function (entry) {
       if (entry[0].major) {
         entry[1].forEach(function (b) { grid.push(translated(entry[0].major, entry[2], b.pixel)); });
       }
     });
-    var axisNodes = function (axis, breaks, horizontal) {
+    var axisNodes = function (axis, view, breaks, horizontal) {
       var out = axis.line ? [axis.line] : [];
       breaks.forEach(function (b) {
         if (axis.tick) out.push(translated(axis.tick, horizontal, b.pixel));
         if (b.label) out.push(translated(b.label, horizontal, b.shift));
       });
+      minor(axis, view, breaks, horizontal, "minor_tick", out);
       return out.join("");
     };
-    return { grid: grid.join(""), x: axisNodes(spec.horizontal, h, true), y: axisNodes(spec.vertical, v, false) };
+    return {
+      grid: grid.join(""),
+      x: axisNodes(spec.horizontal, views.h, h, true),
+      y: axisNodes(spec.vertical, views.v, v, false)
+    };
   }
 
   function childByClass(parent, name) {

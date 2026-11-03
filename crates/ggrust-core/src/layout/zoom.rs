@@ -13,8 +13,8 @@
 
 use super::rotated;
 use super::{
-    LabelArrangement, PlotLayout, label_node, label_sizes, placed_label_node, segment, tick_band,
-    x_label_node,
+    LabelArrangement, PlotLayout, label_node, label_sizes, placed_label_node, segment,
+    x_label_node, x_tick_band, y_tick_band,
 };
 use crate::coord::Panel;
 use crate::scale::format::Label;
@@ -121,6 +121,8 @@ pub struct ZoomAxis {
     pub minor: Option<Node>,
     /// Tick template.
     pub tick: Option<Node>,
+    /// Minor tick template (between breaks, as the minor grid lines).
+    pub minor_tick: Option<Node>,
     /// Generated label template: text `@`.
     pub label: Option<Node>,
     /// Generated label template with a superscript: text `@`, superscript `^`.
@@ -292,9 +294,7 @@ pub fn zoom_tile(
 
     // Horizontal axis.
     let x_domain = domain(mapper.x_scale);
-    let x_label_top = bottom
-        + tick_band(theme.axis_ticks_x, theme.axis_ticks_length.0)
-        + theme.axis_text_spacing.0;
+    let x_label_top = bottom + x_tick_band(theme) + theme.axis_text_spacing.0;
     let x_breaks = &layout.x_breaks;
     let x_rotated = match (theme.axis_text_x, &x_breaks.arrangement) {
         (Some(text), LabelArrangement::Rotated) => {
@@ -350,6 +350,13 @@ pub fn zoom_tile(
                 tick,
             )
         }),
+        minor_tick: theme.axis_minor_ticks_x.filter(|_| show_x).map(|tick| {
+            segment(
+                (0.0, bottom),
+                (0.0, bottom + theme.axis_minor_ticks_length.0),
+                tick,
+            )
+        }),
         label: show_x.then(|| x_template(&placeholder(false))).flatten(),
         label_superscript: show_x.then(|| x_template(&placeholder(true))).flatten(),
         line: theme
@@ -360,9 +367,7 @@ pub fn zoom_tile(
 
     // Vertical axis.
     let y_domain = domain(mapper.y_scale);
-    let y_label_right = panel.x
-        - tick_band(theme.axis_ticks_y, theme.axis_ticks_length.1)
-        - theme.axis_text_spacing.1;
+    let y_label_right = panel.x - y_tick_band(theme) - theme.axis_text_spacing.1;
     let y_breaks = &layout.y_breaks;
     let y_rotated = match theme.axis_text_y {
         Some(text) if rotated::rotates(text) => {
@@ -409,6 +414,13 @@ pub fn zoom_tile(
         tick: theme.axis_ticks_y.filter(|_| show_y).map(|tick| {
             segment(
                 (panel.x - theme.axis_ticks_length.1, 0.0),
+                (panel.x, 0.0),
+                tick,
+            )
+        }),
+        minor_tick: theme.axis_minor_ticks_y.filter(|_| show_y).map(|tick| {
+            segment(
+                (panel.x - theme.axis_minor_ticks_length.1, 0.0),
                 (panel.x, 0.0),
                 tick,
             )

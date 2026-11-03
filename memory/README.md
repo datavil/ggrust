@@ -52,3 +52,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Exact port speedups](exact_port_speedups.md): cache + provable skips only; ported predicates are not geometric (degenerate boxes); ties break on 1e-13 changes.
 - [2D bins follow lets-plot](letsplot_bin2d_hex.md): bin2d/binhex grid rules, literal hex border port, NaN corner rows train axes, bin-size columns fix #1290.
 - [Contours follow lets-plot triangles](letsplot_contours.md): ported isolines (vertex counts match), own isobands (lets-plot fill helper breaks), symbolic vertices cancel shared edges, R bandwidths, chunked KDE.
+- [Minor ticks and exponent_format](letsplot_minor_ticks_exponent_format.md): minor ticks inherit axis/line not axis_ticks, 2 px; exponent_format parsed early, set on scales, text and tooltips.

@@ -166,6 +166,7 @@ fn zoom_json(zoom: &Zoom, scene: &Scene) -> Value {
             "major": fragment(&axis.major),
             "minor": fragment(&axis.minor),
             "tick": fragment(&axis.tick),
+            "minor_tick": fragment(&axis.minor_tick),
             "label": fragment(&axis.label),
             "label_superscript": fragment(&axis.label_superscript),
             "line": fragment(&axis.line),

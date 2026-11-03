@@ -291,7 +291,8 @@ Group 5: score 3.
 - [ ] lp5.6 `ggmarginal` (#972).
 - [ ] lp5.6a `facet_grid` engine (parsed today, warned and ignored): panels by `x` columns and `y` rows, `scales` free per grid column/row, column strips on top and row strips on the right (`strip_text_y`, `strip_background_y`, `strip_spacing_x`, rotated text), `margins`-free first cut, lets-plot `FacetGrid` layout. Prerequisite for lp5.7. Removes the facet_grid rows in deviations.md and the stats free-range gap (lp3.2).
 - [ ] lp5.7 Facet label options: `facet_grid` `x/y_order`, `x/y_format`, `x/y_labwidth`; `facet_wrap(labwidth=)`.
-- [ ] lp5.8 Minor ticks (`axis_minor_ticks*`, #1183), `exponent_format`, `label_text` (#1474).
+- [x] lp5.8 Minor ticks (`axis_minor_ticks*`, #1183), `exponent_format`, `label_text` (#1474).
+  (`axis_minor_ticks(_x/_y)` and `axis_minor_ticks_length(_x/_y)` as measured on lets-plot: blank by default, 2 px, inheriting from `axis`/`line` but not `axis_ticks`, at the minor grid positions inside the panel, swapped under `coord_flip`, on facets and in HTML zoom (`minor_tick` template). The axis reserves the longer of major and minor ticks, as ggplot2 (lets-plot lets long minor ticks run into labels; deviation, needs user decision). `exponent_format` (`e`/`pow`/`pow_full`, `(style, lower, upper)`) via `ExponentFormat` on position and style scales, `format=` patterns, text labels and tooltips; 12 tick and 22 label cases match lets-plot in `tests/test_minor_ticks_exponent.py`. Gaps: facet strips and numeric category labels ignore `exponent_format`; `label_text` stays unsupported until `layer_labels()` annotations exist.)
 - [ ] lp5.9 Text layer options: `label_format`, `check_overlap`, `na_text` (#270); `manual_key`. Undo the periodic table mass rounding (gaps file section 12).
 - [ ] lp5.10 Positional scale options: `break_width`, `lablim`, `na_value`; `scale_linewidth*`, `scale_stroke*` (#1158).
 - [ ] lp5.11 Mapped `hjust`/`vjust` on text and label (#1143).

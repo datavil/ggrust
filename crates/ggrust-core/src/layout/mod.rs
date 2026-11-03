@@ -399,7 +399,7 @@ fn layout_with(
 
 /// Ticks, spacing and labels below a panel, with labels `labels_height` px tall.
 fn x_axis_band(labels_height: f64, theme: &Theme) -> f64 {
-    tick_band(theme.axis_ticks_x, theme.axis_ticks_length.0)
+    x_tick_band(theme)
         + theme
             .axis_text_x
             .map_or(0.0, |_| theme.axis_text_spacing.0 + labels_height)
@@ -415,7 +415,7 @@ fn y_axis_width(y_breaks: &AxisBreaks, theme: &Theme) -> f64 {
             sizes.iter().map(|(width, _)| *width).fold(0.0, f64::max)
         }
     });
-    tick_band(theme.axis_ticks_y, theme.axis_ticks_length.1)
+    y_tick_band(theme)
         + theme
             .axis_text_y
             .map_or(0.0, |_| theme.axis_text_spacing.1 + y_label_width)
@@ -947,9 +947,7 @@ pub fn draw_axes(
             line,
         ));
     }
-    let x_label_top = bottom
-        + tick_band(theme.axis_ticks_x, theme.axis_ticks_length.0)
-        + theme.axis_text_spacing.0;
+    let x_label_top = bottom + x_tick_band(theme) + theme.axis_text_spacing.0;
     let x_rotated = match (theme.axis_text_x, &layout.x_breaks.arrangement) {
         (Some(text), LabelArrangement::Rotated) => {
             rotated::bottom(&label_sizes(&layout.x_breaks.labels, text), text).0
@@ -985,13 +983,25 @@ pub fn draw_axes(
             });
         }
     }
+    // Minor ticks at the minor grid positions inside the panel (lets-plot draws
+    // them after the major ticks and labels).
+    if let Some(tick) = theme.axis_minor_ticks_x {
+        for value in minor_breaks(&layout.x_breaks.values) {
+            let x = mapper.x_pixel(value);
+            if x >= panel.x && x <= panel.x + panel.width {
+                axis_x.push(segment(
+                    (x, bottom),
+                    (x, bottom + theme.axis_minor_ticks_length.0),
+                    tick,
+                ));
+            }
+        }
+    }
     let mut axis_y = Vec::new();
     if let Some(line) = theme.axis_line_y {
         axis_y.push(segment((panel.x, panel.y), (panel.x, bottom), line));
     }
-    let y_label_right = panel.x
-        - tick_band(theme.axis_ticks_y, theme.axis_ticks_length.1)
-        - theme.axis_text_spacing.1;
+    let y_label_right = panel.x - y_tick_band(theme) - theme.axis_text_spacing.1;
     let y_rotated = match theme.axis_text_y {
         Some(text) if rotated::rotates(text) => {
             rotated::left(&label_sizes(&layout.y_breaks.labels, text), text).0
@@ -1018,6 +1028,18 @@ pub fn draw_axes(
                 Some(placement) => placed_label_node(label, text, (y_label_right, y), placement),
                 None => label_node(label, text, (y_label_right, y), HorizontalAlign::End, 0.0),
             });
+        }
+    }
+    if let Some(tick) = theme.axis_minor_ticks_y {
+        for value in minor_breaks(&layout.y_breaks.values) {
+            let y = mapper.y_pixel(value);
+            if y >= panel.y && y <= panel.y + panel.height {
+                axis_y.push(segment(
+                    (panel.x - theme.axis_minor_ticks_length.1, y),
+                    (panel.x, y),
+                    tick,
+                ));
+            }
         }
     }
     let mut nodes = Vec::new();
@@ -1374,6 +1396,24 @@ fn axis_title_extent(style: TextStyle, text: &str, default_angle: f64) -> (f64, 
 /// Room the ticks of one axis take: their `length` when drawn.
 fn tick_band(ticks: Option<LineStyle>, length: f64) -> f64 {
     ticks.map_or(0.0, |_| length)
+}
+
+/// Space the x ticks take below the panel: the longer of the major and minor
+/// ticks shown (ggplot2; lets-plot reserves the major ticks only, so longer minor
+/// ticks run into the labels).
+pub(crate) fn x_tick_band(theme: &Theme) -> f64 {
+    tick_band(theme.axis_ticks_x, theme.axis_ticks_length.0).max(tick_band(
+        theme.axis_minor_ticks_x,
+        theme.axis_minor_ticks_length.0,
+    ))
+}
+
+/// Space the y ticks take left of the panel (as [`x_tick_band`]).
+pub(crate) fn y_tick_band(theme: &Theme) -> f64 {
+    tick_band(theme.axis_ticks_y, theme.axis_ticks_length.1).max(tick_band(
+        theme.axis_minor_ticks_y,
+        theme.axis_minor_ticks_length.1,
+    ))
 }
 
 /// `rect` without `margins` (at least 1 px left each way).

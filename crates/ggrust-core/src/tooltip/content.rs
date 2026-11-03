@@ -21,6 +21,7 @@ use crate::data::{Column, Computed, LayerData};
 use crate::scale::PositionScale;
 use crate::scale::format::{Label, format_with_step};
 use crate::scale::label_pattern::{LabelPattern, PatternValue};
+use crate::scale::number_format::ExponentFormat;
 use crate::scene::Color;
 use crate::spec::{Aesthetic, TooltipLines, TooltipsSpec};
 use crate::style::Styles;
@@ -163,6 +164,8 @@ pub struct ContentSource<'a> {
     /// Whether the screen's horizontal / vertical axis shows labels (lets-plot hides
     /// the axis tooltip otherwise).
     pub axis_labels: (bool, bool),
+    /// The theme's `exponent_format` for every number shown.
+    pub exponent_format: ExponentFormat,
 }
 
 /// Where a field's values come from.
@@ -192,7 +195,7 @@ pub fn layer_content(
     let builder = Builder {
         source,
         formats: user
-            .map(|user| formats(user, path, warnings))
+            .map(|user| formats(user, source.exponent_format, path, warnings))
             .unwrap_or_default(),
     };
     let mut content = LayerContent::default();
@@ -287,13 +290,14 @@ fn warn_unknown(field: &Field, path: &str, warnings: &mut Vec<String>) {
 /// `format()` patterns by field. `^X` / `^Y` apply to every x / y position aesthetic.
 fn formats(
     user: &TooltipLines,
+    exponent: ExponentFormat,
     path: &str,
     warnings: &mut Vec<String>,
 ) -> Vec<(FormatKey, LabelPattern)> {
     let mut result = Vec::new();
     for (index, format) in user.formats.iter().enumerate() {
         let pattern = match LabelPattern::parse(&format.format) {
-            Ok(pattern) => pattern,
+            Ok(pattern) => pattern.with_exponent(exponent),
             Err(message) => {
                 warnings.push(format!(
                     "at '{path}.tooltips.formats[{index}].format': {message}; the default \
@@ -336,6 +340,13 @@ struct Builder<'a> {
 }
 
 impl Builder<'_> {
+    /// A built-in pattern under the theme's `exponent_format`.
+    fn default_pattern(&self, pattern: &str) -> Option<LabelPattern> {
+        LabelPattern::parse(pattern)
+            .ok()
+            .map(|pattern| pattern.with_exponent(self.source.exponent_format))
+    }
+
     /// The aesthetics of the default tooltip (lets-plot `createTooltipAesList`),
     /// side statistics first (merged as `disable_splitting`).
     fn default_aesthetics(&self) -> Vec<Aesthetic> {
@@ -545,7 +556,7 @@ impl Builder<'_> {
                 let pattern = self
                     .variable_format(&format!("..{}..", computed.as_str()))
                     .cloned()
-                    .or_else(|| LabelPattern::parse(format).ok());
+                    .or_else(|| self.default_pattern(format));
                 column_texts(self.source.data.get(computed), pattern.as_ref())
             }
             Source::Column(index) => {
@@ -553,7 +564,7 @@ impl Builder<'_> {
                 let pattern = self
                     .variable_format(name)
                     .cloned()
-                    .or_else(|| LabelPattern::parse("{,~g}").ok());
+                    .or_else(|| self.default_pattern("{,~g}"));
                 column_texts(Some(column), pattern.as_ref())
             }
         }
@@ -609,7 +620,7 @@ impl Builder<'_> {
             None
         };
         let Some(scale) = position_scale else {
-            let default = LabelPattern::parse("{,~g}").ok();
+            let default = self.default_pattern("{,~g}");
             let mut values = column_texts(source.data.get(aesthetic), format.or(default.as_ref()));
             if !axis {
                 for value in &mut values {
@@ -778,7 +789,12 @@ impl<'a> PositionFormatter<'a> {
                     Some(pattern) => label_text(pattern.format(PatternValue::Number(value))),
                     None => {
                         let (reference, step) = self.reference_and_step;
-                        label_text(format_with_step(value, reference, step))
+                        label_text(format_with_step(
+                            value,
+                            reference,
+                            step,
+                            continuous.exponent_format,
+                        ))
                     }
                 })
             }

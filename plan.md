@@ -2,6 +2,7 @@
 
 Rust plotting engine with a lets_plot-compatible Python API, built for cellestial.
 Rules of engagement: [AGENTS.md](AGENTS.md). Lessons: [memory/](memory/README.md).
+ggplot2 extension features (ggnewscale, ggbeeswarm, ...): [extensions.md](extensions.md).
 
 ## Decisions (agreed with the user)
 

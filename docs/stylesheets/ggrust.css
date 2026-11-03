@@ -186,3 +186,43 @@
 .md-typeset .md-typeset__table td:first-child {
   white-space: nowrap;
 }
+
+/* Code highlighting: Twilight Sky. Rose keywords, indigo names, sky strings, copper
+   numbers, plum builtins. Every token is at least 4.5:1 against the code background. */
+[data-md-color-scheme="default"] {
+  --md-code-bg-color: #f7f4f7;
+  --md-code-fg-color: #26202a;
+  --md-code-hl-color: #c2255c;
+  --md-code-hl-color--light: #c2255c17;
+  --md-code-hl-keyword-color: #c2255c;
+  --md-code-hl-function-color: #4b3fc0;
+  --md-code-hl-string-color: #0b6ea8;
+  --md-code-hl-number-color: #b4400b;
+  --md-code-hl-constant-color: #7a2f68;
+  --md-code-hl-special-color: #c2255c;
+  --md-code-hl-name-color: #26202a;
+  --md-code-hl-operator-color: #6c6170;
+  --md-code-hl-punctuation-color: #736a76;
+  --md-code-hl-comment-color: #736a76;
+  --md-code-hl-variable-color: #26202a;
+  --md-code-hl-generic-color: #736a76;
+}
+
+[data-md-color-scheme="slate"] {
+  --md-code-bg-color: #1c1520;
+  --md-code-fg-color: #ebe3ee;
+  --md-code-hl-color: #f783ac;
+  --md-code-hl-color--light: #f783ac1f;
+  --md-code-hl-keyword-color: #f783ac;
+  --md-code-hl-function-color: #aaa2ff;
+  --md-code-hl-string-color: #6cc4f5;
+  --md-code-hl-number-color: #f6a06b;
+  --md-code-hl-constant-color: #d79bc8;
+  --md-code-hl-special-color: #ff8fb5;
+  --md-code-hl-name-color: #ebe3ee;
+  --md-code-hl-operator-color: #a99cad;
+  --md-code-hl-punctuation-color: #8f8394;
+  --md-code-hl-comment-color: #8f8394;
+  --md-code-hl-variable-color: #ebe3ee;
+  --md-code-hl-generic-color: #8f8394;
+}

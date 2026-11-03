@@ -347,3 +347,7 @@ Cellestial work is on branch `ggrust-port-track-titles` (row titles only, uncomm
 
 ## Open questions (ask when the step comes up)
 
+
+## Consider later (not scheduled)
+
+- **3D plots, static only (tier 1).** Agreed scope with the user (2026-11-03): no interactivity (no rotation in HTML), no surfaces, no WebGL. Neither lets-plot nor ggplot2 has 3D, so every choice is a deviation (rows in `deviations.md`); references are matplotlib `mplot3d` and plotly `scatter3d`. Approach: a `z` aesthetic + continuous `scale_z_*` (reuses `PositionScale`); a new `coord_3d(azimuth, elevation, perspective)` projection `(x, y, z) -> (px, py, depth)` kept apart from the 2D `Coord` trait; painter's-algorithm depth sort emitting ordinary 2D scene nodes, so SVG/PNG/PDF/HTML need no backend changes; a 3D axis box layout (back panes, pane grid, ticks and labels on three edges) in its own module; `geom_point` and `geom_path` become z-aware under `coord_3d`, and 2D-only geoms error clearly. Legends, themes and facets carry over. Golden tests per backend.

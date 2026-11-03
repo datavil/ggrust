@@ -74,13 +74,86 @@ impl LineType {
     }
 }
 
-/// Parse a constant option (e.g. `color="red"`, `size=2`) as values of `kind`.
+/// lets-plot's geom colors (`element_geom`): `pen` draws lines, outlines and text,
+/// `brush` fills bars and areas, `paper` is the background inside geoms (point fill,
+/// box fill). They follow the theme flavor, `theme(geom=element_geom(...))` sets them,
+/// and the color names `"pen"`, `"brush"` and `"paper"` resolve through them.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct GeomPalette {
+    /// Lines, outlines and text.
+    pub pen: Color,
+    /// Fills of bars and areas.
+    pub brush: Color,
+    /// Backgrounds inside geoms.
+    pub paper: Color,
+}
+
+impl GeomPalette {
+    /// The colors of lets-plot's standard flavor.
+    pub const STANDARD: GeomPalette = GeomPalette {
+        pen: Color::rgb(0x47, 0x47, 0x47),
+        brush: Color::rgb(0x11, 0x8e, 0xd8),
+        paper: Color::WHITE,
+    };
+
+    /// The color of a geom color name.
+    pub fn get(&self, name: ThemeColor) -> Color {
+        match name {
+            ThemeColor::Pen => self.pen,
+            ThemeColor::Brush => self.brush,
+            ThemeColor::Paper => self.paper,
+        }
+    }
+
+    /// Parse a color: `"pen"`, `"brush"`, `"paper"` or anything [`Color::parse`] reads.
+    pub fn parse_color(&self, text: &str) -> std::result::Result<Color, String> {
+        match ThemeColor::from_name(text) {
+            Some(name) => Ok(self.get(name)),
+            None => Color::parse(text),
+        }
+    }
+}
+
+/// A geom color name of the theme (see [`GeomPalette`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ThemeColor {
+    /// `"pen"`.
+    Pen,
+    /// `"brush"`.
+    Brush,
+    /// `"paper"`.
+    Paper,
+}
+
+impl ThemeColor {
+    /// The name's color, if `text` is one of `"pen"`, `"brush"`, `"paper"`.
+    pub fn from_name(text: &str) -> Option<ThemeColor> {
+        match text {
+            "pen" => Some(ThemeColor::Pen),
+            "brush" => Some(ThemeColor::Brush),
+            "paper" => Some(ThemeColor::Paper),
+            _ => None,
+        }
+    }
+}
+
+/// Parse a constant option (e.g. `color="red"`, `size=2`) as values of `kind`, with
+/// the standard geom colors for `"pen"`, `"brush"` and `"paper"`.
 pub fn parse_constant(kind: ValueKind, value: &Value) -> std::result::Result<StyleValues, String> {
+    parse_constant_in(kind, value, &GeomPalette::STANDARD)
+}
+
+/// Parse a constant option as values of `kind`; theme color names come from `palette`.
+pub fn parse_constant_in(
+    kind: ValueKind,
+    value: &Value,
+    palette: &GeomPalette,
+) -> std::result::Result<StyleValues, String> {
     match kind {
         ValueKind::Color => match value {
-            Value::String(text) => {
-                Color::parse(text).map(|color| StyleValues::Colors(PerItem::Uniform(color)))
-            }
+            Value::String(text) => palette
+                .parse_color(text)
+                .map(|color| StyleValues::Colors(PerItem::Uniform(color))),
             other => Err(format!("expected a color string, got {other}")),
         },
         ValueKind::Number => value
@@ -110,6 +183,9 @@ pub fn parse_constant(kind: ValueKind, value: &Value) -> std::result::Result<Sty
 pub enum StyleDefault {
     /// A color.
     Color(Color),
+    /// A geom color of the theme ([`GeomPalette`]) with this opacity (0..255; 255 keeps
+    /// the color as it is).
+    Themed(ThemeColor, u8),
     /// A number. NaN may mean "unset" where a geom documents it (point alpha).
     Number(f64),
     /// A lets-plot shape code.
@@ -121,10 +197,17 @@ pub enum StyleDefault {
 }
 
 impl StyleDefault {
+    /// The theme's pen color.
+    pub const PEN: StyleDefault = StyleDefault::Themed(ThemeColor::Pen, 255);
+    /// The theme's brush color.
+    pub const BRUSH: StyleDefault = StyleDefault::Themed(ThemeColor::Brush, 255);
+    /// The theme's paper color.
+    pub const PAPER: StyleDefault = StyleDefault::Themed(ThemeColor::Paper, 255);
+
     /// The value kind of this default.
     pub fn kind(self) -> ValueKind {
         match self {
-            StyleDefault::Color(_) => ValueKind::Color,
+            StyleDefault::Color(_) | StyleDefault::Themed(..) => ValueKind::Color,
             StyleDefault::Number(_) => ValueKind::Number,
             StyleDefault::Shape(_) => ValueKind::Shape,
             StyleDefault::Linetype(_) => ValueKind::Linetype,
@@ -132,10 +215,20 @@ impl StyleDefault {
         }
     }
 
-    /// The default as values for every row.
+    /// The default as values for every row, with the standard geom colors.
     pub fn uniform(self) -> StyleValues {
+        self.uniform_in(&GeomPalette::STANDARD)
+    }
+
+    /// The default as values for every row; theme colors come from `palette`.
+    pub fn uniform_in(self, palette: &GeomPalette) -> StyleValues {
         match self {
             StyleDefault::Color(color) => StyleValues::Colors(PerItem::Uniform(color)),
+            StyleDefault::Themed(name, alpha) => {
+                let color = palette.get(name);
+                let alpha = if alpha == 255 { color.alpha } else { alpha };
+                StyleValues::Colors(PerItem::Uniform(Color { alpha, ..color }))
+            }
             StyleDefault::Number(number) => StyleValues::Numbers(PerItem::Uniform(number)),
             StyleDefault::Shape(shape) => StyleValues::Shapes(PerItem::Uniform(shape)),
             StyleDefault::Linetype(dash) => {

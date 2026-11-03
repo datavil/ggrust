@@ -119,6 +119,12 @@ pub struct ElementSpec {
     /// Part of the panel an axis line covers from the origin corner, `0 < extent <= 1`
     /// (ggrust; ggh4x `guide_axis_truncated` in ggplot2).
     pub extent: Option<Value>,
+    /// `element_geom(pen=)`: color of geom lines, outlines and text.
+    pub pen: Option<String>,
+    /// `element_geom(brush=)`: color of geom fills.
+    pub brush: Option<String>,
+    /// `element_geom(paper=)`: background color inside geoms.
+    pub paper: Option<String>,
     /// Keys no component consumes.
     #[serde(flatten)]
     pub unsupported: Options,

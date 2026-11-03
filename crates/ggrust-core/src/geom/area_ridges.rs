@@ -20,27 +20,16 @@ use super::{DrawLayer, Geom};
 use crate::coord::Panel;
 use crate::data::{Column, ContinuousColumn, LayerData};
 use crate::parameters::Parameters;
-use crate::scene::{Color, Node, Path, Rect};
+use crate::scene::{Node, Path, Rect};
 use crate::spec::Aesthetic;
 use crate::stat::ydensity_quantiles;
-use crate::style::{StyleDefault, Styles};
+use crate::style::{StyleDefault, Styles, ThemeColor};
 use crate::{Error, Result};
 
 /// lets-plot ridge style: pen outline, pen fill at 10% opacity, size 0.75.
 pub(super) const STYLE_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
-    (
-        Aesthetic::Color,
-        StyleDefault::Color(Color::rgb(0x47, 0x47, 0x47)),
-    ),
-    (
-        Aesthetic::Fill,
-        StyleDefault::Color(Color {
-            red: 0x47,
-            green: 0x47,
-            blue: 0x47,
-            alpha: 26,
-        }),
-    ),
+    (Aesthetic::Color, StyleDefault::PEN),
+    (Aesthetic::Fill, StyleDefault::Themed(ThemeColor::Pen, 26)),
     (Aesthetic::Alpha, StyleDefault::Number(f64::NAN)),
     (Aesthetic::Size, StyleDefault::Number(0.75)),
     (Aesthetic::Linetype, StyleDefault::Linetype(&[])),

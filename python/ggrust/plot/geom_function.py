@@ -69,7 +69,7 @@ def geom_function(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).

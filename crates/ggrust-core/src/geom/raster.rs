@@ -21,10 +21,7 @@ use crate::{Error, Result};
 
 /// lets-plot raster style: brush fill.
 const STYLE_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
-    (
-        Aesthetic::Fill,
-        StyleDefault::Color(Color::rgb(0x11, 0x8e, 0xd8)),
-    ),
+    (Aesthetic::Fill, StyleDefault::BRUSH),
     (Aesthetic::Alpha, StyleDefault::Number(f64::NAN)),
 ];
 

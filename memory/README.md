@@ -56,3 +56,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Minor ticks and exponent_format](letsplot_minor_ticks_exponent_format.md): minor ticks inherit axis/line not axis_ticks, 2 px; exponent_format parsed early, set on scales, text and tooltips.
 - [corr_plot follows measured lets-plot output](letsplot_corr_plot.md): Kotlin-side bistro measured from SVG; layer type/diag/color rules, threshold cropping, size formula, explicit 0.6 coord padding.
 - [Arrow axes are theme axis lines](arrow_axes.md): `element_line(arrow=, extent=)` in pixels via `layout::axis_line_node`, shared with the zoom template (zoom-invariant), arrow/extent read from the axis_line chain only.
+- [Geom colors and manual legends](letsplot_geom_palette_manual_key.md): pen = flavor ink, paper = flavor white, brush #118ed8; geom defaults are PEN/BRUSH/PAPER; manual keys sort by index, legends keyed by title.

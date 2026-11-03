@@ -42,10 +42,7 @@ const VJUST_SPAN: f64 = 0.7;
 
 const TEXT_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
     (Aesthetic::Label, StyleDefault::Text("")),
-    (
-        Aesthetic::Color,
-        StyleDefault::Color(Color::rgb(0x47, 0x47, 0x47)),
-    ),
+    (Aesthetic::Color, StyleDefault::PEN),
     (Aesthetic::Alpha, StyleDefault::Number(f64::NAN)),
     (Aesthetic::Size, StyleDefault::Number(7.0)),
     (Aesthetic::Family, StyleDefault::Text("sans")),
@@ -57,11 +54,8 @@ const TEXT_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
 
 const LABEL_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
     (Aesthetic::Label, StyleDefault::Text("")),
-    (
-        Aesthetic::Color,
-        StyleDefault::Color(Color::rgb(0x47, 0x47, 0x47)),
-    ),
-    (Aesthetic::Fill, StyleDefault::Color(Color::WHITE)),
+    (Aesthetic::Color, StyleDefault::PEN),
+    (Aesthetic::Fill, StyleDefault::PAPER),
     (Aesthetic::Alpha, StyleDefault::Number(f64::NAN)),
     (Aesthetic::Size, StyleDefault::Number(7.0)),
     (Aesthetic::Family, StyleDefault::Text("sans")),

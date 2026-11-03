@@ -53,7 +53,7 @@ from ggrust.plot.geom_function import geom_function
 from ggrust.plot.geom_imshow import geom_imshow
 from ggrust.plot.gggrid import gggrid
 from ggrust.plot.ggtb import ggtb
-from ggrust.plot.guide import guide_colorbar, guide_legend, guides
+from ggrust.plot.guide import guide_colorbar, guide_legend, guides, layer_key
 from ggrust.plot.label import ggtitle, labs, xlab, ylab
 from ggrust.plot.plot import GGBunch, ggplot, ggsize
 from ggrust.plot.position import (
@@ -229,6 +229,7 @@ __all__ = [
     "guides",
     "labs",
     "layer",
+    "layer_key",
     "layer_tooltips",
     "lims",
     "margin",

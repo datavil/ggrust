@@ -100,7 +100,7 @@ def geom_point(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -175,7 +175,7 @@ def geom_path(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -250,7 +250,7 @@ def geom_line(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -327,7 +327,7 @@ def geom_step(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -409,7 +409,7 @@ def geom_freqpoly(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -486,7 +486,7 @@ def geom_polygon(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -570,7 +570,7 @@ def geom_abline(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -653,7 +653,7 @@ def geom_hline(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -734,7 +734,7 @@ def geom_vline(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -817,7 +817,7 @@ def geom_errorbar(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -901,7 +901,7 @@ def geom_crossbar(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -992,7 +992,7 @@ def geom_pointrange(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -1073,7 +1073,7 @@ def geom_linerange(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -1149,7 +1149,7 @@ def geom_segment(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -1234,7 +1234,7 @@ def geom_curve(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -1333,7 +1333,7 @@ def geom_text(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -1434,7 +1434,7 @@ def geom_label(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -1530,7 +1530,7 @@ def geom_blank(
     inherit_aes : bool, default=False
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     map : DataFrame or dict, optional
@@ -1621,7 +1621,7 @@ def geom_bar(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -1712,7 +1712,7 @@ def geom_histogram(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     threshold : float, optional
@@ -1831,7 +1831,7 @@ def geom_boxplot(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -1972,7 +1972,7 @@ def geom_violin(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -2105,7 +2105,7 @@ def geom_sina(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -2234,7 +2234,7 @@ def geom_density(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -2355,7 +2355,7 @@ def geom_smooth(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -2463,7 +2463,7 @@ def geom_area(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -2538,7 +2538,7 @@ def geom_ribbon(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -2625,7 +2625,7 @@ def geom_area_ridges(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -2741,7 +2741,7 @@ def geom_count(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -2823,7 +2823,7 @@ def geom_jitter(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -2907,7 +2907,7 @@ def geom_tile(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -2999,7 +2999,7 @@ def geom_bin2d(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -3097,7 +3097,7 @@ def geom_hex(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -3197,7 +3197,7 @@ def geom_contour(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -3288,7 +3288,7 @@ def geom_contourf(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -3382,7 +3382,7 @@ def geom_density2d(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -3491,7 +3491,7 @@ def geom_density2df(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -3588,7 +3588,7 @@ def geom_raster(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     fill_by : str, optional
@@ -3664,7 +3664,7 @@ def geom_rect(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -3766,7 +3766,7 @@ def geom_bracket(
     show_legend : bool, optional
         False hides this layer from the legend.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     label_format : str, optional
@@ -3882,7 +3882,7 @@ def geom_text_repel(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional
@@ -4043,7 +4043,7 @@ def geom_label_repel(
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
-        A legend key for this layer, as in lets_plot; not supported yet (ggrust warns).
+        This layer's key in a manual legend: a label, or ``layer_key()``.
     sampling : str or FeatureSpec, optional
         lets_plot sampling; accepted and ignored, as ggrust draws every row.
     tooltips : FeatureSpec or list of str, optional

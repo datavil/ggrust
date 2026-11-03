@@ -11,17 +11,14 @@ use super::point::POINT_UNIT_SIZE;
 use super::{DrawLayer, Geom};
 use crate::Result;
 use crate::coord::Panel;
-use crate::scene::{Color, Node, Path, PerItem, Rect, Rects};
+use crate::scene::{Node, Path, PerItem, Rect, Rects};
 use crate::spec::Aesthetic;
 use crate::style::{StyleDefault, Styles};
 
 /// lets-plot polygon style: blue fill, white outline.
 const STYLE_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
-    (Aesthetic::Color, StyleDefault::Color(Color::WHITE)),
-    (
-        Aesthetic::Fill,
-        StyleDefault::Color(Color::rgb(0x11, 0x8e, 0xd8)),
-    ),
+    (Aesthetic::Color, StyleDefault::PAPER),
+    (Aesthetic::Fill, StyleDefault::BRUSH),
     (Aesthetic::Alpha, StyleDefault::Number(f64::NAN)),
     (Aesthetic::Size, StyleDefault::Number(0.75)),
     (Aesthetic::Linetype, StyleDefault::Linetype(&[])),

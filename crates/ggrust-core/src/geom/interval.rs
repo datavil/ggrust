@@ -22,7 +22,7 @@ use crate::coord::Panel;
 use crate::data::{Column, ContinuousColumn, LayerData};
 use crate::parameters::Parameters;
 use crate::position::DefaultPosition;
-use crate::scene::{Color, Node, Path, PerItem, Rect, Rects, Stroke};
+use crate::scene::{Node, Path, PerItem, Rect, Rects, Stroke};
 use crate::spec::Aesthetic;
 use crate::style::{StyleDefault, Styles};
 use crate::tooltip::{HoverTargets, TooltipBehavior};
@@ -41,11 +41,8 @@ const MIN_HOVER_WIDTH: f64 = 2.0;
 
 /// lets-plot crossbar style: pen outline, paper fill, size 0.75.
 const CROSSBAR_STYLE_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
-    (
-        Aesthetic::Color,
-        StyleDefault::Color(Color::rgb(0x47, 0x47, 0x47)),
-    ),
-    (Aesthetic::Fill, StyleDefault::Color(Color::WHITE)),
+    (Aesthetic::Color, StyleDefault::PEN),
+    (Aesthetic::Fill, StyleDefault::PAPER),
     (Aesthetic::Alpha, StyleDefault::Number(f64::NAN)),
     (Aesthetic::Size, StyleDefault::Number(0.75)),
     (Aesthetic::Linetype, StyleDefault::Linetype(&[])),
@@ -55,11 +52,8 @@ const CROSSBAR_STYLE_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
 /// the line's (`linewidth` 0.75).
 const POINTRANGE_STYLE_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
     (Aesthetic::Alpha, StyleDefault::Number(f64::NAN)),
-    (
-        Aesthetic::Color,
-        StyleDefault::Color(Color::rgb(0x47, 0x47, 0x47)),
-    ),
-    (Aesthetic::Fill, StyleDefault::Color(Color::WHITE)),
+    (Aesthetic::Color, StyleDefault::PEN),
+    (Aesthetic::Fill, StyleDefault::PAPER),
     (Aesthetic::Linetype, StyleDefault::Linetype(&[])),
     (Aesthetic::Shape, StyleDefault::Shape(16)),
     (Aesthetic::Size, StyleDefault::Number(0.75)),

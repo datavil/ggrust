@@ -117,10 +117,10 @@ ggrust computes `identity`, `count`, `bin`, `boxplot` (+ outliers), `ydensity`, 
 | --- | --- | --- | --- |
 | 4 | `orientation` (bar, histogram, boxplot, violin) | | Horizontal geoms without `coord_flip`. |
 | 3 | Text and label `label_format`, `check_overlap`, `na_text` | #270 | |
-| 3 | `manual_key` (custom legend entries) | | |
+| 3 | `manual_key` (custom legend entries) | | Done (2026-11-04): `manual_key=`, `layer_key()`, groups, `index`, `guides(<group>=)`. |
 | 2 | `size_unit` (point, text, label) | #1213, #270 | Buggy in lets-plot. |
 | 2 | `nudge_unit`, `alpha_stroke`, `halo_width`, `halo_color` | | `halo_*` done (geom_text, geom_text_repel; lets-plot has none on labels). |
-| 2 | `layer_labels` (pie labels), `layer_key` | #661 | |
+| 2 | `layer_labels` (pie labels), `layer_key` | #661 | `layer_key` done (2026-11-04). |
 | 1 | `color_by`, `fill_by` (paint_a/b/c aesthetics) | | |
 | 1 | `sampling` and every `sampling_*` function | #141 (random sampling drops boxplot boxes and keeps outliers) | lets-plot samples large data silently; ggrust draws everything. Sampling breaks stats (#141). Recommend recording "no default sampling" as a deliberate deviation. |
 | 1 | `flat`, `geodesic`, `spacer` (path, segment) | #795, #771 | Geo / segment spacing. |

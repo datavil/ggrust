@@ -19,10 +19,7 @@ use crate::style::{StyleDefault, Styles};
 
 /// lets-plot contour lines: grey, size 0.5.
 const LINE_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
-    (
-        Aesthetic::Color,
-        StyleDefault::Color(Color::rgb(0x47, 0x47, 0x47)),
-    ),
+    (Aesthetic::Color, StyleDefault::PEN),
     (Aesthetic::Alpha, StyleDefault::Number(f64::NAN)),
     (Aesthetic::Size, StyleDefault::Number(0.5)),
     (Aesthetic::Linetype, StyleDefault::Linetype(&[])),
@@ -31,10 +28,7 @@ const LINE_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
 /// lets-plot contour bands: polygon blue, transparent outline.
 const BAND_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
     (Aesthetic::Color, StyleDefault::Color(Color::TRANSPARENT)),
-    (
-        Aesthetic::Fill,
-        StyleDefault::Color(Color::rgb(0x11, 0x8e, 0xd8)),
-    ),
+    (Aesthetic::Fill, StyleDefault::BRUSH),
     (Aesthetic::Alpha, StyleDefault::Number(f64::NAN)),
     (Aesthetic::Size, StyleDefault::Number(0.75)),
     (Aesthetic::Linetype, StyleDefault::Linetype(&[])),

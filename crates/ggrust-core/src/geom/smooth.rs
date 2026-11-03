@@ -26,10 +26,7 @@ const STYLE_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
         Aesthetic::Color,
         StyleDefault::Color(Color::rgb(0xFF, 0x00, 0xFF)),
     ),
-    (
-        Aesthetic::Fill,
-        StyleDefault::Color(Color::rgb(0x47, 0x47, 0x47)),
-    ),
+    (Aesthetic::Fill, StyleDefault::PEN),
     (Aesthetic::Alpha, StyleDefault::Number(0.15)),
     (Aesthetic::Size, StyleDefault::Number(0.75)),
     (Aesthetic::Linetype, StyleDefault::Linetype(&[])),

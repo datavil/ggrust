@@ -192,7 +192,16 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
     ),
     "Labels and guides": (
         "Titles, axis labels and legends.",
-        ["labs", "ggtitle", "xlab", "ylab", "guides", "guide_legend", "guide_colorbar"],
+        [
+            "labs",
+            "ggtitle",
+            "xlab",
+            "ylab",
+            "guides",
+            "guide_legend",
+            "guide_colorbar",
+            "layer_key",
+        ],
     ),
     "Themes": (
         "Complete themes, and `theme()` to change single elements.",

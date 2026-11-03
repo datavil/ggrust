@@ -51,11 +51,13 @@ impl<'a> Parameters<'a> {
         }
     }
 
-    /// A color string (see [`Color::parse`]). Null counts as absent.
+    /// A color string (see [`Color::parse`]; `"pen"`, `"brush"` and `"paper"` are the
+    /// standard flavor's). Null counts as absent.
     pub fn color(&self, name: &str) -> Result<Option<Color>> {
         match self.options.get(name) {
             None | Some(Value::Null) => Ok(None),
-            Some(Value::String(text)) => Color::parse(text)
+            Some(Value::String(text)) => crate::style::GeomPalette::STANDARD
+                .parse_color(text)
                 .map(Some)
                 .map_err(|message| Error::spec(self.at(name), message)),
             Some(value) => Err(self.error(name, "a color string", value)),

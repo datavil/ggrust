@@ -33,6 +33,7 @@ nav = [
       "gallery/line.md",
       "gallery/ribbon.md",
       "gallery/function.md",
+      "gallery/manual_legend.md",
       "gallery/venn.md",
     ] },
     { "Time series" = [
@@ -213,6 +214,7 @@ nav = [
       "reference/api/guides.md",
       "reference/api/guide_legend.md",
       "reference/api/guide_colorbar.md",
+      "reference/api/layer_key.md",
     ] },
     { "Themes" = [
       "reference/api/theme.md",

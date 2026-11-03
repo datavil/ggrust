@@ -17,18 +17,15 @@ use crate::coord::Panel;
 use crate::data::{Column, ContinuousColumn, LayerData};
 use crate::parameters::Parameters;
 use crate::position::DefaultPosition;
-use crate::scene::{Color, Node, Path, PerItem, Rect, Rects, Stroke};
+use crate::scene::{Node, Path, PerItem, Rect, Rects, Stroke};
 use crate::spec::Aesthetic;
 use crate::style::{StyleDefault, Styles};
 use crate::{Error, Result};
 
 /// lets-plot box style: pen outline, paper fill, size 0.75.
 const STYLE_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
-    (
-        Aesthetic::Color,
-        StyleDefault::Color(Color::rgb(0x47, 0x47, 0x47)),
-    ),
-    (Aesthetic::Fill, StyleDefault::Color(Color::WHITE)),
+    (Aesthetic::Color, StyleDefault::PEN),
+    (Aesthetic::Fill, StyleDefault::PAPER),
     (Aesthetic::Alpha, StyleDefault::Number(f64::NAN)),
     (Aesthetic::Size, StyleDefault::Number(0.75)),
     (Aesthetic::Linetype, StyleDefault::Linetype(&[])),

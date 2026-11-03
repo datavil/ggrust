@@ -42,7 +42,7 @@ use crate::spec::{
 };
 use crate::stat::groups::rows_by_group;
 use crate::stat::{self, Stat, StatContext};
-use crate::style::{StyleValues, Styles, parse_constant};
+use crate::style::{GeomPalette, StyleValues, Styles, parse_constant_in};
 use crate::theme::{LegendPosition, Margins, Theme};
 use crate::tooltip::content::{ContentSource, layer_content};
 use crate::tooltip::{Interaction, LayerInteraction};
@@ -347,6 +347,9 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         .map_err(|error| error.with_notes(&warnings))?;
     x_scale.set_exponent_format(exponent_format);
     y_scale.set_exponent_format(exponent_format);
+    // Geom default colors and the names "pen", "brush", "paper" follow the theme.
+    let palette = crate::theme::geom_palette(spec.theme.as_ref())
+        .map_err(|error| error.with_notes(&warnings))?;
     for layer in mapped.iter().filter(|layer| layer.geom.includes_zero_y()) {
         match layer.y_oriented {
             true => x_scale.set_include_zero(),
@@ -547,7 +550,7 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     // Styles map in parallel too, taken in order as above.
     let styled = parallel::ordered_map(computed_tiles, parallel, |(computed, tile_x, tile_y)| {
         let results = parallel::ordered_map(computed, parallel, |layer| {
-            style_layer(layer, &style_scales, exponent_format)
+            style_layer(layer, &style_scales, exponent_format, &palette)
         });
         (results, tile_x, tile_y)
     });
@@ -634,7 +637,7 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
                 .or(first)
         })
         .collect();
-    let legends = assemble_legends(spec, &legend_layers, &style_scales, &style_specs)
+    let legends = assemble_legends(spec, &legend_layers, &style_scales, &style_specs, &palette)
         .map_err(|error| error.with_notes(&warnings))?;
     let tooltip_setups = tooltip_setups(spec, &titles, &style_specs, &orientations);
     // coord_flip: the screen axes take the other scale, title and theme elements.
@@ -2370,6 +2373,7 @@ fn style_layer(
     layer: ComputedLayer,
     style_scales: &BTreeMap<Aesthetic, StyleScale>,
     exponent_format: ExponentFormat,
+    palette: &GeomPalette,
 ) -> StageResult<(PreparedLayer, Vec<String>)> {
     let mut warnings = Vec::new();
     let parameters = Parameters::new(&layer.options, &layer.path);
@@ -2377,7 +2381,10 @@ fn style_layer(
         layer.geom,
         &layer.data,
         style_scales,
-        exponent_format,
+        StyleContext {
+            exponent_format,
+            palette,
+        },
         &parameters,
         &layer.path,
         &mut warnings,
@@ -3063,12 +3070,35 @@ fn assemble_legends(
     layers: &[&PreparedLayer],
     scales: &BTreeMap<Aesthetic, StyleScale>,
     specs: &BTreeMap<Aesthetic, StyleScaleSpec>,
+    palette: &GeomPalette,
 ) -> Result<Vec<LegendBox>> {
     /// lets-plot `LegendAssembler.MAX_LEGEND_LABELS`: bigger scales get no legend.
     const MAX_LEGEND_LABELS: usize = 200;
     let mut legends: Vec<Legend> = Vec::new();
+    // Per legend, the keys each layer adds, with its `layer_key(index=)` (`None` for
+    // scale legends). lets-plot `LegendAssembler.createLegend` sorts them by index
+    // (missing last, stable) before merging keys by label.
+    let mut contributions: Vec<Vec<KeyContribution>> = Vec::new();
     let mut colorbars: Vec<Colorbar> = Vec::new();
-    for layer in layers.iter().filter(|layer| layer.show_legend) {
+    // `layers` holds one prepared layer per spec layer, in spec order.
+    for (layer_index, layer) in layers.iter().enumerate() {
+        // lets-plot: a layer's manual key joins its legend after the layer's scale
+        // legends were assembled.
+        let manual = match spec
+            .layers
+            .get(layer_index)
+            .and_then(|spec_layer| spec_layer.manual_key.as_ref())
+        {
+            Some(manual) => manual_key_contribution(spec, layer, layer_index, manual, palette)?,
+            None => None,
+        };
+        if !layer.show_legend {
+            if let Some((title, grid, key)) = manual {
+                let index = legend_index(&mut legends, &mut contributions, title, grid);
+                contributions[index].push(key);
+            }
+            continue;
+        }
         // Scale name -> (aesthetic, its legend entries), in the geom's rendered order.
         let mut by_title: Vec<(String, Vec<AestheticEntries>, KeyGrid, Overrides)> = Vec::new();
         let mapped: Vec<Aesthetic> = layer.data.aesthetics().collect();
@@ -3157,7 +3187,7 @@ fn assemble_legends(
                 continue;
             }
             let grid = guides.legend_grid()?;
-            let overrides = guides.override_aes()?;
+            let overrides = guides.override_aes(palette)?;
             match by_title.iter_mut().find(|(known, _, _, _)| *known == title) {
                 Some((_, group, known, known_overrides)) => {
                     group.push((aesthetic, entries));
@@ -3173,20 +3203,8 @@ fn assemble_legends(
         }
         for (title, mut group, grid, overrides) in by_title {
             apply_override_aes(&mut group, &overrides);
-            let index = match legends.iter().position(|legend| legend.title == title) {
-                Some(index) => {
-                    legends[index].grid = legends[index].grid.combine(grid);
-                    index
-                }
-                None => {
-                    legends.push(Legend {
-                        title,
-                        keys: Vec::new(),
-                        grid,
-                    });
-                    legends.len() - 1
-                }
-            };
+            let index = legend_index(&mut legends, &mut contributions, title, grid);
+            let mut keys = Vec::new();
             // lets-plot `applyOverrideAesLists`: labels of every aesthetic, distinct;
             // per label, each aesthetic's last value with that label.
             let mut labels: Vec<&Label> = Vec::new();
@@ -3207,16 +3225,26 @@ fn assemble_legends(
                     .collect();
                 let key_layer = KeyLayer {
                     geom: layer.geom,
-                    styles: key_styles(layer, &values)?,
+                    styles: key_styles(layer, &values, palette, false)?,
                 };
-                let keys = &mut legends[index].keys;
-                match keys.iter_mut().find(|key| key.label == *label) {
-                    Some(key) => key.layers.push(key_layer),
-                    None => keys.push(LegendKey {
-                        label: label.clone(),
-                        layers: vec![key_layer],
-                    }),
-                }
+                keys.push((label.clone(), key_layer));
+            }
+            contributions[index].push((None, keys));
+        }
+        if let Some((title, grid, key)) = manual {
+            let index = legend_index(&mut legends, &mut contributions, title, grid);
+            contributions[index].push(key);
+        }
+    }
+    for (legend, mut layer_keys) in legends.iter_mut().zip(contributions) {
+        layer_keys.sort_by_key(|(index, _)| (index.is_none(), *index));
+        for (label, key_layer) in layer_keys.into_iter().flat_map(|(_, keys)| keys) {
+            match legend.keys.iter_mut().find(|key| key.label == label) {
+                Some(key) => key.layers.push(key_layer),
+                None => legend.keys.push(LegendKey {
+                    label,
+                    layers: vec![key_layer],
+                }),
             }
         }
     }
@@ -3225,6 +3253,149 @@ fn assemble_legends(
         .map(LegendBox::Colorbar)
         .chain(legends.into_iter().map(LegendBox::Keys))
         .collect())
+}
+
+/// The keys one layer adds to a legend, with its `layer_key(index=)`.
+type KeyContribution = (Option<i64>, Vec<(Label, KeyLayer)>);
+
+/// The index of the legend titled `title`, added (with no keys) when new; an
+/// existing legend combines its grid with `grid`. lets-plot keys legends by title,
+/// so a manual group titled like a scale joins that scale's legend.
+fn legend_index(
+    legends: &mut Vec<Legend>,
+    contributions: &mut Vec<Vec<KeyContribution>>,
+    title: String,
+    grid: KeyGrid,
+) -> usize {
+    match legends.iter().position(|legend| legend.title == title) {
+        Some(index) => {
+            legends[index].grid = legends[index].grid.combine(grid);
+            index
+        }
+        None => {
+            legends.push(Legend {
+                title,
+                keys: Vec::new(),
+                grid,
+            });
+            contributions.push(Vec::new());
+            legends.len() - 1
+        }
+    }
+}
+
+/// lets-plot's default `layer_key(group=)`: its legend has no title.
+const MANUAL_GROUP: &str = "manual";
+
+/// A layer's `manual_key` (a label, or `layer_key(label, group, index, **aesthetics)`)
+/// as its legend's title and grid and the key it adds, as lets-plot
+/// `PlotAssemblerUtil.createLegends`: `guides(<group>="none")` hides it, the group's
+/// guide title names the legend (the default group has none), and the key takes the
+/// group's `override_aes` (a list value by `index`, else layer position), then the
+/// `layer_key` values, then every constant of the layer, then the geom's defaults.
+/// It shows even when the layer has `show_legend=False`.
+fn manual_key_contribution(
+    spec: &PlotSpec,
+    layer: &PreparedLayer,
+    layer_index: usize,
+    manual: &Value,
+    palette: &GeomPalette,
+) -> Result<Option<(String, KeyGrid, KeyContribution)>> {
+    let path = format!("layers[{layer_index}].manual_key");
+    let expected = "expected a label or layer_key(label, group=, index=, **aesthetics)";
+    let (label, group, index, given) = match manual {
+        Value::String(label) => (label.clone(), MANUAL_GROUP.to_owned(), None, Vec::new()),
+        Value::Object(options) => {
+            let Some(Value::String(label)) = options.get("label") else {
+                return Err(Error::spec(
+                    format!("{path}.label"),
+                    format!("a manual key needs a text label; {expected}"),
+                ));
+            };
+            let group = match options.get("group") {
+                None | Some(Value::Null) => MANUAL_GROUP.to_owned(),
+                Some(Value::String(group)) => group.clone(),
+                Some(other) => {
+                    return Err(Error::spec(
+                        format!("{path}.group"),
+                        format!("expected a group name, got {other}"),
+                    ));
+                }
+            };
+            let index = match options.get("index") {
+                None | Some(Value::Null) => None,
+                Some(value) => Some(value.as_i64().ok_or_else(|| {
+                    Error::spec(
+                        format!("{path}.index"),
+                        format!("expected a whole number, got {value}"),
+                    )
+                })?),
+            };
+            let mut given = Vec::new();
+            for (key, value) in options {
+                if matches!(key.as_str(), "label" | "group" | "index") || value.is_null() {
+                    continue;
+                }
+                let at = format!("{path}.{key}");
+                let aesthetic = key.parse::<Aesthetic>().map_err(|_| {
+                    Error::spec(
+                        &at,
+                        format!("unknown aesthetic '{key}'; layer_key takes label, group, index and style aesthetics (color, fill, size, shape, linetype, alpha, ...)"),
+                    )
+                })?;
+                let kind = aesthetic.kind().style().ok_or_else(|| {
+                    Error::spec(
+                        &at,
+                        format!("'{key}' is not a style aesthetic; legend keys take color, fill, size, shape, linetype, alpha, ..."),
+                    )
+                })?;
+                let parsed = parse_constant_in(kind, value, palette)
+                    .map_err(|message| Error::spec(&at, message))?;
+                given.push((aesthetic, parsed));
+            }
+            (label.clone(), group, index, given)
+        }
+        other => {
+            return Err(Error::spec(path, format!("{expected}, got {other}")));
+        }
+    };
+    let guides = Guides::of_group(spec, &group);
+    if guides.hidden() {
+        return Ok(None);
+    }
+    let title = guides.title().unwrap_or_else(|| match group.as_str() {
+        MANUAL_GROUP => String::new(),
+        _ => group.clone(),
+    });
+    let grid = guides.legend_grid()?;
+    // lets-plot `processOverrideAesValues`: a list gives the value at the key's
+    // position (`index`, else the layer's), or its last one.
+    let position = index.map_or(layer_index, |index| index.max(0) as usize);
+    let mut values: Vec<(Aesthetic, StyleValues)> = guides
+        .override_aes(palette)?
+        .into_iter()
+        .filter_map(|(aesthetic, items)| {
+            let item = items.get(position).or(items.last())?.clone()?;
+            Some((aesthetic, item))
+        })
+        .collect();
+    for (aesthetic, value) in given {
+        values.retain(|(known, _)| *known != aesthetic);
+        values.push((aesthetic, value));
+    }
+    let values: Vec<(Aesthetic, &StyleValues)> = values
+        .iter()
+        .map(|(aesthetic, value)| (*aesthetic, value))
+        .collect();
+    let key_layer = KeyLayer {
+        geom: layer.geom,
+        styles: key_styles(layer, &values, palette, true)?,
+    };
+    Ok(Some((
+        title,
+        grid,
+        (index, vec![(Label::plain(label), key_layer)]),
+    )))
 }
 
 /// `guide_legend(override_aes=...)` values per aesthetic: one per key position,
@@ -3295,6 +3466,17 @@ struct Guides<'a> {
 }
 
 impl<'a> Guides<'a> {
+    /// The guide of a legend group by name (`guides(manual=...)`, `labs(manual=...)`).
+    fn of_group(spec: &'a PlotSpec, name: &str) -> Self {
+        let entries = spec
+            .guides
+            .get(name)
+            .map(|guide| (guide, format!("guides.{name}")))
+            .into_iter()
+            .collect();
+        Guides { entries }
+    }
+
     fn of(spec: &'a PlotSpec, aesthetic: Aesthetic, scale: Option<&'a StyleScaleSpec>) -> Self {
         let mut entries = Vec::new();
         if let Some(guide) = spec.guides.get(aesthetic.as_str()) {
@@ -3362,7 +3544,7 @@ impl<'a> Guides<'a> {
     /// `guide_legend(override_aes=...)`: the first given, each value parsed as its
     /// aesthetic's kind. A list gives one value per key (`None` keeps the key's
     /// value); an empty list overrides nothing.
-    fn override_aes(&self) -> Result<Overrides> {
+    fn override_aes(&self, palette: &GeomPalette) -> Result<Overrides> {
         let Some((overrides, path)) = self
             .options()
             .find_map(|(options, path)| Some((options.override_aes.as_ref()?, path)))
@@ -3392,7 +3574,7 @@ impl<'a> Guides<'a> {
                 if item.is_null() {
                     return Ok(None);
                 }
-                parse_constant(kind, item)
+                parse_constant_in(kind, item, palette)
                     .map(Some)
                     .map_err(|message| Error::spec(&at, message))
             };
@@ -3471,19 +3653,25 @@ impl<'a> Guides<'a> {
 /// One-item styles of a legend key: the legend's values, else the layer's constant
 /// shape / color / fill (lets-plot derives only these from constants), else the
 /// geom's legend default, else its default.
-fn key_styles(layer: &PreparedLayer, values: &[(Aesthetic, &StyleValues)]) -> Result<Styles> {
+fn key_styles(
+    layer: &PreparedLayer,
+    values: &[(Aesthetic, &StyleValues)],
+    palette: &GeomPalette,
+    all_constants: bool,
+) -> Result<Styles> {
     let parameters = Parameters::new(&layer.options, &layer.path);
     let mut styles = Styles::default();
     for &(aesthetic, default) in layer.geom.style_defaults() {
         let value = if let Some((_, value)) = values.iter().find(|(known, _)| *known == aesthetic) {
             (*value).clone()
         } else if let Some(constant) = parameters.value(aesthetic.as_str()).filter(|_| {
-            matches!(
-                aesthetic,
-                Aesthetic::Shape | Aesthetic::Color | Aesthetic::Fill
-            )
+            all_constants
+                || matches!(
+                    aesthetic,
+                    Aesthetic::Shape | Aesthetic::Color | Aesthetic::Fill
+                )
         }) {
-            parse_constant(default.kind(), constant)
+            parse_constant_in(default.kind(), constant, palette)
                 .map_err(|message| Error::spec(parameters.path_of(aesthetic.as_str()), message))?
         } else if let Some((_, legend_default)) = layer
             .geom
@@ -3491,9 +3679,9 @@ fn key_styles(layer: &PreparedLayer, values: &[(Aesthetic, &StyleValues)]) -> Re
             .iter()
             .find(|(known, _)| *known == aesthetic)
         {
-            legend_default.uniform()
+            legend_default.uniform_in(palette)
         } else {
-            default.uniform()
+            default.uniform_in(palette)
         };
         styles.insert(aesthetic, value)?;
     }
@@ -3508,17 +3696,29 @@ fn legend_title(spec: &PlotSpec, aesthetic: Aesthetic, scale: Option<&StyleScale
         .unwrap_or_else(|| default_scale_name(spec, aesthetic, &[]))
 }
 
+/// Plot-wide inputs of style resolution: how numbers are labelled and the theme's
+/// geom colors.
+#[derive(Clone, Copy)]
+struct StyleContext<'a> {
+    exponent_format: ExponentFormat,
+    palette: &'a GeomPalette,
+}
+
 /// Style values per aesthetic: mapped column (through its style scale) -> constant
 /// option -> geom default.
 fn resolve_styles(
     geom: &dyn Geom,
     data: &LayerData,
     style_scales: &BTreeMap<Aesthetic, StyleScale>,
-    exponent_format: ExponentFormat,
+    context: StyleContext,
     parameters: &Parameters,
     path: &str,
     warnings: &mut Vec<String>,
 ) -> Result<Styles> {
+    let StyleContext {
+        exponent_format,
+        palette,
+    } = context;
     let mut styles = Styles::default();
     for &(aesthetic, default) in geom.style_defaults() {
         let mapped = data.get(aesthetic);
@@ -3552,10 +3752,12 @@ fn resolve_styles(
                     ));
                 }
                 match parameters.value(aesthetic.as_str()) {
-                    Some(value) => parse_constant(default.kind(), value).map_err(|message| {
-                        Error::spec(parameters.path_of(aesthetic.as_str()), message)
-                    })?,
-                    None => default.uniform(),
+                    Some(value) => {
+                        parse_constant_in(default.kind(), value, palette).map_err(|message| {
+                            Error::spec(parameters.path_of(aesthetic.as_str()), message)
+                        })?
+                    }
+                    None => default.uniform_in(palette),
                 }
             }
         };
@@ -3741,12 +3943,27 @@ fn unknown(kind: &str, path: &str, name: &str, planned: bool, supported: &[&str]
 /// Parsed features that the builder does not implement yet. Each is reported, never
 /// silently dropped. Remove an entry when its phase (plan.md) implements it.
 fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
+    // Legend groups of `layer_key(group=)` take the same guides as style aesthetics.
+    let manual_groups: Vec<&str> = spec
+        .layers
+        .iter()
+        .filter_map(|layer| match layer.manual_key.as_ref()? {
+            Value::String(_) => Some(MANUAL_GROUP),
+            Value::Object(options) => Some(match options.get("group") {
+                Some(Value::String(group)) => group.as_str(),
+                _ => MANUAL_GROUP,
+            }),
+            _ => None,
+        })
+        .collect();
     for (key, guide) in &spec.guides {
         // Built: axis titles, legend titles, `"none"` and `"legend"` for style
-        // aesthetics, legend grids and colorbar sizes (see `is_built_style_guide`).
-        let is_style = key
-            .parse::<Aesthetic>()
-            .is_ok_and(|aesthetic| default_mapper(aesthetic).is_some());
+        // aesthetics and manual legend groups, legend grids and colorbar sizes (see
+        // `is_built_style_guide`).
+        let is_style = manual_groups.contains(&key.as_str())
+            || key
+                .parse::<Aesthetic>()
+                .is_ok_and(|aesthetic| default_mapper(aesthetic).is_some());
         let built = is_axis_title_only(key, guide) || (is_style && guide.is_built_style_guide());
         if !built {
             warnings.push(format!(
@@ -3772,7 +3989,6 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
             }
         };
         layer_ignored(layer.labels.is_some(), "labels");
-        layer_ignored(layer.manual_key.is_some(), "manual_key");
     }
     for path in spec.unsupported_options() {
         warnings.push(format!("unsupported option '{path}' was ignored"));
@@ -3799,9 +4015,13 @@ mod tests {
         warnings.append(&mut mapped.warnings);
         let mut computed = compute_layer(mapped, [x_scale, y_scale], &StatContext::default())?;
         warnings.append(&mut computed.warnings);
-        let (layer, mut layer_warnings) =
-            style_layer(computed, &BTreeMap::new(), ExponentFormat::default())
-                .map_err(|(error, _)| error)?;
+        let (layer, mut layer_warnings) = style_layer(
+            computed,
+            &BTreeMap::new(),
+            ExponentFormat::default(),
+            &GeomPalette::STANDARD,
+        )
+        .map_err(|(error, _)| error)?;
         warnings.append(&mut layer_warnings);
         Ok(layer)
     }
@@ -3995,9 +4215,13 @@ mod tests {
             let mut warnings = std::mem::take(&mut mapped.warnings);
             let computed =
                 compute_layer(mapped, [&scale, &scale], &StatContext::default()).unwrap();
-            let (layer, layer_warnings) =
-                style_layer(computed, &BTreeMap::new(), ExponentFormat::default())
-                    .unwrap_or_else(|_| panic!());
+            let (layer, layer_warnings) = style_layer(
+                computed,
+                &BTreeMap::new(),
+                ExponentFormat::default(),
+                &GeomPalette::STANDARD,
+            )
+            .unwrap_or_else(|_| panic!());
             warnings.extend(layer_warnings);
             let read = |aesthetic| {
                 let values = layer.styles.numbers(aesthetic).unwrap();

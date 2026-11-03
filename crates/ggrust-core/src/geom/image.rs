@@ -16,7 +16,7 @@
 use super::{DrawLayer, Geom};
 use crate::coord::Panel;
 use crate::parameters::Parameters;
-use crate::scene::{Bitmap, Color, EncodedPng, Image, Node, Orientation, Rect};
+use crate::scene::{Bitmap, EncodedPng, Image, Node, Orientation, Rect};
 use crate::spec::Aesthetic;
 use crate::style::{StyleDefault, Styles};
 use crate::{Error, Result};
@@ -31,18 +31,9 @@ const BOX_AESTHETICS: &[Aesthetic] = &[
 
 /// The colorbar aesthetics (`color_by`); the image does not draw them.
 const STYLE_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
-    (
-        Aesthetic::PaintA,
-        StyleDefault::Color(Color::rgb(0x47, 0x47, 0x47)),
-    ),
-    (
-        Aesthetic::PaintB,
-        StyleDefault::Color(Color::rgb(0x47, 0x47, 0x47)),
-    ),
-    (
-        Aesthetic::PaintC,
-        StyleDefault::Color(Color::rgb(0x47, 0x47, 0x47)),
-    ),
+    (Aesthetic::PaintA, StyleDefault::PEN),
+    (Aesthetic::PaintB, StyleDefault::PEN),
+    (Aesthetic::PaintC, StyleDefault::PEN),
 ];
 
 /// The only `href` form ggrust reads (what `geom_imshow` writes).

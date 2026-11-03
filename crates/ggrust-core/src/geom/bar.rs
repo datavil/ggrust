@@ -25,11 +25,8 @@ use crate::{Error, Result};
 
 /// lets-plot bar style: blue fill, white outline (the paper color), size 0.75.
 const BAR_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
-    (Aesthetic::Color, StyleDefault::Color(Color::WHITE)),
-    (
-        Aesthetic::Fill,
-        StyleDefault::Color(Color::rgb(0x11, 0x8e, 0xd8)),
-    ),
+    (Aesthetic::Color, StyleDefault::PAPER),
+    (Aesthetic::Fill, StyleDefault::BRUSH),
     (Aesthetic::Alpha, StyleDefault::Number(f64::NAN)),
     (Aesthetic::Size, StyleDefault::Number(0.75)),
     (Aesthetic::Linetype, StyleDefault::Linetype(&[])),
@@ -37,14 +34,8 @@ const BAR_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
 
 /// lets-plot histogram style: fill and outline in the pen color, thin outline.
 const HISTOGRAM_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
-    (
-        Aesthetic::Color,
-        StyleDefault::Color(Color::rgb(0x47, 0x47, 0x47)),
-    ),
-    (
-        Aesthetic::Fill,
-        StyleDefault::Color(Color::rgb(0x47, 0x47, 0x47)),
-    ),
+    (Aesthetic::Color, StyleDefault::PEN),
+    (Aesthetic::Fill, StyleDefault::PEN),
     (Aesthetic::Alpha, StyleDefault::Number(f64::NAN)),
     (Aesthetic::Size, StyleDefault::Number(0.5)),
     (Aesthetic::Linetype, StyleDefault::Linetype(&[])),

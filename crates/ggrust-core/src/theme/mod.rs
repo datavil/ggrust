@@ -14,13 +14,13 @@ mod values;
 
 pub use values::{FLAVOR_NAMES, THEME_NAMES};
 
-use values::{Paint, Props, Values, theme_values};
+use values::{Paint, Props, Symbol, Values, theme_values};
 
 use crate::geom::Arrow;
 use crate::scale::number_format::{ExponentFormat, ExponentStyle};
 use crate::scene::{Color, Stroke};
 use crate::spec::{ThemeSpec, ThemeValue, Value};
-use crate::style::LineType;
+use crate::style::{GeomPalette, LineType};
 use crate::text::{Font, FontFace, FontFamily};
 use crate::{Error, Result};
 
@@ -444,6 +444,7 @@ const BUILT_OPTIONS: &[&str] = &[
     "panel_spacing_x",
     "panel_spacing_y",
     "flavor",
+    "geom",
 ];
 
 impl Theme {
@@ -490,6 +491,37 @@ impl Theme {
         }
         Ok(theme)
     }
+}
+
+/// The geom colors of a spec's theme (lets-plot `ThemeFlavor` and `element_geom`):
+/// pen is the flavor's ink, paper its background, brush lets-plot's blue; each one
+/// `theme(geom=element_geom(...))` sets wins.
+pub fn geom_palette(spec: Option<&ThemeSpec>) -> Result<GeomPalette> {
+    let (_, flavor) = theme_values(spec).map_err(Error::spec_located)?;
+    let mut palette = GeomPalette {
+        pen: flavor.color(Symbol::Black),
+        brush: GeomPalette::STANDARD.brush,
+        paper: flavor.color(Symbol::White),
+    };
+    let element = spec.and_then(|spec| match spec.elements.get("geom") {
+        Some(ThemeValue::Element(element)) => Some(element),
+        _ => None,
+    });
+    if let Some(element) = element {
+        let flavored = palette;
+        for (name, given, slot) in [
+            ("pen", &element.pen, &mut palette.pen),
+            ("brush", &element.brush, &mut palette.brush),
+            ("paper", &element.paper, &mut palette.paper),
+        ] {
+            if let Some(text) = given {
+                *slot = flavored
+                    .parse_color(text)
+                    .map_err(|message| Error::spec(format!("theme.geom.{name}"), message))?;
+            }
+        }
+    }
+    Ok(palette)
 }
 
 fn report_unbuilt(spec: &ThemeSpec, warnings: &mut Vec<String>) {
@@ -1353,5 +1385,25 @@ mod tests {
             message.contains("length: expected a non-negative number"),
             "{message}"
         );
+    }
+
+    #[test]
+    fn geom_palette_follows_the_flavor_and_element_geom() {
+        let standard = geom_palette(None).unwrap();
+        assert_eq!(standard, GeomPalette::STANDARD);
+        let darcula = geom_palette(Some(&spec(r#"{"flavor": "darcula"}"#))).unwrap();
+        assert_eq!(darcula.pen, Color::from_hex("#BBBBBB").unwrap());
+        assert_eq!(darcula.paper, Color::from_hex("#303030").unwrap());
+        assert_eq!(darcula.brush, GeomPalette::STANDARD.brush);
+        let custom = geom_palette(Some(&spec(
+            r#"{"flavor": "darcula", "geom": {"brush": "orange", "paper": "pen"}}"#,
+        )))
+        .unwrap();
+        assert_eq!(custom.pen, darcula.pen);
+        assert_eq!(custom.brush, Color::parse("orange").unwrap());
+        // A name inside element_geom reads the flavor's colors.
+        assert_eq!(custom.paper, darcula.pen);
+        let error = geom_palette(Some(&spec(r#"{"geom": {"pen": "reddish"}}"#))).unwrap_err();
+        assert!(error.to_string().contains("theme.geom.pen"), "{error}");
     }
 }

@@ -29,11 +29,8 @@ const SMALL_POINT_UNIT_SIZE: f64 = 1.5;
 const STYLE_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
     (Aesthetic::Size, StyleDefault::Number(3.0)),
     (Aesthetic::Stroke, StyleDefault::Number(0.75)),
-    (
-        Aesthetic::Color,
-        StyleDefault::Color(Color::rgb(0x47, 0x47, 0x47)),
-    ),
-    (Aesthetic::Fill, StyleDefault::Color(Color::WHITE)),
+    (Aesthetic::Color, StyleDefault::PEN),
+    (Aesthetic::Fill, StyleDefault::PAPER),
     // NaN: keep the color's own alpha (lets-plot: alpha replaces it only when set).
     (Aesthetic::Alpha, StyleDefault::Number(f64::NAN)),
     (Aesthetic::Shape, StyleDefault::Shape(16)),

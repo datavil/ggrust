@@ -597,7 +597,13 @@ def element_geom(
     Examples
     --------
     >>> from ggrust import *
-    >>> style = theme(geom=element_geom(pen="navy", brush="orange"))  # not drawn yet: warns
+    >>> data = {"fruit": ["apple", "banana", "apple", "cherry"], "kg": [3, 5, 2, 4]}
+    >>> plot = (
+    ...     ggplot(data, aes("fruit", "kg"))
+    ...     + geom_bar(stat="identity")
+    ...     + geom_point(size=6)
+    ...     + theme(geom=element_geom(pen="navy", brush="orange", paper="ivory"))
+    ... )
     """
     return locals()
 

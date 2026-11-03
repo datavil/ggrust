@@ -34,10 +34,7 @@ pub(super) const UNSET_SEGMENT_COLOR: Color = Color::rgb(255, 255, 255);
 
 const DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
     (Aesthetic::Label, StyleDefault::Text("")),
-    (
-        Aesthetic::Color,
-        StyleDefault::Color(Color::rgb(0x47, 0x47, 0x47)),
-    ),
+    (Aesthetic::Color, StyleDefault::PEN),
     (Aesthetic::Alpha, StyleDefault::Number(f64::NAN)),
     (Aesthetic::Size, StyleDefault::Number(7.0)),
     (Aesthetic::Family, StyleDefault::Text("sans")),

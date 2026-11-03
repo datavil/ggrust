@@ -15,18 +15,15 @@ use super::{DrawLayer, Geom};
 use crate::coord::Panel;
 use crate::data::{Column, Computed, ContinuousColumn, LayerData};
 use crate::parameters::Parameters;
-use crate::scene::{Color, Node, Rect};
+use crate::scene::{Node, Rect};
 use crate::spec::Aesthetic;
 use crate::style::{StyleDefault, Styles};
 use crate::{Error, Result};
 
 /// lets-plot tile style: pen fill, paper outline of width 0.
 const STYLE_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
-    (Aesthetic::Color, StyleDefault::Color(Color::WHITE)),
-    (
-        Aesthetic::Fill,
-        StyleDefault::Color(Color::rgb(0x47, 0x47, 0x47)),
-    ),
+    (Aesthetic::Color, StyleDefault::PAPER),
+    (Aesthetic::Fill, StyleDefault::PEN),
     (Aesthetic::Alpha, StyleDefault::Number(f64::NAN)),
     (Aesthetic::Size, StyleDefault::Number(0.0)),
     (Aesthetic::Linetype, StyleDefault::Linetype(&[])),

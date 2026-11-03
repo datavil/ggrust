@@ -199,6 +199,7 @@ Titles, axis labels and legends.
 | [`guides()`](api/guides.md) | Set guides (legends, colorbars) per aesthetic. |
 | [`guide_legend()`](api/guide_legend.md) | Show a key legend for an aesthetic. |
 | [`guide_colorbar()`](api/guide_colorbar.md) | Show a colorbar for a continuous color or fill scale. |
+| [`layer_key()`](api/layer_key.md) | Describe a layer's entry in a manual legend (``manual_key=`` of any geom). |
 
 ## Themes
 

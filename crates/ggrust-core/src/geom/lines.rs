@@ -17,10 +17,7 @@ use crate::style::{LineType, StyleDefault, Styles};
 
 /// Style defaults of line geoms (lets-plot: color `#474747`, size 0.75, solid).
 pub(super) const LINE_STYLE_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
-    (
-        Aesthetic::Color,
-        StyleDefault::Color(Color::rgb(0x47, 0x47, 0x47)),
-    ),
+    (Aesthetic::Color, StyleDefault::PEN),
     (Aesthetic::Alpha, StyleDefault::Number(f64::NAN)),
     (Aesthetic::Size, StyleDefault::Number(0.75)),
     (Aesthetic::Linetype, StyleDefault::Linetype(&[])),

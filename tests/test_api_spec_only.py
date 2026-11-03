@@ -258,8 +258,8 @@ def test_rendering_ignored_features_warns():
         warnings.simplefilter("error", gg.GgrustWarning)
         (plot + gg.ggtb()).to_svg()
     # Layer options not built yet are reported.
-    with pytest.warns(gg.GgrustWarning, match=r"manual_key"):
-        (plot + gg.geom_point(manual_key="points")).to_svg()
+    with pytest.warns(gg.GgrustWarning, match=r"'labels' is not supported yet"):
+        (plot + gg.geom_point(labels=gg.layer_tooltips())).to_svg()
 
 
 def test_rendering_a_grid_draws_every_figure():

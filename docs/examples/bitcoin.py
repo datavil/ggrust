@@ -16,7 +16,7 @@ prices = pl.read_csv(DATA + "bitcoin.csv", try_parse_dates=True).with_columns(
 
 plot = (
     ggplot(prices)
-    + geom_line(aes("date", "close"), color="#bbbbbb", size=1.2, tooltips="none")
+    + geom_line(aes("date", "close"), color="pen", size=1.2, tooltips="none")
     + geom_line(
         aes("date", "close", color=as_discrete("trend"), group=[]),
         size=0.6,

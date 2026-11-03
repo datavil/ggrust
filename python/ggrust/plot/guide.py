@@ -1,4 +1,4 @@
-"""``guides()`` and the guide spec helper.
+"""``guides()``, the guide spec helpers and ``layer_key()`` (manual legend keys).
 
 Ported from lets-plot's ``lets_plot/plot/guide.py`` (MIT, see THIRD_PARTY_NOTICES.md).
 """
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
     from ggrust._typing import Number
 
-__all__ = ["guide_colorbar", "guide_legend", "guides"]
+__all__ = ["guide_colorbar", "guide_legend", "guides", "layer_key"]
 
 
 def _guide(name: str | None, **kwargs: Any) -> FeatureSpec:
@@ -139,3 +139,58 @@ def guide_colorbar(
         )
         raise SpecError(message)
     return _guide("colorbar", **locals())
+
+
+def layer_key(
+    label: str,
+    group: str | None = None,
+    *,
+    index: int | None = None,
+    **kwargs: Any,
+) -> FeatureSpec:
+    """Describe a layer's entry in a manual legend (``manual_key=`` of any geom).
+
+    The key is drawn by the layer's geom with its constant aesthetics, then the
+    values given here. Layers with the same ``group`` share a legend; a label used
+    by several layers of one group becomes one key drawing all of them. The key
+    shows even when the layer has ``show_legend=False``.
+
+    Parameters
+    ----------
+    label : str
+        Text next to the key.
+    group : str, default="manual"
+        Legend the key joins. The ``"manual"`` legend has no title; give one with
+        ``labs(manual="Title")`` or ``guides(manual=guide_legend("Title"))``. Other
+        groups are titled by their name unless ``guides(<group>=...)`` sets one.
+    index : int, optional
+        Position of the key in its legend; keys with an index come first, in index
+        order, then the others in layer order.
+    **kwargs
+        Aesthetic values for the key only, e.g. ``size=3`` or ``shape=21``.
+
+    Returns
+    -------
+    FeatureSpec
+        The key specification, for a geom's ``manual_key``.
+
+    Raises
+    ------
+    TypeError
+        When ``label`` is not a string.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"day": [1, 2, 3, 4, 5], "steps": [6.1, 8.4, 7.2, 9.9, 8.8]}
+    >>> plot = (
+    ...     ggplot(data, aes("day", "steps"))
+    ...     + geom_line(color="grey", manual_key=layer_key("trend", linetype="solid"))
+    ...     + geom_point(color="firebrick", size=4, manual_key=layer_key("measured"))
+    ...     + labs(manual="Steps (thousands)")
+    ... )
+    """
+    if not isinstance(label, str):
+        message = f"layer_key(): label must be a string, got {type(label).__name__}"
+        raise TypeError(message)
+    return FeatureSpec("layer_key", name=None, label=label, group=group, index=index, **kwargs)

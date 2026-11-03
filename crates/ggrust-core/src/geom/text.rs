@@ -8,9 +8,13 @@
 //! turns it counter-clockwise, `nudge_x`/`nudge_y` shift it in data units.
 //!
 //! What it does not do (yet): `label_format`, `na_text`, `check_overlap`,
-//! `halo_*`, `lineheight` (lines are one font size apart), `size_unit`,
+//! `halo_*`, `lineheight` (lines are one font size apart),
 //! `hjust`/`vjust` `inward`/`outward`.
+//!
+//! `size_unit="x"`/`"y"` scales the font by one axis unit / 6 px (lets-plot's
+//! baseline text width), so `size=1` is a third of an axis unit tall.
 
+use super::size_unit::size_unit_ratio;
 use super::{DrawLayer, Geom};
 use crate::Result;
 use crate::coord::Panel;
@@ -68,7 +72,11 @@ const PARAMETERS: &[&str] = &[
     "label_padding",
     "label_r",
     "label_size",
+    "size_unit",
 ];
+
+/// lets-plot `TextGeom` `BASELINE_TEXT_WIDTH`: pixels per unit of `size` under `size_unit`.
+const SIZE_UNIT_TEXT_WIDTH: f64 = 6.0;
 
 /// Plain text.
 pub struct TextGeom;
@@ -109,7 +117,7 @@ impl Geom for TextGeom {
     }
 
     fn parameters(&self) -> &'static [&'static str] {
-        &["nudge_x", "nudge_y"]
+        &["nudge_x", "nudge_y", "size_unit"]
     }
 
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
@@ -251,6 +259,7 @@ fn draw_texts(layer: &DrawLayer, panel: &Panel, label: bool) -> Result<Vec<Node>
         .parameters
         .number("label_size")?
         .unwrap_or(LABEL_BORDER);
+    let ratio = size_unit_ratio(&layer.parameters, panel, SIZE_UNIT_TEXT_WIDTH)?;
     let mut nodes = Vec::new();
     for row in 0..layer.data.row_count() {
         let (px, py) = panel.map(
@@ -260,7 +269,8 @@ fn draw_texts(layer: &DrawLayer, panel: &Panel, label: bool) -> Result<Vec<Node>
         if !px.is_finite() || !py.is_finite() {
             continue;
         }
-        let look = look(layer.styles, row, label)?;
+        let mut look = look(layer.styles, row, label)?;
+        look.size *= ratio;
         if look.content.is_empty() || look.size <= 0.0 {
             continue;
         }

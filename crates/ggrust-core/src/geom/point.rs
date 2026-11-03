@@ -8,8 +8,11 @@
 //! color `#474747`, fill white, shape 16 (solid circle). `alpha`, when given,
 //! replaces the alpha of both fill and outline. A missing shape is a 1 px dot.
 //!
+//! `size_unit="x"`/`"y"` makes `size=1` one axis unit wide (see `size_unit.rs`).
+//!
 //! What it does not do (yet): `angle`, `fatten`.
 
+use super::size_unit::size_unit_ratio;
 use super::{DrawLayer, Geom};
 use crate::Result;
 use crate::coord::Panel;
@@ -53,8 +56,10 @@ impl Geom for PointGeom {
         layer: &DrawLayer,
         panel: &Panel,
     ) -> Result<Option<crate::tooltip::HoverTargets>> {
+        // lets-plot `PointGeom`: half the shape's size with its stroke.
+        let ratio = size_unit_ratio(&layer.parameters, panel, POINT_UNIT_SIZE)?;
         Ok(super::hover::circles(layer, panel, |row| {
-            hover_radius(layer.styles, row)
+            marker_extent(layer.styles, row, ratio)
         }))
     }
 
@@ -68,6 +73,10 @@ impl Geom for PointGeom {
 
     fn style_defaults(&self) -> &'static [(Aesthetic, StyleDefault)] {
         STYLE_DEFAULTS
+    }
+
+    fn parameters(&self) -> &'static [&'static str] {
+        &["size_unit"]
     }
 
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
@@ -87,7 +96,9 @@ impl Geom for PointGeom {
             pixel_x.push(px);
             pixel_y.push(py);
         }
-        let mut points = markers(layer.styles, row_count, false, 1.0)?;
+        // lets-plot `PointGeom`: the size unit ratio fattens the shape, not its outline.
+        let ratio = size_unit_ratio(&layer.parameters, panel, POINT_UNIT_SIZE)?;
+        let mut points = markers(layer.styles, row_count, false, ratio)?;
         points.x = pixel_x;
         points.y = pixel_y;
         Ok(vec![Node::Points(points)])
@@ -110,12 +121,6 @@ impl Geom for PointGeom {
         points.y = vec![cell.y + cell.height / 2.0];
         Ok(vec![Node::Points(points)])
     }
-}
-
-/// Radius of a marker for hover lookups (lets-plot `PointGeom`: half the shape's
-/// size with its stroke).
-pub(super) fn hover_radius(styles: &Styles, row: usize) -> f64 {
-    marker_extent(styles, row, 1.0)
 }
 
 /// Diameter plus outline of the marker of `row` with `size` times `fatten`

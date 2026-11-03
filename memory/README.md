@@ -52,3 +52,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Exact port speedups](exact_port_speedups.md): cache + provable skips only; ported predicates are not geometric (degenerate boxes); ties break on 1e-13 changes.
 - [2D bins follow lets-plot](letsplot_bin2d_hex.md): bin2d/binhex grid rules, literal hex border port, NaN corner rows train axes, bin-size columns fix #1290.
 - [Contours follow lets-plot triangles](letsplot_contours.md): ported isolines (vertex counts match), own isobands (lets-plot fill helper breaks), symbolic vertices cancel shared edges, R bandwidths, chunked KDE.
+- [corr_plot follows measured lets-plot output](letsplot_corr_plot.md): Kotlin-side bistro measured from SVG; layer type/diag/color rules, threshold cropping, size formula, explicit 0.6 coord padding.

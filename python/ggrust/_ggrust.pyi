@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, TypedDict
 
 __all__ = [
+    "correlation_matrix",
     "describe_frame",
     "engine_version",
     "referenced_columns",
@@ -50,6 +51,23 @@ def validate_spec(spec_json: str) -> list[str]:
     ------
     ValueError
         If the spec is invalid; the message names the offending path.
+    """
+
+def correlation_matrix(data: object) -> tuple[list[str], list[float], bool]:
+    """Pearson correlations between the numeric columns of an Arrow table.
+
+    Parameters
+    ----------
+    data
+        Any object exporting ``__arrow_c_stream__`` or ``__arrow_c_array__``.
+
+    Returns
+    -------
+    tuple[list[str], list[float], bool]
+        The variable names, the row-major ``n x n`` correlations (pairwise complete
+        rows; NaN with fewer than 2 rows or no variance; 1 on the diagonal), and
+        whether the table already was a correlation matrix (square, float columns,
+        every value in -1..1 or NaN) and was returned as it is.
     """
 
 def describe_frame(data: object) -> list[ColumnSummary]:

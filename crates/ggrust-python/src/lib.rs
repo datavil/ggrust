@@ -109,6 +109,21 @@ mod _ggrust {
             .map_err(to_python_error)
     }
 
+    /// Pearson correlations between the numeric columns of an Arrow table
+    /// (`corr_plot`), or the table itself when it already is a correlation matrix.
+    /// Returns `(names, row-major values, given)`. The GIL is released while computing.
+    #[pyfunction]
+    fn correlation_matrix(
+        python: Python<'_>,
+        data: AnyRecordBatch,
+    ) -> PyResult<(Vec<String>, Vec<f64>, bool)> {
+        let frame = to_frame(data)?;
+        python
+            .detach(|| ggrust_core::data::correlation::correlation_matrix(&frame))
+            .map(|matrix| (matrix.names, matrix.values, matrix.given))
+            .map_err(to_python_error)
+    }
+
     /// Column names `layer_tooltips()` reads, sorted: exported for HTML output only.
     ///
     /// Raises `ggrust.errors.SpecError` (with its `path`) if the spec is invalid.

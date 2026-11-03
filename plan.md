@@ -296,6 +296,7 @@ Group 5: score 3.
 - [ ] lp5.10 Positional scale options: `break_width`, `lablim`, `na_value`; `scale_linewidth*`, `scale_stroke*` (#1158).
 - [ ] lp5.11 Mapped `hjust`/`vjust` on text and label (#1143).
 - [ ] lp5.12 Bistro: `corr_plot`, `joint_plot`, `qq_plot` (#866, #295).
+  (Partly done: `corr_plot` in `python/ggrust/bistro/corr.py` (`from ggrust.bistro.corr import corr_plot`), the lets_plot builder (`tiles`/`points`/`labels`, `type`/`diag`/`map_size`/`color`, `flip`, `threshold`, `show_legend`, `palette_gradient` and the nine brewer palettes). Pearson matrix in Rust (`data/correlation.rs`, pairwise complete, a given matrix is used as is), exposed as `_ggrust.correlation_matrix`. Layer types, diagonals, label color/size, threshold cropping and the plot size reproduce lets-plot 4.11's measured output (17 parity cases: size, texts, relative radii); needed `size_unit="x"/"y"` on point, text and label (`geom/size_unit.rs`). Not yet: `joint_plot` (needs `ggmarginal`, lp5.6), `qq_plot` (needs `geom_qq`, lp5.4); corr tooltips unmeasured.)
 - [ ] lp5.13 Vector PDF output.
 
 Group 6: score 2 and 1, only on demand.

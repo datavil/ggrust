@@ -16,8 +16,10 @@ arrow-cast = "59.3"
 arrow-schema = "59.3"
 arrow-select = "59.3"
 crc32fast = "1.5"
+flate2 = "1.1"
 ggrust-core = { path = "crates/ggrust-core" }
 harfrust = "0.12"
+pdf-writer = "0.15"
 png = "0.18"
 pyo3 = { version = "0.30", features = ["abi3-py311"] }
 pyo3-arrow = "0.20"
@@ -27,6 +29,7 @@ resvg = { version = "0.48.1", default-features = false, features = ["text"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = { version = "1", features = ["float_roundtrip"] }
 serde_path_to_error = "0.1"
+subsetter = { version = "0.2.6", default-features = false }
 thiserror = "2"
 
 [workspace.lints.rust]

@@ -96,33 +96,40 @@ def test_pdf_page_matches_lets_plot(options, tmp_path):
         box = re.search(rb"/MediaBox\s*\[\s*([\d.\s]+)\]", data).group(1)
         return [float(value) for value in box.split()]
 
-    def image_size(name: str) -> tuple[int, int]:
-        data = (tmp_path / name).read_bytes()
-        width = re.search(rb"/Width (\d+)", data).group(1)
-        height = re.search(rb"/Height (\d+)", data).group(1)
-        return int(width), int(height)
-
-    assert image_size("actual.pdf") == image_size("expected.pdf")
+    # Vector pages: the same physical size as lets-plot's raster page.
     # Pillow reads the PNG's rounded pHYs (96.012 dpi): pages agree to 0.1 %.
     assert media_box("actual.pdf") == pytest.approx(media_box("expected.pdf"), rel=1e-3)
 
 
-def test_pdf_shows_the_plot(tmp_path):
-    path = gg.ggsave(_plot(gg), "plot.pdf", path=str(tmp_path), scale=1)
+def test_pdf_is_vector_with_embedded_text(tmp_path):
+    plot = _plot(gg) + gg.ggtitle("Prices AV")
+    path = gg.ggsave(plot, "plot.pdf", path=str(tmp_path), scale=1)
     with open(path, "rb") as file:
         data = file.read()
     assert data.startswith(b"%PDF-") and data.rstrip().endswith(b"%%EOF")
-    # The image stream decodes (PNG predictor) to the PNG export's pixels over white.
+    # Real text in a subset of the embedded font, no page image.
+    assert b"/Subtype /Type0" in data and b"+LiberationSans" in data
+    assert b"/FontFile2" in data and b"/ToUnicode" in data
+    assert b"/Subtype /Image" not in data
+    # The ToUnicode map carries the title's letters (selectable, searchable).
     import zlib
 
-    stream = re.search(rb"/Length (\d+) >>\nstream\n", data)
-    start = stream.end()
-    raw = zlib.decompress(data[start : start + int(stream.group(1))])
-    png = _png(gg, {"scale": 1}).convert("RGB")
-    width, height = png.size
-    assert len(raw) == height * (width * 3 + 1)
-    # Every scanline starts with a PNG filter type (0..4), as /Predictor 15 reads.
-    assert all(raw[row * (width * 3 + 1)] <= 4 for row in range(height))
+    def inflate(stream: bytes) -> bytes:
+        try:
+            return zlib.decompress(stream)
+        except zlib.error:
+            return stream  # stored uncompressed (the ToUnicode map)
+
+    streams = [
+        inflate(match.group(1))
+        for match in re.finditer(rb"stream\n(.*?)\nendstream", data, re.DOTALL)
+    ]
+    cmap = next(stream for stream in streams if b"beginbfchar" in stream)
+    for letter in "PricesAV":
+        assert f"<{ord(letter):04X}>".encode() in cmap, letter
+    # The content stream draws paths and shows text.
+    content = streams[0]
+    assert b" re\n" in content and b"BT\n" in content and b"TJ\n" in content
 
 
 @pytest.mark.parametrize(

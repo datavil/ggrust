@@ -18,7 +18,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Lessons: [memory/](memory/README.md
 | Fonts | One embedded open font so text measurement and PNGs are identical on every machine |
 | Categorical level order | From the Arrow data: dictionary order, so polars `Categorical` = first appearance (as lets-plot), `Enum`/ordered pandas = category order. Unordered pandas categoricals keep their category order (ggplot2), a recorded deviation from lets-plot's first appearance (decided 2026-10-28) |
 | Tooltip scope (4.2) | General tooltips + axis tooltips as lets-plot; boxplot statistics are lines of the general tooltip (lets-plot `disable_splitting` look), not separate side boxes. No tooltip theme elements, `tooltip_group` or crosshair modes (decided 2026-10-28) |
-| PDF export (5.3) | Raster PDF as lets-plot (the PNG at its dpi on one page), written by a small Rust PDF writer: no Pillow needed (decided (user) 2026-10-31) |
+| PDF export (5.3) | Raster PDF as lets-plot (the PNG at its dpi on one page), written by a small Rust PDF writer: no Pillow needed (decided (user) 2026-10-31). Superseded by lp5.13: vector PDF on the same page size (plan step lp5.13, 2026-11-03) |
 | imshow PNG encoding | Encoded in Rust with the fastest deflate; the href decodes to lets-plot's pixels but its bytes differ (parity is visual, not byte-level) (decided (user) 2026-10-31) |
 | Tooltip runtime (4.2) | Rust computes targets (scene pixels) and every row's text; the JS runtime builds the grid-bucket hit index at mount (no index in the payload) and draws tooltips as HTML divs over the SVG (decided 2026-10-28) |
 | cellestial browser tests (5.4) | cellestial's helper is rewritten on ggrust's HTML; ggrust does not emulate lets-plot's HTML hooks (`plt-container`, `lets-plot.min.js`) (decided (user) 2026-10-31) |
@@ -296,7 +296,8 @@ Group 5: score 3.
 - [ ] lp5.10 Positional scale options: `break_width`, `lablim`, `na_value`; `scale_linewidth*`, `scale_stroke*` (#1158).
 - [ ] lp5.11 Mapped `hjust`/`vjust` on text and label (#1143).
 - [ ] lp5.12 Bistro: `corr_plot`, `joint_plot`, `qq_plot` (#866, #295).
-- [ ] lp5.13 Vector PDF output.
+- [x] lp5.13 Vector PDF output.
+  (`render/pdf.rs` rewritten: `to_pdf()`/`ggsave(.pdf)` write true vector pages with `pdf-writer` + `subsetter` (typst's pure-Rust crates, 5 small deps; chosen over krilla, which duplicates skrifa and needs its own shaping setup, and svg2pdf, which goes through usvg and its node limit). Paths, rects, markers (one Form XObject per distinct marker, `Do` per point; inline paths past 1024 distinct markers), clips (`q re W n Q`), alpha via ExtGState, text as Type0/CIDFontType2 subsets of the embedded Liberation fonts with ToUnicode (selectable; glyphs and kerning from the same harfrust shaping as layout, via new `text::shape`), superscripts with `Ts`, images as XObjects with SMask. Page size unchanged (PNG pixels / dpi, lets-plot's page). Rasterised with macOS Core Graphics vs the PNG: mean abs diff 0.6-1.7/255 on scatter, bars+facets, log axis, raster, shapes 0-25. 100k points: PDF 79 ms / 1.2 MB vs PNG 84 ms / 0.67 MB. Deviations: vector instead of lets-plot's raster; image pixels repeated so Quartz cannot blur them; DeviceRGB without ICC (gap).)
 
 Group 6: score 2 and 1, only on demand.
 

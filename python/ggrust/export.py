@@ -1,7 +1,7 @@
 """``ggsave()``: write a plot to a file chosen by its extension.
 
 Ported from lets-plot's ``lets_plot/export/ggsave_.py`` (MIT, see THIRD_PARTY_NOTICES.md).
-Supported: svg, png, pdf (raster, as lets_plot), html/htm.
+Supported: svg, png, pdf (vector), html/htm.
 """
 
 from __future__ import annotations

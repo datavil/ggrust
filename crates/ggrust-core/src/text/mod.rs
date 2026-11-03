@@ -277,6 +277,45 @@ pub fn measure(text: &str, size: f64, font: impl Into<Font>) -> TextExtent {
     }
 }
 
+/// One glyph of a shaped line, in font units (see [`shape`]).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ShapedGlyph {
+    /// Glyph id in the embedded font.
+    pub glyph_id: u16,
+    /// Horizontal advance after shaping (kerning included).
+    pub x_advance: i32,
+    /// Byte offset, in the [`single_line`] text, of the cluster the glyph belongs to.
+    pub cluster: usize,
+}
+
+/// Shape one line (see [`single_line`]) with the shaper [`measure`] uses, so a
+/// renderer drawing these glyphs gets exactly the measured width. Returns the
+/// glyphs in visual order and the font's units per em.
+pub fn shape(text: &str, font: Font) -> (Vec<ShapedGlyph>, u16) {
+    let font = &FONTS[font.index()];
+    let text = single_line(text);
+    if text.is_empty() {
+        return (Vec::new(), font.units_per_em);
+    }
+    let shaper = font.shaper_data.shaper(&font.font_ref).build();
+    let mut buffer = UnicodeBuffer::new();
+    buffer.push_str(&text);
+    buffer.guess_segment_properties();
+    let output = shaper.shape(buffer, harfrust::ShapeOptions::new());
+    let glyphs = output
+        .glyph_infos()
+        .iter()
+        .zip(output.glyph_positions())
+        .map(|(info, position)| ShapedGlyph {
+            // The embedded fonts have fewer than 65536 glyphs.
+            glyph_id: u16::try_from(info.glyph_id).unwrap_or(0),
+            x_advance: position.x_advance,
+            cluster: info.cluster as usize,
+        })
+        .collect();
+    (glyphs, font.units_per_em)
+}
+
 /// Width of a label with an optional superscript (see [`crate::scene::Text`]).
 pub fn measure_label(
     text: &str,

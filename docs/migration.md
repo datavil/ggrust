@@ -62,8 +62,9 @@ differences:
   accepted units; lets-plot silently uses inches.
 - **Export sizes without a unit are inches**, as in lets-plot; a unitless `w` or `h` of
   20 or more raises (it was probably meant as pixels): pass `unit="px"`.
-- **PDF export** writes the PNG's pixels on one page at its dpi, like lets-plot, but needs
-  no Pillow.
+- **PDF export is vector.** lets-plot converts its PNG to a one-page raster PDF with
+  Pillow; ggrust writes paths and real, selectable text in the embedded font, on a page
+  of the same physical size. No Pillow needed.
 - **HTML structure differs.** ggrust's HTML does not contain lets-plot's
   `plt-container` element or load `lets-plot.min.js`. Code that scrapes lets-plot's
   HTML (for example browser tests) has to target ggrust's output instead.

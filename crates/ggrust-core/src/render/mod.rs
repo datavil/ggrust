@@ -1,4 +1,4 @@
-//! Renderers: [`Scene`](crate::scene::Scene) -> SVG text, PNG bytes, PDF bytes or HTML.
+//! Renderers: [`Scene`](crate::scene::Scene) -> SVG text, PNG bytes, vector PDF bytes or HTML.
 
 mod canvas;
 mod html;

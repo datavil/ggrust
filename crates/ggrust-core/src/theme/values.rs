@@ -9,6 +9,7 @@
 
 use std::collections::BTreeMap;
 
+use crate::geom::Arrow;
 use crate::scene::Color;
 use crate::spec::{ElementSpec, ThemeSpec, ThemeValue, Value};
 use crate::style::LineType;
@@ -64,6 +65,10 @@ pub struct Props {
     pub margin: [Option<f64>; 4],
     /// Line type (not drawn yet).
     pub linetype: Option<Value>,
+    /// Arrow heads (axis lines only).
+    pub arrow: Option<Arrow>,
+    /// Covered fraction of the panel (axis lines only).
+    pub extent: Option<f64>,
 }
 
 impl Props {
@@ -82,6 +87,8 @@ impl Props {
             angle: other.angle.or(self.angle),
             margin: [side(0), side(1), side(2), side(3)],
             linetype: other.linetype.clone().or_else(|| self.linetype.clone()),
+            arrow: other.arrow.or(self.arrow),
+            extent: other.extent.or(self.extent),
         }
     }
 }
@@ -89,8 +96,8 @@ impl Props {
 /// One theme option.
 #[derive(Debug, Clone, PartialEq)]
 pub enum Entry {
-    /// An element (or margins).
-    Element(Props),
+    /// An element (or margins); boxed, as it is much larger than a value.
+    Element(Box<Props>),
     /// A plain value: a number, a name, a pair.
     Value(Value),
 }
@@ -106,7 +113,8 @@ impl Values {
         match (self.entries.get(key), &entry) {
             (Some(Entry::Element(old)), Entry::Element(new)) => {
                 let merged = old.merged(new);
-                self.entries.insert(key.to_owned(), Entry::Element(merged));
+                self.entries
+                    .insert(key.to_owned(), Entry::Element(Box::new(merged)));
             }
             _ => {
                 self.entries.insert(key.to_owned(), entry);
@@ -115,7 +123,7 @@ impl Values {
     }
 
     fn element(&mut self, key: &str, props: Props) {
-        self.set(key, Entry::Element(props));
+        self.set(key, Entry::Element(Box::new(props)));
     }
 
     fn value(&mut self, key: &str, value: Value) {
@@ -680,12 +688,14 @@ const MARGIN_KEYS: &[&str] = &["plot_margin", "legend_margin", "plot_inset", "pa
 fn user_entry(key: &str, value: &ThemeValue) -> Result<Entry, String> {
     let at = |message: String| format!("at 'theme.{key}': {message}");
     Ok(match value {
-        ThemeValue::Blank => Entry::Element(blank()),
-        ThemeValue::Element(element) => Entry::Element(user_props(element).map_err(at)?),
-        ThemeValue::Scalar(value) if MARGIN_KEYS.contains(&key) => Entry::Element(Props {
-            margin: thickness(value).map_err(at)?,
-            ..Props::default()
-        }),
+        ThemeValue::Blank => Entry::Element(Box::new(blank())),
+        ThemeValue::Element(element) => Entry::Element(Box::new(user_props(element).map_err(at)?)),
+        ThemeValue::Scalar(value) if MARGIN_KEYS.contains(&key) => {
+            Entry::Element(Box::new(Props {
+                margin: thickness(value).map_err(at)?,
+                ..Props::default()
+            }))
+        }
         ThemeValue::Scalar(value) => Entry::Value(value.clone()),
     })
 }
@@ -725,7 +735,26 @@ fn user_props(element: &ElementSpec) -> Result<Props, String> {
             }
             None => None,
         },
+        arrow: element
+            .arrow
+            .as_ref()
+            .map(|value| Arrow::from_value(value).map_err(|message| format!("arrow: {message}")))
+            .transpose()?,
+        extent: element.extent.as_ref().map(extent).transpose()?,
     })
+}
+
+/// An axis line's `extent`: a fraction of the panel, `0 < extent <= 1`.
+fn extent(value: &Value) -> Result<f64, String> {
+    value
+        .as_f64()
+        .filter(|number| *number > 0.0 && *number <= 1.0)
+        .ok_or_else(|| {
+            format!(
+                "extent: expected a fraction of the panel, 0 < extent <= 1, got {value}; \
+                 e.g. extent=0.25 draws the first quarter of the axis"
+            )
+        })
 }
 
 /// lets-plot `toThickness`: a number, or 1-4 numbers (CSS order); nulls keep a side.

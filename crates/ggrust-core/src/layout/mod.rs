@@ -50,7 +50,7 @@ pub fn text_band(style: TextStyle) -> f64 {
     measure("", style.size, style.font).height()
 }
 use crate::theme::{
-    LegendPosition, LineStyle, Margins, RectStyle, TextStyle, Theme, TitlePosition,
+    AxisLine, LegendPosition, LineStyle, Margins, RectStyle, TextStyle, Theme, TitlePosition,
 };
 
 /// Plot-level texts. `None` or empty means absent (takes no space).
@@ -947,11 +947,7 @@ pub fn draw_axes(
     let bottom = panel.y + panel.height;
     let mut axis_x = Vec::new();
     if let Some(line) = theme.axis_line_x {
-        axis_x.push(segment(
-            (panel.x, bottom),
-            (panel.x + panel.width, bottom),
-            line,
-        ));
+        axis_x.push(axis_line_node(panel, line, true));
     }
     let x_label_top = bottom + x_tick_band(theme) + theme.axis_text_spacing.0;
     let x_rotated = match (theme.axis_text_x, &layout.x_breaks.arrangement) {
@@ -1005,7 +1001,7 @@ pub fn draw_axes(
     }
     let mut axis_y = Vec::new();
     if let Some(line) = theme.axis_line_y {
-        axis_y.push(segment((panel.x, panel.y), (panel.x, bottom), line));
+        axis_y.push(axis_line_node(panel, line, false));
     }
     let y_label_right = panel.x - y_tick_band(theme) - theme.axis_text_spacing.1;
     let y_rotated = match theme.axis_text_y {
@@ -1432,6 +1428,37 @@ pub fn shrink(rect: Rect, margins: Margins) -> Rect {
     }
 }
 
+/// The x (`horizontal`) or y axis line of `panel`: from the origin corner (bottom
+/// left) over `line.extent` of the panel, with its arrow heads in pixels. A plain
+/// y line keeps lets-plot's top-to-bottom order; with heads it runs from the
+/// origin, so `ends="last"` points right and up (ggplot2).
+pub(crate) fn axis_line_node(panel: Rect, line: AxisLine, horizontal: bool) -> Node {
+    let origin = (panel.x, panel.y + panel.height);
+    let end = if horizontal {
+        (panel.x + panel.width * line.extent, origin.1)
+    } else {
+        (panel.x, origin.1 - panel.height * line.extent)
+    };
+    let Some(arrow) = line.arrow else {
+        return if horizontal {
+            segment(origin, end, line.style)
+        } else {
+            segment(end, origin, line.style)
+        };
+    };
+    let stroke = line.style.stroke();
+    let mut points = [origin, end];
+    let heads = arrow.apply(&mut points, &stroke);
+    let mut nodes = vec![Node::Path(Path {
+        points: points.to_vec(),
+        closed: false,
+        fill: None,
+        stroke: Some(stroke),
+    })];
+    nodes.extend(heads);
+    role_group("axis-line", nodes)
+}
+
 fn segment(start: (f64, f64), end: (f64, f64), line: LineStyle) -> Node {
     Node::Path(Path {
         points: vec![start, end],
@@ -1547,5 +1574,59 @@ mod tests {
         );
         assert_eq!(moved.x_breaks, origin.x_breaks);
         assert_eq!(moved.y_breaks, origin.y_breaks);
+    }
+
+    #[test]
+    fn axis_lines_run_from_the_origin_over_their_extent_with_pixel_heads() {
+        let panel = Rect {
+            x: 10.0,
+            y: 20.0,
+            width: 200.0,
+            height: 100.0,
+        };
+        let style = LineStyle {
+            color: crate::theme::INK,
+            width: 1.0,
+            dash: crate::theme::Dash::default(),
+        };
+        let arrow = crate::geom::Arrow::from_value(&serde_json::json!({"length": 8})).unwrap();
+        let line = AxisLine {
+            style,
+            arrow: Some(arrow),
+            extent: 0.25,
+        };
+        let paths = |node: Node| match node {
+            Node::Group(group) => group
+                .nodes
+                .into_iter()
+                .map(|node| match node {
+                    Node::Path(path) => path.points,
+                    other => panic!("expected a path, got {other:?}"),
+                })
+                .collect::<Vec<_>>(),
+            other => panic!("expected a group, got {other:?}"),
+        };
+        // x: from the bottom-left corner a quarter of the width to the right; the
+        // head's tip is at the end and the line stops one line width short of it.
+        let x = paths(axis_line_node(panel, line, true));
+        assert_eq!(x.len(), 2);
+        assert_eq!(x[0], vec![(10.0, 120.0), (59.0, 120.0)]);
+        assert_eq!(x[1][1], (60.0, 120.0));
+        // y: a quarter of the height up; heads are 8 px whatever the panel size.
+        let y = paths(axis_line_node(panel, line, false));
+        assert_eq!(y[0], vec![(10.0, 120.0), (10.0, 96.0)]);
+        assert_eq!(y[1][1], (10.0, 95.0));
+        let barb = y[1][0];
+        assert!(((barb.0 - 10.0).hypot(barb.1 - 95.0) - 8.0).abs() < 1e-9);
+        // Without heads a full line is the plain segment lets-plot draws.
+        let plain = AxisLine {
+            arrow: None,
+            extent: 1.0,
+            ..line
+        };
+        match axis_line_node(panel, plain, false) {
+            Node::Path(path) => assert_eq!(path.points, vec![(10.0, 20.0), (10.0, 120.0)]),
+            other => panic!("expected a path, got {other:?}"),
+        }
     }
 }

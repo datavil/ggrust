@@ -13,8 +13,8 @@
 
 use super::rotated;
 use super::{
-    LabelArrangement, PlotLayout, label_node, label_sizes, placed_label_node, segment,
-    x_label_node, x_tick_band, y_tick_band,
+    LabelArrangement, PlotLayout, axis_line_node, label_node, label_sizes, placed_label_node,
+    segment, x_label_node, x_tick_band, y_tick_band,
 };
 use crate::coord::Panel;
 use crate::scale::format::Label;
@@ -369,7 +369,7 @@ pub fn zoom_tile(
         line: theme
             .axis_line_x
             .filter(|_| show_x)
-            .map(|line| segment((panel.x, bottom), (panel.x + panel.width, bottom), line)),
+            .map(|line| axis_line_node(panel, line, true)),
     };
 
     // Vertical axis.
@@ -442,7 +442,7 @@ pub fn zoom_tile(
         line: theme
             .axis_line_y
             .filter(|_| show_y)
-            .map(|line| segment((panel.x, panel.y), (panel.x, bottom), line)),
+            .map(|line| axis_line_node(panel, line, false)),
     };
     ZoomTile {
         panel,

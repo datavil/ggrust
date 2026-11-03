@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any, cast
 
+from ggrust.errors import SpecError, UnsupportedValueError
 from ggrust.plot.core import FeatureSpec
 
 if TYPE_CHECKING:
@@ -192,7 +193,8 @@ def theme(
     axis_minor_ticks_length, axis_minor_ticks_length_x, axis_minor_ticks_length_y : float, optional
         Length of the minor ticks, in pixels.
     axis_line, axis_line_x, axis_line_y : dict or str, optional
-        Axis lines (``element_line()``).
+        Axis lines (``element_line()``); they also take ``arrow`` and ``extent``
+        for arrow-headed, truncated axes.
     legend_background, legend_text, legend_title : dict or str, optional
         Legend box (``element_rect()``), key labels and title (``element_text()``).
     legend_position : str or list of float, optional
@@ -337,6 +339,8 @@ def element_line(
     size: Number | None = None,
     linetype: int | str | None = None,
     blank: bool = False,
+    arrow: FeatureSpec | None = None,
+    extent: Number | None = None,
 ) -> dict[str, Any]:
     """Style a line (axis lines, ticks, grid).
 
@@ -350,13 +354,57 @@ def element_line(
         Line type, by number or name.
     blank : bool, default=False
         True hides the element.
+    arrow : FeatureSpec, optional
+        Arrow heads from ``arrow()``, sized in pixels. Axis lines only
+        (``axis_line``, ``axis_line_x``, ``axis_line_y``), as ggplot2's
+        ``element_line(arrow=)``; lets-plot has no such option. With the default
+        ``ends="last"`` the x line points right and the y line points up. The
+        default theme blanks ``axis_line_y``, which wins over ``axis_line``: set
+        ``axis_line_x`` and ``axis_line_y`` there, or use ``theme_classic()``.
+    extent : float, optional
+        Fraction of the panel an axis line covers from the bottom-left corner,
+        ``0 < extent <= 1`` (default 1, the whole axis). Axis lines only; ggrust's
+        take on ggh4x ``guide_axis_truncated``.
 
     Returns
     -------
     dict
         The element.
+
+    Raises
+    ------
+    UnsupportedValueError
+        If ``arrow`` is not an ``arrow()`` spec.
+    SpecError
+        If ``extent`` is not a number in ``(0, 1]``.
+
+    Examples
+    --------
+    Corner arrows with titles next to them, as on UMAP plots:
+
+    >>> from ggrust import arrow, element_blank, element_line, element_text, theme
+    >>> corner = theme(
+    ...     axis_line=element_line(arrow=arrow(length=8, type="closed"), extent=0.25),
+    ...     axis_text=element_blank(),
+    ...     axis_ticks=element_blank(),
+    ...     axis_title_x=element_text(hjust=0),
+    ...     axis_title_y=element_text(hjust=0),
+    ... )
     """
-    return locals()
+    if arrow is not None and not (isinstance(arrow, FeatureSpec) and arrow.kind == "arrow"):
+        path = "element_line.arrow"
+        reason = f"expected arrow(...), got {type(arrow).__name__}; e.g. arrow(length=8)"
+        raise UnsupportedValueError(f"at '{path}': {reason}", path=path, reason=reason)
+    if extent is not None and (
+        isinstance(extent, bool) or not isinstance(extent, (int, float)) or not 0 < extent <= 1
+    ):
+        path = "element_line.extent"
+        reason = (
+            f"expected a fraction of the panel, 0 < extent <= 1, got {extent!r}; "
+            "e.g. extent=0.25 draws the first quarter of the axis"
+        )
+        raise SpecError(f"at '{path}': {reason}", path=path, reason=reason)
+    return dict(color=color, size=size, linetype=linetype, blank=blank, arrow=arrow, extent=extent)
 
 
 def element_text(

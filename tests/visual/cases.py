@@ -123,6 +123,25 @@ def umap_expression(m):
     return m.ggplot(frame, m.aes("UMAP1", "UMAP2", color="CD14")) + m.geom_point(size=1.5)
 
 
+def umap_corner_arrows(m):
+    # ggrust only: element_line(arrow=, extent=) (lets-plot gets plain full axes).
+    corner = (
+        {"arrow": m.arrow(length=8, type="closed"), "extent": 0.2} if m.__name__ == "ggrust" else {}
+    )
+    return (
+        umap_clusters(m)
+        + m.labs(x="UMAP 1", y="UMAP 2")
+        + m.theme_classic()
+        + m.theme(
+            axis_line=m.element_line(**corner),
+            axis_text=m.element_blank(),
+            axis_ticks=m.element_blank(),
+            axis_title_x=m.element_text(hjust=0),
+            axis_title_y=m.element_text(hjust=0),
+        )
+    )
+
+
 def legends_hue_size(m):
     random = np.random.default_rng(23)
     frame = pl.DataFrame(
@@ -681,6 +700,7 @@ CASES = {
         discrete_genes,
         umap_clusters,
         umap_expression,
+        umap_corner_arrows,
         legends_hue_size,
         colorbar_viridis_size,
         brewer_clusters,

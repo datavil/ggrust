@@ -21,6 +21,8 @@ mod image;
 mod interval;
 mod jitter;
 mod lines;
+
+pub use lines::Arrow;
 mod path;
 mod point;
 mod polygon;

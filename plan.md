@@ -36,6 +36,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Lessons: [memory/](memory/README.md
 | Smooth band SE | Deviation from lets-plot, chosen by the user (2026-11-01): `geom_smooth` bands use each model's own standard error, as ggplot2 (polynomial: `x0'(X'X)^-1 x0`; loess: `s * |l(x0)|`, df `delta1^2/delta2`). lets-plot uses the straight-line SE for every method. Curves are unchanged (lets-plot's fits) |
 | Toolbar style (`ggtb`) | Deviation from lets-plot's look, chosen by the user (2026-11-01): "soft frost ink", a 10 px rounded translucent white bar with a hairline border and faint shadow, 24 px buttons, grey icons, an ink-filled (rgb 44, 44, 42) selected tool and a divider before Reset. Same tools, icons and place, and the same 33 px above the plot |
 | Layer toggles (`ggtb(layers=...)`) | A ggrust extension (lets-plot has none), from the user's idea while zooming cellestial spatial plots. Opt-in: `ggtb(layers=True)` or a dict of labels to layer indices (`{"tissue": 0, "spots": 1}`), so the default toolbar stays lets-plot's. A Layers button opens a menu of checkboxes; labels default to the geom name (`imshow` for `geom_imshow`), numbered from the second use. Each `gggrid` subplot has its own list and labels go by index in every subplot. Legends stay as drawn (decided (user) 2026-11-02) |
+| Arrow axes | A ggrust extension (lets-plot has none), agreed with the user (2026-11-03) for cellestial's UMAP corner arrows: `element_line(arrow=arrow(...), extent=0.25)` on `axis_line`/`_x`/`_y`; `extent` is a fraction of the panel from the bottom-left corner (not ggh4x data units, not a `guide_axis`). Drawn by the layout in pixels, so zoom never moves it |
 
 ## Scope: what cellestial actually uses
 
@@ -334,6 +335,16 @@ Cellestial work is on branch `ggrust-port-track-titles` (row titles only, uncomm
   Cellestial needs it to title column tracks on the right; with the label on the left, `align=True`
   widens the heatmap column's left axis and pushes the heatmap away from the row tracks.
   Expected: `"left"`/`"right"` for y and `"top"`/`"bottom"` for x move the axis (ticks, labels, title), as lets-plot and ggplot2.
+
+- [x] 9.4 Arrow axes for cellestial's UMAP corner arrows (found reproducing Zamboni et al. 2025 Fig. 1c).
+  cellestial drew them as an L `geom_path` plus `geom_segment` tips in data space: arrow size followed
+  the data range, titles sat a full axis away, the range grew and HTML zoom moved them.
+  (`theme::AxisLine` = line style + `geom::Arrow` + `extent`, resolved from `axis_line_x`/`axis_line` only
+  (other elements warn); `layout::axis_line_node` draws it from the bottom-left corner with lets-plot's
+  geom arrow heads in pixels, shared by static output and the zoom template, so SVG/PNG/PDF/HTML need no
+  backend or runtime changes (zoom verified in the browser: paths unchanged). Titles with `hjust=0` sit
+  next to the arrows. Python checks `arrow`/`extent` early; the engine checks raw values. Tests:
+  `tests/test_arrow_axis.py`, Rust theme and layout units, golden `umap_corner_arrows`. Deviation row.)
 
 ## Performance strategy (honest)
 

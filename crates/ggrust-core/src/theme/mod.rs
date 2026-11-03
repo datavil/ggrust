@@ -16,6 +16,7 @@ pub use values::{FLAVOR_NAMES, THEME_NAMES};
 
 use values::{Paint, Props, Values, theme_values};
 
+use crate::geom::Arrow;
 use crate::scale::number_format::{ExponentFormat, ExponentStyle};
 use crate::scene::{Color, Stroke};
 use crate::spec::{ThemeSpec, ThemeValue, Value};
@@ -100,6 +101,20 @@ impl Dash {
     pub fn lengths(&self) -> &[f64] {
         &self.lengths[..self.count]
     }
+}
+
+/// An axis line: its style, optional arrow heads (`element_line(arrow=)`, as
+/// ggplot2) and the fraction of the panel it covers from the origin corner
+/// (`element_line(extent=)`; the left end for x, the bottom for y). Heads and the
+/// extent are in pixels and panel space, not data space, so zoom does not move them.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct AxisLine {
+    /// Line style.
+    pub style: LineStyle,
+    /// Arrow heads, if any.
+    pub arrow: Option<Arrow>,
+    /// Covered fraction of the panel length, `0 < extent <= 1`.
+    pub extent: f64,
 }
 
 /// Style of a rectangle element: fill and an optional border.
@@ -258,9 +273,9 @@ pub struct Theme {
     /// `axis_minor_ticks_length_y`, `axis_minor_ticks_length`; 2 px by default).
     pub axis_minor_ticks_length: (f64, f64),
     /// x axis line.
-    pub axis_line_x: Option<LineStyle>,
+    pub axis_line_x: Option<AxisLine>,
     /// y axis line.
-    pub axis_line_y: Option<LineStyle>,
+    pub axis_line_y: Option<AxisLine>,
     /// Vertical major grid lines (at x breaks).
     pub panel_grid_major_x: Option<LineStyle>,
     /// Horizontal major grid lines (at y breaks).
@@ -523,6 +538,18 @@ fn report_unbuilt(spec: &ThemeSpec, warnings: &mut Vec<String>) {
                 ));
             }
         }
+        let axis_line = matches!(key.as_str(), "axis_line" | "axis_line_x" | "axis_line_y");
+        for (property, present) in [
+            ("arrow", element.arrow.is_some()),
+            ("extent", element.extent.is_some()),
+        ] {
+            if present && !axis_line {
+                warnings.push(format!(
+                    "at 'theme.{key}.{property}': only axis lines take {property} \
+                     (axis_line, axis_line_x, axis_line_y); ignored"
+                ));
+            }
+        }
     }
 }
 
@@ -593,6 +620,18 @@ impl Resolver<'_> {
             color: self.color(props.color).unwrap_or(INK),
             width: props.size.unwrap_or(1.0),
             dash: dash(&props),
+        })
+    }
+
+    /// An axis line from its style chain; arrow and extent come only from the
+    /// `axis_line` options (`axis_line_x`, `axis_line`), not from `line` or `axis`.
+    fn axis_line(&self, keys: &[&str]) -> Option<AxisLine> {
+        let style = self.line(keys)?;
+        let props = self.values.element_props(&keys[..2]);
+        Some(AxisLine {
+            style,
+            arrow: props.arrow,
+            extent: props.extent.unwrap_or(1.0),
         })
     }
 
@@ -734,8 +773,8 @@ impl Resolver<'_> {
                     2.0,
                 )?,
             ),
-            axis_line_x: self.line(&[&line_x, "axis_line", &axis_x, "axis", "line"]),
-            axis_line_y: self.line(&[&line_y, "axis_line", &axis_y, "axis", "line"]),
+            axis_line_x: self.axis_line(&[&line_x, "axis_line", &axis_x, "axis", "line"]),
+            axis_line_y: self.axis_line(&[&line_y, "axis_line", &axis_y, "axis", "line"]),
             panel_grid_major_x: self.line(&as_refs(&grid("major", "x"))),
             panel_grid_major_y: self.line(&as_refs(&grid("major", "y"))),
             panel_grid_minor_x: self.line(&as_refs(&grid("minor", "x"))),
@@ -1061,7 +1100,7 @@ mod tests {
         assert_eq!((title_x.size, title_x.hjust), (15.0, 0.5));
         assert_eq!(theme.axis_ticks_x, Some(ink));
         assert_eq!(theme.axis_ticks_y, None);
-        assert_eq!(theme.axis_line_x, Some(ink));
+        assert_eq!(theme.axis_line_x.map(|line| line.style), Some(ink));
         assert_eq!(theme.axis_line_y, None);
         let grid = LineStyle {
             color: GRID,
@@ -1116,7 +1155,7 @@ mod tests {
         .unwrap();
         // The element is no longer blank and inherits the line width.
         assert_eq!(
-            custom.axis_line_y,
+            custom.axis_line_y.map(|line| line.style),
             Some(LineStyle {
                 color: Color::rgb(255, 0, 0),
                 width: 1.0,
@@ -1227,5 +1266,88 @@ mod tests {
             Theme::from_spec(Some(&spec(r#"{"exponent_format": "e"}"#)), &mut warnings).unwrap();
         assert_eq!(theme.exponent_format.style, ExponentStyle::E);
         assert!(warnings.is_empty(), "{warnings:?}");
+    }
+
+    #[test]
+    fn axis_line_arrows_and_extent_inherit_from_axis_line_only() {
+        let mut warnings = Vec::new();
+        let theme = Theme::from_spec(
+            Some(&spec(
+                r#"{"name": "classic",
+                    "axis_line": {"arrow": {"name": "arrow", "length": 8}, "extent": 0.25, "blank": false},
+                    "axis_line_y": {"extent": 0.5, "color": "red", "blank": false}}"#,
+            )),
+            &mut warnings,
+        )
+        .unwrap();
+        assert!(warnings.is_empty(), "{warnings:?}");
+        let expected = Arrow::from_value(&serde_json::json!({"length": 8})).unwrap();
+        let (x, y) = (theme.axis_line_x.unwrap(), theme.axis_line_y.unwrap());
+        assert_eq!((x.arrow, x.extent), (Some(expected), 0.25));
+        assert_eq!((y.arrow, y.extent), (Some(expected), 0.5));
+        assert_eq!(y.style.color, Color::rgb(255, 0, 0));
+        // Plain axis lines cover the whole axis and have no heads.
+        let plain = Theme::from_spec(Some(&spec(r#"{"name": "classic"}"#)), &mut warnings)
+            .unwrap()
+            .axis_line_x
+            .unwrap();
+        assert_eq!((plain.arrow, plain.extent), (None, 1.0));
+        // `line` and other elements do not hand their arrow to the axis lines.
+        let theme = Theme::from_spec(
+            Some(&spec(
+                r#"{"name": "classic", "line": {"arrow": {}, "extent": 0.5, "blank": false},
+                    "panel_grid": {"arrow": {}, "blank": false}}"#,
+            )),
+            &mut warnings,
+        )
+        .unwrap();
+        assert_eq!(theme.axis_line_x.unwrap().arrow, None);
+        assert_eq!(theme.axis_line_x.unwrap().extent, 1.0);
+        assert_eq!(
+            warnings,
+            [
+                "at 'theme.line.arrow': only axis lines take arrow (axis_line, axis_line_x, \
+                 axis_line_y); ignored",
+                "at 'theme.line.extent': only axis lines take extent (axis_line, axis_line_x, \
+                 axis_line_y); ignored",
+                "at 'theme.panel_grid.arrow': only axis lines take arrow (axis_line, \
+                 axis_line_x, axis_line_y); ignored",
+            ]
+        );
+    }
+
+    #[test]
+    fn bad_arrows_and_extents_name_the_option() {
+        let error = |json: &str| {
+            Theme::from_spec(Some(&spec(json)), &mut Vec::new())
+                .unwrap_err()
+                .to_string()
+        };
+        for extent in ["0", "1.5", "-0.2", "\"half\""] {
+            let message = error(&format!(
+                r#"{{"axis_line_x": {{"extent": {extent}, "blank": false}}}}"#
+            ));
+            assert!(
+                message.contains("theme.axis_line_x")
+                    && message.contains("0 < extent <= 1")
+                    && message.contains(extent),
+                "{message}"
+            );
+        }
+        let message = error(r#"{"axis_line": {"arrow": "yes", "blank": false}}"#);
+        assert!(
+            message.contains("theme.axis_line") && message.contains("expected arrow()"),
+            "{message}"
+        );
+        let message = error(r#"{"axis_line": {"arrow": {"ends": "middle"}, "blank": false}}"#);
+        assert!(
+            message.contains("arrow: ends: expected one of last, first, both"),
+            "{message}"
+        );
+        let message = error(r#"{"axis_line": {"arrow": {"length": -3}, "blank": false}}"#);
+        assert!(
+            message.contains("length: expected a non-negative number"),
+            "{message}"
+        );
     }
 }

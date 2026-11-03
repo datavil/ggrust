@@ -114,6 +114,11 @@ pub struct ElementSpec {
     pub margin: Option<Value>,
     /// Line height multiplier.
     pub lineheight: Option<f64>,
+    /// Arrow heads of an axis line (`arrow()`; ggrust, as ggplot2's `element_line(arrow=)`).
+    pub arrow: Option<Value>,
+    /// Part of the panel an axis line covers from the origin corner, `0 < extent <= 1`
+    /// (ggrust; ggh4x `guide_axis_truncated` in ggplot2).
+    pub extent: Option<Value>,
     /// Keys no component consumes.
     #[serde(flatten)]
     pub unsupported: Options,

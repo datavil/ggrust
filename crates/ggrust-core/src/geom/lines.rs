@@ -112,9 +112,9 @@ pub(super) fn styled_paths(points: &[(f64, f64)], strokes: &[Option<Stroke>]) ->
     paths
 }
 
-/// lets-plot `arrow()` options.
+/// lets-plot `arrow()` options (geom lines; theme axis lines, see `theme::AxisLine`).
 #[derive(Debug, Clone, Copy, PartialEq)]
-pub(super) struct Arrow {
+pub struct Arrow {
     angle: f64,
     length: f64,
     first: bool,
@@ -128,43 +128,45 @@ impl Arrow {
         let Some(value) = parameters.value("arrow") else {
             return Ok(None);
         };
-        let path = parameters.path_of("arrow");
-        let fail = |message: String| Error::spec(&path, message);
+        Arrow::from_value(value)
+            .map(Some)
+            .map_err(|message| Error::spec(parameters.path_of("arrow"), message))
+    }
+
+    /// An `arrow(angle, length, ends, type)` object; the error message names the
+    /// bad field and what it accepts.
+    pub(crate) fn from_value(value: &Value) -> std::result::Result<Arrow, String> {
         let Value::Object(fields) = value else {
-            return Err(fail(format!("expected arrow(), got {value}")));
+            return Err(format!("expected arrow(), got {value}"));
         };
         let number = |name: &str, default: f64| match fields.get(name) {
             None | Some(Value::Null) => Ok(default),
             Some(value) => value
                 .as_f64()
                 .filter(|number| number.is_finite() && *number >= 0.0)
-                .ok_or_else(|| {
-                    fail(format!(
-                        "{name}: expected a non-negative number, got {value}"
-                    ))
-                }),
+                .ok_or_else(|| format!("{name}: expected a non-negative number, got {value}")),
         };
         let text = |name: &str, default: &str, accepted: &[&str]| match fields.get(name) {
             None | Some(Value::Null) => Ok(default.to_owned()),
             Some(Value::String(text)) if accepted.contains(&text.as_str()) => Ok(text.clone()),
-            Some(value) => Err(fail(format!(
+            Some(value) => Err(format!(
                 "{name}: expected one of {}, got {value}",
                 accepted.join(", ")
-            ))),
+            )),
         };
         let ends = text("ends", "last", &["last", "first", "both"])?;
-        Ok(Some(Arrow {
+        Ok(Arrow {
             angle: number("angle", 30.0)?,
             length: number("length", 10.0)?,
             first: ends != "last",
             last: ends != "first",
             closed: text("type", "open", &["open", "closed"])? == "closed",
-        }))
+        })
     }
 
     /// Draw heads at the requested ends of `points` and pull those ends back by
     /// the line width so the line does not poke through the tip (as lets-plot).
-    pub(super) fn apply(&self, points: &mut [(f64, f64)], stroke: &Stroke) -> Vec<Node> {
+    pub(crate) fn apply(&self, points: &mut [(f64, f64)], stroke: &Stroke) -> Vec<Node> {
         self.apply_at(points, stroke, true, true)
     }
 

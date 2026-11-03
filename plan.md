@@ -354,6 +354,11 @@ Cellestial work is on branch `ggrust-port-track-titles` (row titles only, uncomm
   `vspace` works with `align`; the residual gap between grid cells is each plot's `plot_inset` (3 px).
   Tests: `tests/test_scale_replace.py`, `tests/test_text_lineheight.py`, colorbar and legend units.
   Deviation rows: scale replacement, colorbar end labels, repel/bracket `lineheight` gap.
+- [x] 9.6 Collected legends keep each figure's theme (found by the cellestial port, 2026-11-03).
+  `group_legends` merged boxes by placement and measured the group with its first figure's theme,
+  so every colorbar took the first track's legend text. Now each box keeps its figure's theme
+  (`measure_themed_legends`); the grid theme still arranges the block. Test:
+  `test_collected_legends_keep_each_figure_theme` (flat and nested grids).
 
 ## Performance strategy (honest)
 

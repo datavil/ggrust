@@ -339,3 +339,30 @@ def test_reverse_and_breaks_order_only_their_own_plot():
     other = gg.ggplot({"x": ["q", "r", "s"], "y": [1, 2, 3]}, gg.aes("x", "y")) + gg.geom_point()
     labels = re.findall(r">([pqrs])</text>", gg.gggrid([with_breaks, other], sharex=True).to_svg())
     assert labels[-4:] == ["p", "q", "r", "s"]
+
+
+def _font_sizes(svg: str) -> set[float]:
+    return {float(size) for size in re.findall(r'font-size="?([\d.]+)', svg)}
+
+
+@pytest.mark.parametrize("nested", [False, True])
+def test_collected_legends_keep_each_figure_theme(nested: bool) -> None:
+    # Regression: every collected legend took the first figure's theme (cellestial's
+    # annotated_heatmap colorbar ignored its legend_text size). lets-plot builds each
+    # box in its own figure.
+    frame = {"x": [0.0, 1.0], "y": [0.0, 1.0], "a": ["p", "q"], "v": [0.0, 1.0]}
+    first = (
+        gg.ggplot(frame)
+        + gg.geom_tile(gg.aes("x", "y", fill="a"))
+        + gg.theme(legend_text=gg.element_text(size=9))
+    )
+    second = (
+        gg.ggplot(frame)
+        + gg.geom_tile(gg.aes("x", "y", fill="v"))
+        + gg.theme(legend_text=gg.element_text(size=20))
+    )
+    cells = [gg.gggrid([first], ncol=1), second] if nested else [first, second]
+    collected = _font_sizes(gg.gggrid(cells, ncol=2, guides="collect").to_svg())
+    separate = _font_sizes(gg.gggrid([first, second], ncol=2).to_svg())
+    assert {9.0, 20.0} <= collected
+    assert collected == separate

@@ -19,7 +19,7 @@ use crate::layout::grid::{DEFAULT_SPACING, cell_rects, shrink_to_aspect};
 use crate::layout::zoom::Zoom;
 use crate::layout::{
     LegendBlock, LegendBox, Titles, draw_legends, heading_nodes, headings_band, legend_budget,
-    measure_legends, shrink,
+    measure_themed_legends, shrink,
 };
 use crate::parallel;
 use crate::scene::{Color, Group, Node, PerItem, Rect, Rects, Scene};
@@ -141,9 +141,24 @@ struct Collected {
     position: LegendPosition,
     justification: (f64, f64),
     boxes: Vec<LegendBox>,
-    /// The figure's theme: lets-plot builds legend boxes in their figure, so they keep
-    /// its legend text, keys and spacing.
+    /// Per box, the theme of the figure it came from: lets-plot builds legend boxes
+    /// in their figure, so each keeps its legend text, keys and spacing. Once
+    /// grouped, these carry the group's arrangement too ([`arranged`]).
+    box_themes: Vec<Theme>,
+    /// The first figure's theme: it and the grid's theme arrange the group's block.
     theme: Theme,
+}
+
+/// `theme` with the arrangement of a collected legend group: its placement, and
+/// the grid's box layout and spacing (lets-plot `LegendsBlockInfo.arrangeLegendBoxes`).
+fn arranged(theme: &Theme, group: &Collected, grid_theme: &Theme) -> Theme {
+    let mut theme = theme.clone();
+    theme.legend_position = group.position;
+    theme.legend_justification = group.justification;
+    theme.legend_box_horizontal = grid_theme.legend_box_horizontal;
+    theme.legend_box_just = grid_theme.legend_box_just;
+    theme.legend_spacing = grid_theme.legend_spacing;
+    theme
 }
 
 /// What a grid's figures see of it while they are prepared.
@@ -336,11 +351,13 @@ impl<'s> PreparedGrid<'s> {
                             | LegendPosition::Bottom
                     );
                     if collects && fixed && !plot.legends.is_empty() {
+                        let boxes = std::mem::take(&mut plot.legends);
                         collected.push(Collected {
                             position: plot_theme.legend_position,
                             justification: plot_theme.legend_justification,
+                            box_themes: vec![plot_theme.clone(); boxes.len()],
                             theme: plot_theme,
-                            boxes: std::mem::take(&mut plot.legends),
+                            boxes,
                         });
                     }
                     Some(Element::Plot(Box::new(plot)))
@@ -364,7 +381,7 @@ impl<'s> PreparedGrid<'s> {
         let (legend_groups, passed_up) = if collects && own_guides == Guides::Auto {
             (Vec::new(), collected)
         } else {
-            (group_legends(collected), Vec::new())
+            (group_legends(collected, &theme), Vec::new())
         };
         let title = spec.ggtitle.as_ref();
         let titles = Titles {
@@ -552,14 +569,9 @@ impl<'s> PreparedGrid<'s> {
     ) -> Result<Vec<(&Collected, LegendBlock<'_>, Theme)>> {
         let mut blocks = Vec::new();
         for group in &self.legend_groups {
-            // Boxes keep their figure's theme; the grid's theme arranges them
-            // (lets-plot `LegendsBlockInfo.arrangeLegendBoxes`).
-            let mut block_theme = group.theme.clone();
-            block_theme.legend_position = group.position;
-            block_theme.legend_justification = group.justification;
-            block_theme.legend_box_horizontal = self.theme.legend_box_horizontal;
-            block_theme.legend_box_just = self.theme.legend_box_just;
-            block_theme.legend_spacing = self.theme.legend_spacing;
+            // Boxes keep their figure's theme (`box_themes`); the grid's theme
+            // arranges them (lets-plot `LegendsBlockInfo.arrangeLegendBoxes`).
+            let block_theme = arranged(&group.theme, group, &self.theme);
             // `area` is already inside the grid's margins.
             let budget = legend_budget(
                 &Theme {
@@ -568,7 +580,12 @@ impl<'s> PreparedGrid<'s> {
                 },
                 area,
             );
-            if let Some(block) = measure_legends(&group.boxes, &block_theme, Some(budget))? {
+            if let Some(block) = measure_themed_legends(
+                &group.boxes,
+                Some(&group.box_themes),
+                &block_theme,
+                Some(budget),
+            )? {
                 blocks.push((group, block, block_theme));
             }
         }
@@ -684,7 +701,7 @@ fn legend_origin(inner: Rect, outer: Rect, size: (f64, f64), group: &Collected) 
 
 /// Collected legends grouped by placement, in order of first appearance, each
 /// group without duplicates (lets-plot `LegendsBlockInfo.arrangeLegendBoxes`).
-fn group_legends(collected: Vec<Collected>) -> Vec<Collected> {
+fn group_legends(collected: Vec<Collected>, grid_theme: &Theme) -> Vec<Collected> {
     let mut groups: Vec<Collected> = Vec::new();
     for item in collected {
         let index = match groups.iter().position(|group| {
@@ -694,21 +711,30 @@ fn group_legends(collected: Vec<Collected>) -> Vec<Collected> {
             None => {
                 groups.push(Collected {
                     boxes: Vec::new(),
+                    box_themes: Vec::new(),
                     ..item
                 });
                 groups.len() - 1
             }
         };
         let group = &mut groups[index];
-        for legend_box in item.boxes {
+        for (legend_box, box_theme) in item.boxes.into_iter().zip(item.box_themes) {
             if !group
                 .boxes
                 .iter()
                 .any(|kept| kept.same_content(&legend_box))
             {
                 group.boxes.push(legend_box);
+                group.box_themes.push(box_theme);
             }
         }
+    }
+    for group in &mut groups {
+        let themes = std::mem::take(&mut group.box_themes);
+        group.box_themes = themes
+            .iter()
+            .map(|theme| arranged(theme, group, grid_theme))
+            .collect();
     }
     groups
 }

@@ -14,13 +14,13 @@
 
 use super::colorbar::{Colorbar, ColorbarLayout, draw_colorbar, layout_colorbar};
 use super::{label_node, text_band, text_node};
-use crate::Result;
 use crate::geom::Geom;
 use crate::scale::format::Label;
 use crate::scene::{Group, HorizontalAlign, Node, Rect};
 use crate::style::Styles;
 use crate::text::{measure, measure_label};
 use crate::theme::Theme;
+use crate::{Error, Result};
 
 /// lets-plot `LegendAssembler.MAX_ROWS_PER_COL`.
 const MAX_ROWS_PER_COLUMN: usize = 15;
@@ -176,6 +176,9 @@ impl LegendBox {
 
 /// A box measured for drawing; positions relative to its box origin.
 struct MeasuredLegend<'a> {
+    /// The theme the box is measured and drawn with (its figure's, in a grid that
+    /// collects legends); `None`: the block's theme.
+    theme: Option<&'a Theme>,
     title: &'a str,
     /// Top-left corner of the title's first line.
     title_anchor: (f64, f64),
@@ -292,6 +295,30 @@ pub fn measure_legends<'a>(
     theme: &Theme,
     budget: Option<LegendBudget>,
 ) -> Result<Option<LegendBlock<'a>>> {
+    measure_themed_legends(boxes, None, theme, budget)
+}
+
+/// [`measure_legends`] with a theme per box (`box_themes`, one per box): each box
+/// is measured and drawn with its own theme, while `theme` arranges the block. A
+/// grid collecting legends from figures with different themes uses this.
+pub fn measure_themed_legends<'a>(
+    boxes: &'a [LegendBox],
+    box_themes: Option<&'a [Theme]>,
+    theme: &Theme,
+    budget: Option<LegendBudget>,
+) -> Result<Option<LegendBlock<'a>>> {
+    if let Some(themes) = box_themes
+        && themes.len() != boxes.len()
+    {
+        return Err(Error::spec(
+            "",
+            format!(
+                "internal: {} legend themes for {} legend boxes",
+                themes.len(),
+                boxes.len()
+            ),
+        ));
+    }
     let horizontal = theme.legends_horizontal();
     let side_by_side = theme.legend_box_horizontal;
     let spacing = if side_by_side {
@@ -300,17 +327,24 @@ pub fn measure_legends<'a>(
         theme.legend_spacing.1
     };
     let along = |size: (f64, f64)| if side_by_side { size.0 } else { size.1 };
-    let shown: Vec<&LegendBox> = boxes
+    let (shown, shown_themes): (Vec<&LegendBox>, Vec<Option<&'a Theme>>) = boxes
         .iter()
-        .filter(|legend_box| !legend_box.is_empty())
-        .collect();
-    let measure_one = |legend_box: &&'a LegendBox, budget: Option<LegendBudget>| match legend_box {
-        LegendBox::Keys(legend) => fit_legend(legend, horizontal, theme, budget),
-        LegendBox::Colorbar(colorbar) => Ok(measure_colorbar(colorbar, horizontal, theme)),
+        .enumerate()
+        .filter(|(_, legend_box)| !legend_box.is_empty())
+        .map(|(index, legend_box)| (legend_box, box_themes.map(|themes| &themes[index])))
+        .unzip();
+    let measure_one = |index: usize, budget: Option<LegendBudget>| {
+        let own = shown_themes[index];
+        let box_theme = own.unwrap_or(theme);
+        let mut measured = match shown[index] {
+            LegendBox::Keys(legend) => fit_legend(legend, horizontal, box_theme, budget)?,
+            LegendBox::Colorbar(colorbar) => measure_colorbar(colorbar, horizontal, box_theme),
+        };
+        measured.theme = own;
+        Ok::<MeasuredLegend<'a>, Error>(measured)
     };
-    let mut measured = shown
-        .iter()
-        .map(|legend_box| measure_one(legend_box, budget))
+    let mut measured = (0..shown.len())
+        .map(|index| measure_one(index, budget))
         .collect::<Result<Vec<MeasuredLegend<'a>>>>()?;
     if measured.is_empty() {
         return Ok(None);
@@ -360,12 +394,11 @@ pub fn measure_legends<'a>(
                     (size.0, part)
                 }
             };
-            measured = shown
-                .iter()
+            measured = (0..shown.len())
                 .zip(preferred.iter().zip(&most))
-                .map(|(legend_box, (preferred, most))| {
+                .map(|(index, (preferred, most))| {
                     measure_one(
-                        legend_box,
+                        index,
                         Some(LegendBudget {
                             preferred: with_along(budget.preferred, *preferred),
                             most: with_along(budget.most, *most),
@@ -430,6 +463,7 @@ fn measure_colorbar<'a>(
     let (origin, title_anchor, size) =
         arrange_title(&colorbar.title, graph.size, horizontal, theme);
     MeasuredLegend {
+        theme: None,
         title: &colorbar.title,
         title_anchor,
         size,
@@ -674,6 +708,7 @@ fn measure_legend<'a>(
         })
         .collect();
     Ok(MeasuredLegend {
+        theme: None,
         title: &legend.title,
         title_anchor,
         size,
@@ -868,7 +903,9 @@ fn wrap_stacks(
 /// Draw the block with its top-left corner at `origin`.
 pub fn draw_legends(block: &LegendBlock, origin: (f64, f64), theme: &Theme) -> Result<Vec<Node>> {
     let mut nodes = Vec::new();
+    let block_theme = theme;
     for (measured, offset) in &block.legends {
+        let theme = measured.theme.unwrap_or(block_theme);
         let (x, y) = (origin.0 + offset.0, origin.1 + offset.1);
         let mut legend_nodes = Vec::new();
         if let Some(style) = theme.legend_background {

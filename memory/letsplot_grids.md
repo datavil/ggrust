@@ -12,7 +12,10 @@ Source: lets-plot `CompositeFigureBuildInfo.layoutedByOuterSize`, `CompositeFigu
   (not its border) is pushed down unless the figure sets a flavor.
 - **Collected legends keep their figure's theme** (lets-plot builds boxes in the figure);
   only the box arrangement (`legend_box`, spacing) comes from the grid. Using the grid theme
-  made cellestial's size-9 legend text 13 px.
+  made cellestial's size-9 legend text 13 px. The theme is **per box** (`Collected.box_themes`,
+  `measure_themed_legends`), not per placement group: a group's first figure theme for all
+  boxes made every colorbar take the first track's legend text (fixed 2026-11-03). Dedupe of
+  equal content keeps the first box and its theme, as lets-plot.
 - **Dedupe needs NaN-aware equality**: unset alpha is NaN in key styles, so derived
   `PartialEq` never matches. Use `Styles::same_values`.
 - **`guides`**: top grid collects only on "collect"; inside a collecting grid "auto" passes

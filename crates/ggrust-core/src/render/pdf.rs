@@ -156,6 +156,8 @@ struct MarkerKey {
     width: u64,
     fill: bool,
     stroke: bool,
+    /// Fill or outline is translucent (see [`paint_operators`]).
+    translucent: bool,
 }
 
 /// A marker drawn around (0, 0), reused by every point that looks the same.
@@ -285,20 +287,28 @@ impl Writer {
         self.set_alpha((self.state.alpha.0, color.alpha));
     }
 
-    /// Paint the current path: fill (when closed), outline, or both.
-    fn paint(&mut self, fill: Option<Color>, stroke: Option<(Color, f64, &[f64])>) {
+    /// Write `geometry` and paint it: fill, outline, or both.
+    fn paint(
+        &mut self,
+        geometry: impl Fn(&mut Content),
+        fill: Option<Color>,
+        stroke: Option<(Color, f64, &[f64])>,
+    ) {
         if let Some(fill) = fill {
             self.set_fill(fill);
         }
         if let Some((color, width, dash)) = stroke {
             self.set_stroke(color, width, dash);
         }
-        match (fill.is_some(), stroke.is_some()) {
-            (true, true) => self.content.fill_nonzero_and_stroke(),
-            (true, false) => self.content.fill_nonzero(),
-            (false, true) => self.content.stroke(),
-            (false, false) => self.content.end_path(),
-        };
+        let translucent = fill.is_some_and(|fill| !fill.is_opaque())
+            || stroke.is_some_and(|(color, _, _)| !color.is_opaque());
+        paint_operators(
+            &mut self.content,
+            &geometry,
+            fill.is_some(),
+            stroke.is_some(),
+            translucent,
+        );
     }
 
     fn points(&mut self, points: &Points) {
@@ -320,6 +330,8 @@ impl Writer {
                 width: width.to_bits(),
                 fill: fill.is_some(),
                 stroke: stroke.is_some(),
+                translucent: fill.is_some_and(|fill| !fill.is_opaque())
+                    || stroke.is_some_and(|(color, _)| !color.is_opaque()),
             };
             if let Some(form) = self.marker_form(key) {
                 // Colours and alpha are inherited by the form.
@@ -338,9 +350,15 @@ impl Writer {
                 continue;
             }
             shape.for_each_part(x, y, size, width, |part| {
-                let closed = marker_part(&mut self.content, &part);
+                let closed = !matches!(part, MarkerPart::Line(..));
                 let stroke = stroke.map(|(color, width)| (color, width, &[][..]));
-                self.paint(fill.filter(|_| closed), stroke);
+                self.paint(
+                    |content| {
+                        marker_part(content, &part);
+                    },
+                    fill.filter(|_| closed),
+                    stroke,
+                );
             });
         }
     }
@@ -364,13 +382,17 @@ impl Writer {
                 .set_dash_pattern([], 0.0);
         }
         key.shape.for_each_part(0.0, 0.0, size, width, |part| {
-            let closed = marker_part(&mut content, &part);
-            match (key.fill && closed, key.stroke) {
-                (true, true) => content.fill_nonzero_and_stroke(),
-                (true, false) => content.fill_nonzero(),
-                (false, true) => content.stroke(),
-                (false, false) => content.end_path(),
+            let closed = !matches!(part, MarkerPart::Line(..));
+            let geometry = |content: &mut Content| {
+                marker_part(content, &part);
             };
+            paint_operators(
+                &mut content,
+                &geometry,
+                key.fill && closed,
+                key.stroke,
+                key.translucent,
+            );
         });
         let index = self.markers.len();
         self.markers.push(MarkerForm {
@@ -379,14 +401,6 @@ impl Writer {
         });
         self.marker_index.insert(key, index);
         Some(index)
-    }
-
-    fn rect(&mut self, rect: &Rect) {
-        rect_path(&mut self.content, rect);
-    }
-
-    fn polyline(&mut self, vertices: &[(f64, f64)], closed: bool) {
-        polyline(&mut self.content, vertices, closed);
     }
 
     fn path(&mut self, path: &Path) {
@@ -401,13 +415,17 @@ impl Writer {
         if fill.is_none() && stroke.is_none() {
             return;
         }
-        for subpath in &subpaths {
-            // every ring is closed, not only the last
-            self.polyline(subpath, path.closed);
-        }
+        let closed = path.closed;
+        let geometry = |content: &mut Content| {
+            for subpath in &subpaths {
+                // every ring is closed, not only the last
+                polyline(content, subpath, closed);
+            }
+        };
         let dash = stroke.as_ref().map(|(_, dash)| dash.clone());
         let stroke = stroke.map(|(stroke, _)| (stroke.color, stroke.width));
         self.paint(
+            geometry,
             fill,
             stroke.map(|(color, width)| (color, width, dash.as_deref().unwrap_or(&[]))),
         );
@@ -426,13 +444,13 @@ impl Writer {
             if fill.is_none() && stroke.is_none() {
                 continue;
             }
-            self.rect(&rect);
+            let geometry = |content: &mut Content| rect_path(content, &rect);
             match &stroke {
                 Some((stroke, dash)) => {
                     let dash = dash.clone();
-                    self.paint(fill, Some((stroke.color, stroke.width, &dash)));
+                    self.paint(geometry, fill, Some((stroke.color, stroke.width, &dash)));
                 }
-                None => self.paint(fill, None),
+                None => self.paint(geometry, fill, None),
             }
         }
     }
@@ -496,6 +514,8 @@ impl Writer {
         });
         // The unit square, top row first, onto `rect` (scene y points down).
         let name = format!("I{index}");
+        // Images composite with the fill alpha: opaque, as SVG and PNG draw them.
+        self.set_alpha((255, self.state.alpha.1));
         self.save();
         self.content.transform([
             rect.width as f32,
@@ -615,7 +635,9 @@ impl Writer {
             if used.texts.len() <= slot {
                 used.texts.resize(slot + 1, None);
             }
-            if used.texts[slot].is_none() {
+            // `.notdef` (characters the font lacks) maps to no text: one glyph
+            // cannot stand for every missing character.
+            if used.texts[slot].is_none() && glyph.glyph_id != 0 {
                 // The cluster's text goes on its first glyph.
                 let starts_cluster = index == 0 || glyphs[index - 1].cluster != glyph.cluster;
                 if starts_cluster {
@@ -998,6 +1020,39 @@ fn polyline(content: &mut Content, vertices: &[(f64, f64)], closed: bool) {
     }
 }
 
+/// Write `geometry` with its paint operator. A translucent fill and outline are
+/// painted as two operators on the geometry written twice: one `B` composites them
+/// as a knockout group (the outline's inner half replaces the fill), while SVG and
+/// PNG blend the outline over the fill.
+fn paint_operators(
+    content: &mut Content,
+    geometry: &dyn Fn(&mut Content),
+    fill: bool,
+    stroke: bool,
+    translucent: bool,
+) {
+    geometry(content);
+    match (fill, stroke) {
+        (true, true) if translucent => {
+            content.fill_nonzero();
+            geometry(content);
+            content.stroke();
+        }
+        (true, true) => {
+            content.fill_nonzero_and_stroke();
+        }
+        (true, false) => {
+            content.fill_nonzero();
+        }
+        (false, true) => {
+            content.stroke();
+        }
+        (false, false) => {
+            content.end_path();
+        }
+    }
+}
+
 /// A drawable stroke and its dash pattern (empty when solid).
 fn drawable_stroke(stroke: &Stroke) -> Option<(&Stroke, Vec<f64>)> {
     is_drawable_stroke(stroke).then(|| (stroke, stroke.dash_pattern().unwrap_or_default()))
@@ -1131,7 +1186,7 @@ mod tests {
         let content = String::from_utf8(streams(&pdf)[0].clone()).unwrap();
         // Page transform, white background, the red rect, then two circles.
         assert!(content.starts_with("1 0 0 -1 0 30 cm"), "{content}");
-        assert!(content.contains("0 0 20 30 re\n1 0 0 rg\nf"), "{content}");
+        assert!(content.contains("1 0 0 rg\n0 0 20 30 re\nf"), "{content}");
         // Both circles reuse one marker form: four curves around (0, 0), filled.
         assert!(
             content.contains("q\n1 0 0 1 5 5 cm\n/M0 Do\nQ"),
@@ -1226,6 +1281,90 @@ mod tests {
         let content = String::from_utf8(writer.content.finish().into_vec()).unwrap();
         assert_eq!(content.matches(" Do\n").count(), MAX_MARKER_FORMS);
         assert_eq!(content.matches(" c\n").count(), 4 * 10);
+    }
+
+    #[test]
+    fn translucent_fill_and_outline_are_painted_separately() {
+        let rects = |alpha| {
+            Node::Rects(Rects {
+                rects: vec![Rect {
+                    x: 1.0,
+                    y: 1.0,
+                    width: 5.0,
+                    height: 5.0,
+                }],
+                fill: PerItem::Uniform(Some(Color::rgba(255, 0, 0, alpha))),
+                stroke: Some(Stroke::solid(Color::rgba(0, 0, 255, alpha), 2.0)),
+            })
+        };
+        let content = |alpha| {
+            let pdf = to_pdf(&scene(vec![rects(alpha)]), 1.0, 72.0).unwrap();
+            String::from_utf8_lossy(&streams(&pdf)[0]).into_owned()
+        };
+        // Opaque: one `B`. Translucent: `f`, then the outline blended over it.
+        assert!(content(255).contains("1 1 5 5 re\nB"));
+        let translucent = content(128);
+        assert!(!translucent.contains("\nB"), "{translucent}");
+        assert!(
+            translucent.contains("1 1 5 5 re\nf\n1 1 5 5 re\nS"),
+            "{translucent}"
+        );
+        // Marker forms do the same.
+        let points = |alpha| Points {
+            x: vec![5.0],
+            y: vec![5.0],
+            shape: PerItem::Uniform(MarkerShape::Square),
+            size: PerItem::Uniform(4.0),
+            fill: PerItem::Uniform(Some(Color::rgba(255, 0, 0, alpha))),
+            stroke: PerItem::Uniform(Some(Color::rgba(0, 0, 255, alpha))),
+            stroke_width: PerItem::Uniform(1.0),
+        };
+        let mut writer = Writer::new(&scene(vec![]));
+        writer.points(&points(255));
+        writer.points(&points(128));
+        let form =
+            |index: usize| String::from_utf8_lossy(&writer.markers[index].content).into_owned();
+        assert!(form(0).ends_with("re\nB"), "{}", form(0));
+        assert!(form(1).ends_with("re\nf\n-2 -2 4 4 re\nS"), "{}", form(1));
+    }
+
+    #[test]
+    fn images_are_opaque_after_translucent_fills() {
+        let image = Node::Image(Image {
+            rect: Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 1.0,
+                height: 1.0,
+            },
+            columns: 1,
+            rows: 1,
+            bitmap: Bitmap::Pixels(vec![Color::rgb(255, 0, 0)]),
+        });
+        let faint = Node::Rects(Rects {
+            rects: vec![Rect {
+                x: 0.0,
+                y: 0.0,
+                width: 1.0,
+                height: 1.0,
+            }],
+            fill: PerItem::Uniform(Some(Color::rgba(0, 0, 0, 25))),
+            stroke: None,
+        });
+        let pdf = to_pdf(&scene(vec![faint, image]), 1.0, 72.0).unwrap();
+        let content = String::from_utf8_lossy(&streams(&pdf)[0]).into_owned();
+        let image_at = content.find("/I0 Do").unwrap();
+        let opaque = content[..image_at].rfind("/A0 gs").unwrap();
+        assert!(opaque > content.find("/A1 gs").unwrap(), "{content}");
+    }
+
+    #[test]
+    fn missing_glyphs_map_to_no_text() {
+        let mut writer = Writer::new(&scene(vec![]));
+        let font = writer.font_index(Font::default());
+        writer.glyph_run(font, "日本a");
+        assert_eq!(writer.fonts[font].texts[0], None);
+        assert!(writer.fonts[font].texts.contains(&Some("a".to_owned())));
     }
 
     #[test]

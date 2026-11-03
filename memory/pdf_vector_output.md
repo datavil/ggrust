@@ -21,8 +21,13 @@ written as `TJ` adjustments against `hmtx` advances.
 - A form XObject inherits fill/stroke colour and alpha but also dash: set
   `[] 0 d` and the line width inside each marker form.
 - 100k circles inline are ~180 bytes each (8 MB, 190 ms); one form per distinct
-  marker + `q 1 0 0 1 x y cm /M0 Do Q` gives 1.2 MB, 79 ms. Past 1024 distinct
+  marker + `q 1 0 0 1 x y cm /M0 Do Q` gives 1.2 MB, 33 ms (PNG 41 ms). Past 1024 distinct
   markers (continuous sizes) points fall back to inline paths.
+- An image XObject composites with the current fill alpha (`ca`): set alpha to
+  opaque before `Do`.
+- One `B` on a translucent fill and outline is a knockout group (the outline's
+  inner half replaces the fill); SVG/PNG blend it over, so write the geometry
+  twice with `f` then `S`.
 
 **How to apply:** check PDFs by rasterising with `sips` (in a Python subprocess:
 shell loops over variables are refused in worktrees) and extract text with a

@@ -557,7 +557,12 @@ impl SvgWriter {
     }
 
     fn text(&mut self, text: &Text) {
-        let drawable = text.size.is_finite() && text.size > 0.0 && !text.content.is_empty();
+        let drawable = text.size.is_finite()
+            && text.size > 0.0
+            && !text.content.is_empty()
+            && text
+                .halo
+                .is_none_or(|(color, width)| width.is_finite() && width > 0.0 && color.alpha > 0);
         if !drawable || !self.clip_box.contains(text.x, text.y) {
             return;
         }
@@ -583,7 +588,16 @@ impl SvgWriter {
         if text.font.face.is_italic() {
             self.raw(" font-style=\"italic\"");
         }
-        self.fill(Some(text.color));
+        match text.halo {
+            // Outline only, as lets-plot's halo text element.
+            Some((color, width)) => {
+                self.raw(" fill=\"none\"");
+                self.paint("stroke", Some(color));
+                self.attribute_precise("stroke-width", width);
+                self.raw(" stroke-linejoin=\"round\"");
+            }
+            None => self.fill(Some(text.color)),
+        }
         match text.horizontal {
             HorizontalAlign::Start => {}
             HorizontalAlign::Middle => self.raw(" text-anchor=\"middle\""),

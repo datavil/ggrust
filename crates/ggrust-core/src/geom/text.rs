@@ -6,9 +6,13 @@
 //! `label_r` (0.15) x box height and a `label_size` (1.0) px border in `color`, filled
 //! with `fill`. `hjust`/`vjust` 0..1 place the text relative to the point, `angle`
 //! turns it counter-clockwise, `nudge_x`/`nudge_y` shift it in data units.
+//! `geom_text` draws a halo when `halo_width` > 0: the glyph outline,
+//! 2 x `halo_width` px wide, in `halo_color` (default: the panel background,
+//! else the plot background, else white) faded by `alpha`, under the text.
+//! `geom_label` has no halo (lets-plot).
 //!
 //! What it does not do (yet): `label_format`, `na_text`, `check_overlap`,
-//! `halo_*`, `lineheight` (lines are one font size apart), `size_unit`,
+//! `lineheight` (lines are one font size apart), `size_unit`,
 //! `hjust`/`vjust` `inward`/`outward`.
 
 use super::{DrawLayer, Geom};
@@ -62,6 +66,9 @@ const LABEL_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
     (Aesthetic::Vjust, StyleDefault::Number(0.5)),
 ];
 
+/// `geom_text` options.
+const TEXT_PARAMETERS: &[&str] = &["nudge_x", "nudge_y", "halo_width", "halo_color"];
+
 const PARAMETERS: &[&str] = &[
     "nudge_x",
     "nudge_y",
@@ -109,7 +116,7 @@ impl Geom for TextGeom {
     }
 
     fn parameters(&self) -> &'static [&'static str] {
-        &["nudge_x", "nudge_y"]
+        TEXT_PARAMETERS
     }
 
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
@@ -182,6 +189,8 @@ pub(super) struct Look {
     pub(super) vjust: f64,
     fill: Color,
     alpha: f64,
+    /// Layer halo `(color, stroke width px)`, see [`halo`]; faded by `alpha`.
+    pub(super) halo: Option<(Color, f64)>,
 }
 
 pub(super) fn look(styles: &Styles, row: usize, label: bool) -> Result<Look> {
@@ -208,7 +217,22 @@ pub(super) fn look(styles: &Styles, row: usize, label: bool) -> Result<Look> {
             Color::WHITE
         },
         alpha,
+        halo: None,
     })
+}
+
+/// lets-plot's text halo of a layer: `(halo_color, 2 x halo_width)` when
+/// `halo_width` > 0, the color defaulting to what the layer is drawn over.
+pub(super) fn halo(layer: &DrawLayer) -> Result<Option<(Color, f64)>> {
+    let width = layer.parameters.number("halo_width")?.unwrap_or(0.0);
+    if width <= 0.0 {
+        return Ok(None);
+    }
+    let color = layer
+        .parameters
+        .color("halo_color")?
+        .unwrap_or(layer.background);
+    Ok(Some((color, 2.0 * width)))
 }
 
 pub(super) fn key_size(styles: &Styles) -> Result<(f64, f64)> {
@@ -251,6 +275,7 @@ fn draw_texts(layer: &DrawLayer, panel: &Panel, label: bool) -> Result<Vec<Node>
         .parameters
         .number("label_size")?
         .unwrap_or(LABEL_BORDER);
+    let halo = if label { None } else { halo(layer)? };
     let mut nodes = Vec::new();
     for row in 0..layer.data.row_count() {
         let (px, py) = panel.map(
@@ -260,10 +285,11 @@ fn draw_texts(layer: &DrawLayer, panel: &Panel, label: bool) -> Result<Vec<Node>
         if !px.is_finite() || !py.is_finite() {
             continue;
         }
-        let look = look(layer.styles, row, label)?;
+        let mut look = look(layer.styles, row, label)?;
         if look.content.is_empty() || look.size <= 0.0 {
             continue;
         }
+        look.halo = halo;
         // Anchored, so interactive zoom moves each text with its point.
         nodes.push(Node::Group(Group {
             clip: None,
@@ -327,13 +353,14 @@ pub(super) fn draw_one(
             stroke: (border > 0.0).then(|| Stroke::solid(look.color, border)),
         }));
     }
+    let mut texts = Vec::with_capacity(lines.len());
     for (index, (line, line_width)) in lines.into_iter().zip(widths).enumerate() {
         // Line centres, one font size apart, around the block centre.
         let line_offset = (index as f64 - (line_count - 1.0) / 2.0) * look.size;
         // Each line aligned within the block by hjust (left-aligned for 0).
         let line_shift = (look.hjust - 0.5) * (width - line_width);
         let (x, y) = rotate((centre_offset.0 + line_shift, centre_offset.1 + line_offset));
-        nodes.push(Node::Text(Text {
+        texts.push(Text {
             content: line.text,
             superscript: line.superscript,
             suffix: line.suffix,
@@ -345,8 +372,20 @@ pub(super) fn draw_one(
             horizontal: HorizontalAlign::Middle,
             vertical: VerticalAlign::Middle,
             angle: look.angle,
+            halo: None,
+        });
+    }
+    // The halos of every line under the text (lets-plot's element order).
+    if let Some((color, width)) = look.halo {
+        let halo = Some((color.with_opacity(look.alpha), width));
+        nodes.extend(texts.iter().map(|text| {
+            Node::Text(Text {
+                halo,
+                ..text.clone()
+            })
         }));
     }
+    nodes.extend(texts.into_iter().map(Node::Text));
     nodes
 }
 

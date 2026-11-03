@@ -1453,6 +1453,7 @@ fn text_node(
         horizontal,
         vertical: VerticalAlign::Middle,
         angle,
+        halo: None,
     })
 }
 

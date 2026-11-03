@@ -83,6 +83,7 @@ fn text(content: &str, x: f64, horizontal: HorizontalAlign) -> Text {
         horizontal,
         vertical: VerticalAlign::Middle,
         angle: 0.0,
+        halo: None,
     }
 }
 
@@ -233,6 +234,36 @@ fn whitespace_renders_as_measured() {
         HorizontalAlign::Start,
     ))]));
     assert_eq!(tab, space);
+}
+
+#[test]
+fn text_halo_outlines_the_glyphs_in_both_renderers() {
+    let plain = text("Halo", 20.0, HorizontalAlign::Start);
+    let halo = |color: Color, width: f64| {
+        Node::Text(Text {
+            halo: Some((color, width)),
+            ..plain.clone()
+        })
+    };
+    let (plain_ink, plain_range) = both(&scene(vec![Node::Text(plain.clone())]));
+    // An outline only: wider ink than the text, reaching past it by about half the width.
+    let (halo_ink, halo_range) = both(&scene(vec![halo(Color::BLACK, 6.0)]));
+    assert!(
+        halo_ink > plain_ink,
+        "halo ink {halo_ink} vs text {plain_ink}"
+    );
+    let ((plain_left, plain_right), (halo_left, halo_right)) =
+        (plain_range.unwrap(), halo_range.unwrap());
+    assert!(halo_left + 2 <= plain_left && halo_right >= plain_right + 2);
+    // Zero width or a transparent color draws nothing.
+    assert_eq!(both(&scene(vec![halo(Color::BLACK, 0.0)])).0, 0);
+    assert_eq!(both(&scene(vec![halo(Color::TRANSPARENT, 6.0)])).0, 0);
+    let svg = to_svg(&scene(vec![halo(Color::rgb(255, 0, 0), 6.0)]));
+    assert!(
+        svg.contains(
+            "fill=\"none\" stroke=\"#ff0000\" stroke-width=\"6\" stroke-linejoin=\"round\""
+        )
+    );
 }
 
 #[test]

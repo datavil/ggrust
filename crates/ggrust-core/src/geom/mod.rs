@@ -70,7 +70,7 @@ use crate::coord::Panel;
 use crate::data::LayerData;
 use crate::parameters::Parameters;
 use crate::position::DefaultPosition;
-use crate::scene::{Node, Rect};
+use crate::scene::{Color, Node, Rect};
 use crate::spec::Aesthetic;
 use crate::style::{StyleDefault, Styles};
 use crate::tooltip::{HoverTargets, TooltipBehavior};
@@ -263,6 +263,9 @@ pub struct DrawLayer<'a> {
     pub styles: &'a Styles,
     /// Layer options.
     pub parameters: Parameters<'a>,
+    /// Fill behind the panel's layers: the panel background, else the plot
+    /// background, else white (lets-plot's default text halo color).
+    pub background: Color,
 }
 
 #[cfg(test)]

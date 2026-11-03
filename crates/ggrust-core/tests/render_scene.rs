@@ -37,6 +37,7 @@ fn text(content: &str, x: f64, y: f64, size: f64) -> Text {
         horizontal: HorizontalAlign::Start,
         vertical: VerticalAlign::Baseline,
         angle: 0.0,
+        halo: None,
     }
 }
 

@@ -15,7 +15,8 @@
 //!
 //! What it does not do (yet): unseeded layouts are not random (the seed defaults
 //! to 0, as `position_jitter`), `hjust`/`vjust` `inward`/`outward`, `size_unit`,
-//! `label_format`, `na_text`, `check_overlap`, `halo_*`, `lineheight`. Interactive
+//! `label_format`, `na_text`, `check_overlap`, `lineheight`. `geom_text_repel`
+//! draws `halo_width`/`halo_color` as `geom_text` does. Interactive
 //! zoom moves each label with its point; it does not lay them out again.
 
 use super::bracket::{UNSET_SEGMENT_COLOR, segment_stroke};
@@ -93,6 +94,8 @@ const LABEL_LEGEND_DEFAULTS: &[(Aesthetic, StyleDefault)] =
 const REPEL_PARAMETERS: &[&str] = &[
     "nudge_x",
     "nudge_y",
+    "halo_width",
+    "halo_color",
     "seed",
     "max_iter",
     "max_time",
@@ -290,6 +293,7 @@ fn place(
     ) else {
         return Ok(Vec::new());
     };
+    let halo = if label { None } else { text::halo(layer)? };
     let styles = layer.styles;
     let bounds = Bounds {
         left: panel.rect.x,
@@ -330,6 +334,7 @@ fn place(
         if look.content.is_empty() || look.size.is_nan() || look.size <= 0.0 {
             continue;
         }
+        look.halo = halo;
         let (text_width, text_height) = text::block_size(&look);
         let padding = if label {
             settings.label_padding * look.size

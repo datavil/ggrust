@@ -732,6 +732,15 @@ impl PreparedPlot {
         self.theme.plot_background.map(|background| background.fill)
     }
 
+    /// What the layers are drawn over: the panel background fill, else the plot
+    /// background fill, else white (lets-plot's default `halo_color`).
+    fn layer_background(&self) -> crate::scene::Color {
+        self.theme
+            .panel_background
+            .or(self.theme.plot_background)
+            .map_or(crate::scene::Color::WHITE, |background| background.fill)
+    }
+
     fn legend_block(&self, area: Rect) -> Result<Option<crate::layout::LegendBlock<'_>>> {
         if self.theme.legend_position == LegendPosition::None {
             Ok(None)
@@ -988,6 +997,7 @@ impl PreparedPlot {
                 data: &layer.data,
                 styles: &layer.styles,
                 parameters: Parameters::new(&layer.options, &layer.path),
+                background: self.layer_background(),
             };
             let Some(targets) = layer.geom.hover_targets(&draw_layer, &panel)? else {
                 return Ok(None);
@@ -1127,6 +1137,7 @@ impl PreparedPlot {
                     data: &layer.data,
                     styles: &layer.styles,
                     parameters: Parameters::new(&layer.options, &layer.path),
+                    background: self.layer_background(),
                 };
                 layer
                     .geom

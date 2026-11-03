@@ -1,7 +1,7 @@
 """Faceting: ``facet_wrap`` and ``facet_grid``.
 
 Ported from lets-plot's ``lets_plot/plot/facet.py`` (MIT, see THIRD_PARTY_NOTICES.md).
-The engine does not split panels yet (plan.md step 3.2); rendering reports the facet.
+The Rust engine splits the data into panels and lays them out.
 """
 
 from __future__ import annotations
@@ -32,18 +32,24 @@ def facet_grid(
 ) -> FeatureSpec:
     """Lay panels out in a grid: columns by ``x``, rows by ``y``.
 
+    Every level combination gets a panel, empty ones too. Column strips sit above
+    the top row, row strips right of the right column (``strip_text_y``,
+    ``strip_background_y``, ``strip_spacing_x``).
+
     Parameters
     ----------
     x, y : str, optional
-        Faceting columns.
+        Faceting columns: give one or both.
     scales : {"fixed", "free", "free_x", "free_y"}, optional
-        Whether panels share scales.
+        Whether panels share scales. A free x scale is shared by the panels of a
+        grid column, a free y scale by the panels of a grid row.
     x_order, y_order : {1, -1, 0}, default 1
-        Level order: ascending, descending, or data order.
+        Level order: ascending, descending, or data order. Only ascending is
+        rendered yet (other values warn).
     x_format, y_format : str, optional
-        Strip label formats.
+        Strip label formats (not rendered yet; they warn).
     x_labwidth, y_labwidth : int, optional
-        Strip label wrap width in characters.
+        Strip label wrap width in characters (not rendered yet; they warn).
 
     Returns
     -------

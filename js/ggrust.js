@@ -580,6 +580,10 @@
     var direct = layer.styles.length > MAX_SPRITES;
     if (!direct && layer.sprites.k !== k) layer.sprites = { k: k, atlas: newAtlas(layer, k) };
     var hs = h.scale * ratio, ho = h.offset * ratio, vs = v.scale * ratio, vo = v.offset * ratio;
+    // Sprites are all painted before the first stamp: painting an atlas page
+    // between stamps makes the browser sync it with the canvas every time.
+    if (!layer.stamps || layer.stamps.length < 3 * layer.count) layer.stamps = new Int32Array(3 * layer.count);
+    var stamps = layer.stamps, visible = 0;
     for (var i = 0; i < layer.count; i++) {
       var x = hs * xy[2 * i] + ho, y = vs * xy[2 * i + 1] + vo;
       var s = style ? style[i] : 0;
@@ -595,12 +599,20 @@
       x = Math.round(x * SUBPIXEL);
       y = Math.round(y * SUBPIXEL);
       var fx = x & (SUBPIXEL - 1), fy = y & (SUBPIXEL - 1);
-      var left = (x - fx) / SUBPIXEL, top = (y - fy) / SUBPIXEL;
       var key = (s * SUBPIXEL + fx) * SUBPIXEL + fy;
-      var stamp = layer.sprites[key] ||
-        (layer.sprites[key] = sprite(layer.sprites.atlas, layer.styles[s], k, ratio, fx / SUBPIXEL, fy / SUBPIXEL));
+      if (!layer.sprites[key]) {
+        layer.sprites[key] = sprite(layer.sprites.atlas, layer.styles[s], k, ratio, fx / SUBPIXEL, fy / SUBPIXEL);
+      }
+      stamps[3 * visible] = (x - fx) / SUBPIXEL;
+      stamps[3 * visible + 1] = (y - fy) / SUBPIXEL;
+      stamps[3 * visible + 2] = key;
+      visible++;
+    }
+    for (var j = 0; j < visible; j++) {
+      var stamp = layer.sprites[stamps[3 * j + 2]];
       var side = 2 * stamp.half;
-      context.drawImage(stamp.canvas, stamp.x, stamp.y, side, side, left - stamp.half, top - stamp.half, side, side);
+      context.drawImage(stamp.canvas, stamp.x, stamp.y, side, side,
+        stamps[3 * j] - stamp.half, stamps[3 * j + 1] - stamp.half, side, side);
     }
   }
 

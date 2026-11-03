@@ -34,3 +34,9 @@ over the whole scene; its markers travel as base64 Float32 xy + a style table
   step (k changes every step with `size_zoomin`) cost ~4 ms: sprites of one k
   now share atlas pages. The tooltip index is rebuilt lazily on the next
   lookup, not on every zoom step.
+- **Paint every sprite before the first stamp.** Painting an atlas page in
+  between `drawImage` stamps made Chromium sync it with the target each time:
+  6.6 ms of script per step at dpr 2, 1.4 ms with two passes. Measure with
+  playwright + CDP `Performance.getMetrics` (Script/RecalcStyle/Layout/Task
+  durations) at `device_scale_factor=2`; the hidden browser pane runs no rAF
+  and dpr 1 hides costs.

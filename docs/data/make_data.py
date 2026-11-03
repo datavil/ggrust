@@ -4,6 +4,8 @@ Run once after changing a dataset: ``uv run python docs/data/make_data.py``.
 The random datasets are seeded, so the CSV files only change on purpose.
 Climate and fruit numbers are rounded, approximate public figures.
 The chemical elements come from the lets-plot docs (CC BY-SA 4.0, see ``ELEMENTS_URL``).
+The datasets of the lets-plot gallery remakes are downloaded from their sources (see
+``LETS_PLOT_DATA`` and ``NETFLIX_URL``) and trimmed to the columns the examples use.
 """
 
 import io
@@ -19,6 +21,14 @@ DATA = Path(__file__).parent
 # Licensed CC BY-SA 4.0; the cleaned copy in elements.csv is shared under the same license.
 ELEMENTS_URL = (
     "https://raw.githubusercontent.com/JetBrains/lets-plot-docs/master/data/chemical_elements.csv"
+)
+
+# Data of the lets-plot gallery demos remade in the ggrust gallery.
+LETS_PLOT_DATA = "https://raw.githubusercontent.com/JetBrains/lets-plot-docs/master/data/"
+# Netflix titles as of 2021 (Kaggle "Netflix Movies and TV Shows", via TidyTuesday).
+NETFLIX_URL = (
+    "https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/"
+    "data/2021/2021-04-20/netflix_titles.csv"
 )
 
 # Names, symbols and types that changed after the source was written.
@@ -197,6 +207,61 @@ def elements() -> pl.DataFrame:
     return pl.DataFrame(rows)
 
 
+def download(url: str) -> bytes:
+    """Return the bytes at ``url``."""
+    with urllib.request.urlopen(url) as response:
+        return response.read()
+
+
+def netflix() -> pl.DataFrame:
+    """Return Netflix movies released since 2000: genres (comma-separated) and minutes."""
+    titles = pl.read_csv(io.BytesIO(download(NETFLIX_URL)))
+    return titles.filter(
+        pl.col("type") == "Movie",
+        pl.col("release_year") >= 2000,
+        pl.col("duration").is_not_null(),
+    ).select(
+        pl.col("listed_in").alias("genres"),
+        pl.col("duration").str.extract(r"(\d+)").cast(pl.Int64).alias("minutes"),
+    )
+
+
+def penguins() -> pl.DataFrame:
+    """Return the Palmer penguins (CC0, Horst, Hill and Gorman)."""
+    return pl.read_csv(io.BytesIO(download(LETS_PLOT_DATA + "penguins.csv")), null_values="NA")
+
+
+def pulsar() -> pl.DataFrame:
+    """Return the radio pulses of pulsar CP 1919, one row per pulse, as on the album cover."""
+    return pl.read_csv(io.BytesIO(download(LETS_PLOT_DATA + "pulsar.csv")), has_header=False)
+
+
+def unemployment() -> pl.DataFrame:
+    """Return monthly US unemployment in thousands (ggplot2's economics, from FRED)."""
+    economics = pl.read_csv(
+        io.BytesIO(download(LETS_PLOT_DATA + "economics.csv")), infer_schema_length=None
+    )
+    return economics.select("date", "unemploy")
+
+
+def presidents() -> pl.DataFrame:
+    """Return US presidential terms and parties (ggplot2's presidential)."""
+    presidential = pl.read_csv(io.BytesIO(download(LETS_PLOT_DATA + "presidential.csv")))
+    return presidential.select("name", "start", "end", "party")
+
+
+def bitcoin() -> pl.DataFrame:
+    """Return the daily Bitcoin close price in US dollars on Bitstamp, 2024."""
+    prices = pl.read_csv(
+        io.BytesIO(download(LETS_PLOT_DATA + "Bitstamp_BTCUSD_d.csv")), infer_schema_length=None
+    )
+    return (
+        prices.select(pl.col("date").str.slice(0, 10), pl.col("close"))
+        .filter(pl.col("date").str.starts_with("2024"))
+        .sort("date")
+    )
+
+
 if __name__ == "__main__":
     generator = np.random.default_rng(2026)
     cities().write_csv(DATA / "cities.csv")
@@ -205,3 +270,9 @@ if __name__ == "__main__":
     homes(generator).write_csv(DATA / "homes.csv")
     fruit().write_csv(DATA / "fruit.csv")
     elements().write_csv(DATA / "elements.csv")
+    netflix().write_csv(DATA / "netflix.csv")
+    penguins().write_csv(DATA / "penguins.csv")
+    pulsar().write_csv(DATA / "pulsar.csv", include_header=False)
+    unemployment().write_csv(DATA / "unemployment.csv")
+    presidents().write_csv(DATA / "presidents.csv")
+    bitcoin().write_csv(DATA / "bitcoin.csv")

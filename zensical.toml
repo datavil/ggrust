@@ -33,6 +33,11 @@ nav = [
       "gallery/line.md",
       "gallery/ribbon.md",
       "gallery/function.md",
+      "gallery/venn.md",
+    ] },
+    { "Time series" = [
+      "gallery/unemployment.md",
+      "gallery/bitcoin.md",
     ] },
     { "Bars and tiles" = [
       "gallery/stacked_bars.md",
@@ -44,7 +49,12 @@ nav = [
       "gallery/histogram.md",
       "gallery/boxplot.md",
       "gallery/violin.md",
+      "gallery/raincloud.md",
+    ] },
+    { "Ridgelines" = [
       "gallery/ridges.md",
+      "gallery/netflix_ridges.md",
+      "gallery/unknown_pleasures.md",
     ] },
     { "Labels, facets and grids" = [
       "gallery/text_repel.md",

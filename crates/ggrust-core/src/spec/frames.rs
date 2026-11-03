@@ -77,11 +77,11 @@ impl TryFrom<Value> for DataSource {
 
 impl Figure {
     /// Every column name the engine reads: mappings (plot and layers, group lists),
-    /// `as_discrete(order_by=...)` and `facet_wrap` columns, nested figures
-    /// included. Tooltip columns are separate ([`Self::tooltip_columns`]): only HTML
-    /// output reads them. Features that are parsed but not built yet (`facet_grid`)
-    /// add their columns when they land: exporting a column nothing reads can only
-    /// fail the plot.
+    /// `as_discrete(order_by=...)` and faceting columns (`facet_wrap`, `facet_grid`),
+    /// nested figures included. Tooltip columns are separate
+    /// ([`Self::tooltip_columns`]): only HTML output reads them. Features that are
+    /// parsed but not built yet add their columns when they land: exporting a
+    /// column nothing reads can only fail the plot.
     pub fn referenced_columns(&self) -> BTreeSet<String> {
         let mut columns = BTreeSet::new();
         self.collect_columns(&mut columns);
@@ -129,14 +129,18 @@ impl PlotSpec {
     fn collect_columns(&self, columns: &mut BTreeSet<String>) {
         add_mapping(&self.mapping, columns);
         add_meta(&self.data_meta, columns);
-        if let Some(facet) = self.facet.as_ref().filter(|facet| facet.name == "wrap") {
-            columns.extend(
-                facet
-                    .facets
-                    .iter()
-                    .flat_map(|facets| facets.as_slice())
-                    .cloned(),
-            );
+        if let Some(facet) = &self.facet {
+            match facet.name.as_str() {
+                "wrap" => columns.extend(
+                    facet
+                        .facets
+                        .iter()
+                        .flat_map(|facets| facets.as_slice())
+                        .cloned(),
+                ),
+                "grid" => columns.extend([&facet.x, &facet.y].into_iter().flatten().cloned()),
+                _ => {}
+            }
         }
         for layer in &self.layers {
             add_layer(layer, columns);
@@ -279,14 +283,16 @@ mod tests {
                                             "variables": ["donor"],
                                             "title": "@sample^2"}}]},
                   null,
-                  {"kind": "plot", "mapping": {"x": "other"}}
+                  {"kind": "plot", "mapping": {"x": "other"},
+                   "facet": {"name": "grid", "x": "row", "y": "column"}}
                 ]}"#,
         );
         // Only HTML output reads tooltip columns: they are listed apart.
         assert_eq!(
             found,
             [
-                "UMAP1", "UMAP2", "batch", "cluster", "donor", "other", "rank", "sample"
+                "UMAP1", "UMAP2", "batch", "cluster", "column", "donor", "other", "rank", "row",
+                "sample"
             ]
         );
     }

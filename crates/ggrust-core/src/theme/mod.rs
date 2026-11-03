@@ -8,8 +8,7 @@
 //!
 //! What it does not do (yet): text margins other than on strips and plot and axis
 //! titles, text angles and vertical justification other than on axis labels and
-//! titles, and the vertical strips of `facet_grid`; options that set them are
-//! reported as warnings.
+//! titles; options that set them are reported as warnings.
 
 mod values;
 
@@ -309,6 +308,15 @@ pub struct Theme {
     pub strip_background: Option<RectStyle>,
     /// Space between strips and their panel (`strip_spacing_y`).
     pub strip_spacing: f64,
+    /// `facet_grid` row strip labels right of the panels (`strip_text_y`); `None`
+    /// hides those strips.
+    pub strip_text_y: Option<TextStyle>,
+    /// Space around a row strip label (`strip_text_y` margins).
+    pub strip_margin_y: Margins,
+    /// Row strip background (`strip_background_y`), drawn only with the text.
+    pub strip_background_y: Option<RectStyle>,
+    /// Space between row strips and their panel (`strip_spacing_x`).
+    pub strip_spacing_x: f64,
     /// Space between facet panels (`panel_spacing_x`, `panel_spacing_y`).
     pub panel_spacing: (f64, f64),
 }
@@ -391,9 +399,12 @@ const BUILT_OPTIONS: &[&str] = &[
     "legend_ticks_length",
     "strip_text",
     "strip_text_x",
+    "strip_text_y",
     "strip_background",
     "strip_background_x",
+    "strip_background_y",
     "strip_spacing",
+    "strip_spacing_x",
     "strip_spacing_y",
     "panel_spacing",
     "panel_spacing_x",
@@ -464,6 +475,7 @@ fn report_unbuilt(spec: &ThemeSpec, warnings: &mut Vec<String>) {
             key.as_str(),
             "strip_text"
                 | "strip_text_x"
+                | "strip_text_y"
                 | "title"
                 | "plot_title"
                 | "plot_subtitle"
@@ -634,6 +646,7 @@ impl Resolver<'_> {
             dash: dash(&props),
         });
         let strip_text = self.text(&["strip_text_x", "strip_text", "text"]);
+        let strip_text_y = self.text(&["strip_text_y", "strip_text", "text"]);
         Ok(Theme {
             plot_margin: self.margins(&["plot_margin"], 3.0),
             plot_inset: self.margins(&["plot_inset"], 3.0),
@@ -734,6 +747,11 @@ impl Resolver<'_> {
             strip_background: strip_text
                 .and_then(|_| self.rect(&["strip_background_x", "strip_background", "rect"])),
             strip_spacing: self.number(&["strip_spacing_y", "strip_spacing"], 0.0)?,
+            strip_text_y,
+            strip_margin_y: self.margins(&["strip_text_y", "strip_text"], 3.0),
+            strip_background_y: strip_text_y
+                .and_then(|_| self.rect(&["strip_background_y", "strip_background", "rect"])),
+            strip_spacing_x: self.number(&["strip_spacing_x", "strip_spacing"], 0.0)?,
             panel_spacing: (
                 self.number(&["panel_spacing_x", "panel_spacing"], 10.0)?,
                 self.number(&["panel_spacing_y", "panel_spacing"], 10.0)?,
@@ -1034,7 +1052,7 @@ mod tests {
         assert!(error.contains("theme.legend_position"), "{error}");
         let mut warnings = Vec::new();
         Theme::from_spec(
-            Some(&spec(r#"{"strip_text_y": {"size": 3, "blank": false}, "plot_title": {"angle": 45, "blank": false}}"#)),
+            Some(&spec(r#"{"strip_text_y": {"size": 3, "angle": 0, "blank": false}, "plot_title": {"angle": 45, "blank": false}}"#)),
             &mut warnings,
         )
         .unwrap();
@@ -1042,7 +1060,7 @@ mod tests {
             warnings,
             [
                 "at 'theme.plot_title.angle': not supported yet; ignored",
-                "at 'theme.strip_text_y': not supported yet; ignored"
+                "at 'theme.strip_text_y.angle': not supported yet; ignored"
             ]
         );
     }

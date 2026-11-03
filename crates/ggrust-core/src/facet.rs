@@ -1,15 +1,19 @@
-//! Facets (`facet_wrap`): which panels a plot has, which data rows each panel
-//! shows, and where panels sit in the grid (lets-plot `FacetConfig.createWrap`,
-//! `FacetWrap`, `PlotFacets`).
+//! Facets (`facet_wrap`, `facet_grid`): which panels a plot has, which data rows
+//! each panel shows, and where panels sit in the grid (lets-plot
+//! `FacetConfig.createWrap`/`createGrid`, `FacetWrap`, `FacetGrid`, `PlotFacets`).
 //!
 //! What it does: levels of every faceting column joined over the layers' data
-//! (first appearance, then `order`), one panel per level combination that has data
-//! (`drop`), strip labels (`format`, else lets-plot's `{,~g}` for numbers), the grid
-//! shape (`ncol`, `nrow`, `dir`) and which panels draw axes. A layer without a
-//! faceting column shows all its rows in every panel; rows with a missing value in
-//! a faceting column are in no panel.
+//! (first appearance, then `order`), strip labels (`format`, else lets-plot's
+//! `{,~g}` for numbers) and which panels draw axes. `facet_wrap`: one panel per
+//! level combination that has data (`drop`), the grid shape from `ncol`, `nrow`,
+//! `dir`. `facet_grid`: one panel per (`x` level, `y` level), empty ones too, column
+//! strips on the top row and row strips on the right column; free scales are shared
+//! per grid column (x) and row (y). A layer without a faceting column shows all its
+//! rows in every panel; rows with a missing value in a faceting column are in no
+//! panel.
 //!
-//! What it does not do: `facet_grid`, `labwidth`, datetime labels. Building and
+//! What it does not do: `labwidth`, datetime labels, `facet_grid`'s
+//! `x_order`/`y_order` (always ascending) and `x_format`/`y_format`. Building and
 //! drawing the panels is `build` and `layout::facet`.
 
 use std::collections::HashMap;
@@ -52,8 +56,18 @@ pub struct Tile {
     pub column: usize,
     /// Grid row, from 0 at the top.
     pub row: usize,
-    /// Strip labels, one per faceting column, top first.
+    /// Strip labels above the panel, top first: one per faceting column
+    /// (`facet_wrap`), the `x` level on the top row (`facet_grid`), else none.
     pub labels: Vec<Label>,
+    /// Strip label right of the panel: the `y` level on the right column of a
+    /// `facet_grid`.
+    pub row_label: Option<Label>,
+    /// Panels with the same x scale group share their x scale (one group for
+    /// fixed scales, one per panel for a free `facet_wrap`, one per grid column
+    /// for a free `facet_grid`).
+    pub x_scale_group: usize,
+    /// As [`Tile::x_scale_group`], for y (per grid row in a `facet_grid`).
+    pub y_scale_group: usize,
     /// Whether the panel draws its x axis (the last panel of its column, or free x).
     pub has_x_axis: bool,
     /// Whether the panel draws its y axis (the first column, or free y).
@@ -75,7 +89,7 @@ pub struct Facets {
     pub rows: usize,
     /// Panels in grid order (by row, then column).
     pub tiles: Vec<Tile>,
-    /// `scales="free"` or `"free_x"`: every panel has its own x scale.
+    /// `scales="free"` or `"free_x"`: x scales per [`Tile::x_scale_group`].
     pub free_x: bool,
     /// `scales="free"` or `"free_y"`.
     pub free_y: bool,
@@ -116,21 +130,7 @@ impl Facets {
                 return Err(invalid(key, "expected a positive count, got 0".to_owned()));
             }
         }
-        let free = match spec.scales.as_deref().map(str::to_lowercase).as_deref() {
-            None | Some("fixed") => (false, false),
-            Some("free") => (true, true),
-            Some("free_x") => (true, false),
-            Some("free_y") => (false, true),
-            Some(_) => {
-                return Err(invalid(
-                    "scales",
-                    format!(
-                        "unknown value '{}'; expected fixed, free, free_x or free_y",
-                        spec.scales.as_deref().unwrap_or_default()
-                    ),
-                ));
-            }
-        };
+        let free = free_scales(spec)?;
         let vertical = match spec.dir.as_deref().map(str::to_lowercase).as_deref() {
             None | Some("h") => false,
             Some("v") => true,
@@ -149,34 +149,8 @@ impl Facets {
 
         let mut levels = Vec::with_capacity(variables.len());
         for (index, name) in variables.iter().enumerate() {
-            let mut found = false;
-            let mut values: Vec<FacetValue> = Vec::new();
-            let mut seen: HashMap<LevelKey, ()> = HashMap::new();
-            for (columns, _) in layers {
-                let Some(column) = &columns[index] else {
-                    continue;
-                };
-                found = true;
-                for value in distinct_values(column) {
-                    if seen.insert(value.key(), ()).is_none() {
-                        values.push(value);
-                    }
-                }
-            }
-            if !found {
-                return Err(invalid(
-                    "facets",
-                    format!("faceting column '{name}' is not in the data of any layer"),
-                ));
-            }
             let order = orders[index].flatten().unwrap_or(0);
-            if order != 0 {
-                values.sort_by(compare_values);
-                if order < 0 {
-                    values.reverse();
-                }
-            }
-            levels.push(values);
+            levels.push(collect_levels(name, "facets", index, layers, order)?);
         }
 
         // Every combination (first variable slowest), then only those with data.
@@ -225,8 +199,6 @@ impl Facets {
                 None => Ok(None),
             })
             .collect::<Result<Vec<_>>>()?;
-        let number_pattern = LabelPattern::parse("{,~g}").map_err(Error::spec_located)?;
-
         let count = combinations.len();
         let (columns, rows) = shape(count, spec.ncol, spec.nrow, vertical);
         let mut tiles: Vec<Tile> = combinations
@@ -248,25 +220,17 @@ impl Facets {
                     .iter()
                     .enumerate()
                     .map(|(variable, level)| {
-                        let value = &levels[variable][*level];
-                        match (&patterns[variable], value) {
-                            (Some(pattern), FacetValue::Text(text)) => {
-                                pattern.format(PatternValue::Text(text))
-                            }
-                            (Some(pattern), FacetValue::Number(number)) => {
-                                pattern.format(PatternValue::Number(*number))
-                            }
-                            (None, FacetValue::Text(text)) => Label::plain(text.clone()),
-                            (None, FacetValue::Number(number)) => {
-                                number_pattern.format(PatternValue::Number(*number))
-                            }
-                        }
+                        strip_label(&levels[variable][*level], patterns[variable].as_ref())
                     })
                     .collect();
+                let tile_index = row * columns + column;
                 Tile {
                     column,
                     row,
                     labels,
+                    row_label: None,
+                    x_scale_group: if free.0 { tile_index } else { 0 },
+                    y_scale_group: if free.1 { tile_index } else { 0 },
                     has_x_axis: is_bottom || free.0,
                     has_y_axis: column == 0 || free.1,
                     is_bottom,
@@ -286,12 +250,172 @@ impl Facets {
         })
     }
 
+    /// `facet_grid` from its spec and each layer's faceting columns (variables in
+    /// [`Facets::variables`] order: `x` first when given, then `y`). Levels sort
+    /// ascending (lets-plot's default `x_order=1`, `y_order=1`).
+    pub fn grid(spec: &FacetSpec, layers: &[(&LayerFacetColumns, usize)]) -> Result<Facets> {
+        let variables = grid_variables(spec)?;
+        let free = free_scales(spec)?;
+        let x_defined = spec.x.is_some();
+        let y_defined = spec.y.is_some();
+        let mut levels = Vec::with_capacity(variables.len());
+        for (index, name) in variables.iter().enumerate() {
+            let key = if index == 0 && x_defined { "x" } else { "y" };
+            let values = collect_levels(name, key, index, layers, 1)?;
+            if values.is_empty() {
+                return Err(Error::spec(
+                    format!("facet.{key}"),
+                    format!(
+                        "no panel to draw: every row has a missing value in faceting column \
+                         '{name}'"
+                    ),
+                ));
+            }
+            levels.push(values);
+        }
+        let columns = if x_defined { levels[0].len() } else { 1 };
+        let rows = if y_defined {
+            levels[usize::from(x_defined)].len()
+        } else {
+            1
+        };
+        let mut tiles = Vec::with_capacity(columns * rows);
+        for row in 0..rows {
+            for column in 0..columns {
+                let mut combination = Vec::with_capacity(variables.len());
+                if x_defined {
+                    combination.push(column);
+                }
+                if y_defined {
+                    combination.push(row);
+                }
+                let labels = if x_defined && row == 0 {
+                    vec![strip_label(&levels[0][column], None)]
+                } else {
+                    Vec::new()
+                };
+                let row_label = (y_defined && column + 1 == columns)
+                    .then(|| strip_label(&levels[usize::from(x_defined)][row], None));
+                tiles.push(Tile {
+                    column,
+                    row,
+                    labels,
+                    row_label,
+                    x_scale_group: if free.0 { column } else { 0 },
+                    y_scale_group: if free.1 { row } else { 0 },
+                    // lets-plot `FacetGrid.tileInfos`: axes on the outer panels only,
+                    // free or not (free scales are shared along the grid).
+                    has_x_axis: row + 1 == rows,
+                    has_y_axis: column == 0,
+                    is_bottom: row + 1 == rows,
+                    levels: combination,
+                });
+            }
+        }
+        Ok(Facets {
+            variables,
+            columns,
+            rows,
+            tiles,
+            free_x: free.0,
+            free_y: free.1,
+            levels,
+        })
+    }
+
     /// Rows of one layer per panel (in [`Facets::tiles`] order), from its faceting
     /// columns and row count.
     pub fn rows_by_tile(&self, columns: &LayerFacetColumns, row_count: usize) -> Vec<Vec<u32>> {
         let combinations: Vec<Vec<usize>> =
             self.tiles.iter().map(|tile| tile.levels.clone()).collect();
         Lookup::new(&self.levels).rows_by_tile(&combinations, columns, row_count)
+    }
+}
+
+/// Faceting columns of a `facet_grid`: `x` then `y`, whichever are given.
+pub fn grid_variables(spec: &FacetSpec) -> Result<Vec<String>> {
+    match (&spec.x, &spec.y) {
+        (None, None) => Err(Error::spec(
+            "facet",
+            "facet_grid needs a faceting column: give x (columns), y (rows) or both",
+        )),
+        (Some(x), Some(y)) if x == y => Err(Error::spec(
+            "facet.y",
+            format!("x and y must be different faceting columns, '{y}' is given twice"),
+        )),
+        (x, y) => Ok([x, y].into_iter().flatten().cloned().collect()),
+    }
+}
+
+/// `scales`: whether x and y are free.
+fn free_scales(spec: &FacetSpec) -> Result<(bool, bool)> {
+    match spec.scales.as_deref().map(str::to_lowercase).as_deref() {
+        None | Some("fixed") => Ok((false, false)),
+        Some("free") => Ok((true, true)),
+        Some("free_x") => Ok((true, false)),
+        Some("free_y") => Ok((false, true)),
+        Some(_) => Err(Error::spec(
+            "facet.scales",
+            format!(
+                "unknown value '{}'; expected fixed, free, free_x or free_y",
+                spec.scales.as_deref().unwrap_or_default()
+            ),
+        )),
+    }
+}
+
+/// Levels of faceting variable `index` (named `name`, given by option `key`) over
+/// every layer: first appearance, then sorted when `order` is not 0 (descending
+/// below 0).
+fn collect_levels(
+    name: &str,
+    key: &str,
+    index: usize,
+    layers: &[(&LayerFacetColumns, usize)],
+    order: i64,
+) -> Result<Vec<FacetValue>> {
+    let mut found = false;
+    let mut values: Vec<FacetValue> = Vec::new();
+    let mut seen: HashMap<LevelKey, ()> = HashMap::new();
+    for (columns, _) in layers {
+        let Some(column) = &columns[index] else {
+            continue;
+        };
+        found = true;
+        for value in distinct_values(column) {
+            if seen.insert(value.key(), ()).is_none() {
+                values.push(value);
+            }
+        }
+    }
+    if !found {
+        return Err(Error::spec(
+            format!("facet.{key}"),
+            format!("faceting column '{name}' is not in the data of any layer"),
+        ));
+    }
+    if order != 0 {
+        values.sort_by(compare_values);
+        if order < 0 {
+            values.reverse();
+        }
+    }
+    Ok(values)
+}
+
+/// A strip label: `pattern` applied to the level, else the text itself or a number
+/// in lets-plot's `{,~g}`.
+fn strip_label(value: &FacetValue, pattern: Option<&LabelPattern>) -> Label {
+    match (pattern, value) {
+        (Some(pattern), FacetValue::Text(text)) => pattern.format(PatternValue::Text(text)),
+        (Some(pattern), FacetValue::Number(number)) => {
+            pattern.format(PatternValue::Number(*number))
+        }
+        (None, FacetValue::Text(text)) => Label::plain(text.clone()),
+        (None, FacetValue::Number(number)) => match LabelPattern::parse("{,~g}") {
+            Ok(pattern) => pattern.format(PatternValue::Number(*number)),
+            Err(_) => Label::plain(number.to_string()),
+        },
     }
 }
 
@@ -649,6 +773,96 @@ mod tests {
                 ("b".into(), true),
                 ("d".into(), true)
             ]
+        );
+    }
+
+    #[test]
+    fn grid_has_every_combination_with_outer_strips_and_axes() {
+        let columns = vec![
+            Some(texts(&[Some("b"), Some("a"), Some("b")])),
+            Some(texts(&[Some("u"), Some("u"), Some("v")])),
+        ];
+        let facets = Facets::grid(
+            &spec(r#"{"name": "grid", "x": "g", "y": "h", "scales": "free"}"#),
+            &[(&columns, 3)],
+        )
+        .unwrap();
+        assert_eq!((facets.columns, facets.rows), (2, 2));
+        let cells: Vec<_> = facets
+            .tiles
+            .iter()
+            .map(|tile| {
+                (
+                    tile.labels
+                        .iter()
+                        .map(ToString::to_string)
+                        .collect::<Vec<_>>(),
+                    tile.row_label.as_ref().map(ToString::to_string),
+                    (tile.has_x_axis, tile.has_y_axis),
+                    (tile.x_scale_group, tile.y_scale_group),
+                )
+            })
+            .collect();
+        let some = |text: &str| Some(text.to_owned());
+        // Levels ascending; (a, v) has no rows and still is a panel.
+        assert_eq!(
+            cells,
+            [
+                (vec!["a".to_owned()], None, (false, true), (0, 0)),
+                (vec!["b".to_owned()], some("u"), (false, false), (1, 0)),
+                (vec![], None, (true, true), (0, 1)),
+                (vec![], some("v"), (true, false), (1, 1)),
+            ]
+        );
+        assert_eq!(
+            facets.rows_by_tile(&columns, 3),
+            [vec![1], vec![0], vec![], vec![2]]
+        );
+        // Only y: one column, row strips only; fixed scales share one group.
+        let rows_only = vec![Some(texts(&[Some("u"), Some("v")]))];
+        let facets =
+            Facets::grid(&spec(r#"{"name": "grid", "y": "h"}"#), &[(&rows_only, 2)]).unwrap();
+        assert_eq!((facets.columns, facets.rows), (1, 2));
+        assert!(facets.tiles.iter().all(|tile| tile.labels.is_empty()
+            && tile.row_label.is_some()
+            && tile.y_scale_group == 0));
+    }
+
+    #[test]
+    fn grid_errors_name_the_option() {
+        let column = vec![Some(texts(&[Some("a")]))];
+        for (json, key) in [
+            (r#"{"name": "grid"}"#, "'facet'"),
+            (r#"{"name": "grid", "x": "g", "y": "g"}"#, "facet.y"),
+            (
+                r#"{"name": "grid", "x": "g", "scales": "nope"}"#,
+                "facet.scales",
+            ),
+        ] {
+            let error = Facets::grid(&spec(json), &[(&column, 1)])
+                .unwrap_err()
+                .to_string();
+            assert!(error.contains(key), "{json}: {error}");
+        }
+        let error = Facets::grid(
+            &spec(r#"{"name": "grid", "x": "g", "y": "missing"}"#),
+            &[(&vec![Some(texts(&[Some("a")])), None], 1)],
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(
+            error.contains("facet.y") && error.contains("'missing'"),
+            "{error}"
+        );
+        let error = Facets::grid(
+            &spec(r#"{"name": "grid", "x": "g"}"#),
+            &[(&vec![Some(texts(&[None]))], 1)],
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(
+            error.contains("facet.x") && error.contains("no panel"),
+            "{error}"
         );
     }
 

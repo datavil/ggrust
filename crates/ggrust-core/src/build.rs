@@ -16,7 +16,7 @@ use crate::data::as_discrete::{DiscreteOrder, as_discrete};
 use crate::data::{
     Column, Computed, ContinuousColumn, DataFrame, LayerData, SourceRows, group_index, inline,
 };
-use crate::facet::{Facets, LayerFacetColumns};
+use crate::facet::{Facets, LayerFacetColumns, grid_variables};
 use crate::geom::{self, DrawLayer, Geom};
 use crate::layout::facet::{FacetGrid, FacetLayout, FacetPanel, draw_strips, layout_facets};
 use crate::layout::zoom::{Zoom, ZoomPlot, zoom_tile};
@@ -223,11 +223,47 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     let scales =
         position_scales(spec, &mut warnings).map_err(|error| error.with_notes(&warnings))?;
 
-    let wrap = spec.facet.as_ref().filter(|facet| facet.name == "wrap");
-    let facet_variables: Vec<String> = wrap
-        .and_then(|facet| facet.facets.as_ref())
-        .map(|facets| facets.as_slice().to_vec())
-        .unwrap_or_default();
+    // Faceting columns with the option that names each (for column errors).
+    let facet_variables: Vec<(String, &'static str)> = match &spec.facet {
+        None => Vec::new(),
+        Some(facet) => match facet.name.as_str() {
+            "wrap" => facet
+                .facets
+                .as_ref()
+                .map(|facets| {
+                    facets
+                        .as_slice()
+                        .iter()
+                        .map(|name| (name.clone(), "facet.facets"))
+                        .collect()
+                })
+                .unwrap_or_default(),
+            "grid" => {
+                let names = grid_variables(facet).map_err(|error| error.with_notes(&warnings))?;
+                let x_defined = facet.x.is_some();
+                names
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, name)| {
+                        (
+                            name,
+                            if index == 0 && x_defined {
+                                "facet.x"
+                            } else {
+                                "facet.y"
+                            },
+                        )
+                    })
+                    .collect()
+            }
+            other => {
+                return Err(
+                    unknown("facet", "facet.name", other, false, &["wrap", "grid"])
+                        .with_notes(&warnings),
+                );
+            }
+        },
+    };
     let mut mapped = Vec::with_capacity(spec.layers.len());
     for (index, layer) in spec.layers.iter().enumerate() {
         match map_layer(index, layer, spec, data, &facet_variables) {
@@ -241,14 +277,17 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
             }
         }
     }
-    let facets = match wrap {
+    let facets = match &spec.facet {
         Some(facet) => {
             let layers: Vec<(&LayerFacetColumns, usize)> = mapped
                 .iter()
                 .map(|layer| (&layer.facet_columns, layer.row_count))
                 .collect();
-            let facets =
-                Facets::wrap(facet, &layers).map_err(|error| error.with_notes(&warnings))?;
+            let facets = match facet.name.as_str() {
+                "grid" => Facets::grid(facet, &layers),
+                _ => Facets::wrap(facet, &layers),
+            }
+            .map_err(|error| error.with_notes(&warnings))?;
             if facets.tiles.is_empty() {
                 return Err(Error::spec(
                     "facet.facets",
@@ -352,54 +391,106 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         aspect = None;
     }
     let context = StatContext {
-        x_range: overall_range(&mapped, Aesthetic::X, &x_scale),
-        y_range: overall_range(&mapped, Aesthetic::Y, &y_scale),
+        x_range: overall_range(&mapped.iter().collect::<Vec<_>>(), Aesthetic::X, &x_scale),
+        y_range: overall_range(&mapped.iter().collect::<Vec<_>>(), Aesthetic::Y, &y_scale),
     };
     // Per panel: its layers (stats and positions run per panel, as in lets-plot),
     // its position scales before training (free axes: discrete levels of the
-    // panel only, in the plot's order) and its stat context: on a free axis the
-    // panel's own range, as ggplot2 (lets-plot bins every panel over the whole
-    // plot's range, #1443).
+    // panel's scale group only, in the plot's order) and its stat context: on a
+    // free axis the range of its scale group (the panel in facet_wrap, the grid
+    // column or row in facet_grid), as ggplot2 (lets-plot bins every panel over
+    // the whole plot's range, #1443).
     let level_order = facets.as_ref().map(|_| style_level_order(&mapped));
     let parallel = parallel::is_worth(mapped.iter().map(|layer| layer.row_count).sum());
-    let tiles: Vec<(Vec<MappedLayer>, PositionScale, PositionScale, StatContext)> = match &facets {
-        None => vec![(mapped, x_scale.clone(), y_scale.clone(), context)],
+    // Scale group of every tile on each axis (see `Tile::x_scale_group`).
+    let (x_groups, y_groups): (Vec<usize>, Vec<usize>) = match &facets {
+        None => (vec![0], vec![0]),
+        Some(facets) => facets
+            .tiles
+            .iter()
+            .map(|tile| (tile.x_scale_group, tile.y_scale_group))
+            .unzip(),
+    };
+    let (tiles, mut x_group_scales, mut y_group_scales): (
+        Vec<TileSetup>,
+        Vec<PositionScale>,
+        Vec<PositionScale>,
+    ) = match &facets {
+        None => (
+            vec![(mapped, x_scale.clone(), y_scale.clone(), context)],
+            vec![x_scale.clone()],
+            vec![y_scale.clone()],
+        ),
         Some(facets) => {
             let rows: Vec<Vec<Vec<u32>>> = mapped
                 .iter()
                 .map(|layer| facets.rows_by_tile(&layer.facet_columns, layer.row_count))
                 .collect();
-            (0..facets.tiles.len())
+            let tile_layers: Vec<Vec<MappedLayer>> = (0..facets.tiles.len())
                 .map(|tile| {
-                    let layers: Vec<MappedLayer> = mapped
+                    mapped
                         .iter()
                         .zip(&rows)
                         .map(|(layer, rows)| split_layer(layer, &rows[tile]))
-                        .collect();
-                    let free = |shared: &PositionScale, free: bool, on_axis| {
-                        if free {
-                            panel_scale(shared, &layers, on_axis)
-                        } else {
-                            shared.clone()
-                        }
-                    };
-                    let tile_x = free(&x_scale, facets.free_x, Aesthetic::is_x_position);
-                    let tile_y = free(&y_scale, facets.free_y, Aesthetic::is_y_position);
-                    let tile_context = StatContext {
-                        x_range: if facets.free_x {
-                            overall_range(&layers, Aesthetic::X, &x_scale)
-                        } else {
-                            context.x_range
-                        },
-                        y_range: if facets.free_y {
-                            overall_range(&layers, Aesthetic::Y, &y_scale)
-                        } else {
-                            context.y_range
-                        },
-                    };
-                    (layers, tile_x, tile_y, tile_context)
+                        .collect()
                 })
-                .collect()
+                .collect();
+            // Per scale group: its scale before training and its stat range.
+            let group_scales = |groups: &[usize],
+                                shared: &PositionScale,
+                                free: bool,
+                                on_axis: fn(Aesthetic) -> bool,
+                                aesthetic: Aesthetic,
+                                shared_range: Option<(f64, f64)>| {
+                let count = groups.iter().max().map_or(0, |max| max + 1);
+                (0..count)
+                    .map(|group| {
+                        if !free {
+                            return (shared.clone(), shared_range);
+                        }
+                        let members: Vec<&MappedLayer> = tile_layers
+                            .iter()
+                            .zip(groups)
+                            .filter(|(_, member)| **member == group)
+                            .flat_map(|(layers, _)| layers)
+                            .collect();
+                        (
+                            panel_scale(shared, &members, on_axis),
+                            overall_range(&members, aesthetic, shared),
+                        )
+                    })
+                    .collect::<Vec<_>>()
+            };
+            let x_groups_setup = group_scales(
+                &x_groups,
+                &x_scale,
+                facets.free_x,
+                Aesthetic::is_x_position,
+                Aesthetic::X,
+                context.x_range,
+            );
+            let y_groups_setup = group_scales(
+                &y_groups,
+                &y_scale,
+                facets.free_y,
+                Aesthetic::is_y_position,
+                Aesthetic::Y,
+                context.y_range,
+            );
+            let tiles = tile_layers
+                .into_iter()
+                .zip(x_groups.iter().zip(&y_groups))
+                .map(|(layers, (x_group, y_group))| {
+                    let (tile_x, x_range) = x_groups_setup[*x_group].clone();
+                    let (tile_y, y_range) = y_groups_setup[*y_group].clone();
+                    (layers, tile_x, tile_y, StatContext { x_range, y_range })
+                })
+                .collect();
+            (
+                tiles,
+                x_groups_setup.into_iter().map(|(scale, _)| scale).collect(),
+                y_groups_setup.into_iter().map(|(scale, _)| scale).collect(),
+            )
         }
     };
     // Tiles and layers compute in parallel; results are taken in order, so
@@ -454,7 +545,9 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     });
     let mut prepared_tiles = Vec::with_capacity(styled.len());
     let mut tile_warnings = Vec::new();
-    for (results, mut tile_x, mut tile_y) in styled {
+    for ((results, tile_x, tile_y), (x_group, y_group)) in
+        styled.into_iter().zip(x_groups.iter().zip(&y_groups))
+    {
         let mut layers = Vec::with_capacity(results.len());
         for result in results {
             match result {
@@ -469,22 +562,34 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
                 }
             }
         }
-        train_positions(&layers, &mut tile_x, &mut tile_y);
+        // A free axis trains its scale group on every panel of the group.
+        train_positions(
+            &layers,
+            &mut x_group_scales[*x_group],
+            &mut y_group_scales[*y_group],
+        );
         train_positions(&layers, &mut x_scale, &mut y_scale);
         prepared_tiles.push((layers, tile_x, tile_y));
     }
     warnings.extend(merge_tile_warnings(tile_warnings));
-    // Shared axes take the scale trained on every panel.
+    // Shared axes take the scale trained on every panel, free ones their group's.
     let (free_x, free_y) = facets
         .as_ref()
         .map_or((false, false), |facets| (facets.free_x, facets.free_y));
-    for (_, tile_x, tile_y) in &mut prepared_tiles {
-        if !free_x {
-            *tile_x = x_scale.clone();
-        }
-        if !free_y {
-            *tile_y = y_scale.clone();
-        }
+    for ((_, tile_x, tile_y), (x_group, y_group)) in prepared_tiles
+        .iter_mut()
+        .zip(x_groups.iter().zip(&y_groups))
+    {
+        *tile_x = if free_x {
+            x_group_scales[*x_group].clone()
+        } else {
+            x_scale.clone()
+        };
+        *tile_y = if free_y {
+            y_group_scales[*y_group].clone()
+        } else {
+            y_scale.clone()
+        };
     }
 
     // lets-plot: a single coord limit beyond the other end of the data range is an
@@ -811,6 +916,7 @@ impl PreparedPlot {
                         x_scale: horizontal,
                         y_scale: vertical,
                         labels: &tile.labels,
+                        row_label: tile.row_label.as_ref(),
                         column: tile.column,
                         row: tile.row,
                         x_axis: tile.has_x_axis,
@@ -1348,12 +1454,21 @@ fn regroup_by_rank(data: &mut LayerData, visited: &[u32], rank: &[u32]) -> Resul
     data.set_group_index(Some(renumbered))
 }
 
+/// One facet panel before its stats run: its layers, its x and y scales before
+/// training and its stat context.
+type TileSetup<'a> = (
+    Vec<MappedLayer<'a>>,
+    PositionScale,
+    PositionScale,
+    StatContext,
+);
+
 /// A free facet axis's scale for one panel: the plot's scale (kind, transform,
 /// limits) with only the discrete levels the panel's rows use, in the plot's order
 /// (lets-plot `adjustFreeDisctereHDomainsByTile`).
 fn panel_scale(
     shared: &PositionScale,
-    layers: &[MappedLayer],
+    layers: &[&MappedLayer],
     on_axis: fn(Aesthetic) -> bool,
 ) -> PositionScale {
     let PositionScale::Discrete(discrete) = shared else {
@@ -1603,7 +1718,7 @@ fn map_layer<'a>(
     spec: &'a LayerSpec,
     plot: &PlotSpec,
     data: &PlotData,
-    facet_variables: &[String],
+    facet_variables: &[(String, &'static str)],
 ) -> StageResult<MappedLayer<'a>> {
     let mut warnings = Vec::new();
     map_layer_into(index, spec, plot, data, facet_variables, &mut warnings)
@@ -1615,7 +1730,7 @@ fn map_layer_into<'a>(
     spec: &'a LayerSpec,
     plot: &PlotSpec,
     data: &PlotData,
-    facet_variables: &[String],
+    facet_variables: &[(String, &'static str)],
     warnings: &mut Vec<String>,
 ) -> Result<MappedLayer<'a>> {
     let path = format!("layers[{index}]");
@@ -1760,8 +1875,8 @@ fn map_layer_into<'a>(
     // A layer without data columns is drawn in every panel.
     let facet_columns = facet_variables
         .iter()
-        .map(|name| match frames.has(name) && !unbound {
-            true => frames.column(name, "facet.facets").map(Some),
+        .map(|(name, path)| match frames.has(name) && !unbound {
+            true => frames.column(name, path).map(Some),
             false => Ok(None),
         })
         .collect::<Result<LayerFacetColumns>>()?;
@@ -2547,7 +2662,7 @@ impl LayerFrames<'_> {
 /// y) over every layer's mapped column (axis units), with finite scale limits
 /// replacing its ends.
 fn overall_range(
-    layers: &[MappedLayer],
+    layers: &[&MappedLayer],
     aesthetic: Aesthetic,
     scale: &PositionScale,
 ) -> Option<(f64, f64)> {
@@ -3533,17 +3648,17 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
             coord.name
         ));
     }
-    let mut ignored = |present: bool, feature: &str| {
-        if present {
-            warnings.push(format!("'{feature}' is not supported yet and was ignored"));
+    // facet_grid levels sort ascending (lets-plot's default order) for now.
+    if let Some(facet) = spec.facet.as_ref().filter(|facet| facet.name == "grid") {
+        for (key, order) in [("x_order", facet.x_order), ("y_order", facet.y_order)] {
+            if order.is_some_and(|order| order != 1) {
+                warnings.push(format!(
+                    "at 'facet.{key}': only the ascending order (1) is supported yet; \
+                     the levels are sorted ascending"
+                ));
+            }
         }
-    };
-    ignored(
-        spec.facet
-            .as_ref()
-            .is_some_and(|facet| facet.name != "wrap"),
-        "facet_grid",
-    );
+    }
     for (index, layer) in spec.layers.iter().enumerate() {
         let mut layer_ignored = |present: bool, feature: &str| {
             if present {

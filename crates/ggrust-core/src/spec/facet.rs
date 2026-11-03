@@ -1,4 +1,4 @@
-//! Faceting: `facet_wrap` (and later `facet_grid`).
+//! Faceting: `facet_wrap` and `facet_grid`.
 
 use serde::Deserialize;
 
@@ -18,6 +18,13 @@ pub struct FacetSpec {
     /// Row faceting variable (`facet_grid`).
     #[serde(default)]
     pub y: Option<String>,
+    /// Level order of `x` (`facet_grid`): `1` ascending, `-1` descending, `0` data
+    /// order. Only the default `1` is built yet.
+    #[serde(default)]
+    pub x_order: Option<i64>,
+    /// Level order of `y` (`facet_grid`), as `x_order`.
+    #[serde(default)]
+    pub y_order: Option<i64>,
     /// Number of columns.
     #[serde(default, deserialize_with = "optional_count")]
     pub ncol: Option<u32>,

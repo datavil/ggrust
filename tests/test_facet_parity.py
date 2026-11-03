@@ -1,4 +1,4 @@
-"""facet_wrap must match lets-plot: panels, strip labels, data in each panel.
+"""facet_wrap and facet_grid must match lets-plot: panels, strip labels, data in each panel.
 
 Data marks (points, rectangles) are compared as fractions of their panel, panel by
 panel in row-major order. Panel sizes may differ by a few pixels because ggrust
@@ -94,7 +94,7 @@ def _ggrust_panels(svg: str) -> list[dict]:
 def _lets_plot_strips(svg: str) -> list[str]:
     return [
         "".join(re.findall(r"<tspan[^>]*>([^<]*)</tspan>", text))
-        for text in re.findall(r'class="facet-strip-text-x"[^>]*>(.*?)</text>', svg, re.S)
+        for text in re.findall(r'class="facet-strip-text-[xy]"[^>]*>(.*?)</text>', svg, re.S)
     ]
 
 
@@ -178,6 +178,37 @@ CASES = {
     ),
     "theme_bw": lambda m: (
         m.ggplot(POINTS, m.aes("x", "y")) + m.geom_point() + m.facet_wrap("h") + m.theme_bw()
+    ),
+    "grid": lambda m: (
+        m.ggplot(POINTS, m.aes("x", "y")) + m.geom_point() + m.facet_grid(x="g", y="h")
+    ),
+    "grid_free": lambda m: (
+        m.ggplot(POINTS, m.aes("x", "y"))
+        + m.geom_point()
+        + m.facet_grid(x="h", y="g", scales="free")
+    ),
+    "grid_columns_free_y": lambda m: (
+        m.ggplot(POINTS, m.aes("x", "y")) + m.geom_point() + m.facet_grid(x="g", scales="free_y")
+    ),
+    "grid_rows_numbers": lambda m: (
+        m.ggplot(POINTS, m.aes("x", "y")) + m.geom_point() + m.facet_grid(y="k")
+    ),
+    "grid_discrete_free_x": lambda m: (
+        m.ggplot(POINTS, m.aes("cell", "y"))
+        + m.geom_point()
+        + m.facet_grid(x="h", y="g", scales="free_x")
+    ),
+    "grid_empty_panel_and_layer_without_column": lambda m: (
+        m.ggplot(POINTS, m.aes("x", "y"))
+        + m.geom_point(data={"x": [0.0, 1.0], "y": [0.0, 1.0], "a": ["u", "v"], "b": ["s", "t"]})
+        + m.geom_point(data=OTHER, color="red")
+        + m.facet_grid(x="a", y="b")
+    ),
+    "grid_theme_grey": lambda m: (
+        m.ggplot(POINTS, m.aes("x", "y"))
+        + m.geom_point()
+        + m.facet_grid(x="h", y="cell")
+        + m.theme_grey()
     ),
 }
 
@@ -292,3 +323,65 @@ def test_free_scales_bin_each_panel_over_its_own_range(layer, scales):
         assert all(
             sum(rect[2] for rect in panel["rects"]) > 0.8 for panel in _ggrust_panels(shared)
         )
+
+
+def test_grid_free_x_bins_each_column_over_its_own_range():
+    """As above for facet_grid: every panel of a grid column bins over the column's
+    range, and the panels of a column share one x scale."""
+    data = {
+        "v": [0.0, 1.0, 2.0, 3.0, 100.0, 104.0, 108.0, 110.0] * 2,
+        "g": list("aaaabbbb") * 2,
+        "r": ["u"] * 8 + ["v"] * 8,
+    }
+    svg = (
+        gg.ggplot(data, gg.aes("v"))
+        + gg.geom_histogram(bins=6)
+        + gg.facet_grid(x="g", y="r", scales="free_x")
+    ).to_svg()
+    panels = _ggrust_panels(svg)
+    assert len(panels) == 4
+    for panel in panels:
+        assert len(panel["rects"]) == 6
+        assert sum(rect[2] for rect in panel["rects"]) > 0.8
+    # Same data in both rows: the panels of a column are identical.
+    assert panels[0]["rects"] == panels[2]["rects"]
+    assert panels[1]["rects"] == panels[3]["rects"]
+
+
+def test_grid_errors_name_the_facet_option():
+    plot = gg.ggplot(POINTS, gg.aes("x", "y")) + gg.geom_point()
+    with pytest.raises(gg.errors.SpecError, match=r"facet\.x.*'missing'"):
+        (plot + gg.facet_grid(x="missing")).to_svg()
+    with pytest.raises(gg.errors.SpecError, match=r"facet\.y.*'nope'"):
+        (plot + gg.facet_grid(x="g", y="nope")).to_svg()
+    with pytest.raises(gg.errors.SpecError, match=r"facet\.y.*given twice"):
+        (plot + gg.facet_grid(x="g", y="g")).to_svg()
+    with pytest.raises(gg.errors.SpecError, match=r"give x \(columns\), y \(rows\) or both"):
+        (plot + gg.facet_grid()).to_svg()
+    with pytest.raises(gg.errors.SpecError, match=r"facet\.scales"):
+        (plot + gg.facet_grid(x="g", scales="loose")).to_svg()
+
+
+def test_grid_with_default_options_does_not_warn():
+    plot = gg.ggplot(POINTS, gg.aes("x", "y")) + gg.geom_point() + gg.facet_grid(x="g", y="h")
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", gg.GgrustWarning)
+        plot.to_svg()
+
+
+def test_grid_row_strips_turn_and_the_legend_stays_right_of_them():
+    plot = (
+        gg.ggplot(POINTS, gg.aes("x", "y", color="cell"))
+        + gg.geom_point()
+        + gg.facet_grid(y="h")
+        + gg.theme(strip_background_y=gg.element_rect(fill="#eeeeee"))
+    )
+    svg = plot.to_svg()
+    assert _ggrust_strips(svg) == ["p", "q"]
+    strip = _attributes(re.search(r'<g class="strips">\s*<g[^>]*>\s*<rect ([^>]*)/>', svg).group(1))
+    assert float(strip["height"]) > 3 * float(strip["width"])
+    text = svg[svg.index('<g class="strips">') :]
+    assert "rotate(90" in text[: text.index("</text>")]
+    legend = svg[svg.index('class="legend') :]
+    legend_x = min(float(x) for x in re.findall(r'<rect x="([\d.]+)"', legend))
+    assert legend_x > float(strip["x"]) + float(strip["width"])

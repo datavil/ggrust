@@ -450,6 +450,10 @@ pub struct Text {
     pub vertical: VerticalAlign,
     /// Rotation around the anchor, degrees counter-clockwise (ggplot convention).
     pub angle: f64,
+    /// `Some((color, width))` draws only the glyph outline, `width` px wide with
+    /// round joins and no fill (lets-plot's text halo, drawn under a copy of the
+    /// text); `color` replaces [`Text::color`].
+    pub halo: Option<(Color, f64)>,
 }
 
 #[cfg(test)]

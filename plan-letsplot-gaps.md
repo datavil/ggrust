@@ -119,7 +119,7 @@ ggrust computes `identity`, `count`, `bin`, `boxplot` (+ outliers), `ydensity`, 
 | 3 | Text and label `label_format`, `check_overlap`, `na_text` | #270 | |
 | 3 | `manual_key` (custom legend entries) | | |
 | 2 | `size_unit` (point, text, label) | #1213, #270 | Buggy in lets-plot. |
-| 2 | `nudge_unit`, `alpha_stroke`, `halo_width`, `halo_color` | | |
+| 2 | `nudge_unit`, `alpha_stroke`, `halo_width`, `halo_color` | | `halo_*` done (geom_text, geom_text_repel; lets-plot has none on labels). |
 | 2 | `layer_labels` (pie labels), `layer_key` | #661 | |
 | 1 | `color_by`, `fill_by` (paint_a/b/c aesthetics) | | |
 | 1 | `sampling` and every `sampling_*` function | #141 (random sampling drops boxplot boxes and keeps outliers) | lets-plot samples large data silently; ggrust draws everything. Sampling breaks stats (#141). Recommend recording "no default sampling" as a deliberate deviation. |

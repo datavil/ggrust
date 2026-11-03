@@ -1251,6 +1251,8 @@ def geom_text(
     tooltips: Tooltips | None = None,
     label_format: str | None = None,
     na_text: str | None = None,
+    halo_width: Number | None = None,
+    halo_color: Color | None = None,
     nudge_x: Number | None = None,
     nudge_y: Number | None = None,
     check_overlap: bool | None = None,
@@ -1284,6 +1286,12 @@ def geom_text(
         Format pattern of the label text, e.g. ``".2f"`` or ``"{d} %"``.
     na_text : str, optional
         Text shown for missing values.
+    halo_width : float, optional
+        Width of the text halo: how far, in pixels, it reaches beyond the glyph
+        outlines. A halo is drawn only when ``halo_width > 0``.
+    halo_color : str, optional
+        Color of the text halo. Defaults to the panel background color, else the
+        plot background color. Constant only, not an aesthetic.
     nudge_x : float, optional
         Horizontal offset of the labels.
     nudge_y : float, optional
@@ -1315,6 +1323,8 @@ def geom_text(
         tooltips=tooltips,
         label_format=label_format,
         na_text=na_text,
+        halo_width=halo_width,
+        halo_color=halo_color,
         nudge_x=nudge_x,
         nudge_y=nudge_y,
         check_overlap=check_overlap,

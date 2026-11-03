@@ -50,7 +50,7 @@ AGENTS.md: cellestial first, then general plotting needs, not all of lets-plot.
 | 2 | `geom_dotplot`, `geom_ydotplot` | `dotplot`, `ydotplot` | #1283 | |
 | 2 | `geom_lollipop` | identity | #1512 (line alpha not in legend) | |
 | 2 | `geom_spoke` | identity | #1282, #1070, #989 (no radius unit or scale, absent from legend and tooltips) | Unfinished in lets-plot. |
-| 2 | `geom_curve`, `geom_pointdensity` | identity / `pointdensity` | | |
+| 2 | ~~`geom_curve`~~ (done, lp6.2), `geom_pointdensity` | identity / `pointdensity` | | |
 | 2 | `geom_band`, `geom_bracket_dodge` | identity | | Recent lets-plot additions. |
 | 2 | `geom_pie` | `count2d` | #661 (labels do not rotate to fit) | Needs `layer_labels`. |
 | 1 | `geom_map`, `geom_livemap` | | many (#1448, #795, #771, #695, #685, ...) | Geo, see section 8. |
@@ -187,7 +187,7 @@ around it, then rebuild with `uv run python docs/build_examples.py`.
 
 | Gap | Example | Workaround to undo |
 | --- | --- | --- |
-| `geom_curve` (section 1) | `docs/examples/periodic_table.py` | Two key arrows drawn straight with `geom_segment`. lets-plot uses `geom_curve(curvature=.4, ncp=1)` and `geom_curve(curvature=-.4, ncp=1)` for the first and third arrows. |
+| ~~`geom_curve` (section 1)~~ | `docs/examples/periodic_table.py` | Undone in lp6.2: the first and third key arrows are `geom_curve(curvature=.4, ncp=1)` and `geom_curve(curvature=-.4, ncp=1)` again. |
 | `label_format` (section 7) | `docs/examples/periodic_table.py` | Atomic masses rounded to 3 decimals in `docs/data/make_data.py` (`elements()`). lets-plot uses `label_format=".3~f"` on the mass `geom_text`. |
 
 ## Proposed order

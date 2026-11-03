@@ -117,9 +117,25 @@ plot = (
     )
     # Notes on the key.
     + geom_text(aes(label="label"), data=notes, hjust=0)
-    + geom_segment(x=key_x + 0.7, y=key_y - 0.9, xend=key_x - 0.3, yend=key_y - 0.6, arrow=head)
+    + geom_curve(
+        x=key_x + 0.7,
+        y=key_y - 0.9,
+        xend=key_x - 0.3,
+        yend=key_y - 0.6,
+        curvature=0.4,
+        ncp=1,
+        arrow=head,
+    )
     + geom_segment(x=key_x + 0.9, y=key_y + 0.1, xend=key_x + 0.3, yend=key_y - 0.1, arrow=head)
-    + geom_segment(x=key_x + 0.3, y=key_y + 1, xend=key_x, yend=key_y + 0.5, arrow=head)
+    + geom_curve(
+        x=key_x + 0.3,
+        y=key_y + 1,
+        xend=key_x,
+        yend=key_y + 0.5,
+        curvature=-0.4,
+        ncp=1,
+        arrow=head,
+    )
     + scale_y_reverse()
     + scale_fill_brewer(name="", type="qual", palette="Set2", guide=guide_legend(ncol=2))
     + coord_fixed(ratio=1.2)

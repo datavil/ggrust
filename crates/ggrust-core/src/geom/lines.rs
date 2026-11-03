@@ -201,6 +201,54 @@ impl Arrow {
         heads
     }
 
+    /// [`Arrow::apply`] for a curve drawn over the control polygon `guide`: each
+    /// head aims at the first guide vertex at least one head length from its tip
+    /// (lets-plot `ArrowSupport`), not along the flattened curve's last piece.
+    pub(super) fn apply_along(
+        &self,
+        points: &mut [(f64, f64)],
+        guide: &[(f64, f64)],
+        stroke: &Stroke,
+    ) -> Vec<Node> {
+        let mut heads = Vec::new();
+        if points.len() < 2 || guide.len() < 2 {
+            return heads;
+        }
+        let last = points.len() - 1;
+        if self.last
+            && let Some((head, pulled)) =
+                self.head(&[self.aim(guide.iter().rev()), points[last]], 1, 0, stroke)
+        {
+            points[last] = pulled;
+            heads.push(head);
+        }
+        if self.first
+            && let Some((head, pulled)) =
+                self.head(&[points[0], self.aim(guide.iter())], 0, 1, stroke)
+        {
+            points[0] = pulled;
+            heads.push(head);
+        }
+        heads
+    }
+
+    /// The first vertex at least one head length along `vertices` from the first
+    /// (the tip), or the last one when the line is shorter.
+    fn aim<'a>(&self, mut vertices: impl Iterator<Item = &'a (f64, f64)>) -> (f64, f64) {
+        let Some(&tip) = vertices.next() else {
+            return (f64::NAN, f64::NAN);
+        };
+        let (mut previous, mut walked) = (tip, 0.0);
+        for &vertex in vertices {
+            walked += (vertex.0 - previous.0).hypot(vertex.1 - previous.1);
+            previous = vertex;
+            if walked >= self.length {
+                break;
+            }
+        }
+        previous
+    }
+
     fn head(
         &self,
         points: &[(f64, f64)],

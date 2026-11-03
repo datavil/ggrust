@@ -14,6 +14,7 @@ mod blank;
 mod boxplot;
 mod bracket;
 mod contour;
+mod curve;
 mod hex;
 mod hover;
 mod image;
@@ -46,6 +47,7 @@ pub use blank::BlankGeom;
 pub use boxplot::BoxplotGeom;
 pub use bracket::BracketGeom;
 pub use contour::{ContourGeom, ContourfGeom, Density2dGeom, Density2dfGeom};
+pub use curve::CurveGeom;
 pub use hex::HexGeom;
 pub use image::ImageGeom;
 pub use interval::{CrossBarGeom, ErrorBarGeom, LineRangeGeom, PointRangeGeom};
@@ -204,6 +206,7 @@ pub static GEOMS: &[&dyn Geom] = &[
     &StepGeom,
     &FreqpolyGeom,
     &SegmentGeom,
+    &CurveGeom,
     &PolygonGeom,
     &VerticalLineGeom,
     &HorizontalLineGeom,

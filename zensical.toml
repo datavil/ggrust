@@ -76,6 +76,7 @@ nav = [
       "reference/api/geom_step.md",
       "reference/api/geom_path.md",
       "reference/api/geom_segment.md",
+      "reference/api/geom_curve.md",
       "reference/api/geom_hline.md",
       "reference/api/geom_vline.md",
       "reference/api/geom_abline.md",

@@ -294,7 +294,8 @@ Group 5: score 3.
 - [ ] lp5.8 Minor ticks (`axis_minor_ticks*`, #1183), `exponent_format`, `label_text` (#1474).
 - [ ] lp5.9 Text layer options: `label_format`, `check_overlap`, `na_text` (#270); `manual_key`. Undo the periodic table mass rounding (gaps file section 12).
 - [ ] lp5.10 Positional scale options: `break_width`, `lablim`, `na_value`; `scale_linewidth*`, `scale_stroke*` (#1158).
-- [ ] lp5.11 Mapped `hjust`/`vjust` on text and label (#1143).
+- [x] lp5.11 Mapped `hjust`/`vjust` on text and label (#1143).
+  (`build::mapped_justification`: no scale, as lets-plot; numbers as they are, names `left`/`middle`/`center`/`right` and `bottom`/`middle`/`center`/`top` (case-sensitive, as lets-plot) and numeric text per row, for every geom that draws `hjust`/`vjust` (text, label, repel). vjust shifts match lets-plot to 0.05 px, hjust anchors match in direction (`tests/test_text_justification.py`). Unknown names centre with a warning; missing values centre (lets-plot fails); hjust other than 0/0.5/1 moves continuously, as ggplot2 (lets-plot snaps to middle) (deviations). Not done: `inward`/`outward`.)
 - [ ] lp5.12 Bistro: `corr_plot`, `joint_plot`, `qq_plot` (#866, #295).
 - [ ] lp5.13 Vector PDF output.
 

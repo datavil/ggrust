@@ -18,13 +18,26 @@ pub struct FacetSpec {
     /// Row faceting variable (`facet_grid`).
     #[serde(default)]
     pub y: Option<String>,
-    /// Level order of `x` (`facet_grid`): `1` ascending, `-1` descending, `0` data
-    /// order. Only the default `1` is built yet.
+    /// Level order of `x` (`facet_grid`): `1` ascending (default), `-1`
+    /// descending, `0` data order.
     #[serde(default)]
     pub x_order: Option<i64>,
     /// Level order of `y` (`facet_grid`), as `x_order`.
     #[serde(default)]
     pub y_order: Option<i64>,
+    /// Strip label format of `x` (`facet_grid`).
+    #[serde(default)]
+    pub x_format: Option<String>,
+    /// Strip label format of `y` (`facet_grid`).
+    #[serde(default)]
+    pub y_format: Option<String>,
+    /// Strip label wrap width of `x` in characters (`facet_grid`); not positive:
+    /// no wrap.
+    #[serde(default)]
+    pub x_labwidth: Option<i64>,
+    /// Strip label wrap width of `y` (`facet_grid`), as `x_labwidth`.
+    #[serde(default)]
+    pub y_labwidth: Option<i64>,
     /// Number of columns.
     #[serde(default, deserialize_with = "optional_count")]
     pub ncol: Option<u32>,
@@ -46,6 +59,10 @@ pub struct FacetSpec {
     /// Strip label format(s); null keeps the default for that column.
     #[serde(default)]
     pub format: Option<OneOrMany<Option<String>>>,
+    /// Strip label wrap width(s) in characters (`facet_wrap`), matched to the
+    /// faceting columns; null or not positive: no wrap.
+    #[serde(default)]
+    pub labwidth: Option<OneOrMany<Option<i64>>>,
     /// Keys no component consumes.
     #[serde(flatten)]
     pub unsupported: Options,

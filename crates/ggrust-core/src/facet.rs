@@ -4,7 +4,8 @@
 //!
 //! What it does: levels of every faceting column joined over the layers' data
 //! (first appearance, then `order`), strip labels (`format`, else lets-plot's
-//! `{,~g}` for numbers) and which panels draw axes. `facet_wrap`: one panel per
+//! `{,~g}` for numbers; split at newlines and wrapped at `labwidth` characters)
+//! and which panels draw axes. `facet_wrap`: one panel per
 //! level combination that has data (`drop`), the grid shape from `ncol`, `nrow`,
 //! `dir`. `facet_grid`: one panel per (`x` level, `y` level), empty ones too, column
 //! strips on the top row and row strips on the right column; free scales are shared
@@ -12,13 +13,13 @@
 //! rows in every panel; rows with a missing value in a faceting column are in no
 //! panel.
 //!
-//! What it does not do: `labwidth`, datetime labels, `facet_grid`'s
-//! `x_order`/`y_order` (always ascending) and `x_format`/`y_format`. Building and
-//! drawing the panels is `build` and `layout::facet`.
+//! What it does not do: datetime labels. Building and drawing the panels is
+//! `build` and `layout::facet`.
 
 use std::collections::HashMap;
 
 use crate::data::Column;
+use crate::layout::{LINE_BREAK, wrap_words};
 use crate::scale::format::Label;
 use crate::scale::label_pattern::{LabelPattern, PatternValue};
 use crate::spec::FacetSpec;
@@ -146,6 +147,7 @@ impl Facets {
         };
         let orders = per_variable(spec.order.as_ref(), variables.len());
         let formats = per_variable(spec.format.as_ref(), variables.len());
+        let widths = per_variable(spec.labwidth.as_ref(), variables.len());
 
         let mut levels = Vec::with_capacity(variables.len());
         for (index, name) in variables.iter().enumerate() {
@@ -186,17 +188,12 @@ impl Facets {
         let patterns = formats
             .iter()
             .enumerate()
-            .map(|(index, format)| match format.clone().flatten() {
-                Some(pattern) => LabelPattern::parse(&pattern).map(Some).map_err(|message| {
-                    invalid(
-                        &match &spec.format {
-                            Some(crate::spec::OneOrMany::Many(_)) => format!("format[{index}]"),
-                            _ => "format".to_owned(),
-                        },
-                        message,
-                    )
-                }),
-                None => Ok(None),
+            .map(|(index, format)| {
+                let key = match &spec.format {
+                    Some(crate::spec::OneOrMany::Many(_)) => format!("format[{index}]"),
+                    _ => "format".to_owned(),
+                };
+                parse_format(format.clone().flatten().as_deref(), &key)
             })
             .collect::<Result<Vec<_>>>()?;
         let count = combinations.len();
@@ -220,7 +217,11 @@ impl Facets {
                     .iter()
                     .enumerate()
                     .map(|(variable, level)| {
-                        strip_label(&levels[variable][*level], patterns[variable].as_ref())
+                        strip_label(
+                            &levels[variable][*level],
+                            patterns[variable].as_ref(),
+                            widths[variable].flatten(),
+                        )
                     })
                     .collect();
                 let tile_index = row * columns + column;
@@ -252,16 +253,28 @@ impl Facets {
 
     /// `facet_grid` from its spec and each layer's faceting columns (variables in
     /// [`Facets::variables`] order: `x` first when given, then `y`). Levels sort
-    /// ascending (lets-plot's default `x_order=1`, `y_order=1`).
+    /// by `x_order`/`y_order`, ascending by default (lets-plot's `1`).
     pub fn grid(spec: &FacetSpec, layers: &[(&LayerFacetColumns, usize)]) -> Result<Facets> {
         let variables = grid_variables(spec)?;
         let free = free_scales(spec)?;
         let x_defined = spec.x.is_some();
         let y_defined = spec.y.is_some();
         let mut levels = Vec::with_capacity(variables.len());
+        // Label pattern and wrap width per variable.
+        let mut strips = Vec::with_capacity(variables.len());
         for (index, name) in variables.iter().enumerate() {
-            let key = if index == 0 && x_defined { "x" } else { "y" };
-            let values = collect_levels(name, key, index, layers, 1)?;
+            let is_x = index == 0 && x_defined;
+            let key = if is_x { "x" } else { "y" };
+            let (order, format, width) = if is_x {
+                (spec.x_order, &spec.x_format, spec.x_labwidth)
+            } else {
+                (spec.y_order, &spec.y_format, spec.y_labwidth)
+            };
+            strips.push((
+                parse_format(format.as_deref(), &format!("{key}_format"))?,
+                width,
+            ));
+            let values = collect_levels(name, key, index, layers, order.unwrap_or(1))?;
             if values.is_empty() {
                 return Err(Error::spec(
                     format!("facet.{key}"),
@@ -289,13 +302,17 @@ impl Facets {
                 if y_defined {
                     combination.push(row);
                 }
+                let label = |variable: usize, level: usize| {
+                    let (pattern, width) = &strips[variable];
+                    strip_label(&levels[variable][level], pattern.as_ref(), *width)
+                };
                 let labels = if x_defined && row == 0 {
-                    vec![strip_label(&levels[0][column], None)]
+                    vec![label(0, column)]
                 } else {
                     Vec::new()
                 };
                 let row_label = (y_defined && column + 1 == columns)
-                    .then(|| strip_label(&levels[usize::from(x_defined)][row], None));
+                    .then(|| label(usize::from(x_defined), row));
                 tiles.push(Tile {
                     column,
                     row,
@@ -403,9 +420,36 @@ fn collect_levels(
     Ok(values)
 }
 
+/// A strip label format (`format`, `x_format`, `y_format`), parsed; errors name
+/// option `key`.
+fn parse_format(format: Option<&str>, key: &str) -> Result<Option<LabelPattern>> {
+    format
+        .map(|pattern| {
+            LabelPattern::parse(pattern)
+                .map_err(|message| Error::spec(format!("facet.{key}"), message))
+        })
+        .transpose()
+}
+
 /// A strip label: `pattern` applied to the level, else the text itself or a number
-/// in lets-plot's `{,~g}`.
-fn strip_label(value: &FacetValue, pattern: Option<&LabelPattern>) -> Label {
+/// in lets-plot's `{,~g}`; then split at newlines and, for a positive `width`,
+/// wrapped at `width` characters (lets-plot `labwidth`), the lines joined by
+/// [`LINE_BREAK`]. A label with a superscript stays on one line.
+fn strip_label(value: &FacetValue, pattern: Option<&LabelPattern>, width: Option<i64>) -> Label {
+    let mut label = format_level(value, pattern);
+    if label.superscript.is_none() {
+        let lines: Vec<String> = match width.and_then(|width| usize::try_from(width).ok()) {
+            Some(width) if width > 0 => wrap_words(&label.text, width),
+            _ => label.text.split('\n').map(str::to_owned).collect(),
+        };
+        label.text = lines.join(&LINE_BREAK.to_string());
+    }
+    label
+}
+
+/// A level's label before line breaking: `pattern`, else the text itself or a
+/// number in lets-plot's `{,~g}`.
+fn format_level(value: &FacetValue, pattern: Option<&LabelPattern>) -> Label {
     match (pattern, value) {
         (Some(pattern), FacetValue::Text(text)) => pattern.format(PatternValue::Text(text)),
         (Some(pattern), FacetValue::Number(number)) => {
@@ -826,6 +870,82 @@ mod tests {
         assert!(facets.tiles.iter().all(|tile| tile.labels.is_empty()
             && tile.row_label.is_some()
             && tile.y_scale_group == 0));
+    }
+
+    #[test]
+    fn grid_orders_formats_and_wraps_each_axis() {
+        let columns = vec![
+            Some(texts(&[Some("b long name"), Some("a"), Some("c")])),
+            Some(Column::Continuous(ContinuousColumn::from_options(vec![
+                Some(1.5),
+                Some(3.0),
+                Some(2.25),
+            ]))),
+        ];
+        let facets = Facets::grid(
+            &spec(
+                r#"{"name": "grid", "x": "g", "y": "n", "x_order": 0, "y_order": -1,
+                    "y_format": ".2f", "x_labwidth": 4, "y_labwidth": 3}"#,
+            ),
+            &[(&columns, 3)],
+        )
+        .unwrap();
+        let break_ = LINE_BREAK.to_string();
+        // x: data order, wrapped at 4; y: descending, formatted, wrapped at 3.
+        assert_eq!(
+            labels(&facets)[..3],
+            [format!("b{break_}long{break_}name"), "a".into(), "c".into()]
+        );
+        let rows: Vec<String> = facets
+            .tiles
+            .iter()
+            .filter_map(|tile| tile.row_label.as_ref().map(ToString::to_string))
+            .collect();
+        assert_eq!(
+            rows,
+            [
+                format!("3.0{break_}0"),
+                format!("2.2{break_}5"),
+                format!("1.5{break_}0")
+            ]
+        );
+        // A format that is not supported names its option.
+        let error = Facets::grid(
+            &spec(r#"{"name": "grid", "x": "g", "x_format": "%Y"}"#),
+            &[(&columns, 3)],
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(error.contains("facet.x_format"), "{error}");
+    }
+
+    #[test]
+    fn wrap_labwidth_matches_columns_and_newlines_always_split() {
+        let columns = vec![
+            Some(texts(&[Some("aa bb"), Some("c\nd")])),
+            Some(texts(&[Some("pp qq"), Some("pp qq")])),
+        ];
+        let break_ = LINE_BREAK.to_string();
+        // A single width applies to the first column only; 0 does not wrap.
+        for (labwidth, first) in [("2", format!("aa{break_}bb")), ("0", "aa bb".to_owned())] {
+            let facets = Facets::wrap(
+                &spec(&format!(
+                    r#"{{"name": "wrap", "facets": ["g", "h"], "order": 1, "labwidth": {labwidth}}}"#
+                )),
+                &[(&columns, 2)],
+            )
+            .unwrap();
+            assert_eq!(
+                labels(&facets),
+                [format!("{first}/pp qq"), format!("c{break_}d/pp qq")]
+            );
+        }
+        let facets = Facets::wrap(
+            &spec(r#"{"name": "wrap", "facets": ["g", "h"], "order": 1, "labwidth": [null, 2]}"#),
+            &[(&columns, 2)],
+        )
+        .unwrap();
+        assert_eq!(labels(&facets)[0], format!("aa bb/pp{break_}qq"));
     }
 
     #[test]

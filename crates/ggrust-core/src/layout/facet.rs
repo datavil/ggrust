@@ -64,8 +64,13 @@ pub struct TileLayout {
     pub axes: (bool, bool),
     /// Strip labels, top first.
     pub labels: Vec<Label>,
+    /// Text lines each strip has room for (the most lines at its place in the
+    /// row), top first.
+    pub strip_lines: Vec<usize>,
     /// Row strip label right of the panel.
     pub row_label: Option<Label>,
+    /// Text lines the row strips have room for (the row label with most lines).
+    pub row_label_lines: usize,
 }
 
 /// A laid-out faceted plot.
@@ -163,22 +168,37 @@ fn layout_grid(
     let (columns, rows) = (grid.columns.max(1), grid.rows.max(1));
     // Strips above each row (its panel with the most labels), and right of the
     // grid (lets-plot `facetRowHeadTotalWidth`).
-    let row_strips: Vec<f64> = (0..rows)
+    // A strip is as tall as the label with the most lines at its place in the row
+    // (lets-plot), row strips as wide as the row label with the most lines.
+    let row_strip_lines: Vec<Vec<usize>> = (0..rows)
         .map(|row| {
-            let count = grid
+            let mut lines: Vec<usize> = Vec::new();
+            for panel in grid
                 .panels
                 .iter()
                 .filter(|panel| panel.row.min(rows - 1) == row)
-                .map(|panel| panel.labels.len())
-                .max()
-                .unwrap_or(0);
-            strips_height(theme, count)
+            {
+                for (index, label) in panel.labels.iter().enumerate() {
+                    match lines.get_mut(index) {
+                        Some(most) => *most = (*most).max(line_count(label)),
+                        None => lines.push(line_count(label)),
+                    }
+                }
+            }
+            lines
         })
         .collect();
-    let right_strip = row_strip_width(
-        theme,
-        grid.panels.iter().any(|panel| panel.row_label.is_some()),
-    );
+    let row_strips: Vec<f64> = row_strip_lines
+        .iter()
+        .map(|lines| strips_height(theme, lines))
+        .collect();
+    let row_label_lines = grid
+        .panels
+        .iter()
+        .filter_map(|panel| panel.row_label.map(line_count))
+        .max()
+        .unwrap_or(0);
+    let right_strip = row_strip_width(theme, row_label_lines);
     let right = content.x + content.width - legend_space.right - inset.right - right_strip;
     let (spacing_x, spacing_y) = theme.panel_spacing;
 
@@ -339,7 +359,9 @@ fn layout_grid(
                     },
                     axes: (panel.x_axis, panel.y_axis),
                     labels: panel.labels.to_vec(),
+                    strip_lines: row_strip_lines[row].clone(),
                     row_label: panel.row_label.cloned(),
+                    row_label_lines,
                 }
             })
             .collect();
@@ -375,31 +397,40 @@ fn per_panel(
     }
 }
 
-/// Height of one strip: its label's line box plus the label margins.
-fn strip_height(style: TextStyle, theme: &Theme) -> f64 {
-    text_band(style) + theme.strip_margin.top + theme.strip_margin.bottom
+/// Height of one strip with room for `lines` text lines: their line boxes plus
+/// the label margins.
+fn strip_height(style: TextStyle, theme: &Theme, lines: usize) -> f64 {
+    lines.max(1) as f64 * text_band(style) + theme.strip_margin.top + theme.strip_margin.bottom
 }
 
-/// Height above each panel taken by `count` strips and `strip_spacing` (lets-plot
-/// `facetColHeadTotalHeight`); 0 without strips.
-fn strips_height(theme: &Theme, count: usize) -> f64 {
+/// Height above each panel taken by its strips (text lines of each, top first) and
+/// `strip_spacing` (lets-plot `facetColHeadTotalHeight`); 0 without strips.
+fn strips_height(theme: &Theme, lines: &[usize]) -> f64 {
     match theme.strip_text {
-        Some(style) if count > 0 => count as f64 * strip_height(style, theme) + theme.strip_spacing,
+        Some(style) if !lines.is_empty() => {
+            lines
+                .iter()
+                .map(|lines| strip_height(style, theme, *lines))
+                .sum::<f64>()
+                + theme.strip_spacing
+        }
         _ => 0.0,
     }
 }
 
-/// Width of one row strip: its label's line box plus the label's left and right
-/// margins (the text turns, the margins do not).
-fn row_strip_thickness(style: TextStyle, theme: &Theme) -> f64 {
-    text_band(style) + theme.strip_margin_y.left + theme.strip_margin_y.right
+/// Width of one row strip with room for `lines` text lines: their line boxes plus
+/// the label's left and right margins (the text turns, the margins do not).
+fn row_strip_thickness(style: TextStyle, theme: &Theme, lines: usize) -> f64 {
+    lines.max(1) as f64 * text_band(style) + theme.strip_margin_y.left + theme.strip_margin_y.right
 }
 
-/// Width right of the grid taken by the row strips and `strip_spacing_x`; 0 without
-/// row strips.
-fn row_strip_width(theme: &Theme, has_row_strips: bool) -> f64 {
+/// Width right of the grid taken by row strips with room for `lines` text lines
+/// and `strip_spacing_x`; 0 without row strips (`lines` 0).
+fn row_strip_width(theme: &Theme, lines: usize) -> f64 {
     match theme.strip_text_y {
-        Some(style) if has_row_strips => row_strip_thickness(style, theme) + theme.strip_spacing_x,
+        Some(style) if lines > 0 => {
+            row_strip_thickness(style, theme, lines) + theme.strip_spacing_x
+        }
         _ => 0.0,
     }
 }
@@ -444,16 +475,17 @@ fn draw_column_strips(tile: &TileLayout, theme: &Theme) -> Vec<Node> {
         return Vec::new();
     };
     let panel = tile.layout.panel;
-    let height = strip_height(style, theme);
     let margin = theme.strip_margin;
     let hjust = if style.hjust.is_finite() {
         style.hjust
     } else {
         0.5
     };
-    let mut top = panel.y - strips_height(theme, tile.labels.len());
+    let mut top = panel.y - strips_height(theme, &tile.strip_lines);
     let mut nodes = Vec::new();
-    for label in &tile.labels {
+    for (index, label) in tile.labels.iter().enumerate() {
+        let lines = tile.strip_lines.get(index).copied().unwrap_or(1);
+        let height = strip_height(style, theme, lines);
         let strip = Rect {
             x: panel.x,
             y: top,
@@ -463,16 +495,10 @@ fn draw_column_strips(tile: &TileLayout, theme: &Theme) -> Vec<Node> {
         if let Some(background) = theme.strip_background {
             nodes.push(rect_node(strip, background));
         }
-        let width = measure_label(
-            &label.text,
-            label.superscript.as_deref(),
-            label.suffix.as_deref(),
-            style.size,
-            style.font,
-        );
+        let width = label_width(label, style);
         let span = panel.width - margin.left - margin.right;
         let x = panel.x + margin.left + width / 2.0 + (span - width) * hjust;
-        let y = top + margin.top + text_band(style) / 2.0;
+        let y = top + margin.top + lines.max(1) as f64 * text_band(style) / 2.0;
         nodes.push(label_node(
             label,
             style,
@@ -495,7 +521,7 @@ fn draw_row_strip(tile: &TileLayout, theme: &Theme) -> Vec<Node> {
     let strip = Rect {
         x: panel.x + panel.width + theme.strip_spacing_x,
         y: panel.y,
-        width: row_strip_thickness(style, theme),
+        width: row_strip_thickness(style, theme, tile.row_label_lines),
         height: panel.height,
     };
     let mut nodes = Vec::new();
@@ -507,15 +533,9 @@ fn draw_row_strip(tile: &TileLayout, theme: &Theme) -> Vec<Node> {
     } else {
         0.5
     };
-    let length = measure_label(
-        &label.text,
-        label.superscript.as_deref(),
-        label.suffix.as_deref(),
-        style.size,
-        style.font,
-    );
+    let length = label_width(label, style);
     let span = panel.height - margin.top - margin.bottom;
-    let x = strip.x + margin.left + text_band(style) / 2.0;
+    let x = strip.x + margin.left + tile.row_label_lines.max(1) as f64 * text_band(style) / 2.0;
     let y = panel.y + margin.top + length / 2.0 + (span - length) * hjust;
     nodes.push(label_node(
         label,
@@ -525,6 +545,24 @@ fn draw_row_strip(tile: &TileLayout, theme: &Theme) -> Vec<Node> {
         -90.0,
     ));
     nodes
+}
+
+/// Width of a strip label: its widest line.
+fn label_width(label: &Label, style: TextStyle) -> f64 {
+    if label.text.contains(LINE_BREAK) {
+        return label
+            .text
+            .split(LINE_BREAK)
+            .map(|line| measure_label(line, None, None, style.size, style.font))
+            .fold(0.0, f64::max);
+    }
+    measure_label(
+        &label.text,
+        label.superscript.as_deref(),
+        label.suffix.as_deref(),
+        style.size,
+        style.font,
+    )
 }
 
 #[cfg(test)]
@@ -582,6 +620,48 @@ mod tests {
     }
 
     #[test]
+    fn wrapped_labels_make_their_row_strips_taller() {
+        let scales = [scale(10.0)];
+        let two_lines = format!("a{LINE_BREAK}b");
+        let labels: Vec<Label> = [two_lines.as_str(), "c", "d", "e"]
+            .map(Label::plain)
+            .to_vec();
+        let theme = Theme::default();
+        let grid = panels(&scales, &labels, 4, 2, false);
+        let layout = layout_facets(
+            area(),
+            &theme,
+            &Titles::default(),
+            &grid,
+            Margins::uniform(0.0),
+            None,
+            PANEL_MIN_SIZE,
+        );
+        // The first row's strips have room for two lines, the second row's for one.
+        assert_eq!(layout.tiles[1].strip_lines, [2]);
+        assert_eq!(layout.tiles[2].strip_lines, [1]);
+        let band = text_band(theme.strip_text.unwrap());
+        let rects: Vec<Rect> = layout.tiles.iter().map(|tile| tile.layout.panel).collect();
+        assert!((rects[0].y - (6.0 + strips_height(&theme, &[1]) + band)).abs() < 1e-9);
+        // The one-line label of the tall strip is centred in it.
+        let nodes = draw_strips(&layout.tiles[1], &theme);
+        let Node::Group(group) = &nodes[0] else {
+            panic!("expected a group")
+        };
+        let text = group
+            .nodes
+            .iter()
+            .find_map(|node| match node {
+                Node::Text(text) => Some(text),
+                _ => None,
+            })
+            .unwrap();
+        let strip_top = rects[1].y - strips_height(&theme, &[2]);
+        let middle = strip_top + theme.strip_margin.top + band;
+        assert!((text.y - middle).abs() < 1e-9, "{} {middle}", text.y);
+    }
+
+    #[test]
     fn panels_share_one_size_and_leave_room_for_strips_axes_and_spacing() {
         let scales = [scale(10.0)];
         let labels: Vec<Label> = ["a", "b", "c", "d"].map(Label::plain).to_vec();
@@ -600,7 +680,7 @@ mod tests {
         for rect in &rects {
             assert_eq!((rect.width, rect.height), (rects[0].width, rects[0].height));
         }
-        let strip = strips_height(&theme, 1);
+        let strip = strips_height(&theme, &[1]);
         // Panels in a row are panel_spacing apart; rows leave room for the strip.
         assert!((rects[1].x - rects[0].x - rects[0].width - 10.0).abs() < 1e-9);
         assert!((rects[2].y - rects[0].y - rects[0].height - 10.0 - strip).abs() < 1e-9);
@@ -689,7 +769,7 @@ mod tests {
             PANEL_MIN_SIZE,
         );
         let (_, legend_y) = legend_origin(&layout.plot, &theme, &Titles::default(), (50.0, 20.0));
-        let strip_top = layout.plot.panel.y - strips_height(&theme, 1);
+        let strip_top = layout.plot.panel.y - strips_height(&theme, &[1]);
         assert!(
             legend_y + 20.0 <= strip_top + 1e-9,
             "{legend_y} vs {strip_top}"
@@ -741,10 +821,10 @@ mod tests {
         let rects: Vec<Rect> = layout.tiles.iter().map(|tile| tile.layout.panel).collect();
         // No strip between the rows: only panel_spacing.
         assert!((rects[2].y - rects[0].y - rects[0].height - 10.0).abs() < 1e-9);
-        assert!((rects[0].y - (6.0 + strips_height(&theme, 1))).abs() < 1e-9);
+        assert!((rects[0].y - (6.0 + strips_height(&theme, &[1]))).abs() < 1e-9);
         // The row strips sit between the right column and the inset.
         let style = theme.strip_text_y.unwrap();
-        let width = row_strip_thickness(style, &theme);
+        let width = row_strip_thickness(style, &theme, 1);
         assert!((rects[1].x + rects[1].width + width - (900.0 - 6.0)).abs() < 1e-9);
         assert_eq!(layout.plot.right_band, width);
         // The row strip text turns to read top to bottom, centred on the panel.
@@ -789,6 +869,6 @@ mod tests {
         };
         let panel = tile.layout.panel;
         assert!((text.x - (panel.x + panel.width / 2.0)).abs() < 1e-9);
-        assert!(text.y < panel.y && text.y > panel.y - strips_height(&theme, 1));
+        assert!(text.y < panel.y && text.y > panel.y - strips_height(&theme, &[1]));
     }
 }

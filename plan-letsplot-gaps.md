@@ -94,7 +94,7 @@ ggrust computes `identity`, `count`, `bin`, `boxplot` (+ outliers), `ydensity`, 
 | 4 | `expand_limits` | | Small (a blank layer). |
 | 3 | `coord_polar` | #1215, #1213, #1095, #1097, #1036, #1039, #1061, #1182 | Many open bugs and limits in lets-plot (no abline, `size_unit` gives emptiness, no raster, no rotated labels, slow tooltips). Design from ggplot2. |
 | 3 | `ggmarginal` | #972 (no bar margins) | |
-| 3 | `facet_grid`: `x_order`, `y_order`, `x_format`, `y_format`, `x_labwidth`, `y_labwidth`; `facet_wrap`: `labwidth` | | Reported unsupported. |
+| 3 | `facet_grid`: `x_order`, `y_order`, `x_format`, `y_format`, `x_labwidth`, `y_labwidth`; `facet_wrap`: `labwidth` | | Done (lp5.7). |
 | 2 | `labs(tag=...)` and theme `plot_tag*` | | |
 | 2 | `ggbunch` (new free layout), `ggdeck` | #424 (patchwork-like layout requested) | `GGBunch` (deprecated) raises on purpose. |
 | 1 | `coord_map` | | Geo. |

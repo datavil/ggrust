@@ -268,7 +268,7 @@ def test_figure_errors_name_the_figure():
 
 
 def test_figure_warnings_name_the_figure():
-    plot = gg.ggplot(DATA, gg.aes("x", "y")) + gg.geom_point() + gg.facet_grid(x="x", x_order=0)
+    plot = gg.ggplot(DATA, gg.aes("x", "y")) + gg.geom_point(manual_key="points")
     with pytest.warns(gg.GgrustWarning, match="figures\\[0\\]"):
         gg.gggrid([plot]).to_svg()
 

@@ -1,5 +1,6 @@
 //! Dense point batches for the HTML canvas (plan 4.4): a batch with more than
-//! [`CANVAS_THRESHOLD`] drawable markers is written to the SVG as an empty
+//! [`CANVAS_THRESHOLD`] drawable markers ([`ZOOM_CANVAS_THRESHOLD`] when the
+//! plot zooms, `ggtb()`) is written to the SVG as an empty
 //! `<foreignObject class="ggrust-canvas">` placeholder (same place in the
 //! document, so z-order and clipping hold) and its markers travel as base64
 //! typed arrays that the runtime (`js/ggrust.js`) stamps on a canvas.
@@ -22,6 +23,11 @@ use crate::scene::{Color, MarkerPart, MarkerShape, PerItem, Points};
 /// Batches with more drawable markers than this go to the canvas.
 pub(super) const CANVAS_THRESHOLD: usize = 50_000;
 
+/// The threshold of zoomable plots: every zoom step moves each SVG marker, and
+/// the browser's layout of thousands of moved elements drops frames, while a
+/// canvas redraw stamps cached sprites.
+pub(super) const ZOOM_CANVAS_THRESHOLD: usize = 2_000;
+
 /// The style of one marker: everything but its position.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct StyleKey {
@@ -34,9 +40,9 @@ struct StyleKey {
     stroke_width: u64,
 }
 
-/// Whether `points` has more drawable markers inside `clip_box` than the threshold.
-pub(super) fn is_dense(points: &Points, clip_box: &ClipBox) -> bool {
-    points.len() > CANVAS_THRESHOLD && drawable(points, clip_box).nth(CANVAS_THRESHOLD).is_some()
+/// Whether `points` has more drawable markers inside `clip_box` than `threshold`.
+pub(super) fn is_dense(points: &Points, clip_box: &ClipBox, threshold: usize) -> bool {
+    points.len() > threshold && drawable(points, clip_box).nth(threshold).is_some()
 }
 
 /// Indices of the markers the SVG writer would draw.
@@ -206,13 +212,17 @@ mod tests {
     fn density_counts_only_drawable_markers() {
         let clip = ClipBox::for_scene(1000.0, 1000.0);
         let mut points = batch(CANVAS_THRESHOLD + 1, PerItem::Uniform(Some(Color::BLACK)));
-        assert!(is_dense(&points, &clip));
+        assert!(is_dense(&points, &clip, CANVAS_THRESHOLD));
         points.x[0] = f64::NAN;
-        assert!(!is_dense(&points, &clip));
+        assert!(!is_dense(&points, &clip, CANVAS_THRESHOLD));
         assert!(!is_dense(
             &batch(CANVAS_THRESHOLD, PerItem::Uniform(None)),
-            &clip
+            &clip,
+            CANVAS_THRESHOLD
         ));
+        let zoomable = batch(ZOOM_CANVAS_THRESHOLD + 1, PerItem::Uniform(None));
+        assert!(is_dense(&zoomable, &clip, ZOOM_CANVAS_THRESHOLD));
+        assert!(!is_dense(&zoomable, &clip, CANVAS_THRESHOLD));
     }
 
     #[test]

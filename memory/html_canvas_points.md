@@ -1,7 +1,7 @@
 # Canvas points: placeholder in the SVG, sprites at quarter pixels
 
 Plan 4.4 (decided with the user): in HTML only, a point batch with more than
-50,000 drawable markers (`render/canvas.rs`, same drawability + scene clip box
+50,000 drawable markers (2,000 for zoomable `ggtb()` plots) (`render/canvas.rs`, same drawability + scene clip box
 as the SVG writer) becomes an empty `<foreignObject class="ggrust-canvas">`
 over the whole scene; its markers travel as base64 Float32 xy + a style table
 + u16/u32 style indices. SVG and PNG output never change.
@@ -26,3 +26,11 @@ over the whole scene; its markers travel as base64 Float32 xy + a style table
   Both fail on a 1 px shift or a missing redraw (mutation-checked).
 - Playwright: `uv run playwright install chromium` (the browser revision must
   match the package; an older cached revision is not used).
+
+- **Zoom lag came from the browser, not our JS** (2026-11-03). With 6,700 SVG
+  circles a wheel step cost ~2 ms of runtime JS but ~7 ms of browser layout
+  (every circle's cx/cy/r changes) plus paint, so zoomable plots go to the
+  canvas from 2,000 points. On the canvas, creating ~120 sprite canvases per
+  step (k changes every step with `size_zoomin`) cost ~4 ms: sprites of one k
+  now share atlas pages. The tooltip index is rebuilt lazily on the next
+  lookup, not on every zoom step.

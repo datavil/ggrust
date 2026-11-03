@@ -1,6 +1,7 @@
 """Canvas point layers of HTML output (plan.md 4.4).
 
-A point batch with more than 50,000 drawable markers is written as an empty
+A point batch with more than 50,000 drawable markers (2,000 when the plot zooms,
+``ggtb()``) is written as an empty
 ``<foreignObject class="ggrust-canvas">`` and drawn by the runtime from base64
 typed arrays (``crates/ggrust-core/src/render/canvas.rs``). The payload tests run
 everywhere; the browser tests drive headless Chromium through playwright and
@@ -19,6 +20,7 @@ import polars as pl
 import pytest
 
 THRESHOLD = 50_000
+ZOOM_THRESHOLD = 2_000
 
 
 def dense_frame(n: int, seed: int = 7) -> pl.DataFrame:
@@ -62,6 +64,17 @@ def test_dense_batch_becomes_a_canvas_placeholder() -> None:
     assert batch["style_type"] == "u16"
     # Static outputs are unchanged.
     assert plot.to_svg().count("<circle") == THRESHOLD + 1 + 3
+
+
+def test_zoomable_plots_use_the_canvas_from_a_lower_threshold() -> None:
+    def batches(n: int, toolbar: bool) -> int:
+        plot = gg.ggplot(dense_frame(n), gg.aes("x", "y")) + gg.geom_point()
+        payload = canvas_payload((plot + gg.ggtb() if toolbar else plot).to_html())
+        return len(payload or [])
+
+    assert batches(ZOOM_THRESHOLD + 1, toolbar=True) == 1
+    assert batches(ZOOM_THRESHOLD, toolbar=True) == 0
+    assert batches(ZOOM_THRESHOLD + 1, toolbar=False) == 0
 
 
 def test_dense_batch_with_one_style_has_no_index() -> None:

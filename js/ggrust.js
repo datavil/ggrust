@@ -153,6 +153,7 @@
 
   // Hits of one layer at (x, y): {distance, hits: [{target, row, x, y, radius}]}.
   function search(layer, x, y) {
+    if (!layer.cells) index(layer); // moved targets are indexed on first use
     var t = layer.targets;
     var hits = [];
     var hit = function (i, hx, hy, radius) {
@@ -467,8 +468,8 @@
     });
   }
 
-  // `style` drawn with its centre at (half + dx, half + dy) device pixels.
-  function sprite(style, k, ratio, dx, dy) {
+  // Half the side of the sprite of `style` in device pixels.
+  function spriteHalf(style, k, ratio) {
     var reach = 0;
     style.parts.forEach(function (part) {
       var extent = part[0] === "c" ? [Math.abs(part[1]) + part[3], Math.abs(part[2]) + part[3]]
@@ -477,13 +478,57 @@
       extent.forEach(function (value) { reach = Math.max(reach, value); });
     });
     // A miter reaches a full stroke width past a 60 degree corner (triangles).
-    var half = Math.ceil((reach * k + style.width + 1) * ratio);
+    return Math.ceil((reach * k + style.width + 1) * ratio);
+  }
+
+  // The sprites of one marker scale `k` share atlas pages (a canvas each is
+  // costly to create, and a zoom with `size_zoomin` changes `k` every step).
+  // Pages are at most ATLAS_PAGE device pixels a side, sized to what the
+  // layer's styles can need; a larger sprite gets a page of its own.
+  var ATLAS_PAGE = 1024;
+
+  function newAtlas(layer, k) {
+    var area = 0;
+    layer.styles.forEach(function (style) {
+      var side = 2 * spriteHalf(style, k, layer.ratio);
+      area += SUBPIXEL * SUBPIXEL * side * side;
+    });
+    return { k: k, side: Math.min(ATLAS_PAGE, Math.ceil(Math.sqrt(area * 1.25))), page: null, x: 0, y: 0, row: 0 };
+  }
+
+  function newPage(width, height) {
     var canvas = document.createElement("canvas");
-    canvas.width = canvas.height = 2 * half;
-    var context = canvas.getContext("2d");
-    context.setTransform(ratio, 0, 0, ratio, half + dx, half + dy);
-    paintMarker(context, style, k);
-    return { canvas: canvas, half: half };
+    canvas.width = width;
+    canvas.height = height;
+    return { canvas: canvas, context: canvas.getContext("2d") };
+  }
+
+  // `style` drawn with its centre at (half + dx, half + dy) device pixels of
+  // its cell: {canvas, x, y (the cell's corner), half}.
+  function sprite(atlas, style, k, ratio, dx, dy) {
+    var half = spriteHalf(style, k, ratio), size = 2 * half;
+    var page, x = 0, y = 0;
+    if (size > atlas.side) {
+      page = newPage(size, size);
+    } else {
+      if (atlas.page && atlas.x + size > atlas.side) {
+        atlas.x = 0;
+        atlas.y += atlas.row;
+        atlas.row = 0;
+      }
+      if (!atlas.page || atlas.y + size > atlas.side) {
+        atlas.page = newPage(atlas.side, atlas.side);
+        atlas.x = atlas.y = atlas.row = 0;
+      }
+      page = atlas.page;
+      x = atlas.x;
+      y = atlas.y;
+      atlas.x += size;
+      atlas.row = Math.max(atlas.row, size);
+    }
+    page.context.setTransform(ratio, 0, 0, ratio, x + half + dx, y + half + dy);
+    paintMarker(page.context, style, k);
+    return { canvas: page.canvas, x: x, y: y, half: half };
   }
 
   function attachCanvas(plot) {
@@ -533,7 +578,7 @@
     context.clearRect(0, 0, width, height);
     if (layer.hidden) return;
     var direct = layer.styles.length > MAX_SPRITES;
-    if (!direct && layer.sprites.k !== k) layer.sprites = { k: k };
+    if (!direct && layer.sprites.k !== k) layer.sprites = { k: k, atlas: newAtlas(layer, k) };
     var hs = h.scale * ratio, ho = h.offset * ratio, vs = v.scale * ratio, vo = v.offset * ratio;
     for (var i = 0; i < layer.count; i++) {
       var x = hs * xy[2 * i] + ho, y = vs * xy[2 * i + 1] + vo;
@@ -553,8 +598,9 @@
       var left = (x - fx) / SUBPIXEL, top = (y - fy) / SUBPIXEL;
       var key = (s * SUBPIXEL + fx) * SUBPIXEL + fy;
       var stamp = layer.sprites[key] ||
-        (layer.sprites[key] = sprite(layer.styles[s], k, ratio, fx / SUBPIXEL, fy / SUBPIXEL));
-      context.drawImage(stamp.canvas, left - stamp.half, top - stamp.half);
+        (layer.sprites[key] = sprite(layer.sprites.atlas, layer.styles[s], k, ratio, fx / SUBPIXEL, fy / SUBPIXEL));
+      var side = 2 * stamp.half;
+      context.drawImage(stamp.canvas, stamp.x, stamp.y, side, side, left - stamp.half, top - stamp.half, side, side);
     }
   }
 
@@ -1116,9 +1162,10 @@
       if (!samePanel(layer.panel, tile.spec.panel)) return;
       if (!layer.original) layer.original = layer.targets;
       var o = layer.original;
+      // Indexed again on the next lookup, not on every zoom step.
+      layer.cells = null;
       if (reset) {
         layer.targets = o;
-        index(layer);
         return;
       }
       var mx = function (value) { return h.scale * value + h.offset; };
@@ -1139,7 +1186,6 @@
         }
       }
       layer.targets = t;
-      index(layer);
     });
   }
 

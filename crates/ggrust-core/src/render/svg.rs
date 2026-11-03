@@ -337,11 +337,14 @@ impl SvgWriter {
         if points.is_empty() || !points.is_consistent() {
             return;
         }
-        if let Some(canvas) = self
-            .canvas
-            .as_mut()
-            .filter(|_| canvas::is_dense(points, &self.clip_box))
-        {
+        if let Some(canvas) = self.canvas.as_mut().filter(|_| {
+            let threshold = if self.zoomable {
+                canvas::ZOOM_CANVAS_THRESHOLD
+            } else {
+                canvas::CANVAS_THRESHOLD
+            };
+            canvas::is_dense(points, &self.clip_box, threshold)
+        }) {
             // A placeholder over the whole scene; the runtime puts the canvas in it.
             let number = canvas.batches.len();
             canvas.batches.push(canvas::encode(points, &self.clip_box));

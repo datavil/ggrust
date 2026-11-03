@@ -4,9 +4,13 @@ Ticks are compared by length, direction, color and width (counted per kind);
 labels as sorted texts with the superscript written `^n`.
 """
 
+import json
 import re
+import shutil
+import subprocess
 import warnings
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -140,6 +144,7 @@ for _format in [
     ("pow", -2, 3),
     ("pow_full", None, 3),
     ("e", -2, None),
+    ("e", -2.0, 3.0),
 ]:
     TEXT_CASES[f"big {_format}"] = lambda m, f=_format: (
         m.ggplot(BIG, m.aes("x", "y")) + m.geom_point(m.aes(color="c")) + m.theme(exponent_format=f)
@@ -246,3 +251,40 @@ def test_label_text_is_reported_unsupported() -> None:
     plot = _points(gg) + gg.theme(label_text=gg.element_text(color="red"))
     with pytest.warns(gg.GgrustWarning, match="theme.label_text"):
         plot.to_svg()
+
+
+RUNTIME = Path(__file__).resolve().parents[1] / "js" / "ggrust.js"
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs node")
+@pytest.mark.parametrize("exponent_format", ["e", "pow_full", ("e", -2, 3)])
+def test_zoomed_labels_keep_the_exponent_format(exponent_format: object) -> None:
+    """The HTML runtime's regenerated labels equal the engine's at the same limits."""
+    data = {"x": [1, 2, 3, 4], "y": [0.0, 1e7, 2e7, 3e7]}
+    plot = (
+        gg.ggplot(data, gg.aes("x", "y"))
+        + gg.geom_point()
+        + gg.theme(exponent_format=exponent_format)
+        + gg.ggtb()
+    )
+    found = re.search(r'class="ggrust-zoom">(.*?)</script>', plot._repr_html_())
+    assert found
+    vertical = json.loads(found.group(1))["plots"][0]["tiles"][0]["vertical"]
+    low, high = 2e6, 2.6e7
+    script = (
+        "global.window = {}; global.document = {};"
+        f"eval(require('fs').readFileSync({json.dumps(str(RUNTIME))}, 'utf8') + '(\"test\")');"
+        f"const breaks = window.ggrust.breaks('identity', {low}, {high}, {vertical['count']}, "
+        f"{json.dumps(vertical['exponent'])});"
+        "console.log(JSON.stringify(breaks));"
+    )
+    output = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True)
+    runtime = [
+        label["text"] + ("^" + label["superscript"] if label["superscript"] else "")
+        for label in json.loads(output.stdout)["labels"]
+    ]
+    static = (plot + gg.coord_cartesian(ylim=[low, high])).to_svg()
+    x_labels = {"1", "1.5", "2", "2.5", "3", "3.5", "4", "x", "y"}
+    engine = [text for text in _texts(static) if text not in x_labels]
+    assert sorted(runtime) == engine
+    assert any(("e+" if exponent_format != "pow_full" else "·10^") in label for label in runtime)

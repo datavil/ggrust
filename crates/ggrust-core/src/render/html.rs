@@ -161,6 +161,11 @@ fn zoom_json(zoom: &Zoom, scene: &Scene) -> Value {
             "domain": [axis.domain.0, axis.domain.1],
             "pixels": [axis.pixels.0, axis.pixels.1],
             "transform": axis.transform.as_str(),
+            "exponent": {
+                "style": axis.exponent.style.name(),
+                "min": axis.exponent.min,
+                "max": axis.exponent.max,
+            },
             "count": axis.count,
             "fixed": fixed,
             "major": fragment(&axis.major),

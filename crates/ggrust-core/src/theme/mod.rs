@@ -927,9 +927,11 @@ pub fn exponent_format(spec: Option<&ThemeSpec>) -> Result<ExponentFormat> {
     };
     let bound = |value: Option<&Value>| match value {
         None | Some(Value::Null) => Ok(None),
+        // Whole floats (`-3.0`) count, as lets-plot.
         Some(value) => value
-            .as_i64()
-            .and_then(|number| i32::try_from(number).ok())
+            .as_f64()
+            .filter(|number| number.fract() == 0.0 && number.abs() <= f64::from(i32::MAX))
+            .map(|number| number as i32)
             .map(Some)
             .ok_or_else(|| invalid(format!("got bound {value}"))),
     };

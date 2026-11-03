@@ -28,6 +28,15 @@ pub enum ExponentStyle {
 }
 
 impl ExponentStyle {
+    /// The theme `exponent_format` name of the style.
+    pub fn name(self) -> &'static str {
+        match self {
+            ExponentStyle::E => "e",
+            ExponentStyle::Power => "pow",
+            ExponentStyle::PowerFull => "pow_full",
+        }
+    }
+
     /// The style of a theme `exponent_format` name (`e`, `pow`, `pow_full`).
     pub fn from_name(name: &str) -> Option<ExponentStyle> {
         match name {

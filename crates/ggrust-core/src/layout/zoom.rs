@@ -18,6 +18,7 @@ use super::{
 };
 use crate::coord::Panel;
 use crate::scale::format::Label;
+use crate::scale::number_format::ExponentFormat;
 use crate::scale::{PositionScale, Transform};
 use crate::scene::{HorizontalAlign, Node, Rect};
 use crate::spec::ToolbarSpec;
@@ -110,6 +111,8 @@ pub struct ZoomAxis {
     pub pixels: (f64, f64),
     /// The scale's transform; identity for discrete axes.
     pub transform: Transform,
+    /// The theme's `exponent_format` for generated labels.
+    pub exponent: ExponentFormat,
     /// The break count asked of the scale for generated breaks.
     pub count: usize,
     /// Fixed breaks (categories, `breaks=[...]`): position, the pixel it was drawn
@@ -319,6 +322,7 @@ pub fn zoom_tile(
         domain: x_domain,
         pixels: (mapper.x_pixel(x_domain.0), mapper.x_pixel(x_domain.1)),
         transform: transform(mapper.x_scale),
+        exponent: theme.exponent_format,
         count: x_breaks.target_count,
         // The HTML runtime generates number breaks only: date axes keep theirs.
         fixed: (mapper.x_scale.has_fixed_breaks() || mapper.x_scale.is_temporal()).then(|| {
@@ -385,6 +389,7 @@ pub fn zoom_tile(
         domain: y_domain,
         pixels: (mapper.y_pixel(y_domain.0), mapper.y_pixel(y_domain.1)),
         transform: transform(mapper.y_scale),
+        exponent: theme.exponent_format,
         count: y_breaks.target_count,
         // The HTML runtime generates number breaks only: date axes keep theirs.
         fixed: (mapper.y_scale.has_fixed_breaks() || mapper.y_scale.is_temporal()).then(|| {

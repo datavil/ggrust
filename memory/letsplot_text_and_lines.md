@@ -12,6 +12,11 @@
   `hjust`. `geom_label` is placed by its box (top at the point for vjust = 1),
   box = text + 0.25 x font px padding, radius 0.15 x box height, 1 px border;
   `alpha` fades the box fill only. hjust/vjust names (`left`, `top`, ...) are numbers.
+- Mapped `hjust`/`vjust` (lp5.11, #1143): no scale, values drawn as they are
+  (`build::mapped_justification`). lets-plot snaps text hjust to start/middle/end
+  (only exact 0 and 1); ggrust keeps any number (ggplot2). Compare vjust by the
+  baseline shift between rows at one point: it matches lets-plot to 0.05 px.
+  lets-plot fails on a missing value; ggrust centres it.
 - Numeric labels: `,~g` with power exponents (`1.23457·10^8`, `10^20`), missing
   values `n/a`. Do not use Rust `f64::to_string` (`0.30000000000000004`).
 

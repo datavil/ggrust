@@ -3516,6 +3516,10 @@ fn resolve_styles(
                     .collect();
                 StyleValues::Numbers(PerItem::Varying(values))
             }
+            // Justification is drawn as it is (lets-plot has no scale for it, #1143).
+            (Some(column), None) if matches!(aesthetic, Aesthetic::Hjust | Aesthetic::Vjust) => {
+                mapped_justification(aesthetic, column, path, warnings)
+            }
             _ => {
                 // Only mappings that reached the data; skipped ones were reported already.
                 if mapped.is_some() {
@@ -3535,6 +3539,71 @@ fn resolve_styles(
         styles.insert(aesthetic, values)?;
     }
     Ok(styles)
+}
+
+/// Per-row `hjust`/`vjust` of a mapped column (lets-plot #1143): numbers as they
+/// are, names as `justification_number` reads them (case-sensitive, as
+/// lets-plot), numbers in text (`"0.2"`) parsed. Missing or infinite values and unknown names
+/// centre the text (0.5); lets-plot centres unknown names too and fails on
+/// missing values. Unknown names are reported once per layer.
+fn mapped_justification(
+    aesthetic: Aesthetic,
+    column: &Column,
+    path: &str,
+    warnings: &mut Vec<String>,
+) -> StyleValues {
+    const CENTRE: f64 = 0.5;
+    let values = match column {
+        Column::Continuous(column) => (0..column.len())
+            .map(|row| {
+                column
+                    .get(row)
+                    .filter(|value| value.is_finite())
+                    .unwrap_or(CENTRE)
+            })
+            .collect(),
+        Column::Discrete(column) => {
+            let mut unknown: Vec<&str> = Vec::new();
+            let values = (0..column.len())
+                .map(|row| {
+                    let Some(label) = column.label(row) else {
+                        return CENTRE;
+                    };
+                    let named =
+                        justification_number(aesthetic.as_str(), &Value::String(label.to_owned()))
+                            .and_then(|value| value.as_f64());
+                    named
+                        .or_else(|| label.trim().parse::<f64>().ok().filter(|v| v.is_finite()))
+                        .unwrap_or_else(|| {
+                            if !unknown.contains(&label) {
+                                unknown.push(label);
+                            }
+                            CENTRE
+                        })
+                })
+                .collect();
+            if !unknown.is_empty() {
+                let accepted = if aesthetic == Aesthetic::Hjust {
+                    "'left', 'middle', 'center', 'right'"
+                } else {
+                    "'bottom', 'middle', 'center', 'top'"
+                };
+                let shown: Vec<String> = unknown
+                    .iter()
+                    .take(5)
+                    .map(|label| format!("'{label}'"))
+                    .collect();
+                warnings.push(format!(
+                    "at '{path}.mapping.{aesthetic}': unknown {aesthetic} value(s) {}{}; \
+                     those texts were centred (0.5). Accepted: numbers or {accepted}",
+                    shown.join(", "),
+                    if unknown.len() > 5 { ", ..." } else { "" },
+                ));
+            }
+            values
+        }
+    };
+    StyleValues::Numbers(PerItem::Varying(values))
 }
 
 /// A column's values as label texts: levels as they are, numbers formatted as
@@ -3870,5 +3939,78 @@ mod tests {
         );
         let y = layer.data.continuous(Aesthetic::Y).unwrap();
         assert!((y.get(3).unwrap() - 4_f64.log10()).abs() < 1e-12);
+    }
+
+    #[test]
+    fn mapped_justification_reads_numbers_and_names_per_row() {
+        // lets-plot #1143: numbers as they are, names as numbers, missing and
+        // unknown names centred (lets-plot fails on missing values).
+        let columns: Vec<(&str, ArrayRef)> = vec![
+            ("x", Arc::new(Float64Array::from(vec![1.0, 2.0, 3.0, 4.0]))),
+            (
+                "h",
+                Arc::new(Float64Array::from(vec![
+                    Some(0.0),
+                    Some(-1.5),
+                    None,
+                    Some(f64::INFINITY),
+                ])),
+            ),
+            (
+                "v",
+                Arc::new(StringArray::from(vec![
+                    Some("top"),
+                    Some("center"),
+                    Some("TOP"),
+                    None,
+                ])),
+            ),
+            (
+                "named",
+                Arc::new(StringArray::from(vec!["left", "right", "middle", "0.2"])),
+            ),
+        ];
+        let batch = RecordBatch::try_from_iter(columns).unwrap();
+        let data = PlotData {
+            plot: Some(DataFrame::new(batch.schema(), vec![batch]).unwrap()),
+            layers: vec![],
+        };
+        let numbers = |json: &str| {
+            let spec = plot(json);
+            let mut mapped =
+                map_layer(0, &spec.layers[0], &spec, &data, &[]).unwrap_or_else(|_| panic!());
+            let scale = PositionScale::Continuous(ContinuousPositionScale::default());
+            let mut warnings = std::mem::take(&mut mapped.warnings);
+            let computed =
+                compute_layer(mapped, [&scale, &scale], &StatContext::default()).unwrap();
+            let (layer, layer_warnings) =
+                style_layer(computed, &BTreeMap::new()).unwrap_or_else(|_| panic!());
+            warnings.extend(layer_warnings);
+            let read = |aesthetic| {
+                let values = layer.styles.numbers(aesthetic).unwrap();
+                (0..4).map(|row| values.get(row)).collect::<Vec<f64>>()
+            };
+            (read(Aesthetic::Hjust), read(Aesthetic::Vjust), warnings)
+        };
+        let (hjust, vjust, warnings) = numbers(
+            r#"{"kind": "plot", "mapping": {"x": "x", "y": "x", "label": "x"},
+                "layers": [{"geom": "text", "mapping": {"hjust": "h", "vjust": "v"}}]}"#,
+        );
+        assert_eq!(hjust, vec![0.0, -1.5, 0.5, 0.5]);
+        assert_eq!(vjust, vec![1.0, 0.5, 0.5, 0.5]);
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(
+            warnings[0].contains("layers[0].mapping.vjust"),
+            "{warnings:?}"
+        );
+        assert!(warnings[0].contains("'TOP'"), "{warnings:?}");
+        assert!(warnings[0].contains("'bottom', 'middle', 'center', 'top'"));
+        let (hjust, vjust, warnings) = numbers(
+            r#"{"kind": "plot", "mapping": {"x": "x", "y": "x", "label": "x"},
+                "layers": [{"geom": "label", "mapping": {"hjust": "named"}, "vjust": 0}]}"#,
+        );
+        assert_eq!(hjust, vec![0.0, 1.0, 0.5, 0.2]);
+        assert_eq!(vjust, vec![0.0; 4]);
+        assert!(warnings.is_empty(), "{warnings:?}");
     }
 }

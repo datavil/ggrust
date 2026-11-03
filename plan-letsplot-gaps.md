@@ -167,7 +167,7 @@ side. Script: `issue_repros.py` (scratch, not committed). Verdicts:
 | 4 | #1506 | Many legends in a small plot | **Copied.** Legends run off the bottom of the canvas. | Legends fit (ggplot2 lays them out in a box; grows or wraps). |
 | 4 | #1504 | `element_text(angle=, vjust=)` on axis titles | **Gap.** Reported "not supported yet; ignored". (lets-plot ignores it silently.) | Applied. |
 | 4 | #1015 | `gggrid(sharex=, sharey=)` | **Gap.** `layout.sharex` is reported unsupported and ignored. (lets-plot accepts it but it does not work with discrete scales.) | Shared axes. |
-| 3 | #1143 | Mapped `hjust` (and `vjust`) on text and label | **Gap.** "mapping data to 'hjust' is not supported yet"; all labels centred. | Any number per row. |
+| 3 | #1143 | Mapped `hjust` (and `vjust`) on text and label | **Fixed (lp5.11).** Numbers and names per row; vjust shifts match lets-plot to the pixel. Was: "mapping data to 'hjust' is not supported yet"; all labels centred. | Any number per row. |
 | 2 | #1129 | Duplicate legend labels in `scale_*_manual(labels=)` | **Copied.** Two levels labelled "Label A" merge; the red A key disappears. | Two keys with the same label. |
 | 2 | #1147 | Legend `override_aes` with `linetype` / `linewidth` on a rect key | **Copied, differently.** No dashes; key drawn as an odd small notched shape. | Dashed outline at the given width. |
 | 2 | #1299 | `coord_fixed` + free facet scales | **Copied, with a warning.** Non-square grid, but ggrust warns that it is not supported. | ggplot2 errors. Decide: keep the warning or raise. |

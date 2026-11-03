@@ -3740,17 +3740,6 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
             coord.name
         ));
     }
-    // facet_grid levels sort ascending (lets-plot's default order) for now.
-    if let Some(facet) = spec.facet.as_ref().filter(|facet| facet.name == "grid") {
-        for (key, order) in [("x_order", facet.x_order), ("y_order", facet.y_order)] {
-            if order.is_some_and(|order| order != 1) {
-                warnings.push(format!(
-                    "at 'facet.{key}': only the ascending order (1) is supported yet; \
-                     the levels are sorted ascending"
-                ));
-            }
-        }
-    }
     for (index, layer) in spec.layers.iter().enumerate() {
         let mut layer_ignored = |present: bool, feature: &str| {
             if present {

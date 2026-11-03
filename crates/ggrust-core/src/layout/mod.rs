@@ -22,6 +22,7 @@ pub mod zoom;
 
 pub use axis::{AxisBreaks, LabelArrangement, Orientation, choose_breaks};
 pub use colorbar::{Colorbar, DEFAULT_BINS};
+pub(crate) use legend::wrap_words;
 pub use legend::{
     KeyGrid, KeyLayer, Legend, LegendBlock, LegendBox, LegendBudget, LegendKey, draw_legends,
     measure_legends,

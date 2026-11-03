@@ -33,6 +33,13 @@ Source: lets-plot `FacetConfig.createWrap`, `FacetWrap`, `PlotFacets`,
   column, free y per row: build uses one scale per `Tile::x_scale_group` /
   `y_scale_group` (stat range, discrete levels, training), never per panel.
 
+- **Strip labels** (lp5.7): `x_order`/`y_order`/`order` sort; formats then
+  `labwidth` wrap (lets-plot `RichText.wrap` without a line limit; a single value
+  applies to the first faceting column; not positive: no wrap); labels always split
+  at `\n`. A strip is as tall as the label with the most lines at its place
+  (strip index) in its row; row strips as wide as the row label with most lines.
+  lets-plot steps 13 px (font size) per line.
+
 **How to apply:** compare faceted output with `tests/test_facet_parity.py` (marks as
 fractions of their panel). Break-count differences of a fraction of a pixel are the known
 near-tie (see letsplot_reference_svg.md), not a facet bug.

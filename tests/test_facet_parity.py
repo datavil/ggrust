@@ -29,6 +29,13 @@ POINTS = {
     "k": RANDOM.choice([1.0, 2.5, 10.0], N).tolist(),
 }
 OTHER = {"x": [0.0, 1.0], "y": [0.0, 5.0]}
+# Long strip labels for labwidth (and one with a newline).
+LABELS = {
+    "x": RANDOM.normal(size=N).round(3).tolist(),
+    "y": RANDOM.normal(size=N).round(3).tolist(),
+    "tissue": RANDOM.choice(["peripheral blood", "bone marrow", "lymph node"], N).tolist(),
+    "state": RANDOM.choice(["resting cells", "activated\ncells"], N).tolist(),
+}
 
 
 def _lets_plot_panels(svg: str) -> list[dict]:
@@ -210,6 +217,24 @@ CASES = {
         + m.facet_grid(x="h", y="cell")
         + m.theme_grey()
     ),
+    "grid_orders_and_formats": lambda m: (
+        m.ggplot(POINTS, m.aes("x", "y"))
+        + m.geom_point()
+        + m.facet_grid(x="g", y="k", x_order=-1, y_order=0, x_format="{} group", y_format=".2f")
+    ),
+    "grid_labwidth": lambda m: (
+        m.ggplot(LABELS, m.aes("x", "y"))
+        + m.geom_point()
+        + m.facet_grid(x="tissue", y="state", x_labwidth=8, y_labwidth=6)
+        + m.theme_grey()
+    ),
+    "wrap_labwidth_and_newlines": lambda m: (
+        m.ggplot(LABELS, m.aes("x", "y"))
+        + m.geom_point()
+        + m.facet_wrap(["tissue", "state"], labwidth=[10, None], ncol=3)
+        # Taller plot: the strips are 4 lines, each a little taller than lets-plot's.
+        + m.ggsize(800, 900)
+    ),
 }
 
 
@@ -367,6 +392,20 @@ def test_grid_with_default_options_does_not_warn():
     with warnings.catch_warnings():
         warnings.simplefilter("error", gg.GgrustWarning)
         plot.to_svg()
+
+
+def test_facet_label_options_do_not_warn():
+    base = gg.ggplot(POINTS, gg.aes("x", "y")) + gg.geom_point()
+    facets = [
+        gg.facet_grid(
+            x="g", y="k", x_order=0, y_order=-1, x_format="{}", y_format=".1f", x_labwidth=3
+        ),
+        gg.facet_wrap(["g", "h"], labwidth=[4, 2], format=["{}", None]),
+    ]
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", gg.GgrustWarning)
+        for facet in facets:
+            (base + facet).to_svg()
 
 
 def test_grid_row_strips_turn_and_the_legend_stays_right_of_them():

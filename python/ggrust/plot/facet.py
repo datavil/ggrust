@@ -44,12 +44,13 @@ def facet_grid(
         Whether panels share scales. A free x scale is shared by the panels of a
         grid column, a free y scale by the panels of a grid row.
     x_order, y_order : {1, -1, 0}, default 1
-        Level order: ascending, descending, or data order. Only ascending is
-        rendered yet (other values warn).
+        Level order of the columns and rows: ascending, descending, or data order.
     x_format, y_format : str, optional
-        Strip label formats (not rendered yet; they warn).
+        Strip label formats: a number format (``".2f"``) or a template
+        (``"{d} cylinders"``).
     x_labwidth, y_labwidth : int, optional
-        Strip label wrap width in characters (not rendered yet; they warn).
+        Strip label wrap width in characters. Labels split at newlines first, then
+        each part wraps at this width.
 
     Returns
     -------
@@ -102,7 +103,9 @@ def facet_wrap(
     dir : {"h", "v"}, default "h"
         Fill direction.
     labwidth : int or list, optional
-        Strip label wrap width in characters.
+        Strip label wrap width in characters, matched to ``facets`` by position (a
+        single value applies to the first column). Labels split at newlines first,
+        then each part wraps at this width.
 
     Returns
     -------

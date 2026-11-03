@@ -680,10 +680,21 @@ fn label_lines(label: &Label, line_length: usize) -> Vec<Label> {
         .collect()
 }
 
-/// Label lines, lets-plot `RichText.wrap(label, 30, 5)`: split at newlines, then
-/// words fill lines of up to `line_length` characters (30 in lets-plot; longer
-/// words are cut); 5 lines or more keep the first 5 and add a line "...".
+/// Label lines, lets-plot `RichText.wrap(label, 30, 5)`: [`wrap_words`]; 5 lines
+/// or more keep the first 5 and add a line "...".
 fn wrap_label(label: &str, line_length: usize) -> Vec<String> {
+    let mut lines = wrap_words(label, line_length);
+    if lines.len() >= LABEL_MAX_LINES {
+        lines.truncate(LABEL_MAX_LINES);
+        lines.push("...".to_owned());
+    }
+    lines
+}
+
+/// Lines of a text, lets-plot `RichText.wrap` without a line limit: split at
+/// newlines, then words fill lines of up to `line_length` characters (longer words
+/// are cut). Also the facet strip `labwidth` wrap.
+pub(crate) fn wrap_words(label: &str, line_length: usize) -> Vec<String> {
     let mut lines: Vec<String> = Vec::new();
     for segment in label.split('\n') {
         let mut line = String::new();
@@ -731,10 +742,6 @@ fn wrap_label(label: &str, line_length: usize) -> Vec<String> {
             }
         }
         lines.push(line);
-    }
-    if lines.len() >= LABEL_MAX_LINES {
-        lines.truncate(LABEL_MAX_LINES);
-        lines.push("...".to_owned());
     }
     lines
 }

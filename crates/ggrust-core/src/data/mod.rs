@@ -11,6 +11,7 @@
 
 pub mod as_discrete;
 mod column;
+pub mod correlation;
 mod group;
 pub mod inline;
 mod layer;
@@ -19,7 +20,7 @@ mod resolution;
 use std::sync::{Arc, OnceLock};
 
 use arrow_array::{RecordBatch, new_empty_array};
-use arrow_schema::{Schema, SchemaRef};
+use arrow_schema::{DataType, Schema, SchemaRef};
 
 pub use column::{Column, ContinuousColumn, DiscreteColumn};
 pub use group::group_index;
@@ -94,6 +95,12 @@ impl DataFrame {
     /// Whether a column exists.
     pub fn contains(&self, name: &str) -> bool {
         self.schema.index_of(name).is_ok()
+    }
+
+    /// Arrow type of a uniquely named column.
+    pub fn data_type(&self, name: &str) -> Result<&DataType> {
+        let index = self.index_of(name)?;
+        Ok(self.schema.field(index).data_type())
     }
 
     /// Convert one column for plotting.

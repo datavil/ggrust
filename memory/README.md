@@ -54,3 +54,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Contours follow lets-plot triangles](letsplot_contours.md): ported isolines (vertex counts match), own isobands (lets-plot fill helper breaks), symbolic vertices cancel shared edges, R bandwidths, chunked KDE.
 - [Vector PDF output](pdf_vector_output.md): pdf-writer + subsetter, text via `text::shape`, rise survives ET, Quartz blurs images, sips writes Display P3, marker forms for dense points.
 - [Minor ticks and exponent_format](letsplot_minor_ticks_exponent_format.md): minor ticks inherit axis/line not axis_ticks, 2 px; exponent_format parsed early, set on scales, text and tooltips.
+- [corr_plot follows measured lets-plot output](letsplot_corr_plot.md): Kotlin-side bistro measured from SVG; layer type/diag/color rules, threshold cropping, size formula, explicit 0.6 coord padding.

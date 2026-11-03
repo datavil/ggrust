@@ -32,6 +32,7 @@ mod repel;
 mod repel_layout;
 mod segment;
 mod sina;
+mod size_unit;
 mod smooth;
 mod step;
 mod text;

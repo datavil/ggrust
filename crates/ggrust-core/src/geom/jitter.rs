@@ -46,7 +46,7 @@ impl Geom for JitterGeom {
     }
 
     fn parameters(&self) -> &'static [&'static str] {
-        &["width", "height", "seed"]
+        &["width", "height", "seed", "size_unit"]
     }
 
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {

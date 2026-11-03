@@ -107,8 +107,8 @@ def geom_point(
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
     size_unit : {"x", "y"}, optional
-        Size relative to one axis unit, as in lets_plot; not supported for points yet
-        (ggrust warns).
+        Size relative to one axis unit, as in lets_plot: ``size=1`` is a point one
+        unit of that axis wide.
     na_rm : bool, optional
         True removes rows with missing values silently; otherwise they are removed with a warning.
     **other_args

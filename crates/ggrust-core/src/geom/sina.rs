@@ -72,7 +72,7 @@ impl Geom for SinaGeom {
     }
 
     fn parameters(&self) -> &'static [&'static str] {
-        &["width", "seed", "show_half", "quantiles"]
+        &["width", "seed", "show_half", "quantiles", "size_unit"]
     }
 
     fn setup_aesthetics(&self) -> &'static [Aesthetic] {

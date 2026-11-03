@@ -1,6 +1,9 @@
 /* ggrust docs theme: plum and rose palette, type sizes, live plot frames, gallery cards
    and the home hero. */
 
+/* JetBrains Mono 500 for code: the theme only loads 400 and 700. */
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,500;1,500&display=fallback");
+
 :root,
 [data-md-color-scheme="default"] {
   --md-primary-fg-color: #5e2750;
@@ -35,7 +38,8 @@
 .md-typeset code,
 .md-typeset kbd,
 .md-typeset pre {
-  font-size: 0.9em;
+  font-size: 0.95em;
+  font-weight: 500;
   font-variant-ligatures: none;
 }
 

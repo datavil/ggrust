@@ -166,8 +166,11 @@ def theme(
     Parameters
     ----------
     exponent_format : str or tuple, optional
-        How large and small numbers are written: ``"e"`` (1e+06), ``"pow"`` (10^6),
-        ``"pow_full"``, or ``(format, min_exponent, max_exponent)``.
+        How every number label (axes, legends, text, tooltips) writes exponents:
+        ``"e"`` (``1e+6``), ``"pow"`` (``10^6`` as a superscript, the default) or
+        ``"pow_full"`` (``1·10^6``). A tuple ``(style, lower, upper)`` also sets the
+        exponents at or beyond which numbers switch to scientific notation (``None``
+        keeps the default bound, -7 or 6).
     line, rect, text, title : dict or str, optional
         Root elements every line, rectangle, text and title inherits from.
     axis : dict or str, optional
@@ -268,7 +271,8 @@ def theme(
     tooltip_max_count : int, optional
         Maximum number of tooltips shown at once.
     label_text : dict or str, optional
-        Text of ``geom_label()`` labels (``element_text()``).
+        Text of ``layer_labels()`` annotations (``element_text()``). ggrust does not
+        draw annotations yet, so it is reported as unsupported.
     geom : dict, optional
         Default geom colors, from ``element_geom()``.
 

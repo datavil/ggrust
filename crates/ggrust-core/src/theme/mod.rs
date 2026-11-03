@@ -16,6 +16,7 @@ pub use values::{FLAVOR_NAMES, THEME_NAMES};
 
 use values::{Paint, Props, Values, theme_values};
 
+use crate::scale::number_format::{ExponentFormat, ExponentStyle};
 use crate::scene::{Color, Stroke};
 use crate::spec::{ThemeSpec, ThemeValue, Value};
 use crate::style::LineType;
@@ -249,6 +250,13 @@ pub struct Theme {
     /// Tick length, x and y axis (`axis_ticks_length_x`, `axis_ticks_length_y`,
     /// `axis_ticks_length`).
     pub axis_ticks_length: (f64, f64),
+    /// x minor ticks, between the breaks (`axis_minor_ticks_x`; blank by default).
+    pub axis_minor_ticks_x: Option<LineStyle>,
+    /// y minor ticks (`axis_minor_ticks_y`).
+    pub axis_minor_ticks_y: Option<LineStyle>,
+    /// Minor tick length, x and y axis (`axis_minor_ticks_length_x`,
+    /// `axis_minor_ticks_length_y`, `axis_minor_ticks_length`; 2 px by default).
+    pub axis_minor_ticks_length: (f64, f64),
     /// x axis line.
     pub axis_line_x: Option<LineStyle>,
     /// y axis line.
@@ -319,6 +327,8 @@ pub struct Theme {
     pub strip_spacing_x: f64,
     /// Space between facet panels (`panel_spacing_x`, `panel_spacing_y`).
     pub panel_spacing: (f64, f64),
+    /// How numbers write exponents (`exponent_format`; see [`exponent_format`]).
+    pub exponent_format: ExponentFormat,
 }
 
 impl Default for Theme {
@@ -353,6 +363,13 @@ const BUILT_OPTIONS: &[&str] = &[
     "axis_ticks_length",
     "axis_ticks_length_x",
     "axis_ticks_length_y",
+    "axis_minor_ticks",
+    "axis_minor_ticks_x",
+    "axis_minor_ticks_y",
+    "axis_minor_ticks_length",
+    "axis_minor_ticks_length_x",
+    "axis_minor_ticks_length_y",
+    "exponent_format",
     "axis_line",
     "axis_line_x",
     "axis_line_y",
@@ -424,12 +441,14 @@ impl Theme {
         );
         std::mem::swap(&mut theme.axis_text_x, &mut theme.axis_text_y);
         std::mem::swap(&mut theme.axis_ticks_x, &mut theme.axis_ticks_y);
+        std::mem::swap(&mut theme.axis_minor_ticks_x, &mut theme.axis_minor_ticks_y);
         std::mem::swap(&mut theme.axis_line_x, &mut theme.axis_line_y);
         std::mem::swap(&mut theme.panel_grid_major_x, &mut theme.panel_grid_major_y);
         std::mem::swap(&mut theme.panel_grid_minor_x, &mut theme.panel_grid_minor_y);
         let swap = |(x, y): (f64, f64)| (y, x);
         theme.axis_text_spacing = swap(theme.axis_text_spacing);
         theme.axis_ticks_length = swap(theme.axis_ticks_length);
+        theme.axis_minor_ticks_length = swap(theme.axis_minor_ticks_length);
         theme
     }
 
@@ -445,7 +464,8 @@ impl Theme {
             flavor,
             warnings: Vec::new(),
         };
-        let theme = resolver.theme()?;
+        let mut theme = resolver.theme()?;
+        theme.exponent_format = exponent_format(spec)?;
         for warning in resolver.warnings {
             if !warnings.contains(&warning) {
                 warnings.push(warning);
@@ -688,6 +708,32 @@ impl Resolver<'_> {
                 self.number(&["axis_ticks_length_x", "axis_ticks_length"], 4.0)?,
                 self.number(&["axis_ticks_length_y", "axis_ticks_length"], 4.0)?,
             ),
+            // lets-plot: minor ticks inherit from the axis and `line`, not from
+            // `axis_ticks` (measured).
+            axis_minor_ticks_x: self.line(&[
+                "axis_minor_ticks_x",
+                "axis_minor_ticks",
+                &axis_x,
+                "axis",
+                "line",
+            ]),
+            axis_minor_ticks_y: self.line(&[
+                "axis_minor_ticks_y",
+                "axis_minor_ticks",
+                &axis_y,
+                "axis",
+                "line",
+            ]),
+            axis_minor_ticks_length: (
+                self.number(
+                    &["axis_minor_ticks_length_x", "axis_minor_ticks_length"],
+                    2.0,
+                )?,
+                self.number(
+                    &["axis_minor_ticks_length_y", "axis_minor_ticks_length"],
+                    2.0,
+                )?,
+            ),
             axis_line_x: self.line(&[&line_x, "axis_line", &axis_x, "axis", "line"]),
             axis_line_y: self.line(&[&line_y, "axis_line", &axis_y, "axis", "line"]),
             panel_grid_major_x: self.line(&as_refs(&grid("major", "x"))),
@@ -756,6 +802,7 @@ impl Resolver<'_> {
                 self.number(&["panel_spacing_x", "panel_spacing"], 10.0)?,
                 self.number(&["panel_spacing_y", "panel_spacing"], 10.0)?,
             ),
+            exponent_format: ExponentFormat::default(),
         })
     }
 }
@@ -869,6 +916,56 @@ fn dash(props: &Props) -> Dash {
         .and_then(|value| LineType::parse(value).ok())
         .and_then(|linetype| Dash::new(&linetype))
         .unwrap_or_default()
+}
+
+/// The theme's `exponent_format` (lets-plot's default `pow` without one): a style
+/// name, or `[style, lower, upper]` with optional integer bounds. Number labels
+/// read it while scales are built, before the rest of the theme is resolved.
+pub fn exponent_format(spec: Option<&ThemeSpec>) -> Result<ExponentFormat> {
+    let Some(ThemeValue::Scalar(value)) =
+        spec.and_then(|spec| spec.elements.get("exponent_format"))
+    else {
+        return Ok(ExponentFormat::default());
+    };
+    let invalid = |problem: String| {
+        Error::spec(
+            "theme.exponent_format",
+            format!(
+                "{problem}; expected 'e', 'pow' or 'pow_full', or a tuple (style, lower, upper) \
+                 with integer or None bounds, e.g. ('e', -3, 3)"
+            ),
+        )
+    };
+    let style = |value: &Value| match value {
+        Value::String(name) => ExponentStyle::from_name(name).ok_or_else(|| {
+            let suggestion = crate::suggest::did_you_mean(name, ["e", "pow", "pow_full"]);
+            invalid(format!("unknown style '{name}'{suggestion}"))
+        }),
+        other => Err(invalid(format!("got style {other}"))),
+    };
+    let bound = |value: Option<&Value>| match value {
+        None | Some(Value::Null) => Ok(None),
+        // Whole floats (`-3.0`) count, as lets-plot.
+        Some(value) => value
+            .as_f64()
+            .filter(|number| number.fract() == 0.0 && number.abs() <= f64::from(i32::MAX))
+            .map(|number| number as i32)
+            .map(Some)
+            .ok_or_else(|| invalid(format!("got bound {value}"))),
+    };
+    match value {
+        Value::Array(items) if (1..=3).contains(&items.len()) => Ok(ExponentFormat {
+            style: style(&items[0])?,
+            min: bound(items.get(1))?,
+            max: bound(items.get(2))?,
+        }),
+        Value::Array(items) => Err(invalid(format!("got {} items", items.len()))),
+        other => Ok(ExponentFormat {
+            style: style(other)?,
+            min: None,
+            max: None,
+        }),
+    }
 }
 
 fn title_position(key: &str, value: Option<&Value>) -> Result<TitlePosition> {
@@ -1063,5 +1160,72 @@ mod tests {
                 "at 'theme.strip_text_y.angle': not supported yet; ignored"
             ]
         );
+    }
+
+    #[test]
+    fn minor_ticks_inherit_from_the_axis_not_the_ticks() {
+        // Measured on lets-plot 4.11: blank by default, 2 px long, colored by
+        // `axis`/`line` but not by `axis_ticks`.
+        let theme = Theme::default();
+        assert_eq!(theme.axis_minor_ticks_x, None);
+        assert_eq!(theme.axis_minor_ticks_length, (2.0, 2.0));
+        let theme = Theme::from_spec(
+            Some(&spec(
+                r#"{"axis_ticks": {"color": "red"}, "axis": {"color": "green"},
+                    "axis_minor_ticks": {}, "axis_minor_ticks_length_x": 7}"#,
+            )),
+            &mut Vec::new(),
+        )
+        .unwrap();
+        let green = Color::parse("green").unwrap();
+        assert_eq!(theme.axis_minor_ticks_x.map(|tick| tick.color), Some(green));
+        assert_eq!(theme.axis_minor_ticks_y.map(|tick| tick.color), Some(green));
+        assert_eq!(theme.axis_minor_ticks_length, (7.0, 2.0));
+        // coord_flip: x's minor ticks go to the vertical axis.
+        assert_eq!(theme.flipped().axis_minor_ticks_length, (2.0, 7.0));
+        // One axis only.
+        let theme = Theme::from_spec(
+            Some(&spec(r#"{"axis_minor_ticks_y": {"color": "red"}}"#)),
+            &mut Vec::new(),
+        )
+        .unwrap();
+        assert!(theme.axis_minor_ticks_x.is_none() && theme.axis_minor_ticks_y.is_some());
+    }
+
+    #[test]
+    fn exponent_format_parses_names_and_tuples() {
+        let parse = |json: &str| exponent_format(Some(&spec(json)));
+        assert_eq!(exponent_format(None).unwrap(), ExponentFormat::default());
+        assert_eq!(
+            parse(r#"{"exponent_format": "e"}"#).unwrap(),
+            ExponentFormat {
+                style: ExponentStyle::E,
+                min: None,
+                max: None
+            }
+        );
+        assert_eq!(
+            parse(r#"{"exponent_format": ["pow_full", null, 3]}"#).unwrap(),
+            ExponentFormat {
+                style: ExponentStyle::PowerFull,
+                min: None,
+                max: Some(3)
+            }
+        );
+        let error = parse(r#"{"exponent_format": "pwo"}"#)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("theme.exponent_format"), "{error}");
+        assert!(error.contains("did you mean 'pow'"), "{error}");
+        let error = parse(r#"{"exponent_format": ["e", 1.5, 3]}"#)
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("bound 1.5"), "{error}");
+        // The resolved theme carries it, and it is not reported as unsupported.
+        let mut warnings = Vec::new();
+        let theme =
+            Theme::from_spec(Some(&spec(r#"{"exponent_format": "e"}"#)), &mut warnings).unwrap();
+        assert_eq!(theme.exponent_format.style, ExponentStyle::E);
+        assert!(warnings.is_empty(), "{warnings:?}");
     }
 }

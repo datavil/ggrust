@@ -46,6 +46,7 @@ pub use shape::{ALL_SHAPES, HIDDEN_SHAPE, HOLLOW_SHAPES, NA_SHAPE, ShapeMapper};
 use super::breaks::linear_breaks;
 use super::format::{Label, format_breaks};
 use super::label_pattern::{LabelPattern, PatternValue};
+use super::number_format::ExponentFormat;
 use super::{ContinuousPositionScale, Transform};
 use crate::data::{Column, ContinuousColumn};
 use crate::spec::{Aesthetic, Value};
@@ -232,6 +233,8 @@ pub struct StyleScale {
     /// discrete scale): an error is reported then.
     continuous: std::result::Result<ContinuousDomain, String>,
     trained: Trained,
+    /// The theme's `exponent_format` for generated labels.
+    exponent_format: ExponentFormat,
 }
 
 impl std::fmt::Debug for StyleScale {
@@ -253,6 +256,21 @@ impl StyleScale {
             domain,
             continuous: Ok(ContinuousDomain::default()),
             trained: Trained::Nothing,
+            exponent_format: ExponentFormat::default(),
+        }
+    }
+
+    /// Write exponents as the theme's `exponent_format` says (generated labels
+    /// and `format=` patterns).
+    pub fn set_exponent_format(&mut self, exponent: ExponentFormat) {
+        self.exponent_format = exponent;
+        if let Some(format) = &self.domain.format {
+            self.domain.format = Some(format.with_exponent(exponent));
+        }
+        if let Ok(continuous) = &mut self.continuous
+            && let Some(format) = &continuous.format
+        {
+            continuous.format = Some(format.with_exponent(exponent));
         }
     }
 
@@ -548,11 +566,12 @@ impl StyleScale {
                         .iter()
                         .filter_map(|value| transform.apply(*value))
                         .collect();
-                    (positions, labelled(&kept, format_breaks(&kept)))
+                    let labels = format_breaks(&kept, self.exponent_format);
+                    (positions, labelled(&kept, labels))
                 }
                 None if transform == Transform::Identity => {
                     let values = linear_breaks(domain.0, domain.1, 5);
-                    let labels = labelled(&values, format_breaks(&values));
+                    let labels = labelled(&values, format_breaks(&values, self.exponent_format));
                     (values, labels)
                 }
                 None => {
@@ -560,6 +579,7 @@ impl StyleScale {
                     axis.transform = transform;
                     axis.multiplicative_expand = 0.0;
                     axis.format = format.cloned();
+                    axis.exponent_format = self.exponent_format;
                     axis.train_range(domain.0, domain.1);
                     let breaks = axis.breaks(5);
                     (breaks.positions, breaks.labels)

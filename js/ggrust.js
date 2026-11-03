@@ -709,12 +709,21 @@
 
   // -- Labels (crates/ggrust-core/src/scale/format.rs) --
 
-  function precisionOf(reference, step) {
+  // The theme's `exponent_format` ({style: "e"|"pow"|"pow_full", min, max}, null
+  // bounds keep the defaults), as `ExponentFormat` in Rust.
+  function exponentBounds(exponent) {
+    var min = exponent && exponent.min !== null && exponent.min !== undefined ? exponent.min : MIN_EXPONENT;
+    var max = exponent && exponent.max !== null && exponent.max !== undefined ? exponent.max : MAX_EXPONENT;
+    return [min, max];
+  }
+
+  function precisionOf(reference, step, exponent) {
+    var bounds = exponentBounds(exponent);
     if (reference === 0) reference = 2.2250738585072014e-308 * 10;
     if (step === 0) step = reference / 10;
     var domainPower = Math.log10(reference), stepPower = Math.log10(step);
-    var scientific = (domainPower < 0 && stepPower <= MIN_EXPONENT) ||
-      (domainPower >= MAX_EXPONENT && stepPower > 2);
+    var scientific = (domainPower < 0 && stepPower <= bounds[0]) ||
+      (domainPower >= bounds[1] && stepPower > 2);
     var precision = scientific ? domainPower - stepPower + 1 :
       stepPower > 0 ? Math.ceil(domainPower) : Math.ceil(domainPower) - stepPower;
     return Math.ceil(precision - 0.001);
@@ -768,7 +777,7 @@
   }
 
   // `g` formatting with `precision` significant digits: {text, superscript}.
-  function formatGeneral(value, precision) {
+  function formatGeneral(value, precision, exponentFormat) {
     if (!isFinite(value)) {
       return { text: value !== value ? "NaN" : value > 0 ? "inf" : "-inf", superscript: null };
     }
@@ -778,7 +787,8 @@
       return { text: "0", superscript: null };
     }
     var sign = value < 0 ? "-" : "";
-    if (exponent > MIN_EXPONENT && exponent < MAX_EXPONENT) {
+    var bounds = exponentBounds(exponentFormat);
+    if (exponent > bounds[0] && exponent < bounds[1]) {
       var point = exponent + 1, integer, fraction;
       if (point <= 0) {
         integer = "0";
@@ -795,13 +805,17 @@
       return { text: sign + (fraction ? integer + "." + fraction : integer), superscript: null };
     }
     var mantissa = trimFraction(digits.length > 1 ? digits[0] + "." + digits.slice(1) : digits);
+    var style = exponentFormat ? exponentFormat.style : "pow";
+    if (style === "e") {
+      return { text: sign + mantissa + "e" + (exponent >= 0 ? "+" : "") + exponent, superscript: null };
+    }
     return {
-      text: mantissa === "1" ? sign + "10" : sign + mantissa + "·10",
+      text: mantissa === "1" && style === "pow" ? sign + "10" : sign + mantissa + "·10",
       superscript: String(exponent).replace("-", "−"),
     };
   }
 
-  function formatBreaks(values) {
+  function formatBreaks(values, exponent) {
     var reference, step;
     if (values.length === 0) {
       reference = 0; step = 0.5;
@@ -811,20 +825,20 @@
       reference = Math.max(Math.abs(values[0]), Math.abs(values[values.length - 1]));
       step = Math.abs(values[1] - values[0]);
     }
-    var precision = precisionOf(reference, step);
-    return values.map(function (value) { return formatGeneral(value, precision); });
+    var precision = precisionOf(reference, step, exponent);
+    return values.map(function (value) { return formatGeneral(value, precision, exponent); });
   }
 
-  function formatIndividually(values) {
+  function formatIndividually(values, exponent) {
     return values.map(function (value, index) {
       var step = values.length === 1 ? value / 10 : index === 0 ? value - values[1] : value - values[index - 1];
-      return formatGeneral(value, precisionOf(Math.abs(value), Math.abs(step)));
+      return formatGeneral(value, precisionOf(Math.abs(value), Math.abs(step), exponent), exponent);
     });
   }
 
   // Generated breaks of an axis over [low, high] (transformed units), as
   // `ContinuousPositionScale::generated_breaks`: {positions, labels}.
-  function generatedBreaks(transform, low, high, count) {
+  function generatedBreaks(transform, low, high, count, exponent) {
     var a = inverseTransform(transform, low), b = inverseTransform(transform, high);
     var dataLow = Math.min(a, b), dataHigh = Math.max(a, b);
     var values;
@@ -832,7 +846,7 @@
       values = linearBreaks(dataLow, dataHigh, count);
       return {
         positions: values.map(function (v) { return inverseTransform(transform, v); }),
-        labels: formatBreaks(values),
+        labels: formatBreaks(values, exponent),
       };
     }
     var tLow = applyTransform(transform, dataLow), tHigh = applyTransform(transform, dataHigh);
@@ -854,13 +868,13 @@
         var p = applyTransform(transform, v);
         return p === null ? NaN : p;
       }),
-      labels: formatIndividually(values),
+      labels: formatIndividually(values, exponent),
     };
   }
 
   // lets-plot `getFlexBreaks`: at most `count` breaks.
-  function flexBreaks(transform, low, high, count) {
-    var breaks = generatedBreaks(transform, low, high, count);
+  function flexBreaks(transform, low, high, count, exponent) {
+    var breaks = generatedBreaks(transform, low, high, count, exponent);
     if (count === 1 && breaks.positions.length) {
       return { positions: breaks.positions.slice(0, 1), labels: breaks.labels.slice(0, 1) };
     }
@@ -868,10 +882,10 @@
     while (breaks.positions.length > count) {
       var delta = Math.max(Math.floor((breaks.positions.length - count) / 2), 1);
       if (target <= delta + 1) {
-        return generatedBreaks(transform, low, high, 1);
+        return generatedBreaks(transform, low, high, 1, exponent);
       }
       target -= delta;
-      breaks = generatedBreaks(transform, low, high, target);
+      breaks = generatedBreaks(transform, low, high, target, exponent);
     }
     return breaks;
   }
@@ -916,7 +930,7 @@
       });
       return result;
     }
-    var breaks = flexBreaks(axis.transform, low, high, Math.max(axis.count, 1));
+    var breaks = flexBreaks(axis.transform, low, high, Math.max(axis.count, 1), axis.exponent);
     breaks.positions.forEach(function (position, index) {
       var label = breaks.labels[index];
       var template = label.superscript === null ? axis.label : axis.label_superscript;
@@ -938,33 +952,39 @@
     var spec = tile.spec, views = tile.views;
     var h = visibleBreaks(spec.horizontal, views.h), v = visibleBreaks(spec.vertical, views.v);
     var panel = spec.panel;
-    var minor = function (axis, view, breaks, horizontal, out) {
-      if (!axis.minor || breaks.length < 2) return;
+    // Minor grid lines and minor ticks (template `which`) between the breaks.
+    var minor = function (axis, view, breaks, horizontal, which, out) {
+      if (!axis[which] || breaks.length < 2) return;
       var step = breaks[1].position - breaks[0].position;
       var start = breaks[0].position - step / 2;
       var from = horizontal ? panel[0] : panel[1], to = from + (horizontal ? panel[2] : panel[3]);
       for (var i = 0; i <= breaks.length; i++) {
         var pixel = pixelOf(axis, view, start + i * step);
-        if (pixel >= from && pixel <= to) out.push(translated(axis.minor, horizontal, pixel));
+        if (pixel >= from && pixel <= to) out.push(translated(axis[which], horizontal, pixel));
       }
     };
     var grid = [];
-    minor(spec.horizontal, views.h, h, true, grid);
-    minor(spec.vertical, views.v, v, false, grid);
+    minor(spec.horizontal, views.h, h, true, "minor", grid);
+    minor(spec.vertical, views.v, v, false, "minor", grid);
     [[spec.horizontal, h, true], [spec.vertical, v, false]].forEach(function (entry) {
       if (entry[0].major) {
         entry[1].forEach(function (b) { grid.push(translated(entry[0].major, entry[2], b.pixel)); });
       }
     });
-    var axisNodes = function (axis, breaks, horizontal) {
+    var axisNodes = function (axis, view, breaks, horizontal) {
       var out = axis.line ? [axis.line] : [];
       breaks.forEach(function (b) {
         if (axis.tick) out.push(translated(axis.tick, horizontal, b.pixel));
         if (b.label) out.push(translated(b.label, horizontal, b.shift));
       });
+      minor(axis, view, breaks, horizontal, "minor_tick", out);
       return out.join("");
     };
-    return { grid: grid.join(""), x: axisNodes(spec.horizontal, h, true), y: axisNodes(spec.vertical, v, false) };
+    return {
+      grid: grid.join(""),
+      x: axisNodes(spec.horizontal, views.h, h, true),
+      y: axisNodes(spec.vertical, views.v, v, false)
+    };
   }
 
   function childByClass(parent, name) {

@@ -31,7 +31,7 @@ use crate::parameters::Parameters;
 use crate::position::{self, Position};
 use crate::scale::datetime::TemporalKind;
 use crate::scale::format::Label;
-use crate::scale::number_format::{ExponentStyle, NumberFormat};
+use crate::scale::number_format::{ExponentFormat, NumberFormat};
 use crate::scale::style::spec::{StyleScaleSpec, style_scale_specs};
 use crate::scale::style::{LegendEntry, StyleScale, default_mapper};
 use crate::scale::{AxisScaleSpec, PositionScale, PositionScales, position_scales};
@@ -342,6 +342,11 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         .map(|y| (x, y))
     });
     let (mut x_scale, mut y_scale) = axis_scales.map_err(|error| error.with_notes(&warnings))?;
+    // Every number label of the plot writes exponents as the theme says.
+    let exponent_format = crate::theme::exponent_format(spec.theme.as_ref())
+        .map_err(|error| error.with_notes(&warnings))?;
+    x_scale.set_exponent_format(exponent_format);
+    y_scale.set_exponent_format(exponent_format);
     for layer in mapped.iter().filter(|layer| layer.geom.includes_zero_y()) {
         match layer.y_oriented {
             true => x_scale.set_include_zero(),
@@ -527,6 +532,9 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         .collect();
     let mut style_scales = train_style_scales(&all_computed, &style_specs, &mut warnings)
         .map_err(|error| error.with_notes(&warnings))?;
+    for scale in style_scales.values_mut() {
+        scale.set_exponent_format(exponent_format);
+    }
     // Panels split the data, which can reorder discrete levels (a stat keeps only
     // a panel's levels): keep the data's order, as without facets.
     if let Some(order) = &level_order {
@@ -539,7 +547,7 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     // Styles map in parallel too, taken in order as above.
     let styled = parallel::ordered_map(computed_tiles, parallel, |(computed, tile_x, tile_y)| {
         let results = parallel::ordered_map(computed, parallel, |layer| {
-            style_layer(layer, &style_scales)
+            style_layer(layer, &style_scales, exponent_format)
         });
         (results, tile_x, tile_y)
     });
@@ -1113,6 +1121,7 @@ impl PreparedPlot {
                 columns: &layer.tooltip_columns,
                 flipped: panel.flipped,
                 axis_labels,
+                exponent_format: self.theme.exponent_format,
             };
             let content = layer_content(&source, &layer.path, notes);
             if content.is_empty() {
@@ -2348,6 +2357,7 @@ struct ComputedLayer {
 fn style_layer(
     layer: ComputedLayer,
     style_scales: &BTreeMap<Aesthetic, StyleScale>,
+    exponent_format: ExponentFormat,
 ) -> StageResult<(PreparedLayer, Vec<String>)> {
     let mut warnings = Vec::new();
     let parameters = Parameters::new(&layer.options, &layer.path);
@@ -2355,6 +2365,7 @@ fn style_layer(
         layer.geom,
         &layer.data,
         style_scales,
+        exponent_format,
         &parameters,
         &layer.path,
         &mut warnings,
@@ -3469,6 +3480,7 @@ fn resolve_styles(
     geom: &dyn Geom,
     data: &LayerData,
     style_scales: &BTreeMap<Aesthetic, StyleScale>,
+    exponent_format: ExponentFormat,
     parameters: &Parameters,
     path: &str,
     warnings: &mut Vec<String>,
@@ -3478,7 +3490,9 @@ fn resolve_styles(
         let mapped = data.get(aesthetic);
         let values = match (mapped, style_scales.get(&aesthetic)) {
             // Text labels are the column's values, not a scale's output.
-            (Some(column), _) if aesthetic == Aesthetic::Label => label_texts(column),
+            (Some(column), _) if aesthetic == Aesthetic::Label => {
+                label_texts(column, exponent_format)
+            }
             (Some(column), Some(scale)) => scale
                 .map(column)
                 .map_err(|message| Error::spec(format!("{path}.mapping.{aesthetic}"), message))?,
@@ -3514,7 +3528,7 @@ fn resolve_styles(
 
 /// A column's values as label texts: levels as they are, numbers formatted as
 /// lets-plot does.
-fn label_texts(column: &Column) -> StyleValues {
+fn label_texts(column: &Column, exponent_format: ExponentFormat) -> StyleValues {
     // lets-plot formats numeric labels as `,~g` with powers of ten (`1.23457·10⁸`)
     // and writes missing values as `n/a`.
     const MISSING: &str = "n/a";
@@ -3523,10 +3537,8 @@ fn label_texts(column: &Column) -> StyleValues {
             .map(|row| column.label(row).unwrap_or(MISSING).to_owned())
             .collect(),
         Column::Continuous(column) => {
-            let format = NumberFormat::parse(",~g").map(|mut format| {
-                format.exponent_style = ExponentStyle::Power;
-                format
-            });
+            let format =
+                NumberFormat::parse(",~g").map(|format| format.with_exponent(exponent_format));
             (0..column.len())
                 .map(|row| match (column.get(row), &format) {
                     (Some(value), Some(format)) if value.is_finite() => format.apply(value),
@@ -3696,7 +3708,8 @@ mod tests {
         let mut computed = compute_layer(mapped, [x_scale, y_scale], &StatContext::default())?;
         warnings.append(&mut computed.warnings);
         let (layer, mut layer_warnings) =
-            style_layer(computed, &BTreeMap::new()).map_err(|(error, _)| error)?;
+            style_layer(computed, &BTreeMap::new(), ExponentFormat::default())
+                .map_err(|(error, _)| error)?;
         warnings.append(&mut layer_warnings);
         Ok(layer)
     }

@@ -6,7 +6,7 @@
 //! superscript power). What it does not do: datetime patterns (`%Y-%m-%d`).
 
 use super::format::Label;
-use super::number_format::{ExponentStyle, NumberFormat};
+use super::number_format::{ExponentFormat, ExponentStyle, NumberFormat};
 
 /// A parsed label pattern.
 #[derive(Debug, Clone, PartialEq)]
@@ -109,6 +109,20 @@ impl LabelPattern {
             parts.push(Part::Text(text));
         }
         Ok(LabelPattern { parts })
+    }
+
+    /// This pattern under a theme `exponent_format` (its number fields take the
+    /// theme's exponent style and bounds).
+    pub fn with_exponent(&self, exponent: ExponentFormat) -> LabelPattern {
+        let parts = self
+            .parts
+            .iter()
+            .map(|part| match part {
+                Part::Number(format) => Part::Number(format.clone().with_exponent(exponent)),
+                other => other.clone(),
+            })
+            .collect();
+        LabelPattern { parts }
     }
 
     /// The label of one value; a power written by a number format becomes the

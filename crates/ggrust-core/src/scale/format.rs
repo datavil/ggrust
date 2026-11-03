@@ -1,7 +1,10 @@
 //! Tick label formatting for numeric breaks (port of lets-plot
 //! `NumericBreakFormatter` + `NumberFormat` type `g`, with thousands commas and
-//! trimmed zeros). Exponents use lets-plot's default "power" style: the label is
-//! `2·10` with superscript `6` (`−9` for negative exponents, with U+2212 as lets-plot).
+//! trimmed zeros). Exponents follow the theme's `exponent_format`
+//! ([`ExponentFormat`]); lets-plot's default "power" style writes `2·10` with
+//! superscript `6` (`−9` for negative exponents, with U+2212 as lets-plot).
+
+use super::number_format::{ExponentFormat, ExponentStyle};
 
 /// lets-plot `NumericBreakFormatter.DEF_MIN_EXP`.
 const MIN_EXPONENT: i32 = -7;
@@ -44,17 +47,17 @@ impl std::fmt::Display for Label {
 
 /// Labels for a list of breaks, all formatted with one precision chosen from the
 /// largest magnitude and the step between breaks.
-pub fn format_breaks(breaks: &[f64]) -> Vec<Label> {
-    let precision = break_precision(breaks);
+pub fn format_breaks(breaks: &[f64], exponent: ExponentFormat) -> Vec<Label> {
+    let precision = break_precision(breaks, exponent);
     breaks
         .iter()
-        .map(|&value| format_general(value, precision))
+        .map(|&value| format_general(value, precision, exponent))
         .collect()
 }
 
 /// Labels for unevenly spaced breaks (transformed scales): each break formatted
 /// with the step to its neighbour (lets-plot `NonlinearBreaksHelper.createMultiFormatter`).
-pub fn format_breaks_individually(breaks: &[f64]) -> Vec<Label> {
+pub fn format_breaks_individually(breaks: &[f64], exponent: ExponentFormat) -> Vec<Label> {
     breaks
         .iter()
         .enumerate()
@@ -64,7 +67,11 @@ pub fn format_breaks_individually(breaks: &[f64]) -> Vec<Label> {
                 (_, 0) => value - breaks[1],
                 _ => value - breaks[index - 1],
             };
-            format_general(value, precision(value.abs(), step.abs()))
+            format_general(
+                value,
+                precision(value.abs(), step.abs(), exponent),
+                exponent,
+            )
         })
         .collect()
 }
@@ -72,12 +79,12 @@ pub fn format_breaks_individually(breaks: &[f64]) -> Vec<Label> {
 /// A value formatted as a break label among breaks `step` apart around magnitude
 /// `reference` (lets-plot `NumericBreakFormatter`; tooltips use the step of 100
 /// breaks across the domain).
-pub fn format_with_step(value: f64, reference: f64, step: f64) -> Label {
-    format_general(value, precision(reference, step))
+pub fn format_with_step(value: f64, reference: f64, step: f64, exponent: ExponentFormat) -> Label {
+    format_general(value, precision(reference, step, exponent), exponent)
 }
 
 /// Significant digits needed to tell the breaks apart (lets-plot logic).
-fn break_precision(breaks: &[f64]) -> i32 {
+fn break_precision(breaks: &[f64], exponent: ExponentFormat) -> i32 {
     let (reference, step) = match breaks {
         [] => (0.0, 0.5),
         [only] => (only.abs(), only.abs() / 10.0),
@@ -86,12 +93,22 @@ fn break_precision(breaks: &[f64]) -> i32 {
             (first.abs().max(last.abs()), (second - first).abs())
         }
     };
-    precision(reference, step)
+    precision(reference, step, exponent)
+}
+
+/// The exponents between which `g` numbers stay plain (exclusive): the theme's
+/// `exponent_format` bounds, else lets-plot's defaults.
+fn bounds(exponent: ExponentFormat) -> (i32, i32) {
+    (
+        exponent.min.unwrap_or(MIN_EXPONENT),
+        exponent.max.unwrap_or(MAX_EXPONENT),
+    )
 }
 
 /// lets-plot `NumericBreakFormatter`: significant digits for a value of magnitude
 /// `reference` next to breaks `step` apart.
-fn precision(reference: f64, step: f64) -> i32 {
+fn precision(reference: f64, step: f64, exponent: ExponentFormat) -> i32 {
+    let (min_exponent, max_exponent) = bounds(exponent);
     let reference = if reference == 0.0 {
         f64::MIN_POSITIVE * 10.0
     } else {
@@ -102,8 +119,8 @@ fn precision(reference: f64, step: f64) -> i32 {
     let step_power = step.log10();
     // Tiny values with tiny steps, or huge values with large steps: scientific
     // notation, one digit per order of magnitude between value and step.
-    let scientific = (domain_power < 0.0 && step_power <= f64::from(MIN_EXPONENT))
-        || (domain_power >= f64::from(MAX_EXPONENT) && step_power > 2.0);
+    let scientific = (domain_power < 0.0 && step_power <= f64::from(min_exponent))
+        || (domain_power >= f64::from(max_exponent) && step_power > 2.0);
     let precision = if scientific {
         domain_power - step_power + 1.0
     } else if step_power > 0.0 {
@@ -115,8 +132,9 @@ fn precision(reference: f64, step: f64) -> i32 {
 }
 
 /// `g` formatting: `precision` significant digits, decimal notation when the
-/// exponent is within (MIN_EXPONENT, MAX_EXPONENT), else `m·10ⁿ`.
-fn format_general(value: f64, precision: i32) -> Label {
+/// exponent is within the bounds (exclusive), else scientific in the theme's
+/// style: `m·10ⁿ` (`pow`), with `1·10ⁿ` kept (`pow_full`), or `me+n` (`e`).
+fn format_general(value: f64, precision: i32, exponent_format: ExponentFormat) -> Label {
     if !value.is_finite() {
         return Label::plain(value.to_string());
     }
@@ -129,21 +147,29 @@ fn format_general(value: f64, precision: i32) -> Label {
         (first, rest) => format!("{first}.{rest}"),
     };
     let sign = if value < 0.0 { "-" } else { "" };
-    if exponent > MIN_EXPONENT && exponent < MAX_EXPONENT {
-        Label::plain(format!(
+    let (min_exponent, max_exponent) = bounds(exponent_format);
+    if exponent > min_exponent && exponent < max_exponent {
+        return Label::plain(format!(
             "{sign}{}",
             decimal_from_digits(&mantissa_digits, exponent)
-        ))
-    } else {
-        let mantissa = trim_fraction(mantissa.trim_start_matches('-'));
-        let text = match mantissa.as_str() {
-            "1" => format!("{sign}10"),
-            _ => format!("{sign}{mantissa}·10"),
-        };
-        Label {
-            text,
-            superscript: Some(exponent.to_string().replace('-', "\u{2212}")),
-            suffix: None,
+        ));
+    }
+    let mantissa = trim_fraction(mantissa.trim_start_matches('-'));
+    match exponent_format.style {
+        ExponentStyle::E => {
+            let exponent_sign = if exponent >= 0 { "+" } else { "" };
+            Label::plain(format!("{sign}{mantissa}e{exponent_sign}{exponent}"))
+        }
+        ExponentStyle::Power | ExponentStyle::PowerFull => {
+            let text = match mantissa.as_str() {
+                "1" if exponent_format.style == ExponentStyle::Power => format!("{sign}10"),
+                _ => format!("{sign}{mantissa}·10"),
+            };
+            Label {
+                text,
+                superscript: Some(exponent.to_string().replace('-', "\u{2212}")),
+                suffix: None,
+            }
         }
     }
 }
@@ -241,7 +267,71 @@ mod tests {
 
     /// Labels as `text^superscript` strings.
     fn labels(breaks: &[f64]) -> Vec<String> {
-        format_breaks(breaks).iter().map(Label::to_string).collect()
+        labels_in(breaks, ExponentFormat::default())
+    }
+
+    fn labels_in(breaks: &[f64], exponent: ExponentFormat) -> Vec<String> {
+        format_breaks(breaks, exponent)
+            .iter()
+            .map(Label::to_string)
+            .collect()
+    }
+
+    fn exponent(style: ExponentStyle, min: Option<i32>, max: Option<i32>) -> ExponentFormat {
+        ExponentFormat { style, min, max }
+    }
+
+    #[test]
+    fn exponent_styles_match_lets_plot() {
+        // lets-plot 4.11 `theme(exponent_format=...)` axis labels for the same breaks.
+        let breaks = [0.0, 5e6, 1e7, 1.5e7];
+        assert_eq!(
+            labels_in(&breaks, exponent(ExponentStyle::E, None, None)),
+            ["0", "5e+6", "1e+7", "1.5e+7"]
+        );
+        assert_eq!(
+            labels_in(&breaks, exponent(ExponentStyle::PowerFull, None, None)),
+            ["0", "5·10^6", "1·10^7", "1.5·10^7"]
+        );
+        assert_eq!(
+            labels_in(&[1e-9, 1.5e-9], exponent(ExponentStyle::E, None, None)),
+            ["1e-9", "1.5e-9"]
+        );
+        assert_eq!(
+            labels_in(&[-3e7, 0.0, 3e7], exponent(ExponentStyle::E, None, None)),
+            ["-3e+7", "0", "3e+7"]
+        );
+        assert_eq!(
+            labels_in(
+                &[-1e7, 0.0, 1e7],
+                exponent(ExponentStyle::PowerFull, None, None)
+            ),
+            ["-1·10^7", "0", "1·10^7"]
+        );
+    }
+
+    #[test]
+    fn exponent_bounds_match_lets_plot() {
+        let x = [0.0, 500.0, 1000.0, 1500.0, 3000.0];
+        let y = [0.001, 0.0015, 0.002];
+        let bounded = |style| exponent(style, Some(-2), Some(3));
+        assert_eq!(
+            labels_in(&x, bounded(ExponentStyle::Power)),
+            ["0", "500", "10^3", "1.5·10^3", "3·10^3"]
+        );
+        assert_eq!(
+            labels_in(&y, bounded(ExponentStyle::E)),
+            ["1e-3", "1.5e-3", "2e-3"]
+        );
+        // One bound: the other keeps its default.
+        assert_eq!(
+            labels_in(&y, exponent(ExponentStyle::E, None, Some(3))),
+            ["0.001", "0.0015", "0.002"]
+        );
+        assert_eq!(
+            labels_in(&x, exponent(ExponentStyle::E, Some(-2), None)),
+            ["0", "500", "1,000", "1,500", "3,000"]
+        );
     }
 
     #[test]

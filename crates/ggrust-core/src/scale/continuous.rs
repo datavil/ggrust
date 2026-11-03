@@ -5,6 +5,7 @@ use super::breaks::linear_breaks;
 use super::datetime::TemporalAxis;
 use super::format::{Label, format_breaks, format_breaks_individually};
 use super::label_pattern::{LabelPattern, PatternValue};
+use super::number_format::ExponentFormat;
 use crate::data::ContinuousColumn;
 
 /// Breaks of a scale: positions in transformed units with their labels.
@@ -48,6 +49,9 @@ pub struct ContinuousPositionScale {
     /// Date-time or duration axis: calendar breaks and date labels
     /// (`scale_*_datetime()`, `scale_*_time()`, temporal columns).
     pub temporal: Option<TemporalAxis>,
+    /// The theme's `exponent_format` for generated and formatted labels (set
+    /// with [`Self::set_exponent_format`]).
+    pub exponent_format: ExponentFormat,
     /// Ranges that widen the domain even past the limits (bar width spans:
     /// lets-plot starts from the limits and joins every layer's range).
     beyond_limits: Option<(f64, f64)>,
@@ -67,12 +71,22 @@ impl Default for ContinuousPositionScale {
             coord_limits: [None, None],
             include_zero: false,
             temporal: None,
+            exponent_format: ExponentFormat::default(),
             beyond_limits: None,
         }
     }
 }
 
 impl ContinuousPositionScale {
+    /// Write exponents as the theme's `exponent_format` says (generated labels
+    /// and `format=` patterns).
+    pub fn set_exponent_format(&mut self, exponent: ExponentFormat) {
+        self.exponent_format = exponent;
+        if let Some(format) = &self.format {
+            self.format = Some(format.with_exponent(exponent));
+        }
+    }
+
     /// Widen the domain to include every finite value of `column`.
     pub fn train(&mut self, column: &ContinuousColumn) {
         let mut low = f64::INFINITY;
@@ -282,7 +296,9 @@ impl ContinuousPositionScale {
     fn fixed(&self, values: &[Option<f64>]) -> ScaleBreaks {
         let (low, high) = self.expanded_domain();
         let (low, high) = (low.min(high), low.max(high));
-        let default = LabelPattern::parse("{,~g}").ok();
+        let default = LabelPattern::parse("{,~g}")
+            .ok()
+            .map(|pattern| pattern.with_exponent(self.exponent_format));
         let pattern = self.format.as_ref().or(default.as_ref());
         // Date labels unless a number `format` is given.
         let temporal = self.temporal.as_ref().filter(|_| self.format.is_none());
@@ -330,7 +346,7 @@ impl ContinuousPositionScale {
         let (data_low, data_high) = ordered(transform.inverse(low), transform.inverse(high));
         if transform.is_linear() {
             let values = linear_breaks(data_low, data_high, target_count);
-            let labels = format_breaks(&values);
+            let labels = format_breaks(&values, self.exponent_format);
             let positions = values
                 .iter()
                 .map(|&value| transform.inverse(value))
@@ -358,7 +374,7 @@ impl ContinuousPositionScale {
             .map(|position| transform.inverse(position))
             .filter(|value| transform.is_in_domain(*value))
             .collect();
-        let labels = format_breaks_individually(&values);
+        let labels = format_breaks_individually(&values, self.exponent_format);
         let positions = values
             .iter()
             .map(|&value| transform.apply(value).unwrap_or(f64::NAN))

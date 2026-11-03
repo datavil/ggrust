@@ -1,6 +1,7 @@
 //! A position scale: continuous (with a transform) or discrete. Layout, coord and
 //! geoms use this type, so they work the same on both kinds of axis.
 
+use super::number_format::ExponentFormat;
 use super::{ContinuousPositionScale, DiscretePositionScale, ScaleBreaks};
 use crate::data::{Column, ContinuousColumn};
 
@@ -105,6 +106,18 @@ impl PositionScale {
     pub fn set_include_zero(&mut self) {
         if let PositionScale::Continuous(scale) = self {
             scale.include_zero = true;
+        }
+    }
+
+    /// The theme's `exponent_format` for the axis labels.
+    pub fn set_exponent_format(&mut self, exponent: ExponentFormat) {
+        match self {
+            PositionScale::Continuous(scale) => scale.set_exponent_format(exponent),
+            PositionScale::Discrete(scale) => {
+                if let Some(format) = &scale.format {
+                    scale.format = Some(format.with_exponent(exponent));
+                }
+            }
         }
     }
 

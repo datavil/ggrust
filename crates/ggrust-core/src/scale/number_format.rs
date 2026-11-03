@@ -27,6 +27,52 @@ pub enum ExponentStyle {
     PowerFull,
 }
 
+impl ExponentStyle {
+    /// The theme `exponent_format` name of the style.
+    pub fn name(self) -> &'static str {
+        match self {
+            ExponentStyle::E => "e",
+            ExponentStyle::Power => "pow",
+            ExponentStyle::PowerFull => "pow_full",
+        }
+    }
+
+    /// The style of a theme `exponent_format` name (`e`, `pow`, `pow_full`).
+    pub fn from_name(name: &str) -> Option<ExponentStyle> {
+        match name {
+            "e" => Some(ExponentStyle::E),
+            "pow" => Some(ExponentStyle::Power),
+            "pow_full" => Some(ExponentStyle::PowerFull),
+            _ => None,
+        }
+    }
+}
+
+/// The theme's `exponent_format`: how every `e`/`g` number of a plot writes its
+/// exponent (axis, legend, facet and text labels), and optionally the exponents
+/// at which `g` numbers switch to scientific notation. The style replaces the
+/// style of format patterns; given bounds replace their defaults.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ExponentFormat {
+    /// Exponent style; lets-plot's default is [`ExponentStyle::Power`].
+    pub style: ExponentStyle,
+    /// Exponents at or below this are scientific (`None`: the default, -7).
+    pub min: Option<i32>,
+    /// Exponents at or above this are scientific (`None`: the default, 6, or a
+    /// pattern's precision).
+    pub max: Option<i32>,
+}
+
+impl Default for ExponentFormat {
+    fn default() -> Self {
+        ExponentFormat {
+            style: ExponentStyle::Power,
+            min: None,
+            max: None,
+        }
+    }
+}
+
 /// A parsed pattern (lets-plot `NumberFormat.Spec`, normalized).
 #[derive(Debug, Clone, PartialEq)]
 pub struct NumberFormat {
@@ -149,6 +195,19 @@ impl NumberFormat {
             format.align = '=';
         }
         Some(format)
+    }
+
+    /// This format under a theme `exponent_format`: its style, and its bounds
+    /// where given (lets-plot applies the theme's to every number pattern).
+    pub fn with_exponent(mut self, exponent: ExponentFormat) -> NumberFormat {
+        self.exponent_style = exponent.style;
+        if let Some(min) = exponent.min {
+            self.min_exponent = min;
+        }
+        if let Some(max) = exponent.max {
+            self.max_exponent = max;
+        }
+        self
     }
 
     /// Format a number (lets-plot `NumberFormat.apply`).

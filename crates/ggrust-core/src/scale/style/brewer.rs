@@ -142,6 +142,15 @@ fn scheme_colors(scheme: &BrewerScheme, count: usize, overflow: Overflow) -> Vec
         (Overflow::Auto, _) => Overflow::Interpolate,
         (chosen, _) => chosen,
     };
+    extend_colors(colors, count, overflow)
+}
+
+/// `count` colors from a set with fewer: cycled, generated, or (interpolate and
+/// `Auto`) a LAB gradient through the set. Shared with the ggsci palettes.
+pub(super) fn extend_colors(colors: Vec<Color>, count: usize, overflow: Overflow) -> Vec<Color> {
+    if colors.len() >= count || colors.is_empty() {
+        return colors;
+    }
     match overflow {
         Overflow::Cycle => (0..count)
             .map(|index| colors[index % colors.len()])

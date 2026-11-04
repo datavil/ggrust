@@ -3055,6 +3055,21 @@ fn train_style_scales(
             .train(column)
             .map_err(|message| Error::spec(path, message))?;
     }
+    for (aesthetic, scale) in &scales {
+        if let Some((size, count)) = scale.palette_overflow() {
+            let path = specs
+                .get(aesthetic)
+                .and_then(StyleScaleSpec::mapper_path)
+                .map_or("scales", |path| path.trim_end_matches(".scale_mapper_kind"));
+            warnings.push(format!(
+                "at '{path}': the '{}' palette has {size} colors but '{aesthetic}' has \
+                 {count} categories; the extra categories get overflow colors (generated \
+                 unless overflow='cycle' or 'interpolate'). Use a longer palette such \
+                 as scale_*_igv() (51 colors) or scale_*_d3(palette='category20')",
+                scale.mapper().name().trim_start_matches("color_")
+            ));
+        }
+    }
     Ok(scales)
 }
 

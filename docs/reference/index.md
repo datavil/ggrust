@@ -155,6 +155,29 @@ Map data to `color` (lines, points, text) and `fill` (areas).
 | [`scale_fill_manual()`](api/scale_fill_manual.md) | Your own colors for ``fill``. |
 | [`scale_fill_identity()`](api/scale_fill_identity.md) | Use the data as fill colors; no legend by default. |
 
+## Journal palettes (ggsci)
+
+Discrete palettes from the R package ggsci (not in lets-plot).
+
+| Name | Description |
+|---|---|
+| [`scale_color_npg()`](api/scale_color_npg.md) | Map ``color`` with the ggsci ``npg`` palette, from Nature Reviews Cancer (NPG). |
+| [`scale_fill_npg()`](api/scale_fill_npg.md) | Map ``fill`` with the ggsci ``npg`` palette. See ``scale_color_npg``. |
+| [`scale_color_aaas()`](api/scale_color_aaas.md) | Map ``color`` with the ggsci ``aaas`` palette, from Science (AAAS). |
+| [`scale_fill_aaas()`](api/scale_fill_aaas.md) | Map ``fill`` with the ggsci ``aaas`` palette. See ``scale_color_aaas``. |
+| [`scale_color_nejm()`](api/scale_color_nejm.md) | Map ``color`` with the ggsci ``nejm`` palette, from NEJM. |
+| [`scale_fill_nejm()`](api/scale_fill_nejm.md) | Map ``fill`` with the ggsci ``nejm`` palette. See ``scale_color_nejm``. |
+| [`scale_color_lancet()`](api/scale_color_lancet.md) | Map ``color`` with the ggsci ``lancet`` palette, from Lancet Oncology. |
+| [`scale_fill_lancet()`](api/scale_fill_lancet.md) | Map ``fill`` with the ggsci ``lancet`` palette. See ``scale_color_lancet``. |
+| [`scale_color_jama()`](api/scale_color_jama.md) | Map ``color`` with the ggsci ``jama`` palette, from JAMA. |
+| [`scale_fill_jama()`](api/scale_fill_jama.md) | Map ``fill`` with the ggsci ``jama`` palette. See ``scale_color_jama``. |
+| [`scale_color_jco()`](api/scale_color_jco.md) | Map ``color`` with the ggsci ``jco`` palette, from the Journal of Clinical Oncology (JCO). |
+| [`scale_fill_jco()`](api/scale_fill_jco.md) | Map ``fill`` with the ggsci ``jco`` palette. See ``scale_color_jco``. |
+| [`scale_color_d3()`](api/scale_color_d3.md) | Map ``color`` with the ggsci ``d3`` palette, from D3.js. |
+| [`scale_fill_d3()`](api/scale_fill_d3.md) | Map ``fill`` with the ggsci ``d3`` palette. See ``scale_color_d3``. |
+| [`scale_color_igv()`](api/scale_color_igv.md) | Map ``color`` with the ggsci ``igv`` palette, from the IGV genome browser. |
+| [`scale_fill_igv()`](api/scale_fill_igv.md) | Map ``fill`` with the ggsci ``igv`` palette. See ``scale_color_igv``. |
+
 ## Size, shape and alpha scales
 
 Map data to point size, point shape and transparency.

@@ -34,7 +34,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Main roadmap: [plan.md](plan.md).
 
 ## Tier 1: high value for cellestial, widely used
 
-- [ ] ex1.1 **ggsci journal palettes.** Discrete `scale_color_*` / `scale_fill_*` for
+- [x] ex1.1 **ggsci journal palettes.** Discrete `scale_color_*` / `scale_fill_*` for
   `npg`, `aaas`, `nejm`, `lancet`, `jama`, `jco`, `d3` (`category10`, `category20`,
   `category20b`, `category20c`), `igv` (51 colours, good for many clusters), with the
   `palette=` and `alpha=` parameters as ggsci. A palette table next to the brewer ones in

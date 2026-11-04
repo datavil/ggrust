@@ -15,6 +15,8 @@ mod color;
 pub mod color_space;
 mod colormap;
 mod colormap_data;
+mod ggsci;
+mod ggsci_data;
 mod gradient;
 mod hue;
 mod identity;
@@ -32,6 +34,7 @@ pub use brewer::{
 };
 pub use color::{DefaultColorMapper, GRADIENT_HIGH, GRADIENT_LOW, NA_COLOR, discrete_palette};
 pub use colormap::{COLORMAP_NAMES, ColormapMapper, colormap};
+pub use ggsci::{FAMILIES as GGSCI_FAMILIES, GgsciMapper, family_by_kind as ggsci_family};
 pub use gradient::{
     GRADIENT2_HIGH, GRADIENT2_LOW, GRADIENT2_MID, Gradient2Mapper, GradientMapper, GreyMapper,
 };
@@ -81,6 +84,12 @@ pub trait StyleMapper: Send + Sync {
     /// Whether only continuous data can be mapped (`scale_*_gradient2()`).
     fn continuous_only(&self) -> bool {
         false
+    }
+
+    /// How many colors a fixed palette has (ggsci); more categories warn
+    /// ([`StyleScale::palette_overflow`]). `None`: no fixed size.
+    fn palette_size(&self) -> Option<usize> {
+        None
     }
 }
 
@@ -456,6 +465,14 @@ impl StyleScale {
         Ok(())
     }
 
+    /// `(palette size, category count)` when a discrete scale has more categories
+    /// than its mapper's fixed palette ([`StyleMapper::palette_size`]).
+    pub fn palette_overflow(&self) -> Option<(usize, usize)> {
+        let size = self.mapper.palette_size()?;
+        let count = self.effective_domain().len();
+        (self.is_discrete() && count > size).then_some((size, count))
+    }
+
     /// The categories values are mapped by: `limits` when given, else the trained
     /// levels (lets-plot `DiscreteTransform.effectiveDomain`). Empty if continuous.
     fn effective_domain(&self) -> &[Level] {
@@ -825,6 +842,38 @@ mod tests {
             .iter()
             .map(|value| Level::Text((*value).to_owned()))
             .collect()
+    }
+
+    #[test]
+    fn a_fixed_palette_reports_overflow_by_category_count() {
+        let family = ggsci_family("color_jama").unwrap();
+        let mapper = GgsciMapper::new(
+            family.kind,
+            family.palette(None).unwrap(),
+            1.0,
+            Overflow::Auto,
+            NA_COLOR,
+        );
+        let mut jama = StyleScale::new(Arc::new(mapper.clone()), DiscreteDomain::default());
+        jama.train(&strings(vec!["a", "b", "c", "d", "e", "f", "g"]))
+            .unwrap();
+        assert_eq!(jama.palette_overflow(), None);
+        jama.train(&strings(vec!["h", "i"])).unwrap();
+        assert_eq!(jama.palette_overflow(), Some((7, 9)));
+        // Limits are the categories mapped.
+        let limits = DiscreteDomain {
+            limits: Some(texts(&["a", "b"])),
+            ..DiscreteDomain::default()
+        };
+        let mut limited = StyleScale::new(Arc::new(mapper), limits);
+        limited
+            .train(&strings(vec!["a", "b", "c", "d", "e", "f", "g", "h"]))
+            .unwrap();
+        assert_eq!(limited.palette_overflow(), None);
+        // Mappers without a fixed palette never report.
+        let mut hue = scale(Aesthetic::Color);
+        hue.train(&strings(vec!["a"; 1])).unwrap();
+        assert_eq!(hue.palette_overflow(), None);
     }
 
     #[test]

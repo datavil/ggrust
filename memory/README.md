@@ -57,3 +57,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [corr_plot follows measured lets-plot output](letsplot_corr_plot.md): Kotlin-side bistro measured from SVG; layer type/diag/color rules, threshold cropping, size formula, explicit 0.6 coord padding.
 - [Arrow axes are theme axis lines](arrow_axes.md): `element_line(arrow=, extent=)` in pixels via `layout::axis_line_node`, shared with the zoom template (zoom-invariant), arrow/extent read from the axis_line chain only.
 - [Geom colors and manual legends](letsplot_geom_palette_manual_key.md): pen = flavor ink, paper = flavor white, brush #118ed8; geom defaults are PEN/BRUSH/PAPER; manual keys sort by index, legends keyed by title.
+- [ggsci palettes](ggsci_palettes.md): fixed tables per mapper kind, brewer overflow + warning after training (`palette_size`), R rgb() alpha rounding.

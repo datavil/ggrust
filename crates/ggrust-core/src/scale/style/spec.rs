@@ -18,6 +18,7 @@ use super::{
     ProportionalMapper, SIZE, SIZE_AREA_MAX, ShapeMapper, StyleMapper, colormap, default_mapper,
     scheme_by_name, scheme_names,
 };
+use super::{GgsciMapper, ggsci_family};
 use crate::scale::Transform;
 use crate::scale::label_pattern::LabelPattern;
 use crate::scene::{Color, PerItem};
@@ -347,6 +348,11 @@ impl StyleScaleSpec {
         Ok(default)
     }
 
+    /// Path of the `scale_mapper_kind` that picked the mapper, if any.
+    pub fn mapper_path(&self) -> Option<&str> {
+        self.kind.as_ref().map(|(_, path)| path.as_str())
+    }
+
     /// The scale's own `guide` and its path, if given.
     pub fn guide_with_path(&self) -> Option<(&GuideSpec, &str)> {
         self.guide
@@ -587,6 +593,7 @@ impl StyleScaleSpec {
                 Arc::new(mapper)
             }
             "color_brewer" => Arc::new(self.brewer(na)?),
+            kind if let Some(family) = ggsci_family(kind) => Arc::new(self.ggsci(family, na)?),
             "color_grey" => {
                 let lightness = |key: &str, default: f64| -> Result<f64> {
                     let value = self.number(key)?.unwrap_or(default);
@@ -702,6 +709,70 @@ impl StyleScaleSpec {
             overflow,
             na,
         })
+    }
+
+    /// ggsci options: `palette` (a name of the family), `alpha` in (0, 1] and
+    /// ggrust's `overflow`.
+    fn ggsci(&self, family: &'static super::ggsci::GgsciFamily, na: Color) -> Result<GgsciMapper> {
+        let names = family.palette_names();
+        let palette = match self.options.get("palette") {
+            None => family.palette(None),
+            Some((Value::String(name), path)) => {
+                Some(family.palette(Some(name)).ok_or_else(|| {
+                    Error::spec(
+                        path,
+                        format!(
+                            "{} palette '{name}' was not found; use {names}{}",
+                            family.name,
+                            crate::suggest::did_you_mean(
+                                name,
+                                family.palettes.iter().map(|palette| palette.name)
+                            )
+                        ),
+                    )
+                })?)
+            }
+            Some((other, path)) => {
+                return Err(Error::spec(
+                    path,
+                    format!("expected a palette name ({names}), got {other}"),
+                ));
+            }
+        };
+        let Some(palette) = palette else {
+            return Err(Error::spec("", format!("{} has no palettes", family.name)));
+        };
+        let opacity = self.number("alpha")?.unwrap_or(1.0);
+        if !(opacity > 0.0 && opacity <= 1.0) {
+            return Err(Error::spec(
+                self.options
+                    .get("alpha")
+                    .map_or("", |(_, path)| path.as_str()),
+                format!("alpha must be in (0, 1], got {opacity}"),
+            ));
+        }
+        let overflow = match self.options.get("overflow") {
+            None => Overflow::Auto,
+            Some((Value::String(name), path)) => Overflow::parse(name).ok_or_else(|| {
+                Error::spec(
+                    path,
+                    format!(
+                        "overflow expected one of 'interpolate' ('i'), 'cycle' ('c'), \
+                         'generate' ('g'), got '{name}'"
+                    ),
+                )
+            })?,
+            Some((other, path)) => {
+                return Err(Error::spec(path, format!("expected a text, got {other}")));
+            }
+        };
+        Ok(GgsciMapper::new(
+            family.kind,
+            palette,
+            opacity,
+            overflow,
+            na,
+        ))
     }
 
     /// A finite number option.
@@ -935,6 +1006,52 @@ mod tests {
         let mut warnings = Vec::new();
         let mut merged = style_scale_specs(&plot, &mut warnings);
         (merged.remove(&Aesthetic::Fill).unwrap(), warnings)
+    }
+
+    #[test]
+    fn ggsci_options_are_checked_with_paths() {
+        let error = |scale: &str| -> String {
+            let (spec, _) = fill(scale);
+            match spec.mapper(Aesthetic::Fill, &mut Vec::new()) {
+                Ok(mapper) => panic!("expected an error, got {}", mapper.name()),
+                Err(error) => error.to_string(),
+            }
+        };
+        let message = error(
+            r#"{"aesthetic": "fill", "scale_mapper_kind": "color_d3", "palette": "category21"}"#,
+        );
+        assert!(message.contains("scales[0].palette"), "{message}");
+        assert!(
+            message.contains("use 'category10', 'category20'"),
+            "{message}"
+        );
+        assert!(message.contains("did you mean"), "{message}");
+        let message =
+            error(r#"{"aesthetic": "fill", "scale_mapper_kind": "color_npg", "alpha": 0}"#);
+        assert!(message.contains("scales[0].alpha"), "{message}");
+        assert!(
+            message.contains("alpha must be in (0, 1], got 0"),
+            "{message}"
+        );
+        let message =
+            error(r#"{"aesthetic": "fill", "scale_mapper_kind": "color_igv", "palette": 1}"#);
+        assert!(message.contains("expected a palette name ('default', 'alternating')"));
+        let (spec, warnings) = fill(
+            r#"{"aesthetic": "fill", "scale_mapper_kind": "color_igv",
+                "palette": "alternating", "alpha": 0.5, "overflow": "cycle"}"#,
+        );
+        let mapper = spec.mapper(Aesthetic::Fill, &mut Vec::new()).unwrap();
+        assert!(warnings.is_empty(), "{warnings:?}");
+        assert_eq!(mapper.name(), "color_igv");
+        assert_eq!(mapper.palette_size(), Some(2));
+        let StyleValues::Colors(PerItem::Varying(colors)) =
+            mapper.map_discrete(&[Some(0), Some(2), None], 3)
+        else {
+            panic!("expected colors");
+        };
+        assert_eq!(colors[0], Color::rgba(0x57, 0x73, 0xCC, 128));
+        assert_eq!(colors[1], colors[0]);
+        assert_eq!(colors[2], NA_COLOR);
     }
 
     #[test]

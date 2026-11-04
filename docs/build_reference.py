@@ -169,6 +169,27 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "scale_fill_identity",
         ],
     ),
+    "Journal palettes (ggsci)": (
+        "Discrete palettes from the R package ggsci (not in lets-plot).",
+        [
+            "scale_color_npg",
+            "scale_fill_npg",
+            "scale_color_aaas",
+            "scale_fill_aaas",
+            "scale_color_nejm",
+            "scale_fill_nejm",
+            "scale_color_lancet",
+            "scale_fill_lancet",
+            "scale_color_jama",
+            "scale_fill_jama",
+            "scale_color_jco",
+            "scale_fill_jco",
+            "scale_color_d3",
+            "scale_fill_d3",
+            "scale_color_igv",
+            "scale_fill_igv",
+        ],
+    ),
     "Size, shape and alpha scales": (
         "Map data to point size, point shape and transparency.",
         [

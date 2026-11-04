@@ -175,6 +175,12 @@ def _axis_group(svg: str, axis: str) -> str:
     return match.group(1)
 
 
+def _tree_group(svg: str, axis: str) -> str:
+    """The paths of the ``dendrogram-{axis}`` group (empty without one)."""
+    match = re.search(rf'<g class="dendrogram-{axis}"[^>]*>(.*?)</g>', svg, re.S)
+    return match.group(1) if match else ""
+
+
 def _segments(group: str) -> list[tuple[float, float, float, float]]:
     """Every straight piece of the group's open paths (polylines split up)."""
     segments = []
@@ -205,7 +211,7 @@ def test_axis_follows_the_tree_and_leaves_meet_the_ticks() -> None:
     # Bottom to top is the tree's order.
     by_height = [name for _, name in sorted(labels, key=lambda item: -float(item[0]))]
     assert tuple(by_height) == rows.ordered_labels
-    segments = _segments(y_group)
+    segments = _segments(_tree_group(svg, "y"))
     assert len(segments) == 3 * (len(rows.labels) - 1)
     label_left = min(float(x) for x in re.findall(r'<text x="([\d.]+)"', y_group))
     leaves_x = max(max(start_x, end_x) for start_x, _, end_x, _ in segments)
@@ -226,7 +232,9 @@ def test_axis_follows_the_tree_and_leaves_meet_the_ticks() -> None:
     x_group = _axis_group(svg, "x")
     label_bottom = max(float(y) for y in re.findall(r'<text x="[\d.]+" y="([\d.]+)"', x_group))
     below = [
-        segment for segment in _segments(x_group) if min(segment[1], segment[3]) > label_bottom
+        segment
+        for segment in _segments(_tree_group(svg, "x"))
+        if min(segment[1], segment[3]) > label_bottom
     ]
     assert len(below) == 3 * 3
 
@@ -235,7 +243,7 @@ def test_opposite_side_and_space() -> None:
     svg = _heatmap(side="opposite", space=60).to_svg()
     panel = re.search(r'<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)"', svg)
     assert panel is not None
-    segments = _segments(_axis_group(svg, "y"))
+    segments = _segments(_tree_group(svg, "y"))
     left = min(min(start_x, end_x) for start_x, _, end_x, _ in segments)
     right = max(max(start_x, end_x) for start_x, _, end_x, _ in segments)
     assert right - left == pytest.approx(60, abs=0.05)
@@ -267,7 +275,7 @@ def test_facets_warn_and_keep_the_order() -> None:
         warnings.simplefilter("always")
         svg = plot.to_svg()
     assert any("faceted plots draw no dendrogram" in str(item.message) for item in caught)
-    assert '<path d="M' not in _axis_group(svg, "y")
+    assert _tree_group(svg, "y") == ""
 
 
 def test_numbers_pass_through_a_dendrogram_axis() -> None:

@@ -19,6 +19,10 @@ axis band or opposite band.
 - **Bands are part of the axis area** (`x_axis_band`, `y_axis_width`, `top_band`,
   `right_band` in `layout_with`), so gggrid alignment needed no change. Facets drop the
   tree with a warning (facet layout builds its own `PlotLayout`).
+- **HTML zoom:** trees live in their own `dendrogram-x` / `dendrogram-y` groups (the
+  zoom rewrites `axis-*` innerHTML), clipped by the engine to the panel span; the runtime
+  wraps the paths in an inner `<g>` and sets a one-axis matrix (outer clip stays put),
+  strokes non-scaling. Browser test: `tests/test_dendrogram_zoom.py`.
 - Fixtures: `tests/fixtures/generate_hclust_reference.R` (jsonlite `auto_unbox` +
   `I()` so length-1 vectors stay lists). legendry and ggh4x installed into a scratch
   `R_LIBS` for the reference render.

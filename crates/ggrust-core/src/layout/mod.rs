@@ -1070,7 +1070,8 @@ pub fn draw_axes(
         }
     }
     let [x_tree, y_tree] = &layout.dendrograms;
-    if let Some(tree) = x_tree {
+    let mut trees = Vec::new();
+    if let Some(tree) = x_tree.as_ref().filter(|_| show_x) {
         let levels = discrete_levels(mapper.x_scale);
         let gap = dendrogram::gap(theme, true);
         let (baseline, growth) = match tree.side {
@@ -1081,16 +1082,17 @@ pub fn draw_axes(
             DendrogramSide::Opposite => (panel.y - gap, dendrogram::Growth::Vertical(-1.0)),
         };
         let pixel = |value: f64| mapper.x_pixel(value);
-        axis_x.extend(dendrogram::draw(
-            tree,
-            &levels,
-            &pixel,
-            baseline,
-            growth,
-            theme.axis_ticks_x,
+        let line = theme.axis_ticks_x;
+        let paths = dendrogram::draw(tree, &levels, &pixel, baseline, growth, line);
+        trees.push(dendrogram::group(
+            "dendrogram-x",
+            paths,
+            panel,
+            (baseline, tree.space, growth),
+            line,
         ));
     }
-    if let Some(tree) = y_tree {
+    if let Some(tree) = y_tree.as_ref().filter(|_| show_y) {
         let levels = discrete_levels(mapper.y_scale);
         let gap = dendrogram::gap(theme, false);
         let (baseline, growth) = match tree.side {
@@ -1104,13 +1106,14 @@ pub fn draw_axes(
             ),
         };
         let pixel = |value: f64| mapper.y_pixel(value);
-        axis_y.extend(dendrogram::draw(
-            tree,
-            &levels,
-            &pixel,
-            baseline,
-            growth,
-            theme.axis_ticks_y,
+        let line = theme.axis_ticks_y;
+        let paths = dendrogram::draw(tree, &levels, &pixel, baseline, growth, line);
+        trees.push(dendrogram::group(
+            "dendrogram-y",
+            paths,
+            panel,
+            (baseline, tree.space, growth),
+            line,
         ));
     }
     let mut nodes = Vec::new();
@@ -1120,6 +1123,7 @@ pub fn draw_axes(
     if show_y {
         nodes.push(role_group("axis-y", axis_y));
     }
+    nodes.extend(trees.into_iter().flatten());
     nodes
 }
 

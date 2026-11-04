@@ -6,14 +6,15 @@
 //! (`side = "axis"`, as legendry) the band is past the tick labels, the root
 //! farthest from the panel; on the opposite side (`"opposite"`, as scanpy) it is
 //! above or right of the panel, without labels. The band is part of the axis
-//! area, so `gggrid(align=True)` aligns panels as usual.
+//! area, so `gggrid(align=True)` aligns panels as usual. The paths sit in a
+//! `dendrogram-x` / `dendrogram-y` group clipped to the panel's span along the axis,
+//! which the HTML runtime moves with zoom and pan along that axis.
 //!
-//! What it does not do: facets (the build drops the tree with a warning), the
-//! zoomable HTML template (the tree stays where it was drawn), labels inside the
-//! guide (legendry `labels=`; hide axis text with the theme instead).
+//! What it does not do: facets (the build drops the tree with a warning),
+//! labels inside the guide (legendry `labels=`; hide axis text with the theme instead).
 
 use crate::cluster::{DendrogramType, Tree};
-use crate::scene::{Color, Node, Path};
+use crate::scene::{Color, Group, Node, Path, Rect};
 use crate::theme::{Dash, LineStyle, Theme};
 
 /// Where the tree goes relative to the panel.
@@ -140,6 +141,53 @@ pub fn draw(
             })
             .collect(),
     }
+}
+
+/// The tree's paths in a group with `role` (`dendrogram-x` / `dendrogram-y`, which
+/// the HTML runtime moves with the zoom along the axis), clipped to the panel's
+/// span along the axis and to the tree's band (`baseline`, `space`, `growth`)
+/// across it, plus the stroke. None without paths.
+pub fn group(
+    role: &'static str,
+    paths: Vec<Node>,
+    panel: Rect,
+    (baseline, space, growth): (f64, f64, Growth),
+    theme_line: Option<LineStyle>,
+) -> Option<Node> {
+    if paths.is_empty() {
+        return None;
+    }
+    let pad = theme_line.unwrap_or_else(default_line).width.max(1.0);
+    let across = |sign: f64| {
+        let end = baseline + sign * space;
+        (baseline.min(end) - pad, (baseline - end).abs() + 2.0 * pad)
+    };
+    let clip = match growth {
+        Growth::Vertical(sign) => {
+            let (y, height) = across(sign);
+            Rect {
+                x: panel.x,
+                y,
+                width: panel.width,
+                height,
+            }
+        }
+        Growth::Horizontal(sign) => {
+            let (x, width) = across(sign);
+            Rect {
+                x,
+                y: panel.y,
+                width,
+                height: panel.height,
+            }
+        }
+    };
+    Some(Node::Group(Group {
+        clip: Some(clip),
+        role: Some(role),
+        anchor: None,
+        nodes: paths,
+    }))
 }
 
 /// Gap (px) between the tree and the labels or panel: the theme's label spacing

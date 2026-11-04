@@ -1120,6 +1120,7 @@
       });
       tile.marks = [];
       if (panelGroup) collectMarks(panelGroup, tile.marks);
+      tile.trees = treeGroups(element);
     }
     var reset = isUnzoomed(tile);
     var h = affine(tile.spec.horizontal, tile.views.h), v = affine(tile.spec.vertical, tile.views.v);
@@ -1154,11 +1155,42 @@
         e.setAttribute("transform", "translate(" + (x - mark.x) + " " + (y - mark.y) + ")");
       }
     });
+    moveTrees(tile.trees, h, v, reset);
     var content = reset ? tile.saved : axisContent(tile);
     Object.keys(tile.groups).forEach(function (key) {
       if (tile.groups[key]) tile.groups[key].innerHTML = content[key] || "";
     });
     moveTargets(plot, tile, h, v, k, reset);
+  }
+
+  // Axis dendrograms ("dendrogram-x" / "dendrogram-y" beside the axes): their
+  // paths go into an inner group, moved along the tree's axis only (leaves are
+  // linear in the category index, heights stay); the outer group keeps the
+  // engine's clip to the panel's span along the axis.
+  function treeGroups(element) {
+    var trees = [];
+    [["dendrogram-x", true], ["dendrogram-y", false]].forEach(function (entry) {
+      for (var child = element.firstElementChild; child; child = child.nextElementSibling) {
+        if (child.getAttribute("class") !== entry[0]) continue;
+        var inner = document.createElementNS(SVG_NS, "g");
+        while (child.firstChild) inner.appendChild(child.firstChild);
+        child.appendChild(inner);
+        trees.push({ inner: inner, horizontal: entry[1] });
+      }
+    });
+    return trees;
+  }
+
+  function moveTrees(trees, h, v, reset) {
+    (trees || []).forEach(function (tree) {
+      if (reset) {
+        tree.inner.removeAttribute("transform");
+      } else if (tree.horizontal) {
+        tree.inner.setAttribute("transform", "matrix(" + h.scale + " 0 0 1 " + h.offset + " 0)");
+      } else {
+        tree.inner.setAttribute("transform", "matrix(1 0 0 " + v.scale + " 0 " + v.offset + ")");
+      }
+    });
   }
 
   function samePanel(a, b) {
@@ -1606,7 +1638,8 @@
     }
     // Strokes keep their width when a panel's marks are scaled.
     var style = document.createElementNS(SVG_NS, "style");
-    style.textContent = "#" + plot.id + " .panel * { vector-effect: non-scaling-stroke; }";
+    style.textContent = "#" + plot.id + " .panel *, #" + plot.id + " .dendrogram-x *, #" +
+      plot.id + " .dendrogram-y * { vector-effect: non-scaling-stroke; }";
     plot.svg.insertBefore(style, plot.svg.firstChild);
     plot.zoom.decorations = document.createElementNS(SVG_NS, "g");
     plot.zoom.decorations.setAttribute("class", "ggrust-selection");

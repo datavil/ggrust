@@ -8,6 +8,8 @@
 //! interpolation onto `n` points from `min - 3 bw` to `max + 3 bw`. Kernel
 //! ordinates use R 4.4's coordinates (`old.coords = FALSE`).
 //!
+//! [`RDensity::on_grid`] takes R's `bw`, `from`, `to` (ggdist's densities).
+//!
 //! What it does not do: weights, other kernels or bandwidth rules (the violin
 //! density in [`super::density`] has those, with lets-plot's grid).
 
@@ -36,12 +38,22 @@ impl RDensity {
         sorted.sort_by(f64::total_cmp);
         let bandwidth = Bandwidth::Nrd0.of(&sorted) * adjust;
         let (low, high) = (sorted[0], sorted[sorted.len() - 1]);
-        let from = low - 3.0 * bandwidth;
-        let to = high + 3.0 * bandwidth;
+        Some(RDensity::on_grid(
+            &sorted,
+            bandwidth,
+            n,
+            low - 3.0 * bandwidth,
+            high + 3.0 * bandwidth,
+        ))
+    }
+
+    /// `density(values, bw = bandwidth, n = n, from = from, to = to)` for finite
+    /// `values` (at least one), a positive `bandwidth` and `n >= 2`.
+    pub fn on_grid(values: &[f64], bandwidth: f64, n: usize, from: f64, to: f64) -> RDensity {
         let bins = if n > 512 { n.next_power_of_two() } else { 512 };
         let lower = from - 4.0 * bandwidth;
         let upper = to + 4.0 * bandwidth;
-        let mass = bin_distribution(&sorted, lower, upper, bins);
+        let mass = bin_distribution(values, lower, upper, bins);
 
         // Kernel ordinates at the bin spacing (R >= 4.4, `old.coords = FALSE`).
         let spacing = (upper - lower) / (bins - 1) as f64;
@@ -52,12 +64,22 @@ impl RDensity {
                 normal * (-0.5 * distance * distance).exp()
             })
             .collect();
+        // Ordinates past `reach` bins are exactly zero (underflow): skipping them
+        // gives the same sums.
+        let reach = kernel
+            .iter()
+            .position(|value| *value == 0.0)
+            .unwrap_or(bins);
         let mut binned = vec![0.0; bins];
         for (source, weight) in mass.iter().enumerate() {
             if *weight == 0.0 {
                 continue;
             }
-            for (target, value) in binned.iter_mut().enumerate() {
+            let (first, end) = (
+                (source + 1).saturating_sub(reach),
+                (source + reach).min(bins),
+            );
+            for (target, value) in binned.iter_mut().enumerate().take(end).skip(first) {
                 *value += weight * kernel[source.abs_diff(target)];
             }
         }
@@ -70,7 +92,7 @@ impl RDensity {
             .iter()
             .map(|point| interpolate(&binned_grid, &binned, *point))
             .collect();
-        Some(RDensity { grid, density })
+        RDensity { grid, density }
     }
 
     /// Linear interpolation of the density at `value` (R `approx`, ends held).
@@ -103,7 +125,7 @@ fn bin_distribution(values: &[f64], lower: f64, upper: f64, bins: usize) -> Vec<
 }
 
 /// R `seq(from, to, length.out = n)`: exact ends.
-fn sequence(from: f64, to: f64, n: usize) -> Vec<f64> {
+pub(super) fn sequence(from: f64, to: f64, n: usize) -> Vec<f64> {
     let step = (to - from) / (n - 1) as f64;
     (0..n)
         .map(|index| match index {

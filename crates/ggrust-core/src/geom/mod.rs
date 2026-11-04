@@ -16,12 +16,17 @@ mod boxplot;
 mod bracket;
 mod contour;
 mod curve;
+mod half_boxplot;
+mod half_point;
+mod half_violin;
 mod hex;
 mod hover;
 mod image;
 mod interval;
 mod jitter;
 mod lines;
+mod pointinterval;
+mod slab;
 
 pub use lines::Arrow;
 mod path;
@@ -53,12 +58,16 @@ pub use boxplot::BoxplotGeom;
 pub use bracket::BracketGeom;
 pub use contour::{ContourGeom, ContourfGeom, Density2dGeom, Density2dfGeom};
 pub use curve::CurveGeom;
+pub use half_boxplot::HalfBoxplotGeom;
+pub use half_point::HalfPointGeom;
+pub use half_violin::HalfViolinGeom;
 pub use hex::HexGeom;
 pub use image::ImageGeom;
 pub use interval::{CrossBarGeom, ErrorBarGeom, LineRangeGeom, PointRangeGeom};
 pub use jitter::JitterGeom;
 pub use path::{FreqpolyGeom, LineGeom, PathGeom};
 pub use point::PointGeom;
+pub use pointinterval::PointIntervalGeom;
 pub use polygon::PolygonGeom;
 pub use raster::RasterGeom;
 pub use rect::RectGeom;
@@ -66,6 +75,7 @@ pub use reference_line::{HorizontalLineGeom, VerticalLineGeom};
 pub use repel::{LabelRepelGeom, TextRepelGeom};
 pub use segment::SegmentGeom;
 pub use sina::SinaGeom;
+pub use slab::SlabGeom;
 pub use smooth::SmoothGeom;
 pub use step::StepGeom;
 pub use text::{LabelGeom, TextGeom};
@@ -249,6 +259,11 @@ pub static GEOMS: &[&dyn Geom] = &[
     &RectGeom,
     &RasterGeom,
     &ImageGeom,
+    &HalfViolinGeom,
+    &HalfBoxplotGeom,
+    &HalfPointGeom,
+    &SlabGeom,
+    &PointIntervalGeom,
 ];
 
 /// lets-plot geoms the Python API builds but the engine does not draw yet (plan.md).

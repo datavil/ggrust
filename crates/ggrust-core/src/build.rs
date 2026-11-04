@@ -1986,8 +1986,8 @@ fn map_layer_into<'a>(
 
 /// Whether a layer runs in y orientation (lets-plot `LayerConfig.initYOrientation`):
 /// `orientation="y"`, or, without the option, a counting or distribution layer
-/// (count, summary, boxplot, ydensity stats; bar, violin, sina, beeswarm,
-/// quasirandom geoms) with a discrete y and a non-discrete x. Such a layer computes and draws with x and y
+/// (count, summary, boxplot, ydensity, slab, pointinterval, interval stats; bar,
+/// violin, sina, beeswarm, quasirandom, half_*, slab, pointinterval geoms) with a discrete y and a non-discrete x. Such a layer computes and draws with x and y
 /// swapped (see [`Aesthetic::flip_orientation`]): `geom_bar(aes(y="g"))` draws
 /// horizontal bars. Geoms that read `orientation` themselves are left alone.
 fn layer_orientation(
@@ -2014,16 +2014,40 @@ fn layer_orientation(
     }
     let auto = matches!(
         stat.name(),
-        "count" | "summary" | "boxplot" | "boxplot_outlier" | "ydensity"
+        "count"
+            | "summary"
+            | "boxplot"
+            | "boxplot_outlier"
+            | "ydensity"
+            | "slab"
+            | "pointinterval"
+            | "interval"
     ) || matches!(
         geom.name(),
-        "bar" | "violin" | "sina" | "beeswarm" | "quasirandom"
+        "bar"
+            | "violin"
+            | "sina"
+            | "beeswarm"
+            | "quasirandom"
+            | "half_violin"
+            | "half_boxplot"
+            | "half_point"
+            | "slab"
+            | "pointinterval"
     );
     let discrete = |wanted: Aesthetic| {
         columns.iter().any(|(aesthetic, column, _)| {
             *aesthetic == wanted && matches!(column, Column::Discrete(_))
         })
     };
+    // ggdist stats with only x mapped are horizontal (`aes(x = value)`).
+    let mapped = |wanted: Aesthetic| columns.iter().any(|(aesthetic, _, _)| *aesthetic == wanted);
+    if matches!(stat.name(), "slab" | "pointinterval" | "interval")
+        && mapped(Aesthetic::X)
+        && !mapped(Aesthetic::Y)
+    {
+        return Ok(true);
+    }
     Ok(auto && !discrete(Aesthetic::X) && discrete(Aesthetic::Y))
 }
 

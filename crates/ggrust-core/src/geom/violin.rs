@@ -122,140 +122,13 @@ impl Geom for ViolinGeom {
         &[Aesthetic::Xmin, Aesthetic::Xmax]
     }
 
-    fn setup(&self, mut data: LayerData, parameters: &Parameters) -> Result<LayerData> {
-        let Some(x) = data.continuous(Aesthetic::X).cloned() else {
-            return Ok(data);
-        };
-        let width = parameters.number("width")?.unwrap_or(1.0);
-        let half = width * data.resolution(Aesthetic::X) / 2.0;
-        let continuous = |values| Column::Continuous(ContinuousColumn::from_values(values));
-        let location = |row: usize| x.get(row).unwrap_or(f64::NAN);
-        let row_count = data.row_count();
-        data.insert(
-            Aesthetic::Xmin,
-            continuous((0..row_count).map(|row| location(row) - half).collect()),
-        )?;
-        data.insert(
-            Aesthetic::Xmax,
-            continuous((0..row_count).map(|row| location(row) + half).collect()),
-        )?;
-        data.insert(Aesthetic::Width, continuous(vec![width; row_count]))?;
-        Ok(data)
+    fn setup(&self, data: LayerData, parameters: &Parameters) -> Result<LayerData> {
+        setup_spans(data, parameters.number("width")?.unwrap_or(1.0))
     }
 
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
-        let quantile_lines = layer.parameters.boolean("quantile_lines")?.unwrap_or(false);
         let show_half = layer.parameters.number("show_half")?.unwrap_or(0.0);
-        let quantiles = ydensity_quantiles(&layer.parameters)?;
-        let (left_sign, right_sign) = (
-            if show_half > 0.0 { 0.0 } else { -1.0 },
-            if show_half < 0.0 { 0.0 } else { 1.0 },
-        );
-        let column = |aesthetic| {
-            layer
-                .data
-                .continuous(aesthetic)
-                .ok_or_else(|| Error::data(format!("violin is missing its '{aesthetic}' column")))
-        };
-        let (x, y, xmin, xmax, violin_width) = (
-            column(Aesthetic::X)?,
-            column(Aesthetic::Y)?,
-            column(Aesthetic::Xmin)?,
-            column(Aesthetic::Xmax)?,
-            column(Aesthetic::Violinwidth)?,
-        );
-        let band = layer.data.continuous(Aesthetic::Quantile);
-        let value = |column: &ContinuousColumn, row: usize| {
-            column.get(row).filter(|value| value.is_finite())
-        };
-        // Rows of each violin (group and x), in order of first appearance.
-        let mut violins: Vec<Vec<usize>> = Vec::new();
-        let mut slot_of: HashMap<(u32, u64), usize> = HashMap::new();
-        for row in 0..layer.data.row_count() {
-            let defined = [x, y, xmin, xmax, violin_width]
-                .iter()
-                .all(|column| value(column, row).is_some());
-            if !defined {
-                continue;
-            }
-            let key = (
-                layer.data.group_of(row),
-                x.get(row).unwrap_or(0.0).to_bits(),
-            );
-            let slot = *slot_of.entry(key).or_insert_with(|| {
-                violins.push(Vec::new());
-                violins.len() - 1
-            });
-            violins[slot].push(row);
-        }
-        // A side of a point: centre + sign x half the (dodged) span x violinwidth.
-        let side = |row: usize, sign: f64| -> (f64, f64) {
-            let (low, high) = (xmin.get(row).unwrap_or(0.0), xmax.get(row).unwrap_or(0.0));
-            let center = x.get(row).unwrap_or(0.0);
-            let offset = (high - low) / 2.0 * sign * violin_width.get(row).unwrap_or(0.0);
-            panel.map(center + offset, y.get(row).unwrap_or(0.0))
-        };
-        let band_of = |row: usize| band.and_then(|band| band.get(row)).unwrap_or(f64::NAN);
-        let fills = layer.styles.colors(Aesthetic::Fill)?;
-        let colors = layer.styles.colors(Aesthetic::Color)?;
-        let alphas = layer.styles.numbers(Aesthetic::Alpha)?;
-
-        let mut nodes = Vec::new();
-        for mut rows in violins {
-            // lets-plot `ordered_Y`, then bands when paint varies along the violin.
-            rows.sort_by(|left, right| {
-                y.get(*left)
-                    .unwrap_or(0.0)
-                    .total_cmp(&y.get(*right).unwrap_or(0.0))
-            });
-            let varies = rows.iter().any(|&row| {
-                fills.get(row) != fills.get(rows[0]) || colors.get(row) != colors.get(rows[0])
-            });
-            let runs = if varies {
-                split_by_band(&rows, band_of, y)
-            } else {
-                vec![rows.clone()]
-            };
-            for run in &runs {
-                let first = run[0];
-                let left: Vec<(f64, f64)> = run.iter().map(|&row| side(row, left_sign)).collect();
-                let right: Vec<(f64, f64)> = run.iter().map(|&row| side(row, right_sign)).collect();
-                let fill = fills.get(first).with_opacity(alphas.get(first));
-                let mut outline = left.clone();
-                outline.extend(right.iter().rev());
-                nodes.push(Node::Path(Path {
-                    points: outline,
-                    closed: true,
-                    fill: (fill.alpha > 0).then_some(fill),
-                    stroke: None,
-                }));
-                let stroke = lines::stroke_with_alpha(layer.styles, first, false)?;
-                for points in [left, right] {
-                    if stroke.is_some() && points.len() > 1 {
-                        nodes.push(Node::Path(Path {
-                            points,
-                            closed: false,
-                            fill: None,
-                            stroke: stroke.clone(),
-                        }));
-                    }
-                }
-            }
-            if quantile_lines {
-                for row in quantile_line_rows(&rows, band_of, y, &quantiles) {
-                    let Some(stroke) = lines::stroke_with_alpha(layer.styles, row, false)? else {
-                        continue;
-                    };
-                    nodes.push(Node::Path(Path {
-                        points: vec![side(row, left_sign), side(row, right_sign)],
-                        closed: false,
-                        fill: None,
-                        stroke: Some(stroke),
-                    }));
-                }
-            }
-        }
-        Ok(nodes)
+        draw_violins(layer, panel, show_half, 0.0)
     }
 
     fn minimum_key_size(&self, styles: &Styles) -> Result<(f64, f64)> {
@@ -265,4 +138,146 @@ impl Geom for ViolinGeom {
     fn draw_key(&self, styles: &Styles, cell: Rect) -> Result<Vec<Node>> {
         draw_key(styles, cell)
     }
+}
+
+/// `xmin`/`xmax` spans `width` x the x resolution wide around x, and `width`.
+pub(super) fn setup_spans(mut data: LayerData, width: f64) -> Result<LayerData> {
+    let Some(x) = data.continuous(Aesthetic::X).cloned() else {
+        return Ok(data);
+    };
+    let half = width * data.resolution(Aesthetic::X) / 2.0;
+    let continuous = |values| Column::Continuous(ContinuousColumn::from_values(values));
+    let location = |row: usize| x.get(row).unwrap_or(f64::NAN);
+    let row_count = data.row_count();
+    data.insert(
+        Aesthetic::Xmin,
+        continuous((0..row_count).map(|row| location(row) - half).collect()),
+    )?;
+    data.insert(
+        Aesthetic::Xmax,
+        continuous((0..row_count).map(|row| location(row) + half).collect()),
+    )?;
+    data.insert(Aesthetic::Width, continuous(vec![width; row_count]))?;
+    Ok(data)
+}
+
+/// Violins of `layer`: both halves (`show_half` 0), or only the left (-1) or
+/// right (1) half, moved `nudge` away from the centre (gghalves).
+pub(super) fn draw_violins(
+    layer: &DrawLayer,
+    panel: &Panel,
+    show_half: f64,
+    nudge: f64,
+) -> Result<Vec<Node>> {
+    let quantile_lines = layer.parameters.boolean("quantile_lines")?.unwrap_or(false);
+    let shift = nudge * show_half.signum() * f64::from(u8::from(show_half != 0.0));
+    let quantiles = ydensity_quantiles(&layer.parameters)?;
+    let (left_sign, right_sign) = (
+        if show_half > 0.0 { 0.0 } else { -1.0 },
+        if show_half < 0.0 { 0.0 } else { 1.0 },
+    );
+    let column = |aesthetic| {
+        layer
+            .data
+            .continuous(aesthetic)
+            .ok_or_else(|| Error::data(format!("violin is missing its '{aesthetic}' column")))
+    };
+    let (x, y, xmin, xmax, violin_width) = (
+        column(Aesthetic::X)?,
+        column(Aesthetic::Y)?,
+        column(Aesthetic::Xmin)?,
+        column(Aesthetic::Xmax)?,
+        column(Aesthetic::Violinwidth)?,
+    );
+    let band = layer.data.continuous(Aesthetic::Quantile);
+    let value =
+        |column: &ContinuousColumn, row: usize| column.get(row).filter(|value| value.is_finite());
+    // Rows of each violin (group and x), in order of first appearance.
+    let mut violins: Vec<Vec<usize>> = Vec::new();
+    let mut slot_of: HashMap<(u32, u64), usize> = HashMap::new();
+    for row in 0..layer.data.row_count() {
+        let defined = [x, y, xmin, xmax, violin_width]
+            .iter()
+            .all(|column| value(column, row).is_some());
+        if !defined {
+            continue;
+        }
+        let key = (
+            layer.data.group_of(row),
+            x.get(row).unwrap_or(0.0).to_bits(),
+        );
+        let slot = *slot_of.entry(key).or_insert_with(|| {
+            violins.push(Vec::new());
+            violins.len() - 1
+        });
+        violins[slot].push(row);
+    }
+    // A side of a point: centre + sign x half the (dodged) span x violinwidth.
+    let side = |row: usize, sign: f64| -> (f64, f64) {
+        let (low, high) = (xmin.get(row).unwrap_or(0.0), xmax.get(row).unwrap_or(0.0));
+        let center = x.get(row).unwrap_or(0.0) + shift;
+        let offset = (high - low) / 2.0 * sign * violin_width.get(row).unwrap_or(0.0);
+        panel.map(center + offset, y.get(row).unwrap_or(0.0))
+    };
+    let band_of = |row: usize| band.and_then(|band| band.get(row)).unwrap_or(f64::NAN);
+    let fills = layer.styles.colors(Aesthetic::Fill)?;
+    let colors = layer.styles.colors(Aesthetic::Color)?;
+    let alphas = layer.styles.numbers(Aesthetic::Alpha)?;
+
+    let mut nodes = Vec::new();
+    for mut rows in violins {
+        // lets-plot `ordered_Y`, then bands when paint varies along the violin.
+        rows.sort_by(|left, right| {
+            y.get(*left)
+                .unwrap_or(0.0)
+                .total_cmp(&y.get(*right).unwrap_or(0.0))
+        });
+        let varies = rows.iter().any(|&row| {
+            fills.get(row) != fills.get(rows[0]) || colors.get(row) != colors.get(rows[0])
+        });
+        let runs = if varies {
+            split_by_band(&rows, band_of, y)
+        } else {
+            vec![rows.clone()]
+        };
+        for run in &runs {
+            let first = run[0];
+            let left: Vec<(f64, f64)> = run.iter().map(|&row| side(row, left_sign)).collect();
+            let right: Vec<(f64, f64)> = run.iter().map(|&row| side(row, right_sign)).collect();
+            let fill = fills.get(first).with_opacity(alphas.get(first));
+            let mut outline = left.clone();
+            outline.extend(right.iter().rev());
+            nodes.push(Node::Path(Path {
+                points: outline,
+                closed: true,
+                fill: (fill.alpha > 0).then_some(fill),
+                stroke: None,
+            }));
+            let stroke = lines::stroke_with_alpha(layer.styles, first, false)?;
+            for points in [left, right] {
+                if stroke.is_some() && points.len() > 1 {
+                    nodes.push(Node::Path(Path {
+                        points,
+                        closed: false,
+                        fill: None,
+                        stroke: stroke.clone(),
+                    }));
+                }
+            }
+        }
+        if quantile_lines {
+            for row in quantile_line_rows(&rows, band_of, y, &quantiles) {
+                let Some(stroke) = lines::stroke_with_alpha(layer.styles, row, false)? else {
+                    continue;
+                };
+                nodes.push(Node::Path(Path {
+                    points: vec![side(row, left_sign), side(row, right_sign)],
+                    closed: false,
+                    fill: None,
+                    stroke: Some(stroke),
+                }));
+            }
+        }
+    }
+    Ok(nodes)
 }

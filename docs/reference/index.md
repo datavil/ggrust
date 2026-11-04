@@ -36,6 +36,9 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_beeswarm()`](api/geom_beeswarm.md) | Beeswarm plot: points of each x moved sideways so that none overlap. |
 | [`geom_quasirandom()`](api/geom_quasirandom.md) | Quasirandom plot: points spread sideways within the density of their x. |
 | [`geom_pointdensity()`](api/geom_pointdensity.md) | Scatter plot with each point colored by the density of points around it. |
+| [`geom_half_violin()`](api/geom_half_violin.md) | Half of a violin: the density of y on one side of each x. |
+| [`geom_half_point()`](api/geom_half_point.md) | Points jittered within one half of their x slot. |
+| [`geom_half_boxplot()`](api/geom_half_boxplot.md) | Half of a box-and-whisker plot, on one side of each x. |
 | [`geom_line()`](api/geom_line.md) | Connect observations sorted by x. |
 | [`geom_step()`](api/geom_step.md) | Connect observations sorted by x with stairs. |
 | [`geom_path()`](api/geom_path.md) | Connect observations in data order. |
@@ -89,6 +92,10 @@ Layers named after their stat: each summarises the data, then draws it with a ge
 | [`stat_ecdf()`](api/stat_ecdf.md) | Empirical cumulative distribution of x (``stat="ecdf"``), drawn as steps. |
 | [`stat_sum()`](api/stat_sum.md) | Rows at each distinct (x, y) (``stat="sum"``), drawn as points sized by the count. |
 | [`stat_pointdensity()`](api/stat_pointdensity.md) | Density of points around each point (``stat="pointdensity"``), drawn as points. |
+| [`stat_slab()`](api/stat_slab.md) | Density slab of y per x: a filled density on one side of each x. |
+| [`stat_pointinterval()`](api/stat_pointinterval.md) | Point summary of y with quantile intervals around it, per x. |
+| [`stat_interval()`](api/stat_interval.md) | Stacked quantile intervals of y per x, colored by level. |
+| [`stat_halfeye()`](api/stat_halfeye.md) | Half-eye plot: a density slab with a point interval at its base, per x. |
 
 ## Positions
 

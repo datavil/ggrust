@@ -6,7 +6,8 @@
 //! IQR of the box, default 1.5). `varwidth=True` sets `width` to
 //! sqrt(n) / sqrt(largest n). The outlier stat gives one row per value beyond the
 //! fences, and a placeholder row (y missing) for an x without outliers, so groups
-//! keep their dodge slots next to the boxes.
+//! keep their dodge slots next to the boxes. `outlier_nudge` moves the outliers
+//! along x (half boxplots).
 //!
 //! Quartiles interpolate linearly between order statistics, as ggplot2 (R type 7)
 //! does; lets-plot averages the two neighbours instead (a deliberate difference).
@@ -104,7 +105,7 @@ impl Stat for BoxplotOutlierStat {
     }
 
     fn parameters(&self) -> &'static [&'static str] {
-        &["coef"]
+        &["coef", "outlier_nudge"]
     }
 
     fn aesthetics(&self) -> &'static [Aesthetic] {
@@ -127,6 +128,8 @@ impl Stat for BoxplotOutlierStat {
         _context: &StatContext,
     ) -> Result<LayerData> {
         let coef = parameters.number("coef")?.unwrap_or(DEFAULT_COEF);
+        // Outliers beside x, where gghalves' half boxes draw them.
+        let nudge = parameters.number("outlier_nudge")?.unwrap_or(0.0);
         per_group(&data, |rows| {
             let mut x_column = Vec::new();
             let mut y_column = Vec::new();
@@ -144,7 +147,7 @@ impl Stat for BoxplotOutlierStat {
                     outliers
                 };
                 for y in outliers {
-                    x_column.push(x);
+                    x_column.push(x + nudge);
                     y_column.push(y);
                 }
             }

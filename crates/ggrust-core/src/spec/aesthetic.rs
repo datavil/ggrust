@@ -51,6 +51,7 @@ aesthetics! {
     Alpha => "alpha", Shape => "shape", Linetype => "linetype",
     Size => "size", Stroke => "stroke", Linewidth => "linewidth", Stacksize => "stacksize",
     Width => "width", Height => "height", Binwidth => "binwidth", Violinwidth => "violinwidth",
+    Thickness => "thickness",
     Weight => "weight", Intercept => "intercept", Slope => "slope",
     Xintercept => "xintercept", Yintercept => "yintercept",
     Lower => "lower", Middle => "middle", Upper => "upper",
@@ -115,11 +116,10 @@ impl Aesthetic {
             Linetype => AestheticKind::Style(ValueKind::Linetype),
             Label | Family | Fontface => AestheticKind::Style(ValueKind::Text),
             Alpha | Size | Stroke | Linewidth | Stacksize | Width | Height | Binwidth
-            | Violinwidth | Weight | Intercept | Slope | Quantile | Lineheight | Angle | Hjust
-            | Vjust | Radius | Slice | Explode | SizeStart | SizeEnd | StrokeStart | StrokeEnd
-            | PointSize | PointStroke | SegmentSize | SegmentAlpha | Lenstart | Lenend => {
-                AestheticKind::Style(ValueKind::Number)
-            }
+            | Violinwidth | Thickness | Weight | Intercept | Slope | Quantile | Lineheight
+            | Angle | Hjust | Vjust | Radius | Slice | Explode | SizeStart | SizeEnd
+            | StrokeStart | StrokeEnd | PointSize | PointStroke | SegmentSize | SegmentAlpha
+            | Lenstart | Lenend => AestheticKind::Style(ValueKind::Number),
             Group => AestheticKind::Group,
             _ => AestheticKind::Other,
         }

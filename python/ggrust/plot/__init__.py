@@ -51,6 +51,7 @@ from ggrust.plot.geom import (
 from ggrust.plot.geom_beeswarm import geom_beeswarm, geom_quasirandom
 from ggrust.plot.geom_extras import arrow
 from ggrust.plot.geom_function import geom_function
+from ggrust.plot.geom_halves import geom_half_boxplot, geom_half_point, geom_half_violin
 from ggrust.plot.geom_imshow import geom_imshow
 from ggrust.plot.geom_pointdensity import geom_pointdensity, stat_pointdensity
 from ggrust.plot.gggrid import gggrid
@@ -146,6 +147,7 @@ from ggrust.plot.scale_size import (
     scale_size_manual,
 )
 from ggrust.plot.stat import stat_ecdf, stat_sum, stat_summary, stat_summary_bin
+from ggrust.plot.stat_ggdist import stat_halfeye, stat_interval, stat_pointinterval, stat_slab
 from ggrust.plot.subplots import SupPlotsSpec
 from ggrust.plot.theme import (
     element_blank,
@@ -217,6 +219,9 @@ __all__ = [
     "geom_errorbar",
     "geom_freqpoly",
     "geom_function",
+    "geom_half_boxplot",
+    "geom_half_point",
+    "geom_half_violin",
     "geom_hex",
     "geom_histogram",
     "geom_hline",
@@ -336,7 +341,11 @@ __all__ = [
     "scale_y_reverse",
     "scale_y_time",
     "stat_ecdf",
+    "stat_halfeye",
+    "stat_interval",
     "stat_pointdensity",
+    "stat_pointinterval",
+    "stat_slab",
     "stat_sum",
     "stat_summary",
     "stat_summary_bin",

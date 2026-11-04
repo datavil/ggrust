@@ -255,37 +255,7 @@ impl Geom for PointRangeGeom {
 
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
         let fatten = fatten(&layer.parameters, POINTRANGE_FATTEN)?;
-        let [x, ymin, ymax] = columns(layer, [Aesthetic::X, Aesthetic::Ymin, Aesthetic::Ymax])?;
-        let y = layer.data.continuous(Aesthetic::Y);
-        let row_count = layer.data.row_count();
-        let mut nodes = Vec::new();
-        let (mut pixel_x, mut pixel_y) = (Vec::with_capacity(row_count), Vec::new());
-        for row in 0..row_count {
-            let [Some(x), Some(y0), Some(y1)] = [x, ymin, ymax].map(|column| finite(column, row))
-            else {
-                // No range, no point (lets-plot skips the row).
-                pixel_x.push(f64::NAN);
-                pixel_y.push(f64::NAN);
-                continue;
-            };
-            nodes.extend(line(
-                panel,
-                (x, y0),
-                (x, y1),
-                range_stroke(layer.styles, row)?,
-            ));
-            let middle = y.and_then(|y| finite(y, row)).unwrap_or(f64::NAN);
-            let (px, py) = panel.map(x, middle);
-            pixel_x.push(px);
-            pixel_y.push(py);
-        }
-        if y.is_some() {
-            let mut points = point::markers(layer.styles, row_count, false, fatten)?;
-            points.x = pixel_x;
-            points.y = pixel_y;
-            nodes.push(Node::Points(points));
-        }
-        Ok(nodes)
+        draw_point_ranges(layer, panel, fatten)
     }
 
     fn tooltip_behavior(&self) -> TooltipBehavior {
@@ -294,30 +264,88 @@ impl Geom for PointRangeGeom {
 
     fn hover_targets(&self, layer: &DrawLayer, panel: &Panel) -> Result<Option<HoverTargets>> {
         let fatten = fatten(&layer.parameters, POINTRANGE_FATTEN)?;
-        Ok(range_rectangles(layer, panel, |row| {
-            point::marker_extent(layer.styles, row, fatten) * 2.0
-        }))
+        Ok(point_range_targets(layer, panel, fatten))
     }
 
     fn minimum_key_size(&self, styles: &Styles) -> Result<(f64, f64)> {
-        let side = point::marker_extent(styles, 0, POINTRANGE_FATTEN) * 2.0 + 2.0;
-        let (line_width, line_height) = lines::key_size(styles)?;
-        Ok((side.max(line_width), side.max(line_height)))
+        point_range_key_size(styles, POINTRANGE_FATTEN)
     }
 
     /// lets-plot: a vertical line key under a point key fattened by 5.
     fn draw_key(&self, styles: &Styles, cell: Rect) -> Result<Vec<Node>> {
-        let mut nodes = Vec::new();
-        if let Some(stroke) = range_stroke(styles, 0)? {
-            let x = cell.x + cell.width / 2.0;
-            nodes.push(pixel_line((x, cell.y), (x, cell.y + cell.height), stroke));
-        }
-        let mut points = point::markers(styles, 1, true, POINTRANGE_FATTEN)?;
-        points.x = vec![cell.x + cell.width / 2.0];
-        points.y = vec![cell.y + cell.height / 2.0];
-        nodes.push(Node::Points(points));
-        Ok(nodes)
+        draw_point_range_key(styles, cell, POINTRANGE_FATTEN)
     }
+}
+
+/// Point ranges with points `fatten` x `size` (also ggdist's point intervals).
+pub(super) fn draw_point_ranges(
+    layer: &DrawLayer,
+    panel: &Panel,
+    fatten: f64,
+) -> Result<Vec<Node>> {
+    let [x, ymin, ymax] = columns(layer, [Aesthetic::X, Aesthetic::Ymin, Aesthetic::Ymax])?;
+    let y = layer.data.continuous(Aesthetic::Y);
+    let row_count = layer.data.row_count();
+    let mut nodes = Vec::new();
+    let (mut pixel_x, mut pixel_y) = (Vec::with_capacity(row_count), Vec::new());
+    for row in 0..row_count {
+        let [Some(x), Some(y0), Some(y1)] = [x, ymin, ymax].map(|column| finite(column, row))
+        else {
+            // No range, no point (lets-plot skips the row).
+            pixel_x.push(f64::NAN);
+            pixel_y.push(f64::NAN);
+            continue;
+        };
+        nodes.extend(line(
+            panel,
+            (x, y0),
+            (x, y1),
+            range_stroke(layer.styles, row)?,
+        ));
+        let middle = y.and_then(|y| finite(y, row)).unwrap_or(f64::NAN);
+        let (px, py) = panel.map(x, middle);
+        pixel_x.push(px);
+        pixel_y.push(py);
+    }
+    if y.is_some() {
+        let mut points = point::markers(layer.styles, row_count, false, fatten)?;
+        points.x = pixel_x;
+        points.y = pixel_y;
+        nodes.push(Node::Points(points));
+    }
+    Ok(nodes)
+}
+
+/// Hover rectangles of point ranges with points `fatten` x `size`.
+pub(super) fn point_range_targets(
+    layer: &DrawLayer,
+    panel: &Panel,
+    fatten: f64,
+) -> Option<HoverTargets> {
+    range_rectangles(layer, panel, |row| {
+        point::marker_extent(layer.styles, row, fatten) * 2.0
+    })
+}
+
+/// Legend key size of point ranges with points `fatten` x `size`.
+pub(super) fn point_range_key_size(styles: &Styles, fatten: f64) -> Result<(f64, f64)> {
+    let side = point::marker_extent(styles, 0, fatten) * 2.0 + 2.0;
+    let (line_width, line_height) = lines::key_size(styles)?;
+    Ok((side.max(line_width), side.max(line_height)))
+}
+
+/// A point range legend key: a vertical line under a point `fatten` x `size`.
+pub(super) fn draw_point_range_key(styles: &Styles, cell: Rect, fatten: f64) -> Result<Vec<Node>> {
+    let mut nodes = Vec::new();
+    if let Some(stroke) = range_stroke(styles, 0)? {
+        let x = cell.x + cell.width / 2.0;
+        nodes.push(pixel_line((x, cell.y), (x, cell.y + cell.height), stroke));
+    }
+    let mut points = point::markers(styles, 1, true, fatten)?;
+    points.x = vec![cell.x + cell.width / 2.0];
+    points.y = vec![cell.y + cell.height / 2.0];
+    nodes.push(Node::Points(points));
+    Ok(nodes)
 }
 
 impl Geom for CrossBarGeom {

@@ -13,12 +13,15 @@ mod density2d;
 mod density_1d;
 mod densityridges;
 mod ecdf;
+mod ggdist_density;
 pub(crate) mod groups;
 mod identity;
 mod pointdensity;
+mod pointinterval;
 mod quasirandom;
 mod r_density;
 mod sina;
+mod slab;
 mod smooth;
 mod sum;
 mod summary;
@@ -37,8 +40,10 @@ pub use densityridges::DensityRidgesStat;
 pub use ecdf::EcdfStat;
 pub use identity::IdentityStat;
 pub use pointdensity::PointDensityStat;
+pub use pointinterval::{IntervalStat, PointIntervalStat};
 pub use quasirandom::QuasirandomStat;
 pub use sina::SinaStat;
+pub use slab::SlabStat;
 pub use smooth::SmoothStat;
 pub use sum::SumStat;
 pub use summary::{SummaryBinStat, SummaryStat};
@@ -126,6 +131,9 @@ pub static STATS: &[&dyn Stat] = &[
     &Density2dStat,
     &Density2dfStat,
     &PointDensityStat,
+    &SlabStat,
+    &PointIntervalStat,
+    &IntervalStat,
 ];
 
 /// lets-plot stats the Python API builds but the engine does not compute yet

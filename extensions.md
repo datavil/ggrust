@@ -63,7 +63,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Main roadmap: [plan.md](plan.md).
   output, the rest stays vector. Reuse the PNG backend and the `geom_imshow` image path.
   Done when a 1M-point UMAP saves as a small vector PDF with crisp axes and text, and
   the raster lines up with the axes to the pixel.
-- [ ] ex1.6 **ggdist / gghalves: half geoms and raincloud plots.** `geom_half_violin`,
+- [x] ex1.6 **ggdist / gghalves: half geoms and raincloud plots.** `geom_half_violin`,
   `geom_half_boxplot`, `geom_half_point` (`side="l"|"r"`, `nudge`), and ggdist's
   `stat_halfeye` / `stat_slab` / `stat_interval` / `stat_pointinterval` (density slab
   plus median and quantile intervals). Built on the violin, boxplot and interval geoms.

@@ -62,3 +62,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [ggnewscale scale groups](ggnewscale_scale_groups.md): `ScaleKey` = aesthetic + group, Python tags at `+` time, every style lookup goes through the layer's group, group 0 unchanged.
 - [ggpointdensity](ggpointdensity.md): measured neighbour rule (r2 not squared, border counts), kde2d via MASS bandwidth + R seq + findInterval, exact grid counts with row prefix sums.
 - [Rasterized layers](rasterize_layers.md): Raster node swapped for an Image before SVG/PDF, PNG-grid snapping, tie-free test coordinates, no PDF upsampling, only dense layers shrink.
+- [ggdist slabs and gghalves](ggdist_gghalves.md): bounded density = widened R density folded back, SJ dpi bins on trunc(x/width), stat vars reach geoms, sizes converted from ggplot2 units, 0.75 spans + named dodge.

@@ -44,12 +44,21 @@ pub enum Computed {
     BinWidth,
     /// `..binheight..`: bin height of a 2D bin (hexagon row spacing for `binhex`).
     BinHeight,
-    /// `..level..`: level of a contour line, or fill level of a contour band.
+    /// `..level..`: level of a contour line, or fill level of a contour band; the
+    /// interval level of ggdist intervals (discrete, widest first).
     Level,
+    /// `..pdf..`: density of a ggdist slab.
+    Pdf,
+    /// `..cdf..`: empirical cumulative share at a ggdist slab point.
+    Cdf,
+    /// `..thickness..`: thickness of a ggdist slab (the pdf by default).
+    Thickness,
+    /// `...width..` (ggdist `.width`): the probability mass of an interval.
+    IntervalWidth,
 }
 
 impl Computed {
-    const ALL: [(Computed, &'static str); 18] = [
+    const ALL: [(Computed, &'static str); 22] = [
         (Computed::Count, "count"),
         (Computed::Density, "density"),
         (Computed::NormalizedCount, "ncount"),
@@ -68,6 +77,10 @@ impl Computed {
         (Computed::BinWidth, "binwidth"),
         (Computed::BinHeight, "binheight"),
         (Computed::Level, "level"),
+        (Computed::Pdf, "pdf"),
+        (Computed::Cdf, "cdf"),
+        (Computed::Thickness, "thickness"),
+        (Computed::IntervalWidth, ".width"),
     ];
 
     /// lets-plot name without dots, e.g. `count`.

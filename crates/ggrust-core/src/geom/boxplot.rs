@@ -108,36 +108,8 @@ impl Geom for BoxplotGeom {
         &[Aesthetic::Xmin, Aesthetic::Xmax]
     }
 
-    fn setup(&self, mut data: LayerData, parameters: &Parameters) -> Result<LayerData> {
-        if let Some(unit) = parameters.string("width_unit")?
-            && unit != "res"
-        {
-            return Err(Error::spec(
-                parameters.path_of("width_unit"),
-                format!("width_unit '{unit}' is not supported by ggrust yet; supported: res"),
-            ));
-        }
-        let Some(x) = data.continuous(Aesthetic::X).cloned() else {
-            return Ok(data);
-        };
-        // The stat's `varwidth` widths, else the option, else 0.9.
-        let constant = parameters.number("width")?.unwrap_or(0.9);
-        let widths = data.continuous(Aesthetic::Width).cloned();
-        let width_of = |row: usize| match &widths {
-            Some(widths) => widths.get(row).unwrap_or(f64::NAN),
-            None => constant,
-        };
-        let resolution = data.resolution(Aesthetic::X);
-        let half = |row: usize| width_of(row) * resolution / 2.0;
-        let location = |row: usize| x.get(row).unwrap_or(f64::NAN);
-        let left = (0..x.len()).map(|row| location(row) - half(row)).collect();
-        let right = (0..x.len()).map(|row| location(row) + half(row)).collect();
-        let widths: Vec<f64> = (0..x.len()).map(width_of).collect();
-        let continuous = |values| Column::Continuous(ContinuousColumn::from_values(values));
-        data.insert(Aesthetic::Xmin, continuous(left))?;
-        data.insert(Aesthetic::Xmax, continuous(right))?;
-        data.insert(Aesthetic::Width, continuous(widths))?;
-        Ok(data)
+    fn setup(&self, data: LayerData, parameters: &Parameters) -> Result<LayerData> {
+        setup_box_spans(data, parameters, 0.9)
     }
 
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
@@ -146,172 +118,234 @@ impl Geom for BoxplotGeom {
             .parameters
             .number("whisker_width")?
             .unwrap_or(DEFAULT_WHISKER_WIDTH);
-        let column = |aesthetic| {
-            layer
-                .data
-                .continuous(aesthetic)
-                .ok_or_else(|| Error::data(format!("boxplot is missing its '{aesthetic}' column")))
-        };
-        let [x, xmin, xmax, ymin, lower, middle, upper, ymax] = [
-            Aesthetic::X,
-            Aesthetic::Xmin,
-            Aesthetic::Xmax,
-            Aesthetic::Ymin,
-            Aesthetic::Lower,
-            Aesthetic::Middle,
-            Aesthetic::Upper,
-            Aesthetic::Ymax,
-        ]
-        .map(column);
-        let (x, xmin, xmax, ymin, lower, middle, upper, ymax) =
-            (x?, xmin?, xmax?, ymin?, lower?, middle?, upper?, ymax?);
-        let finite = |column: &ContinuousColumn, row: usize| {
-            column.get(row).filter(|value| value.is_finite())
-        };
-        let rows = 0..layer.data.row_count();
-        let fills = layer.styles.colors(Aesthetic::Fill)?;
-        let alphas = layer.styles.numbers(Aesthetic::Alpha)?;
-
-        let mut boxes: Vec<Node> = Vec::new();
-        for row in rows.clone() {
-            let corners = [
-                finite(xmin, row),
-                finite(lower, row),
-                finite(xmax, row),
-                finite(upper, row),
-            ];
-            let [Some(x0), Some(y0), Some(x1), Some(y1)] = corners else {
-                continue;
-            };
-            let (left, bottom) = panel.map(x0, y0);
-            let (right, top) = panel.map(x1, y1);
-            let mut rect = Rect {
-                x: left.min(right),
-                y: top.min(bottom),
-                width: (right - left).abs(),
-                height: (bottom - top).abs(),
-            };
-            // lets-plot `GeomHelper.toClient`: keep flat boxes visible.
-            if rect.width == 0.0 {
-                rect.width = 0.1;
-            }
-            if rect.height == 0.0 {
-                rect.height = 0.1;
-            }
-            let fill = fills.get(row).with_opacity(alphas.get(row));
-            boxes.push(Node::Rects(Rects {
-                rects: vec![rect],
-                fill: PerItem::Uniform((fill.alpha > 0).then_some(fill)),
-                stroke: lines::stroke_with_alpha(layer.styles, row, false)?,
-            }));
-        }
-
-        let mut midlines = Vec::new();
-        for row in rows.clone() {
-            let (Some(x0), Some(x1), Some(y)) =
-                (finite(xmin, row), finite(xmax, row), finite(middle, row))
-            else {
-                continue;
-            };
-            let stroke = lines::stroke_with_alpha(layer.styles, row, false)?.map(|stroke| Stroke {
-                width: stroke.width * fatten,
-                dash: stroke.dash.iter().map(|length| length * fatten).collect(),
-                ..stroke
-            });
-            midlines.push(line(panel, (x0, y), (x1, y), stroke));
-        }
-
-        let mut whiskers = Vec::new();
-        for row in rows {
-            let Some(center) = finite(x, row) else {
-                continue;
-            };
-            // Half the (dodged) box width, so fences shrink with dodging.
-            let half_fence = match (finite(xmin, row), finite(xmax, row)) {
-                (Some(x0), Some(x1)) => (x1 - x0) / 2.0 * whisker_width,
-                _ => 0.0,
-            };
-            let stroke = lines::stroke_with_alpha(layer.styles, row, false)?;
-            for (hinge, fence) in [(lower, ymin), (upper, ymax)] {
-                let (Some(hinge), Some(fence)) = (finite(hinge, row), finite(fence, row)) else {
-                    continue;
-                };
-                whiskers.push(line(
-                    panel,
-                    (center, hinge),
-                    (center, fence),
-                    stroke.clone(),
-                ));
-                whiskers.push(line(
-                    panel,
-                    (center - half_fence, fence),
-                    (center + half_fence, fence),
-                    stroke.clone(),
-                ));
-            }
-        }
-        boxes.extend(midlines.into_iter().flatten());
-        boxes.extend(whiskers.into_iter().flatten());
-        Ok(boxes)
+        draw_boxes(layer, panel, fatten, whisker_width)
     }
 
     fn minimum_key_size(&self, styles: &Styles) -> Result<(f64, f64)> {
-        let side = styles.numbers(Aesthetic::Size)?.get(0).max(0.0) * POINT_UNIT_SIZE + 2.0;
-        Ok((side, side))
+        box_key_size(styles)
     }
 
-    /// lets-plot `BoxLegendKeyElementFactory`: a box 80% of the key wide and 60%
-    /// tall, a midline, and whiskers above and below (1 px key margin).
     fn draw_key(&self, styles: &Styles, cell: Rect) -> Result<Vec<Node>> {
-        const WHISKER: f64 = 0.2;
-        let stroke = lines::stroke_with_alpha(styles, 0, false)?;
-        let stroke_width = stroke.as_ref().map_or(0.0, |stroke| stroke.width);
-        let (size_x, size_y) = (cell.width - 2.0, cell.height - 2.0);
-        let width = (size_x - stroke_width) * 0.8;
-        let height = size_y - stroke_width;
-        let x = cell.x + 1.0 + (size_x - width) / 2.0;
-        let y = cell.y + 1.0 + stroke_width / 2.0;
-        let alpha = styles.numbers(Aesthetic::Alpha)?.get(0);
-        let fill = styles.colors(Aesthetic::Fill)?.get(0).with_opacity(alpha);
-        let middle_x = x + width / 2.0;
-        let segment = |from: (f64, f64), to: (f64, f64)| {
-            stroke.clone().map(|stroke| {
-                Node::Path(Path {
-                    points: vec![from, to],
-                    closed: false,
-                    fill: None,
-                    stroke: Some(stroke),
-                })
-            })
-        };
-        let mut nodes = vec![Node::Rects(Rects {
-            rects: vec![Rect {
-                x,
-                y: y + height * WHISKER,
-                width,
-                height: height * (1.0 - 2.0 * WHISKER),
-            }],
-            fill: PerItem::Uniform((fill.alpha > 0).then_some(fill)),
-            stroke: stroke.clone(),
-        })];
-        nodes.extend(
-            [
-                segment((x, y + height / 2.0), (x + width, y + height / 2.0)),
-                segment(
-                    (middle_x, y + height * (1.0 - WHISKER)),
-                    (middle_x, y + height),
-                ),
-                segment((middle_x, y), (middle_x, y + height * WHISKER)),
-            ]
-            .into_iter()
-            .flatten(),
-        );
-        Ok(nodes)
+        draw_box_key(styles, cell)
     }
 }
 
+/// Box `xmin`/`xmax` spans: the stat's `varwidth` widths, else the `width`
+/// option, else `default_width`, x the x resolution; and `width`.
+pub(super) fn setup_box_spans(
+    mut data: LayerData,
+    parameters: &Parameters,
+    default_width: f64,
+) -> Result<LayerData> {
+    if let Some(unit) = parameters.string("width_unit")?
+        && unit != "res"
+    {
+        return Err(Error::spec(
+            parameters.path_of("width_unit"),
+            format!("width_unit '{unit}' is not supported by ggrust yet; supported: res"),
+        ));
+    }
+    let Some(x) = data.continuous(Aesthetic::X).cloned() else {
+        return Ok(data);
+    };
+    // The stat's `varwidth` widths, else the option, else the default.
+    let constant = parameters.number("width")?.unwrap_or(default_width);
+    let widths = data.continuous(Aesthetic::Width).cloned();
+    let width_of = |row: usize| match &widths {
+        Some(widths) => widths.get(row).unwrap_or(f64::NAN),
+        None => constant,
+    };
+    let resolution = data.resolution(Aesthetic::X);
+    let half = |row: usize| width_of(row) * resolution / 2.0;
+    let location = |row: usize| x.get(row).unwrap_or(f64::NAN);
+    let left = (0..x.len()).map(|row| location(row) - half(row)).collect();
+    let right = (0..x.len()).map(|row| location(row) + half(row)).collect();
+    let widths: Vec<f64> = (0..x.len()).map(width_of).collect();
+    let continuous = |values| Column::Continuous(ContinuousColumn::from_values(values));
+    data.insert(Aesthetic::Xmin, continuous(left))?;
+    data.insert(Aesthetic::Xmax, continuous(right))?;
+    data.insert(Aesthetic::Width, continuous(widths))?;
+    Ok(data)
+}
+
+/// Boxes, then midlines (`fatten` x the outline), then whiskers at x with fences
+/// `whisker_width` of the box wide (none at 0).
+pub(super) fn draw_boxes(
+    layer: &DrawLayer,
+    panel: &Panel,
+    fatten: f64,
+    whisker_width: f64,
+) -> Result<Vec<Node>> {
+    let column = |aesthetic| {
+        layer
+            .data
+            .continuous(aesthetic)
+            .ok_or_else(|| Error::data(format!("boxplot is missing its '{aesthetic}' column")))
+    };
+    let [x, xmin, xmax, ymin, lower, middle, upper, ymax] = [
+        Aesthetic::X,
+        Aesthetic::Xmin,
+        Aesthetic::Xmax,
+        Aesthetic::Ymin,
+        Aesthetic::Lower,
+        Aesthetic::Middle,
+        Aesthetic::Upper,
+        Aesthetic::Ymax,
+    ]
+    .map(column);
+    let (x, xmin, xmax, ymin, lower, middle, upper, ymax) =
+        (x?, xmin?, xmax?, ymin?, lower?, middle?, upper?, ymax?);
+    let finite =
+        |column: &ContinuousColumn, row: usize| column.get(row).filter(|value| value.is_finite());
+    let rows = 0..layer.data.row_count();
+    let fills = layer.styles.colors(Aesthetic::Fill)?;
+    let alphas = layer.styles.numbers(Aesthetic::Alpha)?;
+
+    let mut boxes: Vec<Node> = Vec::new();
+    for row in rows.clone() {
+        let corners = [
+            finite(xmin, row),
+            finite(lower, row),
+            finite(xmax, row),
+            finite(upper, row),
+        ];
+        let [Some(x0), Some(y0), Some(x1), Some(y1)] = corners else {
+            continue;
+        };
+        let (left, bottom) = panel.map(x0, y0);
+        let (right, top) = panel.map(x1, y1);
+        let mut rect = Rect {
+            x: left.min(right),
+            y: top.min(bottom),
+            width: (right - left).abs(),
+            height: (bottom - top).abs(),
+        };
+        // lets-plot `GeomHelper.toClient`: keep flat boxes visible.
+        if rect.width == 0.0 {
+            rect.width = 0.1;
+        }
+        if rect.height == 0.0 {
+            rect.height = 0.1;
+        }
+        let fill = fills.get(row).with_opacity(alphas.get(row));
+        boxes.push(Node::Rects(Rects {
+            rects: vec![rect],
+            fill: PerItem::Uniform((fill.alpha > 0).then_some(fill)),
+            stroke: lines::stroke_with_alpha(layer.styles, row, false)?,
+        }));
+    }
+
+    let mut midlines = Vec::new();
+    for row in rows.clone() {
+        let (Some(x0), Some(x1), Some(y)) =
+            (finite(xmin, row), finite(xmax, row), finite(middle, row))
+        else {
+            continue;
+        };
+        let stroke = lines::stroke_with_alpha(layer.styles, row, false)?.map(|stroke| Stroke {
+            width: stroke.width * fatten,
+            dash: stroke.dash.iter().map(|length| length * fatten).collect(),
+            ..stroke
+        });
+        midlines.push(line(panel, (x0, y), (x1, y), stroke));
+    }
+
+    let mut whiskers = Vec::new();
+    for row in rows {
+        let Some(center) = finite(x, row) else {
+            continue;
+        };
+        // Half the (dodged) box width, so fences shrink with dodging.
+        let half_fence = match (finite(xmin, row), finite(xmax, row)) {
+            (Some(x0), Some(x1)) => (x1 - x0) / 2.0 * whisker_width,
+            _ => 0.0,
+        };
+        let stroke = lines::stroke_with_alpha(layer.styles, row, false)?;
+        for (hinge, fence) in [(lower, ymin), (upper, ymax)] {
+            let (Some(hinge), Some(fence)) = (finite(hinge, row), finite(fence, row)) else {
+                continue;
+            };
+            whiskers.push(line(
+                panel,
+                (center, hinge),
+                (center, fence),
+                stroke.clone(),
+            ));
+            whiskers.push(line(
+                panel,
+                (center - half_fence, fence),
+                (center + half_fence, fence),
+                stroke.clone(),
+            ));
+        }
+    }
+    boxes.extend(midlines.into_iter().flatten());
+    boxes.extend(whiskers.into_iter().flatten());
+    Ok(boxes)
+}
+
+/// The box legend key's minimum size: the outline plus 2 px.
+pub(super) fn box_key_size(styles: &Styles) -> Result<(f64, f64)> {
+    let side = styles.numbers(Aesthetic::Size)?.get(0).max(0.0) * POINT_UNIT_SIZE + 2.0;
+    Ok((side, side))
+}
+
+/// lets-plot `BoxLegendKeyElementFactory`: a box 80% of the key wide and 60%
+/// tall, a midline, and whiskers above and below (1 px key margin).
+pub(super) fn draw_box_key(styles: &Styles, cell: Rect) -> Result<Vec<Node>> {
+    const WHISKER: f64 = 0.2;
+    let stroke = lines::stroke_with_alpha(styles, 0, false)?;
+    let stroke_width = stroke.as_ref().map_or(0.0, |stroke| stroke.width);
+    let (size_x, size_y) = (cell.width - 2.0, cell.height - 2.0);
+    let width = (size_x - stroke_width) * 0.8;
+    let height = size_y - stroke_width;
+    let x = cell.x + 1.0 + (size_x - width) / 2.0;
+    let y = cell.y + 1.0 + stroke_width / 2.0;
+    let alpha = styles.numbers(Aesthetic::Alpha)?.get(0);
+    let fill = styles.colors(Aesthetic::Fill)?.get(0).with_opacity(alpha);
+    let middle_x = x + width / 2.0;
+    let segment = |from: (f64, f64), to: (f64, f64)| {
+        stroke.clone().map(|stroke| {
+            Node::Path(Path {
+                points: vec![from, to],
+                closed: false,
+                fill: None,
+                stroke: Some(stroke),
+            })
+        })
+    };
+    let mut nodes = vec![Node::Rects(Rects {
+        rects: vec![Rect {
+            x,
+            y: y + height * WHISKER,
+            width,
+            height: height * (1.0 - 2.0 * WHISKER),
+        }],
+        fill: PerItem::Uniform((fill.alpha > 0).then_some(fill)),
+        stroke: stroke.clone(),
+    })];
+    nodes.extend(
+        [
+            segment((x, y + height / 2.0), (x + width, y + height / 2.0)),
+            segment(
+                (middle_x, y + height * (1.0 - WHISKER)),
+                (middle_x, y + height),
+            ),
+            segment((middle_x, y), (middle_x, y + height * WHISKER)),
+        ]
+        .into_iter()
+        .flatten(),
+    );
+    Ok(nodes)
+}
+
 /// A two-point line in data units; `None` when invisible or off the coord.
-fn line(panel: &Panel, from: (f64, f64), to: (f64, f64), stroke: Option<Stroke>) -> Option<Node> {
+pub(super) fn line(
+    panel: &Panel,
+    from: (f64, f64),
+    to: (f64, f64),
+    stroke: Option<Stroke>,
+) -> Option<Node> {
     let stroke = stroke?;
     let (from, to) = (panel.map(from.0, from.1), panel.map(to.0, to.1));
     [from.0, from.1, to.0, to.1]

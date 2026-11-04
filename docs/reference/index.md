@@ -95,6 +95,7 @@ Layers named after their stat: each summarises the data, then draws it with a ge
 | [`stat_summary()`](api/stat_summary.md) | Summarise y at every distinct x (``stat="summary"``), drawn as point ranges. |
 | [`stat_summary_bin()`](api/stat_summary_bin.md) | Summarise y in bins of x (``stat="summarybin"``), drawn as point ranges. |
 | [`stat_ecdf()`](api/stat_ecdf.md) | Empirical cumulative distribution of x (``stat="ecdf"``), drawn as steps. |
+| [`stat_ellipse()`](api/stat_ellipse.md) | Confidence ellipse of x and y per group (ggplot2 ``stat_ellipse``). |
 | [`stat_sum()`](api/stat_sum.md) | Rows at each distinct (x, y) (``stat="sum"``), drawn as points sized by the count. |
 | [`stat_pointdensity()`](api/stat_pointdensity.md) | Density of points around each point (``stat="pointdensity"``), drawn as points. |
 | [`stat_slab()`](api/stat_slab.md) | Density slab of y per x: a filled density on one side of each x. |

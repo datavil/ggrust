@@ -6,8 +6,10 @@ Each builds a geom layer with a fixed stat.
 
 from __future__ import annotations
 
+from numbers import Integral
 from typing import TYPE_CHECKING, Any, Literal
 
+from ggrust.errors import SpecError
 from ggrust.plot.geom import _geom
 
 if TYPE_CHECKING:
@@ -16,7 +18,7 @@ if TYPE_CHECKING:
     from ggrust._typing import Number, PlotData, Position, Sampling, Tooltips
     from ggrust.plot.core import FeatureSpec, LayerSpec
 
-__all__ = ["stat_ecdf", "stat_sum", "stat_summary", "stat_summary_bin"]
+__all__ = ["stat_ecdf", "stat_ellipse", "stat_sum", "stat_summary", "stat_summary_bin"]
 
 SummaryFunction = Literal["count", "sum", "mean", "median", "min", "max", "lq", "mq", "uq"]
 """Aggregate names ``fun``, ``fun_min`` and ``fun_max`` accept."""
@@ -330,6 +332,117 @@ def stat_ecdf(
         n=n,
         pad=pad if pad is not None else True,
         color_by=color_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
+EllipseType = Literal["t", "norm", "euclid"]
+"""``stat_ellipse`` fits: robust multivariate t, normal, or a circle."""
+
+
+def stat_ellipse(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    geom: Literal["path", "polygon"] | str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    tooltips: Tooltips | None = None,
+    type: EllipseType | None = None,
+    level: Number | None = None,
+    segments: int | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Confidence ellipse of x and y per group (ggplot2 ``stat_ellipse``).
+
+    lets-plot has none; this follows ggplot2, which fits the shape with
+    ``MASS::cov.trob`` by default. A group needs at least 4 points; smaller groups,
+    and groups whose points lie on a line, get no ellipse.
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``; needs ``x`` and ``y``. Map ``color``,
+        ``fill`` or ``group`` for one ellipse per group.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    geom : {"path", "polygon"}, default="path"
+        Geom that draws the outline; ``"polygon"`` fills it.
+    position : str or FeatureSpec, optional
+        Position adjustment.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content (HTML output), or ``"none"``.
+    type : {"t", "norm", "euclid"}, default="t"
+        ``"t"`` fits a robust multivariate t distribution (``MASS::cov.trob``),
+        ``"norm"`` a multivariate normal, ``"euclid"`` draws a circle whose radius
+        is ``level`` in data units.
+    level : float, default=0.95
+        Confidence level of the ellipse (for ``"euclid"``: the radius).
+    segments : int, default=51
+        Number of segments of the outline (it has ``segments + 1`` points).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Constant aesthetics such as ``color="red"``, and the geom's options.
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Raises
+    ------
+    SpecError
+        If ``type`` is not one of the three, or ``segments`` is not a whole number of
+        at least 1.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {
+    ...     "height": [150, 155, 160, 163, 168, 158, 175, 180, 172, 185, 178, 190],
+    ...     "weight": [50, 56, 55, 61, 63, 54, 70, 78, 69, 84, 74, 88],
+    ...     "group": ["a"] * 6 + ["b"] * 6,
+    ... }
+    >>> plot = (
+    ...     ggplot(data, aes("height", "weight", color="group"))
+    ...     + geom_point()
+    ...     + stat_ellipse(type="norm")
+    ... )
+    """
+    if type is not None and type not in ("t", "norm", "euclid"):
+        message = (
+            f"stat_ellipse(): unknown type {type!r}; use 't' (robust t fit, default), "
+            "'norm' (normal) or 'euclid' (a circle of radius level)"
+        )
+        raise SpecError(message, path="type", reason=message)
+    if segments is not None and (
+        isinstance(segments, bool) or not isinstance(segments, Integral) or segments < 1
+    ):
+        message = (
+            f"stat_ellipse(): segments={segments!r} must be a whole number of at least 1 "
+            "(default 51)"
+        )
+        raise SpecError(message, path="segments", reason=message)
+    return _geom(
+        geom if geom is not None else "path",
+        mapping=mapping,
+        data=data,
+        stat="ellipse",
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        tooltips=tooltips,
+        type=type,
+        level=level,
+        segments=int(segments) if segments is not None else None,
         na_rm=na_rm,
         **other_args,
     )

@@ -16,6 +16,7 @@ mod density_1d;
 mod densityridges;
 mod distribution;
 mod ecdf;
+mod ellipse;
 mod ggdist_density;
 pub(crate) mod groups;
 mod hypothesis;
@@ -46,6 +47,7 @@ pub use density_1d::DensityStat;
 pub use density2d::{Density2dStat, Density2dfStat};
 pub use densityridges::DensityRidgesStat;
 pub use ecdf::EcdfStat;
+pub use ellipse::EllipseStat;
 pub use identity::IdentityStat;
 pub use pointdensity::PointDensityStat;
 pub use pointinterval::{IntervalStat, PointIntervalStat};
@@ -135,6 +137,7 @@ pub static STATS: &[&dyn Stat] = &[
     &SummaryStat,
     &SummaryBinStat,
     &EcdfStat,
+    &EllipseStat,
     &SumStat,
     &Bin2dStat,
     &BinHexStat,

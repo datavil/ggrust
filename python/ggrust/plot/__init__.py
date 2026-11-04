@@ -159,7 +159,7 @@ from ggrust.plot.scale_size import (
     scale_size_area,
     scale_size_manual,
 )
-from ggrust.plot.stat import stat_ecdf, stat_sum, stat_summary, stat_summary_bin
+from ggrust.plot.stat import stat_ecdf, stat_ellipse, stat_sum, stat_summary, stat_summary_bin
 from ggrust.plot.stat_ggdist import stat_halfeye, stat_interval, stat_pointinterval, stat_slab
 from ggrust.plot.stat_pubr import stat_compare_means, stat_cor, stat_poly_eq
 from ggrust.plot.subplots import SupPlotsSpec
@@ -370,6 +370,7 @@ __all__ = [
     "stat_compare_means",
     "stat_cor",
     "stat_ecdf",
+    "stat_ellipse",
     "stat_halfeye",
     "stat_interval",
     "stat_pointdensity",

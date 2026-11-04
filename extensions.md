@@ -120,7 +120,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Main roadmap: [plan.md](plan.md).
 
 - [x] exc.1 `geom_col` (= `geom_bar(stat="identity")`, ggplot2 name).
 - [x] exc.2 `geom_rug` (`sides`, `length`, `outside`).
-- [ ] exc.3 `stat_ellipse` (`type="t"|"norm"|"euclid"`, `level`, `segments`), drawn as
+- [x] exc.3 `stat_ellipse` (`type="t"|"norm"|"euclid"`, `level`, `segments`), drawn as
   path or polygon. Shares nothing with ex1.8's mark ellipse: this one is a statistical
   confidence ellipse.
 - [ ] exc.4 Secondary axes: `sec_axis(transform, name, breaks, labels)` and `dup_axis()`

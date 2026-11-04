@@ -137,6 +137,7 @@ nav = [
       "reference/api/stat_summary.md",
       "reference/api/stat_summary_bin.md",
       "reference/api/stat_ecdf.md",
+      "reference/api/stat_ellipse.md",
       "reference/api/stat_sum.md",
       "reference/api/stat_pointdensity.md",
       "reference/api/stat_slab.md",

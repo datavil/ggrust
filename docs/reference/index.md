@@ -214,6 +214,19 @@ Draw a dense layer as a bitmap inside SVG and PDF output (R package ggrastr, not
 |---|---|
 | [`rasterize()`](api/rasterize.md) | Draw a layer as a bitmap in SVG and PDF output (R package ggrastr). |
 
+## Clustering and dendrograms (hclust, ggdendro, legendry)
+
+Cluster rows or columns as R's hclust, draw the tree, and order a discrete axis by it with the tree beside the axis (not in lets-plot).
+
+| Name | Description |
+|---|---|
+| [`hclust()`](api/hclust.md) | Cluster the rows (or columns) of a table hierarchically, as R's ``hclust``. |
+| [`ClusterTree`](api/ClusterTree.md) | A clustering tree in R's ``hclust`` layout. |
+| [`geom_dendrogram()`](api/geom_dendrogram.md) | Draw a clustering tree as line segments (R ggdendro). |
+| [`scale_x_dendro()`](api/scale_x_dendro.md) | Discrete x scale ordered by a clustering tree, drawn below the axis (legendry). |
+| [`scale_y_dendro()`](api/scale_y_dendro.md) | Discrete y scale ordered by a clustering tree, drawn left of the axis (legendry). |
+| [`guide_axis_dendro()`](api/guide_axis_dendro.md) | Axis guide that draws the scale's tree beside the axis (R legendry). |
+
 ## Size, shape and alpha scales
 
 Map data to point size, point shape and transparency.

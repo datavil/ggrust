@@ -40,6 +40,8 @@ pub struct DiscretePositionScale {
     /// `coord_*(xlim=...)` in positions (category 0, 1, ...): replaces that side
     /// of the expanded domain.
     pub coord_limits: [Option<f64>; 2],
+    /// `scale_*_dendro()`: the tree drawn beside the axis (it set the limits).
+    pub dendrogram: Option<std::sync::Arc<crate::layout::dendrogram::AxisDendrogram>>,
 }
 
 impl Default for DiscretePositionScale {
@@ -57,6 +59,7 @@ impl Default for DiscretePositionScale {
             labels: None,
             format: None,
             coord_limits: [None, None],
+            dendrogram: None,
         }
     }
 }

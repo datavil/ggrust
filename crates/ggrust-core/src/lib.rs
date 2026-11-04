@@ -4,6 +4,7 @@
 //! The Python bindings live in the `ggrust-python` crate.
 
 pub mod build;
+pub mod cluster;
 pub mod coord;
 pub mod data;
 pub mod error;

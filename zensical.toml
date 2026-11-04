@@ -229,6 +229,14 @@ nav = [
     { "Size, shape and alpha scales" = [
       "reference/api/scale_size.md",
       "reference/api/scale_size_area.md",
+    { "Clustering and dendrograms (hclust, ggdendro, legendry)" = [
+      "reference/api/hclust.md",
+      "reference/api/ClusterTree.md",
+      "reference/api/geom_dendrogram.md",
+      "reference/api/scale_x_dendro.md",
+      "reference/api/scale_y_dendro.md",
+      "reference/api/guide_axis_dendro.md",
+    ] },
       "reference/api/scale_size_manual.md",
       "reference/api/scale_size_identity.md",
       "reference/api/scale_shape.md",

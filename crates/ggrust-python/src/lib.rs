@@ -134,6 +134,75 @@ mod _ggrust {
             .map_err(to_python_error)
     }
 
+    /// Hierarchical clustering of an Arrow table's rows (or numeric columns,
+    /// `by_columns`) with R `hclust` results (see `ggrust_core::cluster`).
+    /// Returns `(labels, merge, height, order)`: merge in R's signed 1-based form,
+    /// order 0-based. The GIL is released while computing.
+    #[pyfunction]
+    #[pyo3(signature = (data, labels, by_columns, method, distance))]
+    #[allow(clippy::type_complexity)]
+    fn hclust(
+        python: Python<'_>,
+        data: AnyRecordBatch,
+        labels: Option<String>,
+        by_columns: bool,
+        method: &str,
+        distance: &str,
+    ) -> PyResult<(Vec<String>, Vec<[i64; 2]>, Vec<f64>, Vec<usize>)> {
+        use ggrust_core::cluster::{Distance, Linkage, cluster_frame};
+        let linkage = Linkage::from_name(method).ok_or_else(|| {
+            PyValueError::new_err(format!(
+                "unknown method '{method}'; accepted: complete, average, single, ward.D2"
+            ))
+        })?;
+        let distance = Distance::from_name(distance).ok_or_else(|| {
+            PyValueError::new_err(format!(
+                "unknown distance '{distance}'; accepted: euclidean, correlation"
+            ))
+        })?;
+        let frame = to_frame(data)?;
+        python
+            .detach(|| cluster_frame(&frame, labels.as_deref(), by_columns, distance, linkage))
+            .map(|tree| (tree.labels, tree.merge, tree.height, tree.order))
+            .map_err(to_python_error)
+    }
+
+    /// The links of a tree (checked as in a plot spec) with leaf `i` of `order`
+    /// at `i`: `(position, height, position_end, height_end)` columns. `kind` is
+    /// `"rectangle"` or `"triangle"`.
+    #[pyfunction]
+    #[allow(clippy::type_complexity)]
+    fn dendrogram_segments(
+        labels: Vec<String>,
+        merge: Vec<[i64; 2]>,
+        height: Vec<f64>,
+        order: Vec<usize>,
+        kind: &str,
+    ) -> PyResult<(Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>)> {
+        use ggrust_core::cluster::{DendrogramType, Tree};
+        let kind = match kind {
+            "rectangle" => DendrogramType::Rectangle,
+            "triangle" => DendrogramType::Triangle,
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "unknown dendrogram type '{other}'; accepted: rectangle, triangle"
+                )));
+            }
+        };
+        let tree =
+            Tree::from_spec("tree", labels, merge, height, order).map_err(to_python_error)?;
+        let segments = tree.segments(kind);
+        Ok((
+            segments.iter().map(|segment| segment.position).collect(),
+            segments.iter().map(|segment| segment.height).collect(),
+            segments
+                .iter()
+                .map(|segment| segment.position_end)
+                .collect(),
+            segments.iter().map(|segment| segment.height_end).collect(),
+        ))
+    }
+
     /// Column names `layer_tooltips()` reads, sorted: exported for HTML output only.
     ///
     /// Raises `ggrust.errors.SpecError` (with its `path`) if the spec is invalid.

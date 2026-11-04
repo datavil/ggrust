@@ -344,6 +344,16 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         .map(|y| (x, y))
     });
     let (mut x_scale, mut y_scale) = axis_scales.map_err(|error| error.with_notes(&warnings))?;
+    if facets.is_some() {
+        for (scale, axis) in [(&mut x_scale, "x"), (&mut y_scale, "y")] {
+            if scale.drop_dendrogram() {
+                warnings.push(format!(
+                    "scale_{axis}_dendro(): faceted plots draw no dendrogram yet; the tree \
+                     still orders the {axis} axis"
+                ));
+            }
+        }
+    }
     // Every number label of the plot writes exponents as the theme says.
     let exponent_format = crate::theme::exponent_format(spec.theme.as_ref())
         .map_err(|error| error.with_notes(&warnings))?;
@@ -2123,6 +2133,30 @@ fn axis_scale(
         for (_, column, _) in axis_columns() {
             if let Column::Discrete(column) = column {
                 discrete.train_levels(column.levels());
+            }
+        }
+        if let Some(dendrogram) = &discrete.dendrogram {
+            let leaves: std::collections::HashSet<&str> =
+                dendrogram.tree.labels.iter().map(String::as_str).collect();
+            if let Some(level) = discrete
+                .trained_levels()
+                .iter()
+                .find(|level| !leaves.contains(level.as_str()))
+            {
+                let path = axis_columns()
+                    .find(|(_, column, _)| match column {
+                        Column::Discrete(column) => column.levels().contains(level),
+                        Column::Continuous(_) => false,
+                    })
+                    .map_or(String::new(), |(_, _, path)| path.clone());
+                return Err(Error::spec(
+                    path,
+                    format!(
+                        "'{level}' is on the {axis} axis but not a leaf of its dendrogram \
+                         (scale_{axis}_dendro()); cluster every level, or filter the data to \
+                         the tree's leaves"
+                    ),
+                ));
             }
         }
         if !discrete.has_levels()

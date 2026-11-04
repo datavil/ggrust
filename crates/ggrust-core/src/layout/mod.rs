@@ -14,6 +14,8 @@
 
 mod axis;
 mod colorbar;
+pub mod dendrogram;
+use dendrogram::DendrogramSide;
 pub mod facet;
 pub mod grid;
 mod legend;
@@ -90,6 +92,9 @@ pub struct PlotLayout {
     /// Space right of the panel taken by `facet_grid` row strips (0 without
     /// them): a right legend goes beyond it.
     pub right_band: f64,
+    /// Dendrograms of the horizontal and vertical axes (`scale_*_dendro()`;
+    /// single panels only).
+    pub dendrograms: [Option<std::sync::Arc<dendrogram::AxisDendrogram>>; 2],
 }
 
 /// Lay out a plot inside `area` (the whole canvas for a single plot; a grid cell
@@ -337,9 +342,19 @@ fn layout_with(
 ) -> PlotLayout {
     let inset = theme.plot_inset;
     let content = plot_content(area, theme, titles);
+    let dendrograms = [axis_dendrogram(x_scale), axis_dendrogram(y_scale)];
+    let tree_band = |index: usize, side: DendrogramSide| {
+        dendrogram::band(
+            dendrograms[index].as_deref(),
+            side,
+            dendrogram::gap(theme, index == 0),
+        )
+    };
+    let top_band = tree_band(0, DendrogramSide::Opposite);
+    let right_band = tree_band(1, DendrogramSide::Opposite);
 
-    let top = content.y + headings_band(theme, titles) + legend_space.top + inset.top;
-    let x_axis_band = x_axis_band(labels_height, theme);
+    let top = content.y + headings_band(theme, titles) + legend_space.top + inset.top + top_band;
+    let x_axis_band = x_axis_band(labels_height, theme) + tree_band(0, DendrogramSide::Axis);
     let bottom = content.y + content.height
         - legend_space.bottom
         - axis_title_band(theme.axis_title_x, &titles.x, x_title_margin(theme), 0.0)
@@ -361,7 +376,7 @@ fn layout_with(
         content.width * AXIS_LABELS_MAX_SHARE,
         theme,
     );
-    let y_axis_width = y_axis_width(&y_breaks, theme);
+    let y_axis_width = y_axis_width(&y_breaks, theme) + tree_band(1, DendrogramSide::Axis);
     let left = content.x
         + legend_space.left
         + axis_title_band(
@@ -373,7 +388,8 @@ fn layout_with(
         + inset.left
         + y_axis_width;
     let panel_width =
-        (content.x + content.width - legend_space.right - inset.right - left).max(panel_min_size);
+        (content.x + content.width - legend_space.right - inset.right - right_band - left)
+            .max(panel_min_size);
 
     // lets-plot lets x labels reach over the y axis on the left (geom area insets).
     let x_breaks = x_breaks.unwrap_or_else(|| {
@@ -397,8 +413,17 @@ fn layout_with(
         y_breaks,
         x_axis_band,
         legend_space,
-        top_band: 0.0,
-        right_band: 0.0,
+        top_band,
+        right_band,
+        dendrograms,
+    }
+}
+
+/// The dendrogram of a screen axis, shared with the scale.
+fn axis_dendrogram(scale: &PositionScale) -> Option<std::sync::Arc<dendrogram::AxisDendrogram>> {
+    match scale {
+        PositionScale::Discrete(discrete) => discrete.dendrogram.clone(),
+        PositionScale::Continuous(_) => None,
     }
 }
 
@@ -1044,6 +1069,50 @@ pub fn draw_axes(
             }
         }
     }
+    let [x_tree, y_tree] = &layout.dendrograms;
+    if let Some(tree) = x_tree {
+        let levels = discrete_levels(mapper.x_scale);
+        let gap = dendrogram::gap(theme, true);
+        let (baseline, growth) = match tree.side {
+            DendrogramSide::Axis => (
+                bottom + layout.x_axis_band - tree.space.max(0.0),
+                dendrogram::Growth::Vertical(1.0),
+            ),
+            DendrogramSide::Opposite => (panel.y - gap, dendrogram::Growth::Vertical(-1.0)),
+        };
+        let pixel = |value: f64| mapper.x_pixel(value);
+        axis_x.extend(dendrogram::draw(
+            tree,
+            &levels,
+            &pixel,
+            baseline,
+            growth,
+            theme.axis_ticks_x,
+        ));
+    }
+    if let Some(tree) = y_tree {
+        let levels = discrete_levels(mapper.y_scale);
+        let gap = dendrogram::gap(theme, false);
+        let (baseline, growth) = match tree.side {
+            DendrogramSide::Axis => (
+                panel.x - y_axis_width(&layout.y_breaks, theme) - gap,
+                dendrogram::Growth::Horizontal(-1.0),
+            ),
+            DendrogramSide::Opposite => (
+                panel.x + panel.width + gap,
+                dendrogram::Growth::Horizontal(1.0),
+            ),
+        };
+        let pixel = |value: f64| mapper.y_pixel(value);
+        axis_y.extend(dendrogram::draw(
+            tree,
+            &levels,
+            &pixel,
+            baseline,
+            growth,
+            theme.axis_ticks_y,
+        ));
+    }
     let mut nodes = Vec::new();
     if show_x {
         nodes.push(role_group("axis-x", axis_x));
@@ -1052,6 +1121,14 @@ pub fn draw_axes(
         nodes.push(role_group("axis-y", axis_y));
     }
     nodes
+}
+
+/// Categories of a discrete axis in axis order (empty for a continuous one).
+fn discrete_levels(scale: &PositionScale) -> Vec<&str> {
+    match scale {
+        PositionScale::Discrete(discrete) => discrete.effective_levels(),
+        PositionScale::Continuous(_) => Vec::new(),
+    }
 }
 
 /// Plot title, subtitle and axis titles, placed around `layout.panel` (the union of

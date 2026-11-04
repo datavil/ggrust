@@ -356,6 +356,7 @@ fn layout_grid(
                         legend_space,
                         top_band: row_strips[row],
                         right_band: right_strip,
+                        dendrograms: Default::default(),
                     },
                     axes: (panel.x_axis, panel.y_axis),
                     labels: panel.labels.to_vec(),
@@ -380,6 +381,7 @@ fn layout_grid(
             legend_space,
             top_band: row_strips[0],
             right_band: right_strip,
+            dendrograms: Default::default(),
         };
         return FacetLayout { plot, tiles };
     }

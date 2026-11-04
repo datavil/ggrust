@@ -216,6 +216,18 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
         "not in lets-plot).",
         ["rasterize"],
     ),
+    "Clustering and dendrograms (hclust, ggdendro, legendry)": (
+        "Cluster rows or columns as R's hclust, draw the tree, and order a discrete axis "
+        "by it with the tree beside the axis (not in lets-plot).",
+        [
+            "hclust",
+            "ClusterTree",
+            "geom_dendrogram",
+            "scale_x_dendro",
+            "scale_y_dendro",
+            "guide_axis_dendro",
+        ],
+    ),
     "Size, shape and alpha scales": (
         "Map data to point size, point shape and transparency.",
         [

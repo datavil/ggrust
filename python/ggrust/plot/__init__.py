@@ -2,6 +2,14 @@
 
 from ggrust.plot.coord import coord_cartesian, coord_fixed, coord_flip
 from ggrust.plot.core import aes, layer
+from ggrust.plot.dendrogram import (
+    ClusterTree,
+    geom_dendrogram,
+    guide_axis_dendro,
+    hclust,
+    scale_x_dendro,
+    scale_y_dendro,
+)
 from ggrust.plot.expand_limits import expand_limits
 from ggrust.plot.facet import facet_grid, facet_wrap
 from ggrust.plot.geom import (
@@ -179,6 +187,7 @@ from ggrust.plot.theme import (
 from ggrust.plot.tooltip import layer_tooltips
 
 __all__ = [
+    "ClusterTree",
     "GGBunch",
     "SupPlotsSpec",
     "aes",
@@ -215,6 +224,7 @@ __all__ = [
     "geom_count",
     "geom_crossbar",
     "geom_curve",
+    "geom_dendrogram",
     "geom_density",
     "geom_density2d",
     "geom_density2df",
@@ -259,9 +269,11 @@ __all__ = [
     "ggsize",
     "ggtb",
     "ggtitle",
+    "guide_axis_dendro",
     "guide_colorbar",
     "guide_legend",
     "guides",
+    "hclust",
     "labs",
     "layer",
     "layer_key",
@@ -331,6 +343,7 @@ __all__ = [
     "scale_size_manual",
     "scale_x_continuous",
     "scale_x_datetime",
+    "scale_x_dendro",
     "scale_x_discrete",
     "scale_x_discrete_reversed",
     "scale_x_log2",
@@ -339,6 +352,7 @@ __all__ = [
     "scale_x_time",
     "scale_y_continuous",
     "scale_y_datetime",
+    "scale_y_dendro",
     "scale_y_discrete",
     "scale_y_discrete_reversed",
     "scale_y_log2",

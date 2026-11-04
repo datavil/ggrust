@@ -6,7 +6,9 @@
 use super::datetime::{DatePattern, TemporalAxis, TemporalKind, TimeInterval};
 use super::label_pattern::LabelPattern;
 use super::{ContinuousPositionScale, DiscretePositionScale, PositionScale, Transform};
-use crate::spec::{Aesthetic, PlotSpec, ScaleSpec, Value};
+use crate::cluster::{DendrogramType, Tree};
+use crate::layout::dendrogram::{AxisDendrogram, DEFAULT_SPACE, DendrogramSide};
+use crate::spec::{Aesthetic, GuideSpec, Options, PlotSpec, ScaleSpec, Value};
 use crate::{Error, Result};
 
 /// The merged x and y scale options of a plot. Whether an axis is discrete depends
@@ -38,6 +40,10 @@ pub struct AxisScaleSpec {
     /// `scale_*_datetime()` (date-time) or `scale_*_time()` (duration).
     temporal: Set<TemporalKind>,
     break_width: Set<String>,
+    /// `scale_*_dendro(tree)`: the tree as given in the spec.
+    dendrogram: Set<Value>,
+    /// `guide_axis_dendro(...)` options (`space`, `side`, `type`).
+    dendrogram_guide: Set<Options>,
 }
 
 impl AxisScaleSpec {
@@ -63,6 +69,13 @@ impl AxisScaleSpec {
     ) -> Result<PositionScale> {
         if discrete {
             return self.build_discrete(warnings).map(PositionScale::Discrete);
+        }
+        if let Some((_, path)) = &self.dendrogram {
+            return Err(Error::spec(
+                path,
+                "scale_*_dendro() needs a discrete axis, but only numbers are mapped to it; \
+                 map the column whose values are the tree's leaves",
+            ));
         }
         if let Some((true, path)) = &self.reverse {
             warnings.push(format!(
@@ -185,10 +198,99 @@ impl AxisScaleSpec {
                     )),
                 })
                 .collect::<Result<Vec<_>>>()?;
+            if let Some((_, dendrogram_path)) = &self.dendrogram {
+                return Err(Error::spec(
+                    path,
+                    format!(
+                        "limits conflict with the dendrogram at '{dendrogram_path}', which \
+                         orders this axis; drop the limits (the tree's leaves are the levels)"
+                    ),
+                ));
+            }
             scale.set_limits(categories);
+        }
+        if let Some(dendrogram) = self.axis_dendrogram()? {
+            let ordered = dendrogram
+                .tree
+                .ordered_labels()
+                .into_iter()
+                .map(str::to_owned)
+                .collect();
+            scale.set_limits(ordered);
+            scale.dendrogram = Some(std::sync::Arc::new(dendrogram));
         }
         scale.reverse = self.reverse.as_ref().is_some_and(|(reverse, _)| *reverse);
         Ok(scale)
+    }
+
+    /// The tree of `scale_*_dendro()` with its guide options, checked.
+    fn axis_dendrogram(&self) -> Result<Option<AxisDendrogram>> {
+        let Some((value, path)) = &self.dendrogram else {
+            return Ok(None);
+        };
+        let tree = tree_from_value(value, path)?;
+        let mut dendrogram = AxisDendrogram {
+            tree,
+            side: DendrogramSide::Axis,
+            space: DEFAULT_SPACE,
+            kind: DendrogramType::Rectangle,
+        };
+        let Some((options, guide_path)) = &self.dendrogram_guide else {
+            return Ok(Some(dendrogram));
+        };
+        let at = |key: &str| format!("{guide_path}.{key}");
+        for (key, value) in options {
+            match key.as_str() {
+                "space" => match value
+                    .as_f64()
+                    .filter(|space| space.is_finite() && *space >= 0.0)
+                {
+                    Some(space) => dendrogram.space = space,
+                    None => {
+                        return Err(Error::spec(
+                            at(key),
+                            format!("space is the tree's size in pixels (0 or more), got {value}"),
+                        ));
+                    }
+                },
+                "side" => {
+                    dendrogram.side = match value.as_str() {
+                        Some("axis") => DendrogramSide::Axis,
+                        Some("opposite") => DendrogramSide::Opposite,
+                        _ => {
+                            return Err(Error::spec(
+                                at(key),
+                                format!("side is 'axis' or 'opposite', got {value}"),
+                            ));
+                        }
+                    }
+                }
+                "type" => {
+                    dendrogram.kind = match value.as_str() {
+                        Some("rectangle") => DendrogramType::Rectangle,
+                        Some("triangle") => DendrogramType::Triangle,
+                        _ => {
+                            return Err(Error::spec(
+                                at(key),
+                                format!("type is 'rectangle' or 'triangle', got {value}"),
+                            ));
+                        }
+                    }
+                }
+                other => {
+                    let known = ["space", "side", "type"];
+                    return Err(Error::spec(
+                        at(other),
+                        format!(
+                            "guide_axis_dendro() has no option '{other}'; accepted: {}{}",
+                            known.join(", "),
+                            crate::suggest::did_you_mean(other, known)
+                        ),
+                    ));
+                }
+            }
+        }
+        Ok(Some(dendrogram))
     }
 
     /// The date-time axis: `scale_*_time()` gives durations, `scale_*_datetime()`
@@ -346,6 +448,91 @@ fn merge(target: &mut AxisScaleSpec, scale: &ScaleSpec, path: &str) {
     if let Some(Value::String(width)) = scale.parameters.get("break_width") {
         target.break_width = Some((width.clone(), at("break_width")));
     }
+    if let Some(tree) = scale.parameters.get("dendrogram") {
+        target.dendrogram = Some((tree.clone(), at("dendrogram")));
+    }
+    if let Some(options) = dendrogram_guide(scale) {
+        target.dendrogram_guide = Some((options, at("guide")));
+    }
+}
+
+/// The options of a `guide_axis_dendro()` (or `guide="axis_dendro"`) on `scale`.
+fn dendrogram_guide(scale: &ScaleSpec) -> Option<Options> {
+    match scale.guide.as_ref()? {
+        GuideSpec::Name(name) if name == "axis_dendro" => Some(Options::new()),
+        GuideSpec::Full(options) if options.name.as_deref() == Some("axis_dendro") => {
+            Some(options.unsupported.clone())
+        }
+        _ => None,
+    }
+}
+
+/// A tree from `{"labels": [...], "merge": [[a, b], ...], "height": [...],
+/// "order": [...]}` (what `ggrust.hclust()` writes).
+fn tree_from_value(value: &Value, path: &str) -> Result<Tree> {
+    let field = |key: &str| {
+        value.get(key).ok_or_else(|| {
+            Error::spec(
+                path,
+                format!(
+                    "a dendrogram needs 'labels', 'merge', 'height' and 'order'; '{key}' is \
+                     missing; build it with ggrust.hclust()"
+                ),
+            )
+        })
+    };
+    let wrong = |key: &str, expected: &str| {
+        Error::spec(
+            format!("{path}.{key}"),
+            format!("expected {expected}; build the tree with ggrust.hclust()"),
+        )
+    };
+    let labels = field("labels")?
+        .as_array()
+        .and_then(|items| {
+            items
+                .iter()
+                .map(|item| item.as_str().map(str::to_owned))
+                .collect::<Option<Vec<_>>>()
+        })
+        .ok_or_else(|| wrong("labels", "a list of leaf names (strings)"))?;
+    let merge = field("merge")?
+        .as_array()
+        .and_then(|rows| {
+            rows.iter()
+                .map(|row| match row.as_array().map(Vec::as_slice) {
+                    Some([first, second]) => Some([first.as_i64()?, second.as_i64()?]),
+                    _ => None,
+                })
+                .collect::<Option<Vec<_>>>()
+        })
+        .ok_or_else(|| wrong("merge", "a list of [a, b] integer pairs"))?;
+    let height = field("height")?
+        .as_array()
+        .and_then(|items| items.iter().map(Value::as_f64).collect::<Option<Vec<_>>>())
+        .ok_or_else(|| {
+            wrong(
+                "height",
+                "a list of finite numbers (NaN and infinity arrive as null)",
+            )
+        })?;
+    let order = field("order")?
+        .as_array()
+        .and_then(|items| {
+            items
+                .iter()
+                .map(|item| item.as_u64().map(|leaf| leaf as usize))
+                .collect::<Option<Vec<_>>>()
+        })
+        .ok_or_else(|| wrong("order", "a list of 0-based leaf indices"))?;
+    let mut seen = std::collections::HashSet::new();
+    if let Some(label) = labels.iter().find(|label| !seen.insert(label.as_str())) {
+        return Err(Error::spec(
+            format!("{path}.labels"),
+            format!("leaf '{label}' appears twice; leaves name distinct axis levels"),
+        ));
+    }
+    Tree::from_spec(path, labels, merge, height, order)
 }
 
 /// A category name in `breaks` of a discrete axis; numbers are written as given.
@@ -397,14 +584,17 @@ fn transformed_limits(
 fn report_unbuilt(scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
     let present = [
         ("na_value", scale.na_value.is_some()),
-        ("guide", scale.guide.is_some()),
+        (
+            "guide",
+            scale.guide.is_some() && dendrogram_guide(scale).is_none(),
+        ),
         ("position", scale.position.is_some()),
         ("scale_mapper_kind", scale.scale_mapper_kind.is_some()),
     ];
     for (key, _) in present.iter().filter(|(_, present)| *present) {
         warnings.push(format!("at '{path}.{key}': not supported yet; ignored"));
     }
-    let built = ["datetime", "time", "break_width"];
+    let built = ["datetime", "time", "break_width", "dendrogram"];
     for key in scale
         .parameters
         .keys()

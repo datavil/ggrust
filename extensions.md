@@ -80,7 +80,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Main roadmap: [plan.md](plan.md).
   `description` callouts placed outside the data. For outlining clusters on UMAPs.
   Done when hulls enclose every point of their group with the given expansion and the
   callouts do not overlap the marks.
-- [ ] ex1.9 **Dendrograms (ggdendro / ggtree / ggh4x `guide_dendro`).** Hierarchical
+- [x] ex1.9 **Dendrograms (ggdendro / ggtree / ggh4x `guide_dendro`).** Hierarchical
   clustering in Rust (`complete`, `average`, `single`, `ward.D2`; euclidean and
   correlation distance), `geom_dendrogram`, and a dendrogram drawn beside a discrete
   axis that also orders that axis's levels. For cellestial's clustered heatmaps and

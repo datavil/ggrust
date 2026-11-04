@@ -6,8 +6,10 @@ from typing import Any, TypedDict
 
 __all__ = [
     "correlation_matrix",
+    "dendrogram_segments",
     "describe_frame",
     "engine_version",
+    "hclust",
     "referenced_columns",
     "render",
     "tooltip_columns",
@@ -198,4 +200,33 @@ def inspect(spec_json: str, frames: list[Any]) -> tuple[list[Any], list[dict[str
     ------
     ValueError
         If the spec or data is invalid, or the spec is a grid.
+    """
+
+def hclust(
+    data: object, labels: str | None, by_columns: bool, method: str, distance: str
+) -> tuple[list[str], list[tuple[int, int]], list[float], list[int]]:
+    """Cluster an Arrow table's rows (or numeric columns) as R's ``hclust``.
+
+    Returns ``(labels, merge, height, order)``: merge as R's signed 1-based pairs,
+    order 0-based.
+
+    Raises
+    ------
+    ValueError
+        If ``method`` or ``distance`` is unknown.
+    ggrust.errors.DataError
+        If the data cannot be clustered (non-numeric column, missing value, ...).
+    """
+
+def dendrogram_segments(
+    labels: list[str], merge: list[list[int]], height: list[float], order: list[int], kind: str
+) -> tuple[list[float], list[float], list[float], list[float]]:
+    """Links of a tree: ``(position, height, position_end, height_end)`` columns.
+
+    Raises
+    ------
+    ggrust.errors.SpecError
+        If the tree is malformed.
+    ValueError
+        If ``kind`` is not ``"rectangle"`` or ``"triangle"``.
     """

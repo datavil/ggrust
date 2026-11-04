@@ -15,6 +15,22 @@ pub enum PositionScale {
 }
 
 impl PositionScale {
+    /// The dendrogram drawn beside this axis (`scale_*_dendro()`), if any.
+    pub fn dendrogram(&self) -> Option<&crate::layout::dendrogram::AxisDendrogram> {
+        match self {
+            PositionScale::Discrete(scale) => scale.dendrogram.as_deref(),
+            PositionScale::Continuous(_) => None,
+        }
+    }
+
+    /// Drop the dendrogram (facets do not draw one).
+    pub fn drop_dendrogram(&mut self) -> bool {
+        match self {
+            PositionScale::Discrete(scale) => scale.dendrogram.take().is_some(),
+            PositionScale::Continuous(_) => false,
+        }
+    }
+
     /// Whether the axis shows categories.
     pub fn is_discrete(&self) -> bool {
         matches!(self, PositionScale::Discrete(_))

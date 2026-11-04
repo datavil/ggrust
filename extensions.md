@@ -46,7 +46,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Main roadmap: [plan.md](plan.md).
   existing violin density code (`stat/ydensity.rs`), seeded and deterministic. Works with
   `orientation` and `position_dodge`. Done when point offsets match the R package on a
   test set, within tolerance.
-- [ ] ex1.3 **ggnewscale.** `new_scale_color()`, `new_scale_fill()`, `new_scale("size")`
+- [x] ex1.3 **ggnewscale.** `new_scale_color()`, `new_scale_fill()`, `new_scale("size")`
   added with `+`: layers after it get their own scale and their own legend for that
   aesthetic. Needs a scale key that is "aesthetic + scale group" in the spec and in
   training. **Design review with the user first**: this touches the spec, scale training

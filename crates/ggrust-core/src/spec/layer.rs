@@ -1,10 +1,12 @@
 //! A plot layer: geom + stat + position + mapping + geom-specific parameters.
 
+use std::collections::BTreeMap;
+
 use serde::Deserialize;
 
 use super::{
-    DataMeta, DataSource, Mapping, Options, Value, from_value_tracked, join_path, mapping,
-    report_unsupported,
+    Aesthetic, DataMeta, DataSource, Mapping, Options, Value, from_value_tracked, join_path,
+    mapping, report_unsupported,
 };
 
 /// One `geom_*()` layer.
@@ -48,6 +50,10 @@ pub struct LayerSpec {
     /// Sampling strategy. Accepted; currently unused.
     #[serde(default)]
     pub sampling: Option<Value>,
+    /// ggnewscale scale group per style aesthetic (`new_scale_color()` before the
+    /// layer): the layer maps through that group's scale. Missing means group 0.
+    #[serde(default)]
+    pub scale_group: BTreeMap<Aesthetic, u32>,
     /// Geom/stat specific options and constant aesthetics (`size=2`, `color="red"`).
     /// Validated by the geom and stat.
     #[serde(flatten)]
@@ -55,6 +61,11 @@ pub struct LayerSpec {
 }
 
 impl LayerSpec {
+    /// The ggnewscale scale group of `aesthetic` (0 without `new_scale_*()`).
+    pub fn scale_group(&self, aesthetic: Aesthetic) -> u32 {
+        self.scale_group.get(&aesthetic).copied().unwrap_or(0)
+    }
+
     pub(super) fn collect_unsupported(&self, parent: &str, found: &mut Vec<String>) {
         // ggrust never samples, so only an explicit "none" matches what it does.
         if self

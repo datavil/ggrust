@@ -192,6 +192,10 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "scale_fill_igv",
         ],
     ),
+    "More scales per aesthetic (ggnewscale)": (
+        "Start a new scale with its own legend (R package ggnewscale, not in lets-plot).",
+        ["new_scale_color", "new_scale_colour", "new_scale_fill", "new_scale"],
+    ),
     "Size, shape and alpha scales": (
         "Map data to point size, point shape and transparency.",
         [

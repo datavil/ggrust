@@ -176,6 +176,7 @@ class PlotSpec(FeatureSpec):
             metainfo_list=other.__metainfo_list,
         )
         duplicate.props().update(other.props())
+        duplicate.__scale_groups = dict(other.__scale_groups)
         return duplicate
 
     def __init__(
@@ -191,6 +192,8 @@ class PlotSpec(FeatureSpec):
         self.__scales = list(scales)
         self.__layers = list(layers)
         self.__metainfo_list = list(metainfo_list)
+        # ggnewscale: how many ``new_scale()`` markers per aesthetic were added.
+        self.__scale_groups: dict[str, int] = {}
 
     def get_plot_shared_data(self) -> PlotData | None:
         """Return the data shared by all layers."""
@@ -206,11 +209,15 @@ class PlotSpec(FeatureSpec):
         # lets_plot: plot + plot is not rejected; it is stored under "plot".
         if isinstance(other, FeatureSpec):
             plot = PlotSpec.duplicate(self)
+            if other.kind == "new_scale":
+                aesthetic = other.props()["aesthetic"]
+                plot.__scale_groups[aesthetic] = plot.__scale_groups.get(aesthetic, 0) + 1
+                return plot
             if other.kind == "layer":
-                plot.__layers.append(other)
+                plot.__layers.append(plot.__tagged_layer(other))
                 return plot
             if other.kind == "scale":
-                plot.__scales.append(other)
+                plot.__scales.append(plot.__tagged_scale(other))
                 return plot
             if other.kind == "theme":
                 new_options = {
@@ -235,7 +242,8 @@ class PlotSpec(FeatureSpec):
                 return plot
             if other.kind == "guides":
                 existing = plot.props().get("guides", {})
-                plot.props()["guides"] = _merge_dicts_recursively(existing, other.as_dict())
+                added = plot.__tagged_guides(other.as_dict())
+                plot.props()["guides"] = _merge_dicts_recursively(existing, added)
                 return plot
             if other.kind == "mapping":
                 from ggrust.plot.util import update_plot_aes_mapping
@@ -246,6 +254,49 @@ class PlotSpec(FeatureSpec):
             return plot
         message = f"unsupported operand type(s) for +: {self.__class__} and {other.__class__}"
         raise TypeError(message)
+
+    def __group_of(self, aesthetic: str) -> int:
+        """Return the current ggnewscale group of ``aesthetic`` (0: no marker yet)."""
+        from ggrust.plot.new_scale import canonical_aesthetic
+
+        return self.__scale_groups.get(canonical_aesthetic(aesthetic), 0)
+
+    def __tagged_layer(self, layer: FeatureSpec) -> FeatureSpec:
+        """Return ``layer`` with the current non-zero scale groups as ``scale_group``."""
+        groups = {aesthetic: group for aesthetic, group in self.__scale_groups.items() if group}
+        if not groups or not isinstance(layer, LayerSpec):
+            return layer
+        tagged = LayerSpec.duplicate(layer)
+        tagged.props()["scale_group"] = groups
+        return tagged
+
+    def __tagged_scale(self, scale: FeatureSpec) -> FeatureSpec:
+        """Return ``scale`` with its aesthetics' non-zero groups as ``scale_group``."""
+        from ggrust.plot.new_scale import canonical_aesthetic
+
+        aesthetics = scale.props().get("aesthetic")
+        names = [aesthetics] if isinstance(aesthetics, str) else list(aesthetics or [])
+        groups = {
+            canonical_aesthetic(name): self.__group_of(name)
+            for name in names
+            if isinstance(name, str) and self.__group_of(name)
+        }
+        if not groups:
+            return scale
+        tagged = FeatureSpec(scale.kind, name=None)
+        tagged.props().update(scale.props())
+        tagged.props()["scale_group"] = groups
+        return tagged
+
+    def __tagged_guides(self, guides: dict[str, Any]) -> dict[str, Any]:
+        """Return ``guides`` with keys of non-zero groups as ``"color:1"``."""
+        from ggrust.plot.new_scale import canonical_aesthetic
+
+        tagged: dict[str, Any] = {}
+        for key, guide in guides.items():
+            group = self.__group_of(key)
+            tagged[f"{canonical_aesthetic(key)}:{group}" if group else key] = guide
+        return tagged
 
     def as_dict(self) -> dict[str, Any]:
         """Return the plot as a lets_plot-compatible dictionary.

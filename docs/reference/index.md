@@ -180,6 +180,17 @@ Discrete palettes from the R package ggsci (not in lets-plot).
 | [`scale_color_igv()`](api/scale_color_igv.md) | Map ``color`` with the ggsci ``igv`` palette, from the IGV genome browser. |
 | [`scale_fill_igv()`](api/scale_fill_igv.md) | Map ``fill`` with the ggsci ``igv`` palette. See ``scale_color_igv``. |
 
+## More scales per aesthetic (ggnewscale)
+
+Start a new scale with its own legend (R package ggnewscale, not in lets-plot).
+
+| Name | Description |
+|---|---|
+| [`new_scale_color()`](api/new_scale_color.md) | Start a new color scale (ggnewscale): ``new_scale("color")``. |
+| [`new_scale_colour()`](api/new_scale_colour.md) | Start a new color scale (ggnewscale): alias of ``new_scale_color()``. |
+| [`new_scale_fill()`](api/new_scale_fill.md) | Start a new fill scale (ggnewscale): ``new_scale("fill")``. |
+| [`new_scale()`](api/new_scale.md) | Start a new scale for an aesthetic (R package ggnewscale). |
+
 ## Size, shape and alpha scales
 
 Map data to point size, point shape and transparency.

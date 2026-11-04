@@ -33,7 +33,7 @@ use crate::scale::datetime::TemporalKind;
 use crate::scale::format::Label;
 use crate::scale::number_format::{ExponentFormat, NumberFormat};
 use crate::scale::style::spec::{StyleScaleSpec, style_scale_specs};
-use crate::scale::style::{LegendEntry, StyleScale, default_mapper};
+use crate::scale::style::{LegendEntry, ScaleKey, StyleScale, default_mapper};
 use crate::scale::{AxisScaleSpec, PositionScale, PositionScales, position_scales};
 use crate::scene::{Group, LAYER_ROLE, Node, PerItem, Rect, Rects, Scene};
 use crate::spec::{
@@ -528,6 +528,7 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         computed_tiles.push((computed, tile_x, tile_y));
     }
     warnings.extend(merge_tile_warnings(tile_warnings));
+    check_scale_groups(spec).map_err(|error| error.with_notes(&warnings))?;
     let style_specs = style_scale_specs(spec, &mut warnings);
     let all_computed: Vec<&ComputedLayer> = computed_tiles
         .iter()
@@ -723,7 +724,7 @@ const TOOLTIP_ANCHORS: [&str; 9] = [
 fn tooltip_setups(
     spec: &PlotSpec,
     titles: &Titles,
-    style_specs: &BTreeMap<Aesthetic, StyleScaleSpec>,
+    style_specs: &BTreeMap<ScaleKey, StyleScaleSpec>,
     orientations: &[bool],
 ) -> Vec<LayerTooltipSetup> {
     spec.layers
@@ -763,16 +764,16 @@ fn tooltip_setups(
                 .keys()
                 .filter_map(|&aesthetic| {
                     // lets-plot scale name: guide title (`labs`), then `name`, then default.
-                    let guide_title = match spec.guides.get(aesthetic.as_str()) {
+                    let key = ScaleKey::new(aesthetic, layer.scale_group(aesthetic));
+                    let guide_title = match spec.guides.get(&key.guide_key()) {
                         Some(GuideSpec::Full(options)) => options.title.clone(),
                         _ => None,
                     };
                     let label = match oriented(aesthetic) {
                         Aesthetic::X => titles.x.clone(),
                         Aesthetic::Y => titles.y.clone(),
-                        _ if aesthetic.kind().style().is_some() => guide_title.or_else(|| {
-                            Some(legend_title(spec, aesthetic, style_specs.get(&aesthetic)))
-                        }),
+                        _ if aesthetic.kind().style().is_some() => guide_title
+                            .or_else(|| Some(legend_title(spec, key, style_specs.get(&key)))),
                         _ => None,
                     };
                     label.map(|label| (aesthetic, label))
@@ -1517,13 +1518,19 @@ fn panel_scale(
 
 /// Discrete levels of the style aesthetics in the data's order (layer by layer),
 /// before facets split the rows.
-fn style_level_order(layers: &[MappedLayer]) -> BTreeMap<Aesthetic, Vec<String>> {
-    let mut order: BTreeMap<Aesthetic, Vec<String>> = BTreeMap::new();
-    for (aesthetic, column, _) in layers.iter().flat_map(|layer| &layer.columns) {
+fn style_level_order(layers: &[MappedLayer]) -> BTreeMap<ScaleKey, Vec<String>> {
+    let mut order: BTreeMap<ScaleKey, Vec<String>> = BTreeMap::new();
+    let columns = layers.iter().flat_map(|layer| {
+        layer
+            .columns
+            .iter()
+            .map(|(aesthetic, column, _)| (scale_key(&layer.spec.scale_group, *aesthetic), column))
+    });
+    for (key, column) in columns {
         let Column::Discrete(column) = column else {
             continue;
         };
-        let levels = order.entry(*aesthetic).or_default();
+        let levels = order.entry(key).or_default();
         for level in column.levels() {
             if !levels.contains(level) {
                 levels.push(level.clone());
@@ -1588,7 +1595,7 @@ fn plot_titles(spec: &PlotSpec, scales: &PositionScales, orientations: &[bool]) 
         };
         from_labs
             .or_else(|| scale_name.clone())
-            .unwrap_or_else(|| default_scale_name(spec, aesthetic, orientations))
+            .unwrap_or_else(|| default_scale_name(spec, aesthetic, 0, orientations))
     };
     let title = spec.ggtitle.as_ref();
     Titles {
@@ -1606,9 +1613,20 @@ fn plot_titles(spec: &PlotSpec, scales: &PositionScales, orientations: &[bool]) 
 /// lets-plot `PlotConfigUtil.defaultScaleName`: the distinct columns mapped to the
 /// aesthetic across layers, ignoring one named like the aesthetic. None -> the
 /// aesthetic name; several -> joined with ", " (the aesthetic name for x and y).
-fn default_scale_name(spec: &PlotSpec, aesthetic: Aesthetic, orientations: &[bool]) -> String {
+///
+/// Only the layers of scale group `group` (`new_scale_*()`) name a style scale;
+/// position scales pass 0.
+fn default_scale_name(
+    spec: &PlotSpec,
+    aesthetic: Aesthetic,
+    group: u32,
+    orientations: &[bool],
+) -> String {
     let mut labels: Vec<String> = Vec::new();
     for (index, layer) in spec.layers.iter().enumerate() {
+        if layer.scale_group(aesthetic) != group {
+            continue;
+        }
         // A y-oriented layer's stat maps its variables to the swapped aesthetic.
         let stat_aesthetic = match orientations.get(index).copied().unwrap_or(false) {
             true => aesthetic.flip_orientation(),
@@ -1710,6 +1728,8 @@ struct PreparedLayer {
     /// See [`ComputedLayer::y_oriented`].
     y_oriented: bool,
     styles: Styles,
+    /// ggnewscale scale group per style aesthetic (`LayerSpec::scale_group`).
+    scale_groups: BTreeMap<Aesthetic, u32>,
     /// `show_legend` (default: the geom's).
     show_legend: bool,
     /// Drawn on behalf of the layer before it: the outlier points the Python
@@ -2335,6 +2355,7 @@ fn compute_layer(
         y_span,
         y_oriented,
         mapping_paths,
+        scale_groups: spec.scale_group.clone(),
         show_legend: spec.show_legend.unwrap_or(geom.shows_legend()),
         companion: layer_stat(spec).is_some_and(|stat| stat.name() == "boxplot_outlier"),
         warnings,
@@ -2367,26 +2388,46 @@ struct ComputedLayer {
     y_oriented: bool,
     /// Where each mapped aesthetic was mapped, for error messages.
     mapping_paths: BTreeMap<Aesthetic, String>,
+    /// See [`PreparedLayer::scale_groups`].
+    scale_groups: BTreeMap<Aesthetic, u32>,
     /// `show_legend` (default: the geom's).
     show_legend: bool,
     /// Warnings of this stage.
     warnings: Vec<String>,
 }
 
+impl ComputedLayer {
+    /// The style scale `aesthetic` maps through (see [`ScaleKey`]).
+    fn scale_key(&self, aesthetic: Aesthetic) -> ScaleKey {
+        scale_key(&self.scale_groups, aesthetic)
+    }
+}
+
+/// The style scale of `aesthetic` in a layer with these ggnewscale groups.
+fn scale_key(groups: &BTreeMap<Aesthetic, u32>, aesthetic: Aesthetic) -> ScaleKey {
+    ScaleKey::new(aesthetic, groups.get(&aesthetic).copied().unwrap_or(0))
+}
+
 /// Last layer stage: style values from the trained style scales. Returns the
 /// stage's warnings next to the layer.
 fn style_layer(
     layer: ComputedLayer,
-    style_scales: &BTreeMap<Aesthetic, StyleScale>,
+    style_scales: &BTreeMap<ScaleKey, StyleScale>,
     exponent_format: ExponentFormat,
     palette: &GeomPalette,
 ) -> StageResult<(PreparedLayer, Vec<String>)> {
     let mut warnings = Vec::new();
     let parameters = Parameters::new(&layer.options, &layer.path);
+    // The scales of this layer's groups, by aesthetic.
+    let layer_scales: BTreeMap<Aesthetic, &StyleScale> = layer
+        .data
+        .aesthetics()
+        .filter_map(|aesthetic| Some((aesthetic, style_scales.get(&layer.scale_key(aesthetic))?)))
+        .collect();
     let styles = resolve_styles(
         layer.geom,
         &layer.data,
-        style_scales,
+        &layer_scales,
         StyleContext {
             exponent_format,
             palette,
@@ -2412,6 +2453,7 @@ fn style_layer(
             trains_unadjusted: layer.trains_unadjusted,
             y_span: layer.y_span,
             styles,
+            scale_groups: layer.scale_groups,
             show_legend: layer.show_legend,
             companion: layer.companion,
         },
@@ -2454,11 +2496,15 @@ fn discrete_annotation<'a>(
 
 /// Whether the scales of a style aesthetic ask for `discrete=True`: options
 /// merge over the scales (lets-plot), so the last scale that sets it decides.
-fn forces_discrete(plot: &PlotSpec, aesthetic: Aesthetic) -> bool {
+/// Only the scales of the layer's group (`new_scale_*()`) count.
+fn forces_discrete(plot: &PlotSpec, layer: &LayerSpec, aesthetic: Aesthetic) -> bool {
+    let group = layer.scale_group(aesthetic);
     plot.scales
         .iter()
         .rev()
-        .filter(|scale| scale.aesthetic.as_slice().contains(&aesthetic))
+        .filter(|scale| {
+            scale.aesthetic.as_slice().contains(&aesthetic) && scale.scale_group(aesthetic) == group
+        })
         .find_map(|scale| scale.discrete)
         .unwrap_or(false)
 }
@@ -2526,7 +2572,7 @@ fn annotated_column(
     let series = factor_levels(plot, layer, name);
     if annotation.is_none() && series.is_none() {
         // `scale_color_discrete()`: numbers become categories in first appearance.
-        if aesthetic.kind().style().is_some() && forces_discrete(plot, aesthetic) {
+        if aesthetic.kind().style().is_some() && forces_discrete(plot, layer, aesthetic) {
             return Ok(as_discrete(&column, DiscreteOrder::default()));
         }
         return Ok(column);
@@ -3009,15 +3055,46 @@ fn validate_parameters(
     }
 }
 
+/// ggnewscale groups (`scale_group`) exist for style aesthetics only: a position
+/// or unscaled aesthetic there is an error.
+fn check_scale_groups(spec: &PlotSpec) -> Result<()> {
+    let layers = spec
+        .layers
+        .iter()
+        .enumerate()
+        .map(|(index, layer)| (format!("layers[{index}]"), &layer.scale_group));
+    let scales = spec
+        .scales
+        .iter()
+        .enumerate()
+        .map(|(index, scale)| (format!("scales[{index}]"), &scale.scale_group));
+    for (path, groups) in layers.chain(scales) {
+        if let Some(aesthetic) = groups
+            .keys()
+            .find(|aesthetic| default_mapper(**aesthetic).is_none())
+        {
+            return Err(Error::spec(
+                format!("{path}.scale_group.{aesthetic}"),
+                format!(
+                    "new_scale() works for style aesthetics with a scale (color, fill, \
+                     size, alpha, shape, linetype, ...), not '{aesthetic}'; remove the \
+                     new_scale(\"{aesthetic}\") call"
+                ),
+            ));
+        }
+    }
+    Ok(())
+}
+
 /// Style scales of mapped style aesthetics, trained over every layer (mapper and
 /// domain from the merged `scale_*()` calls, else lets-plot's defaults).
 fn train_style_scales(
     layers: &[&ComputedLayer],
-    specs: &BTreeMap<Aesthetic, StyleScaleSpec>,
+    specs: &BTreeMap<ScaleKey, StyleScaleSpec>,
     warnings: &mut Vec<String>,
-) -> Result<BTreeMap<Aesthetic, StyleScale>> {
-    // Every (aesthetic, column, path) after stat and position, in layer order.
-    let columns: Vec<(Aesthetic, &Column, &str)> = layers
+) -> Result<BTreeMap<ScaleKey, StyleScale>> {
+    // Every (scale key, column, path) after stat and position, in layer order.
+    let columns: Vec<(ScaleKey, &Column, &str)> = layers
         .iter()
         .flat_map(|layer| {
             layer.data.aesthetics().filter_map(|aesthetic| {
@@ -3025,31 +3102,31 @@ fn train_style_scales(
                     .mapping_paths
                     .get(&aesthetic)
                     .map_or(layer.path.as_str(), String::as_str);
-                Some((aesthetic, layer.data.get(aesthetic)?, path))
+                Some((layer.scale_key(aesthetic), layer.data.get(aesthetic)?, path))
             })
         })
         .collect();
     // lets-plot: one discrete column makes the aesthetic's scale discrete.
-    let discrete: BTreeSet<Aesthetic> = columns
+    let discrete: BTreeSet<ScaleKey> = columns
         .iter()
         .filter(|(_, column, _)| matches!(column, Column::Discrete(_)))
-        .map(|(aesthetic, _, _)| *aesthetic)
+        .map(|(key, _, _)| *key)
         .collect();
     let default_spec = StyleScaleSpec::default();
-    let mut scales: BTreeMap<Aesthetic, StyleScale> = BTreeMap::new();
-    for (aesthetic, column, path) in columns {
-        if default_mapper(aesthetic).is_none() {
+    let mut scales: BTreeMap<ScaleKey, StyleScale> = BTreeMap::new();
+    for (key, column, path) in columns {
+        if default_mapper(key.aesthetic).is_none() {
             continue; // reported by `resolve_styles`
         }
-        let scale = match scales.entry(aesthetic) {
+        let scale = match scales.entry(key) {
             std::collections::btree_map::Entry::Occupied(entry) => entry.into_mut(),
             std::collections::btree_map::Entry::Vacant(entry) => {
-                let spec = specs.get(&aesthetic).unwrap_or(&default_spec);
-                let mapper = spec.mapper(aesthetic, warnings)?;
+                let spec = specs.get(&key).unwrap_or(&default_spec);
+                let mapper = spec.mapper(key.aesthetic, warnings)?;
                 let domain = spec.discrete_domain()?;
                 // Fail early on a bad `oob`, also when the data turns out discrete.
                 spec.oob()?;
-                let scale = if discrete.contains(&aesthetic) {
+                let scale = if discrete.contains(&key) {
                     StyleScale::discrete(mapper, domain)
                 } else {
                     StyleScale::new(mapper, domain)
@@ -3061,10 +3138,11 @@ fn train_style_scales(
             .train(column)
             .map_err(|message| Error::spec(path, message))?;
     }
-    for (aesthetic, scale) in &scales {
+    for (key, scale) in &scales {
+        let aesthetic = key.aesthetic;
         if let Some((size, count)) = scale.palette_overflow() {
             let path = specs
-                .get(aesthetic)
+                .get(key)
                 .and_then(StyleScaleSpec::mapper_path)
                 .map_or("scales", |path| path.trim_end_matches(".scale_mapper_kind"));
             warnings.push(format!(
@@ -3086,11 +3164,14 @@ type AestheticEntries = (Aesthetic, Vec<LegendEntry>);
 /// mapped style aesthetics with a discrete scale are grouped by scale name (the
 /// legend title); legends with the same title merge, and so do keys with the same
 /// label (one key part per layer).
+///
+/// ggnewscale: a legend is keyed by its title and scale group, so the legends of
+/// scales from different `new_scale_*()` groups never merge (deviations.md).
 fn assemble_legends(
     spec: &PlotSpec,
     layers: &[&PreparedLayer],
-    scales: &BTreeMap<Aesthetic, StyleScale>,
-    specs: &BTreeMap<Aesthetic, StyleScaleSpec>,
+    scales: &BTreeMap<ScaleKey, StyleScale>,
+    specs: &BTreeMap<ScaleKey, StyleScaleSpec>,
     palette: &GeomPalette,
 ) -> Result<Vec<LegendBox>> {
     /// lets-plot `LegendAssembler.MAX_LEGEND_LABELS`: bigger scales get no legend.
@@ -3100,7 +3181,10 @@ fn assemble_legends(
     // scale legends). lets-plot `LegendAssembler.createLegend` sorts them by index
     // (missing last, stable) before merging keys by label.
     let mut contributions: Vec<Vec<KeyContribution>> = Vec::new();
-    let mut colorbars: Vec<Colorbar> = Vec::new();
+    // The scale group of each legend, next to `legends`.
+    let mut legend_groups: Vec<u32> = Vec::new();
+    // Colorbars with their scale group.
+    let mut colorbars: Vec<(Colorbar, u32)> = Vec::new();
     // `layers` holds one prepared layer per spec layer, in spec order.
     for (layer_index, layer) in layers.iter().enumerate() {
         // lets-plot: a layer's manual key joins its legend after the layer's scale
@@ -3115,13 +3199,20 @@ fn assemble_legends(
         };
         if !layer.show_legend {
             if let Some((title, grid, key)) = manual {
-                let index = legend_index(&mut legends, &mut contributions, title, grid);
+                let index = legend_index(
+                    (&mut legends, &mut contributions, &mut legend_groups),
+                    title,
+                    0,
+                    grid,
+                );
                 contributions[index].push(key);
             }
             continue;
         }
-        // Scale name -> (aesthetic, its legend entries), in the geom's rendered order.
-        let mut by_title: Vec<(String, Vec<AestheticEntries>, KeyGrid, Overrides)> = Vec::new();
+        // (Scale name, scale group) -> (aesthetic, its legend entries), in the geom's
+        // rendered order.
+        let mut by_title: Vec<(String, u32, Vec<AestheticEntries>, KeyGrid, Overrides)> =
+            Vec::new();
         let mapped: Vec<Aesthetic> = layer.data.aesthetics().collect();
         let rendered = layer
             .geom
@@ -3129,22 +3220,23 @@ fn assemble_legends(
             .iter()
             .map(|(aesthetic, _)| *aesthetic);
         for aesthetic in rendered.filter(|aesthetic| mapped.contains(aesthetic)) {
-            let Some(scale) = scales.get(&aesthetic) else {
+            let key = scale_key(&layer.scale_groups, aesthetic);
+            let Some(scale) = scales.get(&key) else {
                 continue;
             };
-            let guides = Guides::of(spec, aesthetic, specs.get(&aesthetic));
+            let guides = Guides::of(spec, key, specs.get(&key));
             if guides.hidden() {
                 continue;
             }
             let title = guides
                 .title()
-                .unwrap_or_else(|| legend_title(spec, aesthetic, specs.get(&aesthetic)));
+                .unwrap_or_else(|| legend_title(spec, key, specs.get(&key)));
             let fits_colorbar = scale.continuous_guide().is_some()
                 && aesthetic.kind().style() == Some(crate::style::ValueKind::Color);
             if guides.named("colorbar") && !fits_colorbar {
                 // lets-plot `checkFitsColorBar`.
                 return Err(Error::spec(
-                    format!("guides.{aesthetic}"),
+                    format!("guides.{key}"),
                     format!(
                         "a colorbar needs a continuous color or fill \
                      scale; '{aesthetic}' is {}",
@@ -3182,22 +3274,24 @@ fn assemble_legends(
                 // lets-plot: an equal colorbar under the same title is shown once; a
                 // different one gets "title (aesthetic)", which replaces an earlier
                 // one of that name (a map keyed by title).
-                match colorbars.iter().find(|known| known.title == colorbar.title) {
-                    Some(known) if same_colorbar(known, &colorbar) => {}
+                let group = key.group;
+                match colorbars.iter().find(|(known, known_group)| {
+                    *known_group == group && known.title == colorbar.title
+                }) {
+                    Some((known, _)) if same_colorbar(known, &colorbar) => {}
                     Some(_) => {
                         let renamed = Colorbar {
                             title: format!("{} ({aesthetic})", colorbar.title),
                             ..colorbar
                         };
-                        match colorbars
-                            .iter_mut()
-                            .find(|known| known.title == renamed.title)
-                        {
-                            Some(known) => *known = renamed,
-                            None => colorbars.push(renamed),
+                        match colorbars.iter_mut().find(|(known, known_group)| {
+                            *known_group == group && known.title == renamed.title
+                        }) {
+                            Some((known, _)) => *known = renamed,
+                            None => colorbars.push((renamed, group)),
                         }
                     }
-                    None => colorbars.push(colorbar),
+                    None => colorbars.push((colorbar, group)),
                 }
                 continue;
             }
@@ -3209,8 +3303,11 @@ fn assemble_legends(
             }
             let grid = guides.legend_grid()?;
             let overrides = guides.override_aes(palette)?;
-            match by_title.iter_mut().find(|(known, _, _, _)| *known == title) {
-                Some((_, group, known, known_overrides)) => {
+            match by_title
+                .iter_mut()
+                .find(|(known, known_group, _, _, _)| *known == title && *known_group == key.group)
+            {
+                Some((_, _, group, known, known_overrides)) => {
                     group.push((aesthetic, entries));
                     *known = known.combine(grid);
                     // lets-plot: the legend's maps merge; a later aesthetic's value wins.
@@ -3219,12 +3316,23 @@ fn assemble_legends(
                         known_overrides.push((key, values));
                     }
                 }
-                None => by_title.push((title, vec![(aesthetic, entries)], grid, overrides)),
+                None => by_title.push((
+                    title,
+                    key.group,
+                    vec![(aesthetic, entries)],
+                    grid,
+                    overrides,
+                )),
             }
         }
-        for (title, mut group, grid, overrides) in by_title {
+        for (title, scale_group, mut group, grid, overrides) in by_title {
             apply_override_aes(&mut group, &overrides);
-            let index = legend_index(&mut legends, &mut contributions, title, grid);
+            let index = legend_index(
+                (&mut legends, &mut contributions, &mut legend_groups),
+                title,
+                scale_group,
+                grid,
+            );
             let mut keys = Vec::new();
             // lets-plot `applyOverrideAesLists`: labels of every aesthetic, distinct;
             // per label, each aesthetic's last value with that label.
@@ -3253,7 +3361,12 @@ fn assemble_legends(
             contributions[index].push((None, keys));
         }
         if let Some((title, grid, key)) = manual {
-            let index = legend_index(&mut legends, &mut contributions, title, grid);
+            let index = legend_index(
+                (&mut legends, &mut contributions, &mut legend_groups),
+                title,
+                0,
+                grid,
+            );
             contributions[index].push(key);
         }
     }
@@ -3271,7 +3384,7 @@ fn assemble_legends(
     }
     Ok(colorbars
         .into_iter()
-        .map(LegendBox::Colorbar)
+        .map(|(colorbar, _)| LegendBox::Colorbar(colorbar))
         .chain(legends.into_iter().map(LegendBox::Keys))
         .collect())
 }
@@ -3279,16 +3392,28 @@ fn assemble_legends(
 /// The keys one layer adds to a legend, with its `layer_key(index=)`.
 type KeyContribution = (Option<i64>, Vec<(Label, KeyLayer)>);
 
-/// The index of the legend titled `title`, added (with no keys) when new; an
-/// existing legend combines its grid with `grid`. lets-plot keys legends by title,
-/// so a manual group titled like a scale joins that scale's legend.
+/// The legends being assembled, their key contributions and scale groups.
+type LegendsInProgress<'a> = (
+    &'a mut Vec<Legend>,
+    &'a mut Vec<Vec<KeyContribution>>,
+    &'a mut Vec<u32>,
+);
+
+/// The index of the legend titled `title` in scale group `group`, added (with no
+/// keys) when new; an existing legend combines its grid with `grid`. lets-plot
+/// keys legends by title, so a manual group (scale group 0) titled like a scale
+/// joins that scale's legend.
 fn legend_index(
-    legends: &mut Vec<Legend>,
-    contributions: &mut Vec<Vec<KeyContribution>>,
+    (legends, contributions, groups): LegendsInProgress,
     title: String,
+    group: u32,
     grid: KeyGrid,
 ) -> usize {
-    match legends.iter().position(|legend| legend.title == title) {
+    match legends
+        .iter()
+        .zip(groups.iter())
+        .position(|(legend, known)| legend.title == title && *known == group)
+    {
         Some(index) => {
             legends[index].grid = legends[index].grid.combine(grid);
             index
@@ -3300,6 +3425,7 @@ fn legend_index(
                 grid,
             });
             contributions.push(Vec::new());
+            groups.push(group);
             legends.len() - 1
         }
     }
@@ -3498,10 +3624,11 @@ impl<'a> Guides<'a> {
         Guides { entries }
     }
 
-    fn of(spec: &'a PlotSpec, aesthetic: Aesthetic, scale: Option<&'a StyleScaleSpec>) -> Self {
+    fn of(spec: &'a PlotSpec, key: ScaleKey, scale: Option<&'a StyleScaleSpec>) -> Self {
         let mut entries = Vec::new();
-        if let Some(guide) = spec.guides.get(aesthetic.as_str()) {
-            entries.push((guide, format!("guides.{aesthetic}")));
+        let name = key.guide_key();
+        if let Some(guide) = spec.guides.get(&name) {
+            entries.push((guide, format!("guides.{name}")));
         }
         if let Some((guide, path)) = scale.and_then(StyleScaleSpec::guide_with_path) {
             entries.push((guide, path.to_owned()));
@@ -3711,10 +3838,10 @@ fn key_styles(
 
 /// Legend title without a guide title: the scale `name`, then lets-plot's default
 /// scale name.
-fn legend_title(spec: &PlotSpec, aesthetic: Aesthetic, scale: Option<&StyleScaleSpec>) -> String {
+fn legend_title(spec: &PlotSpec, key: ScaleKey, scale: Option<&StyleScaleSpec>) -> String {
     scale
         .and_then(|scale| scale.name.clone())
-        .unwrap_or_else(|| default_scale_name(spec, aesthetic, &[]))
+        .unwrap_or_else(|| default_scale_name(spec, key.aesthetic, key.group, &[]))
 }
 
 /// Plot-wide inputs of style resolution: how numbers are labelled and the theme's
@@ -3730,7 +3857,7 @@ struct StyleContext<'a> {
 fn resolve_styles(
     geom: &dyn Geom,
     data: &LayerData,
-    style_scales: &BTreeMap<Aesthetic, StyleScale>,
+    style_scales: &BTreeMap<Aesthetic, &StyleScale>,
     context: StyleContext,
     parameters: &Parameters,
     path: &str,
@@ -3981,10 +4108,22 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
         // Built: axis titles, legend titles, `"none"` and `"legend"` for style
         // aesthetics and manual legend groups, legend grids and colorbar sizes (see
         // `is_built_style_guide`).
+        // A `color:1` key needs a layer or scale in that group (`new_scale_*()`).
+        let group_exists = |scale: ScaleKey| {
+            scale.group == 0
+                || spec
+                    .layers
+                    .iter()
+                    .any(|layer| layer.scale_group(scale.aesthetic) == scale.group)
+                || spec
+                    .scales
+                    .iter()
+                    .any(|known| known.scale_group(scale.aesthetic) == scale.group)
+        };
         let is_style = manual_groups.contains(&key.as_str())
-            || key
-                .parse::<Aesthetic>()
-                .is_ok_and(|aesthetic| default_mapper(aesthetic).is_some());
+            || ScaleKey::parse_guide_key(key).is_some_and(|scale| {
+                default_mapper(scale.aesthetic).is_some() && group_exists(scale)
+            });
         let built = is_axis_title_only(key, guide) || (is_style && guide.is_built_style_guide());
         if !built {
             warnings.push(format!(
@@ -4024,6 +4163,7 @@ mod tests {
 
     use super::*;
     use crate::scale::{ContinuousPositionScale, Transform};
+    use crate::scene::Color;
     use crate::spec::Figure;
 
     fn prepare_with(
@@ -4088,6 +4228,145 @@ mod tests {
         let mut warnings = Vec::new();
         let layer = prepare(&spec, &mut warnings).unwrap();
         (layer.data.group_index().map(<[u32]>::to_vec), warnings)
+    }
+
+    /// Legends of a prepared plot as (kind, title, labels).
+    fn legend_summary(json: &str) -> Vec<(&'static str, String, Vec<String>)> {
+        let prepared = prepare_plot(&plot(json), &cells()).unwrap();
+        prepared
+            .legends
+            .iter()
+            .map(|legend| match legend {
+                LegendBox::Keys(legend) => (
+                    "keys",
+                    legend.title.clone(),
+                    legend
+                        .keys
+                        .iter()
+                        .map(|key| key.label.to_string())
+                        .collect(),
+                ),
+                LegendBox::Colorbar(colorbar) => ("colorbar", colorbar.title.clone(), Vec::new()),
+            })
+            .collect()
+    }
+
+    #[test]
+    fn new_scale_color_gives_a_continuous_and_a_discrete_legend() {
+        let legends = legend_summary(
+            r#"{"kind": "plot", "mapping": {"x": "x", "y": "y"},
+                "layers": [
+                    {"geom": "point", "mapping": {"color": "batch"}},
+                    {"geom": "text", "mapping": {"color": "cluster", "label": "cluster"},
+                     "scale_group": {"color": 1}}],
+                "scales": [{"aesthetic": "color", "scale_mapper_kind": "color_brewer",
+                            "palette": "Set1", "scale_group": {"color": 1}}],
+                "guides": {"color:1": {"title": "Cell type"}}}"#,
+        );
+        assert_eq!(
+            legends,
+            vec![
+                ("colorbar", "batch".to_owned(), vec![]),
+                (
+                    "keys",
+                    "Cell type".to_owned(),
+                    vec!["T".to_owned(), "B".to_owned(), "NK".to_owned()]
+                ),
+            ]
+        );
+    }
+
+    #[test]
+    fn layers_map_through_their_own_group_scale() {
+        let spec = plot(
+            r#"{"kind": "plot", "mapping": {"x": "x", "y": "y", "fill": "cluster"},
+                "layers": [
+                    {"geom": "point", "shape": 21},
+                    {"geom": "point", "shape": 21, "scale_group": {"fill": 1}}],
+                "scales": [{"aesthetic": "fill", "scale_mapper_kind": "color_manual",
+                            "values": ["red", "green", "blue"], "scale_group": {"fill": 1}}]}"#,
+        );
+        let prepared = prepare_plot(&spec, &cells()).unwrap();
+        let layers = &prepared.tiles[0].0;
+        let fills = |index: usize| {
+            let colors = layers[index].styles.colors(Aesthetic::Fill).unwrap();
+            (0..4).map(|row| colors.get(row)).collect::<Vec<Color>>()
+        };
+        // Same column, different scales: group 1 takes the manual colors.
+        assert_ne!(fills(0), fills(1));
+        let red = Color::parse("red").unwrap();
+        assert_eq!(fills(1)[0], red);
+        assert_ne!(fills(0)[0], red);
+    }
+
+    #[test]
+    fn equal_titles_in_different_groups_stay_separate_legends() {
+        let legends = legend_summary(
+            r#"{"kind": "plot", "mapping": {"x": "x", "y": "y", "fill": "cluster"},
+                "layers": [
+                    {"geom": "point", "shape": 21},
+                    {"geom": "point", "shape": 21, "scale_group": {"fill": 1}}]}"#,
+        );
+        let titles: Vec<&str> = legends.iter().map(|(_, title, _)| title.as_str()).collect();
+        assert_eq!(titles, vec!["cluster", "cluster"]);
+    }
+
+    #[test]
+    fn scale_group_names_its_legend_from_its_own_layers() {
+        let legends = legend_summary(
+            r#"{"kind": "plot", "mapping": {"x": "x", "y": "y"},
+                "layers": [
+                    {"geom": "point", "mapping": {"size": "batch"}},
+                    {"geom": "point", "mapping": {"size": "y"}, "scale_group": {"size": 1}}],
+                "guides": {"size": "none"}}"#,
+        );
+        let titles: Vec<&str> = legends.iter().map(|(_, title, _)| title.as_str()).collect();
+        // `guides(size="none")` before the marker hides only group 0.
+        assert_eq!(titles, vec!["y"]);
+    }
+
+    #[test]
+    fn scale_group_on_a_position_aesthetic_is_an_error() {
+        let spec = plot(
+            r#"{"kind": "plot", "mapping": {"x": "x", "y": "y"},
+                "layers": [{"geom": "point", "scale_group": {"x": 1}}]}"#,
+        );
+        let Err(error) = prepare_plot(&spec, &cells()) else {
+            panic!("expected an error");
+        };
+        let error = error.to_string();
+        assert!(error.contains("layers[0].scale_group.x"), "{error}");
+        assert!(error.contains("style aesthetics"), "{error}");
+    }
+
+    #[test]
+    fn a_guide_for_a_missing_scale_group_warns() {
+        let spec = plot(
+            r#"{"kind": "plot", "mapping": {"x": "x", "y": "y", "color": "cluster"},
+                "layers": [{"geom": "point"}], "guides": {"color:3": "none"}}"#,
+        );
+        let prepared = prepare_plot(&spec, &cells()).unwrap();
+        assert!(
+            prepared
+                .warnings
+                .iter()
+                .any(|warning| warning.contains("guides.color:3")),
+            "{:?}",
+            prepared.warnings
+        );
+    }
+
+    #[test]
+    fn guide_keys_round_trip_through_scale_keys() {
+        let key = ScaleKey::new(Aesthetic::Color, 2);
+        assert_eq!(key.guide_key(), "color:2");
+        assert_eq!(ScaleKey::parse_guide_key("color:2"), Some(key));
+        assert_eq!(
+            ScaleKey::parse_guide_key("colour"),
+            Some(ScaleKey::new(Aesthetic::Color, 0))
+        );
+        assert_eq!(ScaleKey::parse_guide_key("manual"), None);
+        assert_eq!(ScaleKey::parse_guide_key("color:x"), None);
     }
 
     #[test]

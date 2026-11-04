@@ -18,7 +18,7 @@ use super::{
     ProportionalMapper, SIZE, SIZE_AREA_MAX, ShapeMapper, StyleMapper, colormap, default_mapper,
     scheme_by_name, scheme_names,
 };
-use super::{GgsciMapper, ggsci_family};
+use super::{GgsciMapper, ScaleKey, ggsci_family};
 use crate::scale::Transform;
 use crate::scale::label_pattern::LabelPattern;
 use crate::scene::{Color, PerItem};
@@ -85,19 +85,21 @@ pub struct StyleScaleSpec {
 }
 
 /// Merge the `scale_*()` calls of every style aesthetic (those with a default
-/// mapper: color, fill, size, alpha). Options not built yet are reported.
+/// mapper: color, fill, size, alpha), per scale group (`new_scale_*()`). Options
+/// not built yet are reported.
 pub fn style_scale_specs(
     spec: &PlotSpec,
     warnings: &mut Vec<String>,
-) -> BTreeMap<Aesthetic, StyleScaleSpec> {
-    let mut merged: BTreeMap<Aesthetic, StyleScaleSpec> = BTreeMap::new();
+) -> BTreeMap<ScaleKey, StyleScaleSpec> {
+    let mut merged: BTreeMap<ScaleKey, StyleScaleSpec> = BTreeMap::new();
     for (index, scale) in spec.scales.iter().enumerate() {
         let path = format!("scales[{index}]");
         for &aesthetic in scale.aesthetic.as_slice() {
             if default_mapper(aesthetic).is_none() {
                 continue; // position scales, or reported by `position_scales`
             }
-            merge(merged.entry(aesthetic).or_default(), scale, &path, warnings);
+            let key = ScaleKey::new(aesthetic, scale.scale_group(aesthetic));
+            merge(merged.entry(key).or_default(), scale, &path, warnings);
             report_unbuilt(scale, &path, warnings);
         }
     }
@@ -1005,7 +1007,10 @@ mod tests {
         };
         let mut warnings = Vec::new();
         let mut merged = style_scale_specs(&plot, &mut warnings);
-        (merged.remove(&Aesthetic::Fill).unwrap(), warnings)
+        (
+            merged.remove(&ScaleKey::new(Aesthetic::Fill, 0)).unwrap(),
+            warnings,
+        )
     }
 
     #[test]

@@ -1,5 +1,7 @@
 //! A scale: how data values map to an aesthetic, plus axis/legend options.
 
+use std::collections::BTreeMap;
+
 use serde::Deserialize;
 
 use super::{Aesthetic, GuideSpec, OneOrMany, Options, Value};
@@ -51,7 +53,18 @@ pub struct ScaleSpec {
     /// Which mapper builds colors/values: `color_brewer`, `color_cmap`, `color_hue`, ...
     #[serde(default)]
     pub scale_mapper_kind: Option<String>,
+    /// ggnewscale scale group per aesthetic (`new_scale_color()` before the call):
+    /// the call configures that group's scale. Missing means group 0.
+    #[serde(default)]
+    pub scale_group: BTreeMap<Aesthetic, u32>,
     /// Mapper-specific options. Validated by the scale implementation.
     #[serde(flatten)]
     pub parameters: Options,
+}
+
+impl ScaleSpec {
+    /// The ggnewscale scale group of `aesthetic` (0 without `new_scale_*()`).
+    pub fn scale_group(&self, aesthetic: Aesthetic) -> u32 {
+        self.scale_group.get(&aesthetic).copied().unwrap_or(0)
+    }
 }

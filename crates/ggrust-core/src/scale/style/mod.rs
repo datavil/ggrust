@@ -93,6 +93,50 @@ pub trait StyleMapper: Send + Sync {
     }
 }
 
+/// Which style scale a mapping, a `scale_*()` call or a guide belongs to: the
+/// aesthetic plus its ggnewscale scale group (0 unless `new_scale_*()` came
+/// before). Group 0 behaves exactly as a plot without `new_scale_*()`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct ScaleKey {
+    /// The mapped style aesthetic.
+    pub aesthetic: Aesthetic,
+    /// The ggnewscale group: how many `new_scale_*()` of the aesthetic came before.
+    pub group: u32,
+}
+
+impl ScaleKey {
+    /// The scale of `aesthetic` in scale group `group`.
+    pub fn new(aesthetic: Aesthetic, group: u32) -> Self {
+        ScaleKey { aesthetic, group }
+    }
+
+    /// The key of the scale's guide in `guides`: `color` for group 0, else
+    /// `color:1` (what Python writes for `guides()` and `labs()` after
+    /// `new_scale_color()`).
+    pub fn guide_key(self) -> String {
+        match self.group {
+            0 => self.aesthetic.as_str().to_owned(),
+            group => format!("{}:{group}", self.aesthetic),
+        }
+    }
+
+    /// The scale key of a `guides` key (`color`, `color:1`); `None` for anything
+    /// else (manual legend groups).
+    pub fn parse_guide_key(key: &str) -> Option<Self> {
+        let (aesthetic, group) = match key.split_once(':') {
+            Some((aesthetic, group)) => (aesthetic, group.parse().ok()?),
+            None => (key, 0),
+        };
+        Some(ScaleKey::new(aesthetic.parse().ok()?, group))
+    }
+}
+
+impl std::fmt::Display for ScaleKey {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.guide_key())
+    }
+}
+
 /// The mapper lets-plot uses for an aesthetic without a `scale_*()` call.
 pub fn default_mapper(aesthetic: Aesthetic) -> Option<Arc<dyn StyleMapper>> {
     match aesthetic {

@@ -205,6 +205,12 @@ nav = [
       "reference/api/scale_color_igv.md",
       "reference/api/scale_fill_igv.md",
     ] },
+    { "More scales per aesthetic (ggnewscale)" = [
+      "reference/api/new_scale_color.md",
+      "reference/api/new_scale_colour.md",
+      "reference/api/new_scale_fill.md",
+      "reference/api/new_scale.md",
+    ] },
     { "Size, shape and alpha scales" = [
       "reference/api/scale_size.md",
       "reference/api/scale_size_area.md",

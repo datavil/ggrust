@@ -201,6 +201,7 @@ fn with_limits(spec: &PlotSpec, aesthetic: Aesthetic, limits: &[String]) -> Plot
             reverse: None,
             position: None,
             scale_mapper_kind: None,
+            scale_group: BTreeMap::new(),
             parameters: Options::new(),
         }),
     }

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import IO, Any, Literal, TypeAlias
+from typing import IO, Any, Literal, TypeAlias, TypedDict
 
 import pandas
 import polars as pl
@@ -76,3 +76,32 @@ Margins: TypeAlias = Number | Sequence[Number]
 
 Function: TypeAlias = Callable[[float], float]
 """A function of one number."""
+
+
+class AxisScale(TypedDict):
+    """One trained position scale of a panel (``PlotSpec.build()``)."""
+
+    discrete: bool
+    """Whether the axis shows categories; their positions are then 0, 1, 2, ..."""
+    domain: tuple[float, float]
+    """The range the panel spans, after limits and expansion, in transformed units."""
+    breaks: list[float]
+    """Break positions drawn on the axis, in transformed units."""
+    labels: list[str]
+    """Break labels as drawn, one per break (a superscript written as ``10^6``)."""
+
+
+class PanelScales(TypedDict):
+    """The data x and y scales of one panel (``x`` is the data x under coord_flip)."""
+
+    x: AxisScale
+    y: AxisScale
+
+
+class PlotBuild(TypedDict):
+    """What ``PlotSpec.build()`` returns."""
+
+    layers: list[pl.DataFrame]
+    """One frame per layer (as ``PlotSpec.layer_data(i)``)."""
+    panels: list[PanelScales]
+    """One entry per panel, in panel order (one for an unfaceted plot)."""

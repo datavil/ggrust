@@ -8,13 +8,16 @@ with identical ``as_dict()`` output and ``+`` semantics, so code written for let
 
 from __future__ import annotations
 
+import copy
 from collections.abc import Iterable, Iterator
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from ggrust._typing import Number, PlotData, Position, Target
+    import polars as pl
+
+    from ggrust._typing import Number, PlotBuild, PlotData, Position, Target
 
 
 __all__ = ["aes", "layer"]
@@ -89,6 +92,59 @@ def layer(
     return LayerSpec(geom=geom, stat=stat, data=data, mapping=mapping, position=position, **kwargs)
 
 
+def _mapping_dict(mapping: object) -> dict[str, Any]:
+    """Return a mapping feature as ``{aesthetic: column}`` (empty without one)."""
+    return mapping.as_dict() if isinstance(mapping, FeatureSpec) else {}
+
+
+def _feature_dict(feature: object) -> dict[str, Any] | None:
+    """Return a feature's ``as_dict()``, or None when it is not set."""
+    return feature.as_dict() if isinstance(feature, FeatureSpec) else None
+
+
+def _size_of(props: dict[str, Any]) -> tuple[Number, Number] | None:
+    """``(width, height)`` of a ``ggsize`` feature in ``props``, or None."""
+    size = props.get("ggsize")
+    if not isinstance(size, FeatureSpec):
+        return None
+    return size.props()["width"], size.props()["height"]
+
+
+def _text_labels(props: dict[str, Any]) -> dict[str, str]:
+    """Title, subtitle, caption and tag set on a plot or grid."""
+    labels: dict[str, str] = {}
+    for kind, key, label in [
+        ("ggtitle", "text", "title"),
+        ("ggtitle", "subtitle", "subtitle"),
+        ("caption", "text", "caption"),
+        ("tag", "text", "tag"),
+    ]:
+        feature = props.get(kind)
+        if isinstance(feature, FeatureSpec) and isinstance(feature.props().get(key), str):
+            labels[label] = feature.props()[key]
+    return labels
+
+
+def _layer_position(index: object, count: int) -> int:
+    """Index ``index`` into ``count`` layers (negative from the end), or raise."""
+    from ggrust.errors import PlotIndexError
+
+    if isinstance(index, bool) or not isinstance(index, int):
+        message = (
+            f"layer index must be an int, got {type(index).__name__} {index!r}; "
+            "pass the position in plot.layers, e.g. layer_data(0)"
+        )
+        raise TypeError(message)
+    if not -count <= index < count:
+        valid = f"0..{count - 1} (or -{count}..-1)" if count else "none: the plot has no layers"
+        message = (
+            f"layer index {index} is out of range: the plot has {count} "
+            f"layer{'s' if count != 1 else ''}; valid indices: {valid}"
+        )
+        raise PlotIndexError(message, index=index, length=count)
+    return index % count
+
+
 def _filter_none(original: dict[str, Any]) -> dict[str, Any]:
     return {key: value for key, value in original.items() if value is not None}
 
@@ -150,6 +206,14 @@ class FeatureSpec:
 class PlotSpec(FeatureSpec):
     """A plot: data, mapping, layers, scales and features. Build it with ``ggplot()``.
 
+    ``+`` returns a new plot and never changes this one. Read the parts back with the
+    properties ``data`` (the same object), ``mapping``, ``layers`` (``LayerSpec``
+    objects with ``geom``, ``stat``, ``data``, ``mapping`` and ``params``),
+    ``scales``, ``theme``, ``labels``, ``size``, ``facet``, ``coord`` and ``guides``;
+    they return plain dicts and tuples. ``with_data(frame)`` swaps the data.
+    ``layer_data(i)`` and ``build()`` run the engine and return what it computed
+    (as ggplot2's ``layer_data`` and ``ggplot_build``).
+
     Examples
     --------
     >>> from ggrust import *
@@ -157,6 +221,9 @@ class PlotSpec(FeatureSpec):
     >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
     >>> plot = plot + geom_smooth(method="lm") + ggtitle("Heavier cars use more fuel")
     >>> spec = plot.as_dict()
+    >>> [layer.geom for layer in plot.layers], plot.labels["title"]
+    (['point', 'smooth'], 'Heavier cars use more fuel')
+    >>> fitted = plot.layer_data(1)  # the smooth's x, y, ymin, ymax, se
     """
 
     @classmethod
@@ -196,8 +263,261 @@ class PlotSpec(FeatureSpec):
         self.__scale_groups: dict[str, int] = {}
 
     def get_plot_shared_data(self) -> PlotData | None:
-        """Return the data shared by all layers."""
+        """Return the data shared by all layers (lets_plot name of ``data``)."""
         return self.props()["data"]
+
+    @property
+    def data(self) -> PlotData | None:
+        """The data given to ``ggplot()``: the same object, not a copy.
+
+        Examples
+        --------
+        >>> import polars as pl
+        >>> from ggrust import *
+        >>> frame = pl.DataFrame({"weight": [2.6, 2.9, 3.2], "mpg": [31, 28, 24]})
+        >>> plot = ggplot(frame, aes("weight", "mpg")) + geom_point()
+        >>> plot.data is frame
+        True
+        """
+        return self.props().get("data")
+
+    @property
+    def mapping(self) -> dict[str, Any]:
+        """The plot's aesthetic mapping, as ``{aesthetic: column}`` (a new dict).
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> plot = ggplot(None, aes("weight", "mpg", color="origin"))
+        >>> plot.mapping
+        {'x': 'weight', 'y': 'mpg', 'color': 'origin'}
+        """
+        return copy.deepcopy(_mapping_dict(self.props().get("mapping")))
+
+    @property
+    def layers(self) -> tuple[LayerSpec, ...]:
+        """The layers in ``+`` order.
+
+        ``geom_boxplot()`` adds two layers (the boxes, then the outlier points), as in
+        ``as_dict()``, so indices match ``layer_data(i)`` and spec error paths
+        (``layers[1]``).
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> plot = ggplot() + geom_point() + geom_line()
+        >>> [layer.geom for layer in plot.layers]
+        ['point', 'line']
+        """
+        return tuple(cast("list[LayerSpec]", self.__layers))
+
+    @property
+    def scales(self) -> tuple[dict[str, Any], ...]:
+        """The ``scale_*()`` calls in ``+`` order, each as its ``as_dict()``.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> plot = ggplot() + scale_x_log10()
+        >>> plot.scales[0]["aesthetic"], plot.scales[0]["trans"]
+        ('x', 'log10')
+        """
+        return tuple(copy.deepcopy(scale.as_dict()) for scale in self.__scales)
+
+    @property
+    def theme(self) -> dict[str, Any]:
+        """The theme options added so far, merged as ``+`` merges them (a new dict).
+
+        Only what was added to this plot: defaults of the named theme are not filled
+        in.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> plot = ggplot() + theme_bw() + theme(legend_position="bottom")
+        >>> plot.theme
+        {'name': 'bw', 'legend_position': 'bottom'}
+        """
+        return copy.deepcopy(_specs_to_dict(dict(self.props().get("theme", {}))))
+
+    @property
+    def labels(self) -> dict[str, str]:
+        """Title, subtitle, caption, tag and axis or legend titles from ``labs()``.
+
+        Aesthetic titles are keyed as in the ``guides`` spec (``"color:1"`` after
+        ``new_scale_color()``). A scale's ``name=`` is not included.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> plot = ggplot() + labs(title="Fuel use", x="Weight", color="Origin")
+        >>> plot.labels
+        {'title': 'Fuel use', 'x': 'Weight', 'color': 'Origin'}
+        """
+        labels = _text_labels(self.props())
+        for key, guide in self.guides.items():
+            if isinstance(guide, dict) and isinstance(guide.get("title"), str):
+                labels[key] = guide["title"]
+        return labels
+
+    @property
+    def size(self) -> tuple[Number, Number] | None:
+        """``(width, height)`` from ``ggsize()``, or None for the default size.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> (ggplot() + ggsize(700, 300)).size
+        (700, 300)
+        """
+        return _size_of(self.props())
+
+    @property
+    def facet(self) -> dict[str, Any] | None:
+        """The ``facet_*()`` spec as a dict, or None.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> (ggplot() + facet_wrap("origin", ncol=2)).facet["ncol"]
+        2
+        """
+        return copy.deepcopy(_feature_dict(self.props().get("facet")))
+
+    @property
+    def coord(self) -> dict[str, Any] | None:
+        """The ``coord_*()`` spec as a dict, or None.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> (ggplot() + coord_flip()).coord
+        {'name': 'flip', 'flip': True}
+        """
+        return copy.deepcopy(_feature_dict(self.props().get("coord")))
+
+    @property
+    def guides(self) -> dict[str, Any]:
+        """The merged ``guides()`` and ``labs()`` titles by aesthetic (a new dict).
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> (ggplot() + guides(color="none")).guides
+        {'color': 'none'}
+        """
+        return copy.deepcopy(_specs_to_dict(dict(self.props().get("guides", {}))))
+
+    def with_data(self, data: PlotData | None) -> PlotSpec:
+        """Return a copy of the plot with new shared data (ggplot2's ``p %+% data``).
+
+        Layers, scales and features are kept; this plot is not changed.
+
+        Parameters
+        ----------
+        data : DataFrame or dict, optional
+            The new data for ``ggplot()``; None removes it. A frame is kept as the
+            same object; a dict is annotated as ``ggplot()`` does (``data_meta``).
+
+        Returns
+        -------
+        PlotSpec
+            The new plot.
+
+        Examples
+        --------
+        >>> import polars as pl
+        >>> from ggrust import *
+        >>> cars = pl.DataFrame({"weight": [2.6, 2.9, 3.2], "mpg": [31, 28, 24]})
+        >>> trucks = pl.DataFrame({"weight": [4.5, 5.0, 5.6], "mpg": [17, 15, 13]})
+        >>> plot = ggplot(cars, aes("weight", "mpg")) + geom_point()
+        >>> truck_plot = plot.with_data(trucks)
+        >>> plot.data is cars, truck_plot.data is trucks
+        (True, True)
+        """
+        from ggrust.plot.util import as_annotated_data, key_int2str
+
+        plot = PlotSpec.duplicate(self)
+        # Column types, time zones and Enum levels follow the new data, as ggplot().
+        data, mapping, data_meta = as_annotated_data(key_int2str(data), self.props().get("mapping"))
+        plot.props()["data"] = data
+        plot.props()["mapping"] = mapping
+        plot.props().update(data_meta)
+        return plot
+
+    def layer_data(self, index: int = 0) -> pl.DataFrame:
+        """Return a layer's data after its stat and position (ggplot2's ``layer_data``).
+
+        Runs the engine's stats, positions and scales (no drawing). Columns: ``panel``
+        and ``group`` (0-based), then the layer's aesthetics (``x``, ``ymin``,
+        ``color``, ...) and stat variables (``count``, ``density``, ...; a stat
+        variable whose name an aesthetic uses keeps its dots, ``..height..``).
+        Positions are in transformed units (``log10`` of the data on a log axis), and
+        categories on a discrete axis are 0, 1, 2, ... (see ``build()`` for the
+        levels). Style aesthetics hold the data values, not colors or sizes. Rows are
+        the engine's: a stat that summarises a group carries other mapped columns as
+        the group's mean or first value (a boxplot's ``y``), the boxplot outlier layer
+        has a NaN row for a box without outliers, and dates and times are epoch
+        milliseconds.
+
+        Parameters
+        ----------
+        index : int, default=0
+            The layer, as in ``layers``; negative values count from the end.
+
+        Returns
+        -------
+        polars.DataFrame
+            One row per drawn element (a bin, a box, a point).
+
+        Raises
+        ------
+        PlotIndexError
+            If ``index`` is not a layer of the plot.
+        SpecError, DataError
+            If the plot cannot be built, as when rendering it.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> data = {"mpg": [31, 28, 24, 22, 19, 15, 18, 21]}
+        >>> plot = ggplot(data, aes("mpg")) + geom_histogram(bins=3)
+        >>> bins = plot.layer_data(0)
+        >>> bins["count"].to_list()
+        [3.0, 3.0, 2.0]
+        """
+        position = _layer_position(index, len(self.__layers))
+        return self.build()["layers"][position]
+
+    def build(self) -> PlotBuild:
+        """Run the engine on the plot without drawing it (ggplot2's ``ggplot_build``).
+
+        Returns
+        -------
+        PlotBuild
+            ``{"layers": [...], "panels": [...]}``: every layer's data as
+            ``layer_data(i)`` returns it, and per panel (one without facets, in panel
+            order otherwise) the trained ``x`` and ``y`` scales: ``discrete``,
+            ``domain`` (the range the panel spans, in transformed units), and the
+            ``breaks`` and ``labels`` drawn at the plot's size. ``x`` is the data x,
+            also under ``coord_flip()``.
+
+        Raises
+        ------
+        SpecError, DataError
+            If the plot cannot be built, as when rendering it.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> data = {"origin": ["EU", "US", "US", "JP"], "mpg": [31, 22, 19, 28]}
+        >>> built = (ggplot(data, aes("origin", "mpg")) + geom_point()).build()
+        >>> built["panels"][0]["x"]["labels"]
+        ['EU', 'US', 'JP']
+        """
+        from ggrust._render import build_plot
+
+        return build_plot(self)
 
     def has_layers(self) -> bool:
         """Return whether the plot has at least one layer."""
@@ -494,8 +814,79 @@ class LayerSpec(FeatureSpec):
         super().__init__("layer", name=None, **kwargs)
 
     def get_plot_layer_data(self) -> PlotData | None:
-        """Return the layer's own data."""
+        """Return the layer's own data (lets_plot name of ``data``)."""
         return self.props()["data"]
+
+    @property
+    def geom(self) -> str | None:
+        """The geom name, e.g. ``"point"``.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> geom_histogram().geom
+        'histogram'
+        """
+        return self.props().get("geom")
+
+    @property
+    def stat(self) -> str | None:
+        """The stat name given to the layer, or None for the geom's default stat.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> geom_point(stat="sum").stat
+        'sum'
+        """
+        stat = self.props().get("stat")
+        return stat.props().get("name") if isinstance(stat, FeatureSpec) else stat
+
+    @property
+    def data(self) -> PlotData | None:
+        """The layer's own data (the same object), or None when it uses the plot's.
+
+        Examples
+        --------
+        >>> import polars as pl
+        >>> from ggrust import *
+        >>> frame = pl.DataFrame({"x": [1, 2], "y": [3, 4]})
+        >>> geom_point(aes("x", "y"), data=frame).data is frame
+        True
+        """
+        return self.props().get("data")
+
+    @property
+    def mapping(self) -> dict[str, Any]:
+        """The layer's own aesthetic mapping, as ``{aesthetic: column}`` (a new dict).
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> geom_point(aes(color="origin")).mapping
+        {'color': 'origin'}
+        """
+        return copy.deepcopy(_mapping_dict(self.props().get("mapping")))
+
+    @property
+    def params(self) -> dict[str, Any]:
+        """Every other layer option, as a new dict.
+
+        Constants (``size=3``), stat and geom options, ``position``, ``tooltips``, ...;
+        unset options and lets_plot's ``data_meta`` are left out.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> geom_point(size=3, alpha=0.5).params
+        {'size': 3, 'alpha': 0.5}
+        """
+        options = {
+            key: value
+            for key, value in self.props().items()
+            if key not in ("geom", "stat", "data", "mapping", "data_meta")
+        }
+        return copy.deepcopy(_specs_to_dict(options))
 
     def __add__(self, other: object) -> FeatureSpec:
         if isinstance(other, DummySpec):

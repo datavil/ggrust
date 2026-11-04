@@ -220,6 +220,13 @@ impl LayerData {
         }
     }
 
+    /// Every column with its variable: aesthetics first, then stat variables.
+    pub fn columns(&self) -> impl Iterator<Item = (Variable, &Column)> + '_ {
+        self.columns
+            .iter()
+            .map(|(variable, column)| (*variable, column))
+    }
+
     /// Mapped aesthetics, in order (stat variables excluded).
     pub fn aesthetics(&self) -> impl Iterator<Item = Aesthetic> + '_ {
         self.columns.keys().filter_map(|variable| match variable {

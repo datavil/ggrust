@@ -301,6 +301,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "ggrust.errors.UnsupportedDataError",
             "ggrust.errors.RenderError",
             "ggrust.errors.ExportError",
+            "ggrust.errors.PlotIndexError",
         ],
     ),
 }

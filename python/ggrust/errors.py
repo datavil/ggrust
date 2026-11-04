@@ -19,6 +19,7 @@ __all__ = [
     "DataError",
     "ExportError",
     "GgrustError",
+    "PlotIndexError",
     "RenderError",
     "SpecError",
     "UnsupportedColumnTypeError",
@@ -266,6 +267,37 @@ class ExportError(GgrustError, ValueError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message)
+
+
+class PlotIndexError(GgrustError, IndexError):
+    """Raised when a layer or grid cell index is out of range or malformed.
+
+    Parameters
+    ----------
+    message : str
+        The full message: the index, what it indexes and the valid range.
+    index : object
+        The index that was asked for.
+    length : int
+        How many layers (or grid cells) there are.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> from ggrust.errors import PlotIndexError
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> chart = ggplot(data, aes("weight", "mpg")) + geom_point()
+    >>> try:
+    ...     frame = chart.layer_data(3)
+    ... except PlotIndexError as error:
+    ...     print(error.length)
+    1
+    """
+
+    def __init__(self, message: str, *, index: object, length: int) -> None:
+        super().__init__(message)
+        self.index = index
+        self.length = length
 
 
 def did_you_mean(word: str, candidates: Iterable[str]) -> str:

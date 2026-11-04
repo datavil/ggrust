@@ -48,6 +48,8 @@ use crate::tooltip::content::{ContentSource, layer_content};
 use crate::tooltip::{Interaction, LayerInteraction};
 use crate::{Error, Result};
 
+pub mod inspect;
+
 /// Plot size when `ggsize` is not given (lets-plot default).
 pub const DEFAULT_SIZE: (f64, f64) = (600.0, 400.0);
 

@@ -12,14 +12,14 @@ import warnings
 from typing import TYPE_CHECKING, Any, cast
 
 from ggrust._data import as_arrow
-from ggrust._ggrust import referenced_columns, render, tooltip_columns
+from ggrust._ggrust import inspect, referenced_columns, render, tooltip_columns
 from ggrust.errors import DataError, ExportError, UnsupportedValueError, did_you_mean
 
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
     from ggrust._data import ArrowStreamExportable
-    from ggrust._typing import Number, Target
+    from ggrust._typing import Number, PanelScales, PlotBuild, Target
     from ggrust.plot.core import PlotSpec
     from ggrust.plot.subplots import SupPlotsSpec
 
@@ -100,6 +100,33 @@ def render_bytes(
     for message in messages:
         warnings.warn(message, GgrustWarning, stacklevel=4)
     return encoded
+
+
+def build_plot(plot: PlotSpec) -> PlotBuild:
+    """Run the engine's stats, positions, scales and layout on ``plot``, draw nothing.
+
+    Parameters
+    ----------
+    plot : PlotSpec
+        A single plot.
+
+    Returns
+    -------
+    PlotBuild
+        One polars frame per layer and the x and y scales of every panel. Build
+        warnings are emitted as ``GgrustWarning``, as when rendering.
+    """
+    import polars as pl
+
+    spec, frames = split_data(plot.as_dict())
+    spec_json = to_json(spec)
+    columns = set(referenced_columns(spec_json))
+    exported = [_export(data, columns, path) for data, path in frames]
+    tables, panels, messages = inspect(spec_json, exported)
+    for message in messages:
+        warnings.warn(message, GgrustWarning, stacklevel=4)
+    layers = [pl.DataFrame(table) for table in tables]
+    return {"layers": layers, "panels": cast("list[PanelScales]", panels)}
 
 
 def _display_id() -> str:

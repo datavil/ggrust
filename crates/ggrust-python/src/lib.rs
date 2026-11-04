@@ -267,6 +267,72 @@ mod _ggrust {
         Ok((PyBytes::new(python, &bytes), warnings))
     }
 
+    /// What `inspect` returns: layer tables, panel scale dicts, warnings.
+    type Inspection<'py> = (Vec<Bound<'py, PyAny>>, Vec<Bound<'py, PyDict>>, Vec<String>);
+
+    /// Prepare and lay out a single plot without drawing it (``PlotSpec.build()``).
+    /// Arguments as `render`. Returns one Arrow table per spec layer (data after
+    /// stat and position), one dict per panel with its `x` and `y` scales
+    /// (`discrete`, `domain`, `breaks`, `labels`) and the build warnings.
+    /// The GIL is released while building.
+    #[pyfunction]
+    fn inspect<'py>(
+        python: Python<'py>,
+        spec_json: &str,
+        frames: Vec<AnyRecordBatch>,
+    ) -> PyResult<Inspection<'py>> {
+        use ggrust_core::build::PlotData;
+        use ggrust_core::build::inspect::{AxisScale, inspect_plot};
+        use pyo3_arrow::PyTable;
+
+        let frames = frames
+            .into_iter()
+            .map(to_frame)
+            .collect::<PyResult<Vec<_>>>()?;
+        let spec_json = spec_json.to_owned();
+        let inspection = python
+            .detach(move || -> ggrust_core::Result<_> {
+                match Figure::from_json(&spec_json)? {
+                    Figure::Plot(spec) => {
+                        inspect_plot(&spec, &PlotData::from_frames(&spec, &frames)?)
+                    }
+                    Figure::Subplots(_) => Err(ggrust_core::Error::render(
+                        "only a single plot can be inspected; inspect each figure of a \
+                         gggrid on its own (grid.plots())",
+                    )),
+                }
+            })
+            .map_err(to_python_error)?;
+        let layers = inspection
+            .layers
+            .into_iter()
+            .map(|batch| {
+                let schema = batch.schema();
+                let table = PyTable::try_new(vec![batch], schema)?;
+                Ok(Bound::new(python, table)?.into_any())
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+        let axis = |scale: &AxisScale| -> PyResult<Bound<'py, PyDict>> {
+            let dict = PyDict::new(python);
+            dict.set_item("discrete", scale.discrete)?;
+            dict.set_item("domain", scale.domain)?;
+            dict.set_item("breaks", &scale.breaks)?;
+            dict.set_item("labels", &scale.labels)?;
+            Ok(dict)
+        };
+        let panels = inspection
+            .panels
+            .iter()
+            .map(|panel| {
+                let dict = PyDict::new(python);
+                dict.set_item("x", axis(&panel.x)?)?;
+                dict.set_item("y", axis(&panel.y)?)?;
+                Ok(dict)
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+        Ok((layers, panels, inspection.warnings))
+    }
+
     fn to_frame(data: AnyRecordBatch) -> PyResult<DataFrame> {
         let (batches, schema) = data.into_table()?.into_inner();
         DataFrame::new(schema, batches).map_err(to_python_error)

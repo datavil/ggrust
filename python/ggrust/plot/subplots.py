@@ -7,13 +7,18 @@ with identical ``as_dict()`` output and ``+`` semantics. The engine lays grids o
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import copy
+from typing import TYPE_CHECKING, TypeAlias, cast
 
+from ggrust.errors import PlotIndexError, SpecError, did_you_mean
 from ggrust.plot.core import (
     DummySpec,
     FeatureSpec,
     FeatureSpecArray,
+    PlotSpec,
+    _size_of,
     _specs_to_dict,
+    _text_labels,
     _theme_dicts_merge,
 )
 
@@ -21,7 +26,26 @@ if TYPE_CHECKING:
     from typing import Any
 
     from ggrust._typing import Number, Target
-    from ggrust.plot.core import PlotSpec
+
+Figure: TypeAlias = "PlotSpec | SupPlotsSpec | None"
+"""One grid cell: a plot, a nested grid, or None for an empty cell."""
+
+Cell: TypeAlias = "int | tuple[int, int]"
+"""A grid cell: its index in ``figures`` or its ``(row, column)``."""
+
+# ``gggrid()`` options ``with_layout`` accepts (``nrow`` follows from ``ncol``).
+LAYOUT_OPTIONS = (
+    "ncol",
+    "sharex",
+    "sharey",
+    "widths",
+    "heights",
+    "hspace",
+    "vspace",
+    "fit",
+    "align",
+    "guides",
+)
 
 
 __all__ = ["SupPlotsSpec"]
@@ -38,9 +62,19 @@ class SupPlotsLayoutSpec:
         """Return the layout options without ``None`` values."""
         return _specs_to_dict(self.__props)
 
+    def options(self) -> dict[str, Any]:
+        """Return every layout option, unset ones as None, without ``name``."""
+        return {key: value for key, value in self.__props.items() if key != "name"}
+
 
 class SupPlotsSpec(FeatureSpec):
     """Several plots in one figure. Build it with ``gggrid()``.
+
+    Read it back with ``figures`` (cells row by row, None for an empty cell),
+    ``layout``, ``ncol``, ``nrow``, ``size``, ``theme`` (the grid's own: figures keep
+    theirs), ``labels``, ``grid[i]`` or ``grid[row, column]``, and ``plots()``
+    (every plot, nested grids flattened). ``with_figure()`` and ``with_layout()``
+    return changed copies. A grid has no ``build()``: build its plots one by one.
 
     Examples
     --------
@@ -51,6 +85,8 @@ class SupPlotsSpec(FeatureSpec):
     >>> plot = gggrid([points, line])
     >>> isinstance(plot, SupPlotsSpec)
     True
+    >>> plot[1] is line, plot.plots() == (points, line)
+    (True, True)
     """
 
     @classmethod
@@ -72,6 +108,296 @@ class SupPlotsSpec(FeatureSpec):
         super().__init__("subplots", name=None)
         self.__figures = list(figures)
         self.__layout = layout
+
+    @property
+    def figures(self) -> tuple[Figure, ...]:
+        """The cells in drawing order (row by row): plots, nested grids, None if empty.
+
+        ``gggrid`` pads the last row with None, so there are ``ncol * nrow`` cells.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> points = ggplot() + geom_point()
+        >>> grid = gggrid([points, None, points], ncol=2)
+        >>> [figure is points for figure in grid.figures]
+        [True, False, True, False]
+        """
+        return tuple(self.__figures)
+
+    @property
+    def layout(self) -> dict[str, Any]:
+        """Every layout option, unset ones as None (a new dict).
+
+        ``ncol``, ``nrow``, ``sharex``, ``sharey``, ``widths``, ``heights``, ``hspace``,
+        ``vspace``, ``fit``, ``align`` and ``guides``, as ``gggrid()`` stored them.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> grid = gggrid([ggplot(), ggplot()], ncol=1, guides="collect")
+        >>> grid.layout["nrow"], grid.layout["guides"], grid.layout["widths"]
+        (2, 'collect', None)
+        """
+        return copy.deepcopy(self.__layout.options())
+
+    @property
+    def ncol(self) -> int:
+        """The number of columns (the figure count when ``gggrid`` got no ``ncol``).
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> gggrid([ggplot(), ggplot(), ggplot()]).ncol
+        3
+        """
+        return self.__layout.options()["ncol"]
+
+    @property
+    def nrow(self) -> int:
+        """The number of rows.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> gggrid([ggplot(), ggplot(), ggplot()], ncol=2).nrow
+        2
+        """
+        return self.__layout.options()["nrow"]
+
+    @property
+    def size(self) -> tuple[Number, Number] | None:
+        """``(width, height)`` from ``ggsize()``, or None for the default size.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> (gggrid([ggplot()]) + ggsize(800, 400)).size
+        (800, 400)
+        """
+        return _size_of(self.props())
+
+    @property
+    def theme(self) -> dict[str, Any]:
+        """The grid's own theme options (a new dict).
+
+        Figures keep the theme they were built with: ``grid.figures[i].theme`` does not
+        include what they inherit from the grid when drawn.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> (gggrid([ggplot()]) + theme_minimal()).theme
+        {'name': 'minimal'}
+        """
+        return copy.deepcopy(_specs_to_dict(dict(self.props().get("theme", {}))))
+
+    @property
+    def labels(self) -> dict[str, str]:
+        """The grid's title, subtitle, caption and tag (only those set).
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> (gggrid([ggplot()]) + ggtitle("Dashboard")).labels
+        {'title': 'Dashboard'}
+        """
+        return _text_labels(self.props())
+
+    def plots(self) -> tuple[PlotSpec, ...]:
+        """Every plot, nested grids flattened in drawing order, empty cells skipped.
+
+        Returns
+        -------
+        tuple of PlotSpec
+            The plots (the same objects).
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> data = {"weight": [2.6, 2.9, 3.2], "mpg": [31, 28, 24]}
+        >>> points = ggplot(data, aes("weight", "mpg")) + geom_point()
+        >>> bars = ggplot(data, aes("mpg")) + geom_histogram(bins=2)
+        >>> grid = gggrid([points, None, gggrid([bars, points])], ncol=2)
+        >>> [plot.layers[0].geom for plot in grid.plots()]
+        ['point', 'histogram', 'point']
+        """
+        return tuple(self.plot_paths().values())
+
+    def plot_paths(self) -> dict[str, PlotSpec]:
+        """Every plot keyed by its spec path, as error messages name it.
+
+        Returns
+        -------
+        dict of str to PlotSpec
+            ``{"figures[0]": plot, "figures[2].figures[1]": plot, ...}`` in drawing
+            order, empty cells skipped.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> grid = gggrid([ggplot(), None, gggrid([ggplot(), ggplot()])], ncol=2)
+        >>> list(grid.plot_paths())
+        ['figures[0]', 'figures[2].figures[0]', 'figures[2].figures[1]']
+        """
+        paths: dict[str, PlotSpec] = {}
+        for index, figure in enumerate(self.__figures):
+            path = f"figures[{index}]"
+            if isinstance(figure, SupPlotsSpec):
+                for child_path, plot in figure.plot_paths().items():
+                    paths[f"{path}.{child_path}"] = plot
+            elif isinstance(figure, PlotSpec):
+                paths[path] = figure
+        return paths
+
+    def __getitem__(self, cell: Cell) -> Figure:
+        """Return the figure of a cell: ``grid[i]`` or ``grid[row, column]``.
+
+        Negative values count from the end, as for tuples.
+
+        Raises
+        ------
+        PlotIndexError
+            If the cell is outside the grid.
+        TypeError
+            If ``cell`` is not an int or a pair of ints.
+        """
+        return self.__figures[self.__cell_position(cell)]
+
+    def with_figure(self, cell: Cell, figure: Figure) -> SupPlotsSpec:
+        """Return a copy of the grid with one cell replaced; this grid is not changed.
+
+        Parameters
+        ----------
+        cell : int or tuple of (int, int)
+            The cell's index in ``figures``, or its ``(row, column)``.
+        figure : PlotSpec, SupPlotsSpec or None
+            The new figure; None empties the cell.
+
+        Returns
+        -------
+        SupPlotsSpec
+            The new grid, with the same layout, size, theme and titles.
+
+        Raises
+        ------
+        PlotIndexError
+            If the cell is outside the grid.
+        TypeError
+            If ``cell`` is malformed or ``figure`` is not a plot, a grid or None.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> points, line = ggplot() + geom_point(), ggplot() + geom_line()
+        >>> grid = gggrid([points, points], ncol=2)
+        >>> grid.with_figure((0, 1), line)[1] is line
+        True
+        """
+        if figure is not None and not isinstance(figure, PlotSpec | SupPlotsSpec):
+            message = (
+                f"with_figure(): figure must be a plot (ggplot()), a grid (gggrid()) or "
+                f"None, got {type(figure).__name__}"
+            )
+            raise TypeError(message)
+        position = self.__cell_position(cell)
+        grid = SupPlotsSpec.duplicate(self)
+        grid.__figures[position] = figure
+        return grid
+
+    def with_layout(self, **options: object) -> SupPlotsSpec:
+        """Return a copy of the grid with new ``gggrid()`` layout options.
+
+        Options not given keep their value. Changing ``ncol`` lays the figures out
+        again row by row: empty cells at the end (``gggrid``'s padding) are dropped
+        first, then the last row is padded for the new column count. Size, theme and
+        titles are kept; this grid is not changed.
+
+        Parameters
+        ----------
+        **options
+            Any of ``gggrid()``'s options: ``ncol``, ``sharex``, ``sharey``,
+            ``widths``, ``heights``, ``hspace``, ``vspace``, ``fit``, ``align``,
+            ``guides``.
+
+        Returns
+        -------
+        SupPlotsSpec
+            The new grid.
+
+        Raises
+        ------
+        TypeError
+            If an option is not a ``gggrid()`` option.
+        SpecError
+            If ``ncol`` is not a positive int.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> grid = gggrid([ggplot(), ggplot(), ggplot()], ncol=2)
+        >>> wide = grid.with_layout(ncol=3, guides="collect")
+        >>> (grid.ncol, grid.nrow), (wide.ncol, wide.nrow)
+        ((2, 2), (3, 1))
+        """
+        from ggrust.plot.gggrid import gggrid
+
+        for name in options:
+            if name not in LAYOUT_OPTIONS:
+                message = (
+                    f"with_layout() got an unexpected option {name!r}; accepted: "
+                    f"{', '.join(LAYOUT_OPTIONS)}{did_you_mean(name, LAYOUT_OPTIONS)}"
+                )
+                raise TypeError(message)
+        ncol = options.get("ncol", self.ncol)
+        if not _is_index(ncol) or cast("int", ncol) < 1:
+            message = (
+                f"with_layout(): ncol must be a positive int, got {ncol!r}; pass the "
+                "number of columns, e.g. ncol=2"
+            )
+            raise SpecError(message, path="layout.ncol", reason=message)
+        merged = {name: self.__layout.options().get(name) for name in LAYOUT_OPTIONS}
+        figures = list(self.__figures)
+        if "ncol" in options and options["ncol"] != merged["ncol"]:
+            while len(figures) > 1 and figures[-1] is None:
+                figures.pop()
+        merged.update(options)
+        grid = gggrid(figures, **merged)
+        grid.props().update(self.props())
+        return grid
+
+    def __cell_position(self, cell: object) -> int:
+        """Return the index in ``figures`` of ``cell`` (an index or ``(row, column)``)."""
+        count = len(self.__figures)
+        ncol, nrow = self.ncol, self.nrow
+        if isinstance(cell, tuple):
+            if len(cell) != 2 or not all(_is_index(part) for part in cell):
+                message = f"a grid cell is an int or a (row, column) pair of ints, got {cell!r}"
+                raise TypeError(message)
+            row, column = cell
+            if not (-nrow <= row < nrow and -ncol <= column < ncol):
+                message = (
+                    f"grid cell ({row}, {column}) is out of range: the grid has {nrow} "
+                    f"row{'s' if nrow != 1 else ''} and {ncol} column"
+                    f"{'s' if ncol != 1 else ''}; rows 0..{nrow - 1}, columns 0..{ncol - 1}"
+                )
+                raise PlotIndexError(message, index=cell, length=count)
+            return (row % nrow) * ncol + column % ncol
+        if not _is_index(cell):
+            message = (
+                f"a grid cell is an int or a (row, column) pair of ints, got "
+                f"{type(cell).__name__} {cell!r}"
+            )
+            raise TypeError(message)
+        index = cast("int", cell)
+        if not -count <= index < count:
+            message = (
+                f"grid cell {index} is out of range: the grid has {count} "
+                f"cell{'s' if count != 1 else ''} ({nrow} x {ncol}); valid indices: "
+                f"0..{count - 1} (or -{count}..-1), or grid[row, column]"
+            )
+            raise PlotIndexError(message, index=index, length=count)
+        return index % count
 
     def __add__(self, other: object) -> SupPlotsSpec:
         if isinstance(other, DummySpec):
@@ -243,3 +569,8 @@ class SupPlotsSpec(FeatureSpec):
         from ggrust._render import export_html
 
         return export_html(self, path, iframe)
+
+
+def _is_index(value: object) -> bool:
+    """Whether ``value`` is an int usable as an index (bools are not)."""
+    return isinstance(value, int) and not isinstance(value, bool)

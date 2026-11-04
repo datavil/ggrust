@@ -175,3 +175,27 @@ def render(
     ValueError
         If the spec or data is invalid; the message names the offending path.
     """
+
+def inspect(spec_json: str, frames: list[Any]) -> tuple[list[Any], list[dict[str, Any]], list[str]]:
+    """Prepare and lay out a single plot without drawing it (``PlotSpec.build()``).
+
+    Parameters
+    ----------
+    spec_json
+        Plot spec as for ``render``.
+    frames
+        The referenced frames, each exporting ``__arrow_c_stream__``.
+
+    Returns
+    -------
+    tuple[list[Any], list[dict[str, Any]], list[str]]
+        One Arrow table per layer (``__arrow_c_stream__``; data after stat and
+        position, with ``panel`` and ``group`` columns), one dict per panel with its
+        ``x`` and ``y`` scales (``discrete``, ``domain``, ``breaks``, ``labels``), and
+        the build warnings.
+
+    Raises
+    ------
+    ValueError
+        If the spec or data is invalid, or the spec is a grid.
+    """

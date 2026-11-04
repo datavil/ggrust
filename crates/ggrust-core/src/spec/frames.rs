@@ -104,10 +104,16 @@ impl Figure {
                         columns.extend(crate::tooltip::referenced_variables(lines));
                     }
                 }
+                for inset in &plot.insets {
+                    inset.figure.collect_tooltip_columns(columns);
+                }
             }
             Figure::Subplots(subplots) => {
                 for figure in subplots.figures.iter().flatten() {
                     figure.collect_tooltip_columns(columns);
+                }
+                for inset in &subplots.insets {
+                    inset.figure.collect_tooltip_columns(columns);
                 }
             }
         }
@@ -115,10 +121,18 @@ impl Figure {
 
     fn collect_columns(&self, columns: &mut BTreeSet<String>) {
         match self {
-            Figure::Plot(plot) => plot.collect_columns(columns),
+            Figure::Plot(plot) => {
+                plot.collect_columns(columns);
+                for inset in &plot.insets {
+                    inset.figure.collect_columns(columns);
+                }
+            }
             Figure::Subplots(subplots) => {
                 for figure in subplots.figures.iter().flatten() {
                     figure.collect_columns(columns);
+                }
+                for inset in &subplots.insets {
+                    inset.figure.collect_columns(columns);
                 }
             }
         }

@@ -187,6 +187,28 @@ pub enum TitlePosition {
     Plot,
 }
 
+/// Where a plot tag goes (lets-plot `plot_tag_position`): fractions of its area,
+/// 0 = left or bottom.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum TagPosition {
+    /// A side or corner: the tag's box touches those edges of the area.
+    Named(f64, f64),
+    /// `[x, y]`: the box is centred there, kept inside the area.
+    Point(f64, f64),
+}
+
+/// The area a plot tag is placed in (lets-plot `plot_tag_location`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TagLocation {
+    /// The plot inside its margin, over everything (the default).
+    Plot,
+    /// The panels.
+    Panel,
+    /// A band of the plot margin, reserved by the layout (named positions only;
+    /// with `[x, y]` it acts as `Plot`, as lets-plot).
+    Margin,
+}
+
 /// Direction of legend keys (`legend_direction`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LegendDirection {
@@ -240,6 +262,17 @@ pub struct Theme {
     pub plot_title_position: TitlePosition,
     /// What the caption is justified along (`plot_caption_position`).
     pub plot_caption_position: TitlePosition,
+    /// Plot tag (`plot_tag`, `labs(tag=...)`); its margins only widen its box, as
+    /// lets-plot.
+    pub plot_tag: Option<TextStyle>,
+    /// Space around the tag (`plot_tag` margins).
+    pub plot_tag_margin: Margins,
+    /// Where the tag goes in its area (`plot_tag_position`).
+    pub plot_tag_position: TagPosition,
+    /// The area the tag is placed in (`plot_tag_location`).
+    pub plot_tag_location: TagLocation,
+    /// Text before and after every tag (`plot_tag_prefix`, `plot_tag_suffix`).
+    pub plot_tag_affixes: (String, String),
     /// x axis title.
     pub axis_title_x: Option<TextStyle>,
     /// y axis title.
@@ -407,6 +440,11 @@ const BUILT_OPTIONS: &[&str] = &[
     "plot_caption",
     "plot_title_position",
     "plot_caption_position",
+    "plot_tag",
+    "plot_tag_position",
+    "plot_tag_location",
+    "plot_tag_prefix",
+    "plot_tag_suffix",
     "plot_margin",
     "plot_inset",
     "legend_background",
@@ -538,6 +576,8 @@ fn report_unbuilt(spec: &ThemeSpec, warnings: &mut Vec<String>) {
         // Axis titles read angle and vjust (layout `axis_title_justification`):
         // turned by the angle, vjust moves a title along its axis.
         let axis_title = matches!(key.as_str(), "axis_title" | "axis_title_x" | "axis_title_y");
+        // Tags read vjust: it places the text in the tag's box.
+        let plot_tag = key == "plot_tag";
         // Strip labels (layout/facet.rs), plot, axis and legend titles and captions
         // read their margins.
         let strip_text = matches!(
@@ -549,6 +589,7 @@ fn report_unbuilt(spec: &ThemeSpec, warnings: &mut Vec<String>) {
                 | "plot_title"
                 | "plot_subtitle"
                 | "plot_caption"
+                | "plot_tag"
                 | "axis_title"
                 | "axis_title_x"
                 | "axis_title_y"
@@ -558,7 +599,7 @@ fn report_unbuilt(spec: &ThemeSpec, warnings: &mut Vec<String>) {
             ("margin", element.margin.is_some() && !strip_text),
             (
                 "vjust",
-                element.vjust.is_some() && !axis_text && !axis_title,
+                element.vjust.is_some() && !axis_text && !axis_title && !plot_tag,
             ),
             (
                 "angle",
@@ -759,6 +800,14 @@ impl Resolver<'_> {
                 "plot_caption_position",
                 self.values.value_of(&["plot_caption_position"]),
             )?,
+            plot_tag: self.text(&["plot_tag", "title", "text"]),
+            plot_tag_margin: self.margins(&["plot_tag", "title", "text"], 0.0),
+            plot_tag_position: tag_position(self.values.value_of(&["plot_tag_position"]))?,
+            plot_tag_location: tag_location(self.values.value_of(&["plot_tag_location"]))?,
+            plot_tag_affixes: (
+                affix(self.values, "plot_tag_prefix")?,
+                affix(self.values, "plot_tag_suffix")?,
+            ),
             axis_title_x: self.text(&[&title_x, "axis_title", "title", "text", &axis_x, "axis"]),
             axis_title_y: self.text(&[&title_y, "axis_title", "title", "text", &axis_y, "axis"]),
             axis_title_x_margin: self.margins(
@@ -1051,6 +1100,85 @@ fn title_position(key: &str, value: Option<&Value>) -> Result<TitlePosition> {
         Some(other) => Err(Error::spec(
             format!("theme.{key}"),
             format!("expected 'panel' or 'plot', got {other}"),
+        )),
+    }
+}
+
+/// lets-plot `plot_tag_position`: a side or corner name (`top-left`, `topleft` or
+/// `top_left`), or `[x, y]` (kept inside the area, as lets-plot clamps it).
+fn tag_position(value: Option<&Value>) -> Result<TagPosition> {
+    const NAMES: [&str; 8] = [
+        "left",
+        "top-left",
+        "top",
+        "top-right",
+        "right",
+        "bottom-right",
+        "bottom",
+        "bottom-left",
+    ];
+    Ok(match value {
+        None => TagPosition::Named(0.0, 1.0),
+        Some(Value::String(name)) => {
+            let normal = name.replace('_', "-");
+            let normal = match normal.as_str() {
+                "topleft" => "top-left",
+                "topright" => "top-right",
+                "bottomleft" => "bottom-left",
+                "bottomright" => "bottom-right",
+                other => other,
+            };
+            let (x, y) = match normal {
+                "left" => (0.0, 0.5),
+                "top-left" => (0.0, 1.0),
+                "top" => (0.5, 1.0),
+                "top-right" => (1.0, 1.0),
+                "right" => (1.0, 0.5),
+                "bottom-right" => (1.0, 0.0),
+                "bottom" => (0.5, 0.0),
+                "bottom-left" => (0.0, 0.0),
+                _ => {
+                    return Err(Error::spec(
+                        "theme.plot_tag_position",
+                        format!(
+                            "expected one of {} or [x, y], got '{name}'{}",
+                            NAMES.join(", "),
+                            crate::suggest::did_you_mean(name, NAMES)
+                        ),
+                    ));
+                }
+            };
+            TagPosition::Named(x, y)
+        }
+        Some(value) => {
+            let (x, y) = pair(value, "plot_tag_position")?;
+            TagPosition::Point(x, y)
+        }
+    })
+}
+
+/// lets-plot `plot_tag_location`.
+fn tag_location(value: Option<&Value>) -> Result<TagLocation> {
+    match value {
+        None => Ok(TagLocation::Plot),
+        Some(Value::String(name)) if name == "plot" => Ok(TagLocation::Plot),
+        Some(Value::String(name)) if name == "panel" => Ok(TagLocation::Panel),
+        Some(Value::String(name)) if name == "margin" => Ok(TagLocation::Margin),
+        Some(other) => Err(Error::spec(
+            "theme.plot_tag_location",
+            format!("expected 'plot', 'panel' or 'margin', got {other}"),
+        )),
+    }
+}
+
+/// `plot_tag_prefix` / `plot_tag_suffix`: a string, empty by default.
+fn affix(values: &Values, key: &str) -> Result<String> {
+    match values.value_of(&[key]) {
+        None => Ok(String::new()),
+        Some(Value::String(text)) => Ok(text.clone()),
+        Some(other) => Err(Error::spec(
+            format!("theme.{key}"),
+            format!("expected a string, got {other}"),
         )),
     }
 }

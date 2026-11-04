@@ -45,6 +45,9 @@ LAYOUT_OPTIONS = (
     "fit",
     "align",
     "guides",
+    "design",
+    "tag_levels",
+    "tag_level",
 )
 
 
@@ -350,7 +353,7 @@ class SupPlotsSpec(FeatureSpec):
                 )
                 raise TypeError(message)
         ncol = options.get("ncol", self.ncol)
-        if not _is_index(ncol) or cast("int", ncol) < 1:
+        if options.get("design") is None and (not _is_index(ncol) or cast("int", ncol) < 1):
             message = (
                 f"with_layout(): ncol must be a positive int, got {ncol!r}; pass the "
                 "number of columns, e.g. ncol=2"
@@ -361,7 +364,17 @@ class SupPlotsSpec(FeatureSpec):
         if "ncol" in options and options["ncol"] != merged["ncol"]:
             while len(figures) > 1 and figures[-1] is None:
                 figures.pop()
+        if merged["design"] is not None:
+            # The design sets the columns; a new ncol replaces the design.
+            if "ncol" in options and "design" not in options:
+                merged["design"] = None
+            else:
+                merged["ncol"] = None
         merged.update(options)
+        if merged["design"] is not None:
+            merged["ncol"] = None
+            while len(figures) > 1 and figures[-1] is None:
+                figures.pop()
         grid = gggrid(figures, **merged)
         grid.props().update(self.props())
         return grid
@@ -382,7 +395,18 @@ class SupPlotsSpec(FeatureSpec):
                     f"{'s' if ncol != 1 else ''}; rows 0..{nrow - 1}, columns 0..{ncol - 1}"
                 )
                 raise PlotIndexError(message, index=cell, length=count)
-            return (row % nrow) * ncol + column % ncol
+            row, column = row % nrow, column % ncol
+            areas = self.__layout.options().get("areas")
+            if areas is None:
+                return row * ncol + column
+            for index, (left, top, right, bottom) in enumerate(areas):
+                if left <= column <= right and top <= row <= bottom:
+                    return index
+            message = (
+                f"grid cell ({row}, {column}) is an empty cell ('#') of the design; "
+                "index the figures by number, or pick a cell of a design area"
+            )
+            raise PlotIndexError(message, index=cell, length=count)
         if not _is_index(cell):
             message = (
                 f"a grid cell is an int or a (row, column) pair of ints, got "
@@ -432,6 +456,10 @@ class SupPlotsSpec(FeatureSpec):
                 return supplots
             supplots.props()[other.kind] = other
             return supplots
+        if isinstance(other, FeatureSpec) and other.kind == "inset":
+            supplots = SupPlotsSpec.duplicate(self)
+            supplots.props()["insets"] = [*supplots.props().get("insets", []), other]
+            return supplots
         message = f"unsupported operand type(s) for +: {self.__class__} and {other.__class__}"
         raise TypeError(message)
 
@@ -450,6 +478,8 @@ class SupPlotsSpec(FeatureSpec):
         result["figures"] = [
             None if figure is None else figure.as_dict() for figure in self.__figures
         ]
+        if "insets" in result:
+            result["insets"] = [inset.as_dict() for inset in result["insets"]]
         return result
 
     def _repr_html_(self) -> str:

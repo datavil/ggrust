@@ -67,6 +67,7 @@ from ggrust.plot.gggrid import gggrid
 from ggrust.plot.gghighlight import gghighlight
 from ggrust.plot.ggtb import ggtb
 from ggrust.plot.guide import guide_colorbar, guide_legend, guides, layer_key
+from ggrust.plot.inset import inset_element
 from ggrust.plot.label import ggtitle, labs, xlab, ylab
 from ggrust.plot.new_scale import new_scale, new_scale_color, new_scale_colour, new_scale_fill
 from ggrust.plot.plot import GGBunch, ggplot, ggsize
@@ -276,6 +277,7 @@ __all__ = [
     "guide_legend",
     "guides",
     "hclust",
+    "inset_element",
     "labs",
     "layer",
     "layer_key",

@@ -22,6 +22,7 @@ use std::collections::{BTreeMap, HashSet};
 
 use crate::build::{PlotData, PreparedPlot, prepare_plot};
 use crate::data::DataFrame;
+use crate::layout::grid::{Span, figure_spans};
 use crate::scale::PositionScale;
 use crate::spec::{Aesthetic, GridLayoutSpec, OneOrMany, Options, PlotSpec, ScaleSpec, Value};
 use crate::{Error, Result};
@@ -52,12 +53,12 @@ impl ShareMode {
         }
     }
 
-    /// The sharing group of the figure at `index` in a grid of `columns`.
-    fn group(self, index: usize, columns: usize) -> usize {
+    /// The sharing group of a figure: by the row or column of its first cell.
+    fn group(self, span: Span) -> usize {
         match self {
             ShareMode::All => 0,
-            ShareMode::Row => index / columns,
-            ShareMode::Column => index % columns,
+            ShareMode::Row => span.top,
+            ShareMode::Column => span.left,
         }
     }
 }
@@ -78,7 +79,12 @@ pub(crate) fn share_axes(
     prepared: &mut [Option<Result<PreparedPlot>>],
     frames: &[DataFrame],
 ) -> Result<()> {
-    let columns = (layout.ncol as usize).max(1);
+    let spans = figure_spans(
+        (layout.ncol as usize, layout.nrow as usize),
+        prepared.len(),
+        layout.areas.as_deref(),
+    )
+    .map_err(|message| Error::spec("layout.areas", message))?;
     for (horizontal, value, key) in [
         (true, layout.sharex.as_deref(), "sharex"),
         (false, layout.sharey.as_deref(), "sharey"),
@@ -90,7 +96,7 @@ pub(crate) fn share_axes(
         for (index, result) in prepared.iter().enumerate() {
             if matches!(result, Some(Ok(_))) {
                 groups
-                    .entry(mode.group(index, columns))
+                    .entry(mode.group(spans[index]))
                     .or_default()
                     .push(index);
             }

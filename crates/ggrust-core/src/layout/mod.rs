@@ -20,6 +20,7 @@ pub mod facet;
 pub mod grid;
 mod legend;
 mod rotated;
+pub mod tag;
 pub mod zoom;
 
 pub use axis::{AxisBreaks, LabelArrangement, Orientation, choose_breaks};
@@ -68,6 +69,8 @@ pub struct Titles {
     pub x: Option<String>,
     /// y axis title.
     pub y: Option<String>,
+    /// Plot tag (`labs(tag=...)`), without the theme's prefix and suffix.
+    pub tag: Option<String>,
 }
 
 /// Result of laying out a single-panel plot.
@@ -1209,6 +1212,12 @@ pub fn draw_titles(layout: &PlotLayout, theme: &Theme, titles: &Titles) -> Node 
         theme,
         titles,
     ));
+    titles_nodes.extend(tag::tag_nodes(
+        theme,
+        &titles.tag,
+        plot_inner(content, theme, titles),
+        panel,
+    ));
     role_group("titles", titles_nodes)
 }
 
@@ -1248,11 +1257,26 @@ pub fn caption_band(theme: &Theme, titles: &Titles) -> f64 {
 /// the caption takes its band at the bottom (lets-plot lays it out below the
 /// legends).
 pub fn plot_content(area: Rect, theme: &Theme, titles: &Titles) -> Rect {
-    let content = shrink(area, theme.plot_margin);
+    let content = shrink(
+        shrink(area, theme.plot_margin),
+        tag::tag_bands(theme, &titles.tag),
+    );
     let caption = caption_band(theme, titles);
     Rect {
         height: (content.height - caption).max(1.0),
         ..content
+    }
+}
+
+/// The plot inside its margin, from its content ([`plot_content`]): the tag's
+/// bands and the caption added back.
+pub fn plot_inner(content: Rect, theme: &Theme, titles: &Titles) -> Rect {
+    let bands = tag::tag_bands(theme, &titles.tag);
+    Rect {
+        x: content.x - bands.left,
+        y: content.y - bands.top,
+        width: content.width + bands.left + bands.right,
+        height: content.height + caption_band(theme, titles) + bands.top + bands.bottom,
     }
 }
 
@@ -1270,6 +1294,7 @@ pub fn wrap_headings(titles: &Titles, theme: &Theme, width: f64) -> Titles {
         caption: wrap(theme.plot_caption, &titles.caption),
         x: titles.x.clone(),
         y: titles.y.clone(),
+        tag: titles.tag.clone(),
     }
 }
 

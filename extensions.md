@@ -96,7 +96,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Main roadmap: [plan.md](plan.md).
   (lets-plot parity first: `ggmarginal(sides, size, layer)`), then ggside's
   `geom_xside*` / `geom_yside*` layers for any geom in the margin, including bar and
   boxplot margins (lets-plot#972) and facets. **Design review with the user first.**
-- [ ] ex2.3 **patchwork extras for `gggrid`.** Insets (`inset_element(plot, left,
+- [x] ex2.3 **patchwork extras for `gggrid`.** Insets (`inset_element(plot, left,
   bottom, right, top)`), nested grids that keep alignment, a `design=` layout string
   (`"AAB\nCCB"`), and automatic panel tags across a grid (`tag_levels="A"|"a"|"1"|"i"`,
   prefix and suffix) using the existing `plot_tag` theme element.

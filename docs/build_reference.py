@@ -216,6 +216,12 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
         "(R package gghighlight, not in lets-plot).",
         ["gghighlight"],
     ),
+    "Insets (patchwork)": (
+        "Draw a plot or grid inside another plot's area (R package patchwork, not in "
+        "lets-plot). `gggrid(design=, tag_levels=, tag_level=)` add patchwork's "
+        "layouts and automatic tags to grids.",
+        ["inset_element"],
+    ),
     "Rasterized layers (ggrastr)": (
         "Draw a dense layer as a bitmap inside SVG and PDF output (R package ggrastr, "
         "not in lets-plot).",

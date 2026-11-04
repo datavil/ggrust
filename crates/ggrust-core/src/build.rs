@@ -23,8 +23,8 @@ use crate::layout::zoom::{Zoom, ZoomPlot, zoom_tile};
 use crate::layout::{
     Colorbar, DEFAULT_BINS, KeyGrid, KeyLayer, Legend, LegendBox, LegendKey, PANEL_MIN_SIZE,
     PlotLayout, Titles, draw_axes, draw_legends, draw_panel_background, draw_panel_border,
-    draw_titles, layout_plot, legend_budget, legend_origin, legend_space, measure_legends,
-    wrap_headings,
+    draw_titles, headings_band, layout_plot, legend_budget, legend_origin, legend_space,
+    measure_legends, wrap_headings,
 };
 use crate::parallel;
 use crate::parameters::Parameters;
@@ -854,10 +854,10 @@ impl Arrangement {
 }
 
 /// Moves of the area smaller than this (px) end [`PreparedPlot::arrange_panel`].
-const ALIGN_TOLERANCE: f64 = 0.01;
+pub(crate) const ALIGN_TOLERANCE: f64 = 0.01;
 
 /// Re-layouts [`PreparedPlot::arrange_panel`] tries before it gives up converging.
-const ALIGN_PASSES: usize = 4;
+pub(crate) const ALIGN_PASSES: usize = 4;
 
 impl PreparedPlot {
     /// The screen theme (legend position and justification for a grid collecting
@@ -1025,6 +1025,22 @@ impl PreparedPlot {
             layout,
             titles,
         })
+    }
+
+    /// The plot's panels, axes and axis titles as laid out by `arrangement`: its
+    /// area without the margin, tag bands, caption, titles and legends (patchwork's
+    /// `align_to="plot"` for insets).
+    pub fn plot_area(&self, arrangement: &Arrangement) -> Rect {
+        let layout = arrangement.plot_layout();
+        let content = layout.content;
+        let space = layout.legend_space;
+        let top = content.y + headings_band(&self.theme, &arrangement.titles) + space.top;
+        Rect {
+            x: content.x + space.left,
+            y: top,
+            width: (content.width - space.left - space.right).max(1.0),
+            height: (content.y + content.height - space.bottom - top).max(1.0),
+        }
     }
 
     /// Lay the plot out with its panel bounds at `target` (lets-plot
@@ -1632,6 +1648,7 @@ fn plot_titles(spec: &PlotSpec, scales: &PositionScales, orientations: &[bool]) 
             .and_then(|caption| caption.text.clone()),
         x: Some(axis_title(Aesthetic::X, &scales.x.name)),
         y: Some(axis_title(Aesthetic::Y, &scales.y.name)),
+        tag: spec.tag.as_ref().and_then(|tag| tag.text.clone()),
     }
 }
 

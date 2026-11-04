@@ -2,20 +2,33 @@
 //! `CompositeFigureGridLayout`, `CompositeFigureGridAlignmentLayout`).
 //!
 //! What it does: prepare every figure of a grid once (plots and nested grids), give
-//! each a cell ([`crate::layout::grid`]: relative `widths`/`heights`,
+//! each its cells ([`crate::layout::grid`]: relative `widths`/`heights`,
 //! `hspace`/`vspace`, `fit`), lay plots out at their cell's size, align panels across
 //! rows and columns (`align`), collect legends (`guides`), and draw the grid's
-//! background, title and collected legends. Figures inherit the grid's theme as in
+//! background, title, tag and collected legends. Figures inherit the grid's theme as in
 //! lets-plot ([`child_theme`]).
+//!
+//! ggrust extensions (patchwork): `design=` areas (figures span cells,
+//! [`crate::layout::grid::figure_spans`]), nested grids taking part in `align`
+//! ([`GridLayout::frame`]), automatic tags ([`crate::grid_tags`]) and insets
+//! ([`inset`]).
 //!
 //! Shared axes (`sharex`/`sharey`): [`crate::grid_share`].
 //!
-//! What it does not do (warned): captions, tags and grid-level `guides(...)`.
+//! What it does not do (warned): captions and grid-level `guides(...)`.
 
-use crate::build::{Arrangement, BuiltPlot, DEFAULT_SIZE, PlotData, PreparedPlot, build_plot_with};
+use crate::build::{
+    ALIGN_PASSES, ALIGN_TOLERANCE, Arrangement, BuiltPlot, DEFAULT_SIZE, PlotData, PreparedPlot,
+    build_plot_with,
+};
 use crate::data::DataFrame;
 use crate::grid_share;
-use crate::layout::grid::{DEFAULT_SPACING, cell_rects, shrink_to_aspect};
+use crate::grid_tags::{self, FigureTags};
+use crate::layout::PANEL_MIN_SIZE;
+use crate::layout::grid::{
+    DEFAULT_SPACING, Span, cell_rects, figure_spans, shrink_to_aspect, span_rect,
+};
+use crate::layout::tag::{tag_bands, tag_nodes};
 use crate::layout::zoom::Zoom;
 use crate::layout::{
     LegendBlock, LegendBox, Titles, draw_legends, heading_nodes, headings_band, legend_budget,
@@ -23,10 +36,15 @@ use crate::layout::{
 };
 use crate::parallel;
 use crate::scene::{Color, Group, Node, PerItem, Rect, Rects, Scene};
-use crate::spec::{ElementSpec, Figure, PlotSpec, SubplotsSpec, ThemeSpec, ThemeValue};
+use crate::spec::{
+    CaptionSpec, ElementSpec, Figure, PlotSpec, SubplotsSpec, ThemeSpec, ThemeValue,
+};
 use crate::theme::{LegendPosition, Margins, Theme};
 use crate::tooltip::Interaction;
 use crate::{Error, Result};
+
+mod inset;
+use inset::PreparedInset;
 
 /// Build a figure: a single plot, or a grid of figures.
 pub fn build_figure(figure: &Figure, frames: &[DataFrame]) -> Result<BuiltPlot> {
@@ -41,28 +59,25 @@ pub fn build_figure_with(
     interactive: bool,
 ) -> Result<BuiltPlot> {
     match figure {
-        Figure::Plot(spec) => {
+        Figure::Plot(spec) if spec.insets.is_empty() => {
             build_plot_with(spec, &PlotData::from_frames(spec, frames)?, interactive)
         }
-        Figure::Subplots(spec) => {
+        _ => {
             let mut warnings = Vec::new();
             let context = GridContext {
                 frames,
                 container: None,
                 container_collects: false,
+                container_aligns: false,
+                tags: None,
                 path: "",
             };
-            let (grid, _) = PreparedGrid::new(spec, &context, &mut warnings)
-                .map_err(|error| error.with_notes(&warnings))?;
-            let (width, height) = grid.size;
-            let bounds = Rect {
-                x: 0.0,
-                y: 0.0,
-                width,
-                height,
+            let toolbar = match figure {
+                Figure::Plot(spec) => spec.ggtoolbar.as_ref(),
+                Figure::Subplots(spec) => spec.ggtoolbar.as_ref(),
             };
             let zoom = if interactive {
-                crate::layout::zoom::Zoom::from_spec(spec.ggtoolbar.as_ref(), "ggtoolbar")?
+                crate::layout::zoom::Zoom::from_spec(toolbar, "ggtoolbar")?
             } else {
                 None
             };
@@ -73,11 +88,37 @@ pub fn build_figure_with(
                 };
                 (interaction, Vec::new())
             });
-            let nodes = grid.draw(bounds, false, collected.as_mut())?;
+            let at_origin = |(width, height): (f64, f64)| Rect {
+                x: 0.0,
+                y: 0.0,
+                width,
+                height,
+            };
+            let ((width, height), background, nodes) = match figure {
+                Figure::Subplots(spec) => {
+                    let (grid, _) = PreparedGrid::new(spec, &context, &mut warnings)
+                        .map_err(|error| error.with_notes(&warnings))?;
+                    let nodes = grid.draw(at_origin(grid.size), false, collected.as_mut())?;
+                    let background = grid.theme.plot_background.map(|background| background.fill);
+                    (grid.size, background, nodes)
+                }
+                // A plot with insets.
+                Figure::Plot(spec) => {
+                    let mut plot = PlotData::from_frames(spec, frames)
+                        .and_then(|data| crate::build::prepare_plot(spec, &data))?;
+                    warnings.append(&mut plot.warnings);
+                    let insets = inset::prepare(&spec.insets, &[], &context, &mut warnings)
+                        .map_err(|error| error.with_notes(&warnings))?;
+                    let arrangement = plot.arrange(at_origin(plot.size), PANEL_MIN_SIZE)?;
+                    let placed = Placed::Plot(&plot, Box::new(arrangement), &insets);
+                    let nodes = placed.draw(collected.as_mut(), false)?;
+                    (plot.size, plot.background(), nodes)
+                }
+            };
             let scene = Scene {
                 width,
                 height,
-                background: grid.theme.plot_background.map(|background| background.fill),
+                background,
                 nodes,
             };
             scene.validate()?;
@@ -162,18 +203,25 @@ fn arranged(theme: &Theme, group: &Collected, grid_theme: &Theme) -> Theme {
 }
 
 /// What a grid's figures see of it while they are prepared.
+#[derive(Clone, Copy)]
 struct GridContext<'a> {
     frames: &'a [DataFrame],
     /// The containing grid's theme options and theme.
     container: Option<(&'a ThemeSpec, &'a Theme)>,
     /// Whether the containing grid collects legends.
     container_collects: bool,
+    /// Whether the containing grid aligns panels: a nested grid without its own
+    /// `align` follows it.
+    container_aligns: bool,
+    /// The tags of this grid's figures and insets, when a containing grid numbers
+    /// them ([`crate::grid_tags`]).
+    tags: Option<&'a FigureTags>,
     /// Spec path of this grid (`figures[1].`), for messages.
     path: &'a str,
 }
 
 enum Element<'s> {
-    Plot(Box<PreparedPlot>),
+    Plot(Box<PreparedPlot>, Vec<PreparedInset<'s>>),
     Grid(Box<PreparedGrid<'s>>),
 }
 
@@ -181,20 +229,22 @@ impl Element<'_> {
     /// Rows of every prepared layer of the figure.
     fn prepared_rows(&self) -> usize {
         match self {
-            Element::Plot(plot) => plot.prepared_rows(),
-            Element::Grid(grid) => grid
-                .elements
-                .iter()
-                .flatten()
-                .map(Element::prepared_rows)
-                .sum(),
+            Element::Plot(plot, insets) => plot.prepared_rows() + inset::prepared_rows(insets),
+            Element::Grid(grid) => {
+                grid.elements
+                    .iter()
+                    .flatten()
+                    .map(Element::prepared_rows)
+                    .sum::<usize>()
+                    + inset::prepared_rows(&grid.insets)
+            }
         }
     }
 
     /// Size the figure has on its own (`ggsize` or the default), for `fit=False`.
     fn own_size(&self) -> (f64, f64) {
         match self {
-            Element::Plot(plot) => plot.size,
+            Element::Plot(plot, _) => plot.size,
             Element::Grid(grid) => grid.size,
         }
     }
@@ -202,16 +252,148 @@ impl Element<'_> {
 
 /// A figure placed in its cell.
 enum Placed<'e, 's> {
-    Plot(&'e PreparedPlot, Box<Arrangement>),
-    Grid(&'e PreparedGrid<'s>, Rect),
+    Plot(&'e PreparedPlot, Box<Arrangement>, &'e [PreparedInset<'s>]),
+    Grid(&'e PreparedGrid<'s>, Box<GridLayout<'e, 's>>),
 }
 
-impl Placed<'_, '_> {
+impl<'e, 's> Placed<'e, 's> {
+    /// `element` laid out in `area`.
+    fn new(element: &'e Element<'s>, area: Rect) -> Result<Placed<'e, 's>> {
+        Ok(match element {
+            Element::Plot(plot, insets) => Placed::Plot(
+                plot,
+                Box::new(plot.arrange(area, CELL_PANEL_MIN_SIZE)?),
+                insets,
+            ),
+            Element::Grid(grid) => Placed::Grid(grid, Box::new(grid.layout(area)?)),
+        })
+    }
+
     fn bounds(&self) -> Rect {
         match self {
-            Placed::Plot(_, arrangement) => arrangement.area(),
-            Placed::Grid(_, bounds) => *bounds,
+            Placed::Plot(_, arrangement, _) => arrangement.area(),
+            Placed::Grid(_, layout) => layout.bounds,
         }
+    }
+
+    /// The panels' outer edges: a plot's panels, or a grid's [`GridLayout::frame`].
+    fn frame(&self) -> Option<Rect> {
+        match self {
+            Placed::Plot(_, arrangement, _) => Some(arrangement.panel_bounds()),
+            Placed::Grid(_, layout) => layout.frame(),
+        }
+    }
+
+    /// Laid out again so the panels' outer edges are at `target` (`align`).
+    fn align_to(&mut self, target: Rect) -> Result<()> {
+        match self {
+            Placed::Plot(plot, arrangement, _) => {
+                **arrangement =
+                    plot.arrange_panel(arrangement.area(), target, CELL_PANEL_MIN_SIZE)?;
+            }
+            Placed::Grid(grid, layout) => {
+                **layout = grid.layout_panel(layout.bounds, target)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Draw the figure (a plot with its background and insets). With
+    /// `interaction`, also collect its tooltips.
+    fn draw(
+        &self,
+        mut interaction: Option<&mut (Interaction, Vec<String>)>,
+        fill_background: bool,
+    ) -> Result<Vec<Node>> {
+        let mut nodes = Vec::new();
+        match self {
+            Placed::Plot(plot, arrangement, insets) => {
+                if fill_background && let Some(fill) = plot.background() {
+                    nodes.push(Node::Rects(Rects {
+                        rects: vec![arrangement.area()],
+                        fill: PerItem::Uniform(Some(fill)),
+                        stroke: None,
+                    }));
+                }
+                let areas = inset::HostAreas::of_plot(plot, arrangement);
+                nodes.extend(inset::draw(
+                    insets,
+                    &areas,
+                    false,
+                    interaction.as_deref_mut(),
+                )?);
+                nodes.extend(plot.draw(arrangement)?);
+                if let Some((collected, notes)) = interaction.as_deref_mut() {
+                    plot.interaction(arrangement, collected, notes)?;
+                }
+                nodes.extend(inset::draw(insets, &areas, true, interaction)?);
+            }
+            Placed::Grid(grid, layout) => {
+                nodes.extend(grid.draw_layout(layout, fill_background, interaction)?)
+            }
+        }
+        Ok(nodes)
+    }
+}
+
+/// Where a grid's parts go (from [`PreparedGrid::layout`]).
+struct GridLayout<'e, 's> {
+    /// The area the grid fills.
+    bounds: Rect,
+    /// Inside the margins (and border): the tag's area.
+    inner: Rect,
+    /// Inside the margins and the tag's bands: titles, legends and figures.
+    content: Rect,
+    /// `content` below the titles: the collected legends' outer area.
+    without_titles: Rect,
+    /// The figures' cells, inside the inset and the collected legends.
+    elements_area: Rect,
+    blocks: Vec<(&'e Collected, LegendBlock<'e>, Theme)>,
+    placed: Vec<Option<Placed<'e, 's>>>,
+    /// The cells each placed figure spans.
+    spans: &'e [Span],
+}
+
+impl GridLayout<'_, '_> {
+    /// The outer edges of the grid's panels: on each side, the panels of the
+    /// figures nearest that side (their shared range: the innermost edge). None
+    /// without panels.
+    fn frame(&self) -> Option<Rect> {
+        let figures: Vec<(Span, Rect)> = self
+            .placed
+            .iter()
+            .zip(self.spans)
+            .filter_map(|(placed, span)| Some((*span, placed.as_ref()?.frame()?)))
+            .collect();
+        let first_column = figures.iter().map(|(span, _)| span.left).min()?;
+        let last_column = figures.iter().map(|(span, _)| span.right).max()?;
+        let first_row = figures.iter().map(|(span, _)| span.top).min()?;
+        let last_row = figures.iter().map(|(span, _)| span.bottom).max()?;
+        let edge = |keep: &dyn Fn(&Span) -> bool, value: &dyn Fn(&Rect) -> f64, inner_max: bool| {
+            figures
+                .iter()
+                .filter(|(span, _)| keep(span))
+                .map(|(_, rect)| value(rect))
+                .reduce(|a, b| if inner_max { a.max(b) } else { a.min(b) })
+        };
+        let left = edge(&|span| span.left == first_column, &|rect| rect.x, true)?;
+        let right = edge(
+            &|span| span.right == last_column,
+            &|rect| rect.x + rect.width,
+            false,
+        )?;
+        let top = edge(&|span| span.top == first_row, &|rect| rect.y, true)?;
+        let bottom = edge(
+            &|span| span.bottom == last_row,
+            &|rect| rect.y + rect.height,
+            false,
+        )?;
+        (right > left && bottom > top).then_some(Rect {
+            x: left,
+            y: top,
+            width: right - left,
+            height: bottom - top,
+        })
     }
 }
 
@@ -221,6 +403,12 @@ struct PreparedGrid<'s> {
     theme: Theme,
     titles: Titles,
     elements: Vec<Option<Element<'s>>>,
+    /// The cells each element spans (`design=` areas, or one cell each).
+    spans: Vec<Span>,
+    /// Whether panels are aligned (`align`, else the containing grid's).
+    align: bool,
+    /// `+ inset_element(...)` figures of the grid itself.
+    insets: Vec<PreparedInset<'s>>,
     /// Legends this grid draws, by placement (lets-plot groups by position and
     /// justification), duplicates removed.
     legend_groups: Vec<Collected>,
@@ -239,7 +427,19 @@ impl<'s> PreparedGrid<'s> {
         let path = context.path;
         let layout = &spec.layout;
         let (columns, rows) = (layout.ncol as usize, layout.nrow as usize);
-        if columns == 0 || rows == 0 || spec.figures.len() != columns * rows {
+        if columns == 0 || rows == 0 {
+            return Err(Error::spec(
+                "layout",
+                format!(
+                    "a grid needs at least one column and row, got {} x {}",
+                    layout.ncol, layout.nrow
+                ),
+            )
+            .nested(path));
+        }
+        let spans = figure_spans((columns, rows), spec.figures.len(), layout.areas.as_deref())
+            .map_err(|message| Error::spec("layout.areas", message).nested(path))?;
+        if layout.areas.is_none() && spec.figures.len() != columns * rows {
             return Err(Error::spec(
                 "layout",
                 format!(
@@ -292,6 +492,21 @@ impl<'s> PreparedGrid<'s> {
                 DEFAULT_SIZE.1 * (0.5 + 0.5 / rows as f64) * rows as f64,
             ),
         };
+        grid_tags::starts_level(spec).map_err(|error| nest_error(error, path))?;
+        let own_tags = match context.tags {
+            Some(_) => None,
+            None => {
+                grid_tags::grid_tags(spec, warnings).map_err(|error| nest_error(error, path))?
+            }
+        };
+        let (figure_tags, inset_tags) = match context.tags.or(own_tags.as_ref()) {
+            Some(FigureTags::Grid(figures, insets)) => {
+                (Some(figures.as_slice()), insets.as_slice())
+            }
+            _ => (None, &[][..]),
+        };
+        let figure_tag = |index: usize| figure_tags.and_then(|tags| tags.get(index));
+        let align = layout.align.unwrap_or(context.container_aligns);
         let own_guides = Guides::of(spec, path)?;
         let collects = if context.container_collects {
             own_guides != Guides::Keep
@@ -306,13 +521,13 @@ impl<'s> PreparedGrid<'s> {
         let plot_specs: Vec<Option<PlotSpec>> = spec
             .figures
             .iter()
-            .map(|figure| match figure {
-                Some(Figure::Plot(plot_spec)) => {
-                    let mut plot_spec = PlotSpec::clone(plot_spec);
-                    plot_spec.theme =
-                        Some(child_theme(&theme_spec, &theme, plot_spec.theme.as_ref()));
-                    Some(plot_spec)
-                }
+            .enumerate()
+            .map(|(index, figure)| match figure {
+                Some(Figure::Plot(plot_spec)) => Some(figure_plot_spec(
+                    plot_spec,
+                    Some((&theme_spec, &theme)),
+                    figure_tag(index),
+                )),
                 _ => None,
             })
             .collect();
@@ -330,9 +545,18 @@ impl<'s> PreparedGrid<'s> {
             .map_err(|error| nest_error(error, path))?;
         for (index, figure) in spec.figures.iter().enumerate() {
             let figure_path = format!("{path}figures[{index}]");
+            let child_path = format!("{figure_path}.");
+            let inset_context = GridContext {
+                frames: context.frames,
+                container: Some((&theme_spec, &theme)),
+                container_collects: false,
+                container_aligns: false,
+                tags: None,
+                path: &child_path,
+            };
             let element = match figure {
                 None => None,
-                Some(Figure::Plot(_)) => {
+                Some(Figure::Plot(plot_spec)) => {
                     let mut plot = prepared[index]
                         .take()
                         .expect("every plot figure was prepared")
@@ -360,14 +584,20 @@ impl<'s> PreparedGrid<'s> {
                             boxes,
                         });
                     }
-                    Some(Element::Plot(Box::new(plot)))
+                    let tags = match figure_tag(index) {
+                        Some(FigureTags::Plot(_, insets)) => insets.as_slice(),
+                        _ => &[],
+                    };
+                    let insets = inset::prepare(&plot_spec.insets, tags, &inset_context, warnings)?;
+                    Some(Element::Plot(Box::new(plot), insets))
                 }
                 Some(Figure::Subplots(grid_spec)) => {
-                    let child_path = format!("{figure_path}.");
                     let child_context = GridContext {
                         frames: context.frames,
                         container: Some((&theme_spec, &theme)),
                         container_collects: collects,
+                        container_aligns: align,
+                        tags: figure_tag(index).filter(|tags| matches!(tags, FigureTags::Grid(..))),
                         path: &child_path,
                     };
                     let (grid, mut passed_up) =
@@ -390,12 +620,27 @@ impl<'s> PreparedGrid<'s> {
             caption: None,
             x: None,
             y: None,
+            tag: spec.tag.as_ref().and_then(|tag| tag.text.clone()),
+        };
+        let insets = {
+            let inset_context = GridContext {
+                frames: context.frames,
+                container: Some((&theme_spec, &theme)),
+                container_collects: false,
+                container_aligns: false,
+                tags: None,
+                path,
+            };
+            inset::prepare(&spec.insets, inset_tags, &inset_context, warnings)?
         };
         let grid = PreparedGrid {
             spec,
             theme,
             titles,
             elements,
+            spans,
+            align,
+            insets,
             legend_groups,
             size,
         };
@@ -409,10 +654,123 @@ impl<'s> PreparedGrid<'s> {
         &self,
         bounds: Rect,
         fill_background: bool,
+        interaction: Option<&mut (Interaction, Vec<String>)>,
+    ) -> Result<Vec<Node>> {
+        let layout = self.layout(bounds)?;
+        self.draw_layout(&layout, fill_background, interaction)
+    }
+
+    /// Lay the grid out in `bounds`: lets-plot `CompositeFigureBuildInfo.layoutedByOuterSize`:
+    /// margins (and the border) -> tag bands -> titles -> inset -> collected legends
+    /// -> cells, then panels aligned (`align`).
+    fn layout<'e>(&'e self, bounds: Rect) -> Result<GridLayout<'e, 's>> {
+        let theme = &self.theme;
+        let layout = &self.spec.layout;
+        let border_width = theme
+            .plot_background
+            .and_then(|background| background.border)
+            .map_or(0.0, |border| border.width);
+        let inner = shrink(
+            bounds,
+            theme.plot_margin.plus(Margins::uniform(border_width)),
+        );
+        let content = shrink(inner, tag_bands(theme, &self.titles.tag));
+        let headings = headings_band(theme, &self.titles);
+        let without_titles = Rect {
+            y: content.y + headings,
+            height: (content.height - headings).max(1.0),
+            ..content
+        };
+        let blocks = self.measure_legend_groups(shrink(without_titles, theme.plot_inset))?;
+        let elements_area = shrink(
+            shrink(without_titles, theme.plot_inset),
+            legend_space(&blocks, theme.legend_box_spacing),
+        );
+        let columns = layout.ncol as usize;
+        let cells = cell_rects(
+            elements_area,
+            (columns, layout.nrow as usize),
+            (
+                layout.hspace.unwrap_or(DEFAULT_SPACING),
+                layout.vspace.unwrap_or(DEFAULT_SPACING),
+            ),
+            layout.widths.as_deref(),
+            layout.heights.as_deref(),
+        );
+        let fit = layout.fit.unwrap_or(true);
+        let mut placed = Vec::with_capacity(self.elements.len());
+        for (element, span) in self.elements.iter().zip(&self.spans) {
+            let Some(element) = element else {
+                placed.push(None);
+                continue;
+            };
+            let cell = span_rect(&cells, columns, *span);
+            let cell = if fit {
+                cell
+            } else {
+                shrink_to_aspect(cell, element.own_size())
+            };
+            placed.push(Some(Placed::new(element, cell)?));
+        }
+        if self.align {
+            align(&mut placed, &self.spans)?;
+        }
+        Ok(GridLayout {
+            bounds,
+            inner,
+            content,
+            without_titles,
+            elements_area,
+            blocks,
+            placed,
+            spans: &self.spans,
+        })
+    }
+
+    /// [`PreparedGrid::layout`] with the panels' outer edges ([`GridLayout::frame`])
+    /// at `target`, as [`PreparedPlot::arrange_panel`]: the area is moved by the
+    /// edges' distance from `target` until they meet.
+    fn layout_panel<'e>(&'e self, area: Rect, target: Rect) -> Result<GridLayout<'e, 's>> {
+        let mut area = area;
+        let mut layout = self.layout(area)?;
+        for _ in 0..ALIGN_PASSES {
+            let Some(frame) = layout.frame() else {
+                break;
+            };
+            let left = target.x - frame.x;
+            let top = target.y - frame.y;
+            let right = (target.x + target.width) - (frame.x + frame.width);
+            let bottom = (target.y + target.height) - (frame.y + frame.height);
+            if [left, top, right, bottom]
+                .iter()
+                .all(|distance| distance.abs() < ALIGN_TOLERANCE)
+            {
+                break;
+            }
+            let moved = Rect {
+                x: area.x + left,
+                y: area.y + top,
+                width: area.width + right - left,
+                height: area.height + bottom - top,
+            };
+            if !(moved.width > 0.0 && moved.height > 0.0) {
+                break;
+            }
+            area = moved;
+            layout = self.layout(area)?;
+        }
+        Ok(layout)
+    }
+
+    /// Draw a laid out grid (see [`PreparedGrid::draw`]).
+    fn draw_layout(
+        &self,
+        grid_layout: &GridLayout,
+        fill_background: bool,
         mut interaction: Option<&mut (Interaction, Vec<String>)>,
     ) -> Result<Vec<Node>> {
         let theme = &self.theme;
-        let layout = &self.spec.layout;
+        let bounds = grid_layout.bounds;
         let mut nodes = Vec::new();
         let border = theme
             .plot_background
@@ -426,62 +784,24 @@ impl<'s> PreparedGrid<'s> {
                 stroke: border.map(|border| border.stroke()),
             }));
         }
-        // lets-plot `CompositeFigureBuildInfo.layoutedByOuterSize`: margins (and the
-        // border) -> titles -> inset -> collected legends -> cells.
-        let border_width = border.map_or(0.0, |border| border.width);
-        let content = shrink(
-            bounds,
-            theme.plot_margin.plus(Margins::uniform(border_width)),
-        );
-        let headings = headings_band(theme, &self.titles);
-        let without_titles = Rect {
-            y: content.y + headings,
-            height: (content.height - headings).max(1.0),
-            ..content
-        };
-        let blocks = self.measure_legend_groups(shrink(without_titles, theme.plot_inset))?;
-        let elements_area = shrink(
-            shrink(without_titles, theme.plot_inset),
-            legend_space(&blocks, theme.legend_box_spacing),
-        );
-        let cells = cell_rects(
-            elements_area,
-            (layout.ncol as usize, layout.nrow as usize),
-            (
-                layout.hspace.unwrap_or(DEFAULT_SPACING),
-                layout.vspace.unwrap_or(DEFAULT_SPACING),
-            ),
-            layout.widths.as_deref(),
-            layout.heights.as_deref(),
-        );
-        let fit = layout.fit.unwrap_or(true);
-        let mut placed = Vec::with_capacity(self.elements.len());
-        for (element, cell) in self.elements.iter().zip(cells) {
-            let Some(element) = element else {
-                placed.push(None);
-                continue;
-            };
-            let cell = if fit {
-                cell
-            } else {
-                shrink_to_aspect(cell, element.own_size())
-            };
-            placed.push(Some(match element {
-                Element::Plot(plot) => {
-                    Placed::Plot(plot, Box::new(plot.arrange(cell, CELL_PANEL_MIN_SIZE)?))
-                }
-                Element::Grid(grid) => Placed::Grid(grid, cell),
-            }));
-        }
-        if layout.align.unwrap_or(false) {
-            align(&mut placed, layout.ncol as usize, layout.nrow as usize)?;
-        }
+        let placed = &grid_layout.placed;
         let union = placed
             .iter()
             .flatten()
             .map(Placed::bounds)
             .reduce(union)
-            .unwrap_or(elements_area);
+            .unwrap_or(grid_layout.elements_area);
+        let inset_areas = inset::HostAreas {
+            panel: grid_layout.frame().unwrap_or(union),
+            plot: grid_layout.elements_area,
+            full: bounds,
+        };
+        nodes.extend(inset::draw(
+            &self.insets,
+            &inset_areas,
+            false,
+            interaction.as_deref_mut(),
+        )?);
         // Figures draw in parallel, each collecting its own tooltips; they merge
         // back in drawing order.
         let empty_interaction = interaction.as_deref().map(|(collected, _)| Interaction {
@@ -502,41 +822,15 @@ impl<'s> PreparedGrid<'s> {
             let mut figure_interaction = empty_interaction
                 .clone()
                 .map(|collected| (collected, Vec::new()));
-            let mut figure_nodes = Vec::new();
-            match figure {
-                Placed::Plot(plot, arrangement) => {
-                    if let Some(fill) = plot.background() {
-                        figure_nodes.push(Node::Rects(Rects {
-                            rects: vec![arrangement.area()],
-                            fill: PerItem::Uniform(Some(fill)),
-                            stroke: None,
-                        }));
-                    }
-                    figure_nodes.extend(plot.draw(arrangement)?);
-                    if let Some((collected, notes)) = figure_interaction.as_mut() {
-                        plot.interaction(arrangement, collected, notes)?;
-                    }
-                }
-                Placed::Grid(grid, bounds) => {
-                    figure_nodes.extend(grid.draw(*bounds, true, figure_interaction.as_mut())?)
-                }
-            }
+            let figure_nodes = figure.draw(figure_interaction.as_mut(), true)?;
             Ok::<_, Error>((figure_nodes, figure_interaction))
         });
         for result in drawn {
             let (figure_nodes, figure_interaction) = result?;
-            if let (Some((collected, notes)), Some((figure, figure_notes))) =
+            if let (Some(collected), Some(figure)) =
                 (interaction.as_deref_mut(), figure_interaction)
             {
-                collected.layers.extend(figure.layers);
-                if let (Some(zoom), Some(figure_zoom)) = (collected.zoom.as_mut(), figure.zoom) {
-                    zoom.plots.extend(figure_zoom.plots);
-                }
-                for note in figure_notes {
-                    if !notes.contains(&note) {
-                        notes.push(note);
-                    }
-                }
+                merge_interaction(collected, figure);
             }
             nodes.push(Node::Group(Group {
                 clip: None,
@@ -546,15 +840,17 @@ impl<'s> PreparedGrid<'s> {
             }));
         }
         nodes.extend(heading_nodes(
-            content.y,
+            grid_layout.content.y,
             (union.x, union.width),
             theme,
             &self.titles,
         ));
-        for (group, block, block_theme) in &blocks {
-            let origin = legend_origin(union, without_titles, block.size, group);
+        for (group, block, block_theme) in &grid_layout.blocks {
+            let origin = legend_origin(union, grid_layout.without_titles, block.size, group);
             nodes.extend(draw_legends(block, origin, block_theme)?);
         }
+        nodes.extend(tag_nodes(theme, &self.titles.tag, grid_layout.inner, union));
+        nodes.extend(inset::draw(&self.insets, &inset_areas, true, interaction)?);
         Ok(nodes)
     }
 
@@ -593,60 +889,107 @@ impl<'s> PreparedGrid<'s> {
     }
 }
 
-/// lets-plot `CompositeFigureGridAlignmentLayout`: every plot's panel takes the
-/// x range its grid column's panels share and the y range its row's panels share,
-/// and the plot is laid out again around it. Nested grids are not moved and do not
-/// take part.
-fn align(placed: &mut [Option<Placed>], columns: usize, rows: usize) -> Result<()> {
-    let panel = |index: usize| match &placed[index] {
-        Some(Placed::Plot(_, arrangement)) => Some(arrangement.panel_bounds()),
-        _ => None,
-    };
-    let intersect = |spans: &mut dyn Iterator<Item = (f64, f64)>| {
-        spans.reduce(|(start, end), (other_start, other_end)| {
-            (start.max(other_start), end.min(other_end))
-        })
-    };
-    let row_spans: Vec<Option<(f64, f64)>> = (0..rows)
-        .map(|row| {
-            intersect(
-                &mut (0..columns)
-                    .filter_map(|column| panel(row * columns + column))
-                    .map(|rect| (rect.y, rect.y + rect.height)),
-            )
-        })
+/// lets-plot `CompositeFigureGridAlignmentLayout`, over spans and nested grids:
+/// every figure's panels take the range its edges share with the figures that
+/// start (or end) in the same column (or row), and the figure is laid out again
+/// around it. A figure's panels are a plot's panels or a nested grid's outer panel
+/// edges ([`GridLayout::frame`]); lets-plot leaves nested grids out.
+fn align(placed: &mut [Option<Placed>], spans: &[Span]) -> Result<()> {
+    let frames: Vec<Option<Rect>> = placed
+        .iter()
+        .map(|figure| figure.as_ref().and_then(Placed::frame))
         .collect();
-    let column_spans: Vec<Option<(f64, f64)>> = (0..columns)
-        .map(|column| {
-            intersect(
-                &mut (0..rows)
-                    .filter_map(|row| panel(row * columns + column))
-                    .map(|rect| (rect.x, rect.x + rect.width)),
-            )
-        })
-        .collect();
+    // The shared edge of the figures whose span edge is `key`: the innermost one.
+    let shared = |key: &dyn Fn(&Span) -> usize,
+                  value: &dyn Fn(&Rect) -> f64,
+                  wanted: usize,
+                  inner_max: bool| {
+        frames
+            .iter()
+            .zip(spans)
+            .filter_map(|(frame, span)| frame.filter(|_| key(span) == wanted))
+            .map(|frame| value(&frame))
+            .reduce(|a, b| if inner_max { a.max(b) } else { a.min(b) })
+    };
     for (index, figure) in placed.iter_mut().enumerate() {
-        let Some(Placed::Plot(plot, arrangement)) = figure else {
+        let Some(figure) = figure else {
             continue;
         };
-        let (Some((left, right)), Some((top, bottom))) =
-            (column_spans[index % columns], row_spans[index / columns])
-        else {
+        if frames[index].is_none() {
+            continue;
+        }
+        let span = spans[index];
+        let edges = (
+            shared(&|span| span.left, &|rect| rect.x, span.left, true),
+            shared(&|span| span.top, &|rect| rect.y, span.top, true),
+            shared(
+                &|span| span.right,
+                &|rect| rect.x + rect.width,
+                span.right,
+                false,
+            ),
+            shared(
+                &|span| span.bottom,
+                &|rect| rect.y + rect.height,
+                span.bottom,
+                false,
+            ),
+        );
+        let (Some(left), Some(top), Some(right), Some(bottom)) = edges else {
             continue;
         };
         // Panels that do not overlap at all leave nothing to share.
         if right <= left || bottom <= top {
             continue;
         }
-        let target = Rect {
+        figure.align_to(Rect {
             x: left,
             y: top,
             width: right - left,
             height: bottom - top,
-        };
-        **arrangement = plot.arrange_panel(arrangement.area(), target, CELL_PANEL_MIN_SIZE)?;
+        })?;
     }
     Ok(())
+}
+
+/// Add a figure's tooltips, zoom panels and notes to the grid's.
+fn merge_interaction(
+    (collected, notes): &mut (Interaction, Vec<String>),
+    (figure, figure_notes): (Interaction, Vec<String>),
+) {
+    collected.layers.extend(figure.layers);
+    if let (Some(zoom), Some(figure_zoom)) = (collected.zoom.as_mut(), figure.zoom) {
+        zoom.plots.extend(figure_zoom.plots);
+    }
+    for note in figure_notes {
+        if !notes.contains(&note) {
+            notes.push(note);
+        }
+    }
+}
+
+/// A figure's plot spec as prepared in a grid: with the grid's theme
+/// ([`child_theme`]) and its automatic tag.
+fn figure_plot_spec(
+    plot_spec: &PlotSpec,
+    container: Option<(&ThemeSpec, &Theme)>,
+    tags: Option<&FigureTags>,
+) -> PlotSpec {
+    let mut plot_spec = PlotSpec::clone(plot_spec);
+    if let Some((container, container_theme)) = container {
+        plot_spec.theme = Some(child_theme(
+            container,
+            container_theme,
+            plot_spec.theme.as_ref(),
+        ));
+    }
+    if let Some(FigureTags::Plot(tag, _)) = tags {
+        plot_spec.tag = Some(CaptionSpec {
+            text: Some(tag.clone()),
+            unsupported: Default::default(),
+        });
+    }
+    plot_spec
 }
 
 /// Space the legend blocks take on each side: per side the largest block plus

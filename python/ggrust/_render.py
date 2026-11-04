@@ -180,6 +180,11 @@ def split_data(spec: dict[str, Any]) -> tuple[dict, list[tuple[Any, str]]]:
                 None if child is None else split(child, f"{prefix}figures[{index}].")
                 for index, child in enumerate(figure["figures"])
             ]
+        if "insets" in figure:
+            figure["insets"] = [
+                {**inset, "figure": split(inset["figure"], f"{prefix}insets[{index}].figure.")}
+                for index, inset in enumerate(figure["insets"])
+            ]
         return figure
 
     return split(spec, ""), frames

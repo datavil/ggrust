@@ -538,6 +538,9 @@ class PlotSpec(FeatureSpec):
                 return plot
             if other.kind == "gghighlight":
                 return plot.__highlighted(other)
+            if other.kind == "inset":
+                plot.props()["insets"] = [*plot.props().get("insets", []), other]
+                return plot
             if other.kind == "scale":
                 plot.__scales.append(plot.__tagged_scale(other))
                 return plot
@@ -647,6 +650,8 @@ class PlotSpec(FeatureSpec):
         result["scales"] = [scale.as_dict() for scale in self.__scales]
         result["layers"] = [layer.as_dict() for layer in self.__layers]
         result["metainfo_list"] = [metainfo.as_dict() for metainfo in self.__metainfo_list]
+        if "insets" in result:
+            result["insets"] = [inset.as_dict() for inset in result["insets"]]
         return result
 
     def __str__(self) -> str:

@@ -214,6 +214,14 @@ Grey out the rows or series that do not match a predicate, with direct labels (R
 |---|---|
 | [`gghighlight()`](api/gghighlight.md) | Highlight the rows or series that match predicates (R package gghighlight). |
 
+## Insets (patchwork)
+
+Draw a plot or grid inside another plot's area (R package patchwork, not in lets-plot). `gggrid(design=, tag_levels=, tag_level=)` add patchwork's layouts and automatic tags to grids.
+
+| Name | Description |
+|---|---|
+| [`inset_element()`](api/inset_element.md) | Draw a plot (or grid) inside the area of the plot it is added to. |
+
 ## Rasterized layers (ggrastr)
 
 Draw a dense layer as a bitmap inside SVG and PDF output (R package ggrastr, not in lets-plot).

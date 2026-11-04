@@ -1,7 +1,8 @@
 //! Cells of a grid of figures (lets-plot `CompositeFigureGridLayoutBase`).
 //!
 //! What it does: split an area into `columns` x `rows` cells with relative widths
-//! and heights and fixed gaps, and shrink a cell to a figure's aspect ratio.
+//! and heights and fixed gaps, give each figure the cells it spans (one cell, or a
+//! `design=` area), and shrink a cell to a figure's aspect ratio.
 //!
 //! What it does not do: lay out what goes in the cells (see [`crate::grid`]).
 
@@ -53,6 +54,92 @@ pub fn cell_rects(
         }
     }
     cells
+}
+
+/// The cells a figure spans, 0-based and inclusive.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Span {
+    /// First column.
+    pub left: usize,
+    /// First row.
+    pub top: usize,
+    /// Last column.
+    pub right: usize,
+    /// Last row.
+    pub bottom: usize,
+}
+
+/// Each figure's span: its `design=` area, or the `index`th cell row by row.
+/// Errors when the areas do not match the figures, leave the grid or overlap.
+pub fn figure_spans(
+    (columns, rows): (usize, usize),
+    figures: usize,
+    areas: Option<&[[u32; 4]]>,
+) -> std::result::Result<Vec<Span>, String> {
+    let Some(areas) = areas else {
+        return Ok((0..figures)
+            .map(|index| {
+                let (row, column) = (index / columns.max(1), index % columns.max(1));
+                Span {
+                    left: column,
+                    top: row,
+                    right: column,
+                    bottom: row,
+                }
+            })
+            .collect());
+    };
+    if areas.len() != figures {
+        return Err(format!(
+            "{} areas for {figures} figures; give one area per figure",
+            areas.len()
+        ));
+    }
+    let mut taken = vec![None; columns * rows];
+    let mut spans = Vec::with_capacity(areas.len());
+    for (index, &[left, top, right, bottom]) in areas.iter().enumerate() {
+        let span = Span {
+            left: left as usize,
+            top: top as usize,
+            right: right as usize,
+            bottom: bottom as usize,
+        };
+        if span.left > span.right
+            || span.top > span.bottom
+            || span.right >= columns
+            || span.bottom >= rows
+        {
+            return Err(format!(
+                "area {index} [{left}, {top}, {right}, {bottom}] is not a block of cells \
+                 of the {columns} x {rows} grid; expected [left, top, right, bottom] \
+                 with left <= right < {columns} and top <= bottom < {rows}"
+            ));
+        }
+        for row in span.top..=span.bottom {
+            for column in span.left..=span.right {
+                if let Some(other) = taken[row * columns + column].replace(index) {
+                    return Err(format!(
+                        "areas {other} and {index} overlap at row {row}, column {column}"
+                    ));
+                }
+            }
+        }
+        spans.push(span);
+    }
+    Ok(spans)
+}
+
+/// The rectangle of a span: from its first cell to its last, gaps included.
+/// `cells` are [`cell_rects`] of a grid of `columns`.
+pub fn span_rect(cells: &[Rect], columns: usize, span: Span) -> Rect {
+    let first = cells[span.top * columns + span.left];
+    let last = cells[span.bottom * columns + span.right];
+    Rect {
+        x: first.x,
+        y: first.y,
+        width: last.x + last.width - first.x,
+        height: last.y + last.height - first.y,
+    }
 }
 
 /// lets-plot `cellSizeList`: `total` split by relative `sizes`.
@@ -154,6 +241,45 @@ mod tests {
                 .iter()
                 .all(|cell| cell.width == 1.0 && cell.height == 1.0)
         );
+    }
+
+    #[test]
+    fn spans_follow_areas_or_rows() {
+        let plain = figure_spans((2, 2), 3, None).expect("valid");
+        assert_eq!(
+            plain[2],
+            Span {
+                left: 0,
+                top: 1,
+                right: 0,
+                bottom: 1
+            }
+        );
+        let areas = [[0, 0, 1, 0], [2, 0, 2, 1], [0, 1, 1, 1]];
+        let spans = figure_spans((3, 2), 3, Some(&areas)).expect("valid");
+        let cells = cell_rects(area(304.0, 104.0), (3, 2), (2.0, 4.0), None, None);
+        let wide = span_rect(&cells, 3, spans[0]);
+        assert_eq!((wide.x, wide.width, wide.height), (6.0, 202.0, 50.0));
+        let tall = span_rect(&cells, 3, spans[1]);
+        assert_eq!((tall.x, tall.y, tall.height), (210.0, 6.0, 104.0));
+    }
+
+    #[test]
+    fn bad_areas_are_errors() {
+        let overlap = figure_spans((2, 1), 2, Some(&[[0, 0, 1, 0], [1, 0, 1, 0]]));
+        assert!(
+            overlap
+                .expect_err("overlap")
+                .contains("overlap at row 0, column 1")
+        );
+        let outside = figure_spans((2, 1), 1, Some(&[[0, 0, 2, 0]]));
+        assert!(
+            outside
+                .expect_err("outside")
+                .contains("not a block of cells")
+        );
+        let count = figure_spans((2, 1), 2, Some(&[[0, 0, 0, 0]]));
+        assert!(count.expect_err("count").contains("1 areas for 2 figures"));
     }
 
     #[test]

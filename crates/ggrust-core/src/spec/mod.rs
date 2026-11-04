@@ -16,6 +16,7 @@ mod coord;
 mod facet;
 mod frames;
 mod guide;
+mod inset;
 mod layer;
 mod plot;
 mod scale;
@@ -32,6 +33,7 @@ pub use coord::CoordSpec;
 pub use facet::FacetSpec;
 pub use frames::DataSource;
 pub use guide::{GuideOptions, GuideSpec};
+pub use inset::{InsetAlign, InsetSpec};
 pub use layer::{
     LayerSpec, MAX_RASTERIZE_DPI, PositionSpec, RasterizeSpec, TooltipFormat, TooltipLines,
     TooltipsSpec,

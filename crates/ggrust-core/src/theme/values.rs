@@ -298,6 +298,15 @@ fn base() -> Values {
         },
     );
     values.element(
+        "plot_tag",
+        Props {
+            size: Some(16.0),
+            hjust: Some(0.5),
+            vjust: Some(0.5),
+            ..Props::default()
+        },
+    );
+    values.element(
         "plot_subtitle",
         Props {
             size: Some(15.0),

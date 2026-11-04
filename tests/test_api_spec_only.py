@@ -61,7 +61,7 @@ def without_data(value):
 
 
 # ggrust extensions: extra trailing parameters lets_plot does not have (deviations.md).
-EXTENSIONS = {"ggtb": ("layers",)}
+EXTENSIONS = {"ggtb": ("layers",), "gggrid": ("design", "tag_levels", "tag_level")}
 
 
 @pytest.mark.parametrize("name", NEW_NAMES)

@@ -5,8 +5,8 @@ use std::collections::BTreeMap;
 use serde::Deserialize;
 
 use super::{
-    CaptionSpec, Figure, GuideSpec, Options, SizeSpec, ThemeSpec, TitleSpec, ToolbarSpec, count,
-    guide_map, join_path, report_unsupported,
+    CaptionSpec, Figure, GuideSpec, InsetSpec, Options, SizeSpec, ThemeSpec, TitleSpec,
+    ToolbarSpec, count, guide_map, join_path, report_unsupported,
 };
 
 /// Everything `SupPlotsSpec.as_dict()` produces.
@@ -33,6 +33,12 @@ pub struct SubplotsSpec {
     /// Grid caption.
     #[serde(default)]
     pub caption: Option<CaptionSpec>,
+    /// Grid tag (`labs(tag=...)`).
+    #[serde(default)]
+    pub tag: Option<CaptionSpec>,
+    /// `+ inset_element(...)`: figures drawn over (or under) the grid.
+    #[serde(default)]
+    pub insets: Vec<InsetSpec>,
     /// Toolbar for the whole grid.
     #[serde(default)]
     pub ggtoolbar: Option<ToolbarSpec>,
@@ -65,6 +71,12 @@ impl SubplotsSpec {
         }
         if let Some(toolbar) = &self.ggtoolbar {
             report_unsupported(&join_path(parent, "ggtoolbar"), &toolbar.unsupported, found);
+        }
+        if let Some(tag) = &self.tag {
+            report_unsupported(&join_path(parent, "tag"), &tag.unsupported, found);
+        }
+        for (index, inset) in self.insets.iter().enumerate() {
+            inset.collect_unsupported(&join_path(parent, &format!("insets[{index}]")), found);
         }
     }
 }
@@ -107,6 +119,20 @@ pub struct GridLayoutSpec {
     /// Share vertical axis ranges: `all`, `none`, `row` or `col`.
     #[serde(default)]
     pub sharey: Option<String>,
+    /// `design=`: per figure, the cells it spans as `[left, top, right, bottom]`
+    /// (0-based columns and rows, inclusive). None: one cell each, row-major.
+    #[serde(default)]
+    pub areas: Option<Vec<[u32; 4]>>,
+    /// The `design=` string `areas` came from (kept for `as_dict()` round trips).
+    #[serde(default)]
+    pub design: Option<String>,
+    /// `tag_levels=`: one numbering per nesting level (`A`, `a`, `1`, `i`, `I`).
+    #[serde(default)]
+    pub tag_levels: Option<Vec<String>>,
+    /// `tag_level=`: `keep` (default) continues the containing grid's numbering,
+    /// `new` starts the next level.
+    #[serde(default)]
+    pub tag_level: Option<String>,
     /// Keys no component consumes.
     #[serde(flatten)]
     pub unsupported: Options,

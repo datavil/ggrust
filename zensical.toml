@@ -223,6 +223,9 @@ nav = [
       "reference/api/new_scale_fill.md",
       "reference/api/new_scale.md",
     ] },
+    { "Insets (patchwork)" = [
+      "reference/api/inset_element.md",
+    ] },
     { "Rasterized layers (ggrastr)" = [
       "reference/api/rasterize.md",
     ] },

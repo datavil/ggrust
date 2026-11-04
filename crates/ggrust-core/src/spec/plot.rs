@@ -5,8 +5,8 @@ use std::collections::BTreeMap;
 use serde::Deserialize;
 
 use super::{
-    Aesthetic, CoordSpec, DataSource, FacetSpec, GuideSpec, LayerSpec, Mapping, Options, ScaleSpec,
-    ThemeSpec, Value, guide_map, join_path, mapping, report_unsupported,
+    Aesthetic, CoordSpec, DataSource, FacetSpec, GuideSpec, InsetSpec, LayerSpec, Mapping, Options,
+    ScaleSpec, ThemeSpec, Value, guide_map, join_path, mapping, report_unsupported,
 };
 
 /// Everything `PlotSpec.as_dict()` produces for one plot.
@@ -41,6 +41,10 @@ pub struct PlotSpec {
     pub ggtitle: Option<TitleSpec>,
     /// `labs(caption=...)`.
     pub caption: Option<CaptionSpec>,
+    /// `labs(tag=...)`.
+    pub tag: Option<CaptionSpec>,
+    /// `+ inset_element(...)`: figures drawn over (or under) this plot.
+    pub insets: Vec<InsetSpec>,
     /// `ggtb(...)`: interactive zoom/pan toolbar.
     pub ggtoolbar: Option<ToolbarSpec>,
     /// lets-plot front-end metadata (`font_family_info`, ...). Not supported:
@@ -76,10 +80,14 @@ impl PlotSpec {
                 "caption",
                 self.caption.as_ref().map(|caption| &caption.unsupported),
             ),
+            ("tag", self.tag.as_ref().map(|tag| &tag.unsupported)),
         ] {
             if let Some(unsupported) = unsupported {
                 report_unsupported(&join_path(parent, key), unsupported, found);
             }
+        }
+        for (index, inset) in self.insets.iter().enumerate() {
+            inset.collect_unsupported(&join_path(parent, &format!("insets[{index}]")), found);
         }
         for (index, layer) in self.layers.iter().enumerate() {
             layer.collect_unsupported(&join_path(parent, &format!("layers[{index}]")), found);
@@ -206,10 +214,10 @@ pub struct TitleSpec {
     pub unsupported: Options,
 }
 
-/// Plot caption.
+/// Plot caption or tag (`labs(caption=...)`, `labs(tag=...)`).
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 pub struct CaptionSpec {
-    /// Caption text.
+    /// The text.
     pub text: Option<String>,
     /// Keys no component consumes.
     #[serde(flatten)]

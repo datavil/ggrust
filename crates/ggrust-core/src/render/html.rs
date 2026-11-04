@@ -4,8 +4,8 @@
 //! Ids are explicit (one per display), never the content hash of [`to_svg`]: the
 //! same plot shown twice on one page must not share clip-path ids once the runtime
 //! edits them. Interactivity lives in the runtime; the tooltips' targets and text
-//! ([`Interaction`]) ride along as JSON in a `<script type="application/json">`
-//! inside the root element. Dense point batches are drawn on a canvas by the
+//! ([`Interaction`]) ride along as JSON in a
+//! `<script type="application/vnd.ggrust-tooltips+json">` inside the root element. Dense point batches are drawn on a canvas by the
 //! runtime from a third payload (see `canvas`): without JavaScript they are
 //! missing from the static view.
 
@@ -126,10 +126,13 @@ fn write_fragment(
         .unwrap_or_else(|error| String::from_utf8_lossy(error.as_bytes()).into_owned())
 }
 
-/// `<script type="application/json" class="{class}">{json}</script>`.
+/// `<script type="application/vnd.{class}+json" class="{class}">{json}</script>`.
+///
+/// The runtime finds the payload by its `type`, not its `class`: Google Colab
+/// re-creates every output `<script>` with only its type and text, dropping the class.
 fn script_element<T: serde::Serialize + ?Sized>(output: &mut Vec<u8>, class: &str, value: &T) {
     output.extend_from_slice(
-        format!("<script type=\"application/json\" class=\"{class}\">").as_bytes(),
+        format!("<script type=\"application/vnd.{class}+json\" class=\"{class}\">").as_bytes(),
     );
     let start = output.len();
     if write_script_json(output, value).is_err() {

@@ -532,7 +532,7 @@
   }
 
   function attachCanvas(plot) {
-    var data = plot.root.querySelector("script.ggrust-canvas");
+    var data = plot.root.querySelector('script[type="application/vnd.ggrust-canvas+json"]');
     if (!data || !plot.svg) return;
     var payload;
     try {
@@ -1571,7 +1571,7 @@
 
   // Set up zoom/pan when the engine wrote a zoom payload (`ggtb()`).
   function attachZoom(plot) {
-    var data = plot.root.querySelector("script.ggrust-zoom");
+    var data = plot.root.querySelector('script[type="application/vnd.ggrust-zoom+json"]');
     if (!data || !plot.svg) return;
     var payload;
     try {
@@ -1620,7 +1620,7 @@
   }
 
   function attach(plot) {
-    var data = plot.root.querySelector("script.ggrust-tooltips");
+    var data = plot.root.querySelector('script[type="application/vnd.ggrust-tooltips+json"]');
     if (!data || !plot.svg) {
       return;
     }

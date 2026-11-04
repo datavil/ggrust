@@ -17,7 +17,6 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-    "ipykernel>=7.4.0",
     "polars>=1.30",
 ]
 
@@ -26,6 +25,7 @@ Repository = "https://github.com/datavil/ggrust"
 
 [dependency-groups]
 dev = [
+    "ipykernel>=7.4.0",
     "lets-plot>=4.11,<5",
     "maturin>=1.9,<2",
     "numpy>=2.4.6",

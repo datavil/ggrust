@@ -38,6 +38,7 @@ __all__ = [
     "geom_blank",
     "geom_boxplot",
     "geom_bracket",
+    "geom_col",
     "geom_crossbar",
     "geom_density",
     "geom_errorbar",
@@ -1663,6 +1664,99 @@ def geom_bar(
         sampling=sampling,
         tooltips=tooltips,
         labels=labels,
+        orientation=orientation,
+        color_by=color_by,
+        fill_by=fill_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
+def geom_col(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    labels: Labels | None = None,
+    just: Number | None = None,
+    width: Number | None = None,
+    orientation: Literal["x", "y"] | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Bars with heights taken from the data (ggplot2 ``geom_col``), stacked.
+
+    The same as ``geom_bar(stat="identity")``: one bar per row, from 0 to y.
+    lets-plot has no ``geom_col``; this is ggplot2's.
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``; needs ``x`` and ``y``.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    position : str or FeatureSpec, optional
+        Position adjustment, default ``"stack"``: a name such as ``"dodge"`` or a
+        ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        This layer's key in a manual legend: a label, or ``layer_key()``.
+    sampling : str or FeatureSpec, optional
+        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    labels : list or dict, optional
+        Texts at the breaks: a list, or a dict of break values to texts.
+    just : float, default=0.5
+        Where the bar sits on x: 0.5 centers it, 0 puts its left edge on x, 1 its right edge.
+    width : float, default=0.9
+        Bar width, as a share of the x resolution.
+    orientation : {"x", "y"}, optional
+        ``"y"`` draws horizontal bars; a discrete y with a continuous x picks it by default.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Constant aesthetics, as in lets_plot.
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"fruit": ["apple", "banana", "cherry"], "sold": [12, 7, 9]}
+    >>> plot = ggplot(data, aes("fruit", "sold")) + geom_col(fill="seagreen")
+    """
+    return _geom(
+        "col",
+        mapping=mapping,
+        data=data,
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        manual_key=manual_key,
+        sampling=sampling,
+        tooltips=tooltips,
+        labels=labels,
+        just=just,
+        width=width,
         orientation=orientation,
         color_by=color_by,
         fill_by=fill_by,

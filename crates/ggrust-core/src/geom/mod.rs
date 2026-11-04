@@ -53,7 +53,7 @@ mod violin;
 pub use abline::AbLineGeom;
 pub use area::{AreaGeom, DensityGeom, RibbonGeom};
 pub use area_ridges::AreaRidgesGeom;
-pub use bar::{BarGeom, HistogramGeom};
+pub use bar::{BAR_GEOM, BarGeom, COL_GEOM, HistogramGeom};
 pub use beeswarm::{BEESWARM_GEOM, QUASIRANDOM_GEOM, SwarmGeom};
 pub use bin2d::Bin2dGeom;
 pub use blank::BlankGeom;
@@ -235,7 +235,8 @@ pub static GEOMS: &[&dyn Geom] = &[
     &TextRepelGeom,
     &LabelRepelGeom,
     &BlankGeom,
-    &BarGeom,
+    &BAR_GEOM,
+    &COL_GEOM,
     &HistogramGeom,
     &BoxplotGeom,
     &ViolinGeom,

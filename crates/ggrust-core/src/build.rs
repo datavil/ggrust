@@ -2067,6 +2067,7 @@ fn layer_orientation(
     ) || matches!(
         geom.name(),
         "bar"
+            | "col"
             | "violin"
             | "sina"
             | "beeswarm"

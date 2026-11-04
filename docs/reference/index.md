@@ -58,6 +58,7 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_polygon()`](api/geom_polygon.md) | Draw filled polygons, one per group. |
 | [`geom_rect()`](api/geom_rect.md) | Rectangles from ``xmin``, ``xmax``, ``ymin``, ``ymax``. |
 | [`geom_bar()`](api/geom_bar.md) | Bars, by default the count of rows per x (``stat="count"``), stacked. |
+| [`geom_col()`](api/geom_col.md) | Bars with heights taken from the data (ggplot2 ``geom_col``), stacked. |
 | [`geom_histogram()`](api/geom_histogram.md) | Histogram of binned x values (``stat="bin"``), stacked. |
 | [`geom_freqpoly()`](api/geom_freqpoly.md) | Frequency polygon: a line through the counts of binned x (``stat="bin"``). |
 | [`geom_boxplot()`](api/geom_boxplot.md) | Box and whiskers plot, dodged by group. |

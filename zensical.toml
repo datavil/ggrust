@@ -105,6 +105,7 @@ nav = [
       "reference/api/geom_polygon.md",
       "reference/api/geom_rect.md",
       "reference/api/geom_bar.md",
+      "reference/api/geom_col.md",
       "reference/api/geom_histogram.md",
       "reference/api/geom_freqpoly.md",
       "reference/api/geom_boxplot.md",

@@ -1,4 +1,8 @@
-//! `geom_bar` and `geom_histogram`: one rectangle per row, from 0 to y.
+//! `geom_bar`, `geom_col` and `geom_histogram`: one rectangle per row, from 0 to y.
+//!
+//! `geom_col` is ggplot2's name for `geom_bar(stat="identity")` (ggplot2
+//! `GeomCol`): the same geom with another name and default stat, plus `just`
+//! (0.5 centers the bar on x, 0 puts its left edge there, 1 its right edge).
 //!
 //! Setup (before the position adjustment) turns x into `xmin`/`xmax` spans of
 //! `width` x the x resolution (lets-plot `BarGeom.getBinSpanCalculator`; a
@@ -8,7 +12,8 @@
 //! Drawing follows lets-plot: rows in reverse order, zero-width or zero-height
 //! rectangles widened to 0.1 px, `alpha` on the fill only.
 //!
-//! What it does not do (yet): `orientation="y"`, mapped `width`, bar labels.
+//! What it does not do (yet): mapped `width`, bar labels. (`orientation="y"` is
+//! handled by the layer: x and y arrive swapped.)
 
 use super::lines;
 use super::point::POINT_UNIT_SIZE;
@@ -49,8 +54,26 @@ const RECTANGLE_AESTHETICS: &[Aesthetic] = &[
     Aesthetic::Ymax,
 ];
 
-/// Bars, by default of row counts per x.
-pub struct BarGeom;
+/// Bars: `geom_bar` (row counts per x) and `geom_col` (y as given).
+pub struct BarGeom {
+    name: &'static str,
+    stat: &'static str,
+    parameters: &'static [&'static str],
+}
+
+/// `geom_bar`: by default the count of rows per x.
+pub static BAR_GEOM: BarGeom = BarGeom {
+    name: "bar",
+    stat: "count",
+    parameters: &["width"],
+};
+
+/// `geom_col` (ggplot2): bar heights from y, with `just`.
+pub static COL_GEOM: BarGeom = BarGeom {
+    name: "col",
+    stat: "identity",
+    parameters: &["width", "just"],
+};
 
 impl Geom for BarGeom {
     fn tooltip_behavior(&self) -> crate::tooltip::TooltipBehavior {
@@ -70,11 +93,11 @@ impl Geom for BarGeom {
     }
 
     fn name(&self) -> &'static str {
-        "bar"
+        self.name
     }
 
     fn default_stat(&self) -> &'static str {
-        "count"
+        self.stat
     }
 
     fn default_position(&self) -> DefaultPosition {
@@ -94,7 +117,7 @@ impl Geom for BarGeom {
     }
 
     fn parameters(&self) -> &'static [&'static str] {
-        &["width"]
+        self.parameters
     }
 
     fn includes_zero_y(&self) -> bool {
@@ -111,7 +134,11 @@ impl Geom for BarGeom {
 
     fn setup(&self, data: LayerData, parameters: &Parameters) -> Result<LayerData> {
         let width = parameters.number("width")?.unwrap_or(0.9);
-        rectangles(data, width, &[])
+        let just = match self.parameters.contains(&"just") {
+            true => parameters.number("just")?.unwrap_or(0.5),
+            false => 0.5,
+        };
+        rectangles(data, width, just, &[])
     }
 
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
@@ -189,7 +216,7 @@ impl Geom for HistogramGeom {
 
     fn setup(&self, data: LayerData, parameters: &Parameters) -> Result<LayerData> {
         let width = parameters.number("width")?.unwrap_or(1.0);
-        rectangles(data, width, &histogram_breaks(parameters)?)
+        rectangles(data, width, 0.5, &histogram_breaks(parameters)?)
     }
 
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
@@ -222,7 +249,9 @@ fn histogram_breaks(parameters: &Parameters) -> Result<Vec<f64>> {
 }
 
 /// Add `xmin`/`xmax` (x spans), `ymin` = 0, `ymax` = y and the `width` used.
-fn rectangles(mut data: LayerData, width: f64, breaks: &[f64]) -> Result<LayerData> {
+/// `just` places the span without `breaks` (ggplot2 `GeomBar$setup_data`):
+/// `x - width * just` to `x + width * (1 - just)`, in x resolutions.
+fn rectangles(mut data: LayerData, width: f64, just: f64, breaks: &[f64]) -> Result<LayerData> {
     let (Some(x), Some(y)) = (
         data.continuous(Aesthetic::X).cloned(),
         data.continuous(Aesthetic::Y).cloned(),
@@ -235,7 +264,7 @@ fn rectangles(mut data: LayerData, width: f64, breaks: &[f64]) -> Result<LayerDa
     for row in 0..x.len() {
         let location = x.get(row).unwrap_or(f64::NAN);
         let (to_left, to_right) = if breaks.is_empty() {
-            (resolution / 2.0, resolution / 2.0)
+            (resolution * just, resolution * (1.0 - just))
         } else {
             match bracketing_index(breaks, location) {
                 Some(index) => (location - breaks[index], breaks[index + 1] - location),
@@ -383,16 +412,41 @@ mod tests {
             .unwrap();
         data.insert(Aesthetic::Y, column(vec![1.0, -2.0, 3.0]))
             .unwrap();
-        let bars = rectangles(data.clone(), 0.9, &[]).unwrap();
+        let bars = rectangles(data.clone(), 0.9, 0.5, &[]).unwrap();
         let xmin = bars.continuous(Aesthetic::Xmin).unwrap();
         assert!((xmin.get(0).unwrap() + 0.45).abs() < 1e-12);
         assert_eq!(bars.continuous(Aesthetic::Ymax).unwrap().get(1), Some(-2.0));
-        let bins = rectangles(data, 1.0, &[-1.0, 1.0, 2.5, 4.0]).unwrap();
+        let bins = rectangles(data.clone(), 1.0, 0.5, &[-1.0, 1.0, 2.5, 4.0]).unwrap();
         let (xmin, xmax) = (
             bins.continuous(Aesthetic::Xmin).unwrap(),
             bins.continuous(Aesthetic::Xmax).unwrap(),
         );
         assert_eq!((xmin.get(1), xmax.get(1)), (Some(1.0), Some(2.5)));
         assert_eq!((xmin.get(2), xmax.get(2)), (Some(2.5), Some(4.0)));
+    }
+
+    #[test]
+    fn just_places_the_span() {
+        let mut data = LayerData::new(2);
+        let column = |values: Vec<f64>| Column::Continuous(ContinuousColumn::from_values(values));
+        data.insert(Aesthetic::X, column(vec![1.0, 2.0])).unwrap();
+        data.insert(Aesthetic::Y, column(vec![3.0, 4.0])).unwrap();
+        for (just, left, right) in [(0.0, 1.0, 1.9), (1.0, 0.1, 1.0), (0.25, 0.775, 1.675)] {
+            let bars = rectangles(data.clone(), 0.9, just, &[]).unwrap();
+            let xmin = bars.continuous(Aesthetic::Xmin).unwrap().get(0).unwrap();
+            let xmax = bars.continuous(Aesthetic::Xmax).unwrap().get(0).unwrap();
+            assert!(
+                (xmin - left).abs() < 1e-12 && (xmax - right).abs() < 1e-12,
+                "{just}"
+            );
+        }
+    }
+
+    #[test]
+    fn col_is_bar_with_identity_stat() {
+        assert_eq!(COL_GEOM.default_stat(), "identity");
+        assert_eq!(BAR_GEOM.default_stat(), "count");
+        assert!(COL_GEOM.parameters().contains(&"just"));
+        assert!(!BAR_GEOM.parameters().contains(&"just"));
     }
 }

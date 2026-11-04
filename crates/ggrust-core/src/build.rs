@@ -1961,8 +1961,8 @@ fn map_layer_into<'a>(
 
 /// Whether a layer runs in y orientation (lets-plot `LayerConfig.initYOrientation`):
 /// `orientation="y"`, or, without the option, a counting or distribution layer
-/// (count, summary, boxplot, ydensity stats; bar, violin, sina geoms) with a
-/// discrete y and a non-discrete x. Such a layer computes and draws with x and y
+/// (count, summary, boxplot, ydensity stats; bar, violin, sina, beeswarm,
+/// quasirandom geoms) with a discrete y and a non-discrete x. Such a layer computes and draws with x and y
 /// swapped (see [`Aesthetic::flip_orientation`]): `geom_bar(aes(y="g"))` draws
 /// horizontal bars. Geoms that read `orientation` themselves are left alone.
 fn layer_orientation(
@@ -1990,7 +1990,10 @@ fn layer_orientation(
     let auto = matches!(
         stat.name(),
         "count" | "summary" | "boxplot" | "boxplot_outlier" | "ydensity"
-    ) || matches!(geom.name(), "bar" | "violin" | "sina");
+    ) || matches!(
+        geom.name(),
+        "bar" | "violin" | "sina" | "beeswarm" | "quasirandom"
+    );
     let discrete = |wanted: Aesthetic| {
         columns.iter().any(|(aesthetic, column, _)| {
             *aesthetic == wanted && matches!(column, Column::Discrete(_))
@@ -2197,6 +2200,9 @@ fn compute_layer(
             .filter_map(|rows| rows.first().map(|row| layer_data.group_of(*row)))
             .collect()
     });
+    // Stats that size things by the axes (beeswarm) read this; set again below
+    // for the stat's output.
+    layer_data.set_discrete_axes(x_discrete, y_discrete);
     let mut layer_data = stat.compute(layer_data, &parameters, context)?;
     // Stat positions the geom does not draw (a summary's ymin/ymax under
     // `geom="point"`) neither train the axes nor reach the geom, as lets-plot

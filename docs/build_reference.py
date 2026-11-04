@@ -54,6 +54,8 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "geom_count",
             "geom_jitter",
             "geom_sina",
+            "geom_beeswarm",
+            "geom_quasirandom",
             "geom_line",
             "geom_step",
             "geom_path",

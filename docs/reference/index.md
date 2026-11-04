@@ -33,6 +33,8 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_count()`](api/geom_count.md) | Points at each distinct (x, y), sized by the number of rows there (``stat="sum"``). |
 | [`geom_jitter()`](api/geom_jitter.md) | Points with random noise added to their positions. |
 | [`geom_sina()`](api/geom_sina.md) | Sina plot: points spread within the violin outline. |
+| [`geom_beeswarm()`](api/geom_beeswarm.md) | Beeswarm plot: points of each x moved sideways so that none overlap. |
+| [`geom_quasirandom()`](api/geom_quasirandom.md) | Quasirandom plot: points spread sideways within the density of their x. |
 | [`geom_line()`](api/geom_line.md) | Connect observations sorted by x. |
 | [`geom_step()`](api/geom_step.md) | Connect observations sorted by x with stairs. |
 | [`geom_path()`](api/geom_path.md) | Connect observations in data order. |

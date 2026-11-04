@@ -40,7 +40,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Main roadmap: [plan.md](plan.md).
   `palette=` and `alpha=` parameters as ggsci. A palette table next to the brewer ones in
   `scale/style`, no new scale machinery. Done when each palette's colours match ggsci's
   hex values and a too-short palette warns like the brewer `overflow` path.
-- [ ] ex1.2 **ggbeeswarm.** `geom_beeswarm` (`method="swarm"`, `cex`, `priority`,
+- [x] ex1.2 **ggbeeswarm.** `geom_beeswarm` (`method="swarm"`, `cex`, `priority`,
   `side`) and `geom_quasirandom` (`method="quasirandom"`, van der Corput offsets scaled by
   the group's density; `width`, `varwidth`, `bandwidth`). As positions or stats over the
   existing violin density code (`stat/ydensity.rs`), seeded and deterministic. Works with

@@ -1,6 +1,7 @@
 //! Stats: transform a layer's data before drawing (counts, densities, boxplot
 //! statistics, ...). One file per stat; add it to [`STATS`].
 
+mod beeswarm;
 mod bin;
 mod bin2d;
 mod binhex;
@@ -14,12 +15,15 @@ mod densityridges;
 mod ecdf;
 pub(crate) mod groups;
 mod identity;
+mod quasirandom;
+mod r_density;
 mod sina;
 mod smooth;
 mod sum;
 mod summary;
 mod ydensity;
 
+pub use beeswarm::BeeswarmStat;
 pub use bin::{BinStat, bracketing_index};
 pub use bin2d::Bin2dStat;
 pub use binhex::BinHexStat;
@@ -31,6 +35,7 @@ pub use density2d::{Density2dStat, Density2dfStat};
 pub use densityridges::DensityRidgesStat;
 pub use ecdf::EcdfStat;
 pub use identity::IdentityStat;
+pub use quasirandom::QuasirandomStat;
 pub use sina::SinaStat;
 pub use smooth::SmoothStat;
 pub use sum::SumStat;
@@ -105,6 +110,8 @@ pub static STATS: &[&dyn Stat] = &[
     &YDensityStat,
     &DensityRidgesStat,
     &SinaStat,
+    &BeeswarmStat,
+    &QuasirandomStat,
     &SmoothStat,
     &SummaryStat,
     &SummaryBinStat,

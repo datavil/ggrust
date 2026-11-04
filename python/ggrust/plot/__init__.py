@@ -48,6 +48,7 @@ from ggrust.plot.geom import (
     geom_violin,
     geom_vline,
 )
+from ggrust.plot.geom_beeswarm import geom_beeswarm, geom_quasirandom
 from ggrust.plot.geom_extras import arrow
 from ggrust.plot.geom_function import geom_function
 from ggrust.plot.geom_imshow import geom_imshow
@@ -197,6 +198,7 @@ __all__ = [
     "geom_area",
     "geom_area_ridges",
     "geom_bar",
+    "geom_beeswarm",
     "geom_bin2d",
     "geom_blank",
     "geom_boxplot",
@@ -225,6 +227,7 @@ __all__ = [
     "geom_point",
     "geom_pointrange",
     "geom_polygon",
+    "geom_quasirandom",
     "geom_raster",
     "geom_rect",
     "geom_ribbon",

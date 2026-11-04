@@ -164,6 +164,11 @@ impl LayerData {
         self.discrete_axes = (x, y);
     }
 
+    /// Whether the x and y position scales are discrete.
+    pub fn discrete_axes(&self) -> (bool, bool) {
+        self.discrete_axes
+    }
+
     /// Resolution of a position aesthetic (bar widths, dodging, tile sizes): 1 on a
     /// discrete axis, as lets-plot (`PlotUtil.createLayerAesthetics`), else the
     /// smallest gap between the column's values (1 without a column).

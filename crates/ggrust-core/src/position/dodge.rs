@@ -38,7 +38,7 @@ impl Position for DodgePosition {
 
 /// Dodge `data` (lets-plot `BaseDodgePos.translate`). `jitter` adds a per-row x
 /// offset before dodging, around the unjittered x (jitterdodge).
-pub(super) fn dodge(
+pub(crate) fn dodge(
     data: LayerData,
     width: Option<f64>,
     jitter: Option<&[f64]>,

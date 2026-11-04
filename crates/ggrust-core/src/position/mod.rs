@@ -2,7 +2,7 @@
 //! fill) or by a fixed offset (nudge).
 //! One file per position; add it to [`POSITIONS`].
 
-mod dodge;
+pub(crate) mod dodge;
 mod identity;
 mod jitter;
 mod nudge;

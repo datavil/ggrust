@@ -83,6 +83,8 @@ nav = [
       "reference/api/geom_count.md",
       "reference/api/geom_jitter.md",
       "reference/api/geom_sina.md",
+      "reference/api/geom_beeswarm.md",
+      "reference/api/geom_quasirandom.md",
       "reference/api/geom_line.md",
       "reference/api/geom_step.md",
       "reference/api/geom_path.md",

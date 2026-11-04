@@ -9,6 +9,7 @@ mod abline;
 mod area;
 mod area_ridges;
 mod bar;
+mod beeswarm;
 mod bin2d;
 mod blank;
 mod boxplot;
@@ -45,6 +46,7 @@ pub use abline::AbLineGeom;
 pub use area::{AreaGeom, DensityGeom, RibbonGeom};
 pub use area_ridges::AreaRidgesGeom;
 pub use bar::{BarGeom, HistogramGeom};
+pub use beeswarm::{BEESWARM_GEOM, QUASIRANDOM_GEOM, SwarmGeom};
 pub use bin2d::Bin2dGeom;
 pub use blank::BlankGeom;
 pub use boxplot::BoxplotGeom;
@@ -224,6 +226,8 @@ pub static GEOMS: &[&dyn Geom] = &[
     &BoxplotGeom,
     &ViolinGeom,
     &SinaGeom,
+    &BEESWARM_GEOM,
+    &QUASIRANDOM_GEOM,
     &JitterGeom,
     &ErrorBarGeom,
     &LineRangeGeom,

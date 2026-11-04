@@ -58,3 +58,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Arrow axes are theme axis lines](arrow_axes.md): `element_line(arrow=, extent=)` in pixels via `layout::axis_line_node`, shared with the zoom template (zoom-invariant), arrow/extent read from the axis_line chain only.
 - [Geom colors and manual legends](letsplot_geom_palette_manual_key.md): pen = flavor ink, paper = flavor white, brush #118ed8; geom defaults are PEN/BRUSH/PAPER; manual keys sort by index, legends keyed by title.
 - [ggsci palettes](ggsci_palettes.md): fixed tables per mapper kind, brewer overflow + warning after training (`palette_size`), R rgb() alpha rounding.
+- [ggbeeswarm layouts](ggbeeswarm_layouts.md): stats (not positions) for the plot ranges, dodge_width, R `density()` port (4.4 coords), round R fixtures before write_json.

@@ -37,6 +37,12 @@ SOFTWARE.
 `crates/ggrust-core/fonts/` contains Liberation Sans and Liberation Mono 2.1.5, licensed under the SIL Open Font
 License 1.1; see `crates/ggrust-core/fonts/OFL.txt`.
 
+## Liberation Serif (tests only)
+
+`tests/fonts/` contains Liberation Serif 2.1.5 Regular and Bold, used only by the tests
+of custom fonts (`register_font`), licensed under the SIL Open Font License 1.1; see
+`tests/fonts/OFL.txt`. They are not shipped in the package.
+
 ## Color maps
 
 `crates/ggrust-core/src/scale/style/colormap_data.rs` holds color map tables taken from

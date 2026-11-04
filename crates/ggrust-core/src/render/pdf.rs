@@ -27,8 +27,8 @@ use pdf_writer::types::{
     CidFontType, FontFlags, LineCapStyle, LineJoinStyle, SystemInfo, TextRenderingMode, UnicodeCmap,
 };
 use pdf_writer::{Content, Filter, Finish, Name, Pdf, Rect as PdfRect, Ref, Str, TextStr};
+use read_fonts::TableProvider;
 use read_fonts::types::GlyphId;
-use read_fonts::{FontRef, TableProvider};
 use subsetter::GlyphRemapper;
 
 use super::svg::marker_stroke;
@@ -37,7 +37,7 @@ use crate::scene::{
     Bitmap, Color, Group, HorizontalAlign, Image, MarkerPart, MarkerShape, Node, Path, Points,
     Rect, Rects, SUPERSCRIPT_RISE, SUPERSCRIPT_SCALE, Scene, Stroke, Text, VerticalAlign,
 };
-use crate::text::{Font, FontFace, FontFamily, measure, measure_label, shape, single_line};
+use crate::text::{Font, loaded, measure, measure_label, shape, single_line};
 use crate::{Error, Result};
 
 /// PDF user space units (points) per inch.
@@ -634,6 +634,11 @@ impl Writer {
     }
 
     fn font_index(&mut self, font: Font) -> usize {
+        // Requests a registered family answers with one face share its subset.
+        let font = Font {
+            family: font.family,
+            face: font.resolved_face(),
+        };
         if let Some(index) = self.fonts.iter().position(|used| used.font == font) {
             return index;
         }
@@ -653,8 +658,8 @@ impl Writer {
         if glyphs.is_empty() {
             return;
         }
-        let font = font_ref(used.font);
-        let metrics = font.hmtx().ok();
+        let face = loaded(used.font);
+        let metrics = face.font_ref.hmtx().ok();
         let mut items: Vec<(Vec<u8>, f32)> = vec![(Vec::new(), 0.0)];
         for (index, glyph) in glyphs.iter().enumerate() {
             let new_id = used.remapper.remap(glyph.glyph_id);
@@ -820,11 +825,23 @@ impl Writer {
 /// glyph ids, widths come from `hmtx`, `ToUnicode` maps glyphs back to text.
 fn write_font(pdf: &mut Pdf, used: &FontUse, ids: &[Ref; 5]) -> Result<()> {
     let [type0_id, cid_id, descriptor_id, file_id, cmap_id] = *ids;
-    let font = font_ref(used.font);
+    let face = loaded(used.font);
+    let font = &face.font_ref;
+    if !face.embeddable {
+        return Err(Error::invalid_font(
+            std::path::Path::new(&used.font.family.name()),
+            format!(
+                "the license of font {} (OS/2 fsType) does not allow embedding a subset of \
+                 it in documents, and PDF text needs an embedded subset; export PNG or SVG \
+                 instead, or use a font whose license allows embedding",
+                face.postscript_name
+            ),
+        ));
+    }
     let failed = |table: &str| {
         Error::render(format!(
-            "embedded font {} has no readable {table} table (a build defect)",
-            postscript_name(used.font)
+            "font {} has no readable {table} table",
+            face.postscript_name
         ))
     };
     let head = font.head().map_err(|_| failed("head"))?;
@@ -834,10 +851,10 @@ fn write_font(pdf: &mut Pdf, used: &FontUse, ids: &[Ref; 5]) -> Result<()> {
     let units = 1000.0 / f32::from(head.units_per_em());
     let to_pdf_units = |value: i16| f32::from(value) * units;
 
-    let subset = subsetter::subset(used.font.font_data(), 0, &used.remapper).map_err(|error| {
+    let subset = subsetter::subset(face.data, face.index, &used.remapper).map_err(|error| {
         Error::render(format!(
             "could not subset font {}: {error}",
-            postscript_name(used.font)
+            face.postscript_name
         ))
     })?;
     // A subset tag from the glyph set: six letters, stable for the same glyphs.
@@ -850,7 +867,7 @@ fn write_font(pdf: &mut Pdf, used: &FontUse, ids: &[Ref; 5]) -> Result<()> {
     let tag: String = (0..6)
         .map(|position| char::from(b'A' + ((hash >> (position * 5)) % 26) as u8))
         .collect();
-    let base_name = format!("{tag}+{}", postscript_name(used.font));
+    let base_name = format!("{tag}+{}", face.postscript_name);
     let base_name = Name(base_name.as_bytes());
     let system_info = SystemInfo {
         registry: Str(b"Adobe"),
@@ -873,16 +890,21 @@ fn write_font(pdf: &mut Pdf, used: &FontUse, ids: &[Ref; 5]) -> Result<()> {
         })
         .collect();
     let mut cid = pdf.cid_font(cid_id);
-    cid.subtype(CidFontType::Type2)
-        .base_font(base_name)
+    cid.base_font(base_name)
         .system_info(system_info)
-        .font_descriptor(descriptor_id)
-        .cid_to_gid_map_predefined(Name(b"Identity"));
+        .font_descriptor(descriptor_id);
+    if face.cff {
+        // The subsetter makes CFF fonts CID-keyed with CID = new glyph id.
+        cid.subtype(CidFontType::Type0);
+    } else {
+        cid.subtype(CidFontType::Type2)
+            .cid_to_gid_map_predefined(Name(b"Identity"));
+    }
     cid.widths().consecutive(0, widths);
     cid.finish();
 
     let mut flags = FontFlags::NON_SYMBOLIC;
-    if used.font.family == FontFamily::Mono {
+    if face.monospaced {
         flags |= FontFlags::FIXED_PITCH;
     }
     if used.font.face.is_italic() {
@@ -893,7 +915,8 @@ fn write_font(pdf: &mut Pdf, used: &FontUse, ids: &[Ref; 5]) -> Result<()> {
         .ok()
         .and_then(|os2| os2.s_cap_height())
         .unwrap_or(hhea.ascender().to_i16());
-    pdf.font_descriptor(descriptor_id)
+    let mut descriptor = pdf.font_descriptor(descriptor_id);
+    descriptor
         .name(base_name)
         .flags(flags)
         .bbox(PdfRect::new(
@@ -910,13 +933,24 @@ fn write_font(pdf: &mut Pdf, used: &FontUse, ids: &[Ref; 5]) -> Result<()> {
             140.0
         } else {
             80.0
-        })
-        .font_file2(file_id);
+        });
+    if face.cff {
+        descriptor.font_file3(file_id);
+    } else {
+        descriptor.font_file2(file_id);
+    }
+    descriptor.finish();
 
     let compressed = deflate(&subset)?;
-    pdf.stream(file_id, &compressed)
-        .filter(Filter::FlateDecode)
-        .pair(Name(b"Length1"), subset.len() as i32);
+    let mut stream = pdf.stream(file_id, &compressed);
+    stream.filter(Filter::FlateDecode);
+    if face.cff {
+        // An OpenType font program with CFF outlines (PDF 1.6).
+        stream.pair(Name(b"Subtype"), Name(b"OpenType"));
+    } else {
+        stream.pair(Name(b"Length1"), subset.len() as i32);
+    }
+    stream.finish();
 
     let mut cmap = UnicodeCmap::new(Name(b"Custom"), system_info);
     for (glyph, text) in used.texts.iter().enumerate() {
@@ -929,26 +963,6 @@ fn write_font(pdf: &mut Pdf, used: &FontUse, ids: &[Ref; 5]) -> Result<()> {
     let cmap = cmap.finish();
     pdf.cmap(cmap_id, &cmap);
     Ok(())
-}
-
-/// The embedded font parsed with read-fonts (known-good data).
-fn font_ref(font: Font) -> FontRef<'static> {
-    // The embedded fonts parse (checked by the text module at first use).
-    FontRef::new(font.font_data()).unwrap_or_else(|_| unreachable!("embedded fonts parse"))
-}
-
-/// PostScript name of an embedded font.
-fn postscript_name(font: Font) -> &'static str {
-    match (font.family, font.face) {
-        (FontFamily::Sans, FontFace::Plain) => "LiberationSans",
-        (FontFamily::Sans, FontFace::Bold) => "LiberationSans-Bold",
-        (FontFamily::Sans, FontFace::Italic) => "LiberationSans-Italic",
-        (FontFamily::Sans, FontFace::BoldItalic) => "LiberationSans-BoldItalic",
-        (FontFamily::Mono, FontFace::Plain) => "LiberationMono",
-        (FontFamily::Mono, FontFace::Bold) => "LiberationMono-Bold",
-        (FontFamily::Mono, FontFace::Italic) => "LiberationMono-Italic",
-        (FontFamily::Mono, FontFace::BoldItalic) => "LiberationMono-BoldItalic",
-    }
 }
 
 /// How many times to repeat each image pixel along each side: about 4 device
@@ -1297,7 +1311,8 @@ mod tests {
             .parse()
             .unwrap();
         let (glyphs, units) = shape("AV", Font::default());
-        let advance = font_ref(Font::default())
+        let advance = loaded(Font::default())
+            .font_ref
             .hmtx()
             .unwrap()
             .advance(GlyphId::new(u32::from(glyphs[0].glyph_id)))

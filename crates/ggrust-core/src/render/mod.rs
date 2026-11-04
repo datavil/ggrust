@@ -10,6 +10,7 @@ mod png;
 mod raster;
 mod sprite;
 mod svg;
+mod webfont;
 
 pub use html::{HtmlDocument, HtmlOptions, to_html};
 pub use pdf::to_pdf;

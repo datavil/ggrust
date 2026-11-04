@@ -1836,6 +1836,7 @@ fn map_layer_into<'a>(
 
     let options = normalize_options(&spec.parameters, &path, warnings);
     validate_parameters(geom, stat, &options, &path, warnings);
+    font_option_warnings(&options, &path, warnings);
     for (position, position_options, position_path) in &positions {
         validate_position_options(*position, position_options, position_path, warnings);
     }
@@ -3064,6 +3065,40 @@ fn describe_mapping_value(value: &MappingValue) -> String {
         MappingValue::Column(name) => format!("column '{name}'"),
         MappingValue::Columns(names) => format!("columns [{}]", names.join(", ")),
         MappingValue::Other(value) => format!("the value {value}"),
+    }
+}
+
+/// Warn about constant font families of a layer (`family`, ggforce's
+/// `label_family`) that name no registered or embedded font, and about a
+/// registered family without the requested `fontface`.
+fn font_option_warnings(options: &Options, path: &str, warnings: &mut Vec<String>) {
+    let mut push = |warning: Option<String>| {
+        if let Some(warning) = warning
+            && !warnings.contains(&warning)
+        {
+            warnings.push(warning);
+        }
+    };
+    for key in ["family", "label_family"] {
+        let names: Vec<&str> = match options.get(key) {
+            Some(Value::String(name)) => vec![name.as_str()],
+            Some(Value::Array(items)) => items.iter().filter_map(Value::as_str).collect(),
+            _ => continue,
+        };
+        for name in names {
+            push(crate::text::family_warning(name, &format!("{path}.{key}")));
+        }
+    }
+    if let Some(Value::String(name)) = options.get("family") {
+        let face = options.get("fontface").and_then(Value::as_str).map_or(
+            crate::text::FontFace::Plain,
+            crate::text::FontFace::from_name,
+        );
+        let font = crate::text::Font {
+            family: crate::text::FontFamily::from_name(name).0,
+            face,
+        };
+        push(crate::text::face_warning(font, &format!("{path}.family")));
     }
 }
 

@@ -3,21 +3,27 @@
 //! What it does: embeds Liberation Sans and Liberation Mono (SIL OFL 1.1,
 //! metric-compatible with Arial/Helvetica and Courier New) and measures text with
 //! harfrust, the same shaper resvg uses, so layout widths match rendered PNGs
-//! exactly and browsers closely. Other font families map to these two
+//! exactly and browsers closely. Fonts the user registers ([`register_font`]) are
+//! measured and drawn the same way; other family names map to the embedded two
 //! ([`FontFamily::from_name`]).
 //!
 //! What it does not do: line wrapping or bidirectional text. Multi-line labels are
 //! split on `\n` by [`measure_lines`].
 
 mod estimate;
+mod registry;
 
 pub use estimate::estimated_width;
+pub(crate) use registry::LoadedFont;
+pub use registry::{
+    DirectoryFonts, FONT_EXTENSIONS, register_font, register_font_data, register_font_dir,
+    registered_fonts,
+};
 
 use std::borrow::Cow;
-use std::sync::LazyLock;
+use std::sync::{Arc, LazyLock};
 
-use harfrust::{FontRef, ShaperData, UnicodeBuffer};
-use read_fonts::TableProvider;
+use harfrust::UnicodeBuffer;
 
 /// Family name of the embedded sans font.
 pub const FONT_FAMILY: &str = "Liberation Sans";
@@ -32,7 +38,7 @@ pub const CSS_FONT_FAMILY: &str = "'Liberation Sans', Arial, Helvetica, sans-ser
 /// CSS `font-family` of monospace text.
 pub const CSS_MONO_FONT_FAMILY: &str = "'Liberation Mono', 'Courier New', Courier, monospace";
 
-/// One of the embedded font families.
+/// A font family: one of the embedded two, or one the user registered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub enum FontFamily {
     /// Liberation Sans (Arial metrics).
@@ -40,15 +46,35 @@ pub enum FontFamily {
     Sans,
     /// Liberation Mono (Courier New metrics).
     Mono,
+    /// A family registered with [`register_font`] (its registry id).
+    Registered(u16),
 }
 
+/// Family names that map to an embedded family (lower case), for suggestions.
+const EMBEDDED_ALIASES: &[&str] = &[
+    "sans",
+    "sans-serif",
+    "arial",
+    "helvetica",
+    "liberation sans",
+    "mono",
+    "monospace",
+    "courier",
+    "courier new",
+    "liberation mono",
+];
+
 impl FontFamily {
-    /// The embedded family for a family name, case-insensitive: monospace names
+    /// The family for a family name, case-insensitive. A registered family
+    /// ([`register_font`]) wins over the aliases below. Monospace names
     /// (`mono`, `monospace`, `Courier`, `Courier New`, `Liberation Mono`, `Menlo`,
     /// `Consolas`, ...) give Mono; sans names (`sans`, `sans-serif`, `Arial`,
     /// `Helvetica`, `Liberation Sans`, ...) give Sans. Any other name gives Sans and
-    /// `false` (not embedded).
+    /// `false` (unknown; see [`family_warning`]).
     pub fn from_name(name: &str) -> (Self, bool) {
+        if let Some(id) = registry::lookup(name.trim()) {
+            return (FontFamily::Registered(id), true);
+        }
         let name = name.trim().to_lowercase();
         const MONO: &[&str] = &[
             "mono",
@@ -80,13 +106,67 @@ impl FontFamily {
         }
     }
 
-    /// CSS `font-family` for SVG.
+    /// CSS `font-family` of an embedded family for SVG (registered families are
+    /// written by the SVG renderer with their embedded web font).
     pub fn css(self) -> &'static str {
         match self {
-            FontFamily::Sans => CSS_FONT_FAMILY,
+            FontFamily::Sans | FontFamily::Registered(_) => CSS_FONT_FAMILY,
             FontFamily::Mono => CSS_MONO_FONT_FAMILY,
         }
     }
+
+    /// The family's name: the registered name, or the embedded font's.
+    pub fn name(self) -> String {
+        match self {
+            FontFamily::Sans => FONT_FAMILY.to_owned(),
+            FontFamily::Mono => MONO_FONT_FAMILY.to_owned(),
+            FontFamily::Registered(id) => registry::family_name(id),
+        }
+    }
+}
+
+/// The warning for a family name that names no registered or embedded font, with
+/// a suggestion; `None` for known names. `path` locates it (e.g. `theme.title.family`).
+pub fn family_warning(name: &str, path: &str) -> Option<String> {
+    if FontFamily::from_name(name).1 {
+        return None;
+    }
+    let registered = registry::family_names();
+    let suggestion = crate::suggest::did_you_mean(
+        name.trim(),
+        registered
+            .iter()
+            .map(String::as_str)
+            .chain(EMBEDDED_ALIASES.iter().copied()),
+    );
+    let known = if registered.is_empty() {
+        "no fonts are registered".to_owned()
+    } else {
+        format!("registered: {}", registered.join(", "))
+    };
+    Some(format!(
+        "at '{path}': font family '{name}' is not registered ({known}); Liberation Sans was \
+         used. Register the font file with ggrust.register_font(path){suggestion}"
+    ))
+}
+
+/// The warning when `font` is a registered family without the requested face
+/// (the nearest registered face is drawn); `None` otherwise.
+pub fn face_warning(font: Font, path: &str) -> Option<String> {
+    let FontFamily::Registered(id) = font.family else {
+        return None;
+    };
+    let (_, used) = registry::face(id, font.face)?;
+    (used != font.face).then(|| {
+        format!(
+            "at '{path}': font family '{}' has no {} face registered; its {} face was used. \
+             Register the {} font file with ggrust.register_font(path)",
+            registry::family_name(id),
+            font.face.label(),
+            used.label(),
+            font.face.label(),
+        )
+    })
 }
 
 /// An embedded font: family and face. A bare [`FontFace`] means the sans family.
@@ -108,6 +188,17 @@ impl From<FontFace> for Font {
 }
 
 impl Font {
+    /// The family and the face actually drawn: a registered family without the
+    /// requested face draws its nearest registered face.
+    pub fn resolved_face(self) -> FontFace {
+        match self.family {
+            FontFamily::Registered(id) => {
+                registry::face(id, self.face).map_or(self.face, |(_, face)| face)
+            }
+            _ => self.face,
+        }
+    }
+
     /// Every embedded font, in loading order.
     pub fn all() -> impl Iterator<Item = Font> {
         [FontFamily::Sans, FontFamily::Mono]
@@ -115,10 +206,11 @@ impl Font {
             .flat_map(|family| FontFace::ALL.map(|face| Font { family, face }))
     }
 
-    /// Raw TrueType data.
+    /// Raw TrueType data of an embedded font (a registered family gives its file).
     pub fn font_data(self) -> &'static [u8] {
         match self.family {
             FontFamily::Sans => self.face.font_data(),
+            FontFamily::Registered(_) => loaded(self).data,
             FontFamily::Mono => match self.face {
                 FontFace::Plain => include_bytes!("../../fonts/LiberationMono-Regular.ttf"),
                 FontFace::Bold => include_bytes!("../../fonts/LiberationMono-Bold.ttf"),
@@ -130,9 +222,49 @@ impl Font {
         }
     }
 
-    fn index(self) -> usize {
-        self.family as usize * FontFace::ALL.len() + self.face as usize
+    /// Position among the embedded fonts (a registered family counts as Sans).
+    fn embedded_index(self) -> usize {
+        let family = match self.family {
+            FontFamily::Mono => 1,
+            FontFamily::Sans | FontFamily::Registered(_) => 0,
+        };
+        family * FontFace::ALL.len() + self.face as usize
     }
+}
+
+/// A parsed face: embedded ones are borrowed (no reference counting on the
+/// measuring hot path), registered ones shared.
+#[derive(Clone)]
+pub(crate) enum FaceRef {
+    Embedded(&'static LoadedFont),
+    Registered(Arc<LoadedFont>),
+}
+
+impl std::ops::Deref for FaceRef {
+    type Target = LoadedFont;
+
+    fn deref(&self) -> &LoadedFont {
+        match self {
+            FaceRef::Embedded(face) => face,
+            FaceRef::Registered(face) => face,
+        }
+    }
+}
+
+/// The parsed face drawn for `font`: an embedded face, or the registered one
+/// (nearest face; Liberation Sans if the id is unknown).
+pub(crate) fn loaded(font: Font) -> FaceRef {
+    if let FontFamily::Registered(id) = font.family
+        && let Some((loaded, _)) = registry::face(id, font.face)
+    {
+        return FaceRef::Registered(loaded);
+    }
+    FaceRef::Embedded(&FONTS[font.embedded_index()])
+}
+
+/// Every registered face, with the registry generation it belongs to.
+pub(crate) fn registered_faces() -> (u64, Vec<Arc<LoadedFont>>) {
+    registry::all_faces()
 }
 
 /// Line spacing as a multiple of the font size (lets-plot uses about 1.15).
@@ -185,6 +317,16 @@ impl FontFace {
     fn words(name: &str) -> impl Iterator<Item = &str> {
         name.split([' ', '_', '.', '-'])
             .filter(|word| !word.is_empty())
+    }
+
+    /// The face as written in lets-plot (`plain`, `bold`, `italic`, `bold_italic`).
+    pub fn label(self) -> &'static str {
+        match self {
+            FontFace::Plain => "plain",
+            FontFace::Bold => "bold",
+            FontFace::Italic => "italic",
+            FontFace::BoldItalic => "bold_italic",
+        }
     }
 
     /// Whether the face is bold.
@@ -252,7 +394,7 @@ pub fn single_line(text: &str) -> Cow<'_, str> {
 
 /// Measure one line of text at `size` pixels (see [`single_line`]).
 pub fn measure(text: &str, size: f64, font: impl Into<Font>) -> TextExtent {
-    let font = &FONTS[font.into().index()];
+    let font = loaded(font.into());
     let scale = size / f64::from(font.units_per_em);
     let text = single_line(text);
     let width = if text.is_empty() {
@@ -292,7 +434,7 @@ pub struct ShapedGlyph {
 /// renderer drawing these glyphs gets exactly the measured width. Returns the
 /// glyphs in visual order and the font's units per em.
 pub fn shape(text: &str, font: Font) -> (Vec<ShapedGlyph>, u16) {
-    let font = &FONTS[font.index()];
+    let font = loaded(font);
     let text = single_line(text);
     if text.is_empty() {
         return (Vec::new(), font.units_per_em);
@@ -307,7 +449,7 @@ pub fn shape(text: &str, font: Font) -> (Vec<ShapedGlyph>, u16) {
         .iter()
         .zip(output.glyph_positions())
         .map(|(info, position)| ShapedGlyph {
-            // The embedded fonts have fewer than 65536 glyphs.
+            // Fonts have at most 65536 glyphs.
             glyph_id: u16::try_from(info.glyph_id).unwrap_or(0),
             x_advance: position.x_advance,
             cluster: info.cluster as usize,
@@ -350,29 +492,14 @@ pub fn measure_lines(text: &str, size: f64, face: impl Into<Font>) -> BlockExten
     }
 }
 
-struct LoadedFont {
-    font_ref: FontRef<'static>,
-    shaper_data: ShaperData,
-    units_per_em: u16,
-    ascender: i16,
-    /// Positive distance below the baseline.
-    descender: i16,
-}
-
 static FONTS: LazyLock<Vec<LoadedFont>> = LazyLock::new(|| {
     Font::all()
-        .map(|face| {
+        .enumerate()
+        .map(|(position, font)| {
             // The embedded fonts are known-good; a parse failure is a build defect.
-            let font_ref = FontRef::new(face.font_data()).expect("embedded font parses");
-            let head = font_ref.head().expect("embedded font has a head table");
-            let hhea = font_ref.hhea().expect("embedded font has an hhea table");
-            LoadedFont {
-                shaper_data: ShaperData::new(&font_ref),
-                units_per_em: head.units_per_em(),
-                ascender: hhea.ascender().to_i16(),
-                descender: hhea.descender().to_i16().saturating_abs(),
-                font_ref,
-            }
+            // Their CSS names are never written, so the position stands in for a hash.
+            LoadedFont::parse(font.font_data(), 0, position as u64)
+                .unwrap_or_else(|reason| panic!("embedded font does not parse: {reason}"))
         })
         .collect()
 });

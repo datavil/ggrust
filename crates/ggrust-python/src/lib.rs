@@ -35,6 +35,52 @@ mod _ggrust {
         ggrust_core::VERSION
     }
 
+    /// Register the faces of the font file at `path` (`family` overrides the
+    /// name read from the file); returns the families registered.
+    ///
+    /// Raises `ggrust.errors.FontNotFoundError` or `ggrust.errors.FontError`.
+    #[pyfunction]
+    #[pyo3(signature = (path, family=None))]
+    fn register_font(
+        python: Python<'_>,
+        path: std::path::PathBuf,
+        family: Option<String>,
+    ) -> PyResult<Vec<String>> {
+        python
+            .detach(|| ggrust_core::text::register_font(&path, family.as_deref()))
+            .map_err(to_python_error)
+    }
+
+    /// Families registered from a directory, and skipped files with their reasons.
+    type DirectoryFonts = (Vec<String>, Vec<(String, String)>);
+
+    /// Register every font file under the directory `path`; returns the families
+    /// and the skipped files with their reasons.
+    ///
+    /// Raises `ggrust.errors.FontNotFoundError` or `ggrust.errors.FontError`.
+    #[pyfunction]
+    fn register_font_dir(python: Python<'_>, path: std::path::PathBuf) -> PyResult<DirectoryFonts> {
+        let registered = python
+            .detach(|| ggrust_core::text::register_font_dir(&path))
+            .map_err(to_python_error)?;
+        let skipped = registered
+            .skipped
+            .into_iter()
+            .map(|(file, reason)| (file.display().to_string(), reason))
+            .collect();
+        Ok((registered.families, skipped))
+    }
+
+    /// Every registered family and its faces (`plain`, `bold`, `italic`,
+    /// `bold_italic`), in registration order.
+    #[pyfunction]
+    fn registered_fonts() -> Vec<(String, Vec<&'static str>)> {
+        ggrust_core::text::registered_fonts()
+            .into_iter()
+            .map(|(family, faces)| (family, faces.into_iter().map(|face| face.label()).collect()))
+            .collect()
+    }
+
     /// Encode straight-alpha RGBA bytes (`width` x `height`, top row first) as a
     /// `data:image/png;base64,...` URL (`geom_imshow`). `compression` is a zlib
     /// level 0..9; `None` picks the fastest. The GIL is released while encoding.
@@ -255,6 +301,14 @@ mod _ggrust {
             }
             Error::Render { .. } => "RenderError",
             Error::InvalidData { .. } => "DataError",
+            Error::FontNotFound { path, .. } => {
+                keywords.set_item("path", path)?;
+                "FontNotFoundError"
+            }
+            Error::InvalidFont { path, .. } => {
+                keywords.set_item("path", path)?;
+                "FontError"
+            }
         };
         let instance = python
             .import("ggrust.errors")?

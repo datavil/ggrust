@@ -58,6 +58,27 @@ pub enum Error {
         /// Notes appended by [`Error::with_notes`] (empty, or `\nnote: ...` lines).
         notes: String,
     },
+    /// A font file or directory to register does not exist.
+    #[error("font not found: '{path}': {message}{notes}")]
+    FontNotFound {
+        /// The path given.
+        path: String,
+        /// What is missing and how to fix it.
+        message: String,
+        /// Notes appended by [`Error::with_notes`] (empty, or `\nnote: ...` lines).
+        notes: String,
+    },
+    /// A font file cannot be registered or embedded (not a font, unsupported, or
+    /// its license forbids embedding).
+    #[error("invalid font '{path}': {message}{notes}")]
+    InvalidFont {
+        /// The font file (or family, when embedding fails).
+        path: String,
+        /// What was wrong, what is accepted, and how to fix it.
+        message: String,
+        /// Notes appended by [`Error::with_notes`] (empty, or `\nnote: ...` lines).
+        notes: String,
+    },
     /// Arrow data is malformed (e.g. batches with mismatched schemas).
     #[error("invalid data: {message}{notes}")]
     InvalidData {
@@ -141,6 +162,24 @@ impl Error {
         }
     }
 
+    /// A font file or directory that does not exist.
+    pub fn font_not_found(path: &std::path::Path, message: impl Into<String>) -> Self {
+        Error::FontNotFound {
+            path: path.display().to_string(),
+            message: message.into(),
+            notes: String::new(),
+        }
+    }
+
+    /// A font that cannot be registered or embedded.
+    pub fn invalid_font(path: &std::path::Path, message: impl Into<String>) -> Self {
+        Error::InvalidFont {
+            path: path.display().to_string(),
+            message: message.into(),
+            notes: String::new(),
+        }
+    }
+
     /// A rendering failure.
     pub fn render(message: impl Into<String>) -> Self {
         Error::Render {
@@ -164,9 +203,10 @@ impl Error {
                 *path = join(outer, path);
                 self
             }
-            Error::Render { .. } | Error::InvalidData { .. } => {
-                self.with_notes(&[format!("in '{outer}'")])
-            }
+            Error::Render { .. }
+            | Error::InvalidData { .. }
+            | Error::FontNotFound { .. }
+            | Error::InvalidFont { .. } => self.with_notes(&[format!("in '{outer}'")]),
         }
     }
 
@@ -183,7 +223,9 @@ impl Error {
             | Error::MissingColumn { notes, .. }
             | Error::UnsupportedColumnType { notes, .. }
             | Error::Render { notes, .. }
-            | Error::InvalidData { notes, .. } => notes.push_str(&suffix),
+            | Error::InvalidData { notes, .. }
+            | Error::FontNotFound { notes, .. }
+            | Error::InvalidFont { notes, .. } => notes.push_str(&suffix),
         }
         self
     }
@@ -198,6 +240,10 @@ impl Error {
             Error::InvalidSpec { message, .. }
             | Error::Render { message, .. }
             | Error::InvalidData { message, .. } => message.clone(),
+            Error::FontNotFound { path, message, .. }
+            | Error::InvalidFont { path, message, .. } => {
+                format!("'{path}': {message}")
+            }
             Error::MissingColumn {
                 name,
                 available,

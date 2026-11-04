@@ -667,19 +667,20 @@ impl Resolver<'_> {
                 face
             }
         };
+        // One path for every element, so a family inherited by many warns once.
+        let family_path = "theme";
         let family = match props.family.as_deref() {
             None => FontFamily::Sans,
             Some(name) => {
-                let (family, embedded) = FontFamily::from_name(name);
-                if !embedded {
-                    self.warnings.push(format!(
-                        "font family '{name}' is not embedded; Liberation Sans was used (ggrust \
-                         embeds Liberation Sans and Liberation Mono)"
-                    ));
-                }
-                family
+                self.warnings
+                    .extend(crate::text::family_warning(name, family_path));
+                FontFamily::from_name(name).0
             }
         };
+        self.warnings.extend(crate::text::face_warning(
+            Font { family, face },
+            family_path,
+        ));
         Some(TextStyle {
             size: props.size.unwrap_or(13.0),
             color: self.color(props.color).unwrap_or(INK),

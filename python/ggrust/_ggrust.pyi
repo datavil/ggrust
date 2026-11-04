@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from os import PathLike
 from typing import Any, TypedDict
 
 __all__ = [
@@ -11,6 +12,9 @@ __all__ = [
     "engine_version",
     "hclust",
     "referenced_columns",
+    "register_font",
+    "register_font_dir",
+    "registered_fonts",
     "render",
     "tooltip_columns",
     "validate_spec",
@@ -39,6 +43,23 @@ def engine_version() -> str:
     >>> from ggrust import engine_version
     >>> version = engine_version()
     """
+
+def register_font(path: str | PathLike[str], family: str | None = None) -> list[str]:
+    """Register the faces of a font file; return the families registered.
+
+    Raises ``FontNotFoundError`` for a missing file and ``FontError`` for a file
+    that is not a usable font.
+    """
+
+def register_font_dir(path: str | PathLike[str]) -> tuple[list[str], list[tuple[str, str]]]:
+    """Register every font file under a directory.
+
+    Returns the families registered and the skipped files with their reasons.
+    Raises ``FontNotFoundError`` and ``FontError`` as ``register_font``.
+    """
+
+def registered_fonts() -> list[tuple[str, list[str]]]:
+    """Return every registered family with its faces, in registration order."""
 
 def png_data_url(rgba: bytes, width: int, height: int, compression: int | None = None) -> str:
     """Encode straight-alpha RGBA rows as a ``data:image/png;base64,...`` URL.

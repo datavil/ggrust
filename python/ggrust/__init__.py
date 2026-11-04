@@ -13,6 +13,7 @@ from ggrust._ggrust import engine_version
 from ggrust._lets_plot import LetsPlot
 from ggrust._render import GgrustWarning
 from ggrust.export import ggsave
+from ggrust.fonts import register_font, register_font_dir, registered_fonts
 from ggrust.mapping import as_discrete
 from ggrust.plot import (
     ClusterTree,
@@ -332,6 +333,9 @@ __all__ = [
     "position_nudge",
     "position_stack",
     "rasterize",
+    "register_font",
+    "register_font_dir",
+    "registered_fonts",
     "scale_alpha",
     "scale_alpha_identity",
     "scale_alpha_manual",

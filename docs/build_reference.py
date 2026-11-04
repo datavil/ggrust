@@ -314,6 +314,10 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
         "Write files, and lets-plot compatibility helpers.",
         ["ggsave", "LetsPlot", "engine_version"],
     ),
+    "Fonts": (
+        "Register font files (Arial, a brand font, CJK fonts) for `element_text(family=...)`.",
+        ["register_font", "register_font_dir", "registered_fonts"],
+    ),
     "Errors and warnings": (
         ERRORS_INTRO,
         [
@@ -328,6 +332,8 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "ggrust.errors.RenderError",
             "ggrust.errors.ExportError",
             "ggrust.errors.PlotIndexError",
+            "ggrust.errors.FontNotFoundError",
+            "ggrust.errors.FontError",
         ],
     ),
 }

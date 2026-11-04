@@ -6,12 +6,13 @@
 //! Text is positioned by baseline computed from the embedded font metrics, never by
 //! `dominant-baseline`, which renderers implement inconsistently.
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
 
 use rayon::prelude::*;
 use serde_json::Value;
 
-use super::canvas;
+use super::{canvas, webfont};
 
 use crate::parallel;
 use crate::scene::geometry::{ClipBox, is_drawable_marker, is_drawable_stroke, is_drawable_width};
@@ -20,7 +21,7 @@ use crate::scene::{
     PerItem, Points, Rect, Rects, SUPERSCRIPT_RISE, SUPERSCRIPT_SCALE, Scene, Stroke, Text,
     VerticalAlign,
 };
-use crate::text::{CSS_FONT_FAMILY, FontFamily, measure, single_line};
+use crate::text::{CSS_FONT_FAMILY, FaceRef, FontFamily, loaded, measure, single_line};
 
 /// Options for [`to_svg_with`].
 #[derive(Debug, Clone, Default)]
@@ -49,6 +50,7 @@ pub(super) fn fragment(nodes: &[Node], width: f64, height: f64) -> String {
         clip_box: ClipBox::for_scene(width, height),
         zoomable: true,
         canvas: None,
+        web_fonts: WebFonts::new(),
     };
     for node in nodes {
         writer.node(node);
@@ -106,6 +108,7 @@ fn write_svg(
         clip_box: ClipBox::for_scene(scene.width, scene.height),
         zoomable: options.zoomable,
         canvas,
+        web_fonts: WebFonts::new(),
     };
     writer.document(scene);
     if options.id_prefix.is_none() && !writer.id_positions.is_empty() {
@@ -154,6 +157,7 @@ pub(super) fn text_document(width: f64, height: f64, texts: &[&Text]) -> String 
         clip_box: ClipBox::for_scene(width, height),
         zoomable: false,
         canvas: None,
+        web_fonts: WebFonts::new(),
     };
     writer.open(width, height);
     for text in texts {
@@ -173,7 +177,12 @@ struct SvgWriter {
     zoomable: bool,
     /// Set for HTML: where dense point batches go instead of SVG elements.
     canvas: Option<CanvasBatches>,
+    /// Registered faces drawn so far and their texts, by CSS name: written as
+    /// `@font-face` subsets at the end of a document.
+    web_fonts: WebFonts,
 }
+
+type WebFonts = BTreeMap<String, (FaceRef, BTreeSet<String>)>;
 
 /// Canvas payloads collected while writing (HTML only).
 struct CanvasBatches {
@@ -193,7 +202,28 @@ impl SvgWriter {
             self.raw("/>\n");
         }
         self.nodes(&scene.nodes);
+        self.font_faces();
         self.raw("</svg>\n");
+    }
+
+    /// `<style>` with an `@font-face` subset of each registered face drawn
+    /// (faces whose license forbids embedding are named only).
+    fn font_faces(&mut self) {
+        let zoomable = self.zoomable;
+        let rules: Vec<String> = self
+            .web_fonts
+            .values()
+            .filter(|(face, _)| face.embeddable)
+            .filter_map(|(face, texts)| webfont::font_face_rule(face, texts, zoomable))
+            .collect();
+        if rules.is_empty() {
+            return;
+        }
+        self.raw("<style>");
+        for rule in rules {
+            self.output.push_str(&rule);
+        }
+        self.raw("</style>\n");
     }
 
     /// Write sibling nodes in order. Heavy siblings (plots of a grid, panels,
@@ -231,6 +261,7 @@ impl SvgWriter {
                     clip_box: self.clip_box,
                     zoomable: self.zoomable,
                     canvas: None,
+                    web_fonts: WebFonts::new(),
                 };
                 part.node(node);
                 part
@@ -246,6 +277,13 @@ impl SvgWriter {
                 .extend(part.id_positions.iter().map(|position| base + position));
             self.output.push_str(&part.output);
             self.clip_count = part.clip_count;
+            for (name, (face, texts)) in part.web_fonts {
+                self.web_fonts
+                    .entry(name)
+                    .or_insert_with(|| (face, BTreeSet::new()))
+                    .1
+                    .extend(texts);
+            }
         }
     }
 
@@ -589,14 +627,46 @@ impl SvgWriter {
         self.attribute_precise("font-size", text.size);
         // Keep spaces as measured: SVG collapses whitespace by default.
         self.raw(" xml:space=\"preserve\"");
-        if text.font.family == FontFamily::Mono {
-            self.attribute("font-family", text.font.family.css());
-        }
-        if text.font.face.is_bold() {
-            self.raw(" font-weight=\"bold\"");
-        }
-        if text.font.face.is_italic() {
-            self.raw(" font-style=\"italic\"");
+        if let FontFamily::Registered(_) = text.font.family {
+            // The face is chosen by its unique name alone (no weight or slant, so
+            // browsers never synthesize one); the family name is the fallback.
+            let face = loaded(text.font);
+            let family: String = text
+                .font
+                .family
+                .name()
+                .chars()
+                .filter(|character| !"'\"\\<>&;{}".contains(*character))
+                .collect();
+            let css = format!("'{}', '{family}', {CSS_FONT_FAMILY}", face.css_name);
+            self.attribute("font-family", &css);
+            let texts = &mut self
+                .web_fonts
+                .entry(face.css_name.clone())
+                .or_insert_with(|| (face.clone(), BTreeSet::new()))
+                .1;
+            for part in [
+                Some(&text.content),
+                text.superscript.as_ref(),
+                text.suffix.as_ref(),
+            ]
+            .into_iter()
+            .flatten()
+            {
+                if !texts.contains(part.as_str()) {
+                    texts.insert(single_line(part).into_owned());
+                }
+            }
+        } else {
+            if text.font.family == FontFamily::Mono {
+                self.attribute("font-family", text.font.family.css());
+            }
+            if text.font.face.is_bold() {
+                self.raw(" font-weight=\"bold\"");
+            }
+            if text.font.face.is_italic() {
+                self.raw(" font-style=\"italic\"");
+            }
         }
         match text.halo {
             // Outline only, as lets-plot's halo text element.
@@ -965,6 +1035,7 @@ mod tests {
             clip_box: ClipBox::for_scene(scene.width, scene.height),
             zoomable: false,
             canvas: None,
+            web_fonts: WebFonts::new(),
         };
         writer.open(scene.width, scene.height);
         for node in &scene.nodes {

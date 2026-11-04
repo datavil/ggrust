@@ -6,7 +6,7 @@
 //! outputs place text identically. Only the embedded fonts are visible to resvg, so
 //! output is identical on every machine.
 
-use std::sync::{Arc, LazyLock};
+use std::sync::{Arc, Mutex};
 
 use resvg::tiny_skia::{
     self, FillRule, IntRect, LineCap, LineJoin, Mask, Paint, PathBuilder, Pixmap, Transform,
@@ -21,7 +21,7 @@ use crate::scene::geometry::{
 use crate::scene::{
     Bitmap, Color, Group, Image, MarkerPart, Node, Path, Points, Rect, Rects, Scene, Stroke, Text,
 };
-use crate::text::{FONT_FAMILY, Font, MONO_FONT_FAMILY};
+use crate::text::{FONT_FAMILY, Font, MONO_FONT_FAMILY, registered_faces};
 use crate::{Error, Result};
 
 /// Point batches with at least this many markers are stamped from sprites
@@ -265,7 +265,11 @@ fn encode_with_dpi(pixmap: &Pixmap, dpi: f64) -> Result<Vec<u8>> {
 fn parse_svg(svg: &str) -> Result<usvg::Tree> {
     let options = usvg::Options {
         font_family: FONT_FAMILY.to_owned(),
-        fontdb: FONT_DATABASE.clone(),
+        fontdb: font_database(),
+        font_resolver: usvg::FontResolver {
+            select_font: usvg::FontResolver::default_font_selector(),
+            select_fallback: fallback_selector(),
+        },
         ..usvg::Options::default()
     };
     usvg::Tree::from_str(svg, &options)
@@ -631,12 +635,102 @@ fn skia_color(color: Color) -> tiny_skia::Color {
     tiny_skia::Color::from_rgba8(color.red, color.green, color.blue, color.alpha)
 }
 
-static FONT_DATABASE: LazyLock<Arc<fontdb::Database>> = LazyLock::new(|| {
+/// resvg's per-glyph fallback, except for registered faces: a character a
+/// registered font lacks draws as its `.notdef` box, as `text::measure` measures
+/// it and PDF draws it (a fallback glyph would not fit the measured width).
+fn fallback_selector() -> usvg::FallbackSelectionFn<'static> {
+    let default = usvg::FontResolver::default_fallback_selector();
+    Box::new(move |character, used, database| {
+        let registered = used
+            .first()
+            .and_then(|id| database.face(*id))
+            .is_some_and(|face| {
+                face.families
+                    .first()
+                    .is_some_and(|(family, _)| family.starts_with("ggrust-"))
+            });
+        if registered {
+            None
+        } else {
+            default(character, used, database)
+        }
+    })
+}
+
+/// The font database resvg draws text with: the embedded fonts, plus every
+/// registered face under its unique name (`LoadedFont::css_name`, which the SVG
+/// writer puts first in `font-family`), so resvg picks exactly the measured face.
+/// Rebuilt only when the font registry changes.
+fn font_database() -> Arc<fontdb::Database> {
+    static CACHE: Mutex<Option<(u64, Arc<fontdb::Database>)>> = Mutex::new(None);
+    let mut cache = CACHE
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    let (generation, faces) = registered_faces();
+    if let Some((built, database)) = cache.as_ref()
+        && *built == generation
+    {
+        return Arc::clone(database);
+    }
     let mut database = fontdb::Database::new();
     for font in Font::all() {
-        database.load_font_data(font.font_data().to_vec());
+        database.load_font_source(fontdb::Source::Binary(Arc::new(font.font_data())));
     }
     database.set_sans_serif_family(FONT_FAMILY);
     database.set_monospace_family(MONO_FONT_FAMILY);
-    Arc::new(database)
-});
+    for face in faces {
+        database.push_face_info(fontdb::FaceInfo {
+            id: fontdb::ID::dummy(),
+            source: fontdb::Source::Binary(Arc::new(face.data)),
+            index: face.index,
+            families: vec![(
+                face.css_name.clone(),
+                fontdb::Language::English_UnitedStates,
+            )],
+            post_script_name: face.postscript_name.clone(),
+            // The SVG writer gives registered text no weight or slant: the face is
+            // chosen by its unique name alone.
+            style: fontdb::Style::Normal,
+            weight: fontdb::Weight::NORMAL,
+            stretch: fontdb::Stretch::Normal,
+            monospaced: face.monospaced,
+        });
+    }
+    let database = Arc::new(database);
+    *cache = Some((generation, Arc::clone(&database)));
+    database
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn registered_faces_get_no_glyph_fallback() {
+        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../tests/fonts/LiberationSerif-Regular.ttf");
+        crate::text::register_font(&path, Some("Fallback Test Serif")).expect("registers");
+        let mut database = font_database();
+        let id_of = |prefix: &str, database: &fontdb::Database| {
+            database
+                .faces()
+                .find(|face| {
+                    face.families
+                        .iter()
+                        .any(|(name, _)| name.starts_with(prefix))
+                })
+                .map(|face| face.id)
+                .expect("face in the database")
+        };
+        let registered = id_of("ggrust-", &database);
+        let embedded = id_of("Liberation Mono", &database);
+        let select = fallback_selector();
+        let default = usvg::FontResolver::default_fallback_selector();
+        // A character the serif lacks would come from another face by default.
+        assert_eq!(select('\u{2318}', &[registered], &mut database), None);
+        assert_eq!(
+            select('A', &[embedded], &mut database),
+            default('A', &[embedded], &mut database)
+        );
+    }
+}

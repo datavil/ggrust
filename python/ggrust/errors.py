@@ -18,6 +18,8 @@ __all__ = [
     "ColumnNotFoundError",
     "DataError",
     "ExportError",
+    "FontError",
+    "FontNotFoundError",
     "GgrustError",
     "PlotIndexError",
     "RenderError",
@@ -267,6 +269,65 @@ class ExportError(GgrustError, ValueError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message)
+
+
+class FontNotFoundError(GgrustError, FileNotFoundError):
+    """Raised when a font file or directory to register does not exist.
+
+    Parameters
+    ----------
+    message : str
+        The full message.
+    path : str
+        The path that was given.
+
+    Examples
+    --------
+    >>> from ggrust import register_font
+    >>> from ggrust.errors import FontNotFoundError
+    >>> try:
+    ...     register_font("missing/Arial.ttf")
+    ... except FontNotFoundError as error:
+    ...     print(error.path)
+    missing/Arial.ttf
+    """
+
+    def __init__(self, message: str, *, path: str) -> None:
+        super().__init__(message)
+        self.path = path
+
+
+class FontError(GgrustError, ValueError):
+    """Raised when a font cannot be registered or embedded.
+
+    The file is not a TrueType or OpenType font, has no family name (pass
+    ``family=``), or its license forbids embedding it in a PDF.
+
+    Parameters
+    ----------
+    message : str
+        The full message.
+    path : str
+        The font file, or the family name when embedding fails.
+
+    Examples
+    --------
+    >>> import tempfile
+    >>> from pathlib import Path
+    >>> from ggrust import register_font
+    >>> from ggrust.errors import FontError
+    >>> notes = Path(tempfile.mkdtemp()) / "notes.ttf"
+    >>> _ = notes.write_text("not a font")
+    >>> try:
+    ...     register_font(notes)
+    ... except FontError:
+    ...     print("not a font file")
+    not a font file
+    """
+
+    def __init__(self, message: str, *, path: str) -> None:
+        super().__init__(message)
+        self.path = path
 
 
 class PlotIndexError(GgrustError, IndexError):

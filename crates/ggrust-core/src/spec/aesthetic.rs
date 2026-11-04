@@ -60,7 +60,7 @@ aesthetics! {
     Xmin => "xmin", Xmax => "xmax", Ymin => "ymin", Ymax => "ymax",
     Xend => "xend", Yend => "yend",
     MapId => "map_id", Frame => "frame", Speed => "speed", Flow => "flow",
-    Label => "label", Family => "family", Fontface => "fontface",
+    Label => "label", Description => "description", Filter => "filter", Family => "family", Fontface => "fontface",
     Lineheight => "lineheight", Angle => "angle", Hjust => "hjust", Vjust => "vjust",
     Radius => "radius", Slice => "slice", Explode => "explode",
     Istart => "istart", Iend => "iend", Lenstart => "lenstart", Lenend => "lenend",
@@ -114,7 +114,7 @@ impl Aesthetic {
             }
             Shape => AestheticKind::Style(ValueKind::Shape),
             Linetype => AestheticKind::Style(ValueKind::Linetype),
-            Label | Family | Fontface => AestheticKind::Style(ValueKind::Text),
+            Label | Description | Family | Fontface => AestheticKind::Style(ValueKind::Text),
             Alpha | Size | Stroke | Linewidth | Stacksize | Width | Height | Binwidth
             | Violinwidth | Thickness | Weight | Intercept | Slope | Quantile | Lineheight
             | Angle | Hjust | Vjust | Radius | Slice | Explode | SizeStart | SizeEnd

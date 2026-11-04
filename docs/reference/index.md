@@ -35,6 +35,9 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_sina()`](api/geom_sina.md) | Sina plot: points spread within the violin outline. |
 | [`geom_beeswarm()`](api/geom_beeswarm.md) | Beeswarm plot: points of each x moved sideways so that none overlap. |
 | [`geom_quasirandom()`](api/geom_quasirandom.md) | Quasirandom plot: points spread sideways within the density of their x. |
+| [`geom_mark_hull()`](api/geom_mark_hull.md) | Outline each group of points with a concave hull, optionally with a callout. |
+| [`geom_mark_ellipse()`](api/geom_mark_ellipse.md) | Outline each group of points with its smallest enclosing ellipse. |
+| [`geom_mark_rect()`](api/geom_mark_rect.md) | Outline each group of points with its bounding rectangle. |
 | [`geom_pointdensity()`](api/geom_pointdensity.md) | Scatter plot with each point colored by the density of points around it. |
 | [`geom_half_violin()`](api/geom_half_violin.md) | Half of a violin: the density of y on one side of each x. |
 | [`geom_half_point()`](api/geom_half_point.md) | Points jittered within one half of their x slot. |

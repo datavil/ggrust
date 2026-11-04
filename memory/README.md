@@ -65,3 +65,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [ggdist slabs and gghalves](ggdist_gghalves.md): bounded density = widened R density folded back, SJ dpi bins on trunc(x/width), stat vars reach geoms, sizes converted from ggplot2 units, 0.75 spans + named dodge.
 - [ggpubr / ggpmisc statistics](ggpubr_statistics.md): R test switches (exact vs normal), AS 89, R format() half-even digits, ggsignif layout, `StatContext.x_levels`, stat text labels, vjust 0.7 em step.
 - [Spec accessors and layer_data](spec_accessors.md): properties return fresh dicts/tuples, `with_*` copies, layer_data on the plot (shared LayerSpecs), inspect as a child module of build, PyTable via the C stream.
+- [ggforce marks](ggforce_marks.md): screen-space outlines, expansion as a distance level set (no clipping), Khachiyan scaled to enclose, grid text metrics for label boxes, grid placement in group order.

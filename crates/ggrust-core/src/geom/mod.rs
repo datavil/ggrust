@@ -25,6 +25,9 @@ mod image;
 mod interval;
 mod jitter;
 mod lines;
+mod mark;
+mod mark_label;
+mod mark_shape;
 mod pointinterval;
 mod slab;
 
@@ -65,6 +68,7 @@ pub use hex::HexGeom;
 pub use image::ImageGeom;
 pub use interval::{CrossBarGeom, ErrorBarGeom, LineRangeGeom, PointRangeGeom};
 pub use jitter::JitterGeom;
+pub use mark::{MARK_ELLIPSE_GEOM, MARK_HULL_GEOM, MARK_RECT_GEOM, MarkGeom, MarkKind};
 pub use path::{FreqpolyGeom, LineGeom, PathGeom};
 pub use point::PointGeom;
 pub use pointinterval::PointIntervalGeom;
@@ -264,6 +268,9 @@ pub static GEOMS: &[&dyn Geom] = &[
     &HalfPointGeom,
     &SlabGeom,
     &PointIntervalGeom,
+    &MARK_HULL_GEOM,
+    &MARK_ELLIPSE_GEOM,
+    &MARK_RECT_GEOM,
 ];
 
 /// lets-plot geoms the Python API builds but the engine does not draw yet (plan.md).

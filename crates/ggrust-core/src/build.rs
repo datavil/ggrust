@@ -3928,7 +3928,7 @@ fn resolve_styles(
         let mapped = data.get(aesthetic);
         let values = match (mapped, style_scales.get(&aesthetic)) {
             // Text labels are the column's values, not a scale's output.
-            (Some(column), _) if aesthetic == Aesthetic::Label => {
+            (Some(column), _) if matches!(aesthetic, Aesthetic::Label | Aesthetic::Description) => {
                 label_texts(column, exponent_format)
             }
             (Some(column), Some(scale)) => scale

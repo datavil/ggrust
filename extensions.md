@@ -75,7 +75,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Main roadmap: [plan.md](plan.md).
   Kendall, R and p label); `stat_poly_eq` (equation, R², per group). Tests in Rust
   (no SciPy at runtime). Done when p-values and coefficients match R to 1e-6 on test
   data and labels place without overlap as ggpubr.
-- [ ] ex1.8 **ggforce cluster marks.** `geom_mark_hull` (concave hull, `concavity`,
+- [x] ex1.8 **ggforce cluster marks.** `geom_mark_hull` (concave hull, `concavity`,
   `expand`, `radius`), `geom_mark_ellipse`, `geom_mark_rect`, with optional `label` /
   `description` callouts placed outside the data. For outlining clusters on UMAPs.
   Done when hulls enclose every point of their group with the given expansion and the

@@ -536,6 +536,8 @@ class PlotSpec(FeatureSpec):
             if other.kind == "layer":
                 plot.__layers.append(plot.__tagged_layer(other))
                 return plot
+            if other.kind == "gghighlight":
+                return plot.__highlighted(other)
             if other.kind == "scale":
                 plot.__scales.append(plot.__tagged_scale(other))
                 return plot
@@ -574,6 +576,19 @@ class PlotSpec(FeatureSpec):
             return plot
         message = f"unsupported operand type(s) for +: {self.__class__} and {other.__class__}"
         raise TypeError(message)
+
+    def __highlighted(self, highlight: FeatureSpec) -> PlotSpec:
+        """Return this plot (already a copy) rewritten by ``+ gghighlight()``."""
+        from ggrust.plot.gghighlight import HighlightSpec, highlight_layers
+
+        rewrite = highlight_layers(self.props(), self.__layers, cast("HighlightSpec", highlight))
+        self.__layers = rewrite.layers
+        self.props()["data"] = rewrite.data
+        if rewrite.hide_legends:
+            from ggrust.plot.guide import guides
+
+            return self + guides(color="none", fill="none")
+        return self
 
     def __group_of(self, aesthetic: str) -> int:
         """Return the current ggnewscale group of ``aesthetic`` (0: no marker yet)."""

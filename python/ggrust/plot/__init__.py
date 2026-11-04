@@ -64,6 +64,7 @@ from ggrust.plot.geom_imshow import geom_imshow
 from ggrust.plot.geom_mark import geom_mark_ellipse, geom_mark_hull, geom_mark_rect
 from ggrust.plot.geom_pointdensity import geom_pointdensity, stat_pointdensity
 from ggrust.plot.gggrid import gggrid
+from ggrust.plot.gghighlight import gghighlight
 from ggrust.plot.ggtb import ggtb
 from ggrust.plot.guide import guide_colorbar, guide_legend, guides, layer_key
 from ggrust.plot.label import ggtitle, labs, xlab, ylab
@@ -265,6 +266,7 @@ __all__ = [
     "geom_violin",
     "geom_vline",
     "gggrid",
+    "gghighlight",
     "ggplot",
     "ggsize",
     "ggtb",

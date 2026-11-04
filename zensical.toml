@@ -226,6 +226,9 @@ nav = [
     { "Rasterized layers (ggrastr)" = [
       "reference/api/rasterize.md",
     ] },
+    { "Highlighting (gghighlight)" = [
+      "reference/api/gghighlight.md",
+    ] },
     { "Size, shape and alpha scales" = [
       "reference/api/scale_size.md",
       "reference/api/scale_size_area.md",

@@ -35,6 +35,12 @@ pub struct LayerSpec {
     /// Whether the plot mapping is inherited.
     #[serde(default)]
     pub inherit_aes: Option<bool>,
+    /// Whether a layer with its own data borrows the plot data's columns when both
+    /// have the same row count (lets-plot); default true. gghighlight's grey layers
+    /// set it to false, so a later facet finds no faceting column in them and draws
+    /// them in every panel.
+    #[serde(default)]
+    pub merge_plot_data: Option<bool>,
     /// Drop rows with missing values silently.
     #[serde(default)]
     pub na_rm: Option<bool>,

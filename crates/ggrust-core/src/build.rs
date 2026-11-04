@@ -1836,9 +1836,11 @@ fn map_layer_into<'a>(
     let mut overridden = mapping.clone();
     overridden.retain(|aesthetic, _| has_constant(aesthetic));
     mapping.retain(|aesthetic, _| !has_constant(aesthetic));
+    let layer_frame = data.layers.get(index).and_then(Option::as_ref);
+    let borrows_plot = layer_frame.is_none() || spec.merge_plot_data != Some(false);
     let frames = LayerFrames {
-        layer: data.layers.get(index).and_then(Option::as_ref),
-        plot: data.plot.as_ref(),
+        layer: layer_frame,
+        plot: data.plot.as_ref().filter(|_| borrows_plot),
     };
     let mut columns = Vec::new();
     let mut stat_mappings = Vec::new();

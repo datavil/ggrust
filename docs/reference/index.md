@@ -206,6 +206,14 @@ Start a new scale with its own legend (R package ggnewscale, not in lets-plot).
 | [`new_scale_fill()`](api/new_scale_fill.md) | Start a new fill scale (ggnewscale): ``new_scale("fill")``. |
 | [`new_scale()`](api/new_scale.md) | Start a new scale for an aesthetic (R package ggnewscale). |
 
+## Highlighting (gghighlight)
+
+Grey out the rows or series that do not match a predicate, with direct labels (R package gghighlight, not in lets-plot).
+
+| Name | Description |
+|---|---|
+| [`gghighlight()`](api/gghighlight.md) | Highlight the rows or series that match predicates (R package gghighlight). |
+
 ## Rasterized layers (ggrastr)
 
 Draw a dense layer as a bitmap inside SVG and PDF output (R package ggrastr, not in lets-plot).

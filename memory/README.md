@@ -67,3 +67,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Spec accessors and layer_data](spec_accessors.md): properties return fresh dicts/tuples, `with_*` copies, layer_data on the plot (shared LayerSpecs), inspect as a child module of build, PyTable via the C stream.
 - [ggforce marks](ggforce_marks.md): screen-space outlines, expansion as a distance level set (no clipping), Khachiyan scaled to enclose, grid text metrics for label boxes, grid placement in group order.
 - [Dendrograms](dendrograms.md): R hclust tie order + `cor()` arithmetic for parity, tree sets discrete limits, leaves via effective_levels, bands in the axis area (gggrid unchanged), facets drop the tree.
+- [gghighlight rewrite](gghighlight.md): grey/highlighted copies at `+` time, `merge_plot_data: false` stops lets-plot row-count column merging, copy plot as_discrete into rewritten layers.

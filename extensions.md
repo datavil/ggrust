@@ -104,7 +104,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Main roadmap: [plan.md](plan.md).
   equal parents), `force_panelsizes` (fixed panel widths and heights), and
   `facetted_pos_scales` (per-panel position scales). Nested axis guides
   (`guide_axis_nested`) for interaction labels like `group.condition`.
-- [ ] ex2.5 **gghighlight.** `gghighlight(predicate, label_key=, use_direct_label=,
+- [x] ex2.5 **gghighlight.** `gghighlight(predicate, label_key=, use_direct_label=,
   unhighlighted_params=)`: layers are redrawn with non-matching rows greyed out behind
   the matching ones, optionally labelled with the repel layout. Pure spec rewrite in
   Python where possible.

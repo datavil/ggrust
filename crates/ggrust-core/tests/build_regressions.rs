@@ -112,6 +112,24 @@ fn plot_columns_are_not_mixed_in_when_rows_differ() {
 }
 
 #[test]
+fn merge_plot_data_false_keeps_plot_columns_out() {
+    // gghighlight's grey layers: same row count, but no column from the plot data.
+    let error = build_plot(
+        &spec(
+            r#"{"kind": "plot", "mapping": {"x": "a", "y": "b"},
+                "layers": [{"geom": "point", "merge_plot_data": false}]}"#,
+        ),
+        &PlotData {
+            plot: Some(frame(&[("a", vec![1.0, 2.0]), ("b", vec![1.0, 2.0])])),
+            layers: vec![Some(frame(&[("a", vec![5.0, 6.0])]))],
+        },
+    )
+    .unwrap_err()
+    .to_string();
+    assert!(error.contains("'b'"), "{error}");
+}
+
+#[test]
 fn constant_positions_draw_points() {
     let built = build(
         r#"{"kind": "plot", "layers": [{"geom": "point", "x": 1.5, "y": 1.5}]}"#,

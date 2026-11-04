@@ -70,3 +70,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [gghighlight rewrite](gghighlight.md): grey/highlighted copies at `+` time, `merge_plot_data: false` stops lets-plot row-count column merging, copy plot as_discrete into rewritten layers.
 - [patchwork extras](patchwork_extras.md): lets-plot tag rules (measured), two-phase grid layout (layout then draw, nested frames), spans for design areas, tags numbered before preparing, insets in grid/inset.rs.
 - [Custom fonts](custom_fonts.md): one registry + `text::loaded` for every output, fontdb faces under unique css names (no weight/style attrs), browser subsets need cmap/OS/2/kern added, zoom glyphs only when zoomable.
+- [Core ggplot2 gaps](core_ggplot2_gaps.md): geom_col reuses the bar geom (add "col" to bar-name lists), rug sides under flip, linewidth default scale, cov.trob parity details, staging lines in shared files.

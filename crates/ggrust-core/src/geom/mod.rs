@@ -41,6 +41,7 @@ mod rect;
 mod reference_line;
 mod repel;
 mod repel_layout;
+mod rug;
 mod segment;
 mod sina;
 mod size_unit;
@@ -77,6 +78,7 @@ pub use raster::RasterGeom;
 pub use rect::RectGeom;
 pub use reference_line::{HorizontalLineGeom, VerticalLineGeom};
 pub use repel::{LabelRepelGeom, TextRepelGeom};
+pub use rug::RugGeom;
 pub use segment::SegmentGeom;
 pub use sina::SinaGeom;
 pub use slab::SlabGeom;
@@ -225,6 +227,7 @@ pub static GEOMS: &[&dyn Geom] = &[
     &StepGeom,
     &FreqpolyGeom,
     &SegmentGeom,
+    &RugGeom,
     &CurveGeom,
     &PolygonGeom,
     &VerticalLineGeom,

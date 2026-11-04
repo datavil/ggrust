@@ -7,8 +7,10 @@ written for lets_plot imports and composes; rendering them reports the geom.
 
 from __future__ import annotations
 
+import warnings
 from typing import TYPE_CHECKING, Any, Literal, cast
 
+from ggrust._render import GgrustWarning
 from ggrust.errors import SpecError
 from ggrust.plot.core import FeatureSpec, LayerSpec
 from ggrust.plot.tooltip import layer_tooltips
@@ -2595,6 +2597,127 @@ def geom_area(
         sampling=sampling,
         tooltips=tooltips,
         color_by=color_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
+def geom_rug(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sides: str | None = None,
+    length: Number | None = None,
+    outside: bool | None = None,
+    color: Color | None = None,
+    alpha: Number | None = None,
+    linewidth: Number | None = None,
+    linetype: str | int | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Rug ticks along the panel edges, one per x and/or y value (ggplot2 ``geom_rug``).
+
+    A tick per row marks where its value lies, as a compact marginal distribution
+    beside points. lets-plot has no ``geom_rug``; this is ggplot2's.
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``; ``x`` ticks the bottom/top edge, ``y`` the
+        left/right edge. Map at least one.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name (default ``"identity"``).
+    position : str or FeatureSpec, optional
+        Position adjustment, e.g. ``"jitter"`` for tied values.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        This layer's key in a manual legend: a label, or ``layer_key()``.
+    sides : str, default="bl"
+        Edges that get ticks: any of ``"t"`` (top), ``"r"`` (right), ``"b"`` (bottom),
+        ``"l"`` (left). x values use ``b``/``t``, y values ``l``/``r``.
+    length : float, default=0.03
+        Tick length as a share of the panel (its height for x ticks, width for y ticks).
+    outside : bool, default=False
+        True points the ticks away from the panel. As in ggplot2 they are then clipped
+        by the panel; ggrust has no ``clip="off"`` yet, so they are not visible and a
+        :class:`GgrustWarning` says so.
+    color : str, optional
+        Tick color.
+    alpha : float, optional
+        Tick opacity, 0 to 1.
+    linewidth : float, default=0.5
+        Tick width, in ggrust line units (as ``size`` of ``geom_segment``).
+    linetype : str or int, optional
+        Tick line type.
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Other constant aesthetics, as in lets_plot.
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Raises
+    ------
+    SpecError
+        If ``sides`` has a letter other than t, r, b, l, or ``length`` is negative.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"height": [150, 162, 171, 158, 180, 166], "weight": [52, 60, 72, 55, 85, 63]}
+    >>> plot = ggplot(data, aes("height", "weight")) + geom_point() + geom_rug()
+    """
+    if sides is not None:
+        unknown = sorted({letter for letter in str(sides) if letter not in "trbl"})
+        if not isinstance(sides, str) or unknown:
+            message = (
+                f"geom_rug(): sides={sides!r} is not a string of 't', 'r', 'b', 'l'"
+                f"{f' (unknown: {unknown})' if unknown else ''}; use e.g. sides='bl'"
+            )
+            raise SpecError(message, path="sides", reason=message)
+    if length is not None and not (isinstance(length, int | float) and length >= 0):
+        message = (
+            f"geom_rug(): length={length!r} must be a share of the panel, 0 or more (default 0.03)"
+        )
+        raise SpecError(message, path="length", reason=message)
+    if outside:
+        warnings.warn(
+            "geom_rug(outside=True): the ticks point away from the panel, and the panel "
+            "clips its layers (ggplot2 needs coord_cartesian(clip='off'), which ggrust does "
+            "not have yet), so they are not visible",
+            GgrustWarning,
+            stacklevel=2,
+        )
+    return _geom(
+        "rug",
+        mapping=mapping,
+        data=data,
+        stat=stat,
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        manual_key=manual_key,
+        sides=sides,
+        length=length,
+        outside=outside,
+        color=color,
+        alpha=alpha,
+        linewidth=linewidth,
+        linetype=linetype,
         na_rm=na_rm,
         **other_args,
     )

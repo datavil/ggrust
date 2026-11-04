@@ -43,7 +43,7 @@ pub use identity::IdentityMapper;
 pub use linetype::{ALL_LINETYPES, LinetypeMapper};
 pub use manual::ManualColorMapper;
 pub use manual::ManualNumberMapper;
-pub use numeric::{ALPHA, LinearMapper, ProportionalMapper, SIZE, SIZE_AREA_MAX};
+pub use numeric::{ALPHA, LINEWIDTH, LinearMapper, ProportionalMapper, SIZE, SIZE_AREA_MAX};
 pub use shape::{ALL_SHAPES, HIDDEN_SHAPE, HOLLOW_SHAPES, NA_SHAPE, ShapeMapper};
 
 use super::breaks::linear_breaks;
@@ -147,6 +147,7 @@ pub fn default_mapper(aesthetic: Aesthetic) -> Option<Arc<dyn StyleMapper>> {
         | Aesthetic::PaintC => Some(Arc::new(DefaultColorMapper { na: NA_COLOR })),
         Aesthetic::Size => Some(Arc::new(SIZE.clone())),
         Aesthetic::Alpha => Some(Arc::new(ALPHA.clone())),
+        Aesthetic::Linewidth => Some(Arc::new(LINEWIDTH.clone())),
         Aesthetic::Shape => Some(Arc::new(ShapeMapper::all())),
         Aesthetic::Linetype => Some(Arc::new(LinetypeMapper::all())),
         _ => None,

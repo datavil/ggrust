@@ -101,6 +101,14 @@ pub static SIZE: LinearMapper = LinearMapper {
     missing: 1.0 / POINT_UNIT_SIZE,
 };
 
+/// `linewidth` (ggplot2 `scale_linewidth`, lets-plot has none): 1..6 line
+/// units; missing values are not drawn (width 0), as ggplot2's `NA`.
+pub static LINEWIDTH: LinearMapper = LinearMapper {
+    name: "linewidth",
+    range: (1.0, 6.0),
+    missing: 0.0,
+};
+
 /// `alpha`: 0.1..1; missing values fully transparent (lets-plot `DefaultNaValue`).
 pub static ALPHA: LinearMapper = LinearMapper {
     name: "alpha",

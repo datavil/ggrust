@@ -101,6 +101,7 @@ nav = [
       "reference/api/geom_smooth.md",
       "reference/api/geom_area.md",
       "reference/api/geom_ribbon.md",
+      "reference/api/geom_rug.md",
       "reference/api/geom_area_ridges.md",
       "reference/api/geom_polygon.md",
       "reference/api/geom_rect.md",

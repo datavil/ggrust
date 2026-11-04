@@ -54,6 +54,7 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_smooth()`](api/geom_smooth.md) | Draw a fitted curve with a confidence band (``stat="smooth"``), one per group. |
 | [`geom_area()`](api/geom_area.md) | Fill the area under a line, stacked by default (``position="stack"``). |
 | [`geom_ribbon()`](api/geom_ribbon.md) | Fill the band between ymin and ymax along x. |
+| [`geom_rug()`](api/geom_rug.md) | Rug ticks along the panel edges, one per x and/or y value (ggplot2 ``geom_rug``). |
 | [`geom_area_ridges()`](api/geom_area_ridges.md) | Ridgeline plot: one density curve per y level. |
 | [`geom_polygon()`](api/geom_polygon.md) | Draw filled polygons, one per group. |
 | [`geom_rect()`](api/geom_rect.md) | Rectangles from ``xmin``, ``xmax``, ``ymin``, ``ymax``. |

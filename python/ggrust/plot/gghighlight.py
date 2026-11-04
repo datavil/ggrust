@@ -51,12 +51,13 @@ MAX_LABELS = 20
 GROUP_COLUMN = "gghighlight_group"
 """Column holding the series id of the grey layer (the R package's secret ``group``)."""
 
-NO_COLOR_GEOMS = frozenset({"bar", "tile", "raster"})
+NO_COLOR_GEOMS = frozenset({"bar", "col", "tile", "raster"})
 """Geoms drawn without an outline by default: their grey copy gets no grey outline."""
 
 FILL_GEOMS = frozenset(
     {
         "bar",
+        "col",
         "histogram",
         "area",
         "ribbon",
@@ -670,7 +671,11 @@ def _label_layers(
 
 def _label_target(sieved_layers: list[_Sieved]) -> tuple[_Sieved, str] | None:
     """Return the layer to label: the first line, else point, else bar (gghighlight)."""
-    for kind, geoms in (("line", ("line",)), ("point", ("point",)), ("bar", ("bar", "histogram"))):
+    for kind, geoms in (
+        ("line", ("line",)),
+        ("point", ("point",)),
+        ("bar", ("bar", "col", "histogram")),
+    ):
         for sieved in sieved_layers:
             stat = sieved.layer.stat
             identity = stat in (None, "identity") or kind == "bar"

@@ -82,3 +82,11 @@ def test_col_rejects_bad_just() -> None:
     plot = gg.ggplot(FRUIT, gg.aes("fruit", "sold")) + gg.geom_col(just="left")
     with pytest.raises(SpecError, match="just"):
         plot.to_svg()
+
+
+def test_gghighlight_greys_col_like_bar() -> None:
+    data = {"k": ["a", "b", "c", "d"], "v": [1.0, 5.0, 3.0, 7.0]}
+    col = gg.ggplot(data, gg.aes("k", "v", fill="k")) + gg.geom_col()
+    bar = gg.ggplot(data, gg.aes("k", "v", fill="k")) + gg.geom_bar(stat="identity")
+    highlight = gg.gghighlight(pl.col("v") > 4)
+    assert (col + highlight).to_svg() == (bar + highlight).to_svg()

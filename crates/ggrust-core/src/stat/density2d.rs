@@ -141,13 +141,13 @@ fn compute(
 
 /// `kernel`, `adjust`, `bw` and `n`.
 #[derive(Debug, Clone, Copy)]
-struct Density2dOptions {
-    kernel: Kernel,
-    adjust: f64,
-    x_bandwidth: Bandwidth,
-    y_bandwidth: Bandwidth,
-    x_count: usize,
-    y_count: usize,
+pub(super) struct Density2dOptions {
+    pub(super) kernel: Kernel,
+    pub(super) adjust: f64,
+    pub(super) x_bandwidth: Bandwidth,
+    pub(super) y_bandwidth: Bandwidth,
+    pub(super) x_count: usize,
+    pub(super) y_count: usize,
 }
 
 impl Density2dOptions {
@@ -225,8 +225,13 @@ impl Density2dOptions {
     }
 
     /// Density on the grid, row-major (row = y step), normalised by the summed
-    /// weights (lets-plot `density2dGrid`).
-    fn density(&self, points: &[(f64, f64, f64)], x_steps: &[f64], y_steps: &[f64]) -> Vec<f64> {
+    /// weights (lets-plot `density2dGrid`). Also `stat="pointdensity"`'s kde2d.
+    pub(super) fn density(
+        &self,
+        points: &[(f64, f64, f64)],
+        x_steps: &[f64],
+        y_steps: &[f64],
+    ) -> Vec<f64> {
         let sorted = |coordinate: fn(&(f64, f64, f64)) -> f64| {
             let mut values: Vec<f64> = points.iter().map(coordinate).collect();
             values.sort_by(f64::total_cmp);

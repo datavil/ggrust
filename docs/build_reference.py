@@ -56,6 +56,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "geom_sina",
             "geom_beeswarm",
             "geom_quasirandom",
+            "geom_pointdensity",
             "geom_line",
             "geom_step",
             "geom_path",
@@ -106,6 +107,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "stat_summary_bin",
             "stat_ecdf",
             "stat_sum",
+            "stat_pointdensity",
         ],
     ),
     "Positions": (

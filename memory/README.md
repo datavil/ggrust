@@ -60,3 +60,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [ggsci palettes](ggsci_palettes.md): fixed tables per mapper kind, brewer overflow + warning after training (`palette_size`), R rgb() alpha rounding.
 - [ggbeeswarm layouts](ggbeeswarm_layouts.md): stats (not positions) for the plot ranges, dodge_width, R `density()` port (4.4 coords), round R fixtures before write_json.
 - [ggnewscale scale groups](ggnewscale_scale_groups.md): `ScaleKey` = aesthetic + group, Python tags at `+` time, every style lookup goes through the layer's group, group 0 unchanged.
+- [ggpointdensity](ggpointdensity.md): measured neighbour rule (r2 not squared, border counts), kde2d via MASS bandwidth + R seq + findInterval, exact grid counts with row prefix sums.

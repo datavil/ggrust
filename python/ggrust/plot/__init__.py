@@ -52,6 +52,7 @@ from ggrust.plot.geom_beeswarm import geom_beeswarm, geom_quasirandom
 from ggrust.plot.geom_extras import arrow
 from ggrust.plot.geom_function import geom_function
 from ggrust.plot.geom_imshow import geom_imshow
+from ggrust.plot.geom_pointdensity import geom_pointdensity, stat_pointdensity
 from ggrust.plot.gggrid import gggrid
 from ggrust.plot.ggtb import ggtb
 from ggrust.plot.guide import guide_colorbar, guide_legend, guides, layer_key
@@ -226,6 +227,7 @@ __all__ = [
     "geom_linerange",
     "geom_path",
     "geom_point",
+    "geom_pointdensity",
     "geom_pointrange",
     "geom_polygon",
     "geom_quasirandom",
@@ -332,6 +334,7 @@ __all__ = [
     "scale_y_reverse",
     "scale_y_time",
     "stat_ecdf",
+    "stat_pointdensity",
     "stat_sum",
     "stat_summary",
     "stat_summary_bin",

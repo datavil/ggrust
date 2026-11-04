@@ -35,6 +35,7 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_sina()`](api/geom_sina.md) | Sina plot: points spread within the violin outline. |
 | [`geom_beeswarm()`](api/geom_beeswarm.md) | Beeswarm plot: points of each x moved sideways so that none overlap. |
 | [`geom_quasirandom()`](api/geom_quasirandom.md) | Quasirandom plot: points spread sideways within the density of their x. |
+| [`geom_pointdensity()`](api/geom_pointdensity.md) | Scatter plot with each point colored by the density of points around it. |
 | [`geom_line()`](api/geom_line.md) | Connect observations sorted by x. |
 | [`geom_step()`](api/geom_step.md) | Connect observations sorted by x with stairs. |
 | [`geom_path()`](api/geom_path.md) | Connect observations in data order. |
@@ -87,6 +88,7 @@ Layers named after their stat: each summarises the data, then draws it with a ge
 | [`stat_summary_bin()`](api/stat_summary_bin.md) | Summarise y in bins of x (``stat="summarybin"``), drawn as point ranges. |
 | [`stat_ecdf()`](api/stat_ecdf.md) | Empirical cumulative distribution of x (``stat="ecdf"``), drawn as steps. |
 | [`stat_sum()`](api/stat_sum.md) | Rows at each distinct (x, y) (``stat="sum"``), drawn as points sized by the count. |
+| [`stat_pointdensity()`](api/stat_pointdensity.md) | Density of points around each point (``stat="pointdensity"``), drawn as points. |
 
 ## Positions
 

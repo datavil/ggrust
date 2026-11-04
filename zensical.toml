@@ -85,6 +85,7 @@ nav = [
       "reference/api/geom_sina.md",
       "reference/api/geom_beeswarm.md",
       "reference/api/geom_quasirandom.md",
+      "reference/api/geom_pointdensity.md",
       "reference/api/geom_line.md",
       "reference/api/geom_step.md",
       "reference/api/geom_path.md",
@@ -132,6 +133,7 @@ nav = [
       "reference/api/stat_summary_bin.md",
       "reference/api/stat_ecdf.md",
       "reference/api/stat_sum.md",
+      "reference/api/stat_pointdensity.md",
     ] },
     { "Positions" = [
       "reference/api/position_dodge.md",

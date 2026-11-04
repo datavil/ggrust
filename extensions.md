@@ -53,7 +53,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Main roadmap: [plan.md](plan.md).
   and guides. Done when two color scales (e.g. a continuous one for points and a
   discrete one for labels) draw with two legends, and `guides="collect"` in `gggrid`
   still merges equal ones.
-- [ ] ex1.4 **ggpointdensity.** `geom_pointdensity` / `stat_pointdensity`: each point
+- [x] ex1.4 **ggpointdensity.** `geom_pointdensity` / `stat_pointdensity`: each point
   gets `..density..` (neighbours within `adjust`-scaled radius, or 2D KDE with
   `method="kde2d"`), mapped to color by default. Neighbour counting on a grid in Rust,
   parallel, so 1M points stays fast. Done when density values match the R package and

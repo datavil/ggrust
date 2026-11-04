@@ -35,7 +35,7 @@ use crate::scale::number_format::{ExponentFormat, NumberFormat};
 use crate::scale::style::spec::{StyleScaleSpec, style_scale_specs};
 use crate::scale::style::{LegendEntry, ScaleKey, StyleScale, default_mapper};
 use crate::scale::{AxisScaleSpec, PositionScale, PositionScales, position_scales};
-use crate::scene::{Group, LAYER_ROLE, Node, PerItem, Rect, Rects, Scene};
+use crate::scene::{Group, LAYER_ROLE, Node, PerItem, Raster, Rect, Rects, Scene};
 use crate::spec::{
     Aesthetic, DataSource, GuideOptions, GuideSpec, LayerSpec, Mapping, MappingAnnotation,
     MappingValue, Options, PlotSpec, SeriesAnnotation, TooltipsSpec, Value,
@@ -1265,7 +1265,10 @@ impl PreparedPlot {
             });
             let mut layer_nodes: Vec<Node> = Vec::new();
             for (nodes, layer) in drawn.into_iter().zip(layers) {
-                let nodes = nodes?;
+                let mut nodes = nodes?;
+                if let Some(dpi) = layer.rasterize.filter(|_| !nodes.is_empty()) {
+                    nodes = vec![Node::Raster(Raster { dpi, nodes })];
+                }
                 if layer.companion
                     && let Some(Node::Group(group)) = layer_nodes.last_mut()
                 {
@@ -1730,6 +1733,8 @@ struct PreparedLayer {
     styles: Styles,
     /// ggnewscale scale group per style aesthetic (`LayerSpec::scale_group`).
     scale_groups: BTreeMap<Aesthetic, u32>,
+    /// `rasterize(dpi=...)`: the layer's marks are drawn in a `scene::Raster`.
+    rasterize: Option<f64>,
     /// `show_legend` (default: the geom's).
     show_legend: bool,
     /// Drawn on behalf of the layer before it: the outlier points the Python
@@ -2356,6 +2361,7 @@ fn compute_layer(
         y_oriented,
         mapping_paths,
         scale_groups: spec.scale_group.clone(),
+        rasterize: spec.rasterize.map(|rasterize| rasterize.dpi),
         show_legend: spec.show_legend.unwrap_or(geom.shows_legend()),
         companion: layer_stat(spec).is_some_and(|stat| stat.name() == "boxplot_outlier"),
         warnings,
@@ -2390,6 +2396,8 @@ struct ComputedLayer {
     mapping_paths: BTreeMap<Aesthetic, String>,
     /// See [`PreparedLayer::scale_groups`].
     scale_groups: BTreeMap<Aesthetic, u32>,
+    /// See [`PreparedLayer::rasterize`].
+    rasterize: Option<f64>,
     /// `show_legend` (default: the geom's).
     show_legend: bool,
     /// Warnings of this stage.
@@ -2454,6 +2462,7 @@ fn style_layer(
             y_span: layer.y_span,
             styles,
             scale_groups: layer.scale_groups,
+            rasterize: layer.rasterize,
             show_legend: layer.show_legend,
             companion: layer.companion,
         },

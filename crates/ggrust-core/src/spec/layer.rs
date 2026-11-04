@@ -54,6 +54,9 @@ pub struct LayerSpec {
     /// layer): the layer maps through that group's scale. Missing means group 0.
     #[serde(default)]
     pub scale_group: BTreeMap<Aesthetic, u32>,
+    /// ggrastr `rasterize()`: draw the layer as an embedded bitmap in SVG and PDF.
+    #[serde(default)]
+    pub rasterize: Option<RasterizeSpec>,
     /// Geom/stat specific options and constant aesthetics (`size=2`, `color="red"`).
     /// Validated by the geom and stat.
     #[serde(flatten)]
@@ -87,6 +90,48 @@ impl LayerSpec {
                 }
             }
         }
+    }
+}
+
+/// `rasterize(layer, dpi=...)` options of a layer.
+#[derive(Debug, Clone, Copy, PartialEq, Deserialize)]
+#[serde(try_from = "Value")]
+pub struct RasterizeSpec {
+    /// Resolution of the bitmap in dots per inch of the output.
+    pub dpi: f64,
+}
+
+/// Highest accepted `rasterize` dpi (a 600 px panel at 4800 dpi is 30,000 pixels
+/// wide, near the PNG backend's side limit).
+pub const MAX_RASTERIZE_DPI: f64 = 4800.0;
+
+impl TryFrom<Value> for RasterizeSpec {
+    type Error = String;
+
+    fn try_from(value: Value) -> Result<Self, Self::Error> {
+        let Value::Object(options) = value else {
+            return Err(format!(
+                "expected rasterize options like {{\"dpi\": 300}}, got {value}"
+            ));
+        };
+        if let Some(key) = options.keys().find(|key| key.as_str() != "dpi") {
+            return Err(format!(
+                "at '{key}': unknown rasterize option; accepted: 'dpi'"
+            ));
+        }
+        let dpi = match options.get("dpi") {
+            None => return Err("at 'dpi': missing; give the bitmap resolution, e.g. 300".into()),
+            Some(dpi) => dpi.as_f64().ok_or_else(|| {
+                format!("at 'dpi': expected a number of dots per inch, got {dpi}")
+            })?,
+        };
+        if !(dpi.is_finite() && dpi > 0.0 && dpi <= MAX_RASTERIZE_DPI) {
+            return Err(format!(
+                "at 'dpi': expected dots per inch in (0, {MAX_RASTERIZE_DPI}], got {dpi}; \
+                 300 suits print, 96 the screen"
+            ));
+        }
+        Ok(RasterizeSpec { dpi })
     }
 }
 

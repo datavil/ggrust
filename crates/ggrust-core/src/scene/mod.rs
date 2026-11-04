@@ -49,6 +49,8 @@ pub enum Node {
     Text(Text),
     /// A bitmap stretched over a rectangle.
     Image(Image),
+    /// Children drawn as one bitmap in vector output (`rasterize()`).
+    Raster(Raster),
 }
 
 impl Scene {
@@ -62,6 +64,10 @@ impl Scene {
                     Node::Group(group) => {
                         let role = group.role.unwrap_or("group");
                         walk(&group.nodes, &format!("{path}/{role}[{index}]"))?;
+                        true
+                    }
+                    Node::Raster(raster) => {
+                        walk(&raster.nodes, &format!("{path}/raster[{index}]"))?;
                         true
                     }
                     Node::Points(points) => points.is_consistent(),
@@ -107,8 +113,9 @@ impl Scene {
 pub const LAYER_ROLE: &str = "layer";
 
 impl Group {
-    /// The children, with anchored groups ([`Group::anchor`]) and layer groups
-    /// ([`LAYER_ROLE`]) replaced by their own children: what is drawn, in order.
+    /// The children, with anchored groups ([`Group::anchor`]), layer groups
+    /// ([`LAYER_ROLE`]) and rasters replaced by their own children: what is
+    /// drawn, in order.
     pub fn flattened(&self) -> Vec<&Node> {
         fn walk<'a>(nodes: &'a [Node], flat: &mut Vec<&'a Node>) {
             for node in nodes {
@@ -118,6 +125,7 @@ impl Group {
                     {
                         walk(&group.nodes, flat)
                     }
+                    Node::Raster(raster) => walk(&raster.nodes, flat),
                     other => flat.push(other),
                 }
             }
@@ -141,6 +149,18 @@ pub struct Group {
     /// Static output ignores it.
     pub anchor: Option<(f64, f64)>,
     /// Children, drawn in order.
+    pub nodes: Vec<Node>,
+}
+
+/// Children that SVG and PDF output draw as one embedded bitmap of `dpi` dots
+/// per inch (ggrastr's `rasterize()`), clipped like the children would be, on
+/// the pixel grid of a PNG rendered at that resolution. PNG and HTML output draw
+/// the children as they are. See `render::rasterize_layers`.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Raster {
+    /// Resolution of the bitmap, dots per inch of the output.
+    pub dpi: f64,
+    /// What is drawn into the bitmap.
     pub nodes: Vec<Node>,
 }
 
@@ -307,6 +327,10 @@ pub struct Image {
     pub rows: u32,
     /// The pixels, as drawn (top row first).
     pub bitmap: Bitmap,
+    /// PDF repeats each pixel so viewers that ignore `/Interpolate false` keep
+    /// cell edges sharp (data images); `false` for bitmaps already at output
+    /// resolution (a rasterized layer).
+    pub upsample: bool,
 }
 
 /// The pixels of an [`Image`].

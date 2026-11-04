@@ -213,6 +213,9 @@ nav = [
       "reference/api/new_scale_fill.md",
       "reference/api/new_scale.md",
     ] },
+    { "Rasterized layers (ggrastr)" = [
+      "reference/api/rasterize.md",
+    ] },
     { "Size, shape and alpha scales" = [
       "reference/api/scale_size.md",
       "reference/api/scale_size_area.md",

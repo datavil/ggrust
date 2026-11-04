@@ -198,6 +198,11 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
         "Start a new scale with its own legend (R package ggnewscale, not in lets-plot).",
         ["new_scale_color", "new_scale_colour", "new_scale_fill", "new_scale"],
     ),
+    "Rasterized layers (ggrastr)": (
+        "Draw a dense layer as a bitmap inside SVG and PDF output (R package ggrastr, "
+        "not in lets-plot).",
+        ["rasterize"],
+    ),
     "Size, shape and alpha scales": (
         "Map data to point size, point shape and transparency.",
         [

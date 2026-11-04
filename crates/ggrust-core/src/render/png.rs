@@ -43,7 +43,33 @@ pub fn to_png_with_dpi(scene: &Scene, scale: f64, dpi: f64) -> Result<Vec<u8>> {
 
 /// Rasterise a scene; `scale` multiplies the pixel size.
 pub(super) fn render_pixmap(scene: &Scene, scale: f64) -> Result<Pixmap> {
-    let mut pixmap = new_pixmap(scene.width, scene.height, scale)?;
+    let pixmap = new_pixmap(scene.width, scene.height, scale)?;
+    draw_scene(scene, scale, pixmap)
+}
+
+/// Rasterise a scene into exactly `columns` x `rows` pixels at `scale` (a
+/// rasterized layer, see `render::raster`), within the usual size limits.
+pub(super) fn render_pixmap_sized(
+    scene: &Scene,
+    scale: f64,
+    columns: u32,
+    rows: u32,
+) -> Result<Pixmap> {
+    let (width, height) = (f64::from(columns), f64::from(rows));
+    let side_ok = |side: f64| (1.0..=MAX_SIDE).contains(&side);
+    if !(side_ok(width) && side_ok(height) && width * height <= MAX_PIXELS) {
+        return Err(Error::render(format!(
+            "a rasterized layer needs {width} x {height} pixels, too large; limits are \
+             {MAX_SIDE} pixels per side and {MAX_PIXELS} pixels in total. Lower the \
+             layer's rasterize(dpi=...)"
+        )));
+    }
+    let pixmap = Pixmap::new(columns, rows)
+        .ok_or_else(|| Error::render("could not allocate a rasterized layer"))?;
+    draw_scene(scene, scale, pixmap)
+}
+
+fn draw_scene(scene: &Scene, scale: f64, mut pixmap: Pixmap) -> Result<Pixmap> {
     if let Some(background) = scene.background {
         pixmap.fill(skia_color(background));
     }
@@ -272,6 +298,8 @@ impl Canvas {
             for node in nodes {
                 match node {
                     Node::Group(group) if group.clip.is_none() => inline(&group.nodes, flat),
+                    // PNG output is raster already: rasterized layers draw as they are.
+                    Node::Raster(raster) => inline(&raster.nodes, flat),
                     other => flat.push(other),
                 }
             }
@@ -293,7 +321,7 @@ impl Canvas {
                 Node::Path(path) => self.path(path, mask),
                 Node::Rects(rects) => self.rects(rects, mask),
                 Node::Image(image) => self.image(image, mask)?,
-                Node::Text(_) => {}
+                Node::Text(_) | Node::Raster(_) => {}
             }
         }
         self.texts(&texts, clip)

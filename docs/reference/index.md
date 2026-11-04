@@ -193,6 +193,14 @@ Start a new scale with its own legend (R package ggnewscale, not in lets-plot).
 | [`new_scale_fill()`](api/new_scale_fill.md) | Start a new fill scale (ggnewscale): ``new_scale("fill")``. |
 | [`new_scale()`](api/new_scale.md) | Start a new scale for an aesthetic (R package ggnewscale). |
 
+## Rasterized layers (ggrastr)
+
+Draw a dense layer as a bitmap inside SVG and PDF output (R package ggrastr, not in lets-plot).
+
+| Name | Description |
+|---|---|
+| [`rasterize()`](api/rasterize.md) | Draw a layer as a bitmap in SVG and PDF output (R package ggrastr). |
+
 ## Size, shape and alpha scales
 
 Map data to point size, point shape and transparency.

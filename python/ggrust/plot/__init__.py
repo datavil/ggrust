@@ -67,6 +67,7 @@ from ggrust.plot.position import (
     position_nudge,
     position_stack,
 )
+from ggrust.plot.rasterize import rasterize
 from ggrust.plot.scale import (
     lims,
     scale_x_continuous,
@@ -267,6 +268,7 @@ __all__ = [
     "position_jitterdodge",
     "position_nudge",
     "position_stack",
+    "rasterize",
     "scale_alpha",
     "scale_alpha_identity",
     "scale_alpha_manual",

@@ -58,7 +58,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Main roadmap: [plan.md](plan.md).
   `method="kde2d"`), mapped to color by default. Neighbour counting on a grid in Rust,
   parallel, so 1M points stays fast. Done when density values match the R package and
   a 1M-point UMAP benchmark is reported.
-- [ ] ex1.5 **ggrastr / scattermore.** `rasterize(layer, dpi=300)` (ggrastr name) or a
+- [x] ex1.5 **ggrastr / scattermore.** `rasterize(layer, dpi=300)` (ggrastr name) or a
   layer parameter: that layer is drawn into a PNG and embedded as an image in SVG and PDF
   output, the rest stays vector. Reuse the PNG backend and the `geom_imshow` image path.
   Done when a 1M-point UMAP saves as a small vector PDF with crisp axes and text, and

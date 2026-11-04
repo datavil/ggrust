@@ -69,6 +69,9 @@ pub fn to_pdf(scene: &Scene, scale: f64, dpi: f64) -> Result<Vec<u8>> {
              must be at least 1"
         )));
     }
+    // A layout pixel is `scale / dpi` inches of the page.
+    let rasterized = super::rasterize_layers(scene, scale / dpi)?;
+    let scene = rasterized.as_ref();
     let points_per_pixel = POINTS_PER_INCH / dpi;
     let page_width = pixel_width * points_per_pixel;
     let page_height = pixel_height * points_per_pixel;
@@ -198,6 +201,8 @@ impl Writer {
                 Node::Rects(rects) => self.rects(rects),
                 Node::Text(text) => self.text(text),
                 Node::Image(image) => self.image(image)?,
+                // `to_pdf` replaced rasters by images; a stray one stays vector.
+                Node::Raster(raster) => self.nodes(&raster.nodes)?,
             }
         }
         Ok(())
@@ -478,7 +483,7 @@ impl Writer {
         };
         // Viewers that ignore `/Interpolate false` (macOS Quartz) blur large cells:
         // repeat each pixel `factor` times so the blur stays within a cell's edge.
-        let factor = upsampling(image);
+        let factor = if image.upsample { upsampling(image) } else { 1 };
         let (columns, rows) = (image.columns as usize, image.rows as usize);
         let repeated = |channels: &dyn Fn(&Color, &mut Vec<u8>), width: usize| {
             let mut bytes = Vec::with_capacity(columns * rows * factor * factor * width);
@@ -1382,6 +1387,7 @@ mod tests {
             columns: 1,
             rows: 1,
             bitmap: Bitmap::Pixels(vec![Color::rgb(255, 0, 0)]),
+            upsample: true,
         });
         let faint = Node::Rects(Rects {
             rects: vec![Rect {
@@ -1452,6 +1458,7 @@ mod tests {
             columns: 2,
             rows: 1,
             bitmap: Bitmap::Pixels(vec![Color::rgb(255, 0, 0), Color::rgba(0, 0, 255, 0)]),
+            upsample: true,
         });
         let group = Node::Group(Group {
             clip: Some(Rect {

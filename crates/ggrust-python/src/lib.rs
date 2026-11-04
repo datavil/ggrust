@@ -11,8 +11,8 @@ mod _ggrust {
     use ggrust_core::data::{Column, DataFrame};
     use ggrust_core::grid::build_figure_with;
     use ggrust_core::render::{
-        HtmlDocument, HtmlOptions, SCREEN_DPI, rgba_png_data_url, to_html, to_pdf, to_png_with_dpi,
-        to_svg,
+        HtmlDocument, HtmlOptions, SCREEN_DPI, rasterize_layers, rgba_png_data_url, to_html,
+        to_pdf, to_png_with_dpi, to_svg,
     };
     use ggrust_core::spec::Figure;
     use pyo3::exceptions::PyValueError;
@@ -257,7 +257,9 @@ mod _ggrust {
                     None if output == "pdf" => {
                         to_pdf(&built.scene, scale, dpi.unwrap_or(SCREEN_DPI))?
                     }
-                    None => to_svg(&built.scene).into_bytes(),
+                    // A layout pixel is a CSS pixel (1/96 inch) in SVG.
+                    None => to_svg(rasterize_layers(&built.scene, 1.0 / SCREEN_DPI)?.as_ref())
+                        .into_bytes(),
                 };
                 Ok((bytes, built.warnings))
             })

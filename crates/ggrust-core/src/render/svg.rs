@@ -270,6 +270,9 @@ impl SvgWriter {
             Node::Rects(rects) => self.rects(rects),
             Node::Text(text) => self.text(text),
             Node::Image(image) => self.image(image),
+            // Static SVG output replaces rasters first (`rasterize_layers`); HTML
+            // keeps the layer vector (tooltips, zoom, canvas points).
+            Node::Raster(raster) => self.nodes(&raster.nodes),
         }
     }
 
@@ -496,7 +499,7 @@ impl SvgWriter {
     }
 
     /// An `<image>` holding the bitmap as an embedded PNG, scaled without
-    /// smoothing (lets-plot `SvgImageElementEx`).
+    /// smoothing (lets-plot `SvgImageElementEx`) unless it is a rasterized layer.
     fn image(&mut self, image: &Image) {
         let rect = image.rect;
         let drawable = [rect.x, rect.y, rect.width, rect.height]
@@ -549,7 +552,11 @@ impl SvgWriter {
                 self.attribute_number("height", rect.height);
             }
         }
-        self.raw(" style=\"image-rendering: optimizeSpeed; image-rendering: pixelated\"");
+        // Data cells stay sharp; a rasterized layer (finer than the screen) is
+        // resampled smoothly by the viewer.
+        if image.upsample {
+            self.raw(" style=\"image-rendering: optimizeSpeed; image-rendering: pixelated\"");
+        }
         self.raw(" href=\"data:image/png;base64,");
         match (&image.bitmap, encoded) {
             (Bitmap::Png { png, .. }, _) => self.output.push_str(png.base64()),
@@ -746,6 +753,7 @@ const RESERVE_SAMPLE: usize = 256;
 fn node_weight(node: &Node) -> usize {
     match node {
         Node::Group(group) => group.nodes.iter().map(node_weight).sum(),
+        Node::Raster(raster) => raster.nodes.iter().map(node_weight).sum(),
         Node::Points(points) => points.len(),
         Node::Path(path) => path.points.len(),
         Node::Rects(rects) => rects.rects.len(),
@@ -759,6 +767,7 @@ fn clip_count(node: &Node) -> usize {
         Node::Group(group) => {
             usize::from(group.clip.is_some()) + group.nodes.iter().map(clip_count).sum::<usize>()
         }
+        Node::Raster(raster) => raster.nodes.iter().map(clip_count).sum(),
         _ => 0,
     }
 }

@@ -32,7 +32,10 @@ pub use coord::CoordSpec;
 pub use facet::FacetSpec;
 pub use frames::DataSource;
 pub use guide::{GuideOptions, GuideSpec};
-pub use layer::{LayerSpec, PositionSpec, TooltipFormat, TooltipLines, TooltipsSpec};
+pub use layer::{
+    LayerSpec, MAX_RASTERIZE_DPI, PositionSpec, RasterizeSpec, TooltipFormat, TooltipLines,
+    TooltipsSpec,
+};
 pub use plot::{
     CaptionSpec, DataMeta, MappingAnnotation, MappingAnnotationParameters, PlotSpec,
     SeriesAnnotation, SizeSpec, TitleSpec, ToolbarSpec,

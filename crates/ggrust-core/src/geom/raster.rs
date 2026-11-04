@@ -172,6 +172,7 @@ impl Geom for RasterGeom {
             columns: screen_columns as u32,
             rows: screen_rows as u32,
             bitmap: Bitmap::Pixels(pixels),
+            upsample: true,
         })])
     }
 

@@ -141,6 +141,9 @@ nav = [
       "reference/api/stat_pointinterval.md",
       "reference/api/stat_interval.md",
       "reference/api/stat_halfeye.md",
+      "reference/api/stat_compare_means.md",
+      "reference/api/stat_cor.md",
+      "reference/api/stat_poly_eq.md",
     ] },
     { "Positions" = [
       "reference/api/position_dodge.md",

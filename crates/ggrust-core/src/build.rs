@@ -401,6 +401,7 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     let context = StatContext {
         x_range: overall_range(&mapped.iter().collect::<Vec<_>>(), Aesthetic::X, &x_scale),
         y_range: overall_range(&mapped.iter().collect::<Vec<_>>(), Aesthetic::Y, &y_scale),
+        x_levels: None,
     };
     // Per panel: its layers (stats and positions run per panel, as in lets-plot),
     // its position scales before training (free axes: discrete levels of the
@@ -491,7 +492,16 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
                 .map(|(layers, (x_group, y_group))| {
                     let (tile_x, x_range) = x_groups_setup[*x_group].clone();
                     let (tile_y, y_range) = y_groups_setup[*y_group].clone();
-                    (layers, tile_x, tile_y, StatContext { x_range, y_range })
+                    (
+                        layers,
+                        tile_x,
+                        tile_y,
+                        StatContext {
+                            x_range,
+                            y_range,
+                            x_levels: None,
+                        },
+                    )
                 })
                 .collect();
             (
@@ -1488,7 +1498,7 @@ type TileSetup<'a> = (
     Vec<MappedLayer<'a>>,
     PositionScale,
     PositionScale,
-    StatContext,
+    StatContext<'static>,
 );
 
 /// A free facet axis's scale for one panel: the plot's scale (kind, transform,
@@ -2179,6 +2189,7 @@ fn compute_layer(
             swapped_context = StatContext {
                 x_range: context.y_range,
                 y_range: context.x_range,
+                x_levels: None,
             };
             &swapped_context
         }
@@ -2252,6 +2263,16 @@ fn compute_layer(
     // Stats that size things by the axes (beeswarm) read this; set again below
     // for the stat's output.
     layer_data.set_discrete_axes(x_discrete, y_discrete);
+    // Category names of the layer's x axis, for stats that take level names.
+    let x_axis_scale = if y_oriented { y_scale } else { x_scale };
+    let x_levels: Option<Vec<&str>> = match x_axis_scale {
+        PositionScale::Discrete(scale) => Some(scale.effective_levels()),
+        PositionScale::Continuous(_) => None,
+    };
+    let context = &StatContext {
+        x_levels: x_levels.as_deref(),
+        ..*context
+    };
     let mut layer_data = stat.compute(layer_data, &parameters, context)?;
     // Stat positions the geom does not draw (a summary's ymin/ymax under
     // `geom="point"`) neither train the axes nor reach the geom, as lets-plot
@@ -3911,9 +3932,16 @@ fn resolve_styles(
             (Some(column), Some(scale)) => scale
                 .map(column)
                 .map_err(|message| Error::spec(format!("{path}.mapping.{aesthetic}"), message))?,
-            // Line coefficients are drawn as they are (lets-plot has no scale for them).
+            // Line coefficients and bracket tip lengths are drawn as they are
+            // (lets-plot has no scale for them).
             (Some(Column::Continuous(column)), None)
-                if matches!(aesthetic, Aesthetic::Intercept | Aesthetic::Slope) =>
+                if matches!(
+                    aesthetic,
+                    Aesthetic::Intercept
+                        | Aesthetic::Slope
+                        | Aesthetic::Lenstart
+                        | Aesthetic::Lenend
+                ) =>
             {
                 let values = (0..column.len())
                     .map(|row| column.get(row).unwrap_or(f64::NAN))

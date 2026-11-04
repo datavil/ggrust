@@ -745,7 +745,7 @@ fn t_quantile(p: f64, freedom: f64) -> f64 {
 
 /// The regularized incomplete beta function `I_x(a, b)` (continued fraction,
 /// modified Lentz).
-fn regularized_beta(x: f64, a: f64, b: f64) -> f64 {
+pub(super) fn regularized_beta(x: f64, a: f64, b: f64) -> f64 {
     if x <= 0.0 {
         return 0.0;
     }
@@ -791,7 +791,7 @@ fn ln_beta(a: f64, b: f64) -> f64 {
 }
 
 /// Lanczos approximation (g = 7, 9 terms), accurate to about 1e-15.
-fn ln_gamma(x: f64) -> f64 {
+pub(super) fn ln_gamma(x: f64) -> f64 {
     const COEFFICIENTS: [f64; 9] = [
         0.999_999_999_999_809_9,
         676.520_368_121_885_1,

@@ -69,7 +69,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Main roadmap: [plan.md](plan.md).
   plus median and quantile intervals). Built on the violin, boxplot and interval geoms.
   Done when a raincloud plot (half violin + boxplot + jittered points) renders as in
   the R packages.
-- [ ] ex1.7 **ggpubr / ggpmisc computed statistics.** `stat_compare_means` (`method`
+- [x] ex1.7 **ggpubr / ggpmisc computed statistics.** `stat_compare_means` (`method`
   t.test, wilcox.test, anova, kruskal.test; `comparisons=`, `label="p.signif"|"p.format"`,
   `ref_group`, `hide_ns`) drawing through `geom_bracket`; `stat_cor` (Pearson, Spearman,
   Kendall, R and p label); `stat_poly_eq` (equation, R², per group). Tests in Rust

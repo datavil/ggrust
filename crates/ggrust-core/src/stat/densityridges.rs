@@ -114,6 +114,7 @@ mod tests {
         let context = StatContext {
             x_range: Some((0.0, 10.0)),
             y_range: None,
+            ..StatContext::default()
         };
         let result = DensityRidgesStat
             .compute(data, &Parameters::new(&options, ""), &context)

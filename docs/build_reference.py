@@ -115,6 +115,9 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "stat_pointinterval",
             "stat_interval",
             "stat_halfeye",
+            "stat_compare_means",
+            "stat_cor",
+            "stat_poly_eq",
         ],
     ),
     "Positions": (

@@ -14,7 +14,8 @@
 //! What it does not do (yet): `orientation="y"` (vertical brackets from
 //! `ymin`/`ymax`), `geom_bracket_dodge`, `label_format`, `na_text`, `size_unit`,
 //! `nudge_unit`, `lineheight` (labels lift by one font size per line), mapping
-//! columns to `lenstart`/`lenend`/`segment_*` (warned; constants work).
+//! columns to `segment_*` (warned; constants work). Mapped `lenstart`/`lenend`
+//! numbers are drawn as they are.
 
 use super::lines;
 use super::point::POINT_UNIT_SIZE;

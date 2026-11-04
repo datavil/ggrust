@@ -96,6 +96,9 @@ Layers named after their stat: each summarises the data, then draws it with a ge
 | [`stat_pointinterval()`](api/stat_pointinterval.md) | Point summary of y with quantile intervals around it, per x. |
 | [`stat_interval()`](api/stat_interval.md) | Stacked quantile intervals of y per x, colored by level. |
 | [`stat_halfeye()`](api/stat_halfeye.md) | Half-eye plot: a density slab with a point interval at its base, per x. |
+| [`stat_compare_means()`](api/stat_compare_means.md) | Test the groups of y along a discrete x and label the p-values. |
+| [`stat_cor()`](api/stat_cor.md) | Label the correlation of x and y and its p-value, per group. |
+| [`stat_poly_eq()`](api/stat_poly_eq.md) | Label a least squares polynomial fit of y on x (equation, R²), per group. |
 
 ## Positions
 

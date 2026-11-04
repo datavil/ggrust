@@ -3745,8 +3745,8 @@ def geom_bracket(
     ----------
     mapping : FeatureSpec, optional
         Aesthetic mapping from ``aes()``: ``xmin``, ``xmax``, ``y``, ``label``, and
-        ``color``/``alpha``. Tip lengths (``lenstart``, ``lenend``) and the bracket
-        line (``segment_color``, ``segment_size``, ``segment_alpha``) are constants
+        ``color``/``alpha``, and tip lengths (``lenstart``, ``lenend``). The bracket
+        line (``segment_color``, ``segment_size``, ``segment_alpha``) takes constants
         only in ggrust yet, e.g. ``segment_size=0.5``.
     data : DataFrame or dict, optional
         Layer data; inherits the plot data when None.

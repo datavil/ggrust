@@ -6,18 +6,24 @@ mod bin;
 mod bin2d;
 mod binhex;
 mod boxplot;
+mod compare_means;
 mod contour;
+mod cor;
 mod count;
 mod density;
 mod density2d;
 mod density_1d;
 mod densityridges;
+mod distribution;
 mod ecdf;
 mod ggdist_density;
 pub(crate) mod groups;
+mod hypothesis;
 mod identity;
 mod pointdensity;
 mod pointinterval;
+mod poly_eq;
+mod pubr_labels;
 mod quasirandom;
 mod r_density;
 mod sina;
@@ -32,7 +38,9 @@ pub use bin::{BinStat, bracketing_index};
 pub use bin2d::Bin2dStat;
 pub use binhex::BinHexStat;
 pub use boxplot::{BoxplotOutlierStat, BoxplotStat};
+pub use compare_means::CompareMeansStat;
 pub use contour::{ContourStat, ContourfStat};
+pub use cor::CorStat;
 pub use count::CountStat;
 pub use density_1d::DensityStat;
 pub use density2d::{Density2dStat, Density2dfStat};
@@ -41,6 +49,7 @@ pub use ecdf::EcdfStat;
 pub use identity::IdentityStat;
 pub use pointdensity::PointDensityStat;
 pub use pointinterval::{IntervalStat, PointIntervalStat};
+pub use poly_eq::PolyEqStat;
 pub use quasirandom::QuasirandomStat;
 pub use sina::SinaStat;
 pub use slab::SlabStat;
@@ -56,12 +65,15 @@ use crate::spec::Aesthetic;
 
 /// What a stat may know beyond its own layer (lets-plot `StatContext`).
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
-pub struct StatContext {
+pub struct StatContext<'a> {
     /// x range over every layer's data, in axis units, with explicit scale
     /// limits replacing its ends (lets-plot `ConfiguredStatContext.overallXRange`).
     pub x_range: Option<(f64, f64)>,
     /// The same for y (`overallYRange`).
     pub y_range: Option<(f64, f64)>,
+    /// Categories of a discrete x axis in axis order (position 0 first), so
+    /// stats can resolve level names given as options (`ref_group`).
+    pub x_levels: Option<&'a [&'a str]>,
 }
 
 /// A statistical transformation.
@@ -134,6 +146,9 @@ pub static STATS: &[&dyn Stat] = &[
     &SlabStat,
     &PointIntervalStat,
     &IntervalStat,
+    &CompareMeansStat,
+    &CorStat,
+    &PolyEqStat,
 ];
 
 /// lets-plot stats the Python API builds but the engine does not compute yet

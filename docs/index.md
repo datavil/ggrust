@@ -35,28 +35,34 @@ ggrust is a plotting library for Python. You describe a plot with `ggplot`, `aes
 draws the picture. Hover the plot above for tooltips: every plot on this site is a live
 ggrust plot.
 
-## Install
+## Showcase
 
-=== "pip"
+<div class="gallery showcase" markdown>
 
-    ```bash
-    pip install ggrust
-    ```
+[![Clustered heatmap](images/gallery/clustered_heatmap.png)<span>Clustered heatmap</span>](gallery/clustered_heatmap.md)
+[![Cluster marks](images/gallery/cluster_marks.png)<span>Cluster marks</span>](gallery/cluster_marks.md)
+[![Raincloud plot](images/gallery/raincloud.png)<span>Raincloud plot</span>](gallery/raincloud.md)
+[![Side panels](images/gallery/side_panels.png)<span>Side panels</span>](gallery/side_panels.md)
+[![Significance brackets](images/gallery/compare_means.png)<span>Significance brackets</span>](gallery/compare_means.md)
+[![Pulsar ridges](images/gallery/unknown_pleasures.png)<span>Pulsar ridges</span>](gallery/unknown_pleasures.md)
+[![Periodic table](images/gallery/periodic_table.png)<span>Periodic table</span>](gallery/periodic_table.md)
+[![Figure layout](images/gallery/figure_layout.png)<span>Figure layout</span>](gallery/figure_layout.md)
+[![Beeswarm](images/gallery/beeswarm.png)<span>Beeswarm</span>](gallery/beeswarm.md)
+[![Point density](images/gallery/point_density.png)<span>Point density</span>](gallery/point_density.md)
+[![Netflix movie durations](images/gallery/netflix_ridges.png)<span>Netflix movie durations</span>](gallery/netflix_ridges.md)
+[![One hundred thousand points](images/gallery/many_points.png)<span>One hundred thousand points</span>](gallery/many_points.md)
 
-=== "uv"
+</div>
 
-    ```bash
-    uv add ggrust
-    ```
+[:octicons-arrow-right-24: See the full gallery](gallery/index.md)
 
-=== "poetry"
+## Fast and lean
 
-    ```bash
-    poetry add ggrust
-    ```
+On identical work (same data, every row drawn, same output size), ggrust renders SVG a
+median **40x** faster and PNG **22x** faster than lets-plot, with **14x** lower peak
+memory. A one-million-point scatter PNG peaks at 44 MB in ggrust and 9.6 GB in lets-plot.
 
-Wheels are published for Linux, macOS and Windows, for Python 3.11 and newer.
-Nothing else is needed: no Java, no browser, no JavaScript build.
+[:octicons-arrow-right-24: Benchmark report](https://github.com/datavil/ggrust/blob/main/benchmarks/REPORT.md)
 
 ## Why ggrust
 
@@ -123,6 +129,29 @@ Nothing else is needed: no Java, no browser, no JavaScript build.
 ```python
 --8<-- "hero.py:code"
 ```
+
+## Install
+
+=== "pip"
+
+    ```bash
+    pip install ggrust
+    ```
+
+=== "uv"
+
+    ```bash
+    uv add ggrust
+    ```
+
+=== "poetry"
+
+    ```bash
+    poetry add ggrust
+    ```
+
+Wheels are published for Linux, macOS and Windows, for Python 3.11 and newer.
+Nothing else is needed: no Java, no browser, no JavaScript build.
 
 ggrust was built for [cellestial](https://github.com/datavil/cellestial), a single-cell
 plotting library, after lets-plot's Kotlin notebook support ended. It is a general

@@ -181,6 +181,23 @@
   text-decoration: none;
 }
 
+/* Home page showcase: 4, 3 or 2 columns, so twelve tiles always fill whole rows. */
+.md-typeset .gallery.showcase {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media screen and (min-width: 45em) {
+  .md-typeset .gallery.showcase {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media screen and (min-width: 76em) {
+  .md-typeset .gallery.showcase {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 /* Home page feature cards: two by two. */
 @media screen and (min-width: 45em) {
   .md-typeset .grid.cards.why {

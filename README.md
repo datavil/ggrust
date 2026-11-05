@@ -15,9 +15,24 @@ The __Grammar of Graphics__, written in Rust, used from Python.
 
 __ggrust__ is a plotting library with a [Lets-Plot](https://lets-plot.org/) compatible Python API. Plots are built the familiar ggplot way, layer by layer with `+`, while the stats, scales, layout and rendering all run in Rust.
 
-It was started for [Cellestial](https://github.com/datavil/cellestial), which needed a maintained backend for its Lets-Plot based API. For most code, switching is an import swap: `lets_plot` -> `ggrust`.
+It was started for [Cellestial](https://github.com/datavil/cellestial), which needed a maintained backend for its Lets-Plot based API.
 
-Data crosses into Rust once, as Arrow, so [Polars](https://pola.rs/) and pandas frames work directly.
+<p align="center">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/clustered_heatmap.png" alt="Clustered heatmap with a row dendrogram and a side annotation track" width="49%">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/cluster_marks.png" alt="Penguin species outlined by labelled hulls" width="49%">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/side_panels.png" alt="Scatter plot with density side panels" width="49%">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/compare_means.png" alt="Boxplots with significance brackets" width="49%">
+</p>
+
+<p align="center"><i>Every plot above is ggrust. More in the <a href="https://ggrust.datavil.org/gallery/">gallery</a>.</i></p>
+
+## Highlights
+
+- __Fast and lean__: a median __40x__ faster SVG, __22x__ faster PNG and __14x__ lower peak memory than Lets-Plot on identical work ([details](#performance)).
+- __ggplot2 extensions, built in__: beeswarms, significance brackets, cluster marks, side panels, dendrograms, raincloud plots, patchwork layouts and more, under their R names ([list](#ggplot2-extensions-built-in)).
+- __The Lets-Plot API__: most code ports with an import swap, `lets_plot` -> `ggrust`.
+- __Interactive__: notebook and HTML output with tooltips, zoom and pan; dense point layers drawn on a canvas.
+- __Publication output__: SVG, PNG, vector PDF and HTML, with your own fonts. Data crosses into Rust once, as Arrow, so [Polars](https://pola.rs/) and pandas frames work directly.
 
 ## Installation
 
@@ -59,7 +74,43 @@ plot.to_png("plot.png")
 
 In a notebook the plot shows as interactive HTML (tooltips, zoom and pan with `ggtb()`).
 
-## Examples
+## ggplot2 extensions, built in
+
+Many popular ggplot2 extension packages from R are built into ggrust, under their R function names. Nothing extra to install; Lets-Plot has none of them.
+
+| Feature | ggrust | From the R package |
+|---|---|---|
+| Beeswarm and quasirandom points | `geom_beeswarm`, `geom_quasirandom` | [ggbeeswarm](https://cran.r-project.org/package=ggbeeswarm) |
+| Journal color palettes | `scale_color_npg`, `_aaas`, `_nejm`, `_lancet`, `_jama`, `_jco`, `_d3`, `_igv` | [ggsci](https://cran.r-project.org/package=ggsci) |
+| Significance tests and labels | `stat_compare_means`, `stat_cor`, `stat_poly_eq` | [ggpubr](https://cran.r-project.org/package=ggpubr), [ggpmisc](https://cran.r-project.org/package=ggpmisc) |
+| Cluster marks | `geom_mark_hull`, `geom_mark_ellipse`, `geom_mark_rect` | [ggforce](https://cran.r-project.org/package=ggforce) |
+| Highlighting | `gghighlight` | [gghighlight](https://cran.r-project.org/package=gghighlight) |
+| Point density | `geom_pointdensity` | [ggpointdensity](https://cran.r-project.org/package=ggpointdensity) |
+| Side panels | `geom_xside*`, `geom_yside*`, `ggmarginal` | [ggside](https://cran.r-project.org/package=ggside) |
+| Several color scales in one plot | `new_scale_fill`, `new_scale_color`, `new_scale` | [ggnewscale](https://cran.r-project.org/package=ggnewscale) |
+| Dendrograms | `hclust`, `scale_x_dendro`, `scale_y_dendro`, `geom_dendrogram` | [legendry](https://cran.r-project.org/package=legendry), [ggh4x](https://cran.r-project.org/package=ggh4x), [ggdendro](https://cran.r-project.org/package=ggdendro) |
+| Raincloud plots | `stat_halfeye`, `stat_interval`, `geom_half_violin`, `geom_half_boxplot`, `geom_half_point` | [ggdist](https://cran.r-project.org/package=ggdist), [gghalves](https://cran.r-project.org/package=gghalves) |
+| Figure layouts and panel tags | `gggrid(design=, tag_levels=)`, `inset_element` | [patchwork](https://cran.r-project.org/package=patchwork) |
+| Rasterized layers in vector output | `rasterize` | [ggrastr](https://cran.r-project.org/package=ggrastr), [scattermore](https://cran.r-project.org/package=scattermore) |
+
+ggrust reimplements their behavior in Rust; the R packages and their authors designed it. Examples and credits are in the [extensions guide](https://ggrust.datavil.org/guide/extensions/).
+
+## Performance
+
+Compared with Lets-Plot on identical work: same data, every row drawn (Lets-Plot sampling turned off), same output size. Measured on an Apple M4 Pro, ggrust 0.1.0 vs lets-plot 4.11.0.
+
+- __Speed__: SVG a median __40x__ faster (5x to 185x over 23 cases), PNG a median __22x__ faster (13x to 119x).
+- __Memory__: a median __14x__ lower peak memory (3.6x to 220x). A 1M-point scatter PNG peaks at 44 MB above the data in ggrust and 9.6 GB in Lets-Plot.
+- No case was slower. The weakest spots are point-heavy PNGs (13x to 21x) and large SVGs, where ggrust still peaks at 430 MB for 1M points.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/benchmarks/report-speedup.png" alt="Speed-up over Lets-Plot per case" width="49%">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/benchmarks/report-memory.png" alt="Peak memory ratio over Lets-Plot per case" width="49%">
+</p>
+
+Full methodology, raw numbers and side-by-side output images are in the [benchmark report](benchmarks/REPORT.md).
+
+## More examples
 
 ### Distributions
 
@@ -141,49 +192,6 @@ temperature = pl.DataFrame(
 - __Outputs__: SVG, PNG, vector PDF, and interactive HTML through `ggsave`, with your own fonts (`register_font`). Dense scatter layers are drawn on a canvas in HTML.
 
 ggrust is a __subset__ of Lets-Plot, not all of it. Features follow what Cellestial and everyday plotting need. See the [migration note](https://ggrust.datavil.org/migration/) for the differences.
-
-## ggplot2 extensions, built in
-
-Many popular ggplot2 extension packages from R are built into ggrust, under their R function names. Nothing extra to install; Lets-Plot has none of them.
-
-| Feature | ggrust | From the R package |
-|---|---|---|
-| Beeswarm and quasirandom points | `geom_beeswarm`, `geom_quasirandom` | [ggbeeswarm](https://cran.r-project.org/package=ggbeeswarm) |
-| Journal color palettes | `scale_color_npg`, `_aaas`, `_nejm`, `_lancet`, `_jama`, `_jco`, `_d3`, `_igv` | [ggsci](https://cran.r-project.org/package=ggsci) |
-| Significance tests and labels | `stat_compare_means`, `stat_cor`, `stat_poly_eq` | [ggpubr](https://cran.r-project.org/package=ggpubr), [ggpmisc](https://cran.r-project.org/package=ggpmisc) |
-| Cluster marks | `geom_mark_hull`, `geom_mark_ellipse`, `geom_mark_rect` | [ggforce](https://cran.r-project.org/package=ggforce) |
-| Highlighting | `gghighlight` | [gghighlight](https://cran.r-project.org/package=gghighlight) |
-| Point density | `geom_pointdensity` | [ggpointdensity](https://cran.r-project.org/package=ggpointdensity) |
-| Side panels | `geom_xside*`, `geom_yside*`, `ggmarginal` | [ggside](https://cran.r-project.org/package=ggside) |
-| Several color scales in one plot | `new_scale_fill`, `new_scale_color`, `new_scale` | [ggnewscale](https://cran.r-project.org/package=ggnewscale) |
-| Dendrograms | `hclust`, `scale_x_dendro`, `scale_y_dendro`, `geom_dendrogram` | [legendry](https://cran.r-project.org/package=legendry), [ggh4x](https://cran.r-project.org/package=ggh4x), [ggdendro](https://cran.r-project.org/package=ggdendro) |
-| Raincloud plots | `stat_halfeye`, `stat_interval`, `geom_half_violin`, `geom_half_boxplot`, `geom_half_point` | [ggdist](https://cran.r-project.org/package=ggdist), [gghalves](https://cran.r-project.org/package=gghalves) |
-| Figure layouts and panel tags | `gggrid(design=, tag_levels=)`, `inset_element` | [patchwork](https://cran.r-project.org/package=patchwork) |
-| Rasterized layers in vector output | `rasterize` | [ggrastr](https://cran.r-project.org/package=ggrastr), [scattermore](https://cran.r-project.org/package=scattermore) |
-
-ggrust reimplements their behavior in Rust; the R packages and their authors designed it. Examples and credits are in the [extensions guide](https://ggrust.datavil.org/guide/extensions/).
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/clustered_heatmap.png" alt="Clustered heatmap with a row dendrogram and a side annotation track" width="49%">
-  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/cluster_marks.png" alt="Penguin species outlined by labelled hulls" width="49%">
-  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/side_panels.png" alt="Scatter plot with density side panels" width="49%">
-  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/compare_means.png" alt="Boxplots with significance brackets" width="49%">
-</p>
-
-## Performance
-
-Compared with Lets-Plot on identical work: same data, every row drawn (Lets-Plot sampling turned off), same output size. Measured on an Apple M4 Pro, ggrust 0.1.0 vs lets-plot 4.11.0.
-
-- __Speed__: SVG a median __40x__ faster (5x to 185x over 23 cases), PNG a median __22x__ faster (13x to 119x).
-- __Memory__: a median __14x__ lower peak memory (3.6x to 220x). A 1M-point scatter PNG peaks at 44 MB above the data in ggrust and 9.6 GB in Lets-Plot.
-- No case was slower. The weakest spots are point-heavy PNGs (13x to 21x) and large SVGs, where ggrust still peaks at 430 MB for 1M points.
-
-<p align="center">
-  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/benchmarks/report-speedup.png" alt="Speed-up over Lets-Plot per case" width="49%">
-  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/benchmarks/report-memory.png" alt="Peak memory ratio over Lets-Plot per case" width="49%">
-</p>
-
-Full methodology, raw numbers and side-by-side output images are in the [benchmark report](benchmarks/REPORT.md).
 
 ## Status
 

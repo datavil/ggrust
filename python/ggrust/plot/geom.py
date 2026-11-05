@@ -7,12 +7,14 @@ written for lets_plot imports and composes; rendering them reports the geom.
 
 from __future__ import annotations
 
+import math
 import warnings
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 from ggrust._render import GgrustWarning
 from ggrust.errors import SpecError
 from ggrust.plot.core import FeatureSpec, LayerSpec
+from ggrust.plot.position import position_jitterdodge
 from ggrust.plot.tooltip import layer_tooltips
 from ggrust.plot.util import as_annotated_data, key_int2str
 
@@ -1894,6 +1896,8 @@ def geom_boxplot(
     outlier_shape: Shape | None = None,
     outlier_size: Number | None = None,
     outlier_stroke: Number | None = None,
+    outlier_jitter: Number | None = None,
+    outlier_seed: int | None = None,
     varwidth: bool | None = None,
     whisker_width: Number | None = None,
     width_unit: str | None = None,
@@ -1941,6 +1945,14 @@ def geom_boxplot(
         Size of the outlier points.
     outlier_stroke : float, optional
         Stroke width of the outlier points.
+    outlier_jitter : float, optional
+        Jitters the outlier points horizontally (along the box axis) by up to this
+        many x resolutions each side, so overlapping outliers separate. ggrust only
+        (ggplot2 issue 4480): the outlier layer gets
+        ``position_jitterdodge(dodge_width, jitter_width=outlier_jitter, jitter_height=0)``
+        with the box layer's dodge width.
+    outlier_seed : int, optional
+        Random seed of ``outlier_jitter``; a fixed default keeps output reproducible.
     varwidth : bool, optional
         True makes box widths proportional to the square root of the group size.
     whisker_width : float, optional
@@ -2003,7 +2015,7 @@ def geom_boxplot(
             mapping=mapping,
             data=data,
             stat="boxplot_outlier",
-            position=position,
+            position=_outlier_position(position, outlier_jitter, outlier_seed),
             show_legend=False,
             inherit_aes=inherit_aes,
             sampling=None,
@@ -2020,7 +2032,71 @@ def geom_boxplot(
             fill_by=fill_by,
             na_rm=True,
         )
+    elif outlier_jitter is not None:
+        raise ValueError(
+            f"geom_boxplot(outlier_jitter=...) needs the default stat; got stat={stat!r}. "
+            "Remove outlier_jitter, or use stat='boxplot'."
+        )
     return boxplot_layer
+
+
+def _outlier_position(
+    position: Position | None, outlier_jitter: Number | None, outlier_seed: int | None
+) -> Position | None:
+    """Return the outlier layer's position: the box position, jittered when asked.
+
+    Parameters
+    ----------
+    position : str or FeatureSpec, optional
+        The box layer's position (None, ``"dodge"`` or ``position_dodge()``).
+    outlier_jitter : float, optional
+        Horizontal jitter, in x resolutions; None keeps ``position``.
+    outlier_seed : int, optional
+        Random seed of the jitter.
+
+    Returns
+    -------
+    str or FeatureSpec or None
+        ``position`` unchanged, or a ``position_jitterdodge()`` spec.
+
+    Raises
+    ------
+    ValueError
+        If ``outlier_jitter`` is negative or not finite, or ``position`` is not a dodge.
+    """
+    if outlier_jitter is None:
+        if outlier_seed is not None:
+            raise ValueError(
+                "geom_boxplot(outlier_seed=...) only applies with outlier_jitter; "
+                "add outlier_jitter=<width>, e.g. outlier_jitter=0.1."
+            )
+        return position
+    if (
+        isinstance(outlier_jitter, bool)
+        or not isinstance(outlier_jitter, (int, float))
+        or not math.isfinite(outlier_jitter)
+        or outlier_jitter < 0
+    ):
+        raise ValueError(
+            f"geom_boxplot(outlier_jitter={outlier_jitter!r}): expected a finite number >= 0 "
+            "(half the jitter range in x resolutions), e.g. outlier_jitter=0.1."
+        )
+    dodge_width: Number | None = 0.95
+    if (
+        isinstance(position, FeatureSpec)
+        and position.kind == "pos"
+        and (position.as_dict().get("name") == "dodge")
+    ):
+        dodge_width = position.as_dict().get("width", 0.95)
+    elif position not in (None, "dodge"):
+        raise ValueError(
+            "geom_boxplot(outlier_jitter=...) jitters around dodged boxes; "
+            f"got position={position!r}. "
+            "Use position=None, 'dodge' or position_dodge(width=...), or drop outlier_jitter."
+        )
+    return position_jitterdodge(
+        dodge_width=dodge_width, jitter_width=outlier_jitter, jitter_height=0, seed=outlier_seed
+    )
 
 
 def geom_violin(

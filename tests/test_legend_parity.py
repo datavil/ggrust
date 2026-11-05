@@ -217,12 +217,21 @@ CASES = {
 }
 
 
+# Cases with an explicit na_value and values mapped to it: ggrust's extra NA key.
+NA_KEY_CASES = {"name_and_na": [("#ffc0cb", 5.5, 255)]}
+
+
 @pytest.mark.parametrize("name", CASES)
 def test_legends_match_lets_plot(name):
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         theirs = legends(CASES[name](lp).to_svg(), ours=False)
         ours = legends(CASES[name](gg).to_svg(), ours=True)
+    if name in NA_KEY_CASES:
+        # ggrust adds an "NA" key for an explicit na_value (deviations.md, ua.8).
+        title, keys = ours[-1]
+        assert keys[-1] == ("NA", NA_KEY_CASES[name])
+        ours = [*ours[:-1], (title, keys[:-1])]
     assert ours == theirs
 
 

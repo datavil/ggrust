@@ -350,6 +350,12 @@ impl StyleScaleSpec {
         Ok(default)
     }
 
+    /// Whether the scale sets `na_value` (its missing values then get a legend
+    /// key or colorbar swatch).
+    pub fn has_na_value(&self) -> bool {
+        self.na_value.is_some()
+    }
+
     /// Path of the `scale_mapper_kind` that picked the mapper, if any.
     pub fn mapper_path(&self) -> Option<&str> {
         self.kind.as_ref().map(|(_, path)| path.as_str())

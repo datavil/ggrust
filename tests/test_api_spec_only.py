@@ -62,6 +62,8 @@ def without_data(value):
 
 # ggrust extensions: extra trailing parameters lets_plot does not have (deviations.md).
 EXTENSIONS = {"ggtb": ("layers",), "gggrid": ("design", "tag_levels", "tag_level")}
+# Extras that sit among keyword-only parameters, before `**other_args`.
+KEYWORD_EXTENSIONS = {"geom_boxplot": ("outlier_jitter", "outlier_seed")}
 
 
 @pytest.mark.parametrize("name", NEW_NAMES)
@@ -69,7 +71,13 @@ def test_signatures_match_lets_plot(name):
     ours = inspect.signature(getattr(gg, name))
     theirs = inspect.signature(getattr(lp, name))
     extra = EXTENSIONS.get(name, ())
-    assert [p.name for p in ours.parameters.values()][len(theirs.parameters) :] == list(extra)
+    names = [p.name for p in ours.parameters.values()]
+    if name in KEYWORD_EXTENSIONS:
+        # Keyword-only extras before `**other_args` (deviations.md).
+        extra = KEYWORD_EXTENSIONS[name]
+        assert set(extra) <= set(names)
+    else:
+        assert names[len(theirs.parameters) :] == list(extra)
     assert [
         (p.name, p.kind, p.default) for p in ours.parameters.values() if p.name not in extra
     ] == [(p.name, p.kind, p.default) for p in theirs.parameters.values()]

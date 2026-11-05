@@ -140,6 +140,12 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Main roadmap: [plan.md](plan.md).
   the figures with the `plot_caption` theme element (right by default). Grid titles and
   `tag_levels=` tags already rendered (ex2.3). Tests: `tests/test_grid_caption.py` (lets-plot
   baseline and band), grid unit `grid_caption_is_drawn_at_the_bottom_without_a_warning`.
+- [x] ua.8 Two ggplot2 asks: `geom_boxplot(outlier_jitter=, outlier_seed=)` jitters the
+  outlier points along the box axis (jitterdodge with the box dodge width; ggplot2 #4480),
+  and a scale with `na_value` gets an "NA" legend key, or an "NA" swatch after its colorbar,
+  when the layer has missing values (ggplot2 #4567; lets-plot shows none). deviations.md rows.
+  Tests: `tests/test_boxplot_jitter_na_legend.py`, colorbar unit
+  `na_swatch_follows_the_bar_and_grows_the_size`.
 
 ## Added on user request (not scheduled)
 

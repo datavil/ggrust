@@ -148,6 +148,10 @@ def test_mapped_styles_match_lets_plot(name):
         warnings.simplefilter("ignore")
         theirs = circles(CASES[name](lp).to_svg())
         ours = circles(CASES[name](gg).to_svg())
+    if name == "limits_make_na":
+        # ggrust's extra "NA" legend key, drawn last (deviations.md, ua.8).
+        assert ours[-1][0] == "#ffa500"
+        ours = ours[:-1]
     assert len(theirs) >= len(ours) > 0
     for index, (their, our) in enumerate(zip(theirs, ours, strict=False)):
         assert our[0] == their[0], f"point {index}: {our} vs {their}"

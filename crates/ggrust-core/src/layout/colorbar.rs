@@ -47,6 +47,10 @@ pub struct Colorbar {
     /// `guide_colorbar(label_position="ends")`: only the lowest and highest break
     /// labels, beside the bar's ends (left and right, or below and above).
     pub label_ends: bool,
+    /// The `na_value` color, when the scale sets one and the data has missing
+    /// values: drawn as an "NA" swatch after the bar (ggplot2 issue 4567; neither
+    /// lets-plot nor ggplot2 shows one).
+    pub na: Option<Color>,
 }
 
 impl Colorbar {
@@ -75,6 +79,9 @@ pub(super) struct ColorbarLayout {
     pub ticks: Vec<(f64, (f64, f64))>,
     /// Labels beside the bar's ends (`Colorbar::label_ends`).
     pub ends: bool,
+    /// The NA swatch and its label anchor (vertical middle; left end for a
+    /// vertical bar, centre-top for a horizontal one), with `Colorbar::na`.
+    pub na: Option<(Rect, (f64, f64))>,
     /// Bar plus labels.
     pub size: (f64, f64),
 }
@@ -96,13 +103,96 @@ impl ColorbarLayout {
                 .iter()
                 .map(|(tick, (x, y))| (tick + along, (x + dx, y + dy)))
                 .collect(),
+            na: self.na.map(|(swatch, (x, y))| {
+                (
+                    Rect {
+                        x: swatch.x + dx,
+                        y: swatch.y + dy,
+                        ..swatch
+                    },
+                    (x + dx, y + dy),
+                )
+            }),
             size: self.size,
         }
     }
 }
 
-/// Lay out the bar and labels with the bar's top-left corner at `origin`.
+/// The label of the NA swatch.
+const NA_LABEL: &str = "NA";
+
+/// Lay out the bar, labels and NA swatch with the bar's top-left corner at `origin`.
+/// The swatch is one key (the bar's thickness by a key length) half a key after
+/// everything else: below a vertical bar's labels, right of a horizontal one's.
 pub(super) fn layout_colorbar(
+    colorbar: &Colorbar,
+    origin: (f64, f64),
+    horizontal: bool,
+    theme: &Theme,
+) -> ColorbarLayout {
+    let mut layout = layout_bar(colorbar, origin, horizontal, theme);
+    if colorbar.na.is_none() {
+        return layout;
+    }
+    let (key_width, key_height) = theme.legend_key_size;
+    let bar = layout.bar;
+    let label = Label::plain(NA_LABEL);
+    let (label_width, band) = theme.legend_text.map_or((0.0, 0.0), |style| {
+        (
+            measure_label(&label.text, None, None, style.size, style.font),
+            text_band(style),
+        )
+    });
+    if horizontal {
+        let gap = key_width / 2.0;
+        let swatch = Rect {
+            x: origin.0 + layout.size.0 + gap,
+            y: bar.y,
+            width: key_width,
+            height: bar.height,
+        };
+        let anchor = (swatch.x + key_width / 2.0, bar.y + bar.height + band / 3.0);
+        let label_height = if theme.legend_text.is_some() {
+            bar.height + band / 3.0 + band
+        } else {
+            0.0
+        };
+        let overhang = (label_width - key_width).max(0.0) / 2.0;
+        let swatch = Rect {
+            x: swatch.x + overhang,
+            ..swatch
+        };
+        layout.na = Some((swatch, (anchor.0 + overhang, anchor.1)));
+        layout.size = (
+            layout.size.0 + gap + key_width.max(label_width),
+            layout.size.1.max(label_height),
+        );
+    } else {
+        let gap = key_height / 2.0;
+        let swatch = Rect {
+            x: bar.x,
+            y: origin.1 + layout.size.1 + gap,
+            width: bar.width,
+            height: key_height,
+        };
+        let label_gap = theme.legend_text.map_or(0.0, |style| {
+            measure("_", style.size, style.font).width / 2.0
+        });
+        let anchor = (
+            swatch.x + swatch.width + label_gap,
+            swatch.y + key_height / 2.0,
+        );
+        layout.na = Some((swatch, anchor));
+        layout.size = (
+            layout.size.0.max(swatch.width + label_gap + label_width),
+            layout.size.1 + gap + key_height,
+        );
+    }
+    layout
+}
+
+/// [`layout_colorbar`] without the NA swatch.
+fn layout_bar(
     colorbar: &Colorbar,
     origin: (f64, f64),
     horizontal: bool,
@@ -175,6 +265,7 @@ pub(super) fn layout_colorbar(
             bar,
             horizontal,
             ticks,
+            na: None,
             size: (width, height),
         };
     };
@@ -239,6 +330,7 @@ pub(super) fn layout_colorbar(
             bar,
             horizontal,
             ticks,
+            na: None,
             size: (
                 overhang_left + width + overhang_right,
                 height + distance + label_height,
@@ -273,6 +365,7 @@ pub(super) fn layout_colorbar(
         bar,
         horizontal,
         ticks,
+        na: None,
         size: (width + label_gap + label_width, height),
     }
 }
@@ -388,6 +481,7 @@ fn layout_end_labels(
         bar,
         horizontal,
         ticks,
+        na: None,
         size,
     }
 }
@@ -455,6 +549,27 @@ pub(super) fn draw_colorbar(
         fill: PerItem::Varying(colors),
         stroke: None,
     }));
+    if let (Some(color), Some((swatch, anchor))) = (colorbar.na, layout.na) {
+        nodes.push(Node::Rects(Rects {
+            rects: vec![swatch],
+            fill: PerItem::Uniform(Some(color)),
+            stroke: None,
+        }));
+        if let Some(style) = theme.legend_text {
+            let (y, align) = if horizontal {
+                (anchor.1 + text_band(style) / 2.0, HorizontalAlign::Middle)
+            } else {
+                (anchor.1, HorizontalAlign::Start)
+            };
+            nodes.push(label_node(
+                &Label::plain(NA_LABEL),
+                style,
+                (anchor.0, y),
+                align,
+                0.0,
+            ));
+        }
+    }
     if let Some(line) = theme.legend_ticks {
         let length = theme.legend_ticks_length;
         for (tick, _) in &layout.ticks {
@@ -565,6 +680,43 @@ mod tests {
     }
 
     #[test]
+    fn na_swatch_follows_the_bar_and_grows_the_size() {
+        let mut colorbar = Colorbar {
+            title: "v".into(),
+            domain: (0.0, 10.0),
+            breaks: vec![(0.0, Label::plain("0")), (10.0, Label::plain("10"))],
+            colors: vec![Color::WHITE; DEFAULT_BINS],
+            bar_width: None,
+            bar_height: None,
+            label_ends: false,
+            na: None,
+        };
+        let theme = Theme::default();
+        let plain = |horizontal| layout_colorbar(&colorbar, (0.0, 0.0), horizontal, &theme);
+        let (vertical, horizontal) = (plain(false), plain(true));
+        assert!(vertical.na.is_none() && horizontal.na.is_none());
+        colorbar.na = Some(Color::WHITE);
+        let with_na = layout_colorbar(&colorbar, (0.0, 0.0), false, &theme);
+        let (swatch, (label_x, label_y)) = with_na.na.expect("vertical swatch");
+        assert_eq!((swatch.x, swatch.width, swatch.height), (0.0, 23.0, 23.0));
+        assert_eq!(swatch.y, vertical.size.1 + 11.5);
+        assert!(label_x > swatch.width && label_y == swatch.y + 11.5);
+        assert_eq!(with_na.size.1, vertical.size.1 + 11.5 + 23.0);
+        let with_na = layout_colorbar(&colorbar, (0.0, 0.0), true, &theme);
+        let (swatch, _) = with_na.na.expect("horizontal swatch");
+        assert!(swatch.x >= horizontal.size.0 + 11.5 && swatch.y == with_na.bar.y);
+        assert!(with_na.size.0 >= horizontal.size.0 + 11.5 + 23.0);
+        let moved = with_na.translated((5.0, 7.0)).na.expect("moved swatch").0;
+        assert_eq!((moved.x, moved.y), (swatch.x + 5.0, swatch.y + 7.0));
+        let nodes = draw_colorbar(&colorbar, &with_na, &theme);
+        assert!(
+            nodes
+                .iter()
+                .any(|node| matches!(node, Node::Rects(rects) if rects.rects == vec![swatch]))
+        );
+    }
+
+    #[test]
     fn horizontal_colorbars_are_five_keys_long_with_labels_below() {
         let colorbar = Colorbar {
             title: "v".into(),
@@ -574,6 +726,7 @@ mod tests {
             bar_width: None,
             bar_height: None,
             label_ends: false,
+            na: None,
         };
         let theme = Theme::default();
         let layout = layout_colorbar(&colorbar, (0.0, 0.0), true, &theme);
@@ -605,6 +758,7 @@ mod tests {
             bar_width: Some(80.0),
             bar_height: Some(8.0),
             label_ends: false,
+            na: None,
         };
         let theme = Theme::default();
         let layout = layout_colorbar(&colorbar, (0.0, 0.0), true, &theme);
@@ -625,6 +779,7 @@ mod tests {
             bar_width: Some(80.0),
             bar_height: Some(8.0),
             label_ends: false,
+            na: None,
         };
         let kept = layout_colorbar(&outside, (0.0, 0.0), true, &theme);
         assert_eq!((kept.bar.x, kept.size.0), (0.0, 80.0));
@@ -651,6 +806,7 @@ mod tests {
             bar_width: Some(80.0),
             bar_height: Some(8.0),
             label_ends: true,
+            na: None,
         };
         let theme = Theme::default();
         let style = theme.legend_text.expect("default theme has legend text");

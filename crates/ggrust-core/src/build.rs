@@ -3442,6 +3442,10 @@ fn assemble_legends(
                     continue;
                 };
                 let colors = (0..bins.max(2)).map(|index| colors.get(index)).collect();
+                let na = match missing_value(layer, aesthetic, scale, specs.get(&key)) {
+                    Some(StyleValues::Colors(colors)) => Some(colors.get(0)),
+                    _ => None,
+                };
                 let colorbar = Colorbar {
                     title,
                     domain: guide.domain,
@@ -3450,6 +3454,7 @@ fn assemble_legends(
                     bar_width: options.bar_width,
                     bar_height: options.bar_height,
                     label_ends: options.label_ends,
+                    na,
                 };
                 // lets-plot: an equal colorbar under the same title is shown once; a
                 // different one gets "title (aesthetic)", which replaces an earlier
@@ -3475,9 +3480,15 @@ fn assemble_legends(
                 }
                 continue;
             }
-            let Some(entries) = scale.legend_entries() else {
+            let Some(mut entries) = scale.legend_entries() else {
                 continue;
             };
+            if let Some(value) = missing_value(layer, aesthetic, scale, specs.get(&key)) {
+                entries.push(LegendEntry {
+                    label: Label::plain("NA"),
+                    value,
+                });
+            }
             if entries.len() > MAX_LEGEND_LABELS {
                 continue;
             }
@@ -3766,8 +3777,26 @@ fn apply_override_aes(group: &mut Vec<AestheticEntries>, overrides: &Overrides) 
     }
 }
 
+/// The mapped `na_value` of `aesthetic` in `layer`, when its scale sets one and the
+/// layer has a value mapped to it (missing or outside `limits`): the "NA" legend key or colorbar swatch
+/// (ggplot2 issue 4567; lets-plot shows none, deviations.md).
+fn missing_value(
+    layer: &PreparedLayer,
+    aesthetic: Aesthetic,
+    scale: &StyleScale,
+    spec: Option<&StyleScaleSpec>,
+) -> Option<StyleValues> {
+    if !spec.is_some_and(StyleScaleSpec::has_na_value) {
+        return None;
+    }
+    let column = layer.data.get(aesthetic)?;
+    let row = scale.first_missing_row(column)?;
+    scale.map(&column.take(&[row as u32])).ok()
+}
+
 fn same_colorbar(left: &Colorbar, right: &Colorbar) -> bool {
     left.domain == right.domain
+        && left.na == right.na
         && left.breaks == right.breaks
         && left.colors == right.colors
         && left.bar_width == right.bar_width

@@ -528,6 +528,47 @@ impl StyleScale {
         }
     }
 
+    /// The first row of `column` this scale maps to its NA value: a missing value
+    /// (null or NaN), a category outside the effective domain (`limits`), or a
+    /// number outside the continuous limits. `None` when every row has a value.
+    pub fn first_missing_row(&self, column: &Column) -> Option<usize> {
+        match column {
+            Column::Continuous(values) => {
+                if let Some(row) =
+                    (0..values.len()).find(|row| values.get(*row).is_none_or(f64::is_nan))
+                {
+                    return Some(row);
+                }
+                let limited = self
+                    .continuous
+                    .as_ref()
+                    .is_ok_and(|domain| domain.limits != [None, None]);
+                if !limited {
+                    return None;
+                }
+                // Limits (in data or transformed space) are applied by `map`: a row
+                // mapped like a null one fell outside them.
+                let mapped = self.map(column).ok()?;
+                let na = self
+                    .map(&Column::Continuous(ContinuousColumn::from_options(vec![
+                        None,
+                    ])))
+                    .ok()?;
+                let na = single(&na, 0);
+                (0..values.len()).find(|row| single(&mapped, *row) == na)
+            }
+            Column::Discrete(values) => {
+                let domain: HashSet<String> =
+                    self.effective_domain().iter().map(Level::label).collect();
+                (0..values.len()).find(|row| {
+                    values
+                        .label(*row)
+                        .is_none_or(|label| self.is_discrete() && !domain.contains(label))
+                })
+            }
+        }
+    }
+
     /// Map a column with the trained domain.
     pub fn map(&self, column: &Column) -> Result<StyleValues, String> {
         match (&self.trained, column) {

@@ -346,13 +346,13 @@ class PlotFileError(GgrustError, ValueError):
     Examples
     --------
     >>> import os, tempfile
-    >>> from ggrust import load_plot
+    >>> from ggrust import ggload
     >>> from ggrust.errors import PlotFileError
     >>> path = os.path.join(tempfile.mkdtemp(), "notes.ggrs")
     >>> with open(path, "w") as file:
     ...     _ = file.write("not a plot")
     >>> try:
-    ...     load_plot(path)
+    ...     ggload(path)
     ... except PlotFileError:
     ...     print("not a plot file")
     not a plot file

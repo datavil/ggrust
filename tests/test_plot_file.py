@@ -1,4 +1,4 @@
-"""Plot files (``.ggrs``): ``save_plot`` / ``ggsave(.ggrs)`` and ``load_plot``.
+"""Plot files (``.ggrs``): ``ggsave(plot, "x.ggrs")`` and ``ggload``.
 
 Round trips must render the same picture; damaged or hostile files must fail with
 ``PlotFileError`` and never run code.
@@ -79,10 +79,10 @@ def _rewrite(content: bytes, change: dict[str, bytes | None], *, rehash: bool = 
 # Round trips --------------------------------------------------------------------------
 
 
-def test_ggsave_and_load_plot_render_the_same(tmp_path: Path) -> None:
+def test_ggsave_and_ggload_render_the_same(tmp_path: Path) -> None:
     plot = _plot()
     path = gg.ggsave(plot, "fuel.ggrs", path=tmp_path)
-    loaded = gg.load_plot(path)
+    loaded = gg.ggload(path)
     assert isinstance(loaded, PlotSpec)
     assert loaded.to_svg() == plot.to_svg()
     plot.to_png(tmp_path / "saved.png")
@@ -209,10 +209,8 @@ def test_unknown_objects_cannot_be_saved() -> None:
         dump_plot(plot)
 
 
-def test_save_plot_needs_the_ggrs_extension(tmp_path: Path) -> None:
-    with pytest.raises(ExportError, match=r"must end in '\.ggrs'"):
-        gg.save_plot(_plot(), tmp_path / "fuel.zip")
-    with pytest.raises(ExportError, match="'ggrs'"):
+def test_ggsave_suggests_ggrs_for_a_typo(tmp_path: Path) -> None:
+    with pytest.raises(ExportError, match="did you mean 'ggrs'"):
         gg.ggsave(_plot(), "fuel.ggr", path=tmp_path)
 
 
@@ -314,9 +312,9 @@ def test_zip_bomb_entry_is_rejected(monkeypatch: pytest.MonkeyPatch) -> None:
         read_plot(buffer.getvalue())
 
 
-def test_load_plot_missing_file(tmp_path: Path) -> None:
+def test_ggload_missing_file(tmp_path: Path) -> None:
     with pytest.raises(FileNotFoundError):
-        gg.load_plot(tmp_path / "missing.ggrs")
+        gg.ggload(tmp_path / "missing.ggrs")
 
 
 # Bug-hunter regressions ---------------------------------------------------------------

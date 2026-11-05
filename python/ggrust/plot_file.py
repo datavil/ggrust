@@ -42,11 +42,10 @@ if TYPE_CHECKING:
     from ggrust.plot.core import PlotSpec
     from ggrust.plot.subplots import SupPlotsSpec
 
-__all__ = ["load_plot", "save_plot"]
+__all__ = ["ggload"]
 
 FORMAT_NAME = "ggrs"
 FORMAT_VERSION = 1
-EXTENSION = ".ggrs"
 
 MAXIMUM_ENTRIES = 4096
 """More entries than this is not a file ggrust wrote."""
@@ -69,64 +68,22 @@ _DATA_KINDS: tuple[DataKind, ...] = ("polars", "pandas", "pyarrow", "columns")
 # Saving ------------------------------------------------------------------------------
 
 
-def save_plot(plot: PlotSpec | SupPlotsSpec, path: str | os.PathLike[str]) -> str:
-    """Save a plot to a ``.ggrs`` file that ``load_plot`` opens again.
-
-    The file holds the whole plot: layers, scales, theme, data and the registered
-    fonts it names. ``ggsave(plot, "name.ggrs")`` does the same.
-
-    Parameters
-    ----------
-    plot : PlotSpec or SupPlotsSpec
-        The figure, from ``ggplot()`` or ``gggrid()``.
-    path : str or os.PathLike
-        Where to write; must end in ``.ggrs``. An existing file is replaced.
-
-    Returns
-    -------
-    str
-        Absolute path of the written file.
+def write_plot_file(plot: PlotSpec | SupPlotsSpec, path: str) -> None:
+    """Write ``plot`` to the ``.ggrs`` file ``path`` (``ggsave`` checks the arguments).
 
     Raises
     ------
     ExportError
-        If ``path`` does not end in ``.ggrs`` or the plot holds a value with no safe
-        stored form (a callable such as a ``sec_axis`` transform, a polars
-        expression, an unknown object); the message names where it is.
-
-    Examples
-    --------
-    >>> from ggrust import *
-    >>> import os, tempfile
-    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
-    >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
-    >>> path = save_plot(plot, os.path.join(tempfile.mkdtemp(), "fuel.ggrs"))
-    >>> load_plot(path).to_svg() == plot.to_svg()
-    True
+        If the plot holds a value with no safe stored form.
     """
-    from ggrust.plot.core import PlotSpec
-    from ggrust.plot.subplots import SupPlotsSpec
-
-    if not isinstance(plot, PlotSpec | SupPlotsSpec):
-        message = (
-            f"save_plot(): 'plot' must be a PlotSpec or SupPlotsSpec (from ggplot() or "
-            f"gggrid()), got {type(plot).__name__}"
-        )
-        raise ExportError(message)
-    target = os.fspath(path)
-    if not target.lower().endswith(EXTENSION):
-        message = f"save_plot(): path {target!r} must end in '{EXTENSION}' (e.g. 'plot.ggrs')"
-        raise ExportError(message)
     content = dump_plot(plot)
-    directory = os.path.dirname(os.path.abspath(target))
-    os.makedirs(directory, exist_ok=True)
-    with open(target, "wb") as file:
+    os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
+    with open(path, "wb") as file:
         file.write(content)
-    return os.path.abspath(target)
 
 
 def dump_plot(plot: PlotSpec | SupPlotsSpec) -> bytes:
-    """Return the ``.ggrs`` file content of ``plot`` (see ``save_plot``).
+    """Return the ``.ggrs`` file content of ``plot`` (see ``ggsave``).
 
     Parameters
     ----------
@@ -158,9 +115,9 @@ def dump_plot(plot: PlotSpec | SupPlotsSpec) -> bytes:
         for data, embeddable in _ggrust.registered_font_files(family):
             if not embeddable:
                 warnings.warn(
-                    f"save_plot(): font family {family!r} is not stored in the file: its "
+                    f"ggsave(): font family {family!r} is not stored in the file: its "
                     "license does not allow embedding; register the font again after "
-                    "load_plot()",
+                    "ggload()",
                     GgrustWarning,
                     stacklevel=3,
                 )
@@ -244,14 +201,14 @@ class _Encoder:
             return {"$object": name, "state": state}
         if callable(value):
             message = (
-                f"save_plot(): {path} is a Python function ({_describe(value)}); a plot "
+                f"ggsave(): {path} is a Python function ({_describe(value)}); a plot "
                 "file stores no code. Replace it with plain values before saving (a "
                 "sec_axis without transform= shows the primary values; give breaks= and "
                 "labels= lists for other ticks)"
             )
             raise ExportError(message)
         message = (
-            f"save_plot(): {path} holds a {type(value).__module__}.{type(value).__qualname__} "
+            f"ggsave(): {path} holds a {type(value).__module__}.{type(value).__qualname__} "
             "object, which has no safe stored form; replace it with plain values "
             "(numbers, strings, lists, dicts, data frames) before saving"
         )
@@ -328,8 +285,8 @@ def _data_kind(value: object) -> DataKind | None:
 # Loading -----------------------------------------------------------------------------
 
 
-def load_plot(path: str | os.PathLike[str]) -> PlotSpec | SupPlotsSpec:
-    """Open a plot saved with ``save_plot`` or ``ggsave(plot, "name.ggrs")``.
+def ggload(path: str | os.PathLike[str]) -> PlotSpec | SupPlotsSpec:
+    """Open a plot saved with ``ggsave(plot, "name.ggrs")``.
 
     The plot comes back as it was saved: add layers, render or save it again. Data
     comes back as the kind it was saved from (polars, pandas or pyarrow). Fonts stored
@@ -362,7 +319,7 @@ def load_plot(path: str | os.PathLike[str]) -> PlotSpec | SupPlotsSpec:
     >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
     >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
     >>> path = ggsave(plot, "fuel.ggrs", path=tempfile.mkdtemp())
-    >>> again = load_plot(path) + geom_line()
+    >>> again = ggload(path) + geom_line()
     >>> [layer.geom for layer in again.layers]
     ['point', 'line']
     """
@@ -373,7 +330,7 @@ def load_plot(path: str | os.PathLike[str]) -> PlotSpec | SupPlotsSpec:
 
 
 def read_plot(content: bytes, source: str = "<bytes>") -> PlotSpec | SupPlotsSpec:
-    """Return the plot in ``.ggrs`` file content (see ``load_plot``).
+    """Return the plot in ``.ggrs`` file content (see ``ggload``).
 
     Parameters
     ----------

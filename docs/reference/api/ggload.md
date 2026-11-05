@@ -1,7 +1,7 @@
 ---
-title: load_plot
+title: ggload
 ---
 
-::: ggrust.load_plot
+::: ggrust.ggload
     options:
       heading_level: 1

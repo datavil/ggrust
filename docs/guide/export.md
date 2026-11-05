@@ -41,9 +41,9 @@ Save the plot itself, not a picture of it, and open it again in another Python
 session, to restyle it, add layers or export it later:
 
 ```python
-ggsave(plot, "prices.ggrs")  # or save_plot(plot, "prices.ggrs")
+ggsave(plot, "prices.ggrs")
 
-plot = load_plot("prices.ggrs")
+plot = ggload("prices.ggrs")
 plot + theme_minimal()
 ```
 

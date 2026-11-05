@@ -355,8 +355,7 @@ nav = [
     ] },
     { "Export and setup" = [
       "reference/api/ggsave.md",
-      "reference/api/save_plot.md",
-      "reference/api/load_plot.md",
+      "reference/api/ggload.md",
       "reference/api/display.md",
       "reference/api/engine_version.md",
     ] },

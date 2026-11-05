@@ -249,7 +249,7 @@ from ggrust.plot import (
     ylab,
     ylim,
 )
-from ggrust.plot_file import load_plot, save_plot
+from ggrust.plot_file import ggload
 
 __version__ = _distribution_version("ggrust")
 
@@ -361,6 +361,7 @@ __all__ = [
     "geom_ysideviolin",
     "gggrid",
     "gghighlight",
+    "ggload",
     "ggmarginal",
     "ggplot",
     "ggsave",
@@ -379,7 +380,6 @@ __all__ = [
     "layer_key",
     "layer_tooltips",
     "lims",
-    "load_plot",
     "margin",
     "new_scale",
     "new_scale_color",
@@ -395,7 +395,6 @@ __all__ = [
     "register_font",
     "register_font_dir",
     "registered_fonts",
-    "save_plot",
     "scale_alpha",
     "scale_alpha_identity",
     "scale_alpha_manual",

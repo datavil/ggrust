@@ -1,7 +1,7 @@
 """``ggsave()``: write a plot to a file chosen by its extension.
 
 Ported from lets-plot's ``lets_plot/export/ggsave_.py`` (MIT, see THIRD_PARTY_NOTICES.md).
-Supported: svg, png, pdf (vector), html/htm, and ggrs (a plot file ``load_plot`` opens).
+Supported: svg, png, pdf (vector), html/htm, and ggrs (a plot file ``ggload`` opens).
 """
 
 from __future__ import annotations
@@ -37,7 +37,9 @@ def ggsave(
         The figure.
     filename : str
         File name with extension: ``.svg``, ``.png``, ``.pdf``, ``.html``, ``.htm``, or
-        ``.ggrs`` for a plot file that ``load_plot`` opens again (see ``save_plot``).
+        ``.ggrs`` for a plot file that ``ggload`` opens again: the whole plot with its data
+        and registered fonts, never code (a plot holding a Python function, such as a
+        ``sec_axis`` transform, raises ``ExportError``).
     path : str, optional
         Directory; ``./lets-plot-images`` when None (as lets_plot).
     iframe : bool, default True
@@ -94,9 +96,9 @@ def ggsave(
     elif extension == "pdf":
         export_pdf(plot, pathname, scale=scale, w=w, h=h, unit=unit, dpi=dpi)
     elif extension == "ggrs":
-        from ggrust.plot_file import save_plot
+        from ggrust.plot_file import write_plot_file
 
-        save_plot(plot, pathname)
+        write_plot_file(plot, pathname)
     else:
         extensions = ["svg", "png", "pdf", "html", "htm", "ggrs"]
         message = (

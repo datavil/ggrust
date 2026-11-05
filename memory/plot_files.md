@@ -1,7 +1,9 @@
 # Plot files (.ggrs)
 
 `python/ggrust/plot_file.py`. Decided with the user on 2026-11-05: a safe format instead of pickle, `.ggrs` only,
-callables refuse to save, fonts embedded.
+callables refuse to save, fonts embedded. Public names: `ggsave(plot, "x.ggrs")` and `ggload(path)`
+only (user, 2026-11-06: `save_plot`/`load_plot` too long; bare `load`/`read` would shadow under
+`from ggrust import *`).
 
 - **Store the object tree, not `as_dict()`.** `as_dict()` cannot be turned back into a
   `PlotSpec` (`+` rewrites: scale groups, gghighlight, ggside merges). The encoder walks

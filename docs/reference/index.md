@@ -384,8 +384,7 @@ Write files, and choose how plots show in notebooks.
 | Name | Description |
 |---|---|
 | [`ggsave()`](api/ggsave.md) | Save a plot to ``path/filename``; the extension picks the format. |
-| [`save_plot()`](api/save_plot.md) | Save a plot to a ``.ggrs`` file that ``load_plot`` opens again. |
-| [`load_plot()`](api/load_plot.md) | Open a plot saved with ``save_plot`` or ``ggsave(plot, "name.ggrs")``. |
+| [`ggload()`](api/ggload.md) | Open a plot saved with ``ggsave(plot, "name.ggrs")``. |
 | [`display()`](api/display.md) | Choose how plots show in notebooks, for the rest of the session. |
 | [`engine_version`](api/engine_version.md) | Return the version of the Rust engine. |
 

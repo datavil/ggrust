@@ -93,6 +93,24 @@ Nothing else is needed: no Java, no browser, no JavaScript build.
 
     [:octicons-arrow-right-24: Export](guide/export.md)
 
+-   :lucide-puzzle:{ .lg } **ggplot2 extensions, built in**
+
+    ---
+
+    Popular R extensions work out of the box, under their R names: ggbeeswarm, ggsci,
+    ggpubr, ggforce, gghighlight, ggpointdensity, ggside, ggnewscale, patchwork and more.
+
+    [:octicons-arrow-right-24: ggplot2 extensions](guide/extensions.md)
+
+-   :lucide-file-check:{ .lg } **Ready for publication**
+
+    ---
+
+    Your own fonts with `register_font`, rasterized point layers in vector PDFs,
+    panel tags across a figure, secondary axes and axes on any side.
+
+    [:octicons-arrow-right-24: Export](guide/export.md)
+
 </div>
 
 ## A taste

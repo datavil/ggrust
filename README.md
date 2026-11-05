@@ -127,12 +127,41 @@ temperature = pl.DataFrame(
 
 ## What it covers
 
-- __Geoms__: point, line, path, bar, histogram, boxplot, violin, area ridges, tile, raster, rect, text, label, text/label repel, segment, polygon, imshow, brackets and more.
-- __Scales__: continuous, discrete, log, reversed, hue, manual, gradients, viridis, brewer.
-- __Layout__: `facet_wrap`, `gggrid` with collected legends, `coord_fixed`, `coord_flip`, themes (`theme_classic`, `theme_bw`, `theme_void`).
-- __Outputs__: SVG, PNG, PDF, and HTML through `ggsave`. Dense scatter layers are drawn on a canvas in HTML.
+- __Geoms__: point, line, path, bar, col, histogram, boxplot, violin, area ridges, tile, raster, rect, text, label, text/label repel, segment, curve, polygon, rug, imshow, brackets and more.
+- __Stats__: count, bin, density, smooth, summary, ecdf, contours, 2D bins, ellipses.
+- __Scales__: continuous, discrete, log, reversed, datetime, hue, manual, gradients, viridis, brewer, secondary axes, axes on any side.
+- __Layout__: `facet_wrap`, `facet_grid`, `gggrid` with collected legends, `coord_fixed`, `coord_flip`, themes (`theme_classic`, `theme_bw`, `theme_minimal`, `theme_void`, ...).
+- __Outputs__: SVG, PNG, vector PDF, and interactive HTML through `ggsave`, with your own fonts (`register_font`). Dense scatter layers are drawn on a canvas in HTML.
 
 ggrust is a __subset__ of Lets-Plot, not all of it. Features follow what Cellestial and everyday plotting need. See the [migration note](https://ggrust.datavil.org/migration/) for the differences.
+
+## ggplot2 extensions, built in
+
+Many popular ggplot2 extension packages from R are built into ggrust, under their R function names. Nothing extra to install; Lets-Plot has none of them.
+
+| Feature | ggrust | From the R package |
+|---|---|---|
+| Beeswarm and quasirandom points | `geom_beeswarm`, `geom_quasirandom` | [ggbeeswarm](https://cran.r-project.org/package=ggbeeswarm) |
+| Journal color palettes | `scale_color_npg`, `_aaas`, `_nejm`, `_lancet`, `_jama`, `_jco`, `_d3`, `_igv` | [ggsci](https://cran.r-project.org/package=ggsci) |
+| Significance tests and labels | `stat_compare_means`, `stat_cor`, `stat_poly_eq` | [ggpubr](https://cran.r-project.org/package=ggpubr), [ggpmisc](https://cran.r-project.org/package=ggpmisc) |
+| Cluster marks | `geom_mark_hull`, `geom_mark_ellipse`, `geom_mark_rect` | [ggforce](https://cran.r-project.org/package=ggforce) |
+| Highlighting | `gghighlight` | [gghighlight](https://cran.r-project.org/package=gghighlight) |
+| Point density | `geom_pointdensity` | [ggpointdensity](https://cran.r-project.org/package=ggpointdensity) |
+| Side panels | `geom_xside*`, `geom_yside*`, `ggmarginal` | [ggside](https://cran.r-project.org/package=ggside) |
+| Several color scales in one plot | `new_scale_fill`, `new_scale_color`, `new_scale` | [ggnewscale](https://cran.r-project.org/package=ggnewscale) |
+| Dendrograms | `hclust`, `scale_x_dendro`, `scale_y_dendro`, `geom_dendrogram` | [legendry](https://cran.r-project.org/package=legendry), [ggh4x](https://cran.r-project.org/package=ggh4x), [ggdendro](https://cran.r-project.org/package=ggdendro) |
+| Raincloud plots | `stat_halfeye`, `stat_interval`, `geom_half_violin`, `geom_half_boxplot`, `geom_half_point` | [ggdist](https://cran.r-project.org/package=ggdist), [gghalves](https://cran.r-project.org/package=gghalves) |
+| Figure layouts and panel tags | `gggrid(design=, tag_levels=)`, `inset_element` | [patchwork](https://cran.r-project.org/package=patchwork) |
+| Rasterized layers in vector output | `rasterize` | [ggrastr](https://cran.r-project.org/package=ggrastr), [scattermore](https://cran.r-project.org/package=scattermore) |
+
+ggrust reimplements their behavior in Rust; the R packages and their authors designed it. Examples and credits are in the [extensions guide](https://ggrust.datavil.org/guide/extensions/).
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/clustered_heatmap.png" alt="Clustered heatmap with a row dendrogram and a side annotation track" width="49%">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/cluster_marks.png" alt="Penguin species outlined by labelled hulls" width="49%">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/side_panels.png" alt="Scatter plot with density side panels" width="49%">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/compare_means.png" alt="Boxplots with significance brackets" width="49%">
+</p>
 
 ## Performance
 

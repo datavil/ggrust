@@ -30,6 +30,11 @@ paste it into a notebook and run it.
 
     Tooltips, zoom and pan, and very large layers.
 
+-   [:lucide-puzzle: **ggplot2 extensions**](extensions.md)
+
+    Beeswarms, significance tests, cluster marks, side panels, dendrograms and more,
+    from R's extension packages, built in.
+
 -   [:lucide-image-down: **Export**](export.md)
 
     SVG, PNG, PDF and HTML files at the size you need.

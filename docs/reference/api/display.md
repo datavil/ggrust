@@ -1,7 +1,7 @@
 ---
-title: LetsPlot
+title: display
 ---
 
-::: ggrust.LetsPlot
+::: ggrust.display
     options:
       heading_level: 1

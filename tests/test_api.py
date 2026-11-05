@@ -150,7 +150,6 @@ def test_module_paths_cellestial_imports():
     from ggrust.plot.core import DummySpec
 
     assert issubclass(PlotSpec, FeatureSpec) and issubclass(DummySpec, FeatureSpec)
-    gg.LetsPlot.setup_html()  # no-op, must not raise
 
 
 def scatter(data=FRAME):
@@ -254,3 +253,31 @@ def test_pyarrow_and_large_data():
     png = io.BytesIO()
     (gg.ggplot(table, gg.aes("x", "y")) + gg.geom_point(size=0.5)).to_png(png, scale=1)
     assert len(png.getvalue()) > 1000
+
+
+def test_display_modes_switch_notebook_output():
+    import base64
+
+    from ggrust.errors import SpecError
+
+    plot = scatter()
+    try:
+        assert "window.ggrust.mount" in plot._repr_html_()
+        gg.display("svg")
+        svg = plot._repr_html_()
+        assert svg.lstrip().startswith("<svg") and "<script" not in svg
+        gg.display("png")
+        png = plot._repr_html_()
+        assert png.startswith('<img src="data:image/png;base64,')
+        assert base64.b64decode(png.split(",", 1)[1].rstrip('">'))[:8] == b"\x89PNG\r\n\x1a\n"
+        assert "<script" not in gg.gggrid([plot, plot])._repr_html_()
+        with pytest.raises(SpecError, match="did you mean 'svg'") as error:
+            gg.display("sgv")  # type: ignore[arg-type]
+        assert error.value.path == "display"
+    finally:
+        gg.display("html")
+
+
+def test_display_not_star_exported_and_lets_plot_removed():
+    assert "display" not in gg.__all__  # would shadow IPython's display()
+    assert not hasattr(gg, "LetsPlot")

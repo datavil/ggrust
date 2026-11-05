@@ -633,13 +633,23 @@ def export_html(
 
 
 def render_notebook_html(plot: PlotSpec | SupPlotsSpec) -> str:
-    """HTML for Jupyter's ``_repr_html_``: the plot's root ``<div>`` and runtime script.
+    """HTML for Jupyter's ``_repr_html_``, in the mode set by ``ggrust.display``.
 
     Parameters
     ----------
     plot : PlotSpec or SupPlotsSpec
         The plot or grid of plots.
     """
+    from ggrust._display import current_display
+
+    mode = current_display()
+    if mode == "svg":
+        return render_bytes(plot, "svg").decode()
+    if mode == "png":
+        import base64
+
+        encoded = base64.b64encode(render_bytes(plot, "png")).decode()
+        return f'<img src="data:image/png;base64,{encoded}">'
     return render_bytes(plot, "html").decode()
 
 

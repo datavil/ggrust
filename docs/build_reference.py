@@ -350,8 +350,8 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
         ["gggrid", "SupPlotsSpec", "GGBunch", "layer_tooltips", "ggtb"],
     ),
     "Export and setup": (
-        "Write files, and lets-plot compatibility helpers.",
-        ["ggsave", "LetsPlot", "engine_version"],
+        "Write files, and choose how plots show in notebooks.",
+        ["ggsave", "display", "engine_version"],
     ),
     "Fonts": (
         "Register font files (Arial, a brand font, CJK fonts) for `element_text(family=...)`.",

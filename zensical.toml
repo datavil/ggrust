@@ -355,7 +355,7 @@ nav = [
     ] },
     { "Export and setup" = [
       "reference/api/ggsave.md",
-      "reference/api/LetsPlot.md",
+      "reference/api/display.md",
       "reference/api/engine_version.md",
     ] },
     { "Fonts" = [

@@ -9,8 +9,8 @@ Use it like lets_plot::
 
 from importlib.metadata import version as _distribution_version
 
+from ggrust._display import display as display
 from ggrust._ggrust import engine_version
-from ggrust._lets_plot import LetsPlot
 from ggrust._render import GgrustWarning
 from ggrust.export import ggsave
 from ggrust.fonts import register_font, register_font_dir, registered_fonts
@@ -256,7 +256,6 @@ __all__ = [
     "ClusterTree",
     "GGBunch",
     "GgrustWarning",
-    "LetsPlot",
     "SupPlotsSpec",
     "__version__",
     "aes",

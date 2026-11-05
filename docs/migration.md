@@ -19,8 +19,9 @@ import ggrust as lp
 Spec objects behave like lets-plot's: `PlotSpec`, `LayerSpec`, `FeatureSpec`,
 `FeatureSpecArray` and `SupPlotsSpec` compose with `+`, and `as_dict()` returns the
 same layout, so code that inspects or edits specs keeps working.
-`LetsPlot.setup_html()` is accepted and does nothing: every HTML output embeds its own
-small runtime, so there is nothing to load.
+Delete `LetsPlot.setup_html()`: ggrust has no `LetsPlot` and needs no setup, since every
+HTML output embeds its own small runtime. For static notebook output (lets-plot's
+`no_js=True`), call `ggrust.display("svg")` or `ggrust.display("png")`.
 
 ## What is supported
 

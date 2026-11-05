@@ -379,12 +379,12 @@ Combine plots into one figure, and configure tooltips and the zoom/pan toolbar.
 
 ## Export and setup
 
-Write files, and lets-plot compatibility helpers.
+Write files, and choose how plots show in notebooks.
 
 | Name | Description |
 |---|---|
 | [`ggsave()`](api/ggsave.md) | Save a plot to ``path/filename``; the extension picks the format. |
-| [`LetsPlot`](api/LetsPlot.md) | lets_plot's global settings object. ggrust needs no setup; calls are accepted. |
+| [`display()`](api/display.md) | Choose how plots show in notebooks, for the rest of the session. |
 | [`engine_version`](api/engine_version.md) | Return the version of the Rust engine. |
 
 ## Fonts

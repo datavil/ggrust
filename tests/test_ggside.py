@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import re
 import warnings
+from pathlib import Path
+from typing import Literal
 
 import ggrust as gg
 import polars as pl
@@ -420,3 +422,36 @@ def test_discrete_x_band_keeps_every_label(layer: gg.FeatureSpec, position: str)
     widest = max(0.45 * 13 * len(text) for _, _, text, _ in labels)
     for x, _, _, _ in labels:
         assert (x - widest > 0) if position == "left" else (x + widest < 600)
+
+
+PENGUINS = pl.read_csv(
+    Path(__file__).parent.parent / "docs" / "data" / "penguins.csv", null_values="NA"
+).drop_nulls(["flipper_length_mm", "bill_length_mm"])
+
+
+@pytest.mark.parametrize("theme", [None, gg.theme_light()], ids=["default", "light"])
+@pytest.mark.parametrize("axis", ["x", "y"])
+def test_continuous_band_axis_shows_a_number(
+    axis: Literal["x", "y"], theme: gg.FeatureSpec | None
+) -> None:
+    # A ~50 px density band (0 to 0.03) used to keep only the break at 0, at
+    # the band's edge, and blank it: the band axis had no label at all.
+    layer = gg.geom_xsidedensity() if axis == "x" else gg.geom_ysidedensity()
+    plot = (
+        gg.ggplot(PENGUINS, gg.aes("flipper_length_mm", "bill_length_mm"))
+        + gg.geom_point()
+        + layer
+        + gg.ggsize(800, 600)
+    )
+    if theme is not None:
+        plot += theme
+    svg = plot.to_svg()
+    labels = _band_axis_texts(svg)
+    assert labels, "band axis has no label"
+    band = _clips(svg)[f"side-{axis}"]
+    for x, y, text, _ in labels:
+        assert float(text) > 0, text
+        if axis == "x":
+            assert band[1] < y < band[1] + band[3] + 6, text
+        else:
+            assert band[0] < x < band[0] + band[2], text

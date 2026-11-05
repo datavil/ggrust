@@ -38,6 +38,10 @@ Step ex2.2 (2026-11-05), design approved by the user.
   (vertical on a narrow band, user's choice over ggside's overlapping flat labels).
   `keep_labels_inside` never blanks category labels (they name tracks); before this fix
   it blanked all but the middle one on narrow bands.
+  Continuous band axes: lets-plot's count rule allows one break on a thin band (the
+  first, often 0 at the edge, which `keep_labels_inside` blanks), so when no label
+  survives `layout_bands` retries `scale.breaks(2..=3)` and keeps the first set with a
+  visible, non-overlapping label (a density band had ticks but no number).
 - **HTML zoom:** band layers live in `g.side-x` / `g.side-y` (screen axis shared), and the
   runtime's `treeGroups` treats them like axis dendrograms (inner group, one-axis
   matrix). Tooltip layers carry `side`; `moveTargets` moves them along that axis when the

@@ -159,6 +159,39 @@ fn keep_labels_inside(
     breaks
 }
 
+/// The largest break count asked of a band's scale when lets-plot's count rule
+/// leaves its axis without a label (see [`layout_bands`]).
+const BAND_FALLBACK_MAX_COUNT: usize = 3;
+
+/// Whether any label of `breaks` has text.
+fn has_visible_label(breaks: &AxisBreaks) -> bool {
+    breaks.labels.iter().any(|label| !label.text.is_empty())
+}
+
+/// Whether two labels with text of `breaks` overlap along a band axis of
+/// `length` px; `extents` are the labels' sizes along it (empty: turned labels,
+/// which never count as overlapping here).
+fn visible_labels_overlap(
+    breaks: &AxisBreaks,
+    cross: &PositionScale,
+    length: f64,
+    extents: &[f64],
+) -> bool {
+    let mut spans: Vec<(f64, f64)> = breaks
+        .values
+        .iter()
+        .zip(&breaks.labels)
+        .zip(extents)
+        .filter(|((_, label), _)| !label.text.is_empty())
+        .map(|((value, _), extent)| {
+            let at = cross.map(*value) * length;
+            (at - extent / 2.0, at + extent / 2.0)
+        })
+        .collect();
+    spans.sort_by(|a, b| a.0.total_cmp(&b.0));
+    spans.windows(2).any(|pair| pair[1].0 < pair[0].1)
+}
+
 /// Lay out the bands on the sides of one screen direction: `vertical` (top and
 /// bottom bands, whose own axis is vertical) or not. `thicknesses` come from
 /// [`split`] in the order of the matching `requests`; `cross_sides` are the sides
@@ -179,52 +212,82 @@ pub(super) fn layout_bands(
             let vertical_axis = request.side.is_horizontal();
             let axis_side = band_axis_side(request, cross_sides);
             let breaks = axis_side.map(|_| {
-                if vertical_axis {
-                    let breaks = choose_breaks(
-                        request.cross,
-                        *thickness,
-                        Orientation::Vertical,
-                        theme.axis_text_y,
-                        (0.0, 0.0),
-                    );
-                    let breaks =
-                        fit_y_labels(breaks, request.cross, *thickness, width_limit, theme);
-                    let heights: Vec<f64> = theme.axis_text_y.map_or_else(Vec::new, |text| {
-                        label_sizes(&breaks.labels, text)
-                            .iter()
-                            .map(|(_, height)| *height)
-                            .collect()
-                    });
-                    keep_labels_inside(breaks, request.cross, *thickness, &heights)
+                // Fit labels to the band, then blank the end labels that leave it.
+                // Returns the breaks and each label's extent along the axis.
+                let fit = |breaks: AxisBreaks| -> (AxisBreaks, Vec<f64>) {
+                    if vertical_axis {
+                        let breaks =
+                            fit_y_labels(breaks, request.cross, *thickness, width_limit, theme);
+                        let heights: Vec<f64> = theme.axis_text_y.map_or_else(Vec::new, |text| {
+                            label_sizes(&breaks.labels, text)
+                                .iter()
+                                .map(|(_, height)| *height)
+                                .collect()
+                        });
+                        let breaks =
+                            keep_labels_inside(breaks, request.cross, *thickness, &heights);
+                        (breaks, heights)
+                    } else {
+                        let breaks =
+                            fit_x_labels(breaks, request.cross, *thickness, height_limit, theme);
+                        // Only flat labels run along the axis into the main axis's
+                        // end label; turned ones (tilted, vertical, a theme angle)
+                        // reach at most half a line past their tick, so all stay.
+                        let flat = matches!(
+                            breaks.arrangement,
+                            LabelArrangement::Simple | LabelArrangement::TwoRows(_)
+                        );
+                        let widths: Vec<f64> =
+                            theme
+                                .axis_text_x
+                                .filter(|_| flat)
+                                .map_or_else(Vec::new, |text| {
+                                    label_sizes(&breaks.labels, text)
+                                        .iter()
+                                        .map(|(width, _)| *width)
+                                        .collect()
+                                });
+                        let breaks = keep_labels_inside(breaks, request.cross, *thickness, &widths);
+                        (breaks, widths)
+                    }
+                };
+                let (orientation, text) = if vertical_axis {
+                    (Orientation::Vertical, theme.axis_text_y)
                 } else {
-                    let breaks = choose_breaks(
-                        request.cross,
-                        *thickness,
-                        Orientation::Horizontal,
-                        theme.axis_text_x,
-                        (0.0, 0.0),
-                    );
-                    let breaks =
-                        fit_x_labels(breaks, request.cross, *thickness, height_limit, theme);
-                    // Only flat labels run along the axis into the main axis's
-                    // end label; turned ones (tilted, vertical, a theme angle)
-                    // reach at most half a line past their tick, so all stay.
-                    let flat = matches!(
-                        breaks.arrangement,
-                        LabelArrangement::Simple | LabelArrangement::TwoRows(_)
-                    );
-                    let widths: Vec<f64> =
-                        theme
-                            .axis_text_x
-                            .filter(|_| flat)
-                            .map_or_else(Vec::new, |text| {
-                                label_sizes(&breaks.labels, text)
-                                    .iter()
-                                    .map(|(width, _)| *width)
-                                    .collect()
-                            });
-                    keep_labels_inside(breaks, request.cross, *thickness, &widths)
+                    (Orientation::Horizontal, theme.axis_text_x)
+                };
+                let (breaks, _) = fit(choose_breaks(
+                    request.cross,
+                    *thickness,
+                    orientation,
+                    text,
+                    (0.0, 0.0),
+                ));
+                if text.is_none() || has_visible_label(&breaks) {
+                    return breaks;
                 }
+                // A thin band allows one break, the first, which sits at the band's
+                // edge and loses its label (a density band read 0 to 0.03 with no
+                // number). Ask the scale for a few more and keep the first set
+                // with a label inside the band.
+                (2..=BAND_FALLBACK_MAX_COUNT)
+                    .map(|count| {
+                        let scale_breaks = request.cross.breaks(count);
+                        let mut candidate =
+                            AxisBreaks::new(scale_breaks.positions, scale_breaks.labels);
+                        candidate.target_count = count;
+                        fit(candidate)
+                    })
+                    .find(|(candidate, extents)| {
+                        has_visible_label(candidate)
+                            && !visible_labels_overlap(
+                                candidate,
+                                request.cross,
+                                *thickness,
+                                extents,
+                            )
+                    })
+                    .map_or(breaks, |(candidate, _)| candidate)
             });
             BandLayout {
                 side: request.side,
@@ -587,6 +650,70 @@ mod tests {
         assert!(layout.axis_bands.bottom >= super::super::x_axis_band(needed, &theme) - 1e-9);
         // The top band's own axis widens the y axis band to its widest label.
         assert!(layout.axis_bands.left >= vertical_axis_width(&layout.bands, Side::Left, &theme));
+    }
+
+    #[test]
+    fn thin_continuous_band_axes_keep_a_label_inside_the_band() {
+        // A density band (0 to about 0.034): lets-plot's count rule allows one
+        // break on a ~50 px band, the first (0), at the edge where it is blanked.
+        let mut main = ContinuousPositionScale::default();
+        main.train_range(0.0, 10.0);
+        let main = PositionScale::Continuous(main);
+        let mut density = ContinuousPositionScale::default();
+        density.train_range(0.0, 0.0335);
+        let density = PositionScale::Continuous(density);
+        let band = |side| BandRequest {
+            side,
+            size: BandSize::OfPanel(0.1),
+            spacing: 2.0,
+            cross: &density,
+            decorated: true,
+        };
+        let theme = Theme::default();
+        let area = Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 800.0,
+            height: 600.0,
+        };
+        let layout = super::super::layout_plot(
+            area,
+            &theme,
+            &super::super::Titles::default(),
+            &main,
+            &main,
+            crate::layout::Margins::uniform(0.0),
+            None,
+            super::super::PANEL_MIN_SIZE,
+            &[band(Side::Right), band(Side::Top)],
+        );
+        for side in [Side::Right, Side::Top] {
+            let band = layout
+                .bands
+                .iter()
+                .find(|band| band.side == side)
+                .expect("band");
+            let breaks = band.breaks.as_ref().expect("band axis");
+            let visible: Vec<(f64, &str)> = breaks
+                .values
+                .iter()
+                .zip(&breaks.labels)
+                .filter(|(_, label)| !label.text.is_empty())
+                .map(|(value, label)| (*value, label.text.as_str()))
+                .collect();
+            assert!(
+                !visible.is_empty(),
+                "{side:?}: no label on {:?}",
+                breaks.values
+            );
+            for (value, text) in visible {
+                let at = density.map(value);
+                assert!(
+                    at > 0.0 && at < 1.0,
+                    "{side:?}: '{text}' at the band's edge"
+                );
+            }
+        }
     }
 
     #[test]

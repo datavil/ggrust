@@ -5,7 +5,7 @@
 //! each its cells ([`crate::layout::grid`]: relative `widths`/`heights`,
 //! `hspace`/`vspace`, `fit`), lay plots out at their cell's size, align panels across
 //! rows and columns (`align`), collect legends (`guides`), and draw the grid's
-//! background, title, tag and collected legends. Figures inherit the grid's theme as in
+//! background, title, caption, tag and collected legends. Figures inherit the grid's theme as in
 //! lets-plot ([`child_theme`]).
 //!
 //! ggrust extensions (patchwork): `design=` areas (figures span cells,
@@ -15,7 +15,7 @@
 //!
 //! Shared axes (`sharex`/`sharey`): [`crate::grid_share`].
 //!
-//! What it does not do (warned): captions and grid-level `guides(...)`.
+//! What it does not do (warned): grid-level `guides(...)`.
 
 use crate::build::{
     ALIGN_PASSES, ALIGN_TOLERANCE, Arrangement, BuiltPlot, DEFAULT_SIZE, PlotData, PreparedPlot,
@@ -31,8 +31,8 @@ use crate::layout::grid::{
 use crate::layout::tag::{tag_bands, tag_nodes};
 use crate::layout::zoom::Zoom;
 use crate::layout::{
-    LegendBlock, LegendBox, Titles, draw_legends, heading_nodes, headings_band, legend_budget,
-    measure_themed_legends, shrink,
+    LegendBlock, LegendBox, Titles, caption_band, caption_nodes, draw_legends, heading_nodes,
+    headings_band, legend_budget, measure_themed_legends, shrink,
 };
 use crate::parallel;
 use crate::scene::{Color, Group, Node, PerItem, Rect, Rects, Scene};
@@ -617,7 +617,10 @@ impl<'s> PreparedGrid<'s> {
         let titles = Titles {
             title: title.and_then(|title| title.text.clone()),
             subtitle: title.and_then(|title| title.subtitle.clone()),
-            caption: None,
+            caption: spec
+                .caption
+                .as_ref()
+                .and_then(|caption| caption.text.clone()),
             x: None,
             y: None,
             tag: spec.tag.as_ref().and_then(|tag| tag.text.clone()),
@@ -676,9 +679,10 @@ impl<'s> PreparedGrid<'s> {
         );
         let content = shrink(inner, tag_bands(theme, &self.titles.tag));
         let headings = headings_band(theme, &self.titles);
+        let caption = caption_band(theme, &self.titles);
         let without_titles = Rect {
             y: content.y + headings,
-            height: (content.height - headings).max(1.0),
+            height: (content.height - headings - caption).max(1.0),
             ..content
         };
         let blocks = self.measure_legend_groups(shrink(without_titles, theme.plot_inset))?;
@@ -841,6 +845,12 @@ impl<'s> PreparedGrid<'s> {
         }
         nodes.extend(heading_nodes(
             grid_layout.content.y,
+            (union.x, union.width),
+            theme,
+            &self.titles,
+        ));
+        nodes.extend(caption_nodes(
+            grid_layout.without_titles.y + grid_layout.without_titles.height,
             (union.x, union.width),
             theme,
             &self.titles,
@@ -1195,7 +1205,6 @@ fn report_grid_unsupported(spec: &SubplotsSpec, path: &str, warnings: &mut Vec<S
             ));
         }
     };
-    ignored(spec.caption.is_some(), "caption");
     ignored(!spec.guides.is_empty(), "guides");
     let keys = spec
         .unsupported
@@ -1320,5 +1329,29 @@ mod tests {
             "at 'figures[0].figures[2]': oops"
         );
         assert_eq!(nest("", "oops"), "oops");
+    }
+
+    #[test]
+    fn grid_caption_is_drawn_at_the_bottom_without_a_warning() {
+        let grid = |caption: &str| {
+            let json = format!(
+                r#"{{"kind": "subplots", "layout": {{"name": "grid", "ncol": 2, "nrow": 1}},
+                    "ggsize": {{"width": 600, "height": 300}}{caption},
+                    "figures": [{{"kind": "plot"}}, {{"kind": "plot"}}]}}"#
+            );
+            let figure = Figure::from_json(&json).expect("valid spec");
+            build_figure(&figure, &[]).expect("builds")
+        };
+        let built = grid(r#", "caption": {"text": "Source"}"#);
+        assert!(built.warnings.is_empty(), "{:?}", built.warnings);
+        let svg = crate::render::to_svg(&built.scene);
+        let tail = &svg[..svg.find(">Source</text>").expect("caption drawn")];
+        let y: f64 = tail[tail.rfind(" y=\"").expect("y") + 4..]
+            .split('"')
+            .next()
+            .and_then(|value| value.parse().ok())
+            .expect("number");
+        assert!((280.0..300.0).contains(&y), "{y}");
+        assert!(!crate::render::to_svg(&grid("").scene).contains("Source"));
     }
 }

@@ -129,6 +129,14 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Main roadmap: [plan.md](plan.md).
 - [ ] exc.5 `geom_spoke` is a lets-plot geom (gaps file, score 2), so it follows
   lets-plot parity in plan.md `lp6.2`, not this plan. Listed here so it is not done twice.
 
+## User asks (users_asks.md)
+
+- [x] ua.7 Grid captions: `gggrid(...) + labs(caption=...)` is drawn (no longer warned), as
+  lets-plot 4.11: a bottom band below the figures and collected legends, justified along
+  the figures with the `plot_caption` theme element (right by default). Grid titles and
+  `tag_levels=` tags already rendered (ex2.3). Tests: `tests/test_grid_caption.py` (lets-plot
+  baseline and band), grid unit `grid_caption_is_drawn_at_the_bottom_without_a_warning`.
+
 ## Added on user request (not scheduled)
 
 Tier 3 and the rest of Tier 2 from the 2026-11-04 survey. Move an item into a tier

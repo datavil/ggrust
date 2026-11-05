@@ -17,6 +17,6 @@ mod transform;
 
 pub use continuous::{ContinuousPositionScale, ScaleBreaks};
 pub use discrete::DiscretePositionScale;
-pub use position::PositionScale;
+pub use position::{AxisSides, PositionScale};
 pub use spec::{AxisScaleSpec, PositionScales, position_scales};
 pub use transform::Transform;

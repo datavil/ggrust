@@ -31,12 +31,17 @@ pub struct FacetPanel<'a> {
     pub column: usize,
     /// Grid row.
     pub row: usize,
-    /// Whether the panel draws its x axis.
-    pub x_axis: bool,
-    /// Whether the panel draws its y axis.
-    pub y_axis: bool,
+    /// The sides the panel draws its x axis on (bottom: the last panel of its
+    /// column or free x; top: the first row or free x; each only where the
+    /// scale's `position` puts the axis).
+    pub x_axis: AxisSides,
+    /// The sides the panel draws its y axis on (left: the first column or free
+    /// y; right: the last panel of its row or free y).
+    pub y_axis: AxisSides,
     /// The last panel of its grid column.
     pub is_bottom: bool,
+    /// The last panel of its grid row.
+    pub is_row_end: bool,
 }
 
 /// The panels of a faceted plot.
@@ -60,8 +65,8 @@ pub struct TileLayout {
     /// The panel, its breaks and its x axis band (`legend_space` and `content` as
     /// the plot's).
     pub layout: PlotLayout,
-    /// Whether the x and y axes are drawn.
-    pub axes: (bool, bool),
+    /// The sides the x and y axes are drawn on.
+    pub axes: [AxisSides; 2],
     /// Strip labels, top first.
     pub labels: Vec<Label>,
     /// Text lines each strip has room for (the most lines at its place in the
@@ -76,8 +81,8 @@ pub struct TileLayout {
 /// A laid-out faceted plot.
 #[derive(Debug, Clone, PartialEq)]
 pub struct FacetLayout {
-    /// The whole plot: `panel` is the union of the panels, `x_axis_band` the last
-    /// row's. Titles and legends are placed from it.
+    /// The whole plot: `panel` is the union of the panels, `axis_bands` the outer
+    /// rows' and columns'. Titles and legends are placed from it.
     pub plot: PlotLayout,
     /// The panels, in [`FacetGrid::panels`] order.
     pub tiles: Vec<TileLayout>,
@@ -151,20 +156,28 @@ fn layout_grid(
 ) -> FacetLayout {
     let inset = theme.plot_inset;
     let content = plot_content(area, theme, titles);
-    let top = content.y + headings_band(theme, titles) + legend_space.top + inset.top;
-    let bottom = content.y + content.height
-        - legend_space.bottom
-        - axis_title_band(theme.axis_title_x, &titles.x, x_title_margin(theme), 0.0)
-        - inset.bottom;
-    let left = content.x
-        + legend_space.left
-        + axis_title_band(
+    let axis_sides = grid
+        .panels
+        .first()
+        .map_or([AxisSides::default(); 2], |panel| {
+            [panel.x_scale.sides(), panel.y_scale.sides()]
+        });
+    let (x_title_top, x_title_bottom) = split_title(
+        axis_sides[0],
+        axis_title_band(theme.axis_title_x, &titles.x, x_title_margin(theme), 0.0),
+    );
+    let (y_title_right, y_title_left) = split_title(
+        axis_sides[1],
+        axis_title_band(
             theme.axis_title_y,
             &titles.y,
             theme.axis_title_spacing + y_title_margin(theme),
             90.0,
-        )
-        + inset.left;
+        ),
+    );
+    let top = content.y + headings_band(theme, titles) + legend_space.top + x_title_top + inset.top;
+    let bottom = content.y + content.height - legend_space.bottom - x_title_bottom - inset.bottom;
+    let left = content.x + legend_space.left + y_title_left + inset.left;
     let (columns, rows) = (grid.columns.max(1), grid.rows.max(1));
     // Strips above each row (its panel with the most labels), and right of the
     // grid (lets-plot `facetRowHeadTotalWidth`).
@@ -199,28 +212,49 @@ fn layout_grid(
         .max()
         .unwrap_or(0);
     let right_strip = row_strip_width(theme, row_label_lines);
-    let right = content.x + content.width - legend_space.right - inset.right - right_strip;
+    let right =
+        content.x + content.width - legend_space.right - y_title_right - inset.right - right_strip;
     let (spacing_x, spacing_y) = theme.panel_spacing;
 
     // lets-plot `maxHAxisThickness`: the last panel of an unfinished column (above
     // the last row) takes no room for its x axis.
     let takes_x_band =
-        |panel: &FacetPanel| panel.x_axis && !(panel.is_bottom && panel.row + 1 < rows);
-    let row_has_band: Vec<bool> = (0..rows)
-        .map(|row| {
-            grid.panels
-                .iter()
-                .any(|panel| panel.row == row && takes_x_band(panel))
-        })
-        .collect();
+        |panel: &FacetPanel| panel.x_axis.primary && !(panel.is_bottom && panel.row + 1 < rows);
+    let takes_top_band = |panel: &FacetPanel| panel.x_axis.secondary;
+    // As the bottom: the last panel of an unfinished row draws its right axis in
+    // the empty space right of it.
+    let takes_right_band = |panel: &FacetPanel| {
+        panel.y_axis.secondary && !(panel.is_row_end && panel.column + 1 < columns)
+    };
+    let row_has = |takes: &dyn Fn(&FacetPanel) -> bool| -> Vec<bool> {
+        (0..rows)
+            .map(|row| {
+                grid.panels
+                    .iter()
+                    .any(|panel| panel.row.min(rows - 1) == row && takes(panel))
+            })
+            .collect()
+    };
+    let row_has_band = row_has(&takes_x_band);
+    let row_has_top_band = row_has(&takes_top_band);
 
     // Axis labels share the overflow budget among the axis bands they stack in.
-    let band_rows = row_has_band.iter().filter(|has| **has).count().max(1);
-    let mut axis_columns: Vec<usize> = grid
+    let band_rows = row_has_band
+        .iter()
+        .chain(&row_has_top_band)
+        .filter(|has| **has)
+        .count()
+        .max(1);
+    let mut axis_columns: Vec<(usize, bool)> = grid
         .panels
         .iter()
-        .filter(|panel| panel.y_axis)
-        .map(|panel| panel.column)
+        .flat_map(|panel| {
+            [
+                panel.y_axis.primary.then_some((panel.column, false)),
+                takes_right_band(panel).then_some((panel.column, true)),
+            ]
+        })
+        .flatten()
         .collect();
     axis_columns.sort_unstable();
     axis_columns.dedup();
@@ -232,18 +266,23 @@ fn layout_grid(
     let mut kept_x: Option<Vec<AxisBreaks>> = None;
     let mut first_pass = true;
     loop {
-        let row_bands: Vec<f64> = (0..rows)
-            .map(|row| {
-                if row_has_band[row] {
-                    x_axis_band(label_heights[row], theme)
-                } else {
-                    0.0
-                }
-            })
-            .collect();
+        let bands = |has: &[bool]| -> Vec<f64> {
+            (0..rows)
+                .map(|row| {
+                    if has[row] {
+                        x_axis_band(label_heights[row], theme)
+                    } else {
+                        0.0
+                    }
+                })
+                .collect()
+        };
+        let row_bands = bands(&row_has_band);
+        let row_top_bands = bands(&row_has_top_band);
         let panel_height = ((bottom - top)
             - row_strips.iter().sum::<f64>()
             - row_bands.iter().sum::<f64>()
+            - row_top_bands.iter().sum::<f64>()
             - (rows - 1) as f64 * spacing_y)
             / rows as f64;
         let panel_height = panel_height.max(panel_min_size);
@@ -265,27 +304,38 @@ fn layout_grid(
             })
             .collect();
         let mut column_widths = vec![0.0_f64; columns];
+        let mut column_right_widths = vec![0.0_f64; columns];
         for (panel, breaks) in grid.panels.iter().zip(&y_breaks) {
-            if panel.y_axis {
-                let width = &mut column_widths[panel.column.min(columns - 1)];
+            let column = panel.column.min(columns - 1);
+            if panel.y_axis.primary {
+                let width = &mut column_widths[column];
+                *width = width.max(y_axis_width(breaks, theme));
+            }
+            if takes_right_band(panel) {
+                let width = &mut column_right_widths[column];
                 *width = width.max(y_axis_width(breaks, theme));
             }
         }
-        let panel_width =
-            ((right - left) - column_widths.iter().sum::<f64>() - (columns - 1) as f64 * spacing_x)
-                / columns as f64;
+        let panel_width = ((right - left)
+            - column_widths.iter().sum::<f64>()
+            - column_right_widths.iter().sum::<f64>()
+            - (columns - 1) as f64 * spacing_x)
+            / columns as f64;
         let panel_width = panel_width.max(panel_min_size);
         let x_breaks = match kept_x.take() {
             Some(breaks) => breaks,
             None => per_panel(grid, grid.shared_x, |panel| {
                 // lets-plot lets x labels reach over the y axis on the left.
-                let y_width = column_widths[panel.column.min(columns - 1)];
+                let column = panel.column.min(columns - 1);
                 choose_breaks(
                     panel.x_scale,
                     panel_width,
                     Orientation::Horizontal,
                     theme.axis_text_x,
-                    (y_width.max(LABELS_OVERFLOW), LABELS_OVERFLOW),
+                    (
+                        column_widths[column].max(LABELS_OVERFLOW),
+                        column_right_widths[column].max(LABELS_OVERFLOW),
+                    ),
                 )
             })
             .into_iter()
@@ -295,7 +345,7 @@ fn layout_grid(
         };
         let mut needed = label_heights.clone();
         for (panel, breaks) in grid.panels.iter().zip(&x_breaks) {
-            if takes_x_band(panel) {
+            if takes_x_band(panel) || takes_top_band(panel) {
                 let row = panel.row.min(rows - 1);
                 needed[row] = needed[row].max(x_labels_height(breaks, theme));
             }
@@ -323,6 +373,7 @@ fn layout_grid(
             cursor += width;
             column_x.push(cursor);
             cursor += panel_width;
+            cursor += column_right_widths[column];
         }
         let mut row_y = Vec::with_capacity(rows);
         let mut cursor = top;
@@ -330,6 +381,7 @@ fn layout_grid(
             if row > 0 {
                 cursor += spacing_y;
             }
+            cursor += row_top_bands[row];
             cursor += row_strips[row];
             row_y.push(cursor);
             cursor += panel_height + band;
@@ -341,24 +393,36 @@ fn layout_grid(
             .zip(y_breaks)
             .map(|((panel, x_breaks), y_breaks)| {
                 let row = panel.row.min(rows - 1);
+                let column = panel.column.min(columns - 1);
                 TileLayout {
                     layout: PlotLayout {
                         content,
                         panel: Rect {
-                            x: column_x[panel.column.min(columns - 1)],
+                            x: column_x[column],
                             y: row_y[row],
                             width: panel_width,
                             height: panel_height,
                         },
-                        x_axis_band: x_axis_band(label_heights[row], theme),
+                        axis_bands: Margins {
+                            top: row_top_bands[row],
+                            right: column_right_widths[column],
+                            bottom: x_axis_band(label_heights[row], theme),
+                            left: column_widths[column],
+                        },
+                        axis_sides,
                         x_breaks,
                         y_breaks,
                         legend_space,
                         top_band: row_strips[row],
-                        right_band: right_strip,
+                        // Row strips sit between the panel and its right axis.
+                        right_band: if panel.row_label.is_some() {
+                            right_strip
+                        } else {
+                            0.0
+                        },
                         dendrograms: Default::default(),
                     },
-                    axes: (panel.x_axis, panel.y_axis),
+                    axes: [panel.x_axis, panel.y_axis],
                     labels: panel.labels.to_vec(),
                     strip_lines: row_strip_lines[row].clone(),
                     row_label: panel.row_label.cloned(),
@@ -377,7 +441,13 @@ fn layout_grid(
                 .first()
                 .map(|tile| tile.layout.y_breaks.clone())
                 .unwrap_or_else(|| AxisBreaks::new(Vec::new(), Vec::new())),
-            x_axis_band: row_bands.last().copied().unwrap_or(0.0),
+            axis_bands: Margins {
+                top: row_top_bands.first().copied().unwrap_or(0.0),
+                right: column_right_widths.last().copied().unwrap_or(0.0),
+                bottom: row_bands.last().copied().unwrap_or(0.0),
+                left: column_widths.first().copied().unwrap_or(0.0),
+            },
+            axis_sides,
             legend_space,
             top_band: row_strips[0],
             right_band: right_strip,
@@ -572,6 +642,14 @@ mod tests {
     use super::*;
     use crate::scale::ContinuousPositionScale;
 
+    /// Axis sides with only the primary side drawn, when `shown`.
+    fn primary(shown: bool) -> AxisSides {
+        AxisSides {
+            primary: shown,
+            secondary: false,
+        }
+    }
+
     fn scale(high: f64) -> PositionScale {
         let mut scale = ContinuousPositionScale::default();
         scale.train_range(0.0, high);
@@ -597,9 +675,10 @@ mod tests {
                     row_label: None,
                     column,
                     row,
-                    x_axis: is_bottom || free,
-                    y_axis: column == 0 || free,
+                    x_axis: primary(is_bottom || free),
+                    y_axis: primary(column == 0 || free),
                     is_bottom,
+                    is_row_end: column + 1 == columns || index + 1 == count,
                 }
             })
             .collect();
@@ -691,14 +770,14 @@ mod tests {
             layout
                 .tiles
                 .iter()
-                .map(|tile| tile.axes)
+                .map(|tile| (tile.axes[0].primary, tile.axes[1].primary))
                 .collect::<Vec<_>>(),
             [(false, true), (false, false), (true, true), (true, false)]
         );
         // The grid fills the plot to the inset on the right and the bottom.
         let last = rects[3];
         assert!((last.x + last.width - (900.0 - 6.0)).abs() < 1e-9);
-        let bottom = last.y + last.height + layout.plot.x_axis_band;
+        let bottom = last.y + last.height + layout.plot.axis_bands.bottom;
         assert!((bottom - (600.0 - 6.0)).abs() < 1e-9, "{bottom}");
         assert_eq!(layout.plot.panel.x, rects[0].x);
         assert_eq!(layout.plot.panel.y, rects[0].y);
@@ -798,9 +877,10 @@ mod tests {
                     row_label: (column == 1).then_some(&row_labels[row]),
                     column,
                     row,
-                    x_axis: row == 1,
-                    y_axis: column == 0,
+                    x_axis: primary(row == 1),
+                    y_axis: primary(column == 0),
                     is_bottom: row == 1,
+                    is_row_end: column == 1,
                 }
             })
             .collect();

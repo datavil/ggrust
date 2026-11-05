@@ -11,16 +11,13 @@
 //! zoomed (lets-plot re-lays out, so its axis bands can change width), and a
 //! user `format` on generated breaks falls back to the default number format.
 
-use super::rotated;
-use super::{
-    LabelArrangement, PlotLayout, axis_line_node, label_node, label_sizes, placed_label_node,
-    segment, x_label_node, x_tick_band, y_tick_band,
-};
+use super::side::{AxisEdge, LabelPlacer, screen_sides};
+use super::{AxisBreaks, PlotLayout, segment};
 use crate::coord::Panel;
 use crate::scale::format::Label;
 use crate::scale::number_format::ExponentFormat;
-use crate::scale::{PositionScale, Transform};
-use crate::scene::{HorizontalAlign, Node, Rect};
+use crate::scale::{AxisSides, PositionScale, Transform};
+use crate::scene::{Group, Node, Rect};
 use crate::spec::ToolbarSpec;
 use crate::theme::Theme;
 
@@ -282,172 +279,161 @@ pub const LABEL_PLACEHOLDER: &str = "@";
 pub const SUPERSCRIPT_PLACEHOLDER: &str = "^";
 
 /// The zoom description of one panel as `draw_axes` draws it: `layout` is the
-/// panel's layout, `mapper` its screen scales, `shown` whether its x / y axes are
-/// drawn.
+/// panel's layout, `mapper` its screen scales, `shown` the sides its horizontal /
+/// vertical axes are drawn on. An axis drawn on two sides has templates holding
+/// both sides' nodes (the runtime translates them along the axis as one).
 pub fn zoom_tile(
     layout: &PlotLayout,
     theme: &Theme,
     mapper: &Panel,
-    (show_x, show_y): (bool, bool),
+    shown: [AxisSides; 2],
 ) -> ZoomTile {
     let panel = layout.panel;
     let bottom = panel.y + panel.height;
-    let domain = |scale: &PositionScale| scale.expanded_domain();
-    let transform = |scale: &PositionScale| match scale {
-        PositionScale::Continuous(scale) => scale.transform,
-        PositionScale::Discrete(_) => Transform::Identity,
-    };
-
-    // Horizontal axis.
-    let x_domain = domain(mapper.x_scale);
-    let x_label_top = bottom + x_tick_band(theme) + theme.axis_text_spacing.0;
-    let x_breaks = &layout.x_breaks;
-    let x_rotated = match (theme.axis_text_x, &x_breaks.arrangement) {
-        (Some(text), LabelArrangement::Rotated) => {
-            rotated::bottom(&label_sizes(&x_breaks.labels, text), text).0
-        }
-        _ => Vec::new(),
-    };
-    let x_label = |label: &Label, index: usize, x: f64| {
-        theme.axis_text_x.map(|text| match x_rotated.get(index) {
-            Some(placement) => placed_label_node(label, text, (x, x_label_top), placement),
-            None => x_label_node(label, text, index, x, x_label_top, &x_breaks.arrangement),
-        })
-    };
-    // Generated labels take the first label's rotation, or the simple layout.
-    let x_template = |label: &Label| {
-        theme.axis_text_x.map(|text| match x_rotated.first() {
-            Some(placement) => placed_label_node(label, text, (0.0, x_label_top), placement),
-            None => x_label_node(label, text, 0, 0.0, x_label_top, &LabelArrangement::Simple),
-        })
-    };
-    let horizontal = ZoomAxis {
-        domain: x_domain,
-        pixels: (mapper.x_pixel(x_domain.0), mapper.x_pixel(x_domain.1)),
-        transform: transform(mapper.x_scale),
-        exponent: theme.exponent_format,
-        count: x_breaks.target_count,
-        // The HTML runtime generates number breaks only: date axes keep theirs.
-        fixed: (mapper.x_scale.has_fixed_breaks() || mapper.x_scale.is_temporal()).then(|| {
-            x_breaks
-                .values
-                .iter()
-                .zip(&x_breaks.labels)
-                .enumerate()
-                .map(|(index, (&value, label))| {
-                    let pixel = mapper.x_pixel(value);
-                    FixedBreak {
-                        position: value,
-                        pixel,
-                        label: show_x.then(|| x_label(label, index, pixel)).flatten(),
-                    }
-                })
-                .collect()
-        }),
-        major: theme
-            .panel_grid_major_x
-            .map(|line| segment((0.0, panel.y), (0.0, bottom), line)),
-        minor: theme
-            .panel_grid_minor_x
-            .map(|line| segment((0.0, panel.y), (0.0, bottom), line)),
-        tick: theme.axis_ticks_x.filter(|_| show_x).map(|tick| {
-            segment(
-                (0.0, bottom),
-                (0.0, bottom + theme.axis_ticks_length.0),
-                tick,
-            )
-        }),
-        minor_tick: theme.axis_minor_ticks_x.filter(|_| show_x).map(|tick| {
-            segment(
-                (0.0, bottom),
-                (0.0, bottom + theme.axis_minor_ticks_length.0),
-                tick,
-            )
-        }),
-        label: show_x.then(|| x_template(&placeholder(false))).flatten(),
-        label_superscript: show_x.then(|| x_template(&placeholder(true))).flatten(),
-        line: theme
-            .axis_line_x
-            .filter(|_| show_x)
-            .map(|line| axis_line_node(panel, line, true)),
-    };
-
-    // Vertical axis.
-    let y_domain = domain(mapper.y_scale);
-    let y_label_right = panel.x - y_tick_band(theme) - theme.axis_text_spacing.1;
-    let y_breaks = &layout.y_breaks;
-    let y_rotated = match theme.axis_text_y {
-        Some(text) if rotated::rotates(text) => {
-            rotated::left(&label_sizes(&y_breaks.labels, text), text).0
-        }
-        _ => Vec::new(),
-    };
-    let y_label = |label: &Label, placement: Option<&rotated::Placement>, y: f64| {
-        theme.axis_text_y.map(|text| match placement {
-            Some(placement) => placed_label_node(label, text, (y_label_right, y), placement),
-            None => label_node(label, text, (y_label_right, y), HorizontalAlign::End, 0.0),
-        })
-    };
-    let vertical = ZoomAxis {
-        domain: y_domain,
-        pixels: (mapper.y_pixel(y_domain.0), mapper.y_pixel(y_domain.1)),
-        transform: transform(mapper.y_scale),
-        exponent: theme.exponent_format,
-        count: y_breaks.target_count,
-        // The HTML runtime generates number breaks only: date axes keep theirs.
-        fixed: (mapper.y_scale.has_fixed_breaks() || mapper.y_scale.is_temporal()).then(|| {
-            y_breaks
-                .values
-                .iter()
-                .zip(&y_breaks.labels)
-                .enumerate()
-                .map(|(index, (&value, label))| {
-                    let pixel = mapper.y_pixel(value);
-                    FixedBreak {
-                        position: value,
-                        pixel,
-                        label: show_y
-                            .then(|| y_label(label, y_rotated.get(index), pixel))
-                            .flatten(),
-                    }
-                })
-                .collect()
-        }),
-        major: theme
-            .panel_grid_major_y
-            .map(|line| segment((panel.x, 0.0), (panel.x + panel.width, 0.0), line)),
-        minor: theme
-            .panel_grid_minor_y
-            .map(|line| segment((panel.x, 0.0), (panel.x + panel.width, 0.0), line)),
-        tick: theme.axis_ticks_y.filter(|_| show_y).map(|tick| {
-            segment(
-                (panel.x - theme.axis_ticks_length.1, 0.0),
-                (panel.x, 0.0),
-                tick,
-            )
-        }),
-        minor_tick: theme.axis_minor_ticks_y.filter(|_| show_y).map(|tick| {
-            segment(
-                (panel.x - theme.axis_minor_ticks_length.1, 0.0),
-                (panel.x, 0.0),
-                tick,
-            )
-        }),
-        label: show_y
-            .then(|| y_label(&placeholder(false), y_rotated.first(), 0.0))
-            .flatten(),
-        label_superscript: show_y
-            .then(|| y_label(&placeholder(true), y_rotated.first(), 0.0))
-            .flatten(),
-        line: theme
-            .axis_line_y
-            .filter(|_| show_y)
-            .map(|line| axis_line_node(panel, line, false)),
-    };
+    let horizontal = zoom_axis(
+        layout,
+        theme,
+        mapper.x_scale,
+        &layout.x_breaks,
+        shown[0],
+        true,
+        &|value| mapper.x_pixel(value),
+        (
+            theme
+                .panel_grid_major_x
+                .map(|line| segment((0.0, panel.y), (0.0, bottom), line)),
+            theme
+                .panel_grid_minor_x
+                .map(|line| segment((0.0, panel.y), (0.0, bottom), line)),
+        ),
+    );
+    let vertical = zoom_axis(
+        layout,
+        theme,
+        mapper.y_scale,
+        &layout.y_breaks,
+        shown[1],
+        false,
+        &|value| mapper.y_pixel(value),
+        (
+            theme
+                .panel_grid_major_y
+                .map(|line| segment((panel.x, 0.0), (panel.x + panel.width, 0.0), line)),
+            theme
+                .panel_grid_minor_y
+                .map(|line| segment((panel.x, 0.0), (panel.x + panel.width, 0.0), line)),
+        ),
+    );
     ZoomTile {
         panel,
         horizontal,
         vertical,
+    }
+}
+
+/// One screen axis of [`zoom_tile`]: `grid` holds the major and minor grid line
+/// templates.
+#[allow(clippy::too_many_arguments)]
+fn zoom_axis(
+    layout: &PlotLayout,
+    theme: &Theme,
+    scale: &PositionScale,
+    breaks: &AxisBreaks,
+    sides: AxisSides,
+    horizontal: bool,
+    pixel: &dyn Fn(f64) -> f64,
+    (major, minor): (Option<Node>, Option<Node>),
+) -> ZoomAxis {
+    let domain = scale.expanded_domain();
+    let transform = match scale {
+        PositionScale::Continuous(scale) => scale.transform,
+        PositionScale::Discrete(_) => Transform::Identity,
+    };
+    let edges: Vec<AxisEdge> = screen_sides(sides, horizontal)
+        .map(|side| AxisEdge::of(layout, side))
+        .collect();
+    let placers: Vec<LabelPlacer> = edges
+        .iter()
+        .filter_map(|edge| LabelPlacer::new(*edge, breaks, theme))
+        .collect();
+    let tick = |minor: bool| {
+        joined(
+            edges
+                .iter()
+                .filter_map(|edge| {
+                    let tick = if minor {
+                        edge.minor_tick(theme)
+                    } else {
+                        edge.major_tick(theme)
+                    };
+                    tick.map(|(line, length)| edge.tick(0.0, length, line))
+                })
+                .collect(),
+        )
+    };
+    let template = |superscript: bool| {
+        joined(
+            placers
+                .iter()
+                .map(|placer| placer.template(&placeholder(superscript), 0.0))
+                .collect(),
+        )
+    };
+    let line = if horizontal {
+        theme.axis_line_x
+    } else {
+        theme.axis_line_y
+    };
+    ZoomAxis {
+        domain,
+        pixels: (pixel(domain.0), pixel(domain.1)),
+        transform,
+        exponent: theme.exponent_format,
+        count: breaks.target_count,
+        // The HTML runtime generates number breaks only: date axes keep theirs.
+        fixed: (scale.has_fixed_breaks() || scale.is_temporal()).then(|| {
+            breaks
+                .values
+                .iter()
+                .zip(&breaks.labels)
+                .enumerate()
+                .map(|(index, (&value, label))| {
+                    let pixel = pixel(value);
+                    FixedBreak {
+                        position: value,
+                        pixel,
+                        label: joined(
+                            placers
+                                .iter()
+                                .map(|placer| placer.node(label, index, pixel))
+                                .collect(),
+                        ),
+                    }
+                })
+                .collect()
+        }),
+        major,
+        minor,
+        tick: tick(false),
+        minor_tick: tick(true),
+        label: template(false),
+        label_superscript: template(true),
+        line: line
+            .and_then(|line| joined(edges.iter().map(|edge| edge.line(layout, line)).collect())),
+    }
+}
+
+/// One node, a group of several, or none.
+fn joined(mut nodes: Vec<Node>) -> Option<Node> {
+    match nodes.len() {
+        0 => None,
+        1 => nodes.pop(),
+        _ => Some(Node::Group(Group {
+            clip: None,
+            role: None,
+            anchor: None,
+            nodes,
+        })),
     }
 }
 

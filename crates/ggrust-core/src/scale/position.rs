@@ -5,6 +5,59 @@ use super::number_format::ExponentFormat;
 use super::{ContinuousPositionScale, DiscretePositionScale, ScaleBreaks};
 use crate::data::{Column, ContinuousColumn};
 
+/// Sides of the panel a position scale draws its axis on (`position=`).
+///
+/// `primary` is below the panel for x and left of it for y (the default),
+/// `secondary` above it for x and right of it for y. Under `coord_flip` the sides
+/// follow the scale to its screen axis (x `"top"` goes right, y `"right"` goes
+/// top), as lets-plot and ggplot2 do.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct AxisSides {
+    /// Bottom (x) or left (y).
+    pub primary: bool,
+    /// Top (x) or right (y).
+    pub secondary: bool,
+}
+
+impl Default for AxisSides {
+    fn default() -> Self {
+        AxisSides {
+            primary: true,
+            secondary: false,
+        }
+    }
+}
+
+impl AxisSides {
+    /// Parse a `position=` value of an x (`horizontal`) or y scale; `path`
+    /// locates it in error messages.
+    pub fn parse(name: &str, horizontal: bool, path: &str) -> crate::Result<Self> {
+        let (primary, secondary) = if horizontal {
+            ("bottom", "top")
+        } else {
+            ("left", "right")
+        };
+        let sides = |primary, secondary| AxisSides { primary, secondary };
+        match name {
+            _ if name == primary => Ok(sides(true, false)),
+            _ if name == secondary => Ok(sides(false, true)),
+            "both" => Ok(sides(true, true)),
+            other => {
+                let axis = if horizontal { "x" } else { "y" };
+                let accepted = [primary, secondary, "both"];
+                Err(crate::Error::spec(
+                    path,
+                    format!(
+                        "unknown position '{other}' for a {axis} axis; use one of '{primary}', \
+                         '{secondary}', 'both'{}",
+                        crate::suggest::did_you_mean(other, accepted)
+                    ),
+                ))
+            }
+        }
+    }
+}
+
 /// The scale of one position axis.
 #[derive(Debug, Clone, PartialEq)]
 pub enum PositionScale {
@@ -15,6 +68,14 @@ pub enum PositionScale {
 }
 
 impl PositionScale {
+    /// The sides of the panel this axis is drawn on (`position=`).
+    pub fn sides(&self) -> AxisSides {
+        match self {
+            PositionScale::Continuous(scale) => scale.sides,
+            PositionScale::Discrete(scale) => scale.sides,
+        }
+    }
+
     /// The dendrogram drawn beside this axis (`scale_*_dendro()`), if any.
     pub fn dendrogram(&self) -> Option<&crate::layout::dendrogram::AxisDendrogram> {
         match self {

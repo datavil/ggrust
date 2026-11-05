@@ -42,6 +42,8 @@ pub struct DiscretePositionScale {
     pub coord_limits: [Option<f64>; 2],
     /// `scale_*_dendro()`: the tree drawn beside the axis (it set the limits).
     pub dendrogram: Option<std::sync::Arc<crate::layout::dendrogram::AxisDendrogram>>,
+    /// Sides of the panel the axis is drawn on (`position=`).
+    pub sides: super::position::AxisSides,
 }
 
 impl Default for DiscretePositionScale {
@@ -60,6 +62,7 @@ impl Default for DiscretePositionScale {
             format: None,
             coord_limits: [None, None],
             dendrogram: None,
+            sides: Default::default(),
         }
     }
 }

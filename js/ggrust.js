@@ -994,8 +994,9 @@
       var template = label.superscript === null ? axis.label : axis.label_superscript;
       // Function replacements: a `$` in a label is literal.
       var svg = template && template
-        .replace(">@<", function () { return ">" + escapeXml(label.text) + "<"; })
-        .replace(">^<", function () { return ">" + escapeXml(label.superscript || "") + "<"; });
+        // Global: an axis drawn on two sides has a label per side in its template.
+        .replace(new RegExp(">@<", "g"), function () { return ">" + escapeXml(label.text) + "<"; })
+        .replace(new RegExp(">\\^<", "g"), function () { return ">" + escapeXml(label.superscript || "") + "<"; });
       result.push({ position: position, pixel: pixelOf(axis, view, position), label: svg, shift: pixelOf(axis, view, position) });
     });
     return result;

@@ -34,7 +34,7 @@ use crate::scale::format::Label;
 use crate::scale::number_format::{ExponentFormat, NumberFormat};
 use crate::scale::style::spec::{StyleScaleSpec, style_scale_specs};
 use crate::scale::style::{LegendEntry, ScaleKey, StyleScale, default_mapper};
-use crate::scale::{AxisScaleSpec, PositionScale, PositionScales, position_scales};
+use crate::scale::{AxisScaleSpec, AxisSides, PositionScale, PositionScales, position_scales};
 use crate::scene::{Group, LAYER_ROLE, Node, PerItem, Raster, Rect, Rects, Scene};
 use crate::spec::{
     Aesthetic, DataSource, GuideOptions, GuideSpec, LayerSpec, Mapping, MappingAnnotation,
@@ -962,9 +962,16 @@ impl PreparedPlot {
                         row_label: tile.row_label.as_ref(),
                         column: tile.column,
                         row: tile.row,
-                        x_axis: tile.has_x_axis,
-                        y_axis: tile.has_y_axis,
+                        x_axis: AxisSides {
+                            primary: tile.has_x_axis && horizontal.sides().primary,
+                            secondary: tile.has_top_axis && horizontal.sides().secondary,
+                        },
+                        y_axis: AxisSides {
+                            primary: tile.has_y_axis && vertical.sides().primary,
+                            secondary: tile.has_right_axis && vertical.sides().secondary,
+                        },
                         is_bottom: tile.is_bottom,
+                        is_row_end: tile.is_row_end,
                     }
                 })
                 .collect(),
@@ -1238,8 +1245,8 @@ impl PreparedPlot {
 
     /// The zoom payload of the plot as laid out by `arrangement` (`ggtb`).
     fn zoom_plot(&self, arrangement: &Arrangement) -> ZoomPlot {
-        let layouts: Vec<(&PlotLayout, (bool, bool))> = match &arrangement.layout {
-            Arranged::Single(layout) => vec![(layout, (true, true))],
+        let layouts: Vec<(&PlotLayout, [AxisSides; 2])> = match &arrangement.layout {
+            Arranged::Single(layout) => vec![(layout, layout.axis_sides)],
             Arranged::Facets(layout) => layout
                 .tiles
                 .iter()
@@ -1343,7 +1350,7 @@ impl PreparedPlot {
                     nodes: layer_nodes,
                 }));
                 tile.extend(draw_panel_border(layout, theme));
-                tile.extend(draw_axes(layout, theme, &panel, (true, true)));
+                tile.extend(draw_axes(layout, theme, &panel, layout.axis_sides));
                 nodes.push(tile_group(tile));
             }
             Arranged::Facets(layout) => {

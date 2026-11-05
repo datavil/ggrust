@@ -5,7 +5,7 @@
 
 use super::datetime::{DatePattern, TemporalAxis, TemporalKind, TimeInterval};
 use super::label_pattern::LabelPattern;
-use super::{ContinuousPositionScale, DiscretePositionScale, PositionScale, Transform};
+use super::{AxisSides, ContinuousPositionScale, DiscretePositionScale, PositionScale, Transform};
 use crate::cluster::{DendrogramType, Tree};
 use crate::layout::dendrogram::{AxisDendrogram, DEFAULT_SPACE, DendrogramSide};
 use crate::spec::{Aesthetic, GuideSpec, Options, PlotSpec, ScaleSpec, Value};
@@ -44,9 +44,19 @@ pub struct AxisScaleSpec {
     dendrogram: Set<Value>,
     /// `guide_axis_dendro(...)` options (`space`, `side`, `type`).
     dendrogram_guide: Set<Options>,
+    /// `position=...`: the sides the axis is drawn on.
+    sides: Set<AxisSides>,
 }
 
 impl AxisScaleSpec {
+    /// The sides the axis is drawn on (`position=`; bottom / left by default).
+    pub fn sides(&self) -> AxisSides {
+        self.sides
+            .as_ref()
+            .map(|(sides, _)| *sides)
+            .unwrap_or_default()
+    }
+
     /// Whether the user asked for a discrete scale (`scale_x_discrete()`).
     pub fn requests_discrete(&self) -> bool {
         self.discrete
@@ -93,6 +103,7 @@ impl AxisScaleSpec {
         warnings: &mut Vec<String>,
     ) -> Result<ContinuousPositionScale> {
         let mut scale = ContinuousPositionScale::default();
+        scale.sides = self.sides();
         let labels = self.label_texts()?;
         scale.temporal = self.temporal_axis(column_kind, warnings)?;
         // lets-plot ignores `format` too when `labels` come without `breaks`.
@@ -161,6 +172,7 @@ impl AxisScaleSpec {
 
     fn build_discrete(&self, warnings: &mut Vec<String>) -> Result<DiscretePositionScale> {
         let mut scale = DiscretePositionScale::default();
+        scale.sides = self.sides();
         scale.format = self.label_format(warnings);
         scale.labels = self.label_texts()?.map(|(labels, _)| labels);
         if let Some((breaks, path)) = &self.breaks {
@@ -401,6 +413,11 @@ pub fn position_scales(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<Po
                 }
             };
             merge(target, scale, &path);
+            if let Some(position) = &scale.position {
+                let at = format!("{path}.position");
+                let sides = AxisSides::parse(position, *aesthetic == Aesthetic::X, &at)?;
+                target.sides = Some((sides, at));
+            }
             report_unbuilt(scale, &path, warnings);
         }
     }
@@ -588,7 +605,6 @@ fn report_unbuilt(scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
             "guide",
             scale.guide.is_some() && dendrogram_guide(scale).is_none(),
         ),
-        ("position", scale.position.is_some()),
         ("scale_mapper_kind", scale.scale_mapper_kind.is_some()),
     ];
     for (key, _) in present.iter().filter(|(_, present)| *present) {
@@ -768,16 +784,58 @@ mod tests {
     fn unbuilt_options_and_other_aesthetics_warn() {
         let (_, warnings) = scales(
             r#"{"kind": "plot", "scales": [
-                {"aesthetic": "x", "position": "top", "discrete": true, "reverse": false},
+                {"aesthetic": "x", "na_value": 0, "discrete": true, "reverse": false},
                 {"aesthetic": "stroke"}]}"#,
         )
         .unwrap();
         assert_eq!(
             warnings,
             [
-                "at 'scales[0].position': not supported yet; ignored",
+                "at 'scales[0].na_value': not supported yet; ignored",
                 "at 'scales[1]': scales for 'stroke' are not supported yet; ignored",
             ]
         );
+    }
+
+    #[test]
+    fn position_picks_the_axis_sides_per_aesthetic() {
+        let sides = |json: &str| {
+            let (scales, warnings) = scales(json).unwrap();
+            assert!(warnings.is_empty(), "{warnings:?}");
+            (scales.x.sides(), scales.y.sides())
+        };
+        let (x, y) = sides(
+            r#"{"kind": "plot", "scales": [
+                {"aesthetic": "x", "position": "top"},
+                {"aesthetic": "y", "position": "both"}]}"#,
+        );
+        assert_eq!((x.primary, x.secondary), (false, true));
+        assert_eq!((y.primary, y.secondary), (true, true));
+        let (x, y) =
+            sides(r#"{"kind": "plot", "scales": [{"aesthetic": "y", "position": "right"}]}"#);
+        assert_eq!(x, AxisSides::default());
+        assert_eq!((y.primary, y.secondary), (false, true));
+        // Built scales carry the sides, continuous or discrete.
+        let (scales, _) =
+            scales(r#"{"kind": "plot", "scales": [{"aesthetic": "x", "position": "top"}]}"#)
+                .unwrap();
+        for discrete in [false, true] {
+            assert!(built(&scales.x, discrete).unwrap().sides().secondary);
+        }
+    }
+
+    #[test]
+    fn a_position_of_the_other_axis_is_an_error() {
+        let error =
+            scales(r#"{"kind": "plot", "scales": [{"aesthetic": "x", "position": "rigth"}]}"#)
+                .unwrap_err()
+                .to_string();
+        assert!(error.contains("at 'scales[0].position'"), "{error}");
+        assert!(error.contains("'bottom', 'top', 'both'"), "{error}");
+        let error =
+            scales(r#"{"kind": "plot", "scales": [{"aesthetic": "y", "position": "rigth"}]}"#)
+                .unwrap_err()
+                .to_string();
+        assert!(error.contains("did you mean 'right'?"), "{error}");
     }
 }

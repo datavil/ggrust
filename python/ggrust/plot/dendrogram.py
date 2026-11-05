@@ -25,7 +25,7 @@ from ggrust.plot.geom_beeswarm import _check_choice
 from ggrust.plot.scale import _scale
 
 if TYPE_CHECKING:
-    from ggrust._typing import Breaks, Labels, Number, PlotData
+    from ggrust._typing import AxisPosition, Breaks, Labels, Number, PlotData
     from ggrust.plot.core import LayerSpec
 
 __all__ = [
@@ -486,6 +486,7 @@ def _dendro_scale(
     reverse: bool | None,
     format: str | None,
     guide: FeatureSpec | str | None,
+    position: AxisPosition | None = None,
 ) -> FeatureSpec:
     """Build the ``scale_{aesthetic}_dendro()`` spec."""
     function = f"scale_{aesthetic}_dendro"
@@ -509,6 +510,7 @@ def _dendro_scale(
         format=format,
         discrete=True,
         reverse=reverse,
+        position=position,
         dendrogram=tree.to_dict(),
     )
 
@@ -529,6 +531,7 @@ def scale_x_dendro(
     reverse: bool | None = None,
     format: str | None = None,
     guide: FeatureSpec | str | None = None,
+    position: AxisPosition | None = None,
 ) -> FeatureSpec:
     """Discrete x scale ordered by a clustering tree, drawn below the axis (legendry).
 
@@ -548,6 +551,9 @@ def scale_x_dendro(
         Reverse the leaf order (the tree flips with it).
     guide : FeatureSpec or "axis_dendro", optional
         ``guide_axis_dendro(...)`` options.
+    position : str, optional
+        Side of the axis, as in ``scale_x_discrete()`` / ``scale_y_discrete()``;
+        a ``side="axis"`` tree follows the axis there.
 
     Returns
     -------
@@ -567,7 +573,7 @@ def scale_x_dendro(
     >>> plot = ggplot(frame, aes("city", "jan")) + geom_bar(stat="identity")
     >>> plot = plot + scale_x_dendro(tree)
     """
-    return _dendro_scale("x", clust, name, breaks, labels, expand, reverse, format, guide)
+    return _dendro_scale("x", clust, name, breaks, labels, expand, reverse, format, guide, position)
 
 
 def scale_y_dendro(
@@ -580,6 +586,7 @@ def scale_y_dendro(
     reverse: bool | None = None,
     format: str | None = None,
     guide: FeatureSpec | str | None = None,
+    position: AxisPosition | None = None,
 ) -> FeatureSpec:
     """Discrete y scale ordered by a clustering tree, drawn left of the axis (legendry).
 
@@ -598,6 +605,9 @@ def scale_y_dendro(
         Reverse the leaf order (the tree flips with it).
     guide : FeatureSpec or "axis_dendro", optional
         ``guide_axis_dendro(...)`` options.
+    position : str, optional
+        Side of the axis, as in ``scale_x_discrete()`` / ``scale_y_discrete()``;
+        a ``side="axis"`` tree follows the axis there.
 
     Returns
     -------
@@ -622,4 +632,4 @@ def scale_y_dendro(
     >>> plot = ggplot(long, aes("cell", "gene", fill="value")) + geom_tile()
     >>> plot = plot + scale_y_dendro(rows)
     """
-    return _dendro_scale("y", clust, name, breaks, labels, expand, reverse, format, guide)
+    return _dendro_scale("y", clust, name, breaks, labels, expand, reverse, format, guide, position)

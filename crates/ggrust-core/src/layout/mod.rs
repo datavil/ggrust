@@ -15,11 +15,11 @@
 mod axis;
 mod colorbar;
 pub mod dendrogram;
-use dendrogram::DendrogramSide;
 pub mod facet;
 pub mod grid;
 mod legend;
 mod rotated;
+pub mod side;
 pub mod tag;
 pub mod zoom;
 
@@ -34,10 +34,11 @@ pub use legend::{
 use axis::{LABELS_OVERFLOW, TILT_DEGREES};
 
 use crate::coord::Panel;
-use crate::scale::PositionScale;
 use crate::scale::format::Label;
+use crate::scale::{AxisSides, PositionScale};
 use crate::scene::{Group, HorizontalAlign, Node, Path, PerItem, Rect, Rects, Text, VerticalAlign};
 use crate::text::{measure, measure_label, single_line};
+use side::{AxisEdge, LabelPlacer, Side, screen_sides, title_on_secondary};
 
 /// lets-plot `GEOM_MIN_SIZE`: the panel never shrinks below 50 x 50 px; axes and
 /// labels that do not fit then run past the plot edge instead.
@@ -85,15 +86,19 @@ pub struct PlotLayout {
     pub x_breaks: AxisBreaks,
     /// y axis breaks.
     pub y_breaks: AxisBreaks,
-    /// Ticks, spacing and labels below the panel (px): the x title goes below it.
-    pub x_axis_band: f64,
+    /// Ticks, spacing and labels on each side of the panel where an axis is
+    /// drawn, plus an axis dendrogram's band (px): the axis titles go past them.
+    /// `bottom` is the x axis band below the panel.
+    pub axis_bands: Margins,
+    /// The sides the horizontal and vertical axes are drawn on (`position=`).
+    pub axis_sides: [AxisSides; 2],
     /// Space kept for legends on each side (see [`legend_space`]).
     pub legend_space: Margins,
-    /// Space above the panel taken by facet strips (0 without facets): a top
-    /// legend goes above it.
+    /// Space above the panel taken by facet strips (0 without facets), between
+    /// the panel and a top axis: a top legend goes above both.
     pub top_band: f64,
     /// Space right of the panel taken by `facet_grid` row strips (0 without
-    /// them): a right legend goes beyond it.
+    /// them), between the panel and a right axis: a right legend goes beyond both.
     pub right_band: f64,
     /// Dendrograms of the horizontal and vertical axes (`scale_*_dendro()`;
     /// single panels only).
@@ -346,23 +351,51 @@ fn layout_with(
     let inset = theme.plot_inset;
     let content = plot_content(area, theme, titles);
     let dendrograms = [axis_dendrogram(x_scale), axis_dendrogram(y_scale)];
-    let tree_band = |index: usize, side: DendrogramSide| {
-        dendrogram::band(
+    let axis_sides = [x_scale.sides(), y_scale.sides()];
+    let tree_band = |index: usize, secondary: bool| {
+        dendrogram::side_band(
             dendrograms[index].as_deref(),
-            side,
+            axis_sides[index],
+            secondary,
             dendrogram::gap(theme, index == 0),
         )
     };
-    let top_band = tree_band(0, DendrogramSide::Opposite);
-    let right_band = tree_band(1, DendrogramSide::Opposite);
+    let shown = |sides: AxisSides, secondary: bool, band: f64| {
+        if (secondary && sides.secondary) || (!secondary && sides.primary) {
+            band
+        } else {
+            0.0
+        }
+    };
+    let [x_sides, y_sides] = axis_sides;
+    let (x_title_top, x_title_bottom) = split_title(
+        x_sides,
+        axis_title_band(theme.axis_title_x, &titles.x, x_title_margin(theme), 0.0),
+    );
+    let (y_title_right, y_title_left) = split_title(
+        y_sides,
+        axis_title_band(
+            theme.axis_title_y,
+            &titles.y,
+            theme.axis_title_spacing + y_title_margin(theme),
+            90.0,
+        ),
+    );
 
-    let top = content.y + headings_band(theme, titles) + legend_space.top + inset.top + top_band;
-    let x_axis_band = x_axis_band(labels_height, theme) + tree_band(0, DendrogramSide::Axis);
+    let x_band = x_axis_band(labels_height, theme);
+    let top_axis = shown(x_sides, true, x_band) + tree_band(0, true);
+    let bottom_axis = shown(x_sides, false, x_band) + tree_band(0, false);
+    let top = content.y
+        + headings_band(theme, titles)
+        + legend_space.top
+        + x_title_top
+        + inset.top
+        + top_axis;
     let bottom = content.y + content.height
         - legend_space.bottom
-        - axis_title_band(theme.axis_title_x, &titles.x, x_title_margin(theme), 0.0)
+        - x_title_bottom
         - inset.bottom
-        - x_axis_band;
+        - bottom_axis;
     let panel_height = (bottom - top).max(panel_min_size);
 
     let y_breaks = choose_breaks(
@@ -379,20 +412,17 @@ fn layout_with(
         content.width * AXIS_LABELS_MAX_SHARE,
         theme,
     );
-    let y_axis_width = y_axis_width(&y_breaks, theme) + tree_band(1, DendrogramSide::Axis);
-    let left = content.x
-        + legend_space.left
-        + axis_title_band(
-            theme.axis_title_y,
-            &titles.y,
-            theme.axis_title_spacing + y_title_margin(theme),
-            90.0,
-        )
-        + inset.left
-        + y_axis_width;
-    let panel_width =
-        (content.x + content.width - legend_space.right - inset.right - right_band - left)
-            .max(panel_min_size);
+    let y_width = y_axis_width(&y_breaks, theme);
+    let left_axis = shown(y_sides, false, y_width) + tree_band(1, false);
+    let right_axis = shown(y_sides, true, y_width) + tree_band(1, true);
+    let left = content.x + legend_space.left + y_title_left + inset.left + left_axis;
+    let panel_width = (content.x + content.width
+        - legend_space.right
+        - y_title_right
+        - inset.right
+        - right_axis
+        - left)
+        .max(panel_min_size);
 
     // lets-plot lets x labels reach over the y axis on the left (geom area insets).
     let x_breaks = x_breaks.unwrap_or_else(|| {
@@ -401,7 +431,10 @@ fn layout_with(
             panel_width,
             Orientation::Horizontal,
             theme.axis_text_x,
-            (y_axis_width.max(LABELS_OVERFLOW), LABELS_OVERFLOW),
+            (
+                left_axis.max(LABELS_OVERFLOW),
+                shown(y_sides, true, y_width).max(LABELS_OVERFLOW),
+            ),
         )
     });
     PlotLayout {
@@ -414,11 +447,26 @@ fn layout_with(
         },
         x_breaks,
         y_breaks,
-        x_axis_band,
+        axis_bands: Margins {
+            top: top_axis,
+            right: right_axis,
+            bottom: bottom_axis,
+            left: left_axis,
+        },
+        axis_sides,
         legend_space,
-        top_band,
-        right_band,
+        top_band: 0.0,
+        right_band: 0.0,
         dendrograms,
+    }
+}
+
+/// An axis title band on the (secondary, primary) side of an axis of `sides`.
+fn split_title(sides: AxisSides, band: f64) -> (f64, f64) {
+    if title_on_secondary(sides) {
+        (band, 0.0)
+    } else {
+        (0.0, band)
     }
 }
 
@@ -527,22 +575,48 @@ pub fn legend_origin(
         content.x,
         content.width,
     );
+    // The title bands of the x (0) and y (1) axes on their secondary / primary side.
+    let title_band = |index: usize| {
+        if index == 0 {
+            axis_title_band(theme.axis_title_x, &titles.x, x_title_margin(theme), 0.0)
+        } else {
+            axis_title_band(
+                theme.axis_title_y,
+                &titles.y,
+                theme.axis_title_spacing + y_title_margin(theme),
+                90.0,
+            )
+        }
+    };
+    let secondary_title = |index: usize| split_title(layout.axis_sides[index], title_band(index)).0;
+    let primary_title = |index: usize| split_title(layout.axis_sides[index], title_band(index)).1;
     match theme.legend_position {
         LegendPosition::Right | LegendPosition::None => (
-            panel.x + panel.width + layout.right_band + inset.right + spacing,
+            panel.x
+                + panel.width
+                + layout.right_band
+                + layout.axis_bands.right
+                + inset.right
+                + secondary_title(1)
+                + spacing,
             along_y,
         ),
         LegendPosition::Left => (layout.content.x, along_y),
         LegendPosition::Top => (
             along_x,
-            panel.y - layout.top_band - layout.legend_space.top - inset.top,
+            panel.y
+                - layout.top_band
+                - layout.axis_bands.top
+                - inset.top
+                - secondary_title(0)
+                - layout.legend_space.top,
         ),
         LegendPosition::Bottom => (
             along_x,
             panel.y
                 + panel.height
-                + layout.x_axis_band
-                + axis_title_band(theme.axis_title_x, &titles.x, x_title_margin(theme), 0.0)
+                + layout.axis_bands.bottom
+                + primary_title(0)
                 + inset.bottom
                 + spacing,
         ),
@@ -958,132 +1032,50 @@ pub fn draw_axes_and_titles(
     titles: &Titles,
     mapper: &Panel,
 ) -> Vec<Node> {
-    let mut nodes = draw_axes(layout, theme, mapper, (true, true));
+    let mut nodes = draw_axes(layout, theme, mapper, layout.axis_sides);
     nodes.push(draw_titles(layout, theme, titles));
     nodes
 }
 
-/// The x and y axes of a panel (lines, ticks, labels), each only when `shown`
-/// (`(x, y)`): facet panels inside the grid draw none.
+/// The x and y axes of a panel (lines, ticks, labels) on the sides `shown`
+/// (horizontal, vertical): facet panels inside the grid draw none.
 pub fn draw_axes(
     layout: &PlotLayout,
     theme: &Theme,
     mapper: &Panel,
-    (show_x, show_y): (bool, bool),
+    shown: [AxisSides; 2],
 ) -> Vec<Node> {
     let panel = layout.panel;
-    let bottom = panel.y + panel.height;
     let mut axis_x = Vec::new();
-    if let Some(line) = theme.axis_line_x {
-        axis_x.push(axis_line_node(panel, line, true));
-    }
-    let x_label_top = bottom + x_tick_band(theme) + theme.axis_text_spacing.0;
-    let x_rotated = match (theme.axis_text_x, &layout.x_breaks.arrangement) {
-        (Some(text), LabelArrangement::Rotated) => {
-            rotated::bottom(&label_sizes(&layout.x_breaks.labels, text), text).0
-        }
-        _ => Vec::new(),
-    };
-    for (index, (value, label)) in layout
-        .x_breaks
-        .values
-        .iter()
-        .zip(&layout.x_breaks.labels)
-        .enumerate()
-    {
-        let x = mapper.x_pixel(*value);
-        if let Some(tick) = theme.axis_ticks_x {
-            axis_x.push(segment(
-                (x, bottom),
-                (x, bottom + theme.axis_ticks_length.0),
-                tick,
-            ));
-        }
-        if let Some(text) = theme.axis_text_x {
-            axis_x.push(match x_rotated.get(index) {
-                Some(placement) => placed_label_node(label, text, (x, x_label_top), placement),
-                None => x_label_node(
-                    label,
-                    text,
-                    index,
-                    x,
-                    x_label_top,
-                    &layout.x_breaks.arrangement,
-                ),
-            });
-        }
-    }
-    // Minor ticks at the minor grid positions inside the panel (lets-plot draws
-    // them after the major ticks and labels).
-    if let Some(tick) = theme.axis_minor_ticks_x {
-        for value in minor_breaks(&layout.x_breaks.values) {
-            let x = mapper.x_pixel(value);
-            if x >= panel.x && x <= panel.x + panel.width {
-                axis_x.push(segment(
-                    (x, bottom),
-                    (x, bottom + theme.axis_minor_ticks_length.0),
-                    tick,
-                ));
-            }
-        }
+    for side in screen_sides(shown[0], true) {
+        let edge = AxisEdge::of(layout, side);
+        axis_x.extend(axis_side_nodes(
+            edge,
+            layout,
+            &layout.x_breaks,
+            theme,
+            &|value| mapper.x_pixel(value),
+            (panel.x, panel.x + panel.width),
+        ));
     }
     let mut axis_y = Vec::new();
-    if let Some(line) = theme.axis_line_y {
-        axis_y.push(axis_line_node(panel, line, false));
-    }
-    let y_label_right = panel.x - y_tick_band(theme) - theme.axis_text_spacing.1;
-    let y_rotated = match theme.axis_text_y {
-        Some(text) if rotated::rotates(text) => {
-            rotated::left(&label_sizes(&layout.y_breaks.labels, text), text).0
-        }
-        _ => Vec::new(),
-    };
-    for (index, (value, label)) in layout
-        .y_breaks
-        .values
-        .iter()
-        .zip(&layout.y_breaks.labels)
-        .enumerate()
-    {
-        let y = mapper.y_pixel(*value);
-        if let Some(tick) = theme.axis_ticks_y {
-            axis_y.push(segment(
-                (panel.x - theme.axis_ticks_length.1, y),
-                (panel.x, y),
-                tick,
-            ));
-        }
-        if let Some(text) = theme.axis_text_y {
-            axis_y.push(match y_rotated.get(index) {
-                Some(placement) => placed_label_node(label, text, (y_label_right, y), placement),
-                None => label_node(label, text, (y_label_right, y), HorizontalAlign::End, 0.0),
-            });
-        }
-    }
-    if let Some(tick) = theme.axis_minor_ticks_y {
-        for value in minor_breaks(&layout.y_breaks.values) {
-            let y = mapper.y_pixel(value);
-            if y >= panel.y && y <= panel.y + panel.height {
-                axis_y.push(segment(
-                    (panel.x - theme.axis_minor_ticks_length.1, y),
-                    (panel.x, y),
-                    tick,
-                ));
-            }
-        }
+    for side in screen_sides(shown[1], false) {
+        let edge = AxisEdge::of(layout, side);
+        axis_y.extend(axis_side_nodes(
+            edge,
+            layout,
+            &layout.y_breaks,
+            theme,
+            &|value| mapper.y_pixel(value),
+            (panel.y, panel.y + panel.height),
+        ));
     }
     let [x_tree, y_tree] = &layout.dendrograms;
     let mut trees = Vec::new();
-    if let Some(tree) = x_tree.as_ref().filter(|_| show_x) {
+    let any = |sides: AxisSides| sides.primary || sides.secondary;
+    if let Some(tree) = x_tree.as_ref().filter(|_| any(shown[0])) {
         let levels = discrete_levels(mapper.x_scale);
-        let gap = dendrogram::gap(theme, true);
-        let (baseline, growth) = match tree.side {
-            DendrogramSide::Axis => (
-                bottom + layout.x_axis_band - tree.space.max(0.0),
-                dendrogram::Growth::Vertical(1.0),
-            ),
-            DendrogramSide::Opposite => (panel.y - gap, dendrogram::Growth::Vertical(-1.0)),
-        };
+        let (baseline, growth) = tree_baseline(layout, tree, true);
         let pixel = |value: f64| mapper.x_pixel(value);
         let line = theme.axis_ticks_x;
         let paths = dendrogram::draw(tree, &levels, &pixel, baseline, growth, line);
@@ -1095,19 +1087,9 @@ pub fn draw_axes(
             line,
         ));
     }
-    if let Some(tree) = y_tree.as_ref().filter(|_| show_y) {
+    if let Some(tree) = y_tree.as_ref().filter(|_| any(shown[1])) {
         let levels = discrete_levels(mapper.y_scale);
-        let gap = dendrogram::gap(theme, false);
-        let (baseline, growth) = match tree.side {
-            DendrogramSide::Axis => (
-                panel.x - y_axis_width(&layout.y_breaks, theme) - gap,
-                dendrogram::Growth::Horizontal(-1.0),
-            ),
-            DendrogramSide::Opposite => (
-                panel.x + panel.width + gap,
-                dendrogram::Growth::Horizontal(1.0),
-            ),
-        };
+        let (baseline, growth) = tree_baseline(layout, tree, false);
         let pixel = |value: f64| mapper.y_pixel(value);
         let line = theme.axis_ticks_y;
         let paths = dendrogram::draw(tree, &levels, &pixel, baseline, growth, line);
@@ -1120,14 +1102,82 @@ pub fn draw_axes(
         ));
     }
     let mut nodes = Vec::new();
-    if show_x {
+    if any(shown[0]) {
         nodes.push(role_group("axis-x", axis_x));
     }
-    if show_y {
+    if any(shown[1]) {
         nodes.push(role_group("axis-y", axis_y));
     }
     nodes.extend(trees.into_iter().flatten());
     nodes
+}
+
+/// One side of an axis: its line, then per break its tick and label, then the
+/// minor ticks inside `span` (the panel along the axis; lets-plot draws them
+/// after the major ticks and labels). `pixel` maps a break to a pixel along the axis.
+pub(crate) fn axis_side_nodes(
+    edge: AxisEdge,
+    layout: &PlotLayout,
+    breaks: &AxisBreaks,
+    theme: &Theme,
+    pixel: &dyn Fn(f64) -> f64,
+    span: (f64, f64),
+) -> Vec<Node> {
+    let mut nodes = Vec::new();
+    let line = if edge.side.is_horizontal() {
+        theme.axis_line_x
+    } else {
+        theme.axis_line_y
+    };
+    if let Some(line) = line {
+        nodes.push(edge.line(layout, line));
+    }
+    let placer = LabelPlacer::new(edge, breaks, theme);
+    let tick = edge.major_tick(theme);
+    for (index, (value, label)) in breaks.values.iter().zip(&breaks.labels).enumerate() {
+        let along = pixel(*value);
+        if let Some((line, length)) = tick {
+            nodes.push(edge.tick(along, length, line));
+        }
+        if let Some(placer) = &placer {
+            nodes.push(placer.node(label, index, along));
+        }
+    }
+    if let Some((line, length)) = edge.minor_tick(theme) {
+        for value in minor_breaks(&breaks.values) {
+            let along = pixel(value);
+            if along >= span.0 && along <= span.1 {
+                nodes.push(edge.tick(along, length, line));
+            }
+        }
+    }
+    nodes
+}
+
+/// Where the leaves of an axis tree sit and which way it grows: outermost in its
+/// side's axis band.
+fn tree_baseline(
+    layout: &PlotLayout,
+    tree: &dendrogram::AxisDendrogram,
+    horizontal: bool,
+) -> (f64, dendrogram::Growth) {
+    let index = usize::from(!horizontal);
+    let side = Side::of(horizontal, tree.on_secondary(layout.axis_sides[index]));
+    let band = match side {
+        Side::Bottom => layout.axis_bands.bottom,
+        Side::Top => layout.axis_bands.top,
+        Side::Left => layout.axis_bands.left,
+        Side::Right => layout.axis_bands.right,
+    };
+    let edge = AxisEdge::of(layout, side);
+    let outward = side.outward();
+    let baseline = edge.base + outward * (band - tree.space.max(0.0));
+    let growth = if horizontal {
+        dendrogram::Growth::Vertical(outward)
+    } else {
+        dendrogram::Growth::Horizontal(outward)
+    };
+    (baseline, growth)
 }
 
 /// Categories of a discrete axis in axis order (empty for a continuous one).
@@ -1149,11 +1199,20 @@ pub fn draw_titles(layout: &PlotLayout, theme: &Theme, titles: &Titles) -> Node 
         // Below the x axis, not at the plot edge: they differ only when the panel is
         // at its minimum size and the axis runs past the plot (lets-plot does the same).
         let (along, across) = axis_title_extent(style, title, 0.0);
-        let y = bottom
-            + layout.x_axis_band
-            + theme.plot_inset.bottom
-            + theme.axis_title_x_margin.top
-            + across / 2.0;
+        let y = if title_on_secondary(layout.axis_sides[0]) {
+            panel.y
+                - layout.top_band
+                - layout.axis_bands.top
+                - theme.plot_inset.top
+                - theme.axis_title_x_margin.bottom
+                - across / 2.0
+        } else {
+            bottom
+                + layout.axis_bands.bottom
+                + theme.plot_inset.bottom
+                + theme.axis_title_x_margin.top
+                + across / 2.0
+        };
         let x = justified_at(
             panel.x,
             panel.width,
@@ -1182,16 +1241,19 @@ pub fn draw_titles(layout: &PlotLayout, theme: &Theme, titles: &Titles) -> Node 
         } else {
             90.0
         };
+        // lets-plot keeps the angle on the right (ggplot2 turns it to -90).
+        let x = if title_on_secondary(layout.axis_sides[1]) {
+            content.x + content.width
+                - layout.legend_space.right
+                - theme.axis_title_y_margin.right
+                - across / 2.0
+        } else {
+            content.x + layout.legend_space.left + theme.axis_title_y_margin.left + across / 2.0
+        };
         titles_nodes.push(text_node(
             title,
             style,
-            (
-                content.x
-                    + layout.legend_space.left
-                    + theme.axis_title_y_margin.left
-                    + across / 2.0,
-                panel.y + panel.height - centre,
-            ),
+            (x, panel.y + panel.height - centre),
             HorizontalAlign::Middle,
             angle,
         ));
@@ -1538,12 +1600,20 @@ pub fn shrink(rect: Rect, margins: Margins) -> Rect {
 /// left) over `line.extent` of the panel, with its arrow heads in pixels. A plain
 /// y line keeps lets-plot's top-to-bottom order; with heads it runs from the
 /// origin, so `ends="last"` points right and up (ggplot2).
-pub(crate) fn axis_line_node(panel: Rect, line: AxisLine, horizontal: bool) -> Node {
-    let origin = (panel.x, panel.y + panel.height);
+///
+/// The line runs along `side` at `base` (the pixel across the axis, see
+/// [`AxisEdge`]): a top or right line starts above or right of the origin.
+pub(crate) fn axis_line_node(panel: Rect, line: AxisLine, side: Side, base: f64) -> Node {
+    let horizontal = side.is_horizontal();
+    let origin = if horizontal {
+        (panel.x, base)
+    } else {
+        (base, panel.y + panel.height)
+    };
     let end = if horizontal {
         (panel.x + panel.width * line.extent, origin.1)
     } else {
-        (panel.x, origin.1 - panel.height * line.extent)
+        (origin.0, origin.1 - panel.height * line.extent)
     };
     let Some(arrow) = line.arrow else {
         return if horizontal {
@@ -1714,12 +1784,12 @@ mod tests {
         };
         // x: from the bottom-left corner a quarter of the width to the right; the
         // head's tip is at the end and the line stops one line width short of it.
-        let x = paths(axis_line_node(panel, line, true));
+        let x = paths(axis_line_node(panel, line, Side::Bottom, 120.0));
         assert_eq!(x.len(), 2);
         assert_eq!(x[0], vec![(10.0, 120.0), (59.0, 120.0)]);
         assert_eq!(x[1][1], (60.0, 120.0));
         // y: a quarter of the height up; heads are 8 px whatever the panel size.
-        let y = paths(axis_line_node(panel, line, false));
+        let y = paths(axis_line_node(panel, line, Side::Left, 10.0));
         assert_eq!(y[0], vec![(10.0, 120.0), (10.0, 96.0)]);
         assert_eq!(y[1][1], (10.0, 95.0));
         let barb = y[1][0];
@@ -1730,7 +1800,7 @@ mod tests {
             extent: 1.0,
             ..line
         };
-        match axis_line_node(panel, plain, false) {
+        match axis_line_node(panel, plain, Side::Left, 10.0) {
             Node::Path(path) => assert_eq!(path.points, vec![(10.0, 20.0), (10.0, 120.0)]),
             other => panic!("expected a path, got {other:?}"),
         }

@@ -20,11 +20,24 @@ use crate::theme::{Dash, LineStyle, Theme};
 /// Where the tree goes relative to the panel.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum DendrogramSide {
-    /// With the axis (left of y labels, below x labels).
+    /// With the axis, past its labels (left of y labels, below x labels; right or
+    /// above them for an axis at `position="right"` / `"top"`; the primary side
+    /// for `"both"`).
     #[default]
     Axis,
-    /// Across the panel (right for y, top for x).
+    /// Across the panel from the axis (right for y, top for x by default).
     Opposite,
+}
+
+impl AxisDendrogram {
+    /// Whether the tree goes on the secondary side (right, top) of an axis drawn
+    /// on `sides`.
+    pub fn on_secondary(&self, sides: crate::scale::AxisSides) -> bool {
+        match self.side {
+            DendrogramSide::Axis => !sides.primary,
+            DendrogramSide::Opposite => sides.primary,
+        }
+    }
 }
 
 /// A tree drawn beside a discrete axis.
@@ -53,11 +66,17 @@ fn default_line() -> LineStyle {
     }
 }
 
-/// The band (px) a dendrogram takes on `side`: the gap to the axis labels (or the
-/// panel) plus the tree. 0 without one there.
-pub fn band(dendrogram: Option<&AxisDendrogram>, side: DendrogramSide, gap: f64) -> f64 {
+/// The band (px) a dendrogram takes on the `secondary` (or primary) side of an
+/// axis drawn on `sides`: the gap to the axis labels (or the panel) plus the tree.
+/// 0 without one there.
+pub fn side_band(
+    dendrogram: Option<&AxisDendrogram>,
+    sides: crate::scale::AxisSides,
+    secondary: bool,
+    gap: f64,
+) -> f64 {
     dendrogram
-        .filter(|dendrogram| dendrogram.side == side && dendrogram.space > 0.0)
+        .filter(|dendrogram| dendrogram.on_secondary(sides) == secondary && dendrogram.space > 0.0)
         .map_or(0.0, |dendrogram| gap + dendrogram.space)
 }
 

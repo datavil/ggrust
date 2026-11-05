@@ -687,6 +687,43 @@ def repel_cluster_labels(m):
     )
 
 
+def axis_positions(m):
+    # Plan 9.3: x on both sides, y on the right (titles follow lets-plot).
+    frame = pl.DataFrame(
+        {"month": list(range(1, 13)), "rain": [78, 56, 61, 52, 59, 64, 55, 62, 66, 81, 88, 85]}
+    )
+    return (
+        m.ggplot(frame, m.aes("month", "rain"))
+        + m.geom_line()
+        + m.geom_point()
+        + m.scale_x_continuous("Month", breaks=list(range(1, 13)), position="both")
+        + m.scale_y_continuous("Rain (mm)", position="right")
+        + m.theme(axis_line=m.element_line(), axis_ticks=m.element_line())
+        + m.ggsize(500, 320)
+    )
+
+
+def axis_positions_facets(m):
+    # Top and right axes on the outer panels, past the strips (ggplot2; lets-plot
+    # draws them on every panel, over the strips and the neighbouring panels).
+    frame = pl.DataFrame(
+        {
+            "hour": [6, 9, 12, 15, 18, 6, 9, 12, 15, 18, 6, 9, 12, 15, 18, 6, 9, 12, 15, 18],
+            "riders": [12, 40, 25, 30, 44, 10, 35, 22, 28, 39, 3, 9, 20, 24, 15, 4, 8, 18, 22, 13],
+            "line": ["bus"] * 5 + ["tram"] * 5 + ["bus"] * 5 + ["tram"] * 5,
+            "day": ["weekday"] * 10 + ["weekend"] * 10,
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("hour", "riders"))
+        + m.geom_point()
+        + m.facet_grid(x="line", y="day")
+        + m.scale_x_continuous(position="top")
+        + m.scale_y_continuous(position="right")
+        + m.ggsize(560, 400)
+    )
+
+
 CASES = {
     case.__name__: case
     for case in [
@@ -728,5 +765,7 @@ CASES = {
         grid_sales_dashboard,
         repel_fruit_prices,
         repel_cluster_labels,
+        axis_positions,
+        axis_positions_facets,
     ]
 }

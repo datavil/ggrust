@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from ggrust._typing import (
+        AxisPosition,
         Breaks,
         Color,
         Guide,
@@ -25,7 +26,6 @@ if TYPE_CHECKING:
         Limits,
         Number,
         Oob,
-        Position,
         Transform,
     )
 
@@ -54,6 +54,46 @@ __all__ = [
 
 
 _OOB_NAMES = ("censor", "squish")
+_AXIS_POSITIONS: dict[str, tuple[str, ...]] = {
+    "x": ("bottom", "top", "both"),
+    "y": ("left", "right", "both"),
+}
+
+
+def _check_position(aesthetic: str | Sequence[str], position: object) -> None:
+    """Check ``position=`` of an x or y scale against the sides of its axis.
+
+    Raises
+    ------
+    SpecError
+        If ``position`` names a side the axis does not have (``"left"`` for x).
+    UnsupportedValueError
+        If ``position`` is not a string.
+    """
+    if position is None:
+        return
+    axes = [aesthetic] if isinstance(aesthetic, str) else list(aesthetic)
+    for axis in axes:
+        accepted = _AXIS_POSITIONS.get(axis)
+        if accepted is None:
+            continue
+        if not isinstance(position, str):
+            reason = (
+                f"expected a side name, got {type(position).__name__}; "
+                f"use one of {', '.join(repr(name) for name in accepted)}"
+            )
+            raise UnsupportedValueError(
+                f"scale_{axis}_*(position={position!r}): {reason}", path="position", reason=reason
+            )
+        if position not in accepted:
+            names = ", ".join(repr(name) for name in accepted)
+            reason = (
+                f"unknown position for a {axis} axis; use one of {names}"
+                f"{did_you_mean(position, accepted)}"
+            )
+            raise SpecError(
+                f"scale_{axis}_*(position={position!r}): {reason}", path="position", reason=reason
+            )
 
 
 def _scale(
@@ -69,7 +109,7 @@ def _scale(
     trans: Transform | None = None,
     guide: Guide | None = None,
     format: str | None = None,
-    position: Position | None = None,
+    position: AxisPosition | None = None,
     oob: Oob | None = None,
     **kwargs: Any,
 ) -> FeatureSpec:
@@ -80,10 +120,12 @@ def _scale(
     Raises
     ------
     SpecError
-        If ``oob`` is not ``"censor"`` or ``"squish"``.
+        If ``oob`` is not ``"censor"`` or ``"squish"``, or ``position`` is not a
+        side of the scale's axis.
     UnsupportedValueError
-        If ``oob`` is not a string.
+        If ``oob`` or ``position`` is not a string.
     """
+    _check_position(aesthetic, position)
     if oob is not None and not isinstance(oob, str):
         reason = f"expected an oob name, got {type(oob).__name__}; use 'censor' or 'squish'"
         raise UnsupportedValueError(f"scale_*(oob={oob!r}): {reason}", path="oob", reason=reason)
@@ -138,7 +180,7 @@ def scale_x_continuous(
     na_value: Color | Number | None = None,
     trans: Transform | None = None,
     format: str | None = None,
-    position: Position | None = None,
+    position: AxisPosition | None = None,
 ) -> FeatureSpec:
     """Continuous position scale x.
 
@@ -154,8 +196,11 @@ def scale_x_continuous(
     format : str, optional
         Label format: a number format (``".2f"``, ``","``, ``"e"``, ``"%"``) or a
         template (``"{.1f} %"``, ``"{d} cells"``). ``labels`` take precedence.
-    break_width, lablim, na_value, position
+    break_width, lablim, na_value
         As in lets-plot; not drawn yet (ggrust warns).
+    position : {'bottom', 'top', 'both'}, default='bottom'
+        Side of the panel the axis (ticks, labels, title) is drawn on;
+        ``'both'`` draws ticks and labels on both sides, the title at the bottom.
     limits : list, optional
         ``[low, high]`` in data units; ``None`` leaves a side free.
     expand : list, optional
@@ -203,7 +248,7 @@ def scale_y_continuous(
     na_value: Color | Number | None = None,
     trans: Transform | None = None,
     format: str | None = None,
-    position: Position | None = None,
+    position: AxisPosition | None = None,
 ) -> FeatureSpec:
     """Continuous position scale y. See ``scale_x_continuous``.
 
@@ -213,8 +258,11 @@ def scale_y_continuous(
         Axis title (``labs(x=...)`` takes precedence).
     breaks : list of float, optional
         Fixed break positions in data units; breaks outside the axis are dropped.
-    break_width, lablim, na_value, position
+    break_width, lablim, na_value
         As in lets-plot; not drawn yet (ggrust warns).
+    position : {'left', 'right', 'both'}, default='left'
+        Side of the panel the axis (ticks, labels, title) is drawn on;
+        ``'both'`` draws ticks and labels on both sides, the title on the left.
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels). Ignored without
         ``breaks``, as in lets-plot.
@@ -268,7 +316,7 @@ def _transformed(scale: FunctionType, trans: Transform) -> Callable[..., Feature
         expand: Sequence[Number] | None = None,
         na_value: Color | Number | None = None,
         format: str | None = None,
-        position: Position | None = None,
+        position: AxisPosition | None = None,
     ) -> FeatureSpec:
         return scale(
             name,
@@ -320,7 +368,7 @@ def scale_x_datetime(
     expand: Sequence[Number] | None = None,
     na_value: Color | Number | None = None,
     format: str | None = None,
-    position: Position | None = None,
+    position: AxisPosition | None = None,
 ) -> FeatureSpec:
     """Date-time position scale x.
 
@@ -351,8 +399,11 @@ def scale_x_datetime(
     expand : list, optional
         ``[multiplicative]`` or ``[multiplicative, additive]`` expansion; the
         additive part is in milliseconds.
-    lablim, na_value, position
+    lablim, na_value
         As in lets-plot; not drawn yet (ggrust warns).
+    position : {'bottom', 'top', 'both'}, default='bottom'
+        Side of the panel the axis (ticks, labels, title) is drawn on;
+        ``'both'`` draws ticks and labels on both sides, the title at the bottom.
 
     Returns
     -------
@@ -398,7 +449,7 @@ def scale_y_datetime(
     expand: Sequence[Number] | None = None,
     na_value: Color | Number | None = None,
     format: str | None = None,
-    position: Position | None = None,
+    position: AxisPosition | None = None,
 ) -> FeatureSpec:
     """Date-time position scale y. See ``scale_x_datetime``.
 
@@ -444,7 +495,7 @@ def scale_x_time(
     limits: Limits | None = None,
     expand: Sequence[Number] | None = None,
     na_value: Color | Number | None = None,
-    position: Position | None = None,
+    position: AxisPosition | None = None,
 ) -> FeatureSpec:
     """Duration position scale x.
 
@@ -469,8 +520,11 @@ def scale_x_time(
     expand : list, optional
         ``[multiplicative]`` or ``[multiplicative, additive]`` expansion; the
         additive part is in milliseconds.
-    lablim, na_value, position
+    lablim, na_value
         As in lets-plot; not drawn yet (ggrust warns).
+    position : {'bottom', 'top', 'both'}, default='bottom'
+        Side of the panel the axis (ticks, labels, title) is drawn on;
+        ``'both'`` draws ticks and labels on both sides, the title at the bottom.
 
     Returns
     -------
@@ -509,7 +563,7 @@ def scale_y_time(
     limits: Limits | None = None,
     expand: Sequence[Number] | None = None,
     na_value: Color | Number | None = None,
-    position: Position | None = None,
+    position: AxisPosition | None = None,
 ) -> FeatureSpec:
     """Duration position scale y. See ``scale_x_time``.
 
@@ -562,7 +616,7 @@ def scale_x_discrete(
     na_value: Color | Number | None = None,
     reverse: bool | None = None,
     format: str | None = None,
-    position: Position | None = None,
+    position: AxisPosition | None = None,
 ) -> FeatureSpec:
     """Discrete position scale x.
 
@@ -577,8 +631,11 @@ def scale_x_discrete(
         ones are empty. A dict maps categories to labels.
     format : str, optional
         Label template, e.g. ``"<{}>"``. ``labels`` take precedence.
-    lablim, na_value, position
+    lablim, na_value
         As in lets-plot; not drawn yet (ggrust warns).
+    position : {'bottom', 'top', 'both'}, default='bottom'
+        Side of the panel the axis (ticks, labels, title) is drawn on;
+        ``'both'`` draws ticks and labels on both sides, the title at the bottom.
     limits : list of str, optional
         The categories to show, in axis order; other categories are dropped.
     expand : list, optional
@@ -628,7 +685,7 @@ def scale_y_discrete(
     na_value: Color | Number | None = None,
     reverse: bool | None = None,
     format: str | None = None,
-    position: Position | None = None,
+    position: AxisPosition | None = None,
 ) -> FeatureSpec:
     """Discrete position scale y. See ``scale_x_discrete``.
 
@@ -641,8 +698,11 @@ def scale_y_discrete(
     labels : list of str or dict, optional
         Labels aligned with ``breaks`` (or the categories in axis order); missing
         ones are empty. A dict maps categories to labels.
-    lablim, na_value, position
+    lablim, na_value
         As in lets-plot; not drawn yet (ggrust warns).
+    position : {'left', 'right', 'both'}, default='left'
+        Side of the panel the axis (ticks, labels, title) is drawn on;
+        ``'both'`` draws ticks and labels on both sides, the title on the left.
     limits : list of str, optional
         The categories to show, in axis order; other categories are dropped.
     expand : list, optional
@@ -694,7 +754,7 @@ def _discrete_reversed(scale: FunctionType) -> Callable[..., FeatureSpec]:
         expand: Sequence[Number] | None = None,
         na_value: Color | Number | None = None,
         format: str | None = None,
-        position: Position | None = None,
+        position: AxisPosition | None = None,
     ) -> FeatureSpec:
         return scale(
             name,

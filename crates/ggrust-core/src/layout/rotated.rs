@@ -7,7 +7,7 @@
 //! from an anchor point with text alignments chosen so that, for example,
 //! `angle=45` labels end at their tick.
 //!
-//! What it does not do: top or right axes (ggrust draws none yet).
+//! Top and right axes reuse these placements, mirrored by `super::side`.
 
 use crate::scene::{HorizontalAlign, VerticalAlign};
 use crate::theme::TextStyle;

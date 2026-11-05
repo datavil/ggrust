@@ -75,6 +75,14 @@ pub struct Tile {
     pub has_y_axis: bool,
     /// The last panel of its grid column.
     pub is_bottom: bool,
+    /// Whether the panel draws a top x axis when the scale asks for one (the first
+    /// row, or free x).
+    pub has_top_axis: bool,
+    /// Whether the panel draws a right y axis when the scale asks for one (the
+    /// last panel of its row, or free y).
+    pub has_right_axis: bool,
+    /// The last panel of its grid row.
+    pub is_row_end: bool,
     /// Level index per faceting column.
     levels: Vec<usize>,
 }
@@ -213,6 +221,12 @@ impl Facets {
                     (row + 1) * columns + column
                 };
                 let is_bottom = (row + 1) % rows == 0 || next >= count;
+                let next_in_row = if vertical {
+                    (column + 1) * rows + row
+                } else {
+                    index + 1
+                };
+                let is_row_end = column + 1 == columns || next_in_row >= count;
                 let labels = combination
                     .iter()
                     .enumerate()
@@ -235,6 +249,9 @@ impl Facets {
                     has_x_axis: is_bottom || free.0,
                     has_y_axis: column == 0 || free.1,
                     is_bottom,
+                    has_top_axis: row == 0 || free.0,
+                    has_right_axis: is_row_end || free.1,
+                    is_row_end,
                     levels: combination,
                 }
             })
@@ -325,6 +342,9 @@ impl Facets {
                     has_x_axis: row + 1 == rows,
                     has_y_axis: column == 0,
                     is_bottom: row + 1 == rows,
+                    has_top_axis: row == 0,
+                    has_right_axis: column + 1 == columns,
+                    is_row_end: column + 1 == columns,
                     levels: combination,
                 });
             }

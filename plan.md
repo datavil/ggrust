@@ -340,11 +340,20 @@ Cellestial work is on branch `ggrust-port-track-titles` (row titles only, uncomm
   the axis area under the strips is only as tall as the heatmap's one-line key labels.
   At 1800x600 they fit. Expected: the aligned axis band in a grid row is as tall as the tallest
   cell's axis text, so no cell clips.
-- [ ] 9.3 Position scale `position=` is ignored (`GgrustWarning: at 'scales[0].position': not supported yet; ignored`).
+- [x] 9.3 Position scale `position=` is ignored (`GgrustWarning: at 'scales[0].position': not supported yet; ignored`).
   Repro: `ggplot(f) + geom_tile(aes("x", "y", fill="v")) + scale_y_continuous(breaks=[0], labels=["track"], position="right")`.
   Cellestial needs it to title column tracks on the right; with the label on the left, `align=True`
   widens the heatmap column's left axis and pushes the heatmap away from the row tracks.
   Expected: `"left"`/`"right"` for y and `"top"`/`"bottom"` for x move the axis (ticks, labels, title), as lets-plot and ggplot2.
+  (`AxisSides` on every position scale (so `coord_flip` moves the side with its scale), parsed per
+  aesthetic with did-you-mean errors (Python checks first); `layout/side.rs` draws one side of an
+  axis from its `AxisEdge` (bottom/left as before, top/right mirrored, rotated boxes mirrored as
+  lets-plot); `PlotLayout.axis_bands` per side, titles and legends past them; `"both"` keeps one title
+  on the primary side (lets-plot). Facets: outer panels only, past the strips (ggplot2, deviation row).
+  Zoom templates hold both sides (runtime placeholder replace made global). Axis dendrograms follow the
+  axis side. `gggrid(align=True)` needed no change. Tests: `tests/test_axis_position.py` (repro, flip,
+  facets, grid align, errors, headless zoom), goldens `axis_positions`, `axis_positions_facets`.
+  Reusable for exc.4: `axis_side_nodes(edge, layout, breaks, ...)` takes any breaks for a side.)
 
 - [x] 9.4 Arrow axes for cellestial's UMAP corner arrows (found reproducing Zamboni et al. 2025 Fig. 1c).
   cellestial drew them as an L `geom_path` plus `geom_segment` tips in data space: arrow size followed

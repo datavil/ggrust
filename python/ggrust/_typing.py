@@ -47,6 +47,10 @@ Transform: TypeAlias = Literal["identity", "log10", "log2", "symlog", "sqrt", "r
 Oob: TypeAlias = Literal["censor", "squish"]
 """What a continuous color scale does with values outside its limits."""
 
+AxisPosition: TypeAlias = Literal["left", "right", "top", "bottom", "both"]
+"""The side(s) of the panel a position scale draws its axis on: ``"bottom"``,
+``"top"`` or ``"both"`` for x, ``"left"``, ``"right"`` or ``"both"`` for y."""
+
 Position: TypeAlias = str | FeatureSpec
 """A position name such as ``"dodge"``, or a ``position_*()`` spec."""
 

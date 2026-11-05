@@ -55,6 +55,8 @@ pub struct ContinuousPositionScale {
     /// Ranges that widen the domain even past the limits (bar width spans:
     /// lets-plot starts from the limits and joins every layer's range).
     beyond_limits: Option<(f64, f64)>,
+    /// Sides of the panel the axis is drawn on (`position=`).
+    pub sides: super::position::AxisSides,
 }
 
 impl Default for ContinuousPositionScale {
@@ -73,6 +75,7 @@ impl Default for ContinuousPositionScale {
             temporal: None,
             exponent_format: ExponentFormat::default(),
             beyond_limits: None,
+            sides: Default::default(),
         }
     }
 }

@@ -135,6 +135,7 @@ fn non_positive_marker_sizes_draw_nothing() {
         MarkerShape::Diamond,
     ] {
         let points = Node::Points(Points {
+            keys: None,
             x: vec![100.0, 50.0],
             y: vec![50.0, 50.0],
             shape: PerItem::Uniform(shape),
@@ -280,6 +281,7 @@ fn non_xml_characters_do_not_break_rendering() {
 #[test]
 fn id_prefix_with_spaces_still_clips() {
     let clipped = Node::Group(Group {
+        key: None,
         clip: Some(Rect {
             x: 0.0,
             y: 0.0,
@@ -358,6 +360,7 @@ fn interleaved_text_under_a_clip_stays_fast() {
         height: 2000.0,
         background: Some(Color::WHITE),
         nodes: vec![Node::Group(Group {
+            key: None,
             clip: Some(Rect {
                 x: 0.0,
                 y: 0.0,

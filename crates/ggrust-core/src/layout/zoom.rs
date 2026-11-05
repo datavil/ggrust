@@ -475,6 +475,7 @@ fn joined(mut nodes: Vec<Node>) -> Option<Node> {
         0 => None,
         1 => nodes.pop(),
         _ => Some(Node::Group(Group {
+            key: None,
             clip: None,
             role: None,
             anchor: None,

@@ -202,6 +202,7 @@ pub fn group(
         }
     };
     Some(Node::Group(Group {
+        key: None,
         clip: Some(clip),
         role: Some(role),
         anchor: None,

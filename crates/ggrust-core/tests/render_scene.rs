@@ -57,6 +57,7 @@ fn showcase() -> Scene {
         }));
     }
     let markers = Points {
+        keys: None,
         x: vec![100.0, 160.0, 220.0, 280.0, 340.0, 365.0, f64::NAN],
         y: vec![60.0, 120.0, 80.0, 60.0, 100.0, 100.0, 50.0],
         shape: PerItem::Varying(vec![
@@ -85,6 +86,7 @@ fn showcase() -> Scene {
         stroke_width: PerItem::Uniform(1.0),
     };
     let panel = Group {
+        key: None,
         clip: Some(PANEL),
         role: Some("panel"),
         anchor: None,
@@ -95,6 +97,7 @@ fn showcase() -> Scene {
                 stroke: None,
             }),
             Node::Group(Group {
+                key: None,
                 clip: None,
                 role: Some("grid"),
                 anchor: None,

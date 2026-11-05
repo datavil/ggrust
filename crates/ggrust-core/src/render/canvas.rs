@@ -113,6 +113,24 @@ pub(super) fn encode(points: &Points, clip_box: &ClipBox) -> Value {
         batch["style"] = Value::String(text);
         batch["style_type"] = Value::from(if wide { "u32" } else { "u16" });
     }
+    if let Some(keyed) = points
+        .keys
+        .as_ref()
+        .filter(|keyed| keyed.items.len() == points.len())
+    {
+        // Interactive legend: per drawn marker, its index into `keys` (u8).
+        let bytes: Vec<u8> = drawable(points, clip_box)
+            .map(|index| keyed.items[index])
+            .collect();
+        let mut text = String::new();
+        push_base64(&mut text, &bytes);
+        batch["key"] = Value::String(text);
+        batch["keys"] = keyed
+            .combinations
+            .iter()
+            .map(|tag| serde_json::from_str(tag).unwrap_or(Value::Null))
+            .collect();
+    }
     batch
 }
 
@@ -178,6 +196,7 @@ mod tests {
 
     fn batch(count: usize, fill: PerItem<Option<Color>>) -> Points {
         Points {
+            keys: None,
             x: (0..count).map(|index| (index % 500) as f64).collect(),
             y: (0..count).map(|index| (index / 500) as f64).collect(),
             shape: PerItem::Uniform(MarkerShape::Circle),

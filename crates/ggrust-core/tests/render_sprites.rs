@@ -46,6 +46,7 @@ fn markers(shape: MarkerShape) -> Points {
     };
     let count = 1200;
     let mut points = Points {
+        keys: None,
         x: Vec::new(),
         y: Vec::new(),
         shape: PerItem::Uniform(shape),
@@ -86,6 +87,7 @@ fn markers(shape: MarkerShape) -> Points {
 /// The same markers as batches of `chunk`, in order.
 fn chunks(points: &Points, chunk: usize) -> Vec<Node> {
     let take = |range: std::ops::Range<usize>| Points {
+        keys: None,
         x: points.x[range.clone()].to_vec(),
         y: points.y[range.clone()].to_vec(),
         shape: slice(&points.shape, range.clone()),
@@ -110,6 +112,7 @@ fn slice<T: Clone>(values: &PerItem<T>, range: std::ops::Range<usize>) -> PerIte
 fn render(nodes: Vec<Node>, clipped: bool, scale: f64) -> Pixmap {
     let nodes = if clipped {
         vec![Node::Group(Group {
+            key: None,
             clip: Some(Rect {
                 x: 40.5,
                 y: 30.25,
@@ -218,6 +221,7 @@ fn rare_geometries_are_traced() {
 #[test]
 fn large_markers_centred_off_a_tiny_canvas_are_drawn() {
     let points = Points {
+        keys: None,
         x: vec![60.0; 1000],
         y: vec![5.0; 1000],
         shape: PerItem::Uniform(MarkerShape::Circle),
@@ -248,6 +252,7 @@ fn centres_on_sprite_steps_match_traced_markers_exactly() {
         })
         .unzip();
     let points = Points {
+        keys: None,
         x,
         y,
         shape: PerItem::Uniform(MarkerShape::Cross),

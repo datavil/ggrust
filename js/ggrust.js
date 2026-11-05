@@ -15,6 +15,8 @@
 // `ggtb(layers=...)` the toolbar also hides and shows layers: see "Layer toggles".
 // Dense point batches (more than 50k markers) arrive as base64 typed arrays
 // and are stamped on a canvas inside their SVG placeholder: see "Canvas points".
+// Clicking a discrete legend key hides or shows its marks and their tooltips:
+// see "Interactive legend".
 //
 // The file is one function expression; the renderer calls it with the engine
 // version. It is inlined in a script element, so it must never contain a
@@ -137,7 +139,13 @@
 
   function candidates(layer, x, y) {
     var key = Math.floor(x / CELL) + "," + (layer.lookup === "hover_x" ? 0 : Math.floor(y / CELL));
-    return layer.cells.get(key) || [];
+    var list = layer.cells.get(key) || [];
+    return layer.hiddenKeys ? list.filter(function (i) { return !keyHidden(layer, i); }) : list;
+  }
+
+  // Whether target `i` of `layer` belongs to a legend key switched off.
+  function keyHidden(layer, i) {
+    return !!layer.hiddenKeys && layer.hiddenKeys[layer.keys.rows[layer.targets.rows[i]]];
   }
 
   function insidePolygon(ring, x, y) {
@@ -169,6 +177,7 @@
           if (t.x[vertices[middle]] < x) low = middle + 1;
           else high = middle;
         }
+        if (keyHidden(layer, vertices[0])) return; // a line is one group, so one key
         var chosen = vertices[low];
         if (low > 0 && Math.abs(t.x[vertices[low - 1]] - x) <= Math.abs(t.x[chosen] - x)) {
           chosen = vertices[low - 1];
@@ -560,6 +569,10 @@
         xy: new Float32Array(decodeBase64(batch.xy)),
         styles: batch.styles,
         style: batch.style ? new (batch.style_type === "u32" ? Uint32Array : Uint16Array)(decodeBase64(batch.style)) : null,
+        // Interactive legend: per marker, its index into `keys` (key id lists).
+        key: batch.key ? new Uint8Array(decodeBase64(batch.key)) : null,
+        keys: batch.keys || null,
+        hiddenKeys: null,
         sprites: {},
       };
       holders[i].ggrustCanvas = layer;
@@ -571,8 +584,10 @@
   // Draw the markers of `layer` through the per-axis maps `h`, `v` (unzoomed
   // pixel -> pixel), with marker geometry scaled by `k`.
   function drawCanvas(layer, h, v, k) {
+    layer.view = [h, v, k];
     var context = layer.canvas.getContext("2d");
     var ratio = layer.ratio, xy = layer.xy, style = layer.style;
+    var markerKey = layer.key, hiddenKeys = layer.hiddenKeys;
     var width = layer.canvas.width, height = layer.canvas.height;
     context.setTransform(1, 0, 0, 1, 0, 0);
     context.clearRect(0, 0, width, height);
@@ -585,6 +600,7 @@
     if (!layer.stamps || layer.stamps.length < 3 * layer.count) layer.stamps = new Int32Array(3 * layer.count);
     var stamps = layer.stamps, visible = 0;
     for (var i = 0; i < layer.count; i++) {
+      if (hiddenKeys && hiddenKeys[markerKey[i]]) continue;
       var x = hs * xy[2 * i] + ho, y = vs * xy[2 * i + 1] + vo;
       var s = style ? style[i] : 0;
       // Off-canvas markers are skipped first (zoomed pixels can pass 2^31).
@@ -1062,8 +1078,8 @@
   // with their anchor, everything else is scaled.
   function collectMarks(container, marks) {
     for (var child = container.firstElementChild; child; child = child.nextElementSibling) {
-      if (child.getAttribute("class") === "layer") {
-        collectMarks(child, marks); // one layer's marks (see "Layer toggles")
+      if (child.getAttribute("class") === "layer" || child.getAttribute("class") === "keyed") {
+        collectMarks(child, marks); // one layer's (or legend key's) marks (see "Layer toggles")
       } else if (child.getAttribute("class") === "ggrust-canvas") {
         if (child.ggrustCanvas) marks.push({ kind: "canvas", layer: child.ggrustCanvas });
       } else if (child.getAttribute("class") === "ggrust-points") {
@@ -1707,6 +1723,116 @@
     });
   }
 
+  // -- Interactive legend --
+  //
+  // Discrete legend keys (`g.legend-key`) and the marks they stand for
+  // (`g.keyed`, runs of marks of one key combination) carry `data-key`: a
+  // JSON array of key ids (legend title and label); dense canvas points carry
+  // a key index per marker instead. Clicking a key hides or
+  // shows its marks across layers, panels and plots of the figure, and their
+  // tooltips; double-clicking isolates it within its legend (again: show all).
+
+  var HIDDEN_KEY_OPACITY = "0.35";
+
+  function keyIds(element) {
+    try {
+      return JSON.parse(element.getAttribute("data-key")) || [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function applyLegend(plot) {
+    var hidden = plot.legend.hidden;
+    plot.legend.keys.forEach(function (key) {
+      key.element.style.opacity = hidden[key.id] ? HIDDEN_KEY_OPACITY : "";
+    });
+    plot.legend.marks.forEach(function (mark) {
+      mark.element.style.display = mark.ids.some(function (id) { return hidden[id]; }) ? "none" : "";
+    });
+    plot.layers.forEach(function (layer) {
+      if (!layer.keys) return;
+      var any = false;
+      var flags = layer.keys.combinations.map(function (ids) {
+        var off = ids.some(function (id) { return hidden[id]; });
+        any = any || off;
+        return off;
+      });
+      layer.hiddenKeys = any ? flags : null;
+    });
+    (plot.canvases || []).forEach(function (layer) {
+      if (!layer.key) return;
+      var flags = layer.keys.map(function (ids) {
+        return (ids || []).some(function (id) { return hidden[id]; });
+      });
+      layer.hiddenKeys = flags.some(Boolean) ? flags : null;
+      var view = layer.view;
+      if (view) drawCanvas(layer, view[0], view[1], view[2]);
+    });
+    if (plot.overlay) show(plot, null);
+  }
+
+  function attachLegend(plot) {
+    if (!plot.svg) return;
+    var keyElements = plot.svg.querySelectorAll("g.legend-key[data-key]");
+    if (!keyElements.length) return;
+    plot.legend = { hidden: {}, keys: [], marks: [] };
+    var marks = plot.svg.querySelectorAll("g.keyed[data-key]");
+    for (var m = 0; m < marks.length; m++) {
+      plot.legend.marks.push({ element: marks[m], ids: keyIds(marks[m]) });
+    }
+    var known = {};
+    plot.legend.marks.forEach(function (mark) { mark.ids.forEach(function (id) { known[id] = true; }); });
+    (plot.canvases || []).forEach(function (layer) {
+      (layer.keys || []).forEach(function (ids) { (ids || []).forEach(function (id) { known[id] = true; }); });
+    });
+    for (var k = 0; k < keyElements.length; k++) {
+      var element = keyElements[k];
+      var id = keyIds(element)[0];
+      if (id === undefined || !known[id]) continue; // no marks to hide
+      var key = { element: element, id: id, legend: id.split("\u001f")[0] };
+      plot.legend.keys.push(key);
+      element.style.cursor = "pointer";
+      // The whole key cell and its label answer clicks, not just the drawn pixels.
+      var box = null;
+      try {
+        box = element.getBBox();
+      } catch (error) {
+        box = null;
+      }
+      if (box && box.width) {
+        var hit = document.createElementNS(SVG_NS, "rect");
+        ["x", "y", "width", "height"].forEach(function (name) { hit.setAttribute(name, box[name]); });
+        hit.setAttribute("fill", "none");
+        hit.setAttribute("pointer-events", "all");
+        element.insertBefore(hit, element.firstChild);
+      }
+      element.addEventListener("click", toggleKey.bind(null, plot, key));
+      element.addEventListener("dblclick", isolateKey.bind(null, plot, key));
+      element.addEventListener("mousedown", function (event) { event.preventDefault(); }); // no text selection
+    }
+  }
+
+  function toggleKey(plot, key) {
+    var hidden = plot.legend.hidden;
+    if (hidden[key.id]) delete hidden[key.id];
+    else hidden[key.id] = true;
+    applyLegend(plot);
+  }
+
+  // The two clicks before a double-click toggled the key twice (no change).
+  function isolateKey(plot, key) {
+    var hidden = plot.legend.hidden;
+    var others = plot.legend.keys.filter(function (other) { return other.legend === key.legend && other.id !== key.id; });
+    var isolated = !hidden[key.id] && others.every(function (other) { return hidden[other.id]; });
+    delete hidden[key.id];
+    others.forEach(function (other) {
+      if (isolated) delete hidden[other.id];
+      else hidden[other.id] = true;
+    });
+    applyLegend(plot);
+  }
+
   // Attach to the plot whose root element has id `id`. Mounting twice returns
   // the same object. The plot lives on its root element, so removing the output
   // from the page frees it (no page-wide registry).
@@ -1724,6 +1850,7 @@
     attachCanvas(plot);
     attach(plot);
     attachZoom(plot);
+    attachLegend(plot);
     return plot;
   }
 

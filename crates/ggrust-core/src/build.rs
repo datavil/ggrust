@@ -18,6 +18,7 @@ use crate::data::{
 };
 use crate::facet::{Facets, LayerFacetColumns, grid_variables};
 use crate::geom::{self, DrawLayer, Geom};
+use crate::interactive_legend::{LayerLegends, RowKeys, row_keys, same_shape, tag_marks};
 use crate::layout::facet::{FacetGrid, FacetLayout, FacetPanel, draw_strips, layout_facets};
 use crate::layout::zoom::{Zoom, ZoomPlot, zoom_tile};
 use crate::layout::{
@@ -126,7 +127,7 @@ pub fn build_plot_with(spec: &PlotSpec, data: &PlotData, interactive: bool) -> R
         height,
     };
     let arrangement = plot.arrange(area, PANEL_MIN_SIZE)?;
-    let nodes = plot.draw(&arrangement)?;
+    let nodes = plot.draw(&arrangement, interactive)?;
     let scene = Scene {
         width,
         height,
@@ -685,8 +686,17 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
                 .or(first)
         })
         .collect();
-    let legends = assemble_legends(spec, &legend_layers, &style_scales, &style_specs, &palette)
-        .map_err(|error| error.with_notes(&warnings))?;
+    let mut layer_legends = vec![LayerLegends::new(); spec.layers.len()];
+    let legends = assemble_legends(
+        spec,
+        &legend_layers,
+        &style_scales,
+        &style_specs,
+        &palette,
+        &mut layer_legends,
+    )
+    .map_err(|error| error.with_notes(&warnings))?;
+    assign_row_keys(&mut prepared_tiles, &layer_legends);
     let tooltip_setups = tooltip_setups(spec, &titles, &style_specs, &orientations);
     // coord_flip: the screen axes take the other scale, title and theme elements.
     let flipped = spec
@@ -841,6 +851,7 @@ fn tooltip_setups(
 /// zoom finds a panel's pieces inside its `tile` group.
 fn tile_group(nodes: Vec<Node>) -> Node {
     Node::Group(Group {
+        key: None,
         clip: None,
         role: Some("tile"),
         anchor: None,
@@ -1243,6 +1254,7 @@ impl PreparedPlot {
                 content,
                 anchor,
                 min_width,
+                keys: layer.keys.clone(),
             }))
         };
         let results = parallel::ordered_map(jobs, self.is_large(), |job| {
@@ -1319,21 +1331,40 @@ impl PreparedPlot {
 
     /// Draw the plot as laid out by `arrangement`: everything but the background
     /// fill (the scene's, or the grid cell's), with the background border last.
-    pub fn draw(&self, arrangement: &Arrangement) -> Result<Vec<Node>> {
+    ///
+    /// `interactive` (HTML output): layers showing a discrete legend draw one
+    /// group per legend key combination, for the interactive legend.
+    pub fn draw(&self, arrangement: &Arrangement, interactive: bool) -> Result<Vec<Node>> {
         let theme = &self.theme;
         let parallel = self.is_large();
         let draw_layers = |layers: &[PreparedLayer], panel: &Panel| -> Result<Vec<Node>> {
             // Layers draw in parallel and stack in layer order.
-            let drawn = parallel::ordered_map(layers.iter().collect(), parallel, |layer| {
-                let draw_layer = DrawLayer {
-                    data: &layer.data,
-                    styles: &layer.styles,
-                    parameters: Parameters::new(&layer.options, &layer.path),
-                    background: self.layer_background(),
+            let jobs: Vec<&PreparedLayer> = layers.iter().collect();
+            let drawn = parallel::ordered_map(jobs, parallel, |layer| {
+                let panel = panel.oriented(layer.y_oriented);
+                let draw = |styles: &Styles| {
+                    let draw_layer = DrawLayer {
+                        data: &layer.data,
+                        styles,
+                        parameters: Parameters::new(&layer.options, &layer.path),
+                        background: self.layer_background(),
+                    };
+                    layer.geom.draw(&draw_layer, &panel)
                 };
-                layer
-                    .geom
-                    .draw(&draw_layer, &panel.oriented(layer.y_oriented))
+                let mut nodes = draw(&layer.styles)?;
+                if let Some(keys) = layer.keys.as_ref().filter(|_| interactive) {
+                    // A second draw with colors naming each row's key tells
+                    // which marks belong to which key; the marks stay as drawn.
+                    // Constant colors are probed too (a shape legend over one
+                    // color); if that changes how the geom batches, only the
+                    // varying ones.
+                    let mut probe = draw(&layer.styles.probe(&keys.rows, false))?;
+                    if !same_shape(&nodes, &probe) {
+                        probe = draw(&layer.styles.probe(&keys.rows, true))?;
+                    }
+                    nodes = tag_marks(nodes, &probe, &keys.combinations);
+                }
+                Ok(nodes)
             });
             let mut layer_nodes: Vec<Node> = Vec::new();
             for (nodes, layer) in drawn.into_iter().zip(layers) {
@@ -1348,6 +1379,7 @@ impl PreparedPlot {
                     continue;
                 }
                 layer_nodes.push(Node::Group(Group {
+                    key: None,
                     clip: None,
                     role: Some(LAYER_ROLE),
                     anchor: None,
@@ -1371,6 +1403,7 @@ impl PreparedPlot {
                 let layer_nodes = draw_layers(layers, &panel)?;
                 let mut tile = draw_panel_background(layout, theme, &panel);
                 tile.push(Node::Group(Group {
+                    key: None,
                     clip: Some(layout.panel),
                     role: Some("panel"),
                     anchor: None,
@@ -1396,6 +1429,7 @@ impl PreparedPlot {
                         let layer_nodes = draw_layers(layers, &panel)?;
                         let mut tile_nodes = draw_panel_background(&tile.layout, theme, &panel);
                         tile_nodes.push(Node::Group(Group {
+                            key: None,
                             clip: Some(tile.layout.panel),
                             role: Some("panel"),
                             anchor: None,
@@ -1816,6 +1850,55 @@ struct PreparedLayer {
     /// and toggle (`ggtb(layers=...)`), so toggle indices count the layers the
     /// user added.
     companion: bool,
+    /// Interactive legend (HTML only): the legend keys of the rows, set once the
+    /// legends are known ([`assign_row_keys`]).
+    keys: Option<RowKeys>,
+}
+
+/// Set the legend keys of every layer's rows (interactive legend). A companion
+/// layer (boxplot outliers, styled apart from the legend) takes the key of the
+/// box in its group.
+fn assign_row_keys(
+    tiles: &mut [(Vec<PreparedLayer>, PositionScale, PositionScale)],
+    layer_legends: &[LayerLegends],
+) {
+    for (layers, _, _) in tiles {
+        for index in 0..layers.len() {
+            let keys = match layers[index].companion {
+                true => index
+                    .checked_sub(1)
+                    .and_then(|box_index| companion_keys(&layers[box_index], &layers[index])),
+                false => layer_legends.get(index).and_then(|legends| {
+                    let layer = &layers[index];
+                    row_keys(&layer.styles, layer.data.row_count(), legends)
+                }),
+            };
+            layers[index].keys = keys;
+        }
+    }
+}
+
+/// The keys of the `outliers` rows: each takes the key of its group's box.
+fn companion_keys(boxes: &PreparedLayer, outliers: &PreparedLayer) -> Option<RowKeys> {
+    let box_keys = boxes.keys.as_ref()?;
+    let mut by_group = std::collections::HashMap::new();
+    for (row, &combination) in box_keys.rows.iter().enumerate() {
+        by_group
+            .entry(boxes.data.group_of(row))
+            .or_insert(combination);
+    }
+    let mut combinations = box_keys.combinations.clone();
+    let mut untagged = None;
+    let rows = (0..outliers.data.row_count())
+        .map(|row| match by_group.get(&outliers.data.group_of(row)) {
+            Some(&combination) => combination,
+            None => *untagged.get_or_insert_with(|| {
+                combinations.push(Vec::new());
+                (combinations.len() - 1) as u32
+            }),
+        })
+        .collect();
+    Some(RowKeys { combinations, rows })
 }
 
 /// The toggle index (`ggtb(layers=...)`) of every layer: companion layers take
@@ -2602,6 +2685,7 @@ fn style_layer(
             rasterize: layer.rasterize,
             show_legend: layer.show_legend,
             companion: layer.companion,
+            keys: None,
         },
         warnings,
     ))
@@ -3353,6 +3437,7 @@ fn assemble_legends(
     scales: &BTreeMap<ScaleKey, StyleScale>,
     specs: &BTreeMap<ScaleKey, StyleScaleSpec>,
     palette: &GeomPalette,
+    layer_legends: &mut [LayerLegends],
 ) -> Result<Vec<LegendBox>> {
     /// lets-plot `LegendAssembler.MAX_LEGEND_LABELS`: bigger scales get no legend.
     const MAX_LEGEND_LABELS: usize = 200;
@@ -3517,6 +3602,9 @@ fn assemble_legends(
             }
         }
         for (title, scale_group, mut group, grid, overrides) in by_title {
+            if let Some(shown) = layer_legends.get_mut(layer_index) {
+                shown.push((title.clone(), group.clone()));
+            }
             apply_override_aes(&mut group, &overrides);
             let index = legend_index(
                 (&mut legends, &mut contributions, &mut legend_groups),

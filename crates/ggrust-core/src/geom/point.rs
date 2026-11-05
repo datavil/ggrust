@@ -250,6 +250,7 @@ pub(super) fn markers(styles: &Styles, count: usize, key: bool, fatten: f64) -> 
     if uniform {
         let marker = Marker::fattened(styles, 0, fatten)?;
         return Ok(Points {
+            keys: None,
             x: Vec::new(),
             y: Vec::new(),
             shape: PerItem::Uniform(place(marker)),
@@ -263,6 +264,7 @@ pub(super) fn markers(styles: &Styles, count: usize, key: bool, fatten: f64) -> 
         .map(|row| Marker::fattened(styles, row, fatten))
         .collect::<Result<Vec<_>>>()?;
     Ok(Points {
+        keys: None,
         x: Vec::new(),
         y: Vec::new(),
         shape: PerItem::Varying(markers.iter().map(|marker| place(*marker)).collect()),

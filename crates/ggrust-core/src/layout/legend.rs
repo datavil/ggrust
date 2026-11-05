@@ -15,8 +15,9 @@
 use super::colorbar::{Colorbar, ColorbarLayout, draw_colorbar, layout_colorbar};
 use super::{label_node, text_band, text_node};
 use crate::geom::Geom;
+use crate::interactive_legend::{key_tag, legend_key_id};
 use crate::scale::format::Label;
-use crate::scene::{Group, HorizontalAlign, Node, Rect};
+use crate::scene::{Group, HorizontalAlign, LEGEND_KEY_ROLE, Node, Rect};
 use crate::style::Styles;
 use crate::text::{measure, measure_label};
 use crate::theme::Theme;
@@ -945,7 +946,11 @@ pub fn draw_legends(block: &LegendBlock, origin: (f64, f64), theme: &Theme) -> R
                         y: y + cell.y,
                         ..*cell
                     };
-                    if let Some(key) = key.map(|index| &legend.keys[index]) {
+                    // A real key's nodes go in a clickable group (interactive
+                    // legend, HTML only); "+K more" stays plain.
+                    let start = legend_nodes.len();
+                    let key = key.map(|index| &legend.keys[index]);
+                    if let Some(key) = key {
                         if let Some(style) = theme.legend_key_background {
                             legend_nodes.push(super::rect_node(cell, style));
                         }
@@ -967,10 +972,24 @@ pub fn draw_legends(block: &LegendBlock, origin: (f64, f64), theme: &Theme) -> R
                             ));
                         }
                     }
+                    if let Some(key) = key {
+                        let nodes = legend_nodes.split_off(start);
+                        legend_nodes.push(Node::Group(Group {
+                            clip: None,
+                            role: Some(LEGEND_KEY_ROLE),
+                            anchor: None,
+                            key: Some(key_tag(&[legend_key_id(
+                                &legend.title,
+                                &key.label.to_string(),
+                            )])),
+                            nodes,
+                        }));
+                    }
                 }
             }
         }
         nodes.push(Node::Group(Group {
+            key: None,
             clip: None,
             role: Some("legend"),
             anchor: None,

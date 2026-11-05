@@ -260,6 +260,7 @@ mod tests {
             height: 100.0,
             background: None,
             nodes: vec![Node::Group(Group {
+                key: None,
                 clip: Some(Rect {
                     x: 0.0,
                     y: 0.0,

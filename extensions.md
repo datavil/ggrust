@@ -146,6 +146,13 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Main roadmap: [plan.md](plan.md).
   when the layer has missing values (ggplot2 #4567; lets-plot shows none). deviations.md rows.
   Tests: `tests/test_boxplot_jitter_na_legend.py`, colorbar unit
   `na_swatch_follows_the_bar_and_grows_the_size`.
+- [x] ua.9 Interactive legend (lets-plot #1080): in HTML, clicking a discrete legend key
+  hides or shows its marks across layers, panels and gggrid plots (canvas points included)
+  and mutes their tooltips; double-click isolates the key. Rows get keys by resolved style
+  (`interactive_legend.rs`); each layer draws once and a probe draw (key-coded colors)
+  tags its marks (`g.keyed` runs, per-marker keys in point batches and canvas payloads);
+  legend keys are `g.legend-key`; marks and static output unchanged. deviations.md row.
+  Tests: `tests/test_interactive_legend.py` (playwright), `interactive_legend` and canvas units.
 
 ## Added on user request (not scheduled)
 

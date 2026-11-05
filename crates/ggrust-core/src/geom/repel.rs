@@ -391,6 +391,7 @@ fn draw(layer: &DrawLayer, panel: &Panel, label: bool) -> Result<Vec<Node>> {
         group.extend(segment(layer.styles, &placed, &settings)?);
         // Anchored at the point, so interactive zoom moves the label with it.
         nodes.push(Node::Group(Group {
+            key: None,
             clip: None,
             role: None,
             anchor: Some((placed.point.x, placed.point.y)),

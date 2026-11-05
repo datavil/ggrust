@@ -13,6 +13,7 @@ pub mod geom;
 pub mod grid;
 pub mod grid_share;
 pub mod grid_tags;
+pub mod interactive_legend;
 pub mod layout;
 pub mod parallel;
 pub mod parameters;

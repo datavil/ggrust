@@ -25,6 +25,7 @@ fn main() {
         height: 400.0,
         background: Some(Color::WHITE),
         nodes: vec![Node::Points(Points {
+            keys: None,
             x,
             y,
             shape: PerItem::Uniform(MarkerShape::Circle),

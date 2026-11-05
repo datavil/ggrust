@@ -269,6 +269,7 @@ fn label(styles: &Styles, row: usize, point: (f64, f64), panel: &Panel) -> Resul
     let lifted = (point.0 - lift * sin, point.1 - lift * cos);
     // Anchored at the bar's middle, so interactive zoom moves the label with it.
     Ok(vec![Node::Group(Group {
+        key: None,
         clip: None,
         role: None,
         anchor: Some(point),

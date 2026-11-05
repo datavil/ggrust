@@ -112,6 +112,15 @@ impl Scene {
 /// shows layers by it (`ggtb(layers=...)`). Static output draws it inline.
 pub const LAYER_ROLE: &str = "layer";
 
+/// Role of a group holding the marks of one legend key combination inside a
+/// layer group (HTML only, see [`Group::key`]): the runtime hides it when one of
+/// its legend keys is switched off.
+pub const KEYED_ROLE: &str = "keyed";
+
+/// Role of a group holding one discrete legend key (background, glyph, label):
+/// the HTML runtime makes it clickable. Static output draws it inline.
+pub const LEGEND_KEY_ROLE: &str = "legend-key";
+
 impl Group {
     /// The children, with anchored groups ([`Group::anchor`]), layer groups
     /// ([`LAYER_ROLE`]) and rasters replaced by their own children: what is
@@ -121,7 +130,9 @@ impl Group {
             for node in nodes {
                 match node {
                     Node::Group(group)
-                        if group.anchor.is_some() || group.role == Some(LAYER_ROLE) =>
+                        if group.anchor.is_some()
+                            || group.key.is_some()
+                            || group.role == Some(LAYER_ROLE) =>
                     {
                         walk(&group.nodes, flat)
                     }
@@ -148,6 +159,11 @@ pub struct Group {
     /// interactive zoom moves them rigidly with it instead of stretching them.
     /// Static output ignores it.
     pub anchor: Option<(f64, f64)>,
+    /// Interactive legend tag ([`KEYED_ROLE`], [`LEGEND_KEY_ROLE`]): the legend
+    /// keys the children belong to, as a JSON array of key ids (see
+    /// `legend_key_id`). Only the HTML runtime reads it; static output draws the
+    /// children inline.
+    pub key: Option<String>,
     /// Children, drawn in order.
     pub nodes: Vec<Node>,
 }
@@ -259,9 +275,42 @@ pub struct Points {
     pub stroke: PerItem<Option<Color>>,
     /// Outline width in pixels.
     pub stroke_width: PerItem<f64>,
+    /// Interactive legend (HTML only): the legend keys of each marker, when the
+    /// batch holds markers of several keys (see `KeyedItems`).
+    pub keys: Option<KeyedItems>,
+}
+
+/// Legend keys of the markers of one batch: `combinations[items[i]]` are the
+/// key ids of marker `i` (an empty list: never hidden).
+#[derive(Debug, Clone, PartialEq)]
+pub struct KeyedItems {
+    /// Key id lists, as in [`Group::key`] (already JSON arrays).
+    pub combinations: Vec<String>,
+    /// Combination of each marker.
+    pub items: Vec<u8>,
 }
 
 impl Points {
+    /// Markers `range` (keys dropped), in order.
+    pub fn slice(&self, range: std::ops::Range<usize>) -> Points {
+        fn cut<T: Clone>(items: &PerItem<T>, range: std::ops::Range<usize>) -> PerItem<T> {
+            match items {
+                PerItem::Uniform(value) => PerItem::Uniform(value.clone()),
+                PerItem::Varying(values) => PerItem::Varying(values[range].to_vec()),
+            }
+        }
+        Points {
+            x: self.x[range.clone()].to_vec(),
+            y: self.y[range.clone()].to_vec(),
+            shape: cut(&self.shape, range.clone()),
+            size: cut(&self.size, range.clone()),
+            fill: cut(&self.fill, range.clone()),
+            stroke: cut(&self.stroke, range.clone()),
+            stroke_width: cut(&self.stroke_width, range),
+            keys: None,
+        }
+    }
+
     /// Number of markers.
     pub fn len(&self) -> usize {
         self.x.len()
@@ -503,6 +552,7 @@ mod tests {
             height: 10.0,
             background: None,
             nodes: vec![Node::Group(Group {
+                key: None,
                 clip: None,
                 role: Some("panel"),
                 anchor: None,

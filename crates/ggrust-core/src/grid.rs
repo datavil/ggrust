@@ -322,7 +322,7 @@ impl<'e, 's> Placed<'e, 's> {
                     false,
                     interaction.as_deref_mut(),
                 )?);
-                nodes.extend(plot.draw(arrangement)?);
+                nodes.extend(plot.draw(arrangement, interaction.is_some())?);
                 if let Some((collected, notes)) = interaction.as_deref_mut() {
                     plot.interaction(arrangement, collected, notes)?;
                 }
@@ -836,6 +836,7 @@ impl<'s> PreparedGrid<'s> {
                 merge_interaction(collected, figure);
             }
             nodes.push(Node::Group(Group {
+                key: None,
                 clip: None,
                 role: Some("figure"),
                 anchor: None,

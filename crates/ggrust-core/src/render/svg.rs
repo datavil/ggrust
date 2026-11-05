@@ -17,9 +17,9 @@ use super::{canvas, webfont};
 use crate::parallel;
 use crate::scene::geometry::{ClipBox, is_drawable_marker, is_drawable_stroke, is_drawable_width};
 use crate::scene::{
-    Bitmap, Color, Group, HorizontalAlign, Image, LAYER_ROLE, MarkerPart, Node, Orientation, Path,
-    PerItem, Points, Rect, Rects, SUPERSCRIPT_RISE, SUPERSCRIPT_SCALE, Scene, Stroke, Text,
-    VerticalAlign,
+    Bitmap, Color, Group, HorizontalAlign, Image, KEYED_ROLE, KeyedItems, LAYER_ROLE, MarkerPart,
+    Node, Orientation, Path, PerItem, Points, Rect, Rects, SUPERSCRIPT_RISE, SUPERSCRIPT_SCALE,
+    Scene, Stroke, Text, VerticalAlign,
 };
 use crate::text::{CSS_FONT_FAMILY, FaceRef, FontFamily, loaded, measure, single_line};
 
@@ -320,6 +320,22 @@ impl SvgWriter {
             self.nodes(&group.nodes);
             return;
         }
+        if let Some(key) = &group.key {
+            // Interactive legend tags: HTML only (canvas output), inline otherwise.
+            if self.canvas.is_none() {
+                self.nodes(&group.nodes);
+                return;
+            }
+            self.raw("<g");
+            if let Some(role) = group.role {
+                self.attribute("class", role);
+            }
+            self.attribute("data-key", key);
+            self.raw(">\n");
+            self.nodes(&group.nodes);
+            self.raw("</g>\n");
+            return;
+        }
         if let Some((x, y)) = group
             .anchor
             .filter(|_| group.clip.is_none() && group.role.is_none())
@@ -358,6 +374,16 @@ impl SvgWriter {
         self.raw("</g>\n");
     }
 
+    /// Drawable markers a point batch
+    /// needs to be drawn on a canvas.
+    fn canvas_threshold(&self) -> usize {
+        if self.zoomable {
+            canvas::ZOOM_CANVAS_THRESHOLD
+        } else {
+            canvas::CANVAS_THRESHOLD
+        }
+    }
+
     /// `<g data-anchor="x y">`: the runtime moves the group with this point.
     fn anchor_open(&mut self, x: f64, y: f64) {
         self.raw("<g data-anchor=\"");
@@ -378,14 +404,9 @@ impl SvgWriter {
         if points.is_empty() || !points.is_consistent() {
             return;
         }
-        if let Some(canvas) = self.canvas.as_mut().filter(|_| {
-            let threshold = if self.zoomable {
-                canvas::ZOOM_CANVAS_THRESHOLD
-            } else {
-                canvas::CANVAS_THRESHOLD
-            };
-            canvas::is_dense(points, &self.clip_box, threshold)
-        }) {
+        let threshold = self.canvas_threshold();
+        let dense = canvas::is_dense(points, &self.clip_box, threshold);
+        if let Some(canvas) = self.canvas.as_mut().filter(|_| dense) {
             // A placeholder over the whole scene; the runtime puts the canvas in it.
             let number = canvas.batches.len();
             canvas.batches.push(canvas::encode(points, &self.clip_box));
@@ -399,6 +420,44 @@ impl SvgWriter {
             self.raw("></foreignObject>\n");
             return;
         }
+        if let Some(keyed) = points.keys.as_ref().filter(|_| self.canvas.is_some()) {
+            // Interactive legend: runs of markers of one key, in drawing order.
+            self.keyed_points(points, keyed);
+            return;
+        }
+        self.svg_points(points);
+    }
+
+    /// `points` as runs of one key combination, each in a `g.keyed`.
+    fn keyed_points(&mut self, points: &Points, keyed: &KeyedItems) {
+        let items = &keyed.items;
+        if items.len() != points.len() {
+            self.svg_points(points);
+            return;
+        }
+        let mut start = 0;
+        for end in 1..=items.len() {
+            if end < items.len() && items[end] == items[start] {
+                continue;
+            }
+            let run = points.slice(start..end);
+            match keyed.combinations.get(items[start] as usize) {
+                Some(tag) if tag != "[]" => {
+                    self.raw("<g");
+                    self.attribute("class", KEYED_ROLE);
+                    self.attribute("data-key", tag);
+                    self.raw(">\n");
+                    self.svg_points(&run);
+                    self.raw("</g>\n");
+                }
+                _ => self.svg_points(&run),
+            }
+            start = end;
+        }
+    }
+
+    /// `points` as SVG markers (not on a canvas).
+    fn svg_points(&mut self, points: &Points) {
         self.raw("<g");
         if self.zoomable {
             self.raw(" class=\"ggrust-points\"");
@@ -977,6 +1036,7 @@ mod tests {
     /// in parallel at the top level, sequentially inside.
     fn heavy_scene() -> Scene {
         let points = |offset: f64| Points {
+            keys: None,
             x: (0..6_000)
                 .map(|index| offset + (index % 97) as f64)
                 .collect(),
@@ -995,10 +1055,12 @@ mod tests {
         };
         let plot = |x: f64| {
             Node::Group(Group {
+                key: None,
                 clip: Some(clip(x)),
                 role: Some("figure"),
                 anchor: None,
                 nodes: vec![Node::Group(Group {
+                    key: None,
                     clip: Some(clip(x + 1.0)),
                     role: Some("panel"),
                     anchor: None,
@@ -1157,6 +1219,7 @@ mod tests {
             height: 50.0,
             background: None,
             nodes: vec![Node::Group(Group {
+                key: None,
                 clip: Some(Rect {
                     x: 0.0,
                     y: 0.0,

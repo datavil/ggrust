@@ -230,6 +230,10 @@ pub struct LayerInteraction {
     /// `layer_tooltips().min_width(...)` in pixels.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub min_width: Option<f64>,
+    /// Legend keys of the layer rows (interactive legend): rows of a hidden key
+    /// do not answer the cursor.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub keys: Option<crate::interactive_legend::RowKeys>,
 }
 
 impl LayerInteraction {
@@ -334,6 +338,7 @@ mod tests {
                 content,
                 anchor: None,
                 min_width: None,
+                keys: None,
             }],
             zoom: None,
         };

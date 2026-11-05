@@ -325,6 +325,7 @@ fn draw_texts(layer: &DrawLayer, panel: &Panel, label: bool) -> Result<Vec<Node>
         look.line_height = line_height;
         // Anchored, so interactive zoom moves each text with its point.
         nodes.push(Node::Group(Group {
+            key: None,
             clip: None,
             role: None,
             anchor: Some((px, py)),

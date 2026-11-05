@@ -317,6 +317,60 @@ impl Styles {
             )
     }
 
+    /// These styles with every color replaced by [`probe_color`] of the row's
+    /// key combination `combinations[row]` (alpha kept, so the geom draws the
+    /// same marks): the interactive legend's probe draw.
+    /// With `varying_only`, constant colors stay (a constant bar outline would
+    /// otherwise split a batch the geom draws whole).
+    pub fn probe(&self, combinations: &[u32], varying_only: bool) -> Styles {
+        let values = self
+            .values
+            .iter()
+            .map(|(aesthetic, values)| {
+                let probed = match values {
+                    StyleValues::Colors(PerItem::Uniform(_)) if varying_only => values.clone(),
+                    StyleValues::Colors(items) => StyleValues::Colors(PerItem::Varying(
+                        combinations
+                            .iter()
+                            .enumerate()
+                            .map(|(row, &combination)| Color {
+                                alpha: items.get(row).alpha,
+                                ..probe_color(combination)
+                            })
+                            .collect(),
+                    )),
+                    other => other.clone(),
+                };
+                (*aesthetic, probed)
+            })
+            .collect();
+        Styles { values }
+    }
+
+    /// Whether row `row` of `aesthetic` equals the first item of `value` (NaN
+    /// equals NaN). False when the aesthetic is absent or the kinds differ.
+    pub fn row_equals(&self, aesthetic: Aesthetic, row: usize, value: &StyleValues) -> bool {
+        match (self.values.get(&aesthetic), value) {
+            (Some(StyleValues::Colors(items)), StyleValues::Colors(single)) => {
+                items.get(row) == single.get(0)
+            }
+            (Some(StyleValues::Numbers(items)), StyleValues::Numbers(single)) => {
+                let (left, right) = (items.get(row), single.get(0));
+                left == right || (left.is_nan() && right.is_nan())
+            }
+            (Some(StyleValues::Shapes(items)), StyleValues::Shapes(single)) => {
+                items.get(row) == single.get(0)
+            }
+            (Some(StyleValues::Linetypes(items)), StyleValues::Linetypes(single)) => {
+                items.get_ref(row) == single.get_ref(0)
+            }
+            (Some(StyleValues::Texts(items)), StyleValues::Texts(single)) => {
+                items.get_ref(row) == single.get_ref(0)
+            }
+            _ => false,
+        }
+    }
+
     /// Whether an aesthetic has one value for every item (absent counts as uniform).
     pub fn is_uniform(&self, aesthetic: Aesthetic) -> bool {
         match self.values.get(&aesthetic) {
@@ -378,6 +432,17 @@ fn missing(aesthetic: Aesthetic, wanted: ValueKind, found: Option<&StyleValues>)
             values.kind()
         ),
     })
+}
+
+/// The color naming key combination `combination` in a probe draw
+/// ([`Styles::probe`]); alpha is ignored when read back.
+pub fn probe_color(combination: u32) -> Color {
+    Color {
+        red: 0x5a,
+        green: combination as u8,
+        blue: 0xa5,
+        alpha: 255,
+    }
 }
 
 #[cfg(test)]

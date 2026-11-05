@@ -1041,6 +1041,7 @@ pub fn draw_panel_background(layout: &PlotLayout, theme: &Theme, mapper: &Panel)
     }
     if !grid.is_empty() {
         nodes.push(Node::Group(Group {
+            key: None,
             clip: None,
             role: Some("grid"),
             anchor: None,
@@ -1570,6 +1571,7 @@ pub fn caption_nodes(top: f64, span: (f64, f64), theme: &Theme, titles: &Titles)
 
 fn role_group(role: &'static str, nodes: Vec<Node>) -> Node {
     Node::Group(Group {
+        key: None,
         clip: None,
         role: Some(role),
         anchor: None,
@@ -1784,6 +1786,7 @@ fn label_node(
             })
             .collect();
         return Node::Group(Group {
+            key: None,
             clip: None,
             role: None,
             anchor: None,

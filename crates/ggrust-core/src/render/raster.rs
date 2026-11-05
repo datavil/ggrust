@@ -167,6 +167,7 @@ impl Group {
     /// The group's settings with no children.
     fn clone_without_nodes(&self) -> Group {
         Group {
+            key: None,
             clip: self.clip,
             role: self.role,
             anchor: self.anchor,
@@ -201,6 +202,7 @@ fn translated(node: &Node, dx: f64, dy: f64) -> Node {
     };
     match node {
         Node::Group(group) => Node::Group(Group {
+            key: None,
             clip: group.clip.as_ref().map(move_rect),
             role: group.role,
             anchor: group.anchor.map(|(x, y)| (x + dx, y + dy)),
@@ -282,6 +284,7 @@ mod tests {
             .map(|i| Some(Color::rgba((i * 7 % 256) as u8, 90, 200, 180)))
             .collect();
         let points = Node::Points(Points {
+            keys: None,
             x,
             y,
             shape: PerItem::Uniform(MarkerShape::Circle),
@@ -311,6 +314,7 @@ mod tests {
             nodes: vec![
                 title,
                 Node::Group(Group {
+                    key: None,
                     clip: Some(PANEL),
                     role: Some("panel"),
                     anchor: None,

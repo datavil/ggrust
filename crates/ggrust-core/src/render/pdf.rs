@@ -1216,6 +1216,7 @@ mod tests {
     #[test]
     fn shapes_are_vector_operators() {
         let points = Node::Points(Points {
+            keys: None,
             x: vec![5.0, 15.0],
             y: vec![5.0, 15.0],
             shape: PerItem::Uniform(MarkerShape::Circle),
@@ -1329,6 +1330,7 @@ mod tests {
     fn many_distinct_markers_fall_back_to_inline_paths() {
         let count = MAX_MARKER_FORMS + 10;
         let points = Points {
+            keys: None,
             x: vec![5.0; count],
             y: vec![5.0; count],
             shape: PerItem::Uniform(MarkerShape::Circle),
@@ -1373,6 +1375,7 @@ mod tests {
         );
         // Marker forms do the same.
         let points = |alpha| Points {
+            keys: None,
             x: vec![5.0],
             y: vec![5.0],
             shape: PerItem::Uniform(MarkerShape::Square),
@@ -1476,6 +1479,7 @@ mod tests {
             upsample: true,
         });
         let group = Node::Group(Group {
+            key: None,
             clip: Some(Rect {
                 x: 1.0,
                 y: 1.0,
@@ -1522,6 +1526,7 @@ mod tests {
         };
         let red = Color::rgb(255, 0, 0);
         let group = Node::Group(Group {
+            key: None,
             clip: Some(Rect {
                 x: 0.0,
                 y: 0.0,

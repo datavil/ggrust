@@ -142,6 +142,7 @@ pub(super) fn draw(
         let placed = Placed::new(&inset.element, rect)?;
         let inset_nodes = placed.draw(interaction.as_deref_mut(), true)?;
         nodes.push(Node::Group(Group {
+            key: None,
             clip: inset.clip.then_some(rect),
             role: Some("inset"),
             anchor: None,

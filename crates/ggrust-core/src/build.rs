@@ -4692,6 +4692,28 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
     }
 }
 
+/// Screen coordinate along the value axis of `aesthetic` per row (side tooltips).
+fn side_positions(
+    data: &crate::data::LayerData,
+    panel: &Panel,
+    aesthetic: Aesthetic,
+) -> Vec<Option<f64>> {
+    let (Some(values), Some(x)) = (
+        data.continuous(aesthetic),
+        data.continuous(Aesthetic::Xmin)
+            .or_else(|| data.continuous(Aesthetic::X)),
+    ) else {
+        return Vec::new();
+    };
+    (0..data.row_count())
+        .map(|row| {
+            let (horizontal, vertical) = panel.map(x.get(row)?, values.get(row)?);
+            let at = if panel.flipped { horizontal } else { vertical };
+            at.is_finite().then_some((at * 100.0).round() / 100.0)
+        })
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
@@ -5087,26 +5109,4 @@ mod tests {
         assert_eq!(vjust, vec![0.0; 4]);
         assert!(warnings.is_empty(), "{warnings:?}");
     }
-}
-
-/// Screen coordinate along the value axis of `aesthetic` per row (side tooltips).
-fn side_positions(
-    data: &crate::data::LayerData,
-    panel: &Panel,
-    aesthetic: Aesthetic,
-) -> Vec<Option<f64>> {
-    let (Some(values), Some(x)) = (
-        data.continuous(aesthetic),
-        data.continuous(Aesthetic::Xmin)
-            .or_else(|| data.continuous(Aesthetic::X)),
-    ) else {
-        return Vec::new();
-    };
-    (0..data.row_count())
-        .map(|row| {
-            let (horizontal, vertical) = panel.map(x.get(row)?, values.get(row)?);
-            let at = if panel.flipped { horizontal } else { vertical };
-            at.is_finite().then_some((at * 100.0).round() / 100.0)
-        })
-        .collect()
 }

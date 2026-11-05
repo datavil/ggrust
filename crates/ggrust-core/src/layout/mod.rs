@@ -21,6 +21,7 @@ mod legend;
 mod rotated;
 mod secondary;
 pub mod side;
+pub mod side_panel;
 pub mod tag;
 pub mod zoom;
 
@@ -42,6 +43,7 @@ use crate::scale::{AxisSides, PositionScale};
 use crate::scene::{Group, HorizontalAlign, Node, Path, PerItem, Rect, Rects, Text, VerticalAlign};
 use crate::text::{measure, measure_label, single_line};
 use side::{AxisEdge, LabelPlacer, Side, screen_sides, title_on_secondary};
+use side_panel::BandRequest;
 
 /// lets-plot `GEOM_MIN_SIZE`: the panel never shrinks below 50 x 50 px; axes and
 /// labels that do not fit then run past the plot edge instead.
@@ -112,6 +114,9 @@ pub struct PlotLayout {
     pub dendrograms: [Option<std::sync::Arc<dendrogram::AxisDendrogram>>; 2],
     /// Secondary axes of the horizontal and vertical axes (`sec_axis=`).
     pub secondary: [Option<SecondaryBreaks>; 2],
+    /// Side panels (ggside, lets-plot margins), at most one per screen side,
+    /// between the panel and that side's axis (single panels only).
+    pub bands: Vec<side_panel::BandLayout>,
 }
 
 impl PlotLayout {
@@ -154,6 +159,7 @@ pub fn layout_plot(
     legend_space: Margins,
     aspect: Option<f64>,
     panel_min_size: f64,
+    bands: &[BandRequest],
 ) -> PlotLayout {
     let layout = layout_free(
         area,
@@ -163,6 +169,7 @@ pub fn layout_plot(
         y_scale,
         legend_space,
         panel_min_size,
+        bands,
     );
     let Some(ratio) = aspect.filter(|ratio| ratio.is_finite() && *ratio > 0.0) else {
         return layout;
@@ -199,6 +206,7 @@ pub fn layout_plot(
             y_scale,
             legend_space,
             panel_min_size,
+            bands,
         )
     } else {
         layout
@@ -232,6 +240,7 @@ fn fit_ratio(mut layout: PlotLayout, ratio: f64, x_span: f64, y_span: f64) -> Pl
 /// lets-plot#906) get room: the plot is laid out again in an area narrowed by
 /// their overhang. A ggrust deviation (lets-plot and ggplot2 cut such labels);
 /// plots whose labels fit are unchanged.
+#[allow(clippy::too_many_arguments)]
 fn layout_free(
     area: Rect,
     theme: &Theme,
@@ -240,6 +249,7 @@ fn layout_free(
     y_scale: &PositionScale,
     legend_space: Margins,
     panel_min_size: f64,
+    bands: &[BandRequest],
 ) -> PlotLayout {
     let layout = layout_free_once(
         area,
@@ -249,6 +259,7 @@ fn layout_free(
         y_scale,
         legend_space,
         panel_min_size,
+        bands,
     );
     // Same x breaks and arrangement: only the room changes (choosing again at a
     // few px less could turn simple labels vertical). A label moves by its share
@@ -277,6 +288,7 @@ fn layout_free(
             (labels_height, secondary_height),
             Some(x_breaks),
             panel_min_size,
+            bands,
         );
     }
     layout
@@ -335,6 +347,7 @@ fn x_labels_overhang(
 }
 
 /// One [`layout_free`] pass in `area`.
+#[allow(clippy::too_many_arguments)]
 fn layout_free_once(
     area: Rect,
     theme: &Theme,
@@ -343,6 +356,7 @@ fn layout_free_once(
     y_scale: &PositionScale,
     legend_space: Margins,
     panel_min_size: f64,
+    bands: &[BandRequest],
 ) -> PlotLayout {
     let simple = theme.axis_text_x.map_or(0.0, text_band);
     let first = layout_with(
@@ -354,6 +368,7 @@ fn layout_free_once(
         (simple, simple),
         None,
         panel_min_size,
+        bands,
     );
     let needed = x_labels_height(&first.x_breaks, theme);
     let needed_secondary = secondary_x_height(&first, theme);
@@ -377,6 +392,7 @@ fn layout_free_once(
         (needed, needed_secondary.max(simple)),
         Some(x_breaks),
         panel_min_size,
+        bands,
     )
 }
 
@@ -392,6 +408,7 @@ fn layout_with(
     (labels_height, secondary_height): (f64, f64),
     x_breaks: Option<AxisBreaks>,
     panel_min_size: f64,
+    bands: &[BandRequest],
 ) -> PlotLayout {
     let inset = theme.plot_inset;
     let content = plot_content(area, theme, titles);
@@ -428,8 +445,23 @@ fn layout_with(
         };
         x_axis_band(height, theme)
     };
-    let top_axis = shown(x_sides, true, x_band_on(true)) + tree_band(0, true);
-    let bottom_axis = shown(x_sides, false, x_band_on(false)) + tree_band(0, false);
+    // A left/right side panel's own axis on a side the x axis leaves empty needs
+    // the room of a simple label band there.
+    let band_x_axis = |far: bool| {
+        let wanted = bands.iter().any(|band| {
+            !band.side.is_horizontal()
+                && side_panel::band_axis_side(band, x_sides) == Some(Side::of(true, far))
+        });
+        if wanted {
+            x_axis_band(theme.axis_text_x.map_or(0.0, text_band), theme)
+        } else {
+            0.0
+        }
+    };
+    let top_axis =
+        shown(x_sides, true, x_band_on(true)).max(band_x_axis(true)) + tree_band(0, true);
+    let bottom_axis =
+        shown(x_sides, false, x_band_on(false)).max(band_x_axis(false)) + tree_band(0, false);
     let top = content.y
         + headings_band(theme, titles)
         + legend_space.top
@@ -441,7 +473,28 @@ fn layout_with(
         - x_title_bottom
         - inset.bottom
         - bottom_axis;
-    let panel_height = (bottom - top).max(panel_min_size);
+    // Side panels on the top and bottom share the height with the panel.
+    let vertical_requests: Vec<&BandRequest> = bands
+        .iter()
+        .filter(|band| band.side.is_horizontal())
+        .collect();
+    let (panel_height, thicknesses) =
+        side_panel::split(bottom - top, &vertical_requests, panel_min_size);
+    let label_limit = content.width * AXIS_LABELS_MAX_SHARE;
+    let laid_bands = side_panel::layout_bands(
+        &vertical_requests,
+        &thicknesses,
+        y_sides,
+        theme,
+        label_limit,
+    );
+    let band_extent = |bands: &[side_panel::BandLayout], side: Side| {
+        bands
+            .iter()
+            .find(|band| band.side == side)
+            .map_or(0.0, side_panel::BandLayout::extent)
+    };
+    let top = top + band_extent(&laid_bands, Side::Top);
 
     let y_breaks = choose_breaks(
         y_scale,
@@ -465,20 +518,51 @@ fn layout_with(
         theme.axis_text_y,
         (0.0, 0.0),
     );
-    let y_width_on = |far: bool| match &y_secondary {
-        Some(secondary) if secondary.far_side == far => y_axis_width(&secondary.breaks, theme),
-        _ => y_axis_width(&y_breaks, theme),
+    let y_width_on = |far: bool| {
+        let own = match &y_secondary {
+            Some(secondary) if secondary.far_side == far => y_axis_width(&secondary.breaks, theme),
+            _ => y_axis_width(&y_breaks, theme),
+        };
+        // The axes of top and bottom side panels on this side line up with it.
+        own.max(side_panel::vertical_axis_width(
+            &laid_bands,
+            Side::of(false, far),
+            theme,
+        ))
     };
-    let left_axis = shown(y_sides, false, y_width_on(false)) + tree_band(1, false);
-    let right_axis = shown(y_sides, true, y_width_on(true)) + tree_band(1, true);
+    // Top/bottom side panels' own axes count on their side even where the y axis
+    // is not drawn.
+    let band_y_axis =
+        |far: bool| side_panel::vertical_axis_width(&laid_bands, Side::of(false, far), theme);
+    let left_axis =
+        shown(y_sides, false, y_width_on(false)).max(band_y_axis(false)) + tree_band(1, false);
+    let right_axis =
+        shown(y_sides, true, y_width_on(true)).max(band_y_axis(true)) + tree_band(1, true);
     let left = content.x + legend_space.left + y_title_left + inset.left + left_axis;
-    let panel_width = (content.x + content.width
-        - legend_space.right
-        - y_title_right
-        - inset.right
-        - right_axis
-        - left)
-        .max(panel_min_size);
+    let horizontal_requests: Vec<&BandRequest> = bands
+        .iter()
+        .filter(|band| !band.side.is_horizontal())
+        .collect();
+    let (panel_width, thicknesses) = side_panel::split(
+        content.x + content.width
+            - legend_space.right
+            - y_title_right
+            - inset.right
+            - right_axis
+            - left,
+        &horizontal_requests,
+        panel_min_size,
+    );
+    let side_bands = side_panel::layout_bands(
+        &horizontal_requests,
+        &thicknesses,
+        x_sides,
+        theme,
+        label_limit,
+    );
+    let left = left + band_extent(&side_bands, Side::Left);
+    let all_bands: Vec<side_panel::BandLayout> =
+        laid_bands.iter().cloned().chain(side_bands).collect();
 
     // lets-plot lets x labels reach over the y axis on the left (geom area insets).
     let x_breaks = x_breaks.unwrap_or_else(|| {
@@ -526,6 +610,7 @@ fn layout_with(
         right_band: 0.0,
         dendrograms,
         secondary: [x_secondary, y_secondary],
+        bands: all_bands,
     }
 }
 
@@ -589,7 +674,7 @@ fn x_axis_band(labels_height: f64, theme: &Theme) -> f64 {
 }
 
 /// Ticks, spacing and labels left of a panel with these y breaks.
-fn y_axis_width(y_breaks: &AxisBreaks, theme: &Theme) -> f64 {
+pub(super) fn y_axis_width(y_breaks: &AxisBreaks, theme: &Theme) -> f64 {
     let y_label_width = theme.axis_text_y.map_or(0.0, |text| {
         let sizes = label_sizes(&y_breaks.labels, text);
         if rotated::rotates(text) {
@@ -694,6 +779,7 @@ pub fn legend_origin(
             panel.x
                 + panel.width
                 + layout.right_band
+                + layout.band_extent(Side::Right)
                 + layout.axis_bands.right
                 + inset.right
                 + secondary_title(1)
@@ -705,6 +791,7 @@ pub fn legend_origin(
             along_x,
             panel.y
                 - layout.top_band
+                - layout.band_extent(Side::Top)
                 - layout.axis_bands.top
                 - inset.top
                 - secondary_title(0)
@@ -714,6 +801,7 @@ pub fn legend_origin(
             along_x,
             panel.y
                 + panel.height
+                + layout.band_extent(Side::Bottom)
                 + layout.axis_bands.bottom
                 + primary_title(0)
                 + inset.bottom
@@ -1094,7 +1182,7 @@ fn axis_title_justification(style: TextStyle, default_angle: f64) -> (f64, f64) 
 
 /// lets-plot `AxisUtil.minorDomainBreaks`: half a step before the first major break,
 /// then one step apart, one more than the majors (none for a single break).
-fn minor_breaks(major: &[f64]) -> Vec<f64> {
+pub(super) fn minor_breaks(major: &[f64]) -> Vec<f64> {
     let [first, second, ..] = major else {
         return Vec::new();
     };
@@ -1314,12 +1402,14 @@ pub fn draw_titles<'a>(layout: &PlotLayout, theme: &Theme, titles: &'a Titles) -
         let y = if far {
             panel.y
                 - layout.top_band
+                - layout.band_extent(Side::Top)
                 - layout.axis_bands.top
                 - theme.plot_inset.top
                 - theme.axis_title_x_margin.bottom
                 - across / 2.0
         } else {
             bottom
+                + layout.band_extent(Side::Bottom)
                 + layout.axis_bands.bottom
                 + theme.plot_inset.bottom
                 + theme.axis_title_x_margin.top
@@ -1752,7 +1842,7 @@ pub(crate) fn axis_line_node(panel: Rect, line: AxisLine, side: Side, base: f64)
     role_group("axis-line", nodes)
 }
 
-fn segment(start: (f64, f64), end: (f64, f64), line: LineStyle) -> Node {
+pub(super) fn segment(start: (f64, f64), end: (f64, f64), line: LineStyle) -> Node {
     Node::Path(Path {
         points: vec![start, end],
         closed: false,
@@ -1857,6 +1947,7 @@ mod tests {
                 Margins::uniform(0.0),
                 None,
                 PANEL_MIN_SIZE,
+                &[],
             )
         };
         let (origin, moved) = (at(0.0, 0.0), at(250.0, 40.0));

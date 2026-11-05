@@ -155,6 +155,12 @@ def theme(
     tooltip_max_count: int | None = None,
     label_text: ThemeElement | None = None,
     geom: Mapping[str, Any] | None = None,
+    ggside_panel_scale: Number | None = None,
+    ggside_panel_scale_x: Number | None = None,
+    ggside_panel_scale_y: Number | None = None,
+    ggside_panel_spacing: Number | None = None,
+    ggside_panel_spacing_x: Number | None = None,
+    ggside_panel_spacing_y: Number | None = None,
 ) -> FeatureSpec:
     """Set theme options: element_*() values, numbers or names per theme element.
 
@@ -216,6 +222,13 @@ def theme(
         Space between legend keys, in pixels.
     legend_box : {"horizontal", "vertical"}, optional
         Arrangement of several legends.
+    ggside_panel_scale, ggside_panel_scale_x, ggside_panel_scale_y : float, optional
+        Size of the ggside side panels (``geom_xside*()``, ``geom_yside*()``) as a
+        share of the main panel: ``_x`` the x side panel's height, ``_y`` the y
+        side panel's width. Default 0.1, as ggside.
+    ggside_panel_spacing, ggside_panel_spacing_x, ggside_panel_spacing_y : float, optional
+        Gap between the main panel and a side panel, in pixels: ``_x`` beside a y
+        side panel, ``_y`` beside an x side panel. Default 2 pt (about 2.7 px).
     legend_box_just : str, optional
         Justification of the legends within their box.
     legend_box_spacing : float, optional

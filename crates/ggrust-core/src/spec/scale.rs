@@ -57,6 +57,10 @@ pub struct ScaleSpec {
     /// the call configures that group's scale. Missing means group 0.
     #[serde(default)]
     pub scale_group: BTreeMap<Aesthetic, u32>,
+    /// ggside `scale_xsidey_*()` / `scale_ysidex_*()`: `"x"` or `"y"`, the side
+    /// panel whose own (cross) axis this scale sets.
+    #[serde(default)]
+    pub ggside: Option<Value>,
     /// Mapper-specific options. Validated by the scale implementation.
     #[serde(flatten)]
     pub parameters: Options,

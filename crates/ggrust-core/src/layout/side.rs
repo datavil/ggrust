@@ -94,11 +94,13 @@ impl AxisEdge {
     /// The edge of `layout`'s panel on `side`, past the facet strips there.
     pub fn of(layout: &PlotLayout, side: Side) -> AxisEdge {
         let panel = layout.panel;
+        // Past a side panel too (it sits between the panel and the axis).
+        let band = layout.band_extent(side);
         let base = match side {
-            Side::Bottom => panel.y + panel.height,
-            Side::Top => panel.y - layout.top_band,
-            Side::Left => panel.x,
-            Side::Right => panel.x + panel.width + layout.right_band,
+            Side::Bottom => panel.y + panel.height + band,
+            Side::Top => panel.y - layout.top_band - band,
+            Side::Left => panel.x - band,
+            Side::Right => panel.x + panel.width + layout.right_band + band,
         };
         AxisEdge { side, base }
     }

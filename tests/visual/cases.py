@@ -724,6 +724,27 @@ def axis_positions_facets(m):
     )
 
 
+def marginal_densities(m):
+    # lets-plot ggmarginal: density and histogram margins share the panel's axes,
+    # boxplots sit at 0 across the left margin.
+    random = np.random.default_rng(11)
+    frame = pl.DataFrame(
+        {
+            "height": np.round(random.normal(170, 9, 160), 1),
+            "weight": np.round(random.normal(68, 11, 160), 1),
+            "sex": ["female", "male"] * 80,
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("height", "weight", color="sex"))
+        + m.geom_point()
+        + m.ggmarginal("t", layer=m.geom_density(m.aes(fill="sex"), alpha=0.3))
+        + m.ggmarginal("r", size=0.15, layer=m.geom_histogram(m.aes(fill="sex"), bins=12))
+        + m.ggmarginal("l", layer=m.geom_boxplot(m.aes(fill="sex")))
+        + m.ggsize(620, 440)
+    )
+
+
 CASES = {
     case.__name__: case
     for case in [
@@ -767,5 +788,6 @@ CASES = {
         repel_cluster_labels,
         axis_positions,
         axis_positions_facets,
+        marginal_densities,
     ]
 }

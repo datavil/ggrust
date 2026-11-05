@@ -63,6 +63,19 @@ pub struct LayerSpec {
     /// ggrastr `rasterize()`: draw the layer as an embedded bitmap in SVG and PDF.
     #[serde(default)]
     pub rasterize: Option<RasterizeSpec>,
+    /// ggside side layer (`geom_xside*()` / `geom_yside*()`): `"x"` or `"y"`, the
+    /// axis the layer shares with the main panel (see [`super::side`]).
+    #[serde(default)]
+    pub ggside: Option<Value>,
+    /// lets-plot `ggmarginal()`: the layer draws in a margin of the panel.
+    #[serde(default)]
+    pub marginal: Option<Value>,
+    /// lets-plot `ggmarginal()`: the margin, `"t"`, `"b"`, `"l"` or `"r"`.
+    #[serde(default)]
+    pub margin_side: Option<Value>,
+    /// lets-plot `ggmarginal()`: the margin's share of the plotting area.
+    #[serde(default)]
+    pub margin_size: Option<Value>,
     /// Geom/stat specific options and constant aesthetics (`size=2`, `color="red"`).
     /// Validated by the geom and stat.
     #[serde(flatten)]

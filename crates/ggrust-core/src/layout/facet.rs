@@ -456,6 +456,7 @@ fn layout_grid(
                             0.0
                         },
                         dendrograms: Default::default(),
+                        bands: Vec::new(),
                         secondary: [secondary.0, secondary.1],
                     },
                     axes: [panel.x_axis, panel.y_axis],
@@ -488,6 +489,7 @@ fn layout_grid(
             top_band: row_strips[0],
             right_band: right_strip,
             dendrograms: Default::default(),
+            bands: Vec::new(),
             secondary: tiles
                 .first()
                 .map(|tile| tile.layout.secondary.clone())

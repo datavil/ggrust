@@ -20,6 +20,10 @@ pub struct PositionScales {
     pub x: AxisScaleSpec,
     /// Vertical axis.
     pub y: AxisScaleSpec,
+    /// The x side panel's own y axis (ggside `scale_xsidey_*()`).
+    pub xside_y: AxisScaleSpec,
+    /// The y side panel's own x axis (ggside `scale_ysidex_*()`).
+    pub yside_x: AxisScaleSpec,
 }
 
 /// One merged option with the path of the call that set it.
@@ -49,6 +53,9 @@ pub struct AxisScaleSpec {
     sides: Set<AxisSides>,
     /// `sec_axis=...` / `dup_axis()`, parsed, with its path.
     secondary: Set<SecondaryAxis>,
+    /// A lets-plot margin below or left of the panel: values grow away from the
+    /// panel (reversed axis), whatever the axis kind.
+    away_from_panel: bool,
 }
 
 impl AxisScaleSpec {
@@ -58,6 +65,15 @@ impl AxisScaleSpec {
             .as_ref()
             .map(|(sides, _)| *sides)
             .unwrap_or_default()
+    }
+
+    /// The cross axis of a lets-plot margin below or left of the panel, where
+    /// values grow away from the panel (`ggmarginal("b")`, `ggmarginal("l")`).
+    pub fn away_from_panel() -> AxisScaleSpec {
+        AxisScaleSpec {
+            away_from_panel: true,
+            ..AxisScaleSpec::default()
+        }
     }
 
     /// Whether the user asked for a discrete scale (`scale_x_discrete()`).
@@ -162,6 +178,8 @@ impl AxisScaleSpec {
         }
         if let Some((name, path)) = &self.trans {
             scale.transform = Transform::parse(name, path)?;
+        } else if self.away_from_panel {
+            scale.transform = Transform::parse("reverse", "margin_side")?;
         }
         if let Some((axis, path)) = &self.secondary {
             if scale.temporal.is_some() {
@@ -249,7 +267,8 @@ impl AxisScaleSpec {
             scale.set_limits(ordered);
             scale.dendrogram = Some(std::sync::Arc::new(dendrogram));
         }
-        scale.reverse = self.reverse.as_ref().is_some_and(|(reverse, _)| *reverse);
+        scale.reverse =
+            self.reverse.as_ref().is_some_and(|(reverse, _)| *reverse) || self.away_from_panel;
         Ok(scale)
     }
 
@@ -414,16 +433,29 @@ impl AxisScaleSpec {
 
 /// Read the x and y scale options; options not built yet are reported in `warnings`.
 pub fn position_scales(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<PositionScales> {
-    let mut merged = [AxisScaleSpec::default(), AxisScaleSpec::default()];
+    let mut merged: [AxisScaleSpec; 4] = Default::default();
     for (index, scale) in spec.scales.iter().enumerate() {
         let path = format!("scales[{index}]");
+        let side = side_of_scale(scale, &path)?;
         for aesthetic in scale.aesthetic.as_slice() {
-            let target = match aesthetic {
-                Aesthetic::X => &mut merged[0],
-                Aesthetic::Y => &mut merged[1],
+            let target = match (aesthetic, side) {
+                (Aesthetic::X, None) => &mut merged[0],
+                (Aesthetic::Y, None) => &mut merged[1],
+                (Aesthetic::Y, Some(true)) => &mut merged[2],
+                (Aesthetic::X, Some(false)) => &mut merged[3],
                 // Style scales: see `style::spec`.
-                other if super::style::default_mapper(*other).is_some() => continue,
-                other => {
+                (other, _) if super::style::default_mapper(*other).is_some() => continue,
+                (Aesthetic::X | Aesthetic::Y, Some(shares_x)) => {
+                    let (panel, other) = if shares_x { ("x", "y") } else { ("y", "x") };
+                    return Err(Error::spec(
+                        format!("{path}.aesthetic"),
+                        format!(
+                            "the {panel} side panel shares the main {panel} axis and has its \
+                             own {other} axis only; use scale_{panel}side{other}_*()"
+                        ),
+                    ));
+                }
+                (other, _) => {
                     warnings.push(format!(
                         "at '{path}': scales for '{other}' are not supported yet; ignored"
                     ));
@@ -448,8 +480,29 @@ pub fn position_scales(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<Po
             report_unbuilt(scale, &path, warnings);
         }
     }
-    let [x, y] = merged;
-    Ok(PositionScales { x, y })
+    let [x, y, xside_y, yside_x] = merged;
+    Ok(PositionScales {
+        x,
+        y,
+        xside_y,
+        yside_x,
+    })
+}
+
+/// The side panel a scale belongs to (`"ggside"`: `Some(true)` the x side panel,
+/// `Some(false)` the y one), `None` for the main panel.
+fn side_of_scale(scale: &ScaleSpec, path: &str) -> Result<Option<bool>> {
+    match &scale.ggside {
+        None | Some(Value::Null) => Ok(None),
+        Some(value) => match value.as_str() {
+            Some("x") => Ok(Some(true)),
+            Some("y") => Ok(Some(false)),
+            _ => Err(Error::spec(
+                format!("{path}.ggside"),
+                format!("expected 'x' (scale_xsidey_*()) or 'y' (scale_ysidex_*()), got {value}"),
+            )),
+        },
+    }
 }
 
 fn merge(target: &mut AxisScaleSpec, scale: &ScaleSpec, path: &str) {

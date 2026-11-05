@@ -47,6 +47,9 @@ pub struct PlotSpec {
     pub insets: Vec<InsetSpec>,
     /// `ggtb(...)`: interactive zoom/pan toolbar.
     pub ggtoolbar: Option<ToolbarSpec>,
+    /// ggside `ggside(x_pos=, y_pos=)`: where the side panels go (see
+    /// [`super::side::SideOptions`]).
+    pub ggside: Option<Value>,
     /// lets-plot front-end metadata (`font_family_info`, ...). Not supported:
     /// every entry is reported by [`super::Figure::unsupported_options`].
     pub metainfo_list: Vec<Value>,

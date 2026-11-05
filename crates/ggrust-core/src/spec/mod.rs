@@ -20,6 +20,7 @@ mod inset;
 mod layer;
 mod plot;
 mod scale;
+pub mod side;
 mod subplots;
 mod theme;
 

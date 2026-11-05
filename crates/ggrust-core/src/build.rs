@@ -20,6 +20,9 @@ use crate::facet::{Facets, LayerFacetColumns, grid_variables};
 use crate::geom::{self, DrawLayer, Geom};
 use crate::interactive_legend::{LayerLegends, RowKeys, row_keys, same_shape, tag_marks};
 use crate::layout::facet::{FacetGrid, FacetLayout, FacetPanel, draw_strips, layout_facets};
+use crate::layout::side_panel::{
+    band_layers_group, draw_band_axis, draw_band_background, draw_band_shared_grid,
+};
 use crate::layout::zoom::{Zoom, ZoomPlot, zoom_tile};
 use crate::layout::{
     Colorbar, DEFAULT_BINS, KeyGrid, KeyLayer, Legend, LegendBox, LegendKey, PANEL_MIN_SIZE,
@@ -37,6 +40,7 @@ use crate::scale::style::spec::{StyleScaleSpec, style_scale_specs};
 use crate::scale::style::{LegendEntry, ScaleKey, StyleScale, default_mapper};
 use crate::scale::{AxisScaleSpec, AxisSides, PositionScale, PositionScales, position_scales};
 use crate::scene::{Group, LAYER_ROLE, Node, PerItem, Raster, Rect, Rects, Scene};
+use crate::spec::side::{BandKey, LayerSide, SideOptions, layer_side};
 use crate::spec::{
     Aesthetic, DataSource, GuideOptions, GuideSpec, LayerSpec, Mapping, MappingAnnotation,
     MappingValue, Options, PlotSpec, SeriesAnnotation, TooltipsSpec, Value,
@@ -50,6 +54,7 @@ use crate::tooltip::{Interaction, LayerInteraction};
 use crate::{Error, Result};
 
 pub mod inspect;
+mod side;
 
 /// Plot size when `ggsize` is not given (lets-plot default).
 pub const DEFAULT_SIZE: (f64, f64) = (600.0, 400.0);
@@ -158,6 +163,16 @@ pub fn build_plot_with(spec: &PlotSpec, data: &PlotData, interactive: bool) -> R
 
 /// Map, compute and style a plot: everything but its layout (see [`PreparedPlot`]).
 pub fn prepare_plot(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
+    if let Some((spec, data, warning)) = side::without_side_layers(spec, data) {
+        let mut prepared = prepare_vectors(&spec, &data)?;
+        prepared.warnings.insert(0, warning);
+        return Ok(prepared);
+    }
+    prepare_vectors(spec, data)
+}
+
+/// [`prepare_plot`] once the plot's side layers fit it.
+fn prepare_vectors(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     match inline_mapping_vectors(spec, data)? {
         Some((spec, data)) => prepare_columns(&spec, &data),
         None => prepare_columns(spec, data),
@@ -267,9 +282,21 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
             }
         },
     };
+    // Side panels: the band each layer draws in (see `side`).
+    let side_options =
+        SideOptions::parse(spec.ggside.as_ref()).map_err(|error| error.with_notes(&warnings))?;
+    let sides = spec
+        .layers
+        .iter()
+        .enumerate()
+        .map(|(index, layer)| layer_side(layer, &format!("layers[{index}]"), side_options))
+        .collect::<Result<Vec<Option<LayerSide>>>>()
+        .map_err(|error| error.with_notes(&warnings))?;
+    let (band_setups, layer_bands) = side::band_setups(&sides);
     let mut mapped = Vec::with_capacity(spec.layers.len());
     for (index, layer) in spec.layers.iter().enumerate() {
-        match map_layer(index, layer, spec, data, &facet_variables) {
+        let band = layer_bands[index].map(|band| (band, band_setups[band].key));
+        match map_layer(index, layer, spec, data, &facet_variables, band) {
             Ok(mut layer) => {
                 warnings.append(&mut layer.warnings);
                 mapped.push(layer);
@@ -327,9 +354,17 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
             None => DEFAULT_SIZE,
         },
     };
+    // Main scales: main layers and side layers along their shared axis.
+    let on_main = |axis_x: bool| -> Vec<&MappedLayer> {
+        mapped
+            .iter()
+            .filter(|layer| side::uses_main_axis(layer.band, axis_x, &band_setups))
+            .collect()
+    };
+    let (x_layers, y_layers) = (on_main(true), on_main(false));
     let axis_scales = axis_scale(
         &scales.x,
-        &mapped,
+        &x_layers,
         Aesthetic::is_x_position,
         "x",
         &mut warnings,
@@ -337,7 +372,7 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     .and_then(|x| {
         axis_scale(
             &scales.y,
-            &mapped,
+            &y_layers,
             Aesthetic::is_y_position,
             "y",
             &mut warnings,
@@ -345,6 +380,28 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         .map(|y| (x, y))
     });
     let (mut x_scale, mut y_scale) = axis_scales.map_err(|error| error.with_notes(&warnings))?;
+    // Each band's own scale, across it.
+    let mut band_scales = Vec::with_capacity(band_setups.len());
+    for (band, setup) in band_setups.iter().enumerate() {
+        let members: Vec<&MappedLayer> = mapped
+            .iter()
+            .filter(|layer| layer.band == Some(band))
+            .collect();
+        let (on_axis, axis): (fn(Aesthetic) -> bool, &str) = if setup.key.shares_x {
+            (Aesthetic::is_y_position, "y")
+        } else {
+            (Aesthetic::is_x_position, "x")
+        };
+        let scale = axis_scale(
+            &setup.cross_spec(&scales),
+            &members,
+            on_axis,
+            axis,
+            &mut warnings,
+        )
+        .map_err(|error| error.with_notes(&warnings))?;
+        band_scales.push(scale);
+    }
     if facets.is_some() {
         for (scale, axis) in [(&mut x_scale, "x"), (&mut y_scale, "y")] {
             if scale.drop_dendrogram() {
@@ -360,13 +417,19 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         .map_err(|error| error.with_notes(&warnings))?;
     x_scale.set_exponent_format(exponent_format);
     y_scale.set_exponent_format(exponent_format);
+    for scale in &mut band_scales {
+        scale.set_exponent_format(exponent_format);
+    }
     // Geom default colors and the names "pen", "brush", "paper" follow the theme.
     let palette = crate::theme::geom_palette(spec.theme.as_ref())
         .map_err(|error| error.with_notes(&warnings))?;
     for layer in mapped.iter().filter(|layer| layer.geom.includes_zero_y()) {
-        match layer.y_oriented {
-            true => x_scale.set_include_zero(),
-            false => y_scale.set_include_zero(),
+        // The value axis: data x for a y-oriented layer, else y.
+        let value_on_x = layer.y_oriented;
+        match side::band_on_cross(layer.band, value_on_x, &band_setups) {
+            Some(band) => band_scales[band].set_include_zero(),
+            None if value_on_x => x_scale.set_include_zero(),
+            None => y_scale.set_include_zero(),
         }
     }
     if let Some(coord_spec) = &spec.coord {
@@ -412,10 +475,12 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         aspect = None;
     }
     let context = StatContext {
-        x_range: overall_range(&mapped.iter().collect::<Vec<_>>(), Aesthetic::X, &x_scale),
-        y_range: overall_range(&mapped.iter().collect::<Vec<_>>(), Aesthetic::Y, &y_scale),
+        x_range: overall_range(&x_layers, Aesthetic::X, &x_scale),
+        y_range: overall_range(&y_layers, Aesthetic::Y, &y_scale),
         x_levels: None,
     };
+    let band_contexts = side::band_contexts(&band_setups, &band_scales, &mapped, context);
+    drop((x_layers, y_layers));
     // Per panel: its layers (stats and positions run per panel, as in lets-plot),
     // its position scales before training (free axes: discrete levels of the
     // panel's scale group only, in the plot's order) and its stat context: on a
@@ -527,8 +592,17 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     // Tiles and layers compute in parallel; results are taken in order, so
     // warnings and the first error are those of a sequential run.
     let results = parallel::ordered_map(tiles, parallel, |(layers, tile_x, tile_y, context)| {
-        let results = parallel::ordered_map(layers, parallel, |layer| {
-            compute_layer(layer, [&tile_x, &tile_y], &context)
+        let results = parallel::ordered_map(layers, parallel, |layer| match layer.band {
+            None => compute_layer(layer, [&tile_x, &tile_y], &context),
+            Some(band) => {
+                let cross = &band_scales[band];
+                let scales = if band_setups[band].key.shares_x {
+                    [&tile_x, cross]
+                } else {
+                    [cross, &tile_y]
+                };
+                compute_layer(layer, scales, &band_contexts[band])
+            }
         });
         (results, tile_x, tile_y)
     });
@@ -598,12 +672,20 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
             }
         }
         // A free axis trains its scale group on every panel of the group.
+        let main_layers = || layers.iter().filter(|layer| layer.band.is_none());
         train_positions(
-            &layers,
+            main_layers(),
             &mut x_group_scales[*x_group],
             &mut y_group_scales[*y_group],
         );
-        train_positions(&layers, &mut x_scale, &mut y_scale);
+        train_positions(main_layers(), &mut x_scale, &mut y_scale);
+        side::train_bands(
+            &layers,
+            &band_setups,
+            &mut band_scales,
+            &mut x_scale,
+            &mut y_scale,
+        );
         prepared_tiles.push((layers, tile_x, tile_y));
     }
     warnings.extend(merge_tile_warnings(tile_warnings));
@@ -659,6 +741,12 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     }
     let theme = Theme::from_spec(spec.theme.as_ref(), &mut warnings)
         .map_err(|error| error.with_notes(&warnings))?;
+    side::check_theme(&theme, &band_setups).map_err(|error| error.with_notes(&warnings))?;
+    let bands = band_setups
+        .into_iter()
+        .zip(band_scales)
+        .map(|(setup, cross)| side::SideBand { setup, cross })
+        .collect();
     // Per layer: whether it runs in y orientation (the same in every panel).
     let orientations: Vec<bool> = prepared_tiles
         .first()
@@ -717,6 +805,7 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     };
     Ok(PreparedPlot {
         tiles: prepared_tiles,
+        bands,
         facets,
         theme,
         titles,
@@ -737,6 +826,9 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
 pub struct PreparedPlot {
     /// Per panel: its layers and its x and y scales (data axes, not screen axes).
     tiles: Vec<(Vec<PreparedLayer>, PositionScale, PositionScale)>,
+    /// Side panels (single panels only): their layers are in `tiles[0]`, tagged
+    /// with the band's index (`PreparedLayer::band`).
+    bands: Vec<side::SideBand>,
     facets: Option<Facets>,
     /// Screen theme and titles (swapped under `coord_flip`).
     theme: Theme,
@@ -927,6 +1019,29 @@ impl PreparedPlot {
         }
     }
 
+    /// The data scales (x, y) of side band `band`: the main scale along the shared
+    /// axis, the band's own across it.
+    fn band_data_scales(&self, band: usize) -> (&PositionScale, &PositionScale) {
+        let (_, x, y) = &self.tiles[0];
+        let side = &self.bands[band];
+        if side.setup.key.shares_x {
+            (x, &side.cross)
+        } else {
+            (&side.cross, y)
+        }
+    }
+
+    /// The laid out band of side band `band` in `layout` (`None`: not laid out,
+    /// as in a faceted plot).
+    fn band_layout<'l>(
+        &self,
+        layout: &'l PlotLayout,
+        band: usize,
+    ) -> Option<&'l crate::layout::side_panel::BandLayout> {
+        let side = self.bands.get(band)?.setup.screen_side(self.flipped);
+        layout.bands.iter().find(|laid| laid.side == side)
+    }
+
     /// The data aesthetic drawn along a screen axis (`horizontal`: x), swapped
     /// under `coord_flip`.
     pub(crate) fn screen_aesthetic(&self, horizontal: bool) -> Aesthetic {
@@ -1026,6 +1141,7 @@ impl PreparedPlot {
             .map_or(Margins::uniform(0.0), |block| {
                 legend_space(&self.theme, block.size)
             });
+        let band_requests = side::band_requests(&self.bands, &self.theme, self.flipped);
         let layout_with = |titles: &Titles| match &self.facets {
             None => {
                 let (_, tile_x, tile_y) = &self.tiles[0];
@@ -1039,6 +1155,7 @@ impl PreparedPlot {
                     legend_space,
                     self.aspect,
                     panel_min_size,
+                    &band_requests,
                 ))
             }
             Some(facets) => Arranged::Facets(layout_facets(
@@ -1164,16 +1281,35 @@ impl PreparedPlot {
             };
             let indices = toggle_indices(layers);
             for ((layer, setup), index) in layers.iter().zip(&self.tooltip_setups).zip(indices) {
-                jobs.push((rect, tile_x, tile_y, index, layer, setup));
+                // A side layer answers in its band, through the band's scales.
+                let (rect, tile_x, tile_y, side) = match layer.band {
+                    None => (rect, tile_x, tile_y, None),
+                    Some(band) => {
+                        let Some(band_layout) = self.band_layout(arrangement.plot_layout(), band)
+                        else {
+                            continue;
+                        };
+                        let (band_x, band_y) = self.band_data_scales(band);
+                        let shared = if band_layout.side.is_horizontal() {
+                            "x"
+                        } else {
+                            "y"
+                        };
+                        let rect = arrangement.plot_layout().band_rect(band_layout);
+                        (rect, band_x, band_y, Some(shared))
+                    }
+                };
+                jobs.push((rect, tile_x, tile_y, index, layer, setup, side));
             }
         }
-        let layer_interaction = |&(rect, tile_x, tile_y, layer_index, layer, setup): &(
+        let layer_interaction = |&(rect, tile_x, tile_y, layer_index, layer, setup, side): &(
             Rect,
             &PositionScale,
             &PositionScale,
             usize,
             &PreparedLayer,
             &LayerTooltipSetup,
+            Option<&'static str>,
         ),
                                  notes: &mut Vec<String>|
          -> Result<Option<LayerInteraction>> {
@@ -1255,6 +1391,7 @@ impl PreparedPlot {
                 anchor,
                 min_width,
                 keys: layer.keys.clone(),
+                side,
             }))
         };
         let results = parallel::ordered_map(jobs, self.is_large(), |job| {
@@ -1337,9 +1474,9 @@ impl PreparedPlot {
     pub fn draw(&self, arrangement: &Arrangement, interactive: bool) -> Result<Vec<Node>> {
         let theme = &self.theme;
         let parallel = self.is_large();
-        let draw_layers = |layers: &[PreparedLayer], panel: &Panel| -> Result<Vec<Node>> {
+        let draw_layers = |layers: &[&PreparedLayer], panel: &Panel| -> Result<Vec<Node>> {
             // Layers draw in parallel and stack in layer order.
-            let jobs: Vec<&PreparedLayer> = layers.iter().collect();
+            let jobs: Vec<&PreparedLayer> = layers.to_vec();
             let drawn = parallel::ordered_map(jobs, parallel, |layer| {
                 let panel = panel.oriented(layer.y_oriented);
                 let draw = |styles: &Styles| {
@@ -1400,7 +1537,9 @@ impl PreparedPlot {
                     coord: self.coord,
                     flipped: self.flipped,
                 };
-                let layer_nodes = draw_layers(layers, &panel)?;
+                let main: Vec<&PreparedLayer> =
+                    layers.iter().filter(|layer| layer.band.is_none()).collect();
+                let layer_nodes = draw_layers(&main, &panel)?;
                 let mut tile = draw_panel_background(layout, theme, &panel);
                 tile.push(Node::Group(Group {
                     key: None,
@@ -1410,6 +1549,34 @@ impl PreparedPlot {
                     nodes: layer_nodes,
                 }));
                 tile.extend(draw_panel_border(layout, theme));
+                for band in 0..self.bands.len() {
+                    let Some(band_layout) = self.band_layout(layout, band) else {
+                        continue;
+                    };
+                    let (band_x, band_y) = self.band_data_scales(band);
+                    let (horizontal, vertical) = self.screen_scales(band_x, band_y);
+                    let band_panel = Panel {
+                        rect: layout.band_rect(band_layout),
+                        x_scale: horizontal,
+                        y_scale: vertical,
+                        coord: self.coord,
+                        flipped: self.flipped,
+                    };
+                    let members: Vec<&PreparedLayer> = layers
+                        .iter()
+                        .filter(|layer| layer.band == Some(band))
+                        .collect();
+                    tile.extend(draw_band_background(
+                        layout,
+                        band_layout,
+                        theme,
+                        &band_panel,
+                    ));
+                    let mut moving = draw_band_shared_grid(layout, band_layout, theme, &band_panel);
+                    moving.extend(draw_layers(&members, &band_panel)?);
+                    tile.push(band_layers_group(layout, band_layout, moving));
+                    tile.extend(draw_band_axis(layout, band_layout, theme, &band_panel));
+                }
                 tile.extend(draw_axes(layout, theme, &panel, layout.axis_sides));
                 nodes.push(tile_group(tile));
             }
@@ -1426,7 +1593,8 @@ impl PreparedPlot {
                             coord: self.coord,
                             flipped: self.flipped,
                         };
-                        let layer_nodes = draw_layers(layers, &panel)?;
+                        let layers: Vec<&PreparedLayer> = layers.iter().collect();
+                        let layer_nodes = draw_layers(&layers, &panel)?;
                         let mut tile_nodes = draw_panel_background(&tile.layout, theme, &panel);
                         tile_nodes.push(Node::Group(Group {
                             key: None,
@@ -1470,8 +1638,8 @@ impl PreparedPlot {
 
 /// Train the position scales on prepared layers: spans of the geom setup, then
 /// every position column the setup did not make.
-fn train_positions(
-    layers: &[PreparedLayer],
+fn train_positions<'a>(
+    layers: impl IntoIterator<Item = &'a PreparedLayer>,
     x_scale: &mut PositionScale,
     y_scale: &mut PositionScale,
 ) {
@@ -1538,6 +1706,7 @@ fn split_layer<'a>(layer: &MappedLayer<'a>, rows: &[u32]) -> MappedLayer<'a> {
         }
     };
     MappedLayer {
+        band: layer.band,
         spec: layer.spec,
         path: layer.path.clone(),
         geom: layer.geom,
@@ -1738,6 +1907,15 @@ fn default_scale_name(
         if layer.scale_group(aesthetic) != group {
             continue;
         }
+        // A side layer's position across its band belongs to the band's own axis.
+        if matches!(aesthetic, Aesthetic::X | Aesthetic::Y)
+            && layer_side(layer, "", SideOptions::default())
+                .ok()
+                .flatten()
+                .is_some_and(|side| side.band.shares_x != (aesthetic == Aesthetic::X))
+        {
+            continue;
+        }
         // A y-oriented layer's stat maps its variables to the swapped aesthetic.
         let stat_aesthetic = match orientations.get(index).copied().unwrap_or(false) {
             true => aesthetic.flip_orientation(),
@@ -1821,6 +1999,8 @@ fn is_title_only(options: &GuideOptions) -> bool {
 
 /// One layer after stat and position, ready to draw.
 struct PreparedLayer {
+    /// The side panel the layer draws in (see [`MappedLayer::band`]).
+    band: Option<usize>,
     /// Layer options with aliases normalised (`colour` -> `color`).
     options: Options,
     path: String,
@@ -1925,10 +2105,19 @@ fn map_layer<'a>(
     plot: &PlotSpec,
     data: &PlotData,
     facet_variables: &[(String, &'static str)],
+    band: Option<(usize, BandKey)>,
 ) -> StageResult<MappedLayer<'a>> {
     let mut warnings = Vec::new();
-    map_layer_into(index, spec, plot, data, facet_variables, &mut warnings)
-        .map_err(|error| (error, warnings))
+    map_layer_into(
+        index,
+        spec,
+        plot,
+        data,
+        facet_variables,
+        band,
+        &mut warnings,
+    )
+    .map_err(|error| (error, warnings))
 }
 
 fn map_layer_into<'a>(
@@ -1937,6 +2126,7 @@ fn map_layer_into<'a>(
     plot: &PlotSpec,
     data: &PlotData,
     facet_variables: &[(String, &'static str)],
+    band: Option<(usize, BandKey)>,
     warnings: &mut Vec<String>,
 ) -> Result<MappedLayer<'a>> {
     let path = format!("layers[{index}]");
@@ -1972,6 +2162,22 @@ fn map_layer_into<'a>(
     let mut overridden = mapping.clone();
     overridden.retain(|aesthetic, _| has_constant(aesthetic));
     mapping.retain(|aesthetic, _| !has_constant(aesthetic));
+    // A side tile mapping nothing across its band is one track, labelled by its
+    // fill column (the plot's mapping on that axis belongs to the main panel).
+    let track = band.and_then(|(_, key)| {
+        let cross = if key.shares_x {
+            Aesthetic::Y
+        } else {
+            Aesthetic::X
+        };
+        (side::TRACK_GEOMS.contains(&spec.geom.as_str())
+            && !spec.mapping.contains_key(&cross)
+            && !has_constant(&cross))
+        .then(|| (cross, side::track_label(&mapping, &spec.geom)))
+    });
+    if let Some((cross, _)) = &track {
+        mapping.remove(cross);
+    }
     let layer_frame = data.layers.get(index).and_then(Option::as_ref);
     let borrows_plot = layer_frame.is_none() || spec.merge_plot_data != Some(false);
     let frames = LayerFrames {
@@ -2123,7 +2329,14 @@ fn map_layer_into<'a>(
             }
         }
     }
+    let row_count = if unbound { 1 } else { frames.row_count() };
+    if let Some((cross, label)) = track {
+        let codes = arrow_array::UInt32Array::from(vec![0_u32; row_count]);
+        let column = crate::data::DiscreteColumn::from_parts(vec![label], codes);
+        columns.push((cross, Column::Discrete(column), at("ggside")));
+    }
     Ok(MappedLayer {
+        band: band.map(|(band, _)| band),
         spec,
         path,
         geom,
@@ -2131,7 +2344,7 @@ fn map_layer_into<'a>(
         positions,
         options,
         // lets-plot drops the data of a layer with no mapped columns: one row.
-        row_count: if unbound { 1 } else { frames.row_count() },
+        row_count,
         columns,
         stat_mappings,
         temporal,
@@ -2214,6 +2427,8 @@ fn layer_orientation(
 
 /// A layer after [`map_layer`].
 struct MappedLayer<'a> {
+    /// The side panel the layer draws in (an index into the plot's bands).
+    band: Option<usize>,
     spec: &'a LayerSpec,
     path: String,
     geom: &'static dyn Geom,
@@ -2248,7 +2463,7 @@ struct MappedLayer<'a> {
 /// layer maps a discrete column to the axis; levels join across layers in order.
 fn axis_scale(
     spec: &AxisScaleSpec,
-    layers: &[MappedLayer],
+    layers: &[&MappedLayer],
     on_axis: fn(Aesthetic) -> bool,
     axis: &str,
     warnings: &mut Vec<String>,
@@ -2324,6 +2539,7 @@ fn compute_layer(
     context: &StatContext,
 ) -> Result<ComputedLayer> {
     let MappedLayer {
+        band,
         spec,
         path,
         geom,
@@ -2569,6 +2785,7 @@ fn compute_layer(
         );
     }
     Ok(ComputedLayer {
+        band,
         options,
         path,
         geom,
@@ -2590,6 +2807,8 @@ fn compute_layer(
 
 /// A layer after [`compute_layer`]: positions scaled, stat and position applied.
 struct ComputedLayer {
+    /// See [`MappedLayer::band`].
+    band: Option<usize>,
     /// See [`PreparedLayer::companion`].
     companion: bool,
     /// Layer options with aliases normalised (`colour` -> `color`).
@@ -2670,6 +2889,7 @@ fn style_layer(
     };
     Ok((
         PreparedLayer {
+            band: layer.band,
             options: layer.options,
             path: layer.path,
             geom: layer.geom,
@@ -2733,7 +2953,9 @@ fn forces_discrete(plot: &PlotSpec, layer: &LayerSpec, aesthetic: Aesthetic) -> 
         .iter()
         .rev()
         .filter(|scale| {
-            scale.aesthetic.as_slice().contains(&aesthetic) && scale.scale_group(aesthetic) == group
+            scale.aesthetic.as_slice().contains(&aesthetic)
+                && scale.scale_group(aesthetic) == group
+                && scale.ggside.is_none()
         })
         .find_map(|scale| scale.discrete)
         .unwrap_or(false)
@@ -3300,11 +3522,18 @@ fn validate_parameters(
         )
         // Every layer: see `layer_orientation`.
         .chain(["orientation"])
-        // Constant positions: geom_point(x=1.5).
+        // Constant positions: geom_point(x=1.5); swapped under orientation="y"
+        // (ggmarginal's sideways boxplots take y=0).
         .chain(
             geom.required_aesthetics()
                 .iter()
                 .map(|aesthetic| aesthetic.as_str()),
+        )
+        .chain(
+            geom.required_aesthetics()
+                .iter()
+                .filter(|_| options.get("orientation").and_then(Value::as_str) == Some("y"))
+                .map(|aesthetic| aesthetic.flip_orientation().as_str()),
         )
         .collect();
     for name in options.keys() {
@@ -4476,7 +4705,7 @@ mod tests {
         warnings: &mut Vec<String>,
     ) -> Result<PreparedLayer> {
         let mut mapped =
-            map_layer(0, &spec.layers[0], spec, &cells(), &[]).map_err(|(error, _)| error)?;
+            map_layer(0, &spec.layers[0], spec, &cells(), &[], None).map_err(|(error, _)| error)?;
         warnings.append(&mut mapped.warnings);
         let mut computed = compute_layer(mapped, [x_scale, y_scale], &StatContext::default())?;
         warnings.append(&mut computed.warnings);
@@ -4814,7 +5043,7 @@ mod tests {
         let numbers = |json: &str| {
             let spec = plot(json);
             let mut mapped =
-                map_layer(0, &spec.layers[0], &spec, &data, &[]).unwrap_or_else(|_| panic!());
+                map_layer(0, &spec.layers[0], &spec, &data, &[], None).unwrap_or_else(|_| panic!());
             let scale = PositionScale::Continuous(ContinuousPositionScale::default());
             let mut warnings = std::mem::take(&mut mapped.warnings);
             let computed =

@@ -75,3 +75,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Core ggplot2 gaps](core_ggplot2_gaps.md): geom_col reuses the bar geom (add "col" to bar-name lists), rug sides under flip, linewidth default scale, cov.trob parity details, staging lines in shared files.
 - [Axis sides](axis_positions.md): `AxisSides` on the scale (flip for free), one `AxisEdge` per side, `axis_side_nodes` takes any breaks (secondary axes), facets follow ggplot2, global zoom placeholders.
 - [Secondary axes](secondary_axes.md): Python callable called back from Rust, resolved after final ranges (and grid sharing), throwaway break scale mapped back, `PlotLayout.secondary` per side, fixed zoom breaks.
+- [Side panels](side_panels.md): ggside layers and ggmarginal share one band engine; layer key `ggside` (not `side`), side layers stay in tiles[0] tagged by band, bands follow the panel, one-axis zoom.

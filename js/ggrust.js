@@ -1185,13 +1185,14 @@
     moveTargets(plot, tile, h, v, k, reset);
   }
 
-  // Axis dendrograms ("dendrogram-x" / "dendrogram-y" beside the axes): their
-  // paths go into an inner group, moved along the tree's axis only (leaves are
-  // linear in the category index, heights stay); the outer group keeps the
-  // engine's clip to the panel's span along the axis.
+  // Axis dendrograms ("dendrogram-x" / "dendrogram-y" beside the axes) and the
+  // layers of side panels ("side-x" / "side-y", bands sharing the horizontal or
+  // vertical axis): their marks go into an inner group, moved along that axis
+  // only (leaves and tracks are linear in it, the other axis stays); the outer
+  // group keeps the engine's clip.
   function treeGroups(element) {
     var trees = [];
-    [["dendrogram-x", true], ["dendrogram-y", false]].forEach(function (entry) {
+    [["dendrogram-x", true], ["dendrogram-y", false], ["side-x", true], ["side-y", false]].forEach(function (entry) {
       for (var child = element.firstElementChild; child; child = child.nextElementSibling) {
         if (child.getAttribute("class") !== entry[0]) continue;
         var inner = document.createElementNS(SVG_NS, "g");
@@ -1224,8 +1225,14 @@
 
   // Tooltip targets of the layers in `tile`'s panel, through the same mapping.
   function moveTargets(plot, tile, h, v, k, reset) {
+    var p = tile.spec.panel;
     (plot.layers || []).forEach(function (layer) {
-      if (!samePanel(layer.panel, tile.spec.panel)) return;
+      // A side panel's layer moves along the axis it shares with the panel only.
+      var q = layer.panel, along = null;
+      if (layer.side === "x" && Math.abs(q[0] - p[0]) < 0.01 && Math.abs(q[2] - p[2]) < 0.01) along = "x";
+      if (layer.side === "y" && Math.abs(q[1] - p[1]) < 0.01 && Math.abs(q[3] - p[3]) < 0.01) along = "y";
+      if (!along && !samePanel(q, p)) return;
+      if (layer.side && !along) return;
       if (!layer.original) layer.original = layer.targets;
       var o = layer.original;
       // Indexed again on the next lookup, not on every zoom step.
@@ -1234,8 +1241,10 @@
         layer.targets = o;
         return;
       }
-      var mx = function (value) { return h.scale * value + h.offset; };
-      var my = function (value) { return v.scale * value + v.offset; };
+      var hs = along === "y" ? 1 : h.scale, ho = along === "y" ? 0 : h.offset;
+      var vs = along === "x" ? 1 : v.scale, vo = along === "x" ? 0 : v.offset;
+      var mx = function (value) { return hs * value + ho; };
+      var my = function (value) { return vs * value + vo; };
       var t = {};
       Object.keys(o).forEach(function (key) { t[key] = o[key]; });
       if (o.kind === "polygons") {
@@ -1245,10 +1254,10 @@
       } else {
         t.x = o.x.map(mx);
         t.y = o.y.map(my);
-        if (o.kind === "points") t.radius = o.radius.map(function (r) { return r * k; });
+        if (o.kind === "points" && !along) t.radius = o.radius.map(function (r) { return r * k; });
         if (o.kind === "rects") {
-          t.width = o.width.map(function (w) { return w * h.scale; });
-          t.height = o.height.map(function (value) { return value * v.scale; });
+          t.width = o.width.map(function (w) { return w * hs; });
+          t.height = o.height.map(function (value) { return value * vs; });
         }
       }
       layer.targets = t;
@@ -1660,8 +1669,9 @@
     }
     // Strokes keep their width when a panel's marks are scaled.
     var style = document.createElementNS(SVG_NS, "style");
-    style.textContent = "#" + plot.id + " .panel *, #" + plot.id + " .dendrogram-x *, #" +
-      plot.id + " .dendrogram-y * { vector-effect: non-scaling-stroke; }";
+    style.textContent = ["panel", "dendrogram-x", "dendrogram-y", "side-x", "side-y"].map(function (name) {
+      return "#" + plot.id + " ." + name + " *";
+    }).join(", ") + " { vector-effect: non-scaling-stroke; }";
     plot.svg.insertBefore(style, plot.svg.firstChild);
     plot.zoom.decorations = document.createElementNS(SVG_NS, "g");
     plot.zoom.decorations.setAttribute("class", "ggrust-selection");

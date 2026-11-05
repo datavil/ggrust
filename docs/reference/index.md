@@ -249,6 +249,39 @@ Cluster rows or columns as R's hclust, draw the tree, and order a discrete axis 
 | [`scale_y_dendro()`](api/scale_y_dendro.md) | Discrete y scale ordered by a clustering tree, drawn left of the axis (legendry). |
 | [`guide_axis_dendro()`](api/guide_axis_dendro.md) | Axis guide that draws the scale's tree beside the axis (R legendry). |
 
+## Side panels and marginal plots (ggside, ggmarginal)
+
+Layers in bands beside the panel that share one of its axes, such as heatmap annotation tracks and marginal densities (R package ggside; ``ggmarginal()`` as lets-plot).
+
+| Name | Description |
+|---|---|
+| [`geom_xsidetile()`](api/geom_xsidetile.md) | Draw tiles in the x side panel (R package ggside). |
+| [`geom_ysidetile()`](api/geom_ysidetile.md) | Draw tiles in the y side panel (R package ggside). |
+| [`geom_xsidebar()`](api/geom_xsidebar.md) | Draw bars of counts in the x side panel (R package ggside). |
+| [`geom_ysidebar()`](api/geom_ysidebar.md) | Draw bars of counts in the y side panel (R package ggside). |
+| [`geom_xsidecol()`](api/geom_xsidecol.md) | Draw bars of given heights in the x side panel (R package ggside). |
+| [`geom_ysidecol()`](api/geom_ysidecol.md) | Draw bars of given heights in the y side panel (R package ggside). |
+| [`geom_xsidehistogram()`](api/geom_xsidehistogram.md) | Draw a histogram in the x side panel (R package ggside). |
+| [`geom_ysidehistogram()`](api/geom_ysidehistogram.md) | Draw a histogram in the y side panel (R package ggside). |
+| [`geom_xsidedensity()`](api/geom_xsidedensity.md) | Draw a density curve in the x side panel (R package ggside). |
+| [`geom_ysidedensity()`](api/geom_ysidedensity.md) | Draw a density curve in the y side panel (R package ggside). |
+| [`geom_xsidepoint()`](api/geom_xsidepoint.md) | Draw points in the x side panel (R package ggside). |
+| [`geom_ysidepoint()`](api/geom_ysidepoint.md) | Draw points in the y side panel (R package ggside). |
+| [`geom_xsideboxplot()`](api/geom_xsideboxplot.md) | Draw boxplots in the x side panel (R package ggside). |
+| [`geom_ysideboxplot()`](api/geom_ysideboxplot.md) | Draw boxplots in the y side panel (R package ggside). |
+| [`geom_xsideviolin()`](api/geom_xsideviolin.md) | Draw violins in the x side panel (R package ggside). |
+| [`geom_ysideviolin()`](api/geom_ysideviolin.md) | Draw violins in the y side panel (R package ggside). |
+| [`geom_xsideline()`](api/geom_xsideline.md) | Draw a line in the x side panel (R package ggside). |
+| [`geom_ysideline()`](api/geom_ysideline.md) | Draw a line in the y side panel (R package ggside). |
+| [`geom_xsidetext()`](api/geom_xsidetext.md) | Draw text labels in the x side panel (R package ggside). |
+| [`geom_ysidetext()`](api/geom_ysidetext.md) | Draw text labels in the y side panel (R package ggside). |
+| [`scale_xsidey_continuous()`](api/scale_xsidey_continuous.md) | Set the x side panel's own continuous y axis (R package ggside). |
+| [`scale_xsidey_discrete()`](api/scale_xsidey_discrete.md) | Set the x side panel's own discrete y axis, e.g. the track order (R package ggside). |
+| [`scale_ysidex_continuous()`](api/scale_ysidex_continuous.md) | Set the y side panel's own continuous x axis (R package ggside). |
+| [`scale_ysidex_discrete()`](api/scale_ysidex_discrete.md) | Set the y side panel's own discrete x axis, e.g. the track order (R package ggside). |
+| [`ggside()`](api/ggside.md) | Place the side panels (R package ggside). |
+| [`ggmarginal()`](api/ggmarginal.md) | Add copies of a layer in margins of the panel: a marginal plot (as lets-plot). |
+
 ## Size, shape and alpha scales
 
 Map data to point size, point shape and transparency.

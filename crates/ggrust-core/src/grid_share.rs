@@ -189,7 +189,7 @@ fn with_limits(spec: &PlotSpec, aesthetic: Aesthetic, limits: &[String]) -> Plot
     match spec
         .scales
         .iter_mut()
-        .find(|scale| scale.aesthetic.as_slice().contains(&aesthetic))
+        .find(|scale| scale.aesthetic.as_slice().contains(&aesthetic) && scale.ggside.is_none())
     {
         Some(scale) => scale.limits = Some(values),
         None => spec.scales.push(ScaleSpec {
@@ -208,6 +208,7 @@ fn with_limits(spec: &PlotSpec, aesthetic: Aesthetic, limits: &[String]) -> Plot
             position: None,
             scale_mapper_kind: None,
             scale_group: BTreeMap::new(),
+            ggside: None,
             parameters: Options::new(),
         }),
     }

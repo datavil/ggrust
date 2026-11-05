@@ -234,6 +234,10 @@ pub struct LayerInteraction {
     /// do not answer the cursor.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub keys: Option<crate::interactive_legend::RowKeys>,
+    /// A side panel layer: the screen axis it shares with its panel (`"x"`
+    /// horizontal, `"y"` vertical), the only one its targets move along on zoom.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub side: Option<&'static str>,
 }
 
 impl LayerInteraction {
@@ -339,6 +343,7 @@ mod tests {
                 anchor: None,
                 min_width: None,
                 keys: None,
+                side: None,
             }],
             zoom: None,
         };

@@ -559,6 +559,16 @@ class PlotSpec(FeatureSpec):
                     old_options = plot.props().get("theme", {})
                     plot.props()["theme"] = _theme_dicts_merge(old_options, new_options)
                 return plot
+            if other.kind == "ggside":
+                # Later ggside() options win key by key; unset ones keep earlier values.
+                earlier = plot.props().get("ggside")
+                merged = dict(earlier.props()) if isinstance(earlier, FeatureSpec) else {}
+                merged.pop("name", None)
+                merged.update(
+                    {key: value for key, value in other.props().items() if value is not None}
+                )
+                plot.props()["ggside"] = FeatureSpec("ggside", name=None, **merged)
+                return plot
             if other.kind == "metainfo":
                 plot.__metainfo_list.append(other)
                 return plot

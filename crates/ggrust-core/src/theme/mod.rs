@@ -30,6 +30,9 @@ pub const INK: Color = Color::rgb(0x47, 0x47, 0x47);
 /// lets-plot `SymbolicColor.GREY_1` (`#E9E9E9`): panel grid lines.
 pub const GRID: Color = Color::rgb(0xE9, 0xE9, 0xE9);
 
+/// ggside's default `ggside.panel.spacing`, 2 pt, in px (96 / 72 px per pt).
+pub const GGSIDE_PANEL_SPACING: f64 = 2.0 * 96.0 / 72.0;
+
 /// Style of a text element.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct TextStyle {
@@ -339,6 +342,12 @@ pub struct Theme {
     pub legend_key_size: (f64, f64),
     /// Space between key cells (`legend_key_spacing`), horizontal and vertical.
     pub legend_key_spacing: (f64, f64),
+    /// ggside side panel size relative to the main panel (`ggside_panel_scale`):
+    /// the x side panel's height, the y side panel's width (data axes).
+    pub ggside_panel_scale: (f64, f64),
+    /// Gap between the main panel and a ggside side panel (`ggside_panel_spacing`,
+    /// px): horizontal (left/right panels), vertical (top/bottom panels).
+    pub ggside_panel_spacing: (f64, f64),
     /// Space between legend boxes (`legend_spacing`), horizontal and vertical.
     pub legend_spacing: (f64, f64),
     /// Space between the plot area and the legends (`legend_box_spacing`).
@@ -464,6 +473,12 @@ const BUILT_OPTIONS: &[&str] = &[
     "legend_key_spacing",
     "legend_key_spacing_x",
     "legend_key_spacing_y",
+    "ggside_panel_scale",
+    "ggside_panel_scale_x",
+    "ggside_panel_scale_y",
+    "ggside_panel_spacing",
+    "ggside_panel_spacing_x",
+    "ggside_panel_spacing_y",
     "legend_box",
     "legend_box_just",
     "legend_box_spacing",
@@ -887,6 +902,21 @@ impl Resolver<'_> {
             legend_key_spacing: (
                 self.number(&["legend_key_spacing_x", "legend_key_spacing"], 0.0)?,
                 self.number(&["legend_key_spacing_y", "legend_key_spacing"], 0.0)?,
+            ),
+            // ggside defaults: 0.1 of the main panel, 2 pt apart.
+            ggside_panel_scale: (
+                self.number(&["ggside_panel_scale_x", "ggside_panel_scale"], 0.1)?,
+                self.number(&["ggside_panel_scale_y", "ggside_panel_scale"], 0.1)?,
+            ),
+            ggside_panel_spacing: (
+                self.number(
+                    &["ggside_panel_spacing_x", "ggside_panel_spacing"],
+                    GGSIDE_PANEL_SPACING,
+                )?,
+                self.number(
+                    &["ggside_panel_spacing_y", "ggside_panel_spacing"],
+                    GGSIDE_PANEL_SPACING,
+                )?,
             ),
             legend_spacing: (
                 self.number(&["legend_spacing_x", "legend_spacing"], 10.0)?,

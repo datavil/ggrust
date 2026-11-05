@@ -5,6 +5,7 @@
 
 use super::datetime::{DatePattern, TemporalAxis, TemporalKind, TimeInterval};
 use super::label_pattern::LabelPattern;
+use super::secondary::SecondaryAxis;
 use super::{AxisSides, ContinuousPositionScale, DiscretePositionScale, PositionScale, Transform};
 use crate::cluster::{DendrogramType, Tree};
 use crate::layout::dendrogram::{AxisDendrogram, DEFAULT_SPACE, DendrogramSide};
@@ -46,6 +47,8 @@ pub struct AxisScaleSpec {
     dendrogram_guide: Set<Options>,
     /// `position=...`: the sides the axis is drawn on.
     sides: Set<AxisSides>,
+    /// `sec_axis=...` / `dup_axis()`, parsed, with its path.
+    secondary: Set<SecondaryAxis>,
 }
 
 impl AxisScaleSpec {
@@ -160,6 +163,15 @@ impl AxisScaleSpec {
         if let Some((name, path)) = &self.trans {
             scale.transform = Transform::parse(name, path)?;
         }
+        if let Some((axis, path)) = &self.secondary {
+            if scale.temporal.is_some() {
+                warnings.push(format!(
+                    "at '{path}': secondary axes on date-time axes are not supported yet; ignored"
+                ));
+            } else {
+                scale.secondary = Some(axis.clone());
+            }
+        }
         if let Some([multiplicative, additive]) = self.expansion()? {
             scale.multiplicative_expand = multiplicative.unwrap_or(scale.multiplicative_expand);
             scale.additive_expand = additive.unwrap_or(scale.additive_expand);
@@ -173,6 +185,12 @@ impl AxisScaleSpec {
     fn build_discrete(&self, warnings: &mut Vec<String>) -> Result<DiscretePositionScale> {
         let mut scale = DiscretePositionScale::default();
         scale.sides = self.sides();
+        if let Some((_, path)) = &self.secondary {
+            warnings.push(format!(
+                "at '{path}': a secondary axis needs a continuous axis, but this one shows \
+                 categories; ignored"
+            ));
+        }
         scale.format = self.label_format(warnings);
         scale.labels = self.label_texts()?.map(|(labels, _)| labels);
         if let Some((breaks, path)) = &self.breaks {
@@ -418,6 +436,15 @@ pub fn position_scales(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<Po
                 let sides = AxisSides::parse(position, *aesthetic == Aesthetic::X, &at)?;
                 target.sides = Some((sides, at));
             }
+            if let Some(value) = scale
+                .parameters
+                .get("sec_axis")
+                .filter(|value| !value.is_null())
+            {
+                let at = format!("{path}.sec_axis");
+                let axis = SecondaryAxis::parse(value, &spec.functions, &at)?;
+                target.secondary = Some((axis, at));
+            }
             report_unbuilt(scale, &path, warnings);
         }
     }
@@ -610,7 +637,7 @@ fn report_unbuilt(scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
     for (key, _) in present.iter().filter(|(_, present)| *present) {
         warnings.push(format!("at '{path}.{key}': not supported yet; ignored"));
     }
-    let built = ["datetime", "time", "break_width", "dendrogram"];
+    let built = ["datetime", "time", "break_width", "dendrogram", "sec_axis"];
     for key in scale
         .parameters
         .keys()

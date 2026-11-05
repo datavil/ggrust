@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from os import PathLike
 from typing import Any, TypedDict
 
@@ -167,6 +168,7 @@ def render(
     scale: float,
     html_id: str | None = None,
     dpi: float | None = None,
+    functions: list[Callable[[float], float]] | None = None,
 ) -> tuple[bytes, list[str]]:
     """Build and render a plot.
 
@@ -187,6 +189,9 @@ def render(
         Must be unique on the page (one per display). Required for HTML outputs.
     dpi
         PNG resolution (``pHYs``) and PDF page resolution; 96 when None.
+    functions
+        Secondary axis transforms: ``sec_axis.transform == i`` in the spec calls
+        ``functions[i]`` once per value.
 
     Returns
     -------
@@ -199,7 +204,11 @@ def render(
         If the spec or data is invalid; the message names the offending path.
     """
 
-def inspect(spec_json: str, frames: list[Any]) -> tuple[list[Any], list[dict[str, Any]], list[str]]:
+def inspect(
+    spec_json: str,
+    frames: list[Any],
+    functions: list[Callable[[float], float]] | None = None,
+) -> tuple[list[Any], list[dict[str, Any]], list[str]]:
     """Prepare and lay out a single plot without drawing it (``PlotSpec.build()``).
 
     Parameters
@@ -208,6 +217,8 @@ def inspect(spec_json: str, frames: list[Any]) -> tuple[list[Any], list[dict[str
         Plot spec as for ``render``.
     frames
         The referenced frames, each exporting ``__arrow_c_stream__``.
+    functions
+        Secondary axis transforms, as for ``render``.
 
     Returns
     -------

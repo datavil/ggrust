@@ -11,6 +11,7 @@ pub mod format;
 pub mod label_pattern;
 pub mod number_format;
 mod position;
+pub mod secondary;
 mod spec;
 pub mod style;
 mod transform;

@@ -13,7 +13,7 @@ use arrow_schema::{DataType, Field, Schema};
 
 use super::{Arranged, PANEL_MIN_SIZE, PlotData, PreparedLayer, prepare_plot};
 use crate::data::{Column, Variable};
-use crate::layout::AxisBreaks;
+use crate::layout::{AxisBreaks, PlotLayout};
 use crate::scale::PositionScale;
 use crate::scene::Rect;
 use crate::spec::{Aesthetic, PlotSpec};
@@ -51,6 +51,9 @@ pub struct AxisScale {
     pub breaks: Vec<f64>,
     /// Break labels as drawn (`10^6` for a superscript), one per break.
     pub labels: Vec<String>,
+    /// The secondary axis (`sec_axis=`): its breaks placed on this scale (in
+    /// its transformed units) with their labels; `None` without one.
+    pub secondary: Option<(Vec<f64>, Vec<String>)>,
 }
 
 /// Prepare and lay out `spec` at its own size, returning its computed layer data
@@ -65,14 +68,17 @@ pub fn inspect_plot(spec: &PlotSpec, data: &PlotData) -> Result<PlotInspection> 
         height,
     };
     let arrangement = plot.arrange(area, PANEL_MIN_SIZE)?;
-    let screen_breaks: Vec<(&AxisBreaks, &AxisBreaks)> = match &arrangement.layout {
-        Arranged::Single(layout) => vec![(&layout.x_breaks, &layout.y_breaks)],
-        Arranged::Facets(layout) => layout
-            .tiles
-            .iter()
-            .map(|tile| (&tile.layout.x_breaks, &tile.layout.y_breaks))
-            .collect(),
+    let layouts: Vec<&PlotLayout> = match &arrangement.layout {
+        Arranged::Single(layout) => vec![layout],
+        Arranged::Facets(layout) => layout.tiles.iter().map(|tile| &tile.layout).collect(),
     };
+    let screen_breaks: Vec<(ScreenAxis, ScreenAxis)> = layouts
+        .iter()
+        .map(|layout| {
+            let side = |index: usize| layout.secondary[index].as_ref().map(|side| &side.breaks);
+            ((&layout.x_breaks, side(0)), (&layout.y_breaks, side(1)))
+        })
+        .collect();
     if screen_breaks.len() != plot.tiles.len() {
         return Err(Error::render(format!(
             "inspecting the plot found {} panels but {} laid out; please report this",
@@ -116,27 +122,36 @@ pub fn inspect_plot(spec: &PlotSpec, data: &PlotData) -> Result<PlotInspection> 
     })
 }
 
-fn axis_scale(scale: &PositionScale, breaks: &AxisBreaks) -> AxisScale {
+/// A screen axis's own breaks and its secondary axis's.
+type ScreenAxis<'a> = (&'a AxisBreaks, Option<&'a AxisBreaks>);
+
+fn axis_scale(scale: &PositionScale, (breaks, secondary): ScreenAxis) -> AxisScale {
     AxisScale {
         discrete: scale.is_discrete(),
         domain: scale.expanded_domain(),
         breaks: breaks.values.clone(),
-        labels: breaks
-            .labels
-            .iter()
-            .map(|label| {
-                let mut text = label.text.clone();
-                if let Some(superscript) = &label.superscript {
-                    text.push('^');
-                    text.push_str(superscript);
-                }
-                if let Some(suffix) = &label.suffix {
-                    text.push_str(suffix);
-                }
-                text
-            })
-            .collect(),
+        labels: label_texts(breaks),
+        secondary: secondary.map(|secondary| (secondary.values.clone(), label_texts(secondary))),
     }
+}
+
+/// Labels as drawn (`10^6` for a superscript).
+fn label_texts(breaks: &AxisBreaks) -> Vec<String> {
+    breaks
+        .labels
+        .iter()
+        .map(|label| {
+            let mut text = label.text.clone();
+            if let Some(superscript) = &label.superscript {
+                text.push('^');
+                text.push_str(superscript);
+            }
+            if let Some(suffix) = &label.suffix {
+                text.push_str(suffix);
+            }
+            text
+        })
+        .collect()
 }
 
 /// One column of the output table, gathered over panels.

@@ -118,6 +118,27 @@ impl Figure {
         Figure::from_value(value).map_err(Error::spec_located)
     }
 
+    /// Give every plot of the figure (nested figures and insets included) the
+    /// secondary axis transforms that `sec_axis.transform` indexes refer to.
+    pub fn attach_functions(&mut self, functions: &crate::scale::secondary::AxisFunctions) {
+        match self {
+            Figure::Plot(plot) => {
+                plot.functions = functions.clone();
+                for inset in &mut plot.insets {
+                    inset.figure.attach_functions(functions);
+                }
+            }
+            Figure::Subplots(subplots) => {
+                for figure in subplots.figures.iter_mut().flatten() {
+                    figure.attach_functions(functions);
+                }
+                for inset in &mut subplots.insets {
+                    inset.figure.attach_functions(functions);
+                }
+            }
+        }
+    }
+
     /// Paths of every option that ggrust does not support, e.g. `theme.axis_text.margin`.
     pub fn unsupported_options(&self) -> Vec<String> {
         let mut found = Vec::new();

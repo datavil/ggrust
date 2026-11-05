@@ -53,6 +53,10 @@ pub struct PlotSpec {
     /// Keys no component consumes.
     #[serde(flatten)]
     pub unsupported: Options,
+    /// Secondary axis transforms passed with the spec (not in the JSON), see
+    /// [`super::Figure::attach_functions`].
+    #[serde(skip)]
+    pub functions: crate::scale::secondary::AxisFunctions,
 }
 
 impl PlotSpec {

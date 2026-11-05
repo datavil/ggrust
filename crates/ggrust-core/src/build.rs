@@ -610,6 +610,22 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     let (free_x, free_y) = facets
         .as_ref()
         .map_or((false, false), |facets| (facets.free_x, facets.free_y));
+    // Secondary axes sample their transform over each final range.
+    let resolve = |scale: &mut PositionScale| {
+        scale
+            .resolve_secondary()
+            .map_err(|error| error.with_notes(&warnings))
+    };
+    if free_x {
+        x_group_scales.iter_mut().try_for_each(resolve)?;
+    } else {
+        resolve(&mut x_scale)?;
+    }
+    if free_y {
+        y_group_scales.iter_mut().try_for_each(resolve)?;
+    } else {
+        resolve(&mut y_scale)?;
+    }
     for ((_, tile_x, tile_y), (x_group, y_group)) in prepared_tiles
         .iter_mut()
         .zip(x_groups.iter().zip(&y_groups))
@@ -647,7 +663,16 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         .first()
         .map(|(layers, _, _)| layers.iter().map(|layer| layer.y_oriented).collect())
         .unwrap_or_default();
-    let titles = plot_titles(spec, &scales, &orientations);
+    let mut titles = plot_titles(spec, &scales, &orientations);
+    if let Some((_, tile_x, tile_y)) = prepared_tiles.first() {
+        let secondary = |scale: &PositionScale, primary: &Option<String>| {
+            scale
+                .secondary_axis()
+                .and_then(|axis| axis.title(primary.as_ref()))
+        };
+        titles.x_secondary = secondary(tile_x, &titles.x);
+        titles.y_secondary = secondary(tile_y, &titles.y);
+    }
     // Legends: each layer once, from the first panel where it has rows.
     let legend_layers: Vec<&PreparedLayer> = (0..spec.layers.len())
         .filter_map(|index| {
@@ -672,6 +697,8 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         let titles = Titles {
             x: titles.y.clone(),
             y: titles.x.clone(),
+            x_secondary: titles.y_secondary.clone(),
+            y_secondary: titles.x_secondary.clone(),
             ..titles
         };
         (theme.flipped(), titles)
@@ -1656,6 +1683,7 @@ fn plot_titles(spec: &PlotSpec, scales: &PositionScales, orientations: &[bool]) 
         x: Some(axis_title(Aesthetic::X, &scales.x.name)),
         y: Some(axis_title(Aesthetic::Y, &scales.y.name)),
         tag: spec.tag.as_ref().and_then(|tag| tag.text.clone()),
+        ..Default::default()
     }
 }
 

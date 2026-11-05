@@ -260,11 +260,19 @@ fn share_continuous(
         let Some(Ok(plot)) = &mut prepared[index] else {
             continue;
         };
+        let mut failed = None;
         for scale in plot.screen_axis_scales_mut(horizontal) {
             // Both limits given: the user fixed the range.
             if !matches!(scale.limits(), [Some(_), Some(_)]) {
                 scale.train_span(low, high);
+                // A secondary axis samples its transform over the new range.
+                if let Err(error) = scale.resolve_secondary() {
+                    failed.get_or_insert(error);
+                }
             }
+        }
+        if let Some(error) = failed {
+            prepared[index] = Some(Err(error));
         }
     }
 }

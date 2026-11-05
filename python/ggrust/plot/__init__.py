@@ -159,6 +159,7 @@ from ggrust.plot.scale_size import (
     scale_size_area,
     scale_size_manual,
 )
+from ggrust.plot.sec_axis import derive, dup_axis, sec_axis
 from ggrust.plot.stat import stat_ecdf, stat_ellipse, stat_sum, stat_summary, stat_summary_bin
 from ggrust.plot.stat_ggdist import stat_halfeye, stat_interval, stat_pointinterval, stat_slab
 from ggrust.plot.stat_pubr import stat_compare_means, stat_cor, stat_poly_eq
@@ -199,6 +200,8 @@ __all__ = [
     "coord_cartesian",
     "coord_fixed",
     "coord_flip",
+    "derive",
+    "dup_axis",
     "element_blank",
     "element_geom",
     "element_line",
@@ -367,6 +370,7 @@ __all__ = [
     "scale_y_log10",
     "scale_y_reverse",
     "scale_y_time",
+    "sec_axis",
     "stat_compare_means",
     "stat_cor",
     "stat_ecdf",

@@ -68,12 +68,55 @@ pub enum PositionScale {
 }
 
 impl PositionScale {
-    /// The sides of the panel this axis is drawn on (`position=`).
+    /// The sides of the panel this axis is drawn on (`position=`); both with a
+    /// secondary axis.
     pub fn sides(&self) -> AxisSides {
+        if self.secondary_axis().is_some() {
+            return AxisSides {
+                primary: true,
+                secondary: true,
+            };
+        }
+        self.position_sides()
+    }
+
+    /// The sides `position=` asked for, regardless of a secondary axis.
+    fn position_sides(&self) -> AxisSides {
         match self {
             PositionScale::Continuous(scale) => scale.sides,
             PositionScale::Discrete(scale) => scale.sides,
         }
+    }
+
+    /// The drawn secondary axis (`sec_axis=`, not `guide="none"`), if any.
+    pub fn secondary_axis(&self) -> Option<&super::secondary::SecondaryAxis> {
+        match self {
+            PositionScale::Continuous(scale) => {
+                scale.secondary.as_ref().filter(|axis| !axis.hidden)
+            }
+            PositionScale::Discrete(_) => None,
+        }
+    }
+
+    /// Whether the secondary axis is drawn on the top / right side (`None`
+    /// without one): it takes the side opposite `position=` (ggplot2).
+    pub fn secondary_on_far_side(&self) -> Option<bool> {
+        self.secondary_axis().map(|_| {
+            let sides = self.position_sides();
+            !(sides.secondary && !sides.primary)
+        })
+    }
+
+    /// Sample the secondary axis transform over the final range (after training,
+    /// coord limits and grid sharing); a no-op without a secondary axis.
+    pub fn resolve_secondary(&mut self) -> crate::Result<()> {
+        if let PositionScale::Continuous(scale) = self
+            && let Some(axis) = &scale.secondary
+        {
+            let resolved = axis.resolve(scale)?;
+            scale.secondary = Some(resolved);
+        }
+        Ok(())
     }
 
     /// The dendrogram drawn beside this axis (`scale_*_dendro()`), if any.

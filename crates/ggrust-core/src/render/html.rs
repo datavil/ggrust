@@ -196,6 +196,10 @@ fn zoom_json(zoom: &Zoom, scene: &Scene) -> Value {
                         "panel": [panel.x, panel.y, panel.width, panel.height],
                         "horizontal": axis(&tile.horizontal),
                         "vertical": axis(&tile.vertical),
+                        "secondary": [
+                            tile.secondary[0].as_ref().map(axis),
+                            tile.secondary[1].as_ref().map(axis),
+                        ],
                     })
                 })
                 .collect();

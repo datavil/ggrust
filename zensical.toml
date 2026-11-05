@@ -159,6 +159,9 @@ nav = [
     { "Position scales" = [
       "reference/api/scale_x_continuous.md",
       "reference/api/scale_y_continuous.md",
+      "reference/api/sec_axis.md",
+      "reference/api/dup_axis.md",
+      "reference/api/derive.md",
       "reference/api/scale_x_discrete.md",
       "reference/api/scale_y_discrete.md",
       "reference/api/scale_x_discrete_reversed.md",

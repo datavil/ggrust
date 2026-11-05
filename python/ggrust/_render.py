@@ -16,7 +16,7 @@ from ggrust._ggrust import inspect, referenced_columns, render, tooltip_columns
 from ggrust.errors import DataError, ExportError, UnsupportedValueError, did_you_mean
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
 
     from ggrust._data import ArrowStreamExportable
     from ggrust._typing import Number, PanelScales, PlotBuild, Target
@@ -76,6 +76,7 @@ def render_bytes(
         SVG or HTML (UTF-8), or PNG / PDF bytes.
     """
     spec, frames = split_data(plot.as_dict())
+    spec, functions = split_functions(spec)
     if size is not None:
         spec["ggsize"] = {"width": size[0], "height": size[1]}
     spec_json = to_json(spec)
@@ -96,6 +97,7 @@ def render_bytes(
         float(scale),
         _display_id() if output.startswith("html") else None,
         None if dpi is None else float(dpi),
+        functions,
     )
     for message in messages:
         warnings.warn(message, GgrustWarning, stacklevel=4)
@@ -119,10 +121,11 @@ def build_plot(plot: PlotSpec) -> PlotBuild:
     import polars as pl
 
     spec, frames = split_data(plot.as_dict())
+    spec, functions = split_functions(spec)
     spec_json = to_json(spec)
     columns = set(referenced_columns(spec_json))
     exported = [_export(data, columns, path) for data, path in frames]
-    tables, panels, messages = inspect(spec_json, exported)
+    tables, panels, messages = inspect(spec_json, exported, functions)
     for message in messages:
         warnings.warn(message, GgrustWarning, stacklevel=4)
     layers = [pl.DataFrame(table) for table in tables]
@@ -188,6 +191,52 @@ def split_data(spec: dict[str, Any]) -> tuple[dict, list[tuple[Any, str]]]:
         return figure
 
     return split(spec, ""), frames
+
+
+def split_functions(spec: dict[str, Any]) -> tuple[dict[str, Any], list[Callable[[float], float]]]:
+    """Replace secondary axis transforms (callables) with indexes into a list.
+
+    Every ``sec_axis`` of the figure (any scale, nested figures and insets) whose
+    ``transform`` is a callable gets the callable's index instead; the callables go
+    to the engine beside the JSON, which calls them once per value.
+
+    Parameters
+    ----------
+    spec : dict
+        The figure's spec (``as_dict()``, data already split).
+
+    Returns
+    -------
+    tuple
+        ``(spec with indexes, [callable, ...])``. The spec is copied where changed.
+    """
+    functions: list[Callable[[float], float]] = []
+
+    def scale(item: object) -> object:
+        if not isinstance(item, dict):
+            return item
+        axis = item.get("sec_axis")
+        if not isinstance(axis, dict) or not callable(axis.get("transform")):
+            return item
+        functions.append(axis["transform"])
+        return {**item, "sec_axis": {**axis, "transform": len(functions) - 1}}
+
+    def walk(figure: object) -> object:
+        if not isinstance(figure, dict):
+            return figure
+        figure = dict(figure)
+        if isinstance(figure.get("scales"), list):
+            figure["scales"] = [scale(item) for item in figure["scales"]]
+        if isinstance(figure.get("figures"), list):
+            figure["figures"] = [walk(child) for child in figure["figures"]]
+        if isinstance(figure.get("insets"), list):
+            figure["insets"] = [
+                {**inset, "figure": walk(inset.get("figure"))} if isinstance(inset, dict) else inset
+                for inset in figure["insets"]
+            ]
+        return figure
+
+    return cast("dict[str, Any]", walk(spec)), functions
 
 
 def _column_names(data: object) -> list[str]:

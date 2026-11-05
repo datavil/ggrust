@@ -123,9 +123,13 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Main roadmap: [plan.md](plan.md).
 - [x] exc.3 `stat_ellipse` (`type="t"|"norm"|"euclid"`, `level`, `segments`), drawn as
   path or polygon. Shares nothing with ex1.8's mark ellipse: this one is a statistical
   confidence ellipse.
-- [ ] exc.4 Secondary axes: `sec_axis(transform, name, breaks, labels)` and `dup_axis()`
+- [x] exc.4 Secondary axes: `sec_axis(transform, name, breaks, labels)` and `dup_axis()`
   on `scale_x/y_continuous(sec_axis=...)`. Depends on plan.md `9.3` (position scale
-  `position=`), do that first.
+  `position=`), do that first. Done 2026-11-05: the transform is a Python callable the
+  engine calls back on 1000 samples of the final range (user's choice), breaks from their
+  own scale placed through the table; facets, flip, log/reverse, grid sharing and
+  `align=True`; HTML zoom moves fixed secondary breaks. Tests: `tests/test_sec_axis.py`
+  (R positions via `tests/fixtures/generate_sec_axis_reference.R`), `scale::secondary`.
 - [ ] exc.5 `geom_spoke` is a lets-plot geom (gaps file, score 2), so it follows
   lets-plot parity in plan.md `lp6.2`, not this plan. Listed here so it is not done twice.
 

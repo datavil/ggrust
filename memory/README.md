@@ -72,3 +72,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Custom fonts](custom_fonts.md): one registry + `text::loaded` for every output, fontdb faces under unique css names (no weight/style attrs), browser subsets need cmap/OS/2/kern added, zoom glyphs only when zoomable.
 - [Core ggplot2 gaps](core_ggplot2_gaps.md): geom_col reuses the bar geom (add "col" to bar-name lists), rug sides under flip, linewidth default scale, cov.trob parity details, staging lines in shared files.
 - [Axis sides](axis_positions.md): `AxisSides` on the scale (flip for free), one `AxisEdge` per side, `axis_side_nodes` takes any breaks (secondary axes), facets follow ggplot2, global zoom placeholders.
+- [Secondary axes](secondary_axes.md): Python callable called back from Rust, resolved after final ranges (and grid sharing), throwaway break scale mapped back, `PlotLayout.secondary` per side, fixed zoom breaks.

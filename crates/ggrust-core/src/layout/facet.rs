@@ -162,19 +162,16 @@ fn layout_grid(
         .map_or([AxisSides::default(); 2], |panel| {
             [panel.x_scale.sides(), panel.y_scale.sides()]
         });
-    let (x_title_top, x_title_bottom) = split_title(
-        axis_sides[0],
-        axis_title_band(theme.axis_title_x, &titles.x, x_title_margin(theme), 0.0),
-    );
-    let (y_title_right, y_title_left) = split_title(
-        axis_sides[1],
-        axis_title_band(
-            theme.axis_title_y,
-            &titles.y,
-            theme.axis_title_spacing + y_title_margin(theme),
-            90.0,
-        ),
-    );
+    let far_sides = grid.panels.first().map_or([None, None], |panel| {
+        [
+            panel.x_scale.secondary_on_far_side(),
+            panel.y_scale.secondary_on_far_side(),
+        ]
+    });
+    let (x_title_top, x_title_bottom) =
+        axis_title_bands(theme, titles, 0, axis_sides[0], far_sides[0]);
+    let (y_title_right, y_title_left) =
+        axis_title_bands(theme, titles, 1, axis_sides[1], far_sides[1]);
     let top = content.y + headings_band(theme, titles) + legend_space.top + x_title_top + inset.top;
     let bottom = content.y + content.height - legend_space.bottom - x_title_bottom - inset.bottom;
     let left = content.x + legend_space.left + y_title_left + inset.left;
@@ -303,17 +300,32 @@ fn layout_grid(
                 fit_y_labels(breaks, panel.y_scale, panel_height, y_limit, theme)
             })
             .collect();
+        let y_secondary: Vec<Option<SecondaryBreaks>> = grid
+            .panels
+            .iter()
+            .zip(&y_breaks)
+            .map(|(panel, breaks)| {
+                secondary_breaks(
+                    panel.y_scale,
+                    breaks,
+                    panel_height,
+                    Orientation::Vertical,
+                    theme.axis_text_y,
+                    (0.0, 0.0),
+                )
+            })
+            .collect();
         let mut column_widths = vec![0.0_f64; columns];
         let mut column_right_widths = vec![0.0_f64; columns];
-        for (panel, breaks) in grid.panels.iter().zip(&y_breaks) {
+        for ((panel, breaks), secondary) in grid.panels.iter().zip(&y_breaks).zip(&y_secondary) {
             let column = panel.column.min(columns - 1);
             if panel.y_axis.primary {
                 let width = &mut column_widths[column];
-                *width = width.max(y_axis_width(breaks, theme));
+                *width = width.max(y_axis_width(side_breaks(breaks, secondary, false), theme));
             }
             if takes_right_band(panel) {
                 let width = &mut column_right_widths[column];
-                *width = width.max(y_axis_width(breaks, theme));
+                *width = width.max(y_axis_width(side_breaks(breaks, secondary, true), theme));
             }
         }
         let panel_width = ((right - left)
@@ -343,11 +355,33 @@ fn layout_grid(
             .map(|(breaks, panel)| fit_x_labels(breaks, panel.x_scale, panel_width, x_limit, theme))
             .collect(),
         };
+        let x_secondary: Vec<Option<SecondaryBreaks>> = grid
+            .panels
+            .iter()
+            .zip(&x_breaks)
+            .map(|(panel, breaks)| {
+                let column = panel.column.min(columns - 1);
+                secondary_breaks(
+                    panel.x_scale,
+                    breaks,
+                    panel_width,
+                    Orientation::Horizontal,
+                    theme.axis_text_x,
+                    (
+                        column_widths[column].max(LABELS_OVERFLOW),
+                        column_right_widths[column].max(LABELS_OVERFLOW),
+                    ),
+                )
+            })
+            .collect();
         let mut needed = label_heights.clone();
-        for (panel, breaks) in grid.panels.iter().zip(&x_breaks) {
+        for ((panel, breaks), secondary) in grid.panels.iter().zip(&x_breaks).zip(&x_secondary) {
             if takes_x_band(panel) || takes_top_band(panel) {
                 let row = panel.row.min(rows - 1);
                 needed[row] = needed[row].max(x_labels_height(breaks, theme));
+                if let Some(secondary) = secondary {
+                    needed[row] = needed[row].max(x_labels_height(&secondary.breaks, theme));
+                }
             }
         }
         if first_pass
@@ -391,7 +425,8 @@ fn layout_grid(
             .iter()
             .zip(x_breaks)
             .zip(y_breaks)
-            .map(|((panel, x_breaks), y_breaks)| {
+            .zip(x_secondary.into_iter().zip(y_secondary))
+            .map(|(((panel, x_breaks), y_breaks), secondary)| {
                 let row = panel.row.min(rows - 1);
                 let column = panel.column.min(columns - 1);
                 TileLayout {
@@ -421,6 +456,7 @@ fn layout_grid(
                             0.0
                         },
                         dendrograms: Default::default(),
+                        secondary: [secondary.0, secondary.1],
                     },
                     axes: [panel.x_axis, panel.y_axis],
                     labels: panel.labels.to_vec(),
@@ -452,8 +488,24 @@ fn layout_grid(
             top_band: row_strips[0],
             right_band: right_strip,
             dendrograms: Default::default(),
+            secondary: tiles
+                .first()
+                .map(|tile| tile.layout.secondary.clone())
+                .unwrap_or_default(),
         };
         return FacetLayout { plot, tiles };
+    }
+}
+
+/// The breaks drawn on one side (`far`: top / right) of a panel's axis.
+fn side_breaks<'a>(
+    breaks: &'a AxisBreaks,
+    secondary: &'a Option<SecondaryBreaks>,
+    far: bool,
+) -> &'a AxisBreaks {
+    match secondary {
+        Some(secondary) if secondary.far_side == far => &secondary.breaks,
+        _ => breaks,
     }
 }
 

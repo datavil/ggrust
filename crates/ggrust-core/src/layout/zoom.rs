@@ -10,6 +10,8 @@
 //! What it does not do: redo the layout. The panel keeps its size and place while
 //! zoomed (lets-plot re-lays out, so its axis bands can change width), and a
 //! user `format` on generated breaks falls back to the default number format.
+//! A secondary axis (`sec_axis=`) keeps its breaks: they move with the zoom but no
+//! new ones are generated.
 
 use super::side::{AxisEdge, LabelPlacer, screen_sides};
 use super::{AxisBreaks, PlotLayout, segment};
@@ -99,6 +101,9 @@ pub struct ZoomTile {
     pub horizontal: ZoomAxis,
     /// The axis drawn vertically.
     pub vertical: ZoomAxis,
+    /// Secondary axes (`sec_axis=`) of the horizontal and vertical axes: their
+    /// breaks stay fixed while zoomed (ticks and labels only, no grid lines).
+    pub secondary: [Option<ZoomAxis>; 2],
 }
 
 /// One screen axis of a panel.
@@ -289,14 +294,29 @@ pub fn zoom_tile(
     shown: [AxisSides; 2],
 ) -> ZoomTile {
     let panel = layout.panel;
+    // A secondary axis's side is drawn by its own (fixed) zoom axis.
+    let split = |index: usize| match layout.secondary_far_side(index) {
+        Some(far) => {
+            let only = |keep_far: bool| AxisSides {
+                primary: shown[index].primary && !keep_far,
+                secondary: shown[index].secondary && keep_far,
+            };
+            (only(!far), Some(only(far)))
+        }
+        None => (shown[index], None),
+    };
+    let (x_primary, x_secondary) = split(0);
+    let (y_primary, y_secondary) = split(1);
+    let primary_shown = [x_primary, y_primary];
     let bottom = panel.y + panel.height;
     let horizontal = zoom_axis(
         layout,
         theme,
         mapper.x_scale,
         &layout.x_breaks,
-        shown[0],
+        primary_shown[0],
         true,
+        false,
         &|value| mapper.x_pixel(value),
         (
             theme
@@ -312,7 +332,8 @@ pub fn zoom_tile(
         theme,
         mapper.y_scale,
         &layout.y_breaks,
-        shown[1],
+        primary_shown[1],
+        false,
         false,
         &|value| mapper.y_pixel(value),
         (
@@ -324,15 +345,39 @@ pub fn zoom_tile(
                 .map(|line| segment((panel.x, 0.0), (panel.x + panel.width, 0.0), line)),
         ),
     );
+    let secondary_axis = |index: usize, sides: Option<AxisSides>| {
+        let sides = sides.filter(|sides| sides.primary || sides.secondary)?;
+        let breaks = layout.secondary[index].as_ref().map(|side| &side.breaks)?;
+        let (scale, pixel): (&PositionScale, &dyn Fn(f64) -> f64) = if index == 0 {
+            (mapper.x_scale, &|value| mapper.x_pixel(value))
+        } else {
+            (mapper.y_scale, &|value| mapper.y_pixel(value))
+        };
+        Some(zoom_axis(
+            layout,
+            theme,
+            scale,
+            breaks,
+            sides,
+            index == 0,
+            true,
+            pixel,
+            (None, None),
+        ))
+    };
     ZoomTile {
         panel,
         horizontal,
         vertical,
+        secondary: [
+            secondary_axis(0, x_secondary),
+            secondary_axis(1, y_secondary),
+        ],
     }
 }
 
 /// One screen axis of [`zoom_tile`]: `grid` holds the major and minor grid line
-/// templates.
+/// templates; `fixed_breaks` keeps `breaks` fixed (secondary axes).
 #[allow(clippy::too_many_arguments)]
 fn zoom_axis(
     layout: &PlotLayout,
@@ -341,6 +386,7 @@ fn zoom_axis(
     breaks: &AxisBreaks,
     sides: AxisSides,
     horizontal: bool,
+    fixed_breaks: bool,
     pixel: &dyn Fn(f64) -> f64,
     (major, minor): (Option<Node>, Option<Node>),
 ) -> ZoomAxis {
@@ -391,7 +437,7 @@ fn zoom_axis(
         exponent: theme.exponent_format,
         count: breaks.target_count,
         // The HTML runtime generates number breaks only: date axes keep theirs.
-        fixed: (scale.has_fixed_breaks() || scale.is_temporal()).then(|| {
+        fixed: (fixed_breaks || scale.has_fixed_breaks() || scale.is_temporal()).then(|| {
             breaks
                 .values
                 .iter()

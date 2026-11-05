@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 from ggrust.errors import SpecError, UnsupportedValueError, did_you_mean
 from ggrust.plot.core import DummySpec, FeatureSpec, FeatureSpecArray
+from ggrust.plot.sec_axis import SecondaryAxisSpec
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -94,6 +95,25 @@ def _check_position(aesthetic: str | Sequence[str], position: object) -> None:
             raise SpecError(
                 f"scale_{axis}_*(position={position!r}): {reason}", path="position", reason=reason
             )
+
+
+def _checked_sec_axis(sec_axis: object) -> SecondaryAxisSpec | None:
+    """Check ``sec_axis=`` of a continuous position scale.
+
+    Raises
+    ------
+    UnsupportedValueError
+        If ``sec_axis`` is not ``sec_axis(...)``, ``dup_axis(...)`` or None.
+    """
+    if sec_axis is None or isinstance(sec_axis, SecondaryAxisSpec):
+        return sec_axis
+    reason = (
+        f"expected sec_axis(...) or dup_axis(...), got {type(sec_axis).__name__}; a bare "
+        "function goes in sec_axis(transform)"
+    )
+    raise UnsupportedValueError(
+        f"scale_*_continuous(sec_axis={sec_axis!r}): {reason}", path="sec_axis", reason=reason
+    )
 
 
 def _scale(
@@ -181,6 +201,7 @@ def scale_x_continuous(
     trans: Transform | None = None,
     format: str | None = None,
     position: AxisPosition | None = None,
+    sec_axis: SecondaryAxisSpec | None = None,
 ) -> FeatureSpec:
     """Continuous position scale x.
 
@@ -207,6 +228,9 @@ def scale_x_continuous(
         ``[multiplicative]`` or ``[multiplicative, additive]`` expansion.
     trans : {'identity', 'log10', 'log2', 'sqrt', 'reverse'}, optional
         Transformation of the data.
+    sec_axis : SecondaryAxisSpec, optional
+        A secondary axis on the other side: ``sec_axis(...)`` or ``dup_axis()``
+        (ggplot2; lets-plot has none).
 
     Returns
     -------
@@ -233,6 +257,7 @@ def scale_x_continuous(
         trans=trans,
         format=format,
         position=position,
+        sec_axis=_checked_sec_axis(sec_axis),
     )
 
 
@@ -249,6 +274,7 @@ def scale_y_continuous(
     trans: Transform | None = None,
     format: str | None = None,
     position: AxisPosition | None = None,
+    sec_axis: SecondaryAxisSpec | None = None,
 ) -> FeatureSpec:
     """Continuous position scale y. See ``scale_x_continuous``.
 
@@ -272,6 +298,9 @@ def scale_y_continuous(
         ``[multiplicative]`` or ``[multiplicative, additive]`` expansion.
     trans : {'identity', 'log10', 'log2', 'sqrt', 'reverse'}, optional
         Transformation of the data.
+    sec_axis : SecondaryAxisSpec, optional
+        A secondary axis on the other side: ``sec_axis(...)`` or ``dup_axis()``
+        (ggplot2; lets-plot has none).
     format : str, optional
         Label format: a number format (``".2f"``, ``","``, ``"e"``, ``"%"``) or a
         template (``"{.1f} %"``, ``"{d} cells"``). ``labels`` take precedence.
@@ -301,6 +330,7 @@ def scale_y_continuous(
         trans=trans,
         format=format,
         position=position,
+        sec_axis=_checked_sec_axis(sec_axis),
     )
 
 
@@ -317,6 +347,7 @@ def _transformed(scale: FunctionType, trans: Transform) -> Callable[..., Feature
         na_value: Color | Number | None = None,
         format: str | None = None,
         position: AxisPosition | None = None,
+        sec_axis: SecondaryAxisSpec | None = None,
     ) -> FeatureSpec:
         return scale(
             name,
@@ -330,6 +361,7 @@ def _transformed(scale: FunctionType, trans: Transform) -> Callable[..., Feature
             trans=trans,
             format=format,
             position=position,
+            sec_axis=sec_axis,
         )
 
     axis = scale.__name__.split("_")[1]

@@ -188,7 +188,8 @@ class FeatureSpec:
     def __str__(self) -> str:
         import json
 
-        return json.dumps(self.as_dict(), indent=2)
+        # A secondary axis transform is a callable: shown by its repr.
+        return json.dumps(self.as_dict(), indent=2, default=repr)
 
     def __add__(self, other: object) -> FeatureSpec:
         if isinstance(other, DummySpec):

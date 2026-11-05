@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import IO, Any, Literal, TypeAlias, TypedDict
+from typing import IO, Any, Literal, NotRequired, TypeAlias, TypedDict
 
 import pandas
 import polars as pl
@@ -82,6 +82,15 @@ Function: TypeAlias = Callable[[float], float]
 """A function of one number."""
 
 
+class SecondaryAxisScale(TypedDict):
+    """The breaks of a secondary axis (``sec_axis=``) in ``PlotSpec.build()``."""
+
+    breaks: list[float]
+    """Where the secondary breaks sit, in the primary scale's transformed units."""
+    labels: list[str]
+    """Secondary break labels as drawn, one per break."""
+
+
 class AxisScale(TypedDict):
     """One trained position scale of a panel (``PlotSpec.build()``)."""
 
@@ -93,6 +102,8 @@ class AxisScale(TypedDict):
     """Break positions drawn on the axis, in transformed units."""
     labels: list[str]
     """Break labels as drawn, one per break (a superscript written as ``10^6``)."""
+    secondary: NotRequired[SecondaryAxisScale]
+    """The secondary axis (``sec_axis=``), when the scale has one."""
 
 
 class PanelScales(TypedDict):

@@ -127,6 +127,9 @@ Axes: breaks, labels, limits and transforms.
 |---|---|
 | [`scale_x_continuous()`](api/scale_x_continuous.md) | Continuous position scale x. |
 | [`scale_y_continuous()`](api/scale_y_continuous.md) | Continuous position scale y. See ``scale_x_continuous``. |
+| [`sec_axis()`](api/sec_axis.md) | Add a secondary axis on the other side of a continuous position scale (ggplot2). |
+| [`dup_axis()`](api/dup_axis.md) | Copy the primary axis to the other side (ggplot2 ``dup_axis()``). |
+| [`derive()`](api/derive.md) | Take a secondary axis option from the primary axis (ggplot2 ``derive()``). |
 | [`scale_x_discrete()`](api/scale_x_discrete.md) | Discrete position scale x. |
 | [`scale_y_discrete()`](api/scale_y_discrete.md) | Discrete position scale y. See ``scale_x_discrete``. |
 | [`scale_x_discrete_reversed()`](api/scale_x_discrete_reversed.md) | ``scale_x_discrete(reverse=True)``. |

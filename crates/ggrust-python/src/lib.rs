@@ -19,6 +19,59 @@ mod _ggrust {
     use pyo3::types::{PyBytes, PyDict};
     use pyo3_arrow::input::AnyRecordBatch;
 
+    use ggrust_core::scale::secondary::{AxisFunction, AxisFunctions};
+    use std::sync::Arc;
+
+    /// A Python callable used as a secondary axis transform: called once per value
+    /// (with the GIL taken again while the engine runs detached).
+    struct PythonFunction(Py<PyAny>);
+
+    impl AxisFunction for PythonFunction {
+        fn call(&self, values: &[f64]) -> Result<Vec<f64>, String> {
+            Python::attach(|python| {
+                let function = self.0.bind(python);
+                values
+                    .iter()
+                    .map(|value| {
+                        let result = function
+                            .call1((*value,))
+                            .map_err(|error| error.to_string())?;
+                        result.extract::<f64>().map_err(|_| {
+                            format!(
+                                "it returned {} for {value}; return a number",
+                                result.repr().map_or_else(
+                                    |_| "a non-number".to_owned(),
+                                    |repr| repr.to_string()
+                                )
+                            )
+                        })
+                    })
+                    .collect()
+            })
+        }
+    }
+
+    /// Parse a figure and attach the secondary axis transforms (`functions[i]` is
+    /// `sec_axis.transform == i` in the spec).
+    fn figure_with_functions(
+        spec_json: &str,
+        functions: &AxisFunctions,
+    ) -> ggrust_core::Result<Figure> {
+        let mut figure = Figure::from_json(spec_json)?;
+        figure.attach_functions(functions);
+        Ok(figure)
+    }
+
+    fn axis_functions(functions: Option<Vec<Py<PyAny>>>) -> AxisFunctions {
+        AxisFunctions(
+            functions
+                .unwrap_or_default()
+                .into_iter()
+                .map(|function| Arc::new(PythonFunction(function)) as Arc<dyn AxisFunction>)
+                .collect(),
+        )
+    }
+
     /// Return the version of the Rust engine.
     ///
     /// Returns
@@ -325,11 +378,13 @@ mod _ggrust {
     /// `output` is `"svg"`, `"png"`, `"pdf"`, `"html"` (notebook fragment),
     /// `"html_page"` or `"html_iframe"`; `scale` multiplies PNG/PDF pixel size;
     /// `dpi` is the PNG resolution and the PDF page's (default 96); `html_id` is the
-    /// root element id of HTML outputs, unique per display (required for them).
+    /// root element id of HTML outputs, unique per display (required for them);
+    /// `functions` are the secondary axis transforms the spec indexes (`sec_axis`).
     /// Returns the encoded output (UTF-8 for text) and the build warnings.
     /// The GIL is released while building and rendering.
     #[pyfunction]
-    #[pyo3(signature = (spec_json, frames, output, scale, html_id=None, dpi=None))]
+    #[pyo3(signature = (spec_json, frames, output, scale, html_id=None, dpi=None, functions=None))]
+    #[allow(clippy::too_many_arguments)]
     fn render<'py>(
         python: Python<'py>,
         spec_json: &str,
@@ -338,7 +393,9 @@ mod _ggrust {
         scale: f64,
         html_id: Option<String>,
         dpi: Option<f64>,
+        functions: Option<Vec<Py<PyAny>>>,
     ) -> PyResult<(Bound<'py, PyBytes>, Vec<String>)> {
+        let functions = axis_functions(functions);
         let frames = frames
             .into_iter()
             .map(to_frame)
@@ -368,7 +425,7 @@ mod _ggrust {
                     }
                     (None, _) => None,
                 };
-                let figure = Figure::from_json(&spec_json)?;
+                let figure = figure_with_functions(&spec_json, &functions)?;
                 let built = build_figure_with(&figure, &frames, html.is_some())?;
                 let bytes = match html {
                     Some(options) => {
@@ -399,11 +456,14 @@ mod _ggrust {
     /// (`discrete`, `domain`, `breaks`, `labels`) and the build warnings.
     /// The GIL is released while building.
     #[pyfunction]
+    #[pyo3(signature = (spec_json, frames, functions=None))]
     fn inspect<'py>(
         python: Python<'py>,
         spec_json: &str,
         frames: Vec<AnyRecordBatch>,
+        functions: Option<Vec<Py<PyAny>>>,
     ) -> PyResult<Inspection<'py>> {
+        let functions = axis_functions(functions);
         use ggrust_core::build::PlotData;
         use ggrust_core::build::inspect::{AxisScale, inspect_plot};
         use pyo3_arrow::PyTable;
@@ -415,7 +475,7 @@ mod _ggrust {
         let spec_json = spec_json.to_owned();
         let inspection = python
             .detach(move || -> ggrust_core::Result<_> {
-                match Figure::from_json(&spec_json)? {
+                match figure_with_functions(&spec_json, &functions)? {
                     Figure::Plot(spec) => {
                         inspect_plot(&spec, &PlotData::from_frames(&spec, &frames)?)
                     }
@@ -441,6 +501,12 @@ mod _ggrust {
             dict.set_item("domain", scale.domain)?;
             dict.set_item("breaks", &scale.breaks)?;
             dict.set_item("labels", &scale.labels)?;
+            if let Some((breaks, labels)) = &scale.secondary {
+                let secondary = PyDict::new(python);
+                secondary.set_item("breaks", breaks)?;
+                secondary.set_item("labels", labels)?;
+                dict.set_item("secondary", secondary)?;
+            }
             Ok(dict)
         };
         let panels = inspection

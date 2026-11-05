@@ -621,9 +621,8 @@ impl<'s> PreparedGrid<'s> {
                 .caption
                 .as_ref()
                 .and_then(|caption| caption.text.clone()),
-            x: None,
-            y: None,
             tag: spec.tag.as_ref().and_then(|tag| tag.text.clone()),
+            ..Default::default()
         };
         let insets = {
             let inset_context = GridContext {

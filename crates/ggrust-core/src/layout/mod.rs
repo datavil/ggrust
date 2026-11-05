@@ -19,6 +19,7 @@ pub mod facet;
 pub mod grid;
 mod legend;
 mod rotated;
+mod secondary;
 pub mod side;
 pub mod tag;
 pub mod zoom;
@@ -32,6 +33,8 @@ pub use legend::{
 };
 
 use axis::{LABELS_OVERFLOW, TILT_DEGREES};
+pub use secondary::SecondaryBreaks;
+use secondary::secondary_breaks;
 
 use crate::coord::Panel;
 use crate::scale::format::Label;
@@ -70,6 +73,10 @@ pub struct Titles {
     pub x: Option<String>,
     /// y axis title.
     pub y: Option<String>,
+    /// Title of the horizontal axis's secondary axis (`sec_axis(name=...)`).
+    pub x_secondary: Option<String>,
+    /// Title of the vertical axis's secondary axis.
+    pub y_secondary: Option<String>,
     /// Plot tag (`labs(tag=...)`), without the theme's prefix and suffix.
     pub tag: Option<String>,
 }
@@ -103,6 +110,28 @@ pub struct PlotLayout {
     /// Dendrograms of the horizontal and vertical axes (`scale_*_dendro()`;
     /// single panels only).
     pub dendrograms: [Option<std::sync::Arc<dendrogram::AxisDendrogram>>; 2],
+    /// Secondary axes of the horizontal and vertical axes (`sec_axis=`).
+    pub secondary: [Option<SecondaryBreaks>; 2],
+}
+
+impl PlotLayout {
+    /// The breaks drawn on one side of screen axis `index` (0 horizontal, 1
+    /// vertical): the secondary axis's on its side, else the axis's own.
+    pub fn side_breaks(&self, index: usize, far_side: bool) -> &AxisBreaks {
+        match &self.secondary[index] {
+            Some(secondary) if secondary.far_side == far_side => &secondary.breaks,
+            _ if index == 0 => &self.x_breaks,
+            _ => &self.y_breaks,
+        }
+    }
+
+    /// Whether the secondary axis of screen axis `index` is on the top / right
+    /// side (`None` without one).
+    pub fn secondary_far_side(&self, index: usize) -> Option<bool> {
+        self.secondary[index]
+            .as_ref()
+            .map(|secondary| secondary.far_side)
+    }
 }
 
 /// Lay out a plot inside `area` (the whole canvas for a single plot; a grid cell
@@ -225,6 +254,7 @@ fn layout_free(
     // few px less could turn simple labels vertical). A label moves by its share
     // of the panel only, so narrowing repeats until it fits (converges fast).
     let labels_height = x_labels_height(&layout.x_breaks, theme);
+    let secondary_height = secondary_x_height(&layout, theme);
     let mut layout = layout;
     let mut narrowed = area;
     for _ in 0..FIT_PASSES {
@@ -244,12 +274,20 @@ fn layout_free(
             titles,
             (x_scale, y_scale),
             legend_space,
-            labels_height,
+            (labels_height, secondary_height),
             Some(x_breaks),
             panel_min_size,
         );
     }
     layout
+}
+
+/// Height of the secondary x labels of `layout` (a simple text band without them).
+fn secondary_x_height(layout: &PlotLayout, theme: &Theme) -> f64 {
+    match &layout.secondary[0] {
+        Some(secondary) => x_labels_height(&secondary.breaks, theme),
+        None => theme.axis_text_x.map_or(0.0, text_band),
+    }
 }
 
 /// Narrowing passes [`layout_free`] makes at most for overflowing end labels.
@@ -313,30 +351,37 @@ fn layout_free_once(
         titles,
         (x_scale, y_scale),
         legend_space,
-        simple,
+        (simple, simple),
         None,
         panel_min_size,
     );
     let needed = x_labels_height(&first.x_breaks, theme);
-    if needed <= simple {
+    let needed_secondary = secondary_x_height(&first, theme);
+    if needed <= simple && needed_secondary <= simple {
         return first;
     }
-    let limit = first.content.height * AXIS_LABELS_MAX_SHARE;
-    let x_breaks = fit_x_labels(first.x_breaks, x_scale, first.panel.width, limit, theme);
-    let needed = x_labels_height(&x_breaks, theme);
+    let (x_breaks, needed) = if needed > simple {
+        let limit = first.content.height * AXIS_LABELS_MAX_SHARE;
+        let x_breaks = fit_x_labels(first.x_breaks, x_scale, first.panel.width, limit, theme);
+        let needed = x_labels_height(&x_breaks, theme);
+        (x_breaks, needed)
+    } else {
+        (first.x_breaks, needed)
+    };
     layout_with(
         area,
         theme,
         titles,
         (x_scale, y_scale),
         legend_space,
-        needed,
+        (needed, needed_secondary.max(simple)),
         Some(x_breaks),
         panel_min_size,
     )
 }
 
-/// One layout pass with an x label band `labels_height` px tall.
+/// One layout pass with x label bands `labels_height` px tall (the axis's own
+/// labels, then a secondary axis's).
 #[allow(clippy::too_many_arguments)]
 fn layout_with(
     area: Rect,
@@ -344,7 +389,7 @@ fn layout_with(
     titles: &Titles,
     (x_scale, y_scale): (&PositionScale, &PositionScale),
     legend_space: Margins,
-    labels_height: f64,
+    (labels_height, secondary_height): (f64, f64),
     x_breaks: Option<AxisBreaks>,
     panel_min_size: f64,
 ) -> PlotLayout {
@@ -368,23 +413,23 @@ fn layout_with(
         }
     };
     let [x_sides, y_sides] = axis_sides;
-    let (x_title_top, x_title_bottom) = split_title(
-        x_sides,
-        axis_title_band(theme.axis_title_x, &titles.x, x_title_margin(theme), 0.0),
-    );
-    let (y_title_right, y_title_left) = split_title(
-        y_sides,
-        axis_title_band(
-            theme.axis_title_y,
-            &titles.y,
-            theme.axis_title_spacing + y_title_margin(theme),
-            90.0,
-        ),
-    );
+    let far_sides = [
+        x_scale.secondary_on_far_side(),
+        y_scale.secondary_on_far_side(),
+    ];
+    let (x_title_top, x_title_bottom) = axis_title_bands(theme, titles, 0, x_sides, far_sides[0]);
+    let (y_title_right, y_title_left) = axis_title_bands(theme, titles, 1, y_sides, far_sides[1]);
 
-    let x_band = x_axis_band(labels_height, theme);
-    let top_axis = shown(x_sides, true, x_band) + tree_band(0, true);
-    let bottom_axis = shown(x_sides, false, x_band) + tree_band(0, false);
+    let x_band_on = |far: bool| {
+        let height = if far_sides[0] == Some(far) {
+            secondary_height
+        } else {
+            labels_height
+        };
+        x_axis_band(height, theme)
+    };
+    let top_axis = shown(x_sides, true, x_band_on(true)) + tree_band(0, true);
+    let bottom_axis = shown(x_sides, false, x_band_on(false)) + tree_band(0, false);
     let top = content.y
         + headings_band(theme, titles)
         + legend_space.top
@@ -412,9 +457,20 @@ fn layout_with(
         content.width * AXIS_LABELS_MAX_SHARE,
         theme,
     );
-    let y_width = y_axis_width(&y_breaks, theme);
-    let left_axis = shown(y_sides, false, y_width) + tree_band(1, false);
-    let right_axis = shown(y_sides, true, y_width) + tree_band(1, true);
+    let y_secondary = secondary_breaks(
+        y_scale,
+        &y_breaks,
+        panel_height,
+        Orientation::Vertical,
+        theme.axis_text_y,
+        (0.0, 0.0),
+    );
+    let y_width_on = |far: bool| match &y_secondary {
+        Some(secondary) if secondary.far_side == far => y_axis_width(&secondary.breaks, theme),
+        _ => y_axis_width(&y_breaks, theme),
+    };
+    let left_axis = shown(y_sides, false, y_width_on(false)) + tree_band(1, false);
+    let right_axis = shown(y_sides, true, y_width_on(true)) + tree_band(1, true);
     let left = content.x + legend_space.left + y_title_left + inset.left + left_axis;
     let panel_width = (content.x + content.width
         - legend_space.right
@@ -433,10 +489,21 @@ fn layout_with(
             theme.axis_text_x,
             (
                 left_axis.max(LABELS_OVERFLOW),
-                shown(y_sides, true, y_width).max(LABELS_OVERFLOW),
+                shown(y_sides, true, y_width_on(true)).max(LABELS_OVERFLOW),
             ),
         )
     });
+    let x_secondary = secondary_breaks(
+        x_scale,
+        &x_breaks,
+        panel_width,
+        Orientation::Horizontal,
+        theme.axis_text_x,
+        (
+            left_axis.max(LABELS_OVERFLOW),
+            shown(y_sides, true, y_width_on(true)).max(LABELS_OVERFLOW),
+        ),
+    );
     PlotLayout {
         content,
         panel: Rect {
@@ -458,6 +525,41 @@ fn layout_with(
         top_band: 0.0,
         right_band: 0.0,
         dendrograms,
+        secondary: [x_secondary, y_secondary],
+    }
+}
+
+/// The axis title bands of screen axis `index` (0 horizontal, 1 vertical) on its
+/// (top / right, bottom / left) sides: the primary title on the `position=` side,
+/// a secondary axis's title (`far_side`: where that axis is) on the other.
+pub(crate) fn axis_title_bands(
+    theme: &Theme,
+    titles: &Titles,
+    index: usize,
+    sides: AxisSides,
+    far_side: Option<bool>,
+) -> (f64, f64) {
+    let band = |text: &Option<String>| {
+        if index == 0 {
+            axis_title_band(theme.axis_title_x, text, x_title_margin(theme), 0.0)
+        } else {
+            axis_title_band(
+                theme.axis_title_y,
+                text,
+                theme.axis_title_spacing + y_title_margin(theme),
+                90.0,
+            )
+        }
+    };
+    let (primary, secondary) = if index == 0 {
+        (&titles.x, &titles.x_secondary)
+    } else {
+        (&titles.y, &titles.y_secondary)
+    };
+    match far_side {
+        Some(true) => (band(secondary), band(primary)),
+        Some(false) => (band(primary), band(secondary)),
+        None => split_title(sides, band(primary)),
     }
 }
 
@@ -575,21 +677,18 @@ pub fn legend_origin(
         content.x,
         content.width,
     );
-    // The title bands of the x (0) and y (1) axes on their secondary / primary side.
-    let title_band = |index: usize| {
-        if index == 0 {
-            axis_title_band(theme.axis_title_x, &titles.x, x_title_margin(theme), 0.0)
-        } else {
-            axis_title_band(
-                theme.axis_title_y,
-                &titles.y,
-                theme.axis_title_spacing + y_title_margin(theme),
-                90.0,
-            )
-        }
+    // The title bands of the x (0) and y (1) axes on their far / near side.
+    let bands = |index: usize| {
+        axis_title_bands(
+            theme,
+            titles,
+            index,
+            layout.axis_sides[index],
+            layout.secondary_far_side(index),
+        )
     };
-    let secondary_title = |index: usize| split_title(layout.axis_sides[index], title_band(index)).0;
-    let primary_title = |index: usize| split_title(layout.axis_sides[index], title_band(index)).1;
+    let secondary_title = |index: usize| bands(index).0;
+    let primary_title = |index: usize| bands(index).1;
     match theme.legend_position {
         LegendPosition::Right | LegendPosition::None => (
             panel.x
@@ -1052,7 +1151,7 @@ pub fn draw_axes(
         axis_x.extend(axis_side_nodes(
             edge,
             layout,
-            &layout.x_breaks,
+            layout.side_breaks(0, side.is_secondary()),
             theme,
             &|value| mapper.x_pixel(value),
             (panel.x, panel.x + panel.width),
@@ -1064,7 +1163,7 @@ pub fn draw_axes(
         axis_y.extend(axis_side_nodes(
             edge,
             layout,
-            &layout.y_breaks,
+            layout.side_breaks(1, side.is_secondary()),
             theme,
             &|value| mapper.y_pixel(value),
             (panel.y, panel.y + panel.height),
@@ -1190,16 +1289,28 @@ fn discrete_levels(scale: &PositionScale) -> Vec<&str> {
 
 /// Plot title, subtitle and axis titles, placed around `layout.panel` (the union of
 /// all panels in a faceted plot).
-pub fn draw_titles(layout: &PlotLayout, theme: &Theme, titles: &Titles) -> Node {
+pub fn draw_titles<'a>(layout: &PlotLayout, theme: &Theme, titles: &'a Titles) -> Node {
     let panel = layout.panel;
     let content = layout.content;
     let bottom = panel.y + panel.height;
     let mut titles_nodes = Vec::new();
-    if let (Some(style), Some(title)) = (theme.axis_title_x, present(&titles.x)) {
+    // Each axis title on its side: the primary one where `position=` puts it, a
+    // secondary axis's title on the other side.
+    let placed =
+        |index: usize, primary: &'a Option<String>, secondary: &'a Option<String>| match layout
+            .secondary_far_side(index)
+        {
+            Some(far) => vec![(primary, !far), (secondary, far)],
+            None => vec![(primary, title_on_secondary(layout.axis_sides[index]))],
+        };
+    for (text, far) in placed(0, &titles.x, &titles.x_secondary) {
+        let (Some(style), Some(title)) = (theme.axis_title_x, present(text)) else {
+            continue;
+        };
         // Below the x axis, not at the plot edge: they differ only when the panel is
         // at its minimum size and the axis runs past the plot (lets-plot does the same).
         let (along, across) = axis_title_extent(style, title, 0.0);
-        let y = if title_on_secondary(layout.axis_sides[0]) {
+        let y = if far {
             panel.y
                 - layout.top_band
                 - layout.axis_bands.top
@@ -1227,7 +1338,10 @@ pub fn draw_titles(layout: &PlotLayout, theme: &Theme, titles: &Titles) -> Node 
             rotated::angle(style),
         ));
     }
-    if let (Some(style), Some(title)) = (theme.axis_title_y, present(&titles.y)) {
+    for (text, far) in placed(1, &titles.y, &titles.y_secondary) {
+        let (Some(style), Some(title)) = (theme.axis_title_y, present(text)) else {
+            continue;
+        };
         // Rotated: the justification runs from the bottom of the panel up.
         let (along, across) = axis_title_extent(style, title, 90.0);
         let centre = justified_at(
@@ -1242,7 +1356,7 @@ pub fn draw_titles(layout: &PlotLayout, theme: &Theme, titles: &Titles) -> Node 
             90.0
         };
         // lets-plot keeps the angle on the right (ggplot2 turns it to -90).
-        let x = if title_on_secondary(layout.axis_sides[1]) {
+        let x = if far {
             content.x + content.width
                 - layout.legend_space.right
                 - theme.axis_title_y_margin.right
@@ -1357,6 +1471,7 @@ pub fn wrap_headings(titles: &Titles, theme: &Theme, width: f64) -> Titles {
         x: titles.x.clone(),
         y: titles.y.clone(),
         tag: titles.tag.clone(),
+        ..titles.clone()
     }
 }
 

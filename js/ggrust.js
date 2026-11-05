@@ -1039,10 +1039,15 @@
       minor(axis, view, breaks, horizontal, "minor_tick", out);
       return out.join("");
     };
+    // Secondary axes (sec_axis): fixed breaks moving with the primary view.
+    var secondary = function (index, view, horizontal) {
+      var axis = spec.secondary && spec.secondary[index];
+      return axis ? axisNodes(axis, view, visibleBreaks(axis, view), horizontal) : "";
+    };
     return {
       grid: grid.join(""),
-      x: axisNodes(spec.horizontal, views.h, h, true),
-      y: axisNodes(spec.vertical, views.v, v, false)
+      x: axisNodes(spec.horizontal, views.h, h, true) + secondary(0, views.h, true),
+      y: axisNodes(spec.vertical, views.v, v, false) + secondary(1, views.v, false)
     };
   }
 

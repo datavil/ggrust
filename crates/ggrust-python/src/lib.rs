@@ -134,6 +134,33 @@ mod _ggrust {
             .collect()
     }
 
+    /// The font files of registered family `family` (case-insensitive), each once,
+    /// with whether the font license allows embedding. Empty when not registered.
+    #[pyfunction]
+    fn registered_font_files<'py>(
+        python: Python<'py>,
+        family: &str,
+    ) -> Vec<(pyo3::Bound<'py, pyo3::types::PyBytes>, bool)> {
+        ggrust_core::text::registered_font_files(family)
+            .into_iter()
+            .map(|(data, embeddable)| (pyo3::types::PyBytes::new(python, data), embeddable))
+            .collect()
+    }
+
+    /// Register the faces of font file bytes under `family`; return the families.
+    ///
+    /// Raises `ValueError` with the reason if the bytes are not a usable font.
+    #[pyfunction]
+    fn register_font_bytes(
+        python: Python<'_>,
+        data: Vec<u8>,
+        family: &str,
+    ) -> PyResult<Vec<String>> {
+        python
+            .detach(|| ggrust_core::text::register_font_data(data, Some(family)))
+            .map_err(pyo3::exceptions::PyValueError::new_err)
+    }
+
     /// Encode straight-alpha RGBA bytes (`width` x `height`, top row first) as a
     /// `data:image/png;base64,...` URL (`geom_imshow`). `compression` is a zlib
     /// level 0..9; `None` picks the fastest. The GIL is released while encoding.

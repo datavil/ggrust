@@ -465,6 +465,31 @@ pub fn registered_fonts() -> Vec<(String, Vec<FontFace>)> {
         .collect()
 }
 
+/// The font files behind registered family `name` (case-insensitive), each file
+/// once in face order, with whether every face of the family in it allows
+/// embedding (`OS/2.fsType`). Empty when the family is not registered.
+pub fn registered_font_files(name: &str) -> Vec<(&'static [u8], bool)> {
+    let registry = read_registry();
+    let Some(family) = registry
+        .families
+        .iter()
+        .find(|family| family.name.eq_ignore_ascii_case(name))
+    else {
+        return Vec::new();
+    };
+    let mut files: Vec<(&'static [u8], bool)> = Vec::new();
+    for loaded in family.faces.iter().flatten() {
+        match files
+            .iter_mut()
+            .find(|(data, _)| std::ptr::eq(*data, loaded.data))
+        {
+            Some((_, embeddable)) => *embeddable &= loaded.embeddable,
+            None => files.push((loaded.data, loaded.embeddable)),
+        }
+    }
+    files
+}
+
 /// The registered family named `name` (case-insensitive), as an id.
 pub(crate) fn lookup(name: &str) -> Option<u16> {
     read_registry()

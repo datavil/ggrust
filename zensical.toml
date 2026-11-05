@@ -355,6 +355,8 @@ nav = [
     ] },
     { "Export and setup" = [
       "reference/api/ggsave.md",
+      "reference/api/save_plot.md",
+      "reference/api/load_plot.md",
       "reference/api/display.md",
       "reference/api/engine_version.md",
     ] },
@@ -374,6 +376,7 @@ nav = [
       "reference/api/UnsupportedDataError.md",
       "reference/api/RenderError.md",
       "reference/api/ExportError.md",
+      "reference/api/PlotFileError.md",
       "reference/api/PlotIndexError.md",
       "reference/api/FontNotFoundError.md",
       "reference/api/FontError.md",

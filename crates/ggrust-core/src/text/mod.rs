@@ -17,7 +17,7 @@ pub use estimate::estimated_width;
 pub(crate) use registry::LoadedFont;
 pub use registry::{
     DirectoryFonts, FONT_EXTENSIONS, register_font, register_font_data, register_font_dir,
-    registered_fonts,
+    registered_font_files, registered_fonts,
 };
 
 use std::borrow::Cow;

@@ -18,7 +18,7 @@ use ggrust_core::scene::Node;
 use ggrust_core::spec::{Figure, PlotSpec};
 use ggrust_core::text::{
     Font, FontFace, FontFamily, face_warning, family_warning, measure, register_font,
-    register_font_dir, registered_fonts,
+    register_font_dir, registered_font_files, registered_fonts,
 };
 
 fn fonts_dir() -> PathBuf {
@@ -249,4 +249,19 @@ fn register_errors_say_what_and_how_to_fix() {
     assert!(matches!(no_directory, Error::FontNotFound { .. }));
     let no_fonts = register_font_dir(&fonts_dir().join("../fixtures")).unwrap_err();
     assert!(no_fonts.to_string().contains("no font files"), "{no_fonts}");
+}
+
+#[test]
+fn registered_font_files_return_each_file_once() {
+    register_font(&serif_regular(), Some("Files Test Serif")).unwrap();
+    register_font(&serif_bold(), Some("Files Test Serif")).unwrap();
+    let files = registered_font_files("files test serif");
+    assert_eq!(files.len(), 2);
+    assert_eq!(
+        files[0].0,
+        std::fs::read(serif_regular()).unwrap().as_slice()
+    );
+    assert_eq!(files[1].0, std::fs::read(serif_bold()).unwrap().as_slice());
+    assert!(files.iter().all(|(_, embeddable)| *embeddable));
+    assert!(registered_font_files("No Such Family").is_empty());
 }

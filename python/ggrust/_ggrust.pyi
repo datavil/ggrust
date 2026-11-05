@@ -14,7 +14,9 @@ __all__ = [
     "hclust",
     "referenced_columns",
     "register_font",
+    "register_font_bytes",
     "register_font_dir",
+    "registered_font_files",
     "registered_fonts",
     "render",
     "tooltip_columns",
@@ -61,6 +63,19 @@ def register_font_dir(path: str | PathLike[str]) -> tuple[list[str], list[tuple[
 
 def registered_fonts() -> list[tuple[str, list[str]]]:
     """Return every registered family with its faces, in registration order."""
+
+def registered_font_files(family: str) -> list[tuple[bytes, bool]]:
+    """Return the font files of a registered family, each once.
+
+    Each file comes with whether its license allows embedding. Empty when the
+    family is not registered.
+    """
+
+def register_font_bytes(data: bytes, family: str) -> list[str]:
+    """Register the faces of font file bytes under ``family``.
+
+    Raises ``ValueError`` with the reason if the bytes are not a usable font.
+    """
 
 def png_data_url(rgba: bytes, width: int, height: int, compression: int | None = None) -> str:
     """Encode straight-alpha RGBA rows as a ``data:image/png;base64,...`` URL.

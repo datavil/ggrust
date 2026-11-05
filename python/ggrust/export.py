@@ -1,7 +1,7 @@
 """``ggsave()``: write a plot to a file chosen by its extension.
 
 Ported from lets-plot's ``lets_plot/export/ggsave_.py`` (MIT, see THIRD_PARTY_NOTICES.md).
-Supported: svg, png, pdf (vector), html/htm.
+Supported: svg, png, pdf (vector), html/htm, and ggrs (a plot file ``load_plot`` opens).
 """
 
 from __future__ import annotations
@@ -36,7 +36,8 @@ def ggsave(
     plot : PlotSpec or SupPlotsSpec
         The figure.
     filename : str
-        File name with extension: ``.svg``, ``.png``, ``.pdf``, ``.html`` or ``.htm``.
+        File name with extension: ``.svg``, ``.png``, ``.pdf``, ``.html``, ``.htm``, or
+        ``.ggrs`` for a plot file that ``load_plot`` opens again (see ``save_plot``).
     path : str, optional
         Directory; ``./lets-plot-images`` when None (as lets_plot).
     iframe : bool, default True
@@ -79,7 +80,7 @@ def ggsave(
     if not extension:
         message = (
             f"ggsave(): filename {filename!r} has no extension; add one of "
-            "'.svg', '.png', '.pdf', '.html' (e.g. 'plot.png')"
+            "'.svg', '.png', '.pdf', '.html', '.ggrs' (e.g. 'plot.png')"
         )
         raise ExportError(message)
     pathname = os.path.join(path or os.path.join(os.getcwd(), _DEFAULT_EXPORT_DIRECTORY), filename)
@@ -92,11 +93,15 @@ def ggsave(
         export_png(plot, pathname, scale=scale, w=w, h=h, unit=unit, dpi=dpi)
     elif extension == "pdf":
         export_pdf(plot, pathname, scale=scale, w=w, h=h, unit=unit, dpi=dpi)
+    elif extension == "ggrs":
+        from ggrust.plot_file import save_plot
+
+        save_plot(plot, pathname)
     else:
-        extensions = ["svg", "png", "pdf", "html", "htm"]
+        extensions = ["svg", "png", "pdf", "html", "htm", "ggrs"]
         message = (
             f"ggsave(): unsupported file extension {extension!r}; use one of 'svg', 'png', "
-            f"'pdf', 'html', 'htm'{did_you_mean(extension, extensions)}"
+            f"'pdf', 'html', 'htm', 'ggrs'{did_you_mean(extension, extensions)}"
         )
         raise ExportError(message)
     return os.path.abspath(pathname)

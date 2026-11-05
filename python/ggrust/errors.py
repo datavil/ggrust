@@ -21,6 +21,7 @@ __all__ = [
     "FontError",
     "FontNotFoundError",
     "GgrustError",
+    "PlotFileError",
     "PlotIndexError",
     "RenderError",
     "SpecError",
@@ -328,6 +329,37 @@ class FontError(GgrustError, ValueError):
     def __init__(self, message: str, *, path: str) -> None:
         super().__init__(message)
         self.path = path
+
+
+class PlotFileError(GgrustError, ValueError):
+    """Raised when a ``.ggrs`` plot file cannot be opened.
+
+    The file is not a ggrust plot file, was written by a newer ggrust, or is damaged:
+    an entry is missing, too large, or does not match the SHA-256 hash recorded when
+    it was saved. The message names the file and the entry.
+
+    Parameters
+    ----------
+    message : str
+        The full message.
+
+    Examples
+    --------
+    >>> import os, tempfile
+    >>> from ggrust import load_plot
+    >>> from ggrust.errors import PlotFileError
+    >>> path = os.path.join(tempfile.mkdtemp(), "notes.ggrs")
+    >>> with open(path, "w") as file:
+    ...     _ = file.write("not a plot")
+    >>> try:
+    ...     load_plot(path)
+    ... except PlotFileError:
+    ...     print("not a plot file")
+    not a plot file
+    """
+
+    def __init__(self, message: str) -> None:
+        super().__init__(message)
 
 
 class PlotIndexError(GgrustError, IndexError):

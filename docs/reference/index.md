@@ -384,6 +384,8 @@ Write files, and choose how plots show in notebooks.
 | Name | Description |
 |---|---|
 | [`ggsave()`](api/ggsave.md) | Save a plot to ``path/filename``; the extension picks the format. |
+| [`save_plot()`](api/save_plot.md) | Save a plot to a ``.ggrs`` file that ``load_plot`` opens again. |
+| [`load_plot()`](api/load_plot.md) | Open a plot saved with ``save_plot`` or ``ggsave(plot, "name.ggrs")``. |
 | [`display()`](api/display.md) | Choose how plots show in notebooks, for the rest of the session. |
 | [`engine_version`](api/engine_version.md) | Return the version of the Rust engine. |
 
@@ -426,6 +428,7 @@ except ColumnNotFoundError as error:
 | [`UnsupportedDataError`](api/UnsupportedDataError.md) | Raised when the data object is not a kind ggrust reads (e.g. a Series). |
 | [`RenderError`](api/RenderError.md) | Raised when drawing the output fails, e.g. for an image too large to allocate. |
 | [`ExportError`](api/ExportError.md) | Raised when export options are invalid (file name, unit, size, dpi, scale). |
+| [`PlotFileError`](api/PlotFileError.md) | Raised when a ``.ggrs`` plot file cannot be opened. |
 | [`PlotIndexError`](api/PlotIndexError.md) | Raised when a layer or grid cell index is out of range or malformed. |
 | [`FontNotFoundError`](api/FontNotFoundError.md) | Raised when a font file or directory to register does not exist. |
 | [`FontError`](api/FontError.md) | Raised when a font cannot be registered or embedded. |

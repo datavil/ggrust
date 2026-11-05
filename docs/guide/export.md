@@ -35,6 +35,29 @@ lets-plot.
 ggrust embeds one open font (Liberation Sans, metrically compatible with Arial), so a
 PNG is pixel-identical on every machine and in CI.
 
+## Plot files
+
+Save the plot itself, not a picture of it, and open it again in another Python
+session, to restyle it, add layers or export it later:
+
+```python
+ggsave(plot, "prices.ggrs")  # or save_plot(plot, "prices.ggrs")
+
+plot = load_plot("prices.ggrs")
+plot + theme_minimal()
+```
+
+A `.ggrs` file is a zip archive holding the plot (as JSON), its data (as Arrow, read
+back as the polars, pandas or pyarrow frame it was) and the registered fonts it uses.
+It is safe to open from anyone: loading never runs code from the file, and a damaged
+file fails with a clear `PlotFileError` (every entry is checked against the SHA-256
+hash recorded when it was saved). The hashes catch damage, not deliberate edits, so
+they do not prove who made the file.
+
+A plot holding Python functions (a `sec_axis` transform) cannot be saved: a plot file
+stores no code. For worker processes, `pickle` works as usual (and can carry functions,
+with pickle's usual rule: only unpickle data you trust).
+
 ## Notebooks and scripts
 
 In Jupyter, a plot as the last expression of a cell renders inline. `plot.show()` does

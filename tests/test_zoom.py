@@ -122,10 +122,11 @@ def test_facets_share_fixed_scales_and_grids_list_every_plot():
     assert grid._repr_html_().count('class="tile"') == 4
 
 
-def test_layer_toggles_are_opt_in():
-    """``ggtb(layers=...)`` lists each plot's layers; without it there is no list."""
+def test_layer_toggles_are_on_by_default():
+    """``ggtb()`` lists each plot's layers; only ``layers=False`` removes the list."""
     plot = gg.ggplot(FRAME, gg.aes("x", "y")) + gg.geom_point() + gg.geom_text(gg.aes(label="g"))
-    assert "layers" not in zoom_payload(plot + gg.ggtb())["plots"][0]
+    assert zoom_payload(plot + gg.ggtb())["plots"][0]["layers"] == ["point", "text"]
+    assert "layers" not in (plot + gg.ggtb()).as_dict()["ggtoolbar"]
     assert "layers" not in zoom_payload(plot + gg.ggtb(layers=False))["plots"][0]
     layered = plot + gg.geom_point(color="red") + gg.ggtb(layers=True)
     assert zoom_payload(layered)["plots"][0]["layers"] == ["point", "text", "point 2"]

@@ -247,8 +247,9 @@ fn parse_layer_labels(
     use crate::spec::Value;
     let accepted = "use true, false, or a dict of labels to layer indices such as {\"spots\": 1}";
     match value {
-        None | Some(Value::Null) | Some(Value::Bool(false)) => Ok(None),
-        Some(Value::Bool(true)) => Ok(Some(Vec::new())),
+        // The menu is on by default (user, 2026-11-05); only `false` turns it off.
+        Some(Value::Bool(false)) => Ok(None),
+        None | Some(Value::Null) | Some(Value::Bool(true)) => Ok(Some(Vec::new())),
         Some(Value::Object(entries)) => {
             let mut labels: Vec<(String, usize)> = Vec::new();
             for (label, index) in entries {

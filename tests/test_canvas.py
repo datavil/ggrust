@@ -390,4 +390,4 @@ def test_toolbar_style_and_height(page, tmp_path: Path) -> None:
     assert style["radius"] == "10px"
     assert style["background"] == "rgba(255, 255, 255, 0.85)"
     assert style["selected"] == "rgb(44, 44, 42)"
-    assert style["buttons"] == 4
+    assert style["buttons"] == 5  # the layers menu is on by default

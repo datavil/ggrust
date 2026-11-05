@@ -38,8 +38,9 @@ def ggtb(
         How much points grow when zooming in: 0 keeps their size, -1 grows them
         without limit, a positive number caps the growth factor.
     layers : bool or dict of str to int, default=None
-        Add a layers menu to the toolbar that hides and shows each layer (a
-        ggrust extension, lets-plot has none). ``True`` labels layers by their
+        The layers menu in the toolbar that hides and shows each layer (a
+        ggrust extension, lets-plot has none). It is on by default (``None`` or
+        ``True``); ``False`` removes it. Layers are labelled by their
         geom (``"imshow"``, ``"point"``, ``"point 2"``); a dict gives labels to
         layer indices, counted from 0 in the order the layers were added
         (``{"tissue": 0, "spots": 1}``); unlabelled layers keep their geom name.

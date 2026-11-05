@@ -26,6 +26,8 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Main roadmap: [plan.md](plan.md).
   in `crates/ggrust-core/src/{geom,stat,position}/`, plus its Python wrapper. If a step
   needs edits across many unrelated files (likely for `ex1.3` and `ex2.2`), stop and
   show the user the design before writing code.
+- **cellestial workarounds.** When a step makes a cellestial workaround unnecessary,
+  add a row to [cellestial_workarounds.md](cellestial_workarounds.md) in the same commit.
 - **Verify like any step:** Rust unit tests, pytest, rendered PNGs compared against the
   R package's output for the same data (render the R version with `Rscript` when R is
   available, else describe the reference in the step notes).

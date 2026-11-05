@@ -41,7 +41,7 @@ pub struct BoxplotGeom;
 
 impl Geom for BoxplotGeom {
     /// lets-plot: boxes under the cursor, the x axis tooltip; the statistics are
-    /// side tooltips there and the first lines of the tooltip here.
+    /// side tooltips.
     fn tooltip_behavior(&self) -> crate::tooltip::TooltipBehavior {
         crate::tooltip::TooltipBehavior {
             axis: (true, false),

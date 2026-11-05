@@ -147,17 +147,28 @@ def test_single_position_line_has_no_label():
     assert sorted(set(lines(layer)[0][1])) == ["1", "3"]
 
 
-def test_boxplot_statistics_join_the_tooltip():
+def test_boxplot_statistics_are_side_tooltips():
+    # lets-plot: one value-only side tooltip per statistic, at its position.
     plot = gg.ggplot(FRAME, gg.aes("sex", "height")) + gg.geom_boxplot()
     (boxes,) = [layer for layer in payload(plot) if layer["targets"]["kind"] == "rects"]
-    assert lines(boxes) == [
-        ("y max", ["165.3", "180"]),
-        ("upper", ["162.9", "177.5"]),
-        ("middle", ["160.5", "175"]),
-        ("lower", ["155.4", "172.6"]),
-        ("y min", ["150.3", "170.1"]),
+    assert lines(boxes) == []
+    side = boxes["side_tooltips"]
+    assert [texts(line["text"]) for line in side] == [
+        ["165.3", "180"],
+        ["162.9", "177.5"],
+        ["160.5", "175"],
+        ["155.4", "172.6"],
+        ["150.3", "170.1"],
     ]
+    assert all(line["text"]["label"] is None and "horizontal" not in line for line in side)
+    # Screen y grows downwards: y max is highest, y min lowest.
+    for row in (0, 1):
+        at = [line["at"][row] for line in side]
+        assert at == sorted(at)
     assert texts(boxes["axis_x"]) == ["f", "m"] and "axis_y" not in boxes
+    flipped = payload(plot + gg.coord_flip())
+    (flipped_boxes,) = [layer for layer in flipped if layer["targets"]["kind"] == "rects"]
+    assert all(line["horizontal"] for line in flipped_boxes["side_tooltips"])
 
 
 def test_violin_and_ridges_show_their_stat_variable():

@@ -126,12 +126,33 @@ pub struct LayerContent {
     /// CSS color of the marker bar beside the lines.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub marker: Option<TextColumn>,
+    /// Side tooltips (lets-plot boxplot statistics): one small dark box per
+    /// statistic, beside the cursor at the statistic's position.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub side_tooltips: Vec<SideLine>,
+}
+
+/// One side tooltip line: a statistic's text and, per layer row, its screen
+/// coordinate along the value axis (filled in by the builder; `None` hides it).
+#[derive(Debug, Clone, PartialEq, serde::Serialize)]
+pub struct SideLine {
+    /// The statistic.
+    #[serde(skip)]
+    pub aesthetic: Aesthetic,
+    /// Its text per row (value only, as lets-plot).
+    pub text: TextColumn,
+    /// Scene pixel per row: vertical, or horizontal under `coord_flip`.
+    pub at: Vec<Option<f64>>,
+    /// `at` is horizontal (`coord_flip`): the boxes sit above the cursor.
+    #[serde(skip_serializing_if = "std::ops::Not::not")]
+    pub horizontal: bool,
 }
 
 impl LayerContent {
     /// Whether no row has anything to show.
     pub fn is_empty(&self) -> bool {
         self.lines.is_empty()
+            && self.side_tooltips.is_empty()
             && self.title.is_none()
             && self.axis_x.is_none()
             && self.axis_y.is_none()
@@ -226,7 +247,7 @@ pub fn layer_content(
                         .any(|field| builder.resolve(field) == Some(Source::Aesthetic(aesthetic)))
                 });
                 if !used && source.data.contains(aesthetic) {
-                    content.lines.push(builder.default_line(aesthetic, false));
+                    content.side_tooltips.push(builder.side_line(aesthetic));
                 }
             }
         }
@@ -237,6 +258,10 @@ pub fn layer_content(
             .filter(|aesthetic| !source.behavior.side.contains(aesthetic))
             .count();
         for &aesthetic in &aesthetics {
+            if source.behavior.side.contains(&aesthetic) {
+                content.side_tooltips.push(builder.side_line(aesthetic));
+                continue;
+            }
             let unlabelled = general == 1 && matches!(aesthetic, Aesthetic::X | Aesthetic::Y);
             content
                 .lines
@@ -437,6 +462,15 @@ impl Builder<'_> {
             }),
             self.aesthetic_values(aesthetic, false),
         )
+    }
+
+    fn side_line(&self, aesthetic: Aesthetic) -> SideLine {
+        SideLine {
+            aesthetic,
+            text: TextColumn::new(None, self.aesthetic_values(aesthetic, false)),
+            at: Vec::new(),
+            horizontal: false,
+        }
     }
 
     fn aesthetic_label(&self, aesthetic: Aesthetic) -> String {

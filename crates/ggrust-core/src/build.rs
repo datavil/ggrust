@@ -1356,7 +1356,11 @@ impl PreparedPlot {
                 axis_labels,
                 exponent_format: self.theme.exponent_format,
             };
-            let content = layer_content(&source, &layer.path, notes);
+            let mut content = layer_content(&source, &layer.path, notes);
+            for side_line in &mut content.side_tooltips {
+                side_line.at = side_positions(&layer.data, &panel, side_line.aesthetic);
+                side_line.horizontal = panel.flipped;
+            }
             if content.is_empty() {
                 return Ok(None);
             }
@@ -5083,4 +5087,26 @@ mod tests {
         assert_eq!(vjust, vec![0.0; 4]);
         assert!(warnings.is_empty(), "{warnings:?}");
     }
+}
+
+/// Screen coordinate along the value axis of `aesthetic` per row (side tooltips).
+fn side_positions(
+    data: &crate::data::LayerData,
+    panel: &Panel,
+    aesthetic: Aesthetic,
+) -> Vec<Option<f64>> {
+    let (Some(values), Some(x)) = (
+        data.continuous(aesthetic),
+        data.continuous(Aesthetic::Xmin)
+            .or_else(|| data.continuous(Aesthetic::X)),
+    ) else {
+        return Vec::new();
+    };
+    (0..data.row_count())
+        .map(|row| {
+            let (horizontal, vertical) = panel.map(x.get(row)?, values.get(row)?);
+            let at = if panel.flipped { horizontal } else { vertical };
+            at.is_finite().then_some((at * 100.0).round() / 100.0)
+        })
+        .collect()
 }

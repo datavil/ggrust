@@ -342,6 +342,80 @@
     return Math.max(low, Math.min(value, high));
   }
 
+  // lets-plot side tooltips (boxplot statistics): a dark box per statistic,
+  // its pointer from the box edge to the cursor at the statistic's position;
+  // stacked without overlapping, left of (or above, flipped) the cursor.
+  var SIDE_FILL = "#474747";
+  var SIDE_POINTER = 12; // px from the box edge to the pointer's tip
+  function showSide(layer, lead, scale, width, height, overlay) {
+    var items = [];
+    (layer.side_tooltips || []).forEach(function (line) {
+      var value = text(line.text, lead.row);
+      var at = line.at[lead.row];
+      if (value === null || at === null || at === undefined) {
+        return;
+      }
+      var node = element(
+        "div",
+        "position:absolute;left:0;top:0;box-sizing:border-box;background:" + SIDE_FILL +
+          ";color:#fff;border:1px solid #fff;border-radius:4px;padding:6px 6px;font:" + FONT +
+          ";line-height:13px;white-space:nowrap;pointer-events:none;",
+        overlay
+      );
+      node.textContent = value;
+      items.push({ node: node, at: at * scale, w: node.offsetWidth, h: node.offsetHeight, horizontal: line.horizontal });
+    });
+    if (!items.length) {
+      return;
+    }
+    var horizontal = items[0].horizontal;
+    var cursor = horizontal ? lead.y * scale : lead.x * scale;
+    items.sort(function (a, b) {
+      return a.at - b.at;
+    });
+    // Along the value axis: centred on the statistic, pushed apart, kept inside.
+    var size = function (item) { return horizontal ? item.w : item.h; };
+    var limit = horizontal ? width : height;
+    var next = 0;
+    items.forEach(function (item) {
+      item.start = Math.max(item.at - size(item) / 2, next);
+      next = item.start + size(item) + GAP;
+    });
+    var overflow = next - GAP - limit;
+    if (overflow > 0) {
+      items.forEach(function (item) {
+        item.start = Math.max(0, item.start - overflow);
+      });
+    }
+    var across = Math.max.apply(null, items.map(function (item) { return horizontal ? item.h : item.w; }));
+    var before = cursor - SIDE_POINTER - across >= 0;
+    var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.setAttribute("width", width);
+    svg.setAttribute("height", height);
+    svg.style.cssText = "position:absolute;left:0;top:0;overflow:visible;pointer-events:none;";
+    overlay.insertBefore(svg, overlay.firstChild);
+    items.forEach(function (item) {
+      var w = item.w, h = item.h, x, y, points;
+      if (!horizontal) {
+        x = before ? cursor - SIDE_POINTER - w : cursor + SIDE_POINTER;
+        y = item.start;
+        var edge = before ? x + w - 1 : x + 1;
+        points = [[edge, y + h * 0.3], [cursor, item.at], [edge, y + h * 0.7]];
+      } else {
+        y = before ? cursor - SIDE_POINTER - h : cursor + SIDE_POINTER;
+        x = item.start;
+        var edgeY = before ? y + h - 1 : y + 1;
+        points = [[x + w * 0.3, edgeY], [item.at, cursor], [x + w * 0.7, edgeY]];
+      }
+      item.node.style.transform = "translate(" + x + "px," + y + "px)";
+      var pointer = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+      pointer.setAttribute("points", points.map(function (p) { return p.join(","); }).join(" "));
+      pointer.setAttribute("fill", SIDE_FILL);
+      pointer.setAttribute("stroke", "#fff");
+      svg.appendChild(pointer);
+    });
+  }
+
   // Show the tooltips of `result` (scene pixels; `scale` converts to CSS pixels).
   function show(plot, result) {
     var overlay = plot.overlay;
@@ -407,6 +481,7 @@
         b.node.style.transform = "translate(" + x + "px," + top + "px)";
       });
     }
+    showSide(layer, lead, scale, width, height, overlay);
     // Axis tooltips at the panel edges.
     var axisX = text(layer.axis_x, lead.row);
     if (axisX !== null) {

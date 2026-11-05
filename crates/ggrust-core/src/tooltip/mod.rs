@@ -8,9 +8,10 @@
 //! runtime only looks targets up and shows the text ([`Interaction`] is its
 //! payload).
 //!
-//! What it does not do: lets-plot's separate side tooltips (boxplot statistics
-//! are lines of the general tooltip instead, as `disable_splitting()`), tooltip
-//! theme elements, `tooltip_group`, crosshair modes, datetime formats.
+//! Side tooltips (boxplot statistics) are value-only boxes, each at its
+//! statistic's position beside the cursor, as lets-plot.
+//!
+//! What it does not do: tooltip theme elements, `tooltip_group`, crosshair modes, datetime formats.
 
 pub mod content;
 pub mod template;
@@ -62,8 +63,7 @@ pub struct TooltipBehavior {
     pub axis: (bool, bool),
     /// Aesthetics never shown in the default tooltip.
     pub hidden: &'static [Aesthetic],
-    /// Statistics lets-plot shows as side tooltips (boxplot); here, the first
-    /// lines of the general tooltip.
+    /// Statistics shown as side tooltips (boxplot), not in the general tooltip.
     pub side: &'static [Aesthetic],
     /// Tooltips only when `layer_tooltips()` gives lines (`geom_text`).
     pub needs_lines: bool,

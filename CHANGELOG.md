@@ -1,0 +1,201 @@
+# Changelog
+
+All notable changes to ggrust. Each version is also a [GitHub Release](https://github.com/datavil/ggrust/releases).
+
+## [0.6.0] - 2026-11-06
+
+### Highlights
+
+- Side panels and marginal plots: ggside-style side layers and lets-plot's `ggmarginal()`.
+- Plot files: `ggsave(plot, "x.ggrs")` writes a self-contained plot file, `ggload("x.ggrs")` opens it.
+- Notebook output mode is now chosen with `ggrust.display(mode)`.
+
+### Added
+
+- Side panels (ggside): `geom_xside*` / `geom_yside*` layers for tile, bar, col, histogram, density, point, boxplot, violin, line and text; `scale_xsidey_*` / `scale_ysidex_*`; `ggside(x_pos=, y_pos=)`; `theme(ggside_panel_scale*, ggside_panel_spacing*)`. Bands follow `coord_flip`, axis `position=` and HTML zoom.
+- `ggmarginal(sides, size, layer)`, with the same spec as lets_plot.
+- `.ggrs` plot files: `ggsave(plot, "x.ggrs")` stores the spec, data (Arrow IPC) and registered fonts in one zip; `ggload("x.ggrs")` restores it (polars, pandas, pyarrow or dict data). Loading runs no code and verifies sizes and hashes.
+- `ggrust.display("html" | "svg" | "png")` picks what notebooks show: interactive HTML (default), static SVG without JavaScript, or PNG.
+- Boxplot tooltips show each statistic as a lets-plot style side tooltip.
+- Docs: a guide page and gallery section for the built-in ggplot2 extensions, with credits to the R packages.
+
+### Changed
+
+- `ggtb()` shows the layers menu by default; pass `layers=False` to remove it.
+
+### Breaking
+
+- The `LetsPlot` shim is removed. Delete `LetsPlot.setup_html()` calls; use `ggrust.display(mode)` to switch output. `display` is not in `__all__`, so `from ggrust import *` does not shadow IPython's `display()`.
+
+### Fixed
+
+- Side band axes: discrete labels are no longer blanked and get room to fit; thin continuous bands keep at least one label.
+
+## [0.5.0] - 2026-11-05
+
+### Highlights
+
+- Built-in ggplot2 extensions: ggsci palettes, ggbeeswarm, ggnewscale, ggpointdensity, ggrastr, gghalves/ggdist, ggpubr/ggpmisc statistics, ggforce marks, dendrograms, gghighlight and patchwork extras.
+- Secondary axes, axes on top/right, custom fonts, and an interactive legend in HTML output.
+- Read-only spec accessors: `layer_data()`, `build()` and plot properties.
+
+### Added
+
+- ggsci journal palettes: `scale_color_*` / `scale_fill_*` for npg, aaas, nejm, lancet, jama, jco, d3 and igv.
+- ggbeeswarm: `geom_beeswarm`, `geom_quasirandom`.
+- ggnewscale: `new_scale_color()`, `new_scale_fill()`, `new_scale()`.
+- ggpointdensity: `geom_pointdensity`, `stat_pointdensity`.
+- ggrastr: `rasterize(layer, dpi=300)` draws a layer as an image in SVG and PDF.
+- gghalves and ggdist: half geoms, slabs and intervals for raincloud plots.
+- ggpubr / ggpmisc: `stat_compare_means`, `stat_cor`, `stat_poly_eq`.
+- ggforce: `geom_mark_hull`, `geom_mark_ellipse`, `geom_mark_rect`.
+- Dendrograms: hierarchical clustering, `geom_dendrogram`, `scale_*_dendro` and `guide_axis_dendro` (follow HTML zoom and pan).
+- gghighlight: grey out non-matching rows, with direct repel labels.
+- patchwork extras: tags, design layouts, insets and nested alignment.
+- `geom_col`, `geom_rug` and `stat_ellipse` (ggplot2 semantics).
+- Secondary axes: `sec_axis`, `dup_axis`, `derive`.
+- `position=` on x and y scales draws the axis on the top/right side, or both.
+- Custom fonts: `register_font`, `register_font_dir`, `registered_fonts`.
+- Spec accessors: `PlotSpec.data`, `.mapping`, `.layers`, `.scales`, `.theme` and more; `with_data()`; `layer_data(i)` and `build()` return the engine's computed data as polars frames. `SupPlotsSpec` gets `figures`, `grid[i]`, `with_figure()`, `with_layout()` and more. New `PlotIndexError`.
+- Theme geom colors as lets-plot: defaults follow the theme flavor, the color names `"pen"`, `"brush"`, `"paper"` work everywhere, and `theme(geom=element_geom(...))` is drawn.
+- Manual legends: `manual_key=` on every geom and `layer_key(...)`.
+- `gggrid` captions via `labs(caption=)`.
+- `geom_boxplot(outlier_jitter=, outlier_seed=)`.
+- A style scale with an explicit `na_value` gets an "NA" legend key or colorbar swatch.
+- Interactive legend in HTML output: click legend keys to hide and show groups.
+
+### Fixed
+
+- Notebook HTML works in Google Colab (tooltips, toolbar and canvas layers were static there).
+- `ipykernel` is no longer a runtime dependency.
+
+## [0.4.0] - 2026-11-03
+
+### Highlights
+
+- Arrow axis lines, `oob=` on color scales, and colorbar end labels.
+- HTML plots shrink to fit their container.
+
+### Added
+
+- `element_line(arrow=, extent=)` on axis lines: arrow heads and partial axis lines (for UMAP-style corner axes).
+- `oob="censor" | "squish"` on continuous color and fill scales.
+- `guide_colorbar(label_position="ends")`: min and max labels beside the ends of the bar.
+- `lineheight` on `geom_text` and `geom_label`.
+
+### Changed
+
+- A later style scale that sets a mapper (`scale_color_manual` after a default brewer scale, for example) now replaces the earlier one, as in ggplot2. Names, breaks, labels, limits, guide and trans still merge.
+- HTML plots wider than their notebook cell or docs column shrink to fit, keeping their aspect ratio. Tooltips and zoom keep working.
+
+### Fixed
+
+- `gggrid(guides="collect")`: each collected legend keeps its own figure's theme.
+- Horizontal colorbars reserve room for end labels so they no longer run into the title.
+
+## [0.3.0] - 2026-11-03
+
+### Highlights
+
+- `facet_grid`, vector PDF output, and `geom_curve`.
+- `corr_plot` with a Rust correlation matrix.
+
+### Added
+
+- `facet_grid`: panels by columns and rows, row strips, free scales per grid column or row.
+- Facet label options: `x_order`/`y_order`, `x_format`/`y_format`, `x_labwidth`/`y_labwidth` on `facet_grid`, `labwidth` on `facet_wrap`, multi-line strips.
+- `geom_curve` (curvature, angle, ncp, spacer, arrow).
+- Vector PDF output from `ggsave`: paths, embedded subset fonts and images.
+- `corr_plot` (bistro).
+- Minor ticks and `exponent_format`.
+- `halo_width` / `halo_color` on `geom_text` and `geom_text_repel`.
+- Mapped `hjust` / `vjust` on `geom_text` and `geom_label`.
+
+### Changed
+
+- Faster zoom in `ggtb` plots: points are drawn on a canvas from 2,000 points, using a sprite atlas.
+
+### Fixed
+
+- Box zoom keeps the aspect ratio of `coord_fixed` panels.
+- `exponent_format` applies to HTML zoom labels.
+
+## [0.2.1] - 2026-11-02
+
+### Added
+
+- `ggtb(layers=...)`: a toolbar menu that hides and shows layers.
+
+### Fixed
+
+- Zoom keeps mirrored images (for example `geom_imshow` with a flipped axis) correct.
+
+## [0.2.0] - 2026-11-02
+
+### Highlights
+
+- Many new geoms and stats: density, smooth, step, contours, hexbins, summaries and more.
+- Datetime scales.
+- Documentation site at https://ggrust.datavil.org with live plots, guides and a gallery.
+
+### Added
+
+- `geom_abline`, `geom_density`, `geom_smooth` (with standard errors per model), `geom_step`, `geom_freqpoly`, `geom_count` / `stat_sum`.
+- `geom_bin2d`, `geom_hex`, `geom_contour`, `geom_contourf`, `geom_density2d`, `geom_density2df`.
+- `stat_summary`, `stat_summary_bin`, `stat_ecdf`.
+- Datetime scales.
+- Grey and discrete color scales; `scale_linetype_manual`, `scale_linetype_identity`; `expand_limits`.
+- `orientation="y"` on every layer (automatic on a discrete y).
+- `gggrid(sharex=, sharey=)`.
+- Theme options: caption, title positions, text margins, line types.
+
+### Changed
+
+- Faster PNG for large point layers, lower memory for large SVG/HTML outputs, faster repel labels.
+- `ggtb` toolbar restyled.
+
+### Fixed
+
+- Identity bars stack rows of one group; free facet scales compute stats per panel.
+- Axis title `hjust`/`vjust` follow the title angle.
+- Collected legends fit the grid; end x labels fit the canvas.
+- Stat positions that the geom does not draw no longer train the axes.
+- `gggrid` cells can shrink below 50 px.
+
+## [0.1.0] - 2026-11-01
+
+First public release of ggrust: a grammar-of-graphics plotting library written in Rust and used from Python, with a lets_plot-compatible API (`aes`, `ggplot`, `geom_*`, `scale_*`, `theme`, `gggrid`, `ggtb`, `+` composition). Porting lets_plot code is mostly an import swap.
+
+### Highlights
+
+- Rust does the stats, scales, layout and rendering; data crosses from Python once, as Arrow.
+- Outputs: SVG, PNG, PDF and interactive HTML for notebooks (tooltips, zoom and pan, canvas for dense scatters).
+- Faster than lets-plot on equal work in the included benchmarks.
+
+### Added
+
+- Geoms: point, jitter, path, line, segment (with arrows), polygon, vline, hline, text, label, text_repel, label_repel, blank, bar, histogram, boxplot, violin, sina, area_ridges, bracket, function, tile, rect, raster, imshow, errorbar, linerange, pointrange, crossbar, area, ribbon.
+- Stats: count, bin, boxplot, ydensity, densityridges, sina.
+- Positions: stack, dodge, fill, nudge, jitter, jitterdodge.
+- Scales: continuous and discrete position scales with transforms, breaks, labels and formats; hue, manual, gradient, viridis and ColorBrewer color scales; size, alpha, shape and identity scales; `scale_size_area`.
+- Coords: `coord_cartesian`, `coord_fixed`, `coord_flip`.
+- Facets: `facet_wrap`. Layout: `gggrid`.
+- Themes: built-in themes, `theme()` and `element_*`; legend placement, horizontal legends, `guide_legend(override_aes)`, colorbars.
+- `as_discrete` with `order`, `order_by` and `label`.
+- Interactive HTML: hover tooltips (general and axis), `ggtb()` zoom and pan, canvas point layers.
+- `ggsave` to SVG, PNG and PDF with units and dpi; `PlotSpec.show()`.
+- Typed errors in `ggrust.errors` with the spec path and close-match suggestions.
+- Prebuilt abi3 wheels for Linux, macOS and Windows (including ARM64).
+
+### Fixed (relative to lets-plot)
+
+- Legends, axis labels and titles are fitted to the canvas instead of overflowing it.
+- lets-plot issues 1504, 1452 and 1506 do not occur in ggrust.
+
+[0.6.0]: https://github.com/datavil/ggrust/releases/tag/v0.6.0
+[0.5.0]: https://github.com/datavil/ggrust/releases/tag/v0.5.0
+[0.4.0]: https://github.com/datavil/ggrust/releases/tag/v0.4.0
+[0.3.0]: https://github.com/datavil/ggrust/releases/tag/v0.3.0
+[0.2.1]: https://github.com/datavil/ggrust/releases/tag/v0.2.1
+[0.2.0]: https://github.com/datavil/ggrust/releases/tag/v0.2.0
+[0.1.0]: https://github.com/datavil/ggrust/releases/tag/v0.1.0

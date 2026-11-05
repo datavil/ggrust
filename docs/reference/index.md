@@ -383,3 +383,4 @@ except ColumnNotFoundError as error:
 | [`UnsupportedDataError`](api/UnsupportedDataError.md) | Raised when the data object is not a kind ggrust reads (e.g. a Series). |
 | [`RenderError`](api/RenderError.md) | Raised when drawing the output fails, e.g. for an image too large to allocate. |
 | [`ExportError`](api/ExportError.md) | Raised when export options are invalid (file name, unit, size, dpi, scale). |
+| [`PlotIndexError`](api/PlotIndexError.md) | Raised when a layer or grid cell index is out of range or malformed. |

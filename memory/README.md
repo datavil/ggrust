@@ -66,6 +66,7 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [ggdist slabs and gghalves](ggdist_gghalves.md): bounded density = widened R density folded back, SJ dpi bins on trunc(x/width), stat vars reach geoms, sizes converted from ggplot2 units, 0.75 spans + named dodge.
 - [ggpubr / ggpmisc statistics](ggpubr_statistics.md): R test switches (exact vs normal), AS 89, R format() half-even digits, ggsignif layout, `StatContext.x_levels`, stat text labels, vjust 0.7 em step.
 - [Spec accessors and layer_data](spec_accessors.md): properties return fresh dicts/tuples, `with_*` copies, layer_data on the plot (shared LayerSpecs), inspect as a child module of build, PyTable via the C stream.
+- [Colab drops script attributes](colab_script_attributes.md): Colab re-creates output scripts with only type and text, so runtime payloads are found by `type="application/vnd.ggrust-<kind>+json"`, never by class.
 - [ggforce marks](ggforce_marks.md): screen-space outlines, expansion as a distance level set (no clipping), Khachiyan scaled to enclose, grid text metrics for label boxes, grid placement in group order.
 - [Dendrograms](dendrograms.md): R hclust tie order + `cor()` arithmetic for parity, tree sets discrete limits, leaves via effective_levels, bands in the axis area (gggrid unchanged), facets drop the tree.
 - [gghighlight rewrite](gghighlight.md): grey/highlighted copies at `+` time, `merge_plot_data: false` stops lets-plot row-count column merging, copy plot as_discrete into rewritten layers.

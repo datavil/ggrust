@@ -85,6 +85,9 @@ nav = [
       "reference/api/geom_sina.md",
       "reference/api/geom_beeswarm.md",
       "reference/api/geom_quasirandom.md",
+      "reference/api/geom_mark_hull.md",
+      "reference/api/geom_mark_ellipse.md",
+      "reference/api/geom_mark_rect.md",
       "reference/api/geom_pointdensity.md",
       "reference/api/geom_half_violin.md",
       "reference/api/geom_half_point.md",
@@ -229,18 +232,15 @@ nav = [
       "reference/api/new_scale_fill.md",
       "reference/api/new_scale.md",
     ] },
+    { "Highlighting (gghighlight)" = [
+      "reference/api/gghighlight.md",
+    ] },
     { "Insets (patchwork)" = [
       "reference/api/inset_element.md",
     ] },
     { "Rasterized layers (ggrastr)" = [
       "reference/api/rasterize.md",
     ] },
-    { "Highlighting (gghighlight)" = [
-      "reference/api/gghighlight.md",
-    ] },
-    { "Size, shape and alpha scales" = [
-      "reference/api/scale_size.md",
-      "reference/api/scale_size_area.md",
     { "Clustering and dendrograms (hclust, ggdendro, legendry)" = [
       "reference/api/hclust.md",
       "reference/api/ClusterTree.md",
@@ -249,6 +249,9 @@ nav = [
       "reference/api/scale_y_dendro.md",
       "reference/api/guide_axis_dendro.md",
     ] },
+    { "Size, shape and alpha scales" = [
+      "reference/api/scale_size.md",
+      "reference/api/scale_size_area.md",
       "reference/api/scale_size_manual.md",
       "reference/api/scale_size_identity.md",
       "reference/api/scale_shape.md",
@@ -327,6 +330,7 @@ nav = [
       "reference/api/UnsupportedDataError.md",
       "reference/api/RenderError.md",
       "reference/api/ExportError.md",
+      "reference/api/PlotIndexError.md",
     ] },
   ] },
   # --- end of API reference nav ---

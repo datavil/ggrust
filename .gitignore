@@ -13,3 +13,6 @@ tests/visual/output/
 /docs/images/gallery/
 /docs/examples/figures/
 /docs/gallery/
+
+# macOS folder metadata: never commit, delete when seen
+.DS_Store

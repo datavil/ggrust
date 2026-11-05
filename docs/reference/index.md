@@ -54,7 +54,6 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_smooth()`](api/geom_smooth.md) | Draw a fitted curve with a confidence band (``stat="smooth"``), one per group. |
 | [`geom_area()`](api/geom_area.md) | Fill the area under a line, stacked by default (``position="stack"``). |
 | [`geom_ribbon()`](api/geom_ribbon.md) | Fill the band between ymin and ymax along x. |
-| [`geom_rug()`](api/geom_rug.md) | Rug ticks along the panel edges, one per x and/or y value (ggplot2 ``geom_rug``). |
 | [`geom_area_ridges()`](api/geom_area_ridges.md) | Ridgeline plot: one density curve per y level. |
 | [`geom_polygon()`](api/geom_polygon.md) | Draw filled polygons, one per group. |
 | [`geom_rect()`](api/geom_rect.md) | Rectangles from ``xmin``, ``xmax``, ``ymin``, ``ymax``. |
@@ -65,6 +64,7 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_boxplot()`](api/geom_boxplot.md) | Box and whiskers plot, dodged by group. |
 | [`geom_violin()`](api/geom_violin.md) | Violin plot: mirrored kernel density per x (``stat="ydensity"``). |
 | [`geom_density()`](api/geom_density.md) | Kernel density estimate of ``x``, drawn as a filled area (``stat="density"``). |
+| [`geom_rug()`](api/geom_rug.md) | Rug ticks along the panel edges, one per x and/or y value (ggplot2 ``geom_rug``). |
 | [`geom_errorbar()`](api/geom_errorbar.md) | Error bars from ymin to ymax at x, with fences ``width`` wide (default 0.45). |
 | [`geom_crossbar()`](api/geom_crossbar.md) | Boxes from ymin to ymax at x with a midline at y, dodged by group. |
 | [`geom_linerange()`](api/geom_linerange.md) | Draw a vertical line from ymin to ymax at x. |
@@ -95,7 +95,6 @@ Layers named after their stat: each summarises the data, then draws it with a ge
 | [`stat_summary()`](api/stat_summary.md) | Summarise y at every distinct x (``stat="summary"``), drawn as point ranges. |
 | [`stat_summary_bin()`](api/stat_summary_bin.md) | Summarise y in bins of x (``stat="summarybin"``), drawn as point ranges. |
 | [`stat_ecdf()`](api/stat_ecdf.md) | Empirical cumulative distribution of x (``stat="ecdf"``), drawn as steps. |
-| [`stat_ellipse()`](api/stat_ellipse.md) | Confidence ellipse of x and y per group (ggplot2 ``stat_ellipse``). |
 | [`stat_sum()`](api/stat_sum.md) | Rows at each distinct (x, y) (``stat="sum"``), drawn as points sized by the count. |
 | [`stat_pointdensity()`](api/stat_pointdensity.md) | Density of points around each point (``stat="pointdensity"``), drawn as points. |
 | [`stat_slab()`](api/stat_slab.md) | Density slab of y per x: a filled density on one side of each x. |
@@ -104,6 +103,7 @@ Layers named after their stat: each summarises the data, then draws it with a ge
 | [`stat_halfeye()`](api/stat_halfeye.md) | Half-eye plot: a density slab with a point interval at its base, per x. |
 | [`stat_compare_means()`](api/stat_compare_means.md) | Test the groups of y along a discrete x and label the p-values. |
 | [`stat_cor()`](api/stat_cor.md) | Label the correlation of x and y and its p-value, per group. |
+| [`stat_ellipse()`](api/stat_ellipse.md) | Confidence ellipse of x and y per group (ggplot2 ``stat_ellipse``). |
 | [`stat_poly_eq()`](api/stat_poly_eq.md) | Label a least squares polynomial fit of y on x (equation, R²), per group. |
 
 ## Positions
@@ -354,6 +354,16 @@ Write files, and lets-plot compatibility helpers.
 | [`LetsPlot`](api/LetsPlot.md) | lets_plot's global settings object. ggrust needs no setup; calls are accepted. |
 | [`engine_version`](api/engine_version.md) | Return the version of the Rust engine. |
 
+## Fonts
+
+Register font files (Arial, a brand font, CJK fonts) for `element_text(family=...)`.
+
+| Name | Description |
+|---|---|
+| [`register_font()`](api/register_font.md) | Register a font file so plots can draw with it. |
+| [`register_font_dir()`](api/register_font_dir.md) | Register every font file under a directory, searched recursively. |
+| [`registered_fonts()`](api/registered_fonts.md) | Return the registered font families and their faces. |
+
 ## Errors and warnings
 
 Every error ggrust raises is a `GgrustError` and the builtin that matches the problem,
@@ -384,3 +394,5 @@ except ColumnNotFoundError as error:
 | [`RenderError`](api/RenderError.md) | Raised when drawing the output fails, e.g. for an image too large to allocate. |
 | [`ExportError`](api/ExportError.md) | Raised when export options are invalid (file name, unit, size, dpi, scale). |
 | [`PlotIndexError`](api/PlotIndexError.md) | Raised when a layer or grid cell index is out of range or malformed. |
+| [`FontNotFoundError`](api/FontNotFoundError.md) | Raised when a font file or directory to register does not exist. |
+| [`FontError`](api/FontError.md) | Raised when a font cannot be registered or embedded. |

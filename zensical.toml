@@ -104,7 +104,6 @@ nav = [
       "reference/api/geom_smooth.md",
       "reference/api/geom_area.md",
       "reference/api/geom_ribbon.md",
-      "reference/api/geom_rug.md",
       "reference/api/geom_area_ridges.md",
       "reference/api/geom_polygon.md",
       "reference/api/geom_rect.md",
@@ -115,6 +114,7 @@ nav = [
       "reference/api/geom_boxplot.md",
       "reference/api/geom_violin.md",
       "reference/api/geom_density.md",
+      "reference/api/geom_rug.md",
       "reference/api/geom_errorbar.md",
       "reference/api/geom_crossbar.md",
       "reference/api/geom_linerange.md",
@@ -140,7 +140,6 @@ nav = [
       "reference/api/stat_summary.md",
       "reference/api/stat_summary_bin.md",
       "reference/api/stat_ecdf.md",
-      "reference/api/stat_ellipse.md",
       "reference/api/stat_sum.md",
       "reference/api/stat_pointdensity.md",
       "reference/api/stat_slab.md",
@@ -149,6 +148,7 @@ nav = [
       "reference/api/stat_halfeye.md",
       "reference/api/stat_compare_means.md",
       "reference/api/stat_cor.md",
+      "reference/api/stat_ellipse.md",
       "reference/api/stat_poly_eq.md",
     ] },
     { "Positions" = [
@@ -319,6 +319,11 @@ nav = [
       "reference/api/LetsPlot.md",
       "reference/api/engine_version.md",
     ] },
+    { "Fonts" = [
+      "reference/api/register_font.md",
+      "reference/api/register_font_dir.md",
+      "reference/api/registered_fonts.md",
+    ] },
     { "Errors and warnings" = [
       "reference/api/GgrustWarning.md",
       "reference/api/GgrustError.md",
@@ -331,6 +336,8 @@ nav = [
       "reference/api/RenderError.md",
       "reference/api/ExportError.md",
       "reference/api/PlotIndexError.md",
+      "reference/api/FontNotFoundError.md",
+      "reference/api/FontError.md",
     ] },
   ] },
   # --- end of API reference nav ---

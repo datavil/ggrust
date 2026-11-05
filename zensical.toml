@@ -386,6 +386,8 @@ nav = [
 
 [project.theme]
 language = "en"
+favicon = "images/logo/ggrust-favicon.svg"
+logo = "images/logo/ggrust-favicon.svg"
 features = [
   "content.code.copy",
   "content.tabs.link",
@@ -401,7 +403,6 @@ features = [
 ]
 
 [project.theme.icon]
-logo = "lucide/chart-scatter"
 repo = "fontawesome/brands/github"
 
 [project.theme.font]

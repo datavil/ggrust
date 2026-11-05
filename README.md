@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/datavil/ggrust/main/assets/logo/ggrust-logo-dark.svg">
+    <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/logo/ggrust-logo-light.svg" alt="ggrust logo" width="160">
+  </picture>
+</p>
+
 # ggrust
 
 [![GitHub](https://img.shields.io/badge/GitHub-100000?style=flat&logo=github&logoColor=white)](https://github.com/datavil/ggrust)

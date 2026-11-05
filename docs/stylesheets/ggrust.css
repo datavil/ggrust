@@ -128,6 +128,17 @@
   margin-bottom: 2rem;
 }
 
+/* Light or dark sticker; the theme hides the other one via #only-light / #only-dark. */
+.md-typeset .hero .hero-logo {
+  margin-bottom: 0.6rem;
+  line-height: 0;
+}
+
+.md-typeset .hero .hero-logo img {
+  width: 112px;
+  height: 112px;
+}
+
 .md-typeset .hero h1 {
   margin: 0 0 0.4rem;
   font-size: 2.6rem;

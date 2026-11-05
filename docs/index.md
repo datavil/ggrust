@@ -6,6 +6,11 @@ hide: [navigation, toc]
 
 <div markdown>
 
+<div class="hero-logo">
+  <img src="images/logo/ggrust-logo-light.svg#only-light" alt="ggrust logo" width="112" height="112">
+  <img src="images/logo/ggrust-logo-dark.svg#only-dark" alt="ggrust logo" width="112" height="112">
+</div>
+
 <h1>ggrust</h1>
 
 <p class="tagline">The grammar of graphics, with a Rust engine and a lets-plot API.</p>

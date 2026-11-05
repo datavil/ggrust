@@ -339,3 +339,84 @@ def test_ggside_options_merge_key_by_key() -> None:
     assert plot.as_dict()["ggside"] == {"x_pos": "bottom", "y_pos": "left"}
     plot = plot + gg.ggside(x_pos="top")
     assert plot.as_dict()["ggside"] == {"x_pos": "top", "y_pos": "left"}
+
+
+SPECIES = pl.DataFrame(
+    {
+        "length": [float(index % 17) for index in range(60)],
+        "width": [float(index % 11) for index in range(60)],
+        "species": [["Adelie", "Gentoo", "Chinstrap"][index % 3] for index in range(60)],
+    }
+)
+
+
+def _band_axis_texts(svg: str) -> list[tuple[float, float, str, bool]]:
+    """The labels of the first band axis: x, y, text and whether turned."""
+    axis = svg[svg.index('class="side-axis"') :]
+    axis = axis[: axis.index("</g>")]
+    return [
+        (float(found.group(1)), float(found.group(2)), found.group(4), bool(found.group(3)))
+        for found in re.finditer(
+            r'<text x="([-\d.]+)" y="([-\d.]+)"[^>]*?( transform="rotate[^"]*")?>([^<]+)</text>',
+            axis,
+        )
+    ]
+
+
+@pytest.mark.parametrize(
+    "layer",
+    [
+        gg.geom_ysideboxplot(gg.aes(x="species", fill="species"), alpha=0.4),
+        gg.geom_ysideviolin(gg.aes(x="species")),
+        gg.geom_ysidetile(gg.aes(x="species", fill="species")),
+    ],
+    ids=["boxplot", "violin", "tile"],
+)
+@pytest.mark.parametrize("position", ["bottom", "top"])
+def test_discrete_y_band_labels_get_room(layer: gg.FeatureSpec, position: str) -> None:
+    plot = (
+        gg.ggplot(SPECIES, gg.aes("length", "width"))
+        + gg.geom_point()
+        + layer
+        + gg.scale_ysidex_discrete(position=position)
+        + gg.ggsize(600, 400)
+    )
+    svg = plot.to_svg()
+    labels = _band_axis_texts(svg)
+    assert [text for _, _, text, _ in labels] == ["Adelie", "Gentoo", "Chinstrap"]
+    # The narrow band turns them (lets-plot rules); the plot keeps room for them.
+    assert all(turned for *_, turned in labels)
+    panel = _clips(svg)["panel"]
+    widest = max(0.45 * 13 * len(text) for _, _, text, _ in labels)
+    if position == "bottom":
+        title = re.search(r'<text[^>]*y="([\d.]+)"[^>]*>length</text>', svg)
+        assert title and float(title.group(1)) - 12 > labels[0][1] + widest
+    else:
+        assert all(y - widest > 0 for _, y, _, _ in labels)
+        assert panel[1] > widest
+
+
+@pytest.mark.parametrize(
+    "layer",
+    [
+        gg.geom_xsideboxplot(gg.aes(y="species")),
+        gg.geom_xsideviolin(gg.aes(y="species")),
+        gg.geom_xsidetile(gg.aes(y="species", fill="species")),
+    ],
+    ids=["boxplot", "violin", "tile"],
+)
+@pytest.mark.parametrize("position", ["left", "right"])
+def test_discrete_x_band_keeps_every_label(layer: gg.FeatureSpec, position: str) -> None:
+    plot = (
+        gg.ggplot(SPECIES, gg.aes("length", "width"))
+        + gg.geom_point()
+        + layer
+        + gg.scale_xsidey_discrete(position=position)
+        + gg.ggsize(600, 400)
+    )
+    svg = plot.to_svg()
+    labels = _band_axis_texts(svg)
+    assert [text for _, _, text, _ in labels] == ["Adelie", "Gentoo", "Chinstrap"]
+    widest = max(0.45 * 13 * len(text) for _, _, text, _ in labels)
+    for x, _, _, _ in labels:
+        assert (x - widest > 0) if position == "left" else (x + widest < 600)

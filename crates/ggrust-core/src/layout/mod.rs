@@ -266,6 +266,7 @@ fn layout_free(
     // of the panel only, so narrowing repeats until it fits (converges fast).
     let labels_height = x_labels_height(&layout.x_breaks, theme);
     let secondary_height = secondary_x_height(&layout, theme);
+    let mut band_height = band_x_height(&layout, theme);
     let mut layout = layout;
     let mut narrowed = area;
     for _ in 0..FIT_PASSES {
@@ -285,14 +286,45 @@ fn layout_free(
             titles,
             (x_scale, y_scale),
             legend_space,
-            (labels_height, secondary_height),
+            (labels_height, secondary_height, band_height),
             Some(x_breaks),
             panel_min_size,
             bands,
         );
+        let wanted = band_x_height(&layout, theme);
+        if wanted > band_height {
+            // The narrower band turned its labels: give them their room now.
+            band_height = wanted;
+            let x_breaks = layout.x_breaks;
+            layout = layout_with(
+                narrowed,
+                theme,
+                titles,
+                (x_scale, y_scale),
+                legend_space,
+                (labels_height, secondary_height, band_height),
+                Some(x_breaks),
+                panel_min_size,
+                bands,
+            );
+        }
     }
     layout
 }
+
+/// Height of the labels of the left/right side panels' own x axes in `layout`
+/// (a simple text band at least).
+fn band_x_height(layout: &PlotLayout, theme: &Theme) -> f64 {
+    let simple = theme.axis_text_x.map_or(0.0, text_band);
+    [Side::Top, Side::Bottom]
+        .into_iter()
+        .map(|side| side_panel::horizontal_labels_height(&layout.bands, side, theme))
+        .fold(simple, f64::max)
+}
+
+/// Passes [`layout_free_once`] makes at most to give side panels' x labels room
+/// (a band's labels can turn when the room changes its thickness).
+const BAND_LABEL_PASSES: usize = 2;
 
 /// Height of the secondary x labels of `layout` (a simple text band without them).
 fn secondary_x_height(layout: &PlotLayout, theme: &Theme) -> f64 {
@@ -365,14 +397,15 @@ fn layout_free_once(
         titles,
         (x_scale, y_scale),
         legend_space,
-        (simple, simple),
+        (simple, simple, simple),
         None,
         panel_min_size,
         bands,
     );
     let needed = x_labels_height(&first.x_breaks, theme);
     let needed_secondary = secondary_x_height(&first, theme);
-    if needed <= simple && needed_secondary <= simple {
+    let mut band_height = band_x_height(&first, theme);
+    if needed <= simple && needed_secondary <= simple && band_height <= simple {
         return first;
     }
     let (x_breaks, needed) = if needed > simple {
@@ -383,21 +416,33 @@ fn layout_free_once(
     } else {
         (first.x_breaks, needed)
     };
-    layout_with(
-        area,
-        theme,
-        titles,
-        (x_scale, y_scale),
-        legend_space,
-        (needed, needed_secondary.max(simple)),
-        Some(x_breaks),
-        panel_min_size,
-        bands,
-    )
+    let relayout = |band_height: f64| {
+        layout_with(
+            area,
+            theme,
+            titles,
+            (x_scale, y_scale),
+            legend_space,
+            (needed, needed_secondary.max(simple), band_height),
+            Some(x_breaks.clone()),
+            panel_min_size,
+            bands,
+        )
+    };
+    let mut layout = relayout(band_height);
+    for _ in 0..BAND_LABEL_PASSES {
+        let wanted = band_x_height(&layout, theme);
+        if wanted <= band_height {
+            break;
+        }
+        band_height = wanted;
+        layout = relayout(band_height);
+    }
+    layout
 }
 
 /// One layout pass with x label bands `labels_height` px tall (the axis's own
-/// labels, then a secondary axis's).
+/// labels, then a secondary axis's, then left/right side panels' own x axes).
 #[allow(clippy::too_many_arguments)]
 fn layout_with(
     area: Rect,
@@ -405,7 +450,7 @@ fn layout_with(
     titles: &Titles,
     (x_scale, y_scale): (&PositionScale, &PositionScale),
     legend_space: Margins,
-    (labels_height, secondary_height): (f64, f64),
+    (labels_height, secondary_height, band_labels_height): (f64, f64, f64),
     x_breaks: Option<AxisBreaks>,
     panel_min_size: f64,
     bands: &[BandRequest],
@@ -445,15 +490,16 @@ fn layout_with(
         };
         x_axis_band(height, theme)
     };
-    // A left/right side panel's own axis on a side the x axis leaves empty needs
-    // the room of a simple label band there.
+    // A left/right side panel's own axis needs the room of its labels on its side
+    // (`band_labels_height`, measured by an earlier pass), even where the x axis
+    // leaves that side empty.
     let band_x_axis = |far: bool| {
         let wanted = bands.iter().any(|band| {
             !band.side.is_horizontal()
                 && side_panel::band_axis_side(band, x_sides) == Some(Side::of(true, far))
         });
         if wanted {
-            x_axis_band(theme.axis_text_x.map_or(0.0, text_band), theme)
+            x_axis_band(band_labels_height, theme)
         } else {
             0.0
         }
@@ -480,7 +526,10 @@ fn layout_with(
         .collect();
     let (panel_height, thicknesses) =
         side_panel::split(bottom - top, &vertical_requests, panel_min_size);
-    let label_limit = content.width * AXIS_LABELS_MAX_SHARE;
+    let label_limit = (
+        content.width * AXIS_LABELS_MAX_SHARE,
+        content.height * AXIS_LABELS_MAX_SHARE,
+    );
     let laid_bands = side_panel::layout_bands(
         &vertical_requests,
         &thicknesses,

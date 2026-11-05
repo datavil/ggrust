@@ -31,8 +31,13 @@ Step ex2.2 (2026-11-05), design approved by the user.
   so `fit_ratio` and `gggrid(align=True)` move bands along. `AxisEdge::of`, titles and
   legend origins add `band_extent(side)`. ggside size is a share of the panel, a margin's
   of panel + margins (`side_panel::split`). A top/bottom band's own axis widens the y axis
-  band (`vertical_axis_width`); a left/right band's horizontal axis must fit the existing
-  x band (single-line labels).
+  band (`vertical_axis_width`); a left/right band's horizontal axis grows the x axis band
+  on its side (`horizontal_labels_height`, measured by a first pass and fed back to
+  `layout_with` as `band_labels_height`; up to `BAND_LABEL_PASSES` more passes, since a
+  thinner band can turn its labels). Band x labels use the main axis's lets-plot rules
+  (vertical on a narrow band, user's choice over ggside's overlapping flat labels).
+  `keep_labels_inside` never blanks category labels (they name tracks); before this fix
+  it blanked all but the middle one on narrow bands.
 - **HTML zoom:** band layers live in `g.side-x` / `g.side-y` (screen axis shared), and the
   runtime's `treeGroups` treats them like axis dendrograms (inner group, one-axis
   matrix). Tooltip layers carry `side`; `moveTargets` moves them along that axis when the

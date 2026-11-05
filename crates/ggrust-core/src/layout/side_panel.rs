@@ -15,8 +15,9 @@
 
 use super::side::{AxisEdge, Side};
 use super::{
-    AxisBreaks, Orientation, PlotLayout, axis_side_nodes, choose_breaks, fit_y_labels, label_sizes,
-    minor_breaks, rect_node, segment, y_axis_width,
+    AxisBreaks, LabelArrangement, Orientation, PlotLayout, axis_side_nodes, choose_breaks,
+    fit_x_labels, fit_y_labels, label_sizes, minor_breaks, rect_node, segment, x_labels_height,
+    y_axis_width,
 };
 use crate::coord::Panel;
 use crate::scale::{AxisSides, PositionScale};
@@ -137,13 +138,17 @@ pub(super) fn band_axis_side(request: &BandRequest, cross_sides: AxisSides) -> O
 
 /// Blank the labels of `breaks` whose box would leave the band's span `length`
 /// (px along its own axis, from its start): a label at the band's edge would run
-/// into the main axis's end label. Ticks stay.
+/// into the main axis's end label. Ticks stay. Category labels all stay: they
+/// name the band's tracks, and the scale's expansion keeps them near the band.
 fn keep_labels_inside(
     mut breaks: AxisBreaks,
     cross: &PositionScale,
     length: f64,
     extents: &[f64],
 ) -> AxisBreaks {
+    if cross.is_discrete() {
+        return breaks;
+    }
     for (index, value) in breaks.values.iter().enumerate() {
         let at = cross.map(*value) * length;
         let half = extents.get(index).copied().unwrap_or(0.0) / 2.0;
@@ -158,12 +163,14 @@ fn keep_labels_inside(
 /// bottom bands, whose own axis is vertical) or not. `thicknesses` come from
 /// [`split`] in the order of the matching `requests`; `cross_sides` are the sides
 /// of the main axis perpendicular to the shared one (where a band's axis goes).
+/// A band's vertical axis may be `width_limit` px wide, its horizontal axis
+/// labels `height_limit` px tall (see [`super::fit_x_labels`]).
 pub(super) fn layout_bands(
     requests: &[&BandRequest],
     thicknesses: &[f64],
     cross_sides: AxisSides,
     theme: &Theme,
-    label_limit: f64,
+    (width_limit, height_limit): (f64, f64),
 ) -> Vec<BandLayout> {
     requests
         .iter()
@@ -181,7 +188,7 @@ pub(super) fn layout_bands(
                         (0.0, 0.0),
                     );
                     let breaks =
-                        fit_y_labels(breaks, request.cross, *thickness, label_limit, theme);
+                        fit_y_labels(breaks, request.cross, *thickness, width_limit, theme);
                     let heights: Vec<f64> = theme.axis_text_y.map_or_else(Vec::new, |text| {
                         label_sizes(&breaks.labels, text)
                             .iter()
@@ -197,12 +204,25 @@ pub(super) fn layout_bands(
                         theme.axis_text_x,
                         (0.0, 0.0),
                     );
-                    let widths: Vec<f64> = theme.axis_text_x.map_or_else(Vec::new, |text| {
-                        label_sizes(&breaks.labels, text)
-                            .iter()
-                            .map(|(width, _)| *width)
-                            .collect()
-                    });
+                    let breaks =
+                        fit_x_labels(breaks, request.cross, *thickness, height_limit, theme);
+                    // Only flat labels run along the axis into the main axis's
+                    // end label; turned ones (tilted, vertical, a theme angle)
+                    // reach at most half a line past their tick, so all stay.
+                    let flat = matches!(
+                        breaks.arrangement,
+                        LabelArrangement::Simple | LabelArrangement::TwoRows(_)
+                    );
+                    let widths: Vec<f64> =
+                        theme
+                            .axis_text_x
+                            .filter(|_| flat)
+                            .map_or_else(Vec::new, |text| {
+                                label_sizes(&breaks.labels, text)
+                                    .iter()
+                                    .map(|(width, _)| *width)
+                                    .collect()
+                            });
                     keep_labels_inside(breaks, request.cross, *thickness, &widths)
                 }
             });
@@ -226,6 +246,17 @@ pub(super) fn vertical_axis_width(bands: &[BandLayout], side: Side, theme: &Them
         .filter(|band| band.axis_side == Some(side))
         .filter_map(|band| band.breaks.as_ref())
         .map(|breaks| y_axis_width(breaks, theme))
+        .fold(0.0, f64::max)
+}
+
+/// Height of the tallest axis labels of the left and right `bands` drawn on
+/// `side` (top or bottom), 0 without one: the main x axis band grows to hold them.
+pub(super) fn horizontal_labels_height(bands: &[BandLayout], side: Side, theme: &Theme) -> f64 {
+    bands
+        .iter()
+        .filter(|band| band.axis_side == Some(side))
+        .filter_map(|band| band.breaks.as_ref())
+        .map(|breaks| x_labels_height(breaks, theme))
         .fold(0.0, f64::max)
 }
 
@@ -496,6 +527,66 @@ mod tests {
         assert!((panel - 247.8).abs() < 1e-9);
         assert!((thicknesses[0] - 70.8).abs() < 1e-9);
         assert!((thicknesses[1] - 35.4).abs() < 1e-9);
+    }
+
+    /// A trained discrete scale with these levels.
+    fn discrete(levels: &[&str]) -> PositionScale {
+        let mut scale = crate::scale::DiscretePositionScale::default();
+        let levels: Vec<String> = levels.iter().map(|level| level.to_string()).collect();
+        scale.train_levels(&levels);
+        PositionScale::Discrete(scale)
+    }
+
+    #[test]
+    fn discrete_band_axes_keep_every_label_and_get_room_for_it() {
+        let mut main = ContinuousPositionScale::default();
+        main.train_range(0.0, 10.0);
+        let main = PositionScale::Continuous(main);
+        let species = discrete(&["Adelie", "Gentoo", "Chinstrap"]);
+        let band = |side| BandRequest {
+            side,
+            size: BandSize::OfPanel(0.1),
+            spacing: 2.0,
+            cross: &species,
+            decorated: true,
+        };
+        let theme = Theme::default();
+        let area = Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 800.0,
+            height: 600.0,
+        };
+        let layout = super::super::layout_plot(
+            area,
+            &theme,
+            &super::super::Titles::default(),
+            &main,
+            &main,
+            crate::layout::Margins::uniform(0.0),
+            None,
+            super::super::PANEL_MIN_SIZE,
+            &[band(Side::Right), band(Side::Top)],
+        );
+        let simple = theme.axis_text_x.map_or(0.0, super::super::text_band);
+        for side in [Side::Right, Side::Top] {
+            let band = layout.bands.iter().find(|band| band.side == side);
+            let breaks = band
+                .and_then(|band| band.breaks.as_ref())
+                .expect("band axis");
+            let labels: Vec<&str> = breaks
+                .labels
+                .iter()
+                .map(|label| label.text.as_str())
+                .collect();
+            assert_eq!(labels, ["Adelie", "Gentoo", "Chinstrap"], "{side:?}");
+        }
+        // The narrow right band turns its labels; the x axis band holds them.
+        let needed = horizontal_labels_height(&layout.bands, Side::Bottom, &theme);
+        assert!(needed > 2.0 * simple, "labels {needed} px tall");
+        assert!(layout.axis_bands.bottom >= super::super::x_axis_band(needed, &theme) - 1e-9);
+        // The top band's own axis widens the y axis band to its widest label.
+        assert!(layout.axis_bands.left >= vertical_axis_width(&layout.bands, Side::Left, &theme));
     }
 
     #[test]

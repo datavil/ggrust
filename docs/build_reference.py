@@ -351,7 +351,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
     ),
     "Export and setup": (
         "Write files, and choose how plots show in notebooks.",
-        ["ggsave", "display", "engine_version"],
+        ["ggsave", "ggload", "display", "engine_version"],
     ),
     "Fonts": (
         "Register font files (Arial, a brand font, CJK fonts) for `element_text(family=...)`.",
@@ -370,6 +370,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "ggrust.errors.UnsupportedDataError",
             "ggrust.errors.RenderError",
             "ggrust.errors.ExportError",
+            "ggrust.errors.PlotFileError",
             "ggrust.errors.PlotIndexError",
             "ggrust.errors.FontNotFoundError",
             "ggrust.errors.FontError",

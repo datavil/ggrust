@@ -94,10 +94,11 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Main roadmap: [plan.md](plan.md).
 - [ ] ex2.1 **Extra themes.** `theme_cowplot` (also `theme_half_open`,
   `theme_minimal_grid`), `theme_pubr` / `theme_pubclean` (ggpubr), as `theme()` presets
   in `python/ggrust`. Done when each matches the R theme's look on a reference plot.
-- [ ] ex2.2 **ggside / ggExtra marginal plots.** Builds on plan.md `lp5.6 ggmarginal`
+- [x] ex2.2 **ggside / ggExtra marginal plots.** Builds on plan.md `lp5.6 ggmarginal`
   (lets-plot parity first: `ggmarginal(sides, size, layer)`), then ggside's
   `geom_xside*` / `geom_yside*` layers for any geom in the margin, including bar and
   boxplot margins (lets-plot#972) and facets. **Design review with the user first.**
+  (Done 2026-11-05, `e39bc31`, design approved by the user: ggside names `geom_xside*`/`geom_yside*` for tile, bar, col, histogram, density, point, boxplot, violin, line, text; `scale_xsidey_*`/`scale_ysidex_*`, `ggside(x_pos=, y_pos=)`, `theme(ggside_panel_scale*, ggside_panel_spacing*)`; one band per side, tracks = levels of its own discrete scale, per-track legends via `new_scale_fill()`; lets-plot `ggmarginal()` (lp5.6) on the same engine with lets-plot's spec keys. Bands follow coord_flip, position= axes, aspect fit, `gggrid(align=True)` and HTML zoom (`tests/test_ggside_zoom.py`). Gaps: facets drop side layers, points/text stretch while zoomed, ggmarginal legend keys merge with main layers'. See `memory/side_panels.md`.)
 - [x] ex2.3 **patchwork extras for `gggrid`.** Insets (`inset_element(plot, left,
   bottom, right, top)`), nested grids that keep alignment, a `design=` layout string
   (`"AAB\nCCB"`), and automatic panel tags across a grid (`tag_levels="A"|"a"|"1"|"i"`,

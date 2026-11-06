@@ -317,7 +317,9 @@ AXIS_STATE = """() => {
 
 def test_zoom_places_labels_at_their_breaks_and_reset_restores(page, tmp_path: Path) -> None:
     path = tmp_path / "plot.html"
-    path.write_text((_heatmap() + gg.ggtb()).to_html(), encoding="utf-8")
+    # The default theme draws no y ticks; turn them on so labels can be checked against them.
+    plot = _heatmap() + gg.theme(axis_ticks_y=gg.element_line()) + gg.ggtb()
+    path.write_text(plot.to_html(), encoding="utf-8")
     page.errors.clear()
     page.goto(path.as_uri())
     page.wait_for_selector("[data-ggrust-mounted]")

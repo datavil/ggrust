@@ -235,7 +235,8 @@ def test_blank_ticks_and_line_drop_from_one_band_only() -> None:
 def test_ggside_axis_options_raise_no_warnings_and_typos_still_warn() -> None:
     _render(_heatmap() + gg.theme(ggside_axis_line_y=gg.element_line(arrow=gg.arrow())))
     _render(_heatmap() + gg.theme(ggside_axis_text_x=gg.element_text(angle=45)))
-    with pytest.raises(TypeError, match="Did you mean 'ggside_axis_text'"):
+    # Python 3.13+ appends "Did you mean 'ggside_axis_text'?"; 3.11 and 3.12 do not.
+    with pytest.raises(TypeError, match="unexpected keyword argument 'ggside_axis_txt'"):
         gg.theme(ggside_axis_txt=gg.element_blank())  # ty: ignore[unknown-argument]
 
 

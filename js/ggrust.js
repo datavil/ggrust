@@ -1222,6 +1222,7 @@
       tile.marks = [];
       if (panelGroup) collectMarks(panelGroup, tile.marks);
       tile.trees = treeGroups(element);
+      tile.nested = nestedGroups(element);
     }
     var reset = isUnzoomed(tile);
     var h = affine(tile.spec.horizontal, tile.views.h), v = affine(tile.spec.vertical, tile.views.v);
@@ -1257,6 +1258,7 @@
       }
     });
     moveTrees(tile.trees, h, v, reset);
+    moveNested(tile.nested, h, v, reset, tile.spec.panel);
     var content = reset ? tile.saved : axisContent(tile);
     Object.keys(tile.groups).forEach(function (key) {
       if (tile.groups[key]) tile.groups[key].innerHTML = content[key] || "";
@@ -1292,6 +1294,49 @@
       } else {
         tree.inner.setAttribute("transform", "matrix(1 0 0 " + v.scale + " 0 " + v.offset + ")");
       }
+    });
+  }
+
+  // Nested axis guides ("nested-x" / "nested-y", guide_axis_nested): brackets
+  // (inside a clipped group) scale along their axis, names move with the centre
+  // of their group and hide once it leaves the panel.
+  function nestedGroups(element) {
+    var groups = [];
+    for (var child = element.firstElementChild; child; child = child.nextElementSibling) {
+      var name = child.getAttribute("class");
+      if (name !== "nested-x" && name !== "nested-y") continue;
+      var group = { horizontal: name === "nested-x", shapes: [], labels: [] };
+      for (var part = child.firstElementChild; part; part = part.nextElementSibling) {
+        if (part.hasAttribute("data-anchor")) group.labels.push(anchored(part, "anchor"));
+        else if (part.firstElementChild) group.shapes.push(part.firstElementChild);
+      }
+      groups.push(group);
+    }
+    return groups;
+  }
+
+  function moveNested(groups, h, v, reset, panel) {
+    (groups || []).forEach(function (group) {
+      var axis = group.horizontal ? h : v;
+      group.shapes.forEach(function (shape) {
+        if (reset) shape.removeAttribute("transform");
+        else if (group.horizontal) shape.setAttribute("transform", "matrix(" + h.scale + " 0 0 1 " + h.offset + " 0)");
+        else shape.setAttribute("transform", "matrix(1 0 0 " + v.scale + " 0 " + v.offset + ")");
+      });
+      var low = group.horizontal ? panel[0] : panel[1];
+      var high = low + (group.horizontal ? panel[2] : panel[3]);
+      group.labels.forEach(function (label) {
+        if (reset) {
+          label.element.removeAttribute("transform");
+          label.element.removeAttribute("display");
+          return;
+        }
+        var at = group.horizontal ? label.x : label.y;
+        var moved = axis.scale * at + axis.offset;
+        label.element.setAttribute("transform", group.horizontal ? "translate(" + (moved - at) + " 0)" : "translate(0 " + (moved - at) + ")");
+        if (moved < low - 0.5 || moved > high + 0.5) label.element.setAttribute("display", "none");
+        else label.element.removeAttribute("display");
+      });
     });
   }
 
@@ -1748,7 +1793,7 @@
     }
     // Strokes keep their width when a panel's marks are scaled.
     var style = document.createElementNS(SVG_NS, "style");
-    style.textContent = ["panel", "dendrogram-x", "dendrogram-y", "side-x", "side-y"].map(function (name) {
+    style.textContent = ["panel", "dendrogram-x", "dendrogram-y", "side-x", "side-y", "nested-x", "nested-y"].map(function (name) {
       return "#" + plot.id + " ." + name + " *";
     }).join(", ") + " { vector-effect: non-scaling-stroke; }";
     plot.svg.insertBefore(style, plot.svg.firstChild);

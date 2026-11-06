@@ -825,4 +825,89 @@ def ggside_band_panels(m):
     )
 
 
-EXTENSION_CASES = {case.__name__: case for case in [ggside_band_panels]}
+# Plan 10.3: guide_axis_nested (R legendry), one group level.
+NESTED_GENES = ["CD3E", "CD4", "CD8A", "MS4A1", "CD79A", "LYZ", "CD14", "FCGR3A"]
+NESTED_GROUPS = {
+    "T cells": ["CD3E", "CD4", "CD8A"],
+    "B cells": ["MS4A1", "CD79A"],
+    "Mono-\ncytes": ["LYZ", "CD14", "FCGR3A"],
+}
+NESTED_CLUSTERS = ["T", "B", "Mono"]
+
+
+def _nested_dotplot(m, x_guide=None, y_guide=None, **scale):
+    frame = pl.DataFrame(
+        {
+            "gene": [gene for _ in NESTED_CLUSTERS for gene in NESTED_GENES],
+            "cluster": [cluster for cluster in NESTED_CLUSTERS for _ in NESTED_GENES],
+            "mean": [((index * 5) % 9) / 8 for index in range(24)],
+            "pct": [10 + (index * 13) % 85 for index in range(24)],
+        }
+    )
+    plot = (
+        m.ggplot(frame, m.aes("gene", "cluster"))
+        + m.geom_point(m.aes(size="pct", color="mean"))
+        + m.scale_x_discrete(limits=NESTED_GENES, guide=x_guide, **scale)
+        + m.ggsize(560, 380)
+    )
+    if y_guide is not None:
+        plot += m.scale_y_discrete(guide=y_guide, position="right")
+    return plot
+
+
+def nested_bottom_square(m):
+    return _nested_dotplot(m, m.guide_axis_nested(NESTED_GROUPS, bracket="square"))
+
+
+def nested_top_opposite(m):
+    # scanpy's dotplot layout: gene names below, group brackets above.
+    return _nested_dotplot(
+        m, m.guide_axis_nested(NESTED_GROUPS, bracket="square", side="opposite", angle=90)
+    )
+
+
+def nested_right_chevron_box(m):
+    return _nested_dotplot(
+        m,
+        m.guide_axis_nested(NESTED_GROUPS, type="box"),
+        y_guide=m.guide_axis_nested({"Lymphoid": ["T", "B"]}, bracket="chevron"),
+    )
+
+
+def nested_coord_flip(m):
+    return _nested_dotplot(m, m.guide_axis_nested(NESTED_GROUPS, bracket="square")) + m.coord_flip()
+
+
+def nested_side_band(m):
+    # A track band beside the y axis; its own (x) axis groups the tracks.
+    frame = pl.DataFrame({"fruit": ["lemon", "lime", "apple", "pear"], "sales": [4, 3, 8, 5]})
+    tracks = pl.DataFrame(
+        {
+            "fruit": [fruit for fruit in frame["fruit"] for _ in range(3)],
+            "track": ["sweet", "sour", "price"] * 4,
+            "value": [0.2, 0.9, 0.4, 0.3, 0.8, 0.5, 0.9, 0.1, 0.6, 0.7, 0.2, 0.3],
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("sales", "fruit"))
+        + m.geom_col(orientation="y")
+        + m.geom_ysidetile(m.aes(y="fruit", x="track", fill="value"), data=tracks)
+        + m.scale_ysidex_discrete(
+            limits=["sweet", "sour", "price"],
+            guide=m.guide_axis_nested({"Taste": ["sweet", "sour"]}, bracket="square"),
+        )
+        + m.ggsize(520, 360)
+    )
+
+
+EXTENSION_CASES = {
+    case.__name__: case
+    for case in [
+        ggside_band_panels,
+        nested_bottom_square,
+        nested_top_opposite,
+        nested_right_chevron_box,
+        nested_coord_flip,
+        nested_side_band,
+    ]
+}

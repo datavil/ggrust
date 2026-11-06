@@ -272,6 +272,30 @@ impl PositionScale {
         }
     }
 
+    /// `guide_axis_nested()` options, when the axis draws group brackets.
+    pub fn nested(&self) -> Option<&std::sync::Arc<crate::layout::axis_nested::AxisNested>> {
+        match self {
+            PositionScale::Continuous(scale) => scale.nested.as_ref(),
+            PositionScale::Discrete(scale) => scale.nested.as_ref(),
+        }
+    }
+
+    /// Drop a nested guide drawn across the panel (facets do not draw one); true
+    /// when one was dropped.
+    pub fn drop_opposite_nested(&mut self) -> bool {
+        let nested = match self {
+            PositionScale::Continuous(scale) => &mut scale.nested,
+            PositionScale::Discrete(scale) => &mut scale.nested,
+        };
+        let opposite = nested
+            .as_ref()
+            .is_some_and(|nested| nested.side == crate::layout::axis_nested::NestedSide::Opposite);
+        if opposite {
+            *nested = None;
+        }
+        opposite
+    }
+
     /// Whether the breaks are fixed (every category, or `breaks=[...]`): the axis
     /// shows all of them instead of choosing a count.
     pub fn has_fixed_breaks(&self) -> bool {

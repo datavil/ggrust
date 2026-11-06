@@ -46,6 +46,8 @@ pub struct DiscretePositionScale {
     pub sides: super::position::AxisSides,
     /// `guide_axis_mark()`: the labels are spread with links to their breaks.
     pub mark: Option<crate::layout::axis_mark::AxisMark>,
+    /// `guide_axis_nested()`: brackets over groups of categories.
+    pub nested: Option<std::sync::Arc<crate::layout::axis_nested::AxisNested>>,
 }
 
 impl Default for DiscretePositionScale {
@@ -66,6 +68,7 @@ impl Default for DiscretePositionScale {
             dendrogram: None,
             sides: Default::default(),
             mark: None,
+            nested: None,
         }
     }
 }

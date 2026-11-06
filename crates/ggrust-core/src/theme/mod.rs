@@ -32,6 +32,11 @@ pub const GRID: Color = Color::rgb(0xE9, 0xE9, 0xE9);
 
 /// ggside's default `ggside.panel.spacing`, 2 pt, in px (96 / 72 px per pt).
 pub const GGSIDE_PANEL_SPACING: f64 = 2.0 * 96.0 / 72.0;
+/// legendry's `legendry.bracket.size` (2 mm) in px at 96 dpi.
+pub const LEGENDRY_BRACKET_SIZE: f64 = 2.0 * 96.0 / 25.4;
+/// `legendry.guide.spacing` inside `guide_axis_nested()`: legendry sets 0 unless
+/// the guide's own theme gives one.
+pub const LEGENDRY_GUIDE_SPACING: f64 = 0.0;
 
 /// Style of a text element.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -410,6 +415,15 @@ pub struct Theme {
     /// `ggside_panel_border` and their `ggside_xside_` / `ggside_yside_` forms),
     /// each resolved down to the main panel element.
     pub ggside_panel: BandPanelThemes,
+    /// Bracket line of `guide_axis_nested()` (`legendry_bracket`, from `line`).
+    pub legendry_bracket: Option<LineStyle>,
+    /// Bracket depth across the axis, px (`legendry_bracket_size`).
+    pub legendry_bracket_size: f64,
+    /// Box of `guide_axis_nested(type="box")` (`legendry_box`, from `rect`; legendry
+    /// inherits `strip.background`, blank in lets-plot themes).
+    pub legendry_box: Option<RectStyle>,
+    /// Gap between an axis's labels and its nested guide, px (`legendry_guide_spacing`).
+    pub legendry_guide_spacing: f64,
     /// Space between legend boxes (`legend_spacing`), horizontal and vertical.
     pub legend_spacing: (f64, f64),
     /// Space between the plot area and the legends (`legend_box_spacing`).
@@ -568,6 +582,10 @@ const BUILT_OPTIONS: &[&str] = &[
     "ggside_panel_border",
     "ggside_xside_panel_border",
     "ggside_yside_panel_border",
+    "legendry_bracket",
+    "legendry_bracket_size",
+    "legendry_box",
+    "legendry_guide_spacing",
     "legend_box",
     "legend_box_just",
     "legend_box_spacing",
@@ -1152,6 +1170,12 @@ impl Resolver<'_> {
                 xside: self.band_panel("xside"),
                 yside: self.band_panel("yside"),
             },
+            legendry_bracket: self.line(&["legendry_bracket", "line"]),
+            legendry_bracket_size: self
+                .number(&["legendry_bracket_size"], LEGENDRY_BRACKET_SIZE)?,
+            legendry_box: self.rect(&["legendry_box", "rect"]),
+            legendry_guide_spacing: self
+                .number(&["legendry_guide_spacing"], LEGENDRY_GUIDE_SPACING)?,
             legend_spacing: (
                 self.number(&["legend_spacing_x", "legend_spacing"], 10.0)?,
                 self.number(&["legend_spacing_y", "legend_spacing"], 10.0)?,

@@ -209,6 +209,10 @@ def theme(
     ggside_axis_line_y: ThemeElement | None = None,
     ggside_axis_line_y_left: ThemeElement | None = None,
     ggside_axis_line_y_right: ThemeElement | None = None,
+    legendry_bracket: ThemeElement | None = None,
+    legendry_bracket_size: Number | None = None,
+    legendry_box: ThemeElement | None = None,
+    legendry_guide_spacing: Number | None = None,
 ) -> FeatureSpec:
     """Set theme options: element_*() values, numbers or names per theme element.
 
@@ -321,6 +325,18 @@ def theme(
     ggside_axis_line, ggside_axis_line_* : dict or str, optional
         Axis line of a side panel's own axis (``element_line()``, with ``arrow``
         and ``extent`` as on ``axis_line``); unset ones come from ``axis_line*``.
+    legendry_bracket : dict or str, optional
+        Bracket line of ``guide_axis_nested()`` (``element_line()``), as R
+        legendry's ``legendry.bracket``; unset, it comes from ``line``.
+    legendry_bracket_size : float, optional
+        Room a bracket takes across its axis, in pixels (legendry's 2 mm: 7.56).
+    legendry_box : dict or str, optional
+        Box of ``guide_axis_nested(type="box")`` (``element_rect()``), as
+        legendry's ``legendry.box``; unset, it comes from ``rect`` (legendry
+        inherits ``strip.background``, blank in the lets-plot themes).
+    legendry_guide_spacing : float, optional
+        Gap between an axis's labels and its nested guide, in pixels (0, as in
+        legendry's ``guide_axis_nested()``).
     legend_box_just : str, optional
         Justification of the legends within their box.
     legend_box_spacing : float, optional

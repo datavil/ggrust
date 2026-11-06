@@ -14,6 +14,7 @@
 
 mod axis;
 pub mod axis_mark;
+pub mod axis_nested;
 mod colorbar;
 pub mod dendrogram;
 pub mod facet;
@@ -471,6 +472,16 @@ fn layout_with(
             dendrogram::gap(theme, index == 0),
         )
     };
+    // `guide_axis_nested(side="opposite")`: room across the panel from the axis.
+    let nested_band = |index: usize, secondary: bool| {
+        let scale = if index == 0 { x_scale } else { y_scale };
+        scale
+            .nested()
+            .filter(|nested| nested.opposite_on_secondary(axis_sides[index]) == Some(secondary))
+            .map_or(0.0, |nested| {
+                axis_nested::extent(&nested.resolve(scale), theme, index == 0)
+            })
+    };
     let shown = |sides: AxisSides, secondary: bool, band: f64| {
         if (secondary && sides.secondary) || (!secondary && sides.primary) {
             band
@@ -504,10 +515,12 @@ fn layout_with(
         });
         if wanted { band_axis_height } else { 0.0 }
     };
-    let top_axis =
-        shown(x_sides, true, x_band_on(true)).max(band_x_axis(true)) + tree_band(0, true);
-    let bottom_axis =
-        shown(x_sides, false, x_band_on(false)).max(band_x_axis(false)) + tree_band(0, false);
+    let top_axis = shown(x_sides, true, x_band_on(true)).max(band_x_axis(true))
+        + nested_band(0, true)
+        + tree_band(0, true);
+    let bottom_axis = shown(x_sides, false, x_band_on(false)).max(band_x_axis(false))
+        + nested_band(0, false)
+        + tree_band(0, false);
     let top = content.y
         + headings_band(theme, titles)
         + legend_space.top
@@ -578,10 +591,12 @@ fn layout_with(
     // is not drawn.
     let band_y_axis =
         |far: bool| side_panel::vertical_axis_width(&laid_bands, Side::of(false, far), theme);
-    let left_axis =
-        shown(y_sides, false, y_width_on(false)).max(band_y_axis(false)) + tree_band(1, false);
-    let right_axis =
-        shown(y_sides, true, y_width_on(true)).max(band_y_axis(true)) + tree_band(1, true);
+    let left_axis = shown(y_sides, false, y_width_on(false)).max(band_y_axis(false))
+        + nested_band(1, false)
+        + tree_band(1, false);
+    let right_axis = shown(y_sides, true, y_width_on(true)).max(band_y_axis(true))
+        + nested_band(1, true)
+        + tree_band(1, true);
     let left = content.x + legend_space.left + y_title_left + inset.left + left_axis;
     let horizontal_requests: Vec<&BandRequest> = bands
         .iter()
@@ -717,8 +732,18 @@ fn x_axis_band(labels_height: f64, theme: &Theme) -> f64 {
             .map_or(0.0, |_| theme.axis_text_spacing.0 + labels_height)
 }
 
-/// Ticks, spacing and labels left of a panel with these y breaks.
+/// Ticks, spacing and labels left of a panel with these y breaks (a nested
+/// guide past the labels included).
 pub(super) fn y_axis_width(y_breaks: &AxisBreaks, theme: &Theme) -> f64 {
+    plain_y_axis_width(y_breaks, theme)
+        + match (&y_breaks.nested, theme.axis_text_y) {
+            (Some(nested), Some(_)) => axis_nested::extent(nested, theme, false),
+            _ => 0.0,
+        }
+}
+
+/// [`y_axis_width`] without the nested guide.
+fn plain_y_axis_width(y_breaks: &AxisBreaks, theme: &Theme) -> f64 {
     let y_label_width = theme.axis_text_y.map_or(0.0, |text| {
         let sizes = label_sizes(&y_breaks.labels, text);
         if let LabelArrangement::Mark(mark) = &y_breaks.arrangement {
@@ -1095,8 +1120,21 @@ fn label_sizes(labels: &[Label], text: TextStyle) -> Vec<(f64, f64)> {
         .collect()
 }
 
-/// Height the x labels need in their arrangement (real font metrics).
+/// Height the x labels need in their arrangement (real font metrics), with a
+/// nested guide past them.
 fn x_labels_height(breaks: &AxisBreaks, theme: &Theme) -> f64 {
+    if theme.axis_text_x.is_none() {
+        return 0.0;
+    }
+    plain_x_labels_height(breaks, theme)
+        + breaks
+            .nested
+            .as_ref()
+            .map_or(0.0, |nested| axis_nested::extent(nested, theme, true))
+}
+
+/// Height the x labels need in their arrangement, without a nested guide.
+fn plain_x_labels_height(breaks: &AxisBreaks, theme: &Theme) -> f64 {
     let Some(text) = theme.axis_text_x else {
         return 0.0;
     };
@@ -1283,28 +1321,60 @@ pub fn draw_axes(
     shown: [AxisSides; 2],
 ) -> Vec<Node> {
     let panel = layout.panel;
+    let x_pixel = |value: f64| mapper.x_pixel(value);
+    let y_pixel = |value: f64| mapper.y_pixel(value);
+    let x_span = (panel.x, panel.x + panel.width);
+    let y_span = (panel.y, panel.y + panel.height);
+    let mut nested = Vec::new();
     let mut axis_x = Vec::new();
     for side in screen_sides(shown[0], true) {
         let edge = AxisEdge::of(layout, side);
+        let breaks = layout.side_breaks(0, side.is_secondary());
         axis_x.extend(axis_side_nodes(
-            edge,
-            layout,
-            layout.side_breaks(0, side.is_secondary()),
-            theme,
-            &|value| mapper.x_pixel(value),
-            (panel.x, panel.x + panel.width),
+            edge, layout, breaks, theme, &x_pixel, x_span,
         ));
+        nested.extend(nested_beside_labels(edge, breaks, theme, &x_pixel, x_span));
     }
     let mut axis_y = Vec::new();
     for side in screen_sides(shown[1], false) {
         let edge = AxisEdge::of(layout, side);
+        let breaks = layout.side_breaks(1, side.is_secondary());
         axis_y.extend(axis_side_nodes(
+            edge, layout, breaks, theme, &y_pixel, y_span,
+        ));
+        nested.extend(nested_beside_labels(edge, breaks, theme, &y_pixel, y_span));
+    }
+    let any_side = |sides: AxisSides| sides.primary || sides.secondary;
+    for (index, scale, pixel, span) in [
+        (0, mapper.x_scale, &x_pixel as &dyn Fn(f64) -> f64, x_span),
+        (1, mapper.y_scale, &y_pixel as &dyn Fn(f64) -> f64, y_span),
+    ] {
+        let Some(guide) = scale.nested().filter(|_| any_side(shown[index])) else {
+            continue;
+        };
+        let Some(secondary) = guide.opposite_on_secondary(layout.axis_sides[index]) else {
+            continue;
+        };
+        let side = Side::of(index == 0, secondary);
+        let edge = AxisEdge::of(layout, side);
+        // Past the axis when it is drawn on that side too (`position="both"`).
+        let drawn = if secondary {
+            shown[index].secondary
+        } else {
+            shown[index].primary
+        };
+        let offset = if drawn {
+            plain_axis_extent(edge, layout.side_breaks(index, secondary), theme)
+        } else {
+            0.0
+        };
+        nested.extend(axis_nested::nodes(
+            &guide.resolve(scale),
             edge,
-            layout,
-            layout.side_breaks(1, side.is_secondary()),
+            offset,
             theme,
-            &|value| mapper.y_pixel(value),
-            (panel.y, panel.y + panel.height),
+            pixel,
+            span,
         ));
     }
     let [x_tree, y_tree] = &layout.dendrograms;
@@ -1346,7 +1416,40 @@ pub fn draw_axes(
         nodes.push(role_group("axis-y", axis_y));
     }
     nodes.extend(trees.into_iter().flatten());
+    nodes.extend(nested);
     nodes
+}
+
+/// Ticks, spacing and labels of `breaks` on `edge`, without a nested guide.
+fn plain_axis_extent(edge: AxisEdge, breaks: &AxisBreaks, theme: &Theme) -> f64 {
+    if edge.side.is_horizontal() {
+        x_tick_band(theme)
+            + theme.axis_text_x.map_or(0.0, |_| {
+                theme.axis_text_spacing.0 + plain_x_labels_height(breaks, theme)
+            })
+    } else {
+        plain_y_axis_width(breaks, theme)
+    }
+}
+
+/// The nested guide of `breaks` (`guide_axis_nested()`) past its labels on
+/// `edge`, when the axis has one and its labels are drawn.
+pub(crate) fn nested_beside_labels(
+    edge: AxisEdge,
+    breaks: &AxisBreaks,
+    theme: &Theme,
+    pixel: &dyn Fn(f64) -> f64,
+    span: (f64, f64),
+) -> Option<Node> {
+    let nested = breaks.nested.as_ref()?;
+    let text = if edge.side.is_horizontal() {
+        theme.axis_text_x
+    } else {
+        theme.axis_text_y
+    };
+    text?;
+    let offset = plain_axis_extent(edge, breaks, theme);
+    axis_nested::nodes(nested, edge, offset, theme, pixel, span)
 }
 
 /// One side of an axis: its line, then per break its tick and label, then the

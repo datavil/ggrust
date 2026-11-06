@@ -419,9 +419,9 @@ removes a cellestial workaround: add a row to [cellestial_workarounds.md](celles
   labels and another right for a module track). ggside allows one band per axis: a deviation, design
   to agree with the user first. (Done 2026-11-06: per-layer `side_pos=`, `side_band=`, `side_size=`;
   `scale_*side*_*(side_pos=, side_band=)`; `memory/side_panels.md`, `tests/test_ggside_bands.py`.)
-- [ ] 9.11 (lower priority) Bracket + multi-line text beside groups of rows or columns on a discrete
+- [x] 9.11 (lower priority) Bracket + multi-line text beside groups of rows or columns on a discrete
   axis (GO terms in Fig. 3b). cellestial draws a `group_labels` option with segments and text for now.
-  (Folded into 10.3: the nested axis guide covers it; multi-line text = labels with `\n`.)
+  (Folded into 10.3: the nested axis guide covers it; multi-line text = labels with `\n`. Done with 10.3.)
 
 ### Phase 10: cellestial Phase 5 requests (2026-11-06)
 
@@ -452,7 +452,14 @@ extension, bug-hunter pass, `make check`, commit + push. Already available and b
   unchanged: typeshed's `NotImplemented` fits any return type, and a `| NotImplementedType` union
   leaked into every `plot + layer` for type checkers); array operands return it whole. No
   `__ggrust_add__` hook: `__radd__` is enough (decided (user) 2026-11-06). `deviations.md` row (lets_plot raises).
-- [ ] 10.3 **Nested (bracket) axis guide** (most valuable; replaces 9.11; ~300 cellestial lines).
+- [x] 10.3 **Nested (bracket) axis guide** (most valuable; replaces 9.11; ~300 cellestial lines).
+  Done 2026-11-06 (user's API): `guide_axis_nested(key={group: [levels]} | key_range_manual(start,
+  end, name), type="bracket"|"box", bracket="line"|"square"|"chevron", side="axis"|"opposite",
+  pad_discrete=0.4, angle=)`, one level; theme `legendry_bracket`, `legendry_bracket_size`,
+  `legendry_box`, `legendry_guide_spacing`; ends squished to the panel; zoom: brackets follow the
+  breaks, names hide outside the panel. `side="opposite"` (scanpy dotplot layout) is dropped in
+  facets. Not yet: `key_range_auto(sep=)`, more levels, `fence` (ex2.4 keeps the `sep=` note).
+  `memory/axis_nested.md`, `tests/test_guide_axis_nested.py`, goldens `nested_*`.
   legendry's `guide_axis_nested(key=, type="bracket"|"box"|"fence", ...)`: group labels with a bracket
   spanning a run of discrete breaks, on any side, on side-band axes too, under `coord_flip`, facets
   and `gggrid(align=True)`. Theme-styled text and line (legendry: `legendry.bracket`,

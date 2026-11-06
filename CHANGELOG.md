@@ -10,6 +10,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Added
 
+- `guide_axis_nested()` and `key_range_manual()`, as R legendry: brackets (or boxes) naming groups of an axis's breaks, past the axis labels or across the panel (`side="opposite"`). Groups as a mapping `{group: [levels]}` or `key_range_manual(start, end, name)`; `bracket="line" | "square" | "chevron"`, `type="box"`, `pad_discrete`, `angle`; multi-line names with `\n`. Theme elements `legendry_bracket`, `legendry_bracket_size`, `legendry_box`, `legendry_guide_spacing`. Works on every side, `coord_flip()`, facets, `gggrid(align=True)`, side band axes and the HTML zoom.
 - Side band panel theme elements, as R ggside's `ggside.panel.*`: `theme(ggside_panel_border=, ggside_panel_background=)` and their `ggside_xside_panel_*` / `ggside_yside_panel_*` forms, falling back to the main `panel_border` / `panel_background`. `ggside_panel_border=element_blank()` drops the side bands' frames and keeps the main panel's.
 
 ## [0.6.2] - 2026-11-06

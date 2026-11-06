@@ -318,6 +318,8 @@ nav = [
       "reference/api/guide_legend.md",
       "reference/api/guide_colorbar.md",
       "reference/api/guide_axis_mark.md",
+      "reference/api/guide_axis_nested.md",
+      "reference/api/key_range_manual.md",
       "reference/api/layer_key.md",
     ] },
     { "Themes" = [

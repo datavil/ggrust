@@ -16,8 +16,8 @@
 use super::side::{AxisEdge, Side};
 use super::{
     AxisBreaks, LabelArrangement, Orientation, PlotLayout, axis_side_nodes, choose_breaks,
-    fit_x_labels, fit_y_labels, label_sizes, minor_breaks, rect_node, segment, text_band,
-    x_axis_band, x_labels_height, y_axis_width,
+    fit_x_labels, fit_y_labels, label_sizes, minor_breaks, nested_beside_labels, rect_node,
+    segment, text_band, x_axis_band, x_labels_height, y_axis_width,
 };
 use crate::coord::Panel;
 use crate::scale::{AxisSides, PositionScale};
@@ -578,25 +578,15 @@ pub fn draw_band_axis(
     let base = AxisEdge::of(layout, side).base;
     let edge = AxisEdge { side, base };
     let own = layout.band_as_panel(band);
-    let axis = if side.is_horizontal() {
-        axis_side_nodes(
-            edge,
-            &own,
-            breaks,
-            theme,
-            &|value| panel.x_pixel(value),
-            (rect.x, rect.x + rect.width),
-        )
+    let x_pixel = |value: f64| panel.x_pixel(value);
+    let y_pixel = |value: f64| panel.y_pixel(value);
+    let (pixel, span): (&dyn Fn(f64) -> f64, (f64, f64)) = if side.is_horizontal() {
+        (&x_pixel, (rect.x, rect.x + rect.width))
     } else {
-        axis_side_nodes(
-            edge,
-            &own,
-            breaks,
-            theme,
-            &|value| panel.y_pixel(value),
-            (rect.y, rect.y + rect.height),
-        )
+        (&y_pixel, (rect.y, rect.y + rect.height))
     };
+    let mut axis = axis_side_nodes(edge, &own, breaks, theme, pixel, span);
+    axis.extend(nested_beside_labels(edge, breaks, theme, pixel, span));
     nodes.push(group(Some("side-axis"), None, axis));
     nodes
 }

@@ -59,6 +59,8 @@ pub struct ContinuousPositionScale {
     pub sides: super::position::AxisSides,
     /// `guide_axis_mark()`: the labels are spread with links to their breaks.
     pub mark: Option<crate::layout::axis_mark::AxisMark>,
+    /// `guide_axis_nested()`: brackets over ranges of the axis.
+    pub nested: Option<std::sync::Arc<crate::layout::axis_nested::AxisNested>>,
     /// `sec_axis=...`: a secondary axis on the other side.
     pub secondary: Option<super::secondary::SecondaryAxis>,
 }
@@ -81,6 +83,7 @@ impl Default for ContinuousPositionScale {
             beyond_limits: None,
             sides: Default::default(),
             mark: None,
+            nested: None,
             secondary: None,
         }
     }

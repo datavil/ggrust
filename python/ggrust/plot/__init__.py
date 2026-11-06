@@ -68,7 +68,16 @@ from ggrust.plot.geom_pointdensity import geom_pointdensity, stat_pointdensity
 from ggrust.plot.gggrid import gggrid
 from ggrust.plot.gghighlight import gghighlight
 from ggrust.plot.ggtb import ggtb
-from ggrust.plot.guide import guide_axis_mark, guide_colorbar, guide_legend, guides, layer_key
+from ggrust.plot.guide import (
+    RangeKey,
+    guide_axis_mark,
+    guide_axis_nested,
+    guide_colorbar,
+    guide_legend,
+    guides,
+    key_range_manual,
+    layer_key,
+)
 from ggrust.plot.inset import inset_element
 from ggrust.plot.label import ggtitle, labs, xlab, ylab
 from ggrust.plot.new_scale import new_scale, new_scale_color, new_scale_colour, new_scale_fill
@@ -222,6 +231,7 @@ from ggrust.plot.tooltip import layer_tooltips
 __all__ = [
     "ClusterTree",
     "GGBunch",
+    "RangeKey",
     "SupPlotsSpec",
     "aes",
     "arrow",
@@ -331,11 +341,13 @@ __all__ = [
     "ggtitle",
     "guide_axis_dendro",
     "guide_axis_mark",
+    "guide_axis_nested",
     "guide_colorbar",
     "guide_legend",
     "guides",
     "hclust",
     "inset_element",
+    "key_range_manual",
     "labs",
     "layer",
     "layer_key",

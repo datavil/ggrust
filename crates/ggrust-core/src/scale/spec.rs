@@ -109,6 +109,8 @@ pub struct AxisScaleSpec {
     dendrogram_guide: Set<Options>,
     /// `guide_axis_mark(...)` options (`spread`, `link_width`, `padding`).
     mark_guide: Set<Options>,
+    /// `guide_axis_nested(...)` options (`key`, `type`, `bracket`, ...).
+    nested_guide: Set<Options>,
     /// `position=...`: the sides the axis is drawn on.
     sides: Set<AxisSides>,
     /// `sec_axis=...` / `dup_axis()`, parsed, with its path.
@@ -184,6 +186,7 @@ impl AxisScaleSpec {
         let mut scale = ContinuousPositionScale::default();
         scale.sides = self.sides();
         scale.mark = self.axis_mark()?;
+        scale.nested = self.axis_nested(false)?;
         let labels = self.label_texts()?;
         scale.temporal = self.temporal_axis(column_kind, warnings)?;
         // lets-plot ignores `format` too when `labels` come without `breaks`.
@@ -265,6 +268,7 @@ impl AxisScaleSpec {
         let mut scale = DiscretePositionScale::default();
         scale.sides = self.sides();
         scale.mark = self.axis_mark()?;
+        scale.nested = self.axis_nested(true)?;
         if let Some((_, path)) = &self.secondary {
             warnings.push(format!(
                 "at '{path}': a secondary axis needs a continuous axis, but this one shows \
@@ -339,6 +343,20 @@ impl AxisScaleSpec {
         self.mark_guide
             .as_ref()
             .map(|(options, path)| AxisMark::parse(options, path))
+            .transpose()
+    }
+
+    /// The `guide_axis_nested()` options, checked for a discrete or continuous axis.
+    fn axis_nested(
+        &self,
+        discrete: bool,
+    ) -> Result<Option<std::sync::Arc<crate::layout::axis_nested::AxisNested>>> {
+        self.nested_guide
+            .as_ref()
+            .map(|(options, path)| {
+                crate::layout::axis_nested::AxisNested::parse(options, path, discrete)
+                    .map(std::sync::Arc::new)
+            })
             .transpose()
     }
 
@@ -573,6 +591,14 @@ pub fn position_scales(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<Po
         {
             target.mark_guide = Some((options, format!("guides.{aesthetic}")));
         }
+        if target.nested_guide.is_none()
+            && let Some(options) = spec
+                .guides
+                .get(aesthetic)
+                .and_then(|guide| named_options(guide, "axis_nested"))
+        {
+            target.nested_guide = Some((options, format!("guides.{aesthetic}")));
+        }
     }
     let [x, y, xside_y, yside_x] = merged;
     Ok(PositionScales {
@@ -710,6 +736,13 @@ fn merge(target: &mut AxisScaleSpec, scale: &ScaleSpec, path: &str) {
     if let Some(options) = mark_guide(scale) {
         target.mark_guide = Some((options, at("guide")));
     }
+    if let Some(options) = scale
+        .guide
+        .as_ref()
+        .and_then(|guide| named_options(guide, "axis_nested"))
+    {
+        target.nested_guide = Some((options, at("guide")));
+    }
 }
 
 /// The options of a `guide_axis_mark()` (or `guide="axis_mark"`) on `scale`.
@@ -722,6 +755,17 @@ fn mark_options(guide: &GuideSpec) -> Option<Options> {
     match guide {
         GuideSpec::Name(name) if name == "axis_mark" => Some(Options::new()),
         GuideSpec::Full(options) if options.name.as_deref() == Some("axis_mark") => {
+            Some(options.unsupported.clone())
+        }
+        _ => None,
+    }
+}
+
+/// The options of `guide` when it is the guide `name` (`guide_axis_<name>()`).
+fn named_options(guide: &GuideSpec, name: &str) -> Option<Options> {
+    match guide {
+        GuideSpec::Name(given) if given == name => Some(Options::new()),
+        GuideSpec::Full(options) if options.name.as_deref() == Some(name) => {
             Some(options.unsupported.clone())
         }
         _ => None,
@@ -860,7 +904,12 @@ fn report_unbuilt(scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
             "guide",
             scale.guide.is_some()
                 && dendrogram_guide(scale).is_none()
-                && mark_guide(scale).is_none(),
+                && mark_guide(scale).is_none()
+                && scale
+                    .guide
+                    .as_ref()
+                    .and_then(|guide| named_options(guide, "axis_nested"))
+                    .is_none(),
         ),
         ("scale_mapper_kind", scale.scale_mapper_kind.is_some()),
     ];

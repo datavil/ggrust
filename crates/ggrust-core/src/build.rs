@@ -410,6 +410,12 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
                      still orders the {axis} axis"
                 ));
             }
+            if scale.drop_opposite_nested() {
+                warnings.push(format!(
+                    "guide_axis_nested(side='opposite') on {axis}: faceted plots draw nested \
+                     guides beside the axis only; use side='axis' (dropped)"
+                ));
+            }
         }
     }
     // Every number label of the plot writes exponents as the theme says.
@@ -4672,8 +4678,10 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
             });
         let is_axis_mark = matches!(key.as_str(), "x" | "y")
             && match guide {
-                GuideSpec::Name(name) => name == "axis_mark",
-                GuideSpec::Full(options) => options.name.as_deref() == Some("axis_mark"),
+                GuideSpec::Name(name) => matches!(name.as_str(), "axis_mark" | "axis_nested"),
+                GuideSpec::Full(options) => {
+                    matches!(options.name.as_deref(), Some("axis_mark" | "axis_nested"))
+                }
             };
         let built = is_axis_title_only(key, guide)
             || is_axis_mark

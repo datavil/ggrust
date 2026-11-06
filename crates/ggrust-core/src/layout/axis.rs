@@ -61,6 +61,9 @@ pub struct AxisBreaks {
     /// The break count asked of the scale (0 for fixed breaks): the HTML
     /// runtime asks the same of a zoomed domain.
     pub target_count: usize,
+    /// `guide_axis_nested()` beside the labels, resolved on the scale (the
+    /// layout measures it with the labels; `side="opposite"` guides are not here).
+    pub nested: Option<super::axis_nested::ResolvedNested>,
 }
 
 impl AxisBreaks {
@@ -70,6 +73,7 @@ impl AxisBreaks {
             labels,
             arrangement: LabelArrangement::Simple,
             target_count: 0,
+            nested: None,
         }
     }
 
@@ -92,6 +96,22 @@ pub enum Orientation {
 /// Breaks for an axis of `axis_length` pixels showing `scale`. `overflow` is how
 /// far (px) labels of a horizontal axis may reach before its start and past its end.
 pub fn choose_breaks(
+    scale: &PositionScale,
+    axis_length: f64,
+    orientation: Orientation,
+    text: Option<TextStyle>,
+    overflow: (f64, f64),
+) -> AxisBreaks {
+    let mut breaks = choose_label_breaks(scale, axis_length, orientation, text, overflow);
+    breaks.nested = scale
+        .nested()
+        .filter(|nested| nested.side == super::axis_nested::NestedSide::Axis)
+        .map(|nested| nested.resolve(scale));
+    breaks
+}
+
+/// [`choose_breaks`] without the nested guide.
+fn choose_label_breaks(
     scale: &PositionScale,
     axis_length: f64,
     orientation: Orientation,

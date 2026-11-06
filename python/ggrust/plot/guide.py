@@ -6,6 +6,8 @@ Ported from lets-plot's ``lets_plot/plot/guide.py`` (MIT, see THIRD_PARTY_NOTICE
 from __future__ import annotations
 
 import math
+from collections.abc import Iterable, Mapping
+from dataclasses import dataclass
 from numbers import Real
 from typing import TYPE_CHECKING, Literal
 
@@ -13,12 +15,21 @@ from ggrust.errors import SpecError, UnsupportedValueError, did_you_mean
 from ggrust.plot.core import FeatureSpec
 
 if TYPE_CHECKING:
-    from collections.abc import Mapping
+    from collections.abc import Sequence
     from typing import Any
 
     from ggrust._typing import Number
 
-__all__ = ["guide_axis_mark", "guide_colorbar", "guide_legend", "guides", "layer_key"]
+__all__ = [
+    "RangeKey",
+    "guide_axis_mark",
+    "guide_axis_nested",
+    "guide_colorbar",
+    "guide_legend",
+    "guides",
+    "key_range_manual",
+    "layer_key",
+]
 
 
 def _guide(name: str | None, **kwargs: Any) -> FeatureSpec:
@@ -125,6 +136,285 @@ def guide_axis_mark(
             )
     return FeatureSpec(
         "guide", name="axis_mark", spread=spread, link_width=link_width, padding=padding
+    )
+
+
+KeyBound = str | int | float
+"""One end (or member) of a nested-guide group: a category or a data value."""
+
+
+@dataclass(frozen=True)
+class RangeKey:
+    """Groups of a nested axis guide given as ranges (``key_range_manual()``).
+
+    Attributes
+    ----------
+    start : tuple of str or float
+        First category (or value) of each group.
+    end : tuple of str or float
+        Last category (or value) of each group.
+    name : tuple of str or None
+        Each group's name, or ``None`` for brackets without names.
+    """
+
+    start: tuple[KeyBound, ...]
+    end: tuple[KeyBound, ...]
+    name: tuple[str, ...] | None
+
+    def as_spec(self) -> list[dict[str, KeyBound | None]]:
+        """Write the groups as the spec does.
+
+        Returns
+        -------
+        list of dict
+            One ``{"name", "start", "end"}`` per group.
+        """
+        names: Sequence[str | None] = self.name or [None] * len(self.start)
+        return [
+            {"name": name, "start": start, "end": end}
+            for name, start, end in zip(names, self.start, self.end, strict=True)
+        ]
+
+
+def _bounds(value: object, parameter: str) -> tuple[KeyBound, ...]:
+    """``value`` as a tuple of categories or numbers (a scalar becomes one)."""
+    if isinstance(value, (str, int, float)):
+        items: list[object] = [value]
+    elif isinstance(value, Iterable):
+        items = list(value)
+    else:
+        reason = f"expected a category, a number or a sequence of them, got {type(value).__name__}"
+        raise UnsupportedValueError(
+            f"key_range_manual({parameter}=...): {reason}", path=parameter, reason=reason
+        )
+    bounds: list[KeyBound] = []
+    for item in items:
+        if isinstance(item, bool) or not isinstance(item, (str, int, float)):
+            reason = f"expected categories (str) or numbers, got {type(item).__name__}"
+            raise UnsupportedValueError(
+                f"key_range_manual({parameter}=...): {reason}", path=parameter, reason=reason
+            )
+        if isinstance(item, float) and not math.isfinite(item):
+            reason = f"expected finite numbers, got {item!r}"
+            raise UnsupportedValueError(
+                f"key_range_manual({parameter}=...): {reason}", path=parameter, reason=reason
+            )
+        bounds.append(item)
+    return tuple(bounds)
+
+
+def key_range_manual(
+    start: KeyBound | Sequence[KeyBound],
+    end: KeyBound | Sequence[KeyBound],
+    name: str | Sequence[str] | None = None,
+) -> RangeKey:
+    r"""Give the groups of ``guide_axis_nested()`` by their first and last break (legendry).
+
+    Parameters
+    ----------
+    start : str, float or sequence of them
+        First category (discrete axes) or value (continuous axes) of each group.
+    end : str, float or sequence of them
+        Last category or value of each group, aligned with ``start``.
+    name : str or sequence of str, optional
+        Each group's name (``"\n"`` breaks lines). Without names only brackets
+        are drawn.
+
+    Returns
+    -------
+    RangeKey
+        The key for ``guide_axis_nested(key=...)``.
+
+    Raises
+    ------
+    SpecError
+        If ``start``, ``end`` and ``name`` differ in length.
+    UnsupportedValueError
+        If a bound is not a category or a finite number.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> key = key_range_manual(start=["apple", "date"], end=["cherry", "fig"],
+    ...                        name=["Early", "Late"])
+    >>> len(key.as_spec())
+    2
+    """
+    starts, ends = _bounds(start, "start"), _bounds(end, "end")
+    names = None if name is None else ((name,) if isinstance(name, str) else tuple(name))
+    lengths = {len(starts), len(ends)} | ({len(names)} if names is not None else set())
+    if len(lengths) > 1:
+        reason = (
+            f"start, end and name must have one entry per group; got {len(starts)} starts, "
+            f"{len(ends)} ends" + ("" if names is None else f" and {len(names)} names")
+        )
+        raise SpecError(f"key_range_manual(): {reason}", path="start", reason=reason)
+    if names is not None:
+        for item in names:
+            if not isinstance(item, str):
+                reason = f"expected names (str), got {type(item).__name__}"
+                raise UnsupportedValueError(
+                    f"key_range_manual(name=...): {reason}", path="name", reason=reason
+                )
+    return RangeKey(start=starts, end=ends, name=names)
+
+
+_NESTED_CHOICES: dict[str, tuple[str, ...]] = {
+    "type": ("bracket", "box"),
+    "bracket": ("line", "square", "chevron"),
+    "side": ("axis", "opposite"),
+}
+
+
+def _nested_key(key: object) -> list[dict[str, Any]]:
+    """Return the spec form of ``guide_axis_nested(key=...)``."""
+    if isinstance(key, RangeKey):
+        return key.as_spec()
+    if not isinstance(key, Mapping) or isinstance(key, str):
+        reason = (
+            "expected a mapping {group: [levels]} or key_range_manual(start, end, name), "
+            f"got {type(key).__name__}"
+        )
+        raise UnsupportedValueError(
+            f"guide_axis_nested(key=...): {reason}", path="key", reason=reason
+        )
+    groups: list[dict[str, Any]] = []
+    owner: dict[KeyBound, str] = {}
+    for group, levels in key.items():
+        if not isinstance(group, str):
+            reason = f"group names are str, got {type(group).__name__} {group!r}"
+            raise UnsupportedValueError(
+                f"guide_axis_nested(key=...): {reason}", path="key", reason=reason
+            )
+        if isinstance(levels, (str, bytes)) or not hasattr(levels, "__iter__"):
+            reason = (
+                f"the levels of group {group!r} must be a sequence (e.g. [{levels!r}]), "
+                f"not {type(levels).__name__}"
+            )
+            raise UnsupportedValueError(
+                f"guide_axis_nested(key=...): {reason}", path=f"key.{group}", reason=reason
+            )
+        members = _bounds(levels, f"key.{group}")
+        for level in members:
+            if owner.get(level) == group:
+                continue  # listed twice in one group: one membership
+            if level in owner:
+                reason = (
+                    f"level {level!r} is in groups {owner[level]!r} and {group!r}; "
+                    "each level belongs to one group"
+                )
+                raise SpecError(
+                    f"guide_axis_nested(key=...): {reason}", path=f"key.{group}", reason=reason
+                )
+            owner[level] = group
+        groups.append({"name": group, "levels": list(members)})
+    return groups
+
+
+def guide_axis_nested(
+    key: Mapping[str, Sequence[KeyBound]] | RangeKey,
+    *,
+    type: Literal["bracket", "box"] | None = None,
+    bracket: Literal["line", "square", "chevron"] | None = None,
+    side: Literal["axis", "opposite"] | None = None,
+    pad_discrete: Number | None = None,
+    angle: Number | None = None,
+) -> FeatureSpec:
+    r"""Axis guide with brackets naming groups of breaks (R legendry ``guide_axis_nested``).
+
+    Each group gets a bracket (or a box) spanning its breaks and its name past
+    it, outside the axis labels (``side="axis"``) or across the panel
+    (``side="opposite"``, e.g. gene groups above a dot plot whose gene names are
+    below). Works on any axis side (``position=``), under ``coord_flip()``, in
+    facets (beside the axis only), in ``gggrid()`` and on side panel axes
+    (``scale_xsidey_*()``). Names take the axis text theme and may hold
+    ``"\n"`` line breaks; the bracket takes ``theme(legendry_bracket=...)``,
+    its depth ``legendry_bracket_size``, the box ``legendry_box``. One level of
+    groups. In HTML output with zoom (``ggtb()``) the brackets follow the
+    breaks; names of groups that leave the panel are hidden.
+
+    Parameters
+    ----------
+    key : mapping or RangeKey
+        The groups: a mapping of group name to its categories
+        (``{"Citrus": ["lemon", "lime"]}``; a group spans its first to last
+        category on the axis), or ``key_range_manual(start, end, name)``.
+        Categories not on the axis are skipped; groups with none are dropped.
+    type : {"bracket", "box"}, default="bracket"
+        Bracket beside the breaks with the name past it, or a box holding the name.
+    bracket : {"line", "square", "chevron"}, default="line"
+        Bracket shape (legendry's ``bracket_line()``, ``bracket_square()``,
+        ``bracket_chevron()``).
+    side : {"axis", "opposite"}, default="axis"
+        Past the axis labels, or across the panel from the axis.
+    pad_discrete : float, default=0.4
+        Categories a group reaches past its first and last category.
+    angle : float, default=0
+        Angle of the group names, in degrees.
+
+    Returns
+    -------
+    FeatureSpec
+        Guide specification for ``scale_*(guide=...)`` or ``guides(x=...)``.
+
+    Raises
+    ------
+    SpecError
+        If an option value is unknown, or a level is in two groups.
+    UnsupportedValueError
+        If ``key`` or an option has the wrong type.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"fruit": ["lemon", "lime", "apple", "pear", "plum"],
+    ...         "sales": [4, 3, 8, 5, 2]}
+    >>> plot = (
+    ...     ggplot(data, aes("fruit", "sales"))
+    ...     + geom_col()
+    ...     + scale_x_discrete(
+    ...         limits=data["fruit"],
+    ...         guide=guide_axis_nested(
+    ...             {"Citrus": ["lemon", "lime"], "Pome": ["apple", "pear"]},
+    ...             bracket="square",
+    ...         ),
+    ...     )
+    ... )
+    """
+    options: dict[str, str | None] = {"type": type, "bracket": bracket, "side": side}
+    for option, value in options.items():
+        accepted = _NESTED_CHOICES[option]
+        if value is None or (isinstance(value, str) and value in accepted):
+            continue
+        listing = ", ".join(map(repr, accepted))
+        if isinstance(value, str):
+            reason = (
+                f"unknown {option} {value!r}; use one of {listing}{did_you_mean(value, accepted)}"
+            )
+            raise SpecError(
+                f"guide_axis_nested({option}={value!r}): {reason}", path=option, reason=reason
+            )
+        reason = f"expected one of {listing}, got {value.__class__.__name__}"
+        raise UnsupportedValueError(
+            f"guide_axis_nested({option}={value!r}): {reason}", path=option, reason=reason
+        )
+    for option, number in (("pad_discrete", pad_discrete), ("angle", angle)):
+        if number is not None and (
+            isinstance(number, bool) or not isinstance(number, Real) or not math.isfinite(number)
+        ):
+            reason = f"expected a finite number, got {number!r}"
+            raise UnsupportedValueError(
+                f"guide_axis_nested({option}={number!r}): {reason}", path=option, reason=reason
+            )
+    return FeatureSpec(
+        "guide",
+        name="axis_nested",
+        key=_nested_key(key),
+        type=type,
+        bracket=bracket,
+        side=side,
+        pad_discrete=pad_discrete,
+        angle=angle,
     )
 
 

@@ -672,7 +672,8 @@ def scale_x_discrete(
     guide : FeatureSpec or "axis_mark", optional
         ``guide_axis_mark()`` labels the ``breaks`` with leader lines, spread so
         they never overlap (a ggrust guide); pass ``limits=`` too to keep the axis
-        order. Other axis guides are not supported.
+        order. ``guide_axis_nested()`` draws brackets naming groups of
+        categories. Other axis guides are not supported.
     limits : list of str, optional
         The categories to show, in axis order; other categories are dropped.
     expand : list, optional
@@ -744,7 +745,8 @@ def scale_y_discrete(
     guide : FeatureSpec or "axis_mark", optional
         ``guide_axis_mark()`` labels the ``breaks`` with leader lines, spread so
         they never overlap (a ggrust guide); pass ``limits=`` too to keep the axis
-        order. Other axis guides are not supported.
+        order. ``guide_axis_nested()`` draws brackets naming groups of
+        categories. Other axis guides are not supported.
     limits : list of str, optional
         The categories to show, in axis order; other categories are dropped.
     expand : list, optional

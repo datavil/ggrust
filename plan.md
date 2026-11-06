@@ -393,6 +393,28 @@ Cellestial work is on branch `ggrust-port-track-titles` (row titles only, uncomm
   clamped in `StyleScale::map`; colorbar unchanged. Errors at `scales[i].oob` with did-you-mean (Python
   fails first). Tests: `tests/test_scale_oob.py`, style mod/spec units. Deviation row (lets-plot has no `oob`).
 
+Requests from cellestial, found reproducing Zamboni et al. 2025 Fig. 3b/e with `annotated_heatmap` on
+ggrust 0.6 (2026-11-06; cellestial PR datavil/cellestial#76, branch `claude/zamboni-fig3-d1c0fe`). Each one
+removes a cellestial workaround: add a row to [cellestial_workarounds.md](cellestial_workarounds.md) when it lands.
+
+- [ ] 9.8 Side-band axis theme elements (highest priority). Port R ggside's `ggside.axis.text`,
+  `.ticks`, `.ticks.length`, `.line` (each with `.x`/`.y` and `.x.top`/`.x.bottom`/`.y.left`/`.y.right`)
+  as `ggside_axis_text*` etc. ggside's mapping: `*.y` styles only the x-side bands' own (y) axis,
+  `*.x` only the y-side bands' own (x) axis; unset elements fall back to the main `axis_*` ones.
+  R ggside has no `xside`/`yside` axis variants (those exist for `ggside.{x,y}side.panel.*` only), so
+  `.x`/`.y` is how one band is styled apart from the other. cellestial workaround: `track_titles` split
+  into row/column booleans and names moved by hand so two bands' titles do not collide top-right.
+- [ ] 9.9 Leader-line labels for a subset of breaks on a discrete axis (ComplexHeatmap `anno_mark`).
+  Label only chosen breaks, spread evenly so they do not overlap, a connecting line from each true
+  position to its label; any side (left/right/top/bottom); theme text styling (italic). Not in
+  lets-plot or ggplot2: API to agree with the user first. cellestial workaround: `key_labels` as axis
+  text plus `geom_*sidesegment` leader lines inside a side band.
+- [ ] 9.10 More than one side band per axis, or a band on each side (a y-side band left for gene
+  labels and another right for a module track). ggside allows one band per axis: a deviation, design
+  to agree with the user first.
+- [ ] 9.11 (lower priority) Bracket + multi-line text beside groups of rows or columns on a discrete
+  axis (GO terms in Fig. 3b). cellestial draws a `group_labels` option with segments and text for now.
+
 ## Performance strategy (honest)
 
 - Biggest structural win: lets-plot serializes data to JSON in Python, then parses it in Kotlin/JS.

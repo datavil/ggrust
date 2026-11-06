@@ -8,6 +8,7 @@ use super::label_pattern::LabelPattern;
 use super::secondary::SecondaryAxis;
 use super::{AxisSides, ContinuousPositionScale, DiscretePositionScale, PositionScale, Transform};
 use crate::cluster::{DendrogramType, Tree};
+use crate::layout::axis_mark::AxisMark;
 use crate::layout::dendrogram::{AxisDendrogram, DEFAULT_SPACE, DendrogramSide};
 use crate::spec::{Aesthetic, GuideSpec, Options, PlotSpec, ScaleSpec, Value};
 use crate::{Error, Result};
@@ -49,6 +50,8 @@ pub struct AxisScaleSpec {
     dendrogram: Set<Value>,
     /// `guide_axis_dendro(...)` options (`space`, `side`, `type`).
     dendrogram_guide: Set<Options>,
+    /// `guide_axis_mark(...)` options (`spread`, `link_width`, `padding`).
+    mark_guide: Set<Options>,
     /// `position=...`: the sides the axis is drawn on.
     sides: Set<AxisSides>,
     /// `sec_axis=...` / `dup_axis()`, parsed, with its path.
@@ -123,6 +126,7 @@ impl AxisScaleSpec {
     ) -> Result<ContinuousPositionScale> {
         let mut scale = ContinuousPositionScale::default();
         scale.sides = self.sides();
+        scale.mark = self.axis_mark()?;
         let labels = self.label_texts()?;
         scale.temporal = self.temporal_axis(column_kind, warnings)?;
         // lets-plot ignores `format` too when `labels` come without `breaks`.
@@ -203,6 +207,7 @@ impl AxisScaleSpec {
     fn build_discrete(&self, warnings: &mut Vec<String>) -> Result<DiscretePositionScale> {
         let mut scale = DiscretePositionScale::default();
         scale.sides = self.sides();
+        scale.mark = self.axis_mark()?;
         if let Some((_, path)) = &self.secondary {
             warnings.push(format!(
                 "at '{path}': a secondary axis needs a continuous axis, but this one shows \
@@ -270,6 +275,14 @@ impl AxisScaleSpec {
         scale.reverse =
             self.reverse.as_ref().is_some_and(|(reverse, _)| *reverse) || self.away_from_panel;
         Ok(scale)
+    }
+
+    /// The `guide_axis_mark()` options, checked.
+    fn axis_mark(&self) -> Result<Option<AxisMark>> {
+        self.mark_guide
+            .as_ref()
+            .map(|(options, path)| AxisMark::parse(options, path))
+            .transpose()
     }
 
     /// The tree of `scale_*_dendro()` with its guide options, checked.
@@ -480,6 +493,14 @@ pub fn position_scales(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<Po
             report_unbuilt(scale, &path, warnings);
         }
     }
+    // `guides(x=guide_axis_mark())`, unless the scale sets its own mark guide.
+    for (aesthetic, target) in ["x", "y"].into_iter().zip(merged.iter_mut()) {
+        if target.mark_guide.is_none()
+            && let Some(options) = spec.guides.get(aesthetic).and_then(mark_options)
+        {
+            target.mark_guide = Some((options, format!("guides.{aesthetic}")));
+        }
+    }
     let [x, y, xside_y, yside_x] = merged;
     Ok(PositionScales {
         x,
@@ -550,6 +571,25 @@ fn merge(target: &mut AxisScaleSpec, scale: &ScaleSpec, path: &str) {
     }
     if let Some(options) = dendrogram_guide(scale) {
         target.dendrogram_guide = Some((options, at("guide")));
+    }
+    if let Some(options) = mark_guide(scale) {
+        target.mark_guide = Some((options, at("guide")));
+    }
+}
+
+/// The options of a `guide_axis_mark()` (or `guide="axis_mark"`) on `scale`.
+fn mark_guide(scale: &ScaleSpec) -> Option<Options> {
+    mark_options(scale.guide.as_ref()?)
+}
+
+/// The options of `guide` when it is a `guide_axis_mark()` (or `"axis_mark"`).
+fn mark_options(guide: &GuideSpec) -> Option<Options> {
+    match guide {
+        GuideSpec::Name(name) if name == "axis_mark" => Some(Options::new()),
+        GuideSpec::Full(options) if options.name.as_deref() == Some("axis_mark") => {
+            Some(options.unsupported.clone())
+        }
+        _ => None,
     }
 }
 
@@ -683,7 +723,9 @@ fn report_unbuilt(scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
         ("na_value", scale.na_value.is_some()),
         (
             "guide",
-            scale.guide.is_some() && dendrogram_guide(scale).is_none(),
+            scale.guide.is_some()
+                && dendrogram_guide(scale).is_none()
+                && mark_guide(scale).is_none(),
         ),
         ("scale_mapper_kind", scale.scale_mapper_kind.is_some()),
     ];

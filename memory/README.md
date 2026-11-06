@@ -77,3 +77,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Secondary axes](secondary_axes.md): Python callable called back from Rust, resolved after final ranges (and grid sharing), throwaway break scale mapped back, `PlotLayout.secondary` per side, fixed zoom breaks.
 - [Side panels](side_panels.md): ggside layers and ggmarginal share one band engine; layer key `ggside` (not `side`), side layers stay in tiles[0] tagged by band, bands follow the panel, one-axis zoom.
 - [Plot files (.ggrs)](plot_files.md): object tree via vars() of allowlisted classes (not as_dict), new private attrs change the format, `$` tags, frames once by id, hashes catch damage not edits.
+- [Axis marks (leader-line labels)](axis_marks.md): guide rides on `LabelArrangement::Mark`, measure = draw, no wrap/blank/rotate, discrete breaks need `limits=`, zoom shows labels at breaks, ggsave writes to lets-plot-images/.

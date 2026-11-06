@@ -177,7 +177,8 @@ fn keep_labels_inside(
     length: f64,
     extents: &[f64],
 ) -> AxisBreaks {
-    if cross.is_discrete() {
+    // Category labels name tracks; marked labels are spread inside the band.
+    if cross.is_discrete() || matches!(breaks.arrangement, LabelArrangement::Mark(_)) {
         return breaks;
     }
     for (index, value) in breaks.values.iter().enumerate() {

@@ -100,7 +100,10 @@ impl TryFrom<Value> for GuideSpec {
 
 impl GuideSpec {
     pub(super) fn collect_unsupported(&self, parent: &str, found: &mut Vec<String>) {
-        if let GuideSpec::Full(options) = self {
+        // `guide_axis_mark()` options are read (and checked) with the position scales.
+        if let GuideSpec::Full(options) = self
+            && options.name.as_deref() != Some("axis_mark")
+        {
             report_unsupported(parent, &options.unsupported, found);
         }
     }

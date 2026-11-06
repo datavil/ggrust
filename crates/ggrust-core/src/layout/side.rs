@@ -107,7 +107,7 @@ impl AxisEdge {
 
     /// The point at `along` (pixel along the axis) on the line moved `across`
     /// pixels outward.
-    fn point(self, along: f64, across: f64) -> (f64, f64) {
+    pub(super) fn point(self, along: f64, across: f64) -> (f64, f64) {
         let across = self.base + self.side.outward() * across;
         if self.side.is_horizontal() {
             (along, across)
@@ -190,12 +190,18 @@ impl<'a> LabelPlacer<'a> {
         } else {
             theme.axis_text_y
         }?;
-        let rotates = if horizontal {
+        let marked = match &breaks.arrangement {
+            LabelArrangement::Mark(mark) => Some(mark.link_width),
+            _ => None,
+        };
+        let rotates = if marked.is_some() {
+            false
+        } else if horizontal {
             breaks.arrangement == LabelArrangement::Rotated
         } else {
             rotated::rotates(text)
         };
-        let sizes = if rotates || edge.side.is_secondary() {
+        let sizes = if marked.is_none() && (rotates || edge.side.is_secondary()) {
             label_sizes(&breaks.labels, text)
         } else {
             Vec::new()
@@ -209,7 +215,8 @@ impl<'a> LabelPlacer<'a> {
             edge,
             text,
             arrangement: &breaks.arrangement,
-            base: edge.label_base(theme),
+            // Marked labels sit past their links.
+            base: edge.label_base(theme) + edge.side.outward() * marked.unwrap_or(0.0),
             rotated,
             sizes,
         })
@@ -231,6 +238,7 @@ impl<'a> LabelPlacer<'a> {
             .then(|| label_sizes(std::slice::from_ref(label), self.text)[0]);
         let arrangement = match self.arrangement {
             LabelArrangement::Rotated => LabelArrangement::Rotated,
+            LabelArrangement::Mark(mark) => LabelArrangement::Mark(*mark),
             _ => LabelArrangement::Simple,
         };
         let placer = LabelPlacer {
@@ -251,6 +259,20 @@ impl<'a> LabelPlacer<'a> {
         size: Option<(f64, f64)>,
     ) -> Node {
         let text = self.text;
+        if let LabelArrangement::Mark(_) = self.arrangement {
+            // Marked labels start at their link: flat on left/right, reading up
+            // on top/bottom (ComplexHeatmap `anno_mark`).
+            let (anchor, horizontal, angle) = match self.edge.side {
+                Side::Bottom => ((along, self.base), HorizontalAlign::End, 90.0),
+                Side::Top => ((along, self.base), HorizontalAlign::Start, 90.0),
+                Side::Left => ((self.base, along), HorizontalAlign::End, 0.0),
+                Side::Right => ((self.base, along), HorizontalAlign::Start, 0.0),
+            };
+            return aligned(
+                label_node(label, text, anchor, horizontal, angle),
+                VerticalAlign::Middle,
+            );
+        }
         // The primary-side node, its labels' band starting at `base`.
         let primary = |base: f64| match (rotation, self.edge.side.is_horizontal()) {
             (Some(placement), true) => placed_label_node(label, text, (along, base), placement),

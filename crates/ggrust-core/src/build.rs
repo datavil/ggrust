@@ -4661,7 +4661,14 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
             || ScaleKey::parse_guide_key(key).is_some_and(|scale| {
                 default_mapper(scale.aesthetic).is_some() && group_exists(scale)
             });
-        let built = is_axis_title_only(key, guide) || (is_style && guide.is_built_style_guide());
+        let is_axis_mark = matches!(key.as_str(), "x" | "y")
+            && match guide {
+                GuideSpec::Name(name) => name == "axis_mark",
+                GuideSpec::Full(options) => options.name.as_deref() == Some("axis_mark"),
+            };
+        let built = is_axis_title_only(key, guide)
+            || is_axis_mark
+            || (is_style && guide.is_built_style_guide());
         if !built {
             warnings.push(format!(
                 "at 'guides.{key}': this guide option is not supported yet; ignored"

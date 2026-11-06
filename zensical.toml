@@ -317,6 +317,7 @@ nav = [
       "reference/api/guides.md",
       "reference/api/guide_legend.md",
       "reference/api/guide_colorbar.md",
+      "reference/api/guide_axis_mark.md",
       "reference/api/layer_key.md",
     ] },
     { "Themes" = [

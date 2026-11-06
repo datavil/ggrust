@@ -57,6 +57,8 @@ pub struct ContinuousPositionScale {
     beyond_limits: Option<(f64, f64)>,
     /// Sides of the panel the axis is drawn on (`position=`).
     pub sides: super::position::AxisSides,
+    /// `guide_axis_mark()`: the labels are spread with links to their breaks.
+    pub mark: Option<crate::layout::axis_mark::AxisMark>,
     /// `sec_axis=...`: a secondary axis on the other side.
     pub secondary: Option<super::secondary::SecondaryAxis>,
 }
@@ -78,6 +80,7 @@ impl Default for ContinuousPositionScale {
             exponent_format: ExponentFormat::default(),
             beyond_limits: None,
             sides: Default::default(),
+            mark: None,
             secondary: None,
         }
     }

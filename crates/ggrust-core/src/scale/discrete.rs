@@ -44,6 +44,8 @@ pub struct DiscretePositionScale {
     pub dendrogram: Option<std::sync::Arc<crate::layout::dendrogram::AxisDendrogram>>,
     /// Sides of the panel the axis is drawn on (`position=`).
     pub sides: super::position::AxisSides,
+    /// `guide_axis_mark()`: the labels are spread with links to their breaks.
+    pub mark: Option<crate::layout::axis_mark::AxisMark>,
 }
 
 impl Default for DiscretePositionScale {
@@ -63,6 +65,7 @@ impl Default for DiscretePositionScale {
             coord_limits: [None, None],
             dendrogram: None,
             sides: Default::default(),
+            mark: None,
         }
     }
 }

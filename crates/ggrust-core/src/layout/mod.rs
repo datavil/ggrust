@@ -13,6 +13,7 @@
 //! Faceted plots are laid out by [`facet`]; the cells of a grid of plots by [`grid`].
 
 mod axis;
+pub mod axis_mark;
 mod colorbar;
 pub mod dendrogram;
 pub mod facet;
@@ -725,7 +726,9 @@ fn x_axis_band(labels_height: f64, theme: &Theme) -> f64 {
 pub(super) fn y_axis_width(y_breaks: &AxisBreaks, theme: &Theme) -> f64 {
     let y_label_width = theme.axis_text_y.map_or(0.0, |text| {
         let sizes = label_sizes(&y_breaks.labels, text);
-        if rotated::rotates(text) {
+        if let LabelArrangement::Mark(mark) = &y_breaks.arrangement {
+            mark.link_width + sizes.iter().map(|(width, _)| *width).fold(0.0, f64::max)
+        } else if rotated::rotates(text) {
             rotated::left(&sizes, text).1
         } else {
             sizes.iter().map(|(width, _)| *width).fold(0.0, f64::max)
@@ -924,9 +927,10 @@ pub(crate) fn fit_x_labels(
     if x_labels_height(&breaks, theme) <= limit {
         return breaks;
     }
+    let marked = matches!(breaks.arrangement, LabelArrangement::Mark(_));
     let wrapped = theme
         .axis_text_x
-        .filter(|text| scale.is_discrete() && !rotated::rotates(*text))
+        .filter(|text| scale.is_discrete() && !marked && !rotated::rotates(*text))
         .and_then(|text| {
             wrap_labels(
                 &breaks,
@@ -989,9 +993,10 @@ pub(crate) fn fit_y_labels(
     if width <= limit {
         return breaks;
     }
+    let marked = matches!(breaks.arrangement, LabelArrangement::Mark(_));
     let wrapped = theme
         .axis_text_y
-        .filter(|text| scale.is_discrete() && !rotated::rotates(*text))
+        .filter(|text| scale.is_discrete() && !marked && !rotated::rotates(*text))
         .and_then(|text| {
             let widest = label_sizes(&breaks.labels, text)
                 .iter()
@@ -1129,6 +1134,7 @@ fn x_labels_height(breaks: &AxisBreaks, theme: &Theme) -> f64 {
             widest() * sin + line * cos
         }
         LabelArrangement::Vertical => widest(),
+        LabelArrangement::Mark(mark) => mark.link_width + widest(),
         LabelArrangement::Rotated => rotated::bottom(&label_sizes(&breaks.labels, text), text).1,
     }
 }
@@ -1367,6 +1373,12 @@ pub(crate) fn axis_side_nodes(
     };
     if let Some(line) = line {
         nodes.push(edge.line(layout, line));
+    }
+    if let LabelArrangement::Mark(mark) = &breaks.arrangement
+        && let Some(marks) = axis_mark::mark_nodes(edge, breaks, theme, mark, pixel, span)
+    {
+        nodes.extend(marks);
+        return nodes;
     }
     let placer = LabelPlacer::new(edge, breaks, theme);
     let tick = edge.major_tick(theme);
@@ -1747,7 +1759,9 @@ fn x_label_node(
             VerticalAlign::Top,
             TILT_DEGREES,
         ),
-        LabelArrangement::Vertical => ((x, top), HorizontalAlign::End, VerticalAlign::Middle, 90.0),
+        LabelArrangement::Vertical | LabelArrangement::Mark(_) => {
+            ((x, top), HorizontalAlign::End, VerticalAlign::Middle, 90.0)
+        }
     };
     let mut node = label_node(label, text, anchor, horizontal, angle);
     if let Node::Text(text) = &mut node {

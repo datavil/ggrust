@@ -44,6 +44,9 @@ pub enum LabelArrangement {
     Vertical,
     /// The theme's angle, hjust and vjust ([`super::rotated`]).
     Rotated,
+    /// `guide_axis_mark()`: labels spread along the axis with links to their
+    /// breaks (any side; horizontal axes turn the labels to read up).
+    Mark(super::axis_mark::AxisMark),
 }
 
 /// Breaks of one axis with their labels.
@@ -53,7 +56,7 @@ pub struct AxisBreaks {
     pub values: Vec<f64>,
     /// Formatted labels, one per value.
     pub labels: Vec<Label>,
-    /// Label placement (horizontal axes; vertical axes are always simple).
+    /// Label placement (horizontal axes; vertical axes are simple or [`LabelArrangement::Mark`]).
     pub arrangement: LabelArrangement,
     /// The break count asked of the scale (0 for fixed breaks): the HTML
     /// runtime asks the same of a zoomed domain.
@@ -112,6 +115,10 @@ pub fn choose_breaks(
         // lets-plot fixed breaks: every category (or given break) is a break.
         let breaks = scale.breaks(0);
         let mut breaks = AxisBreaks::new(breaks.positions, breaks.labels);
+        if let Some(mark) = scale.mark() {
+            breaks.arrangement = LabelArrangement::Mark(mark);
+            return breaks;
+        }
         if orientation == Orientation::Horizontal && text.is_some() {
             if rotation.is_some() {
                 breaks.arrangement = LabelArrangement::Rotated;
@@ -144,6 +151,12 @@ pub fn choose_breaks(
     let count_for = |label_extent: f64| {
         ((axis_length / (label_extent + LABEL_DISTANCE_FOR_COUNT)).floor() as usize).max(1)
     };
+    // Marked labels are spread, never dropped: one label line per break slot.
+    if let Some(mark) = scale.mark() {
+        let mut breaks = flex_breaks(&breaks_for, count_for(size));
+        breaks.arrangement = LabelArrangement::Mark(mark);
+        return breaks;
+    }
     // lets-plot: an unrotated y label is font-size tall and never re-checked.
     if orientation == Orientation::Vertical && rotation.is_none() {
         return flex_breaks(&breaks_for, count_for(size));

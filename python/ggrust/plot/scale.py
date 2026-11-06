@@ -649,6 +649,7 @@ def scale_x_discrete(
     reverse: bool | None = None,
     format: str | None = None,
     position: AxisPosition | None = None,
+    guide: Guide | None = None,
 ) -> FeatureSpec:
     """Discrete position scale x.
 
@@ -668,6 +669,10 @@ def scale_x_discrete(
     position : {'bottom', 'top', 'both'}, default='bottom'
         Side of the panel the axis (ticks, labels, title) is drawn on;
         ``'both'`` draws ticks and labels on both sides, the title at the bottom.
+    guide : FeatureSpec or "axis_mark", optional
+        ``guide_axis_mark()`` labels the ``breaks`` with leader lines, spread so
+        they never overlap (a ggrust guide); pass ``limits=`` too to keep the axis
+        order. Other axis guides are not supported.
     limits : list of str, optional
         The categories to show, in axis order; other categories are dropped.
     expand : list, optional
@@ -698,7 +703,7 @@ def scale_x_discrete(
         expand=expand,
         na_value=na_value,
         trans=None,
-        guide=None,
+        guide=guide,
         format=format,
         position=position,
         discrete=True,
@@ -718,6 +723,7 @@ def scale_y_discrete(
     reverse: bool | None = None,
     format: str | None = None,
     position: AxisPosition | None = None,
+    guide: Guide | None = None,
 ) -> FeatureSpec:
     """Discrete position scale y. See ``scale_x_discrete``.
 
@@ -735,6 +741,10 @@ def scale_y_discrete(
     position : {'left', 'right', 'both'}, default='left'
         Side of the panel the axis (ticks, labels, title) is drawn on;
         ``'both'`` draws ticks and labels on both sides, the title on the left.
+    guide : FeatureSpec or "axis_mark", optional
+        ``guide_axis_mark()`` labels the ``breaks`` with leader lines, spread so
+        they never overlap (a ggrust guide); pass ``limits=`` too to keep the axis
+        order. Other axis guides are not supported.
     limits : list of str, optional
         The categories to show, in axis order; other categories are dropped.
     expand : list, optional
@@ -767,7 +777,7 @@ def scale_y_discrete(
         expand=expand,
         na_value=na_value,
         trans=None,
-        guide=None,
+        guide=guide,
         format=format,
         position=position,
         discrete=True,

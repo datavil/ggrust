@@ -404,11 +404,15 @@ removes a cellestial workaround: add a row to [cellestial_workarounds.md](celles
   R ggside has no `xside`/`yside` axis variants (those exist for `ggside.{x,y}side.panel.*` only), so
   `.x`/`.y` is how one band is styled apart from the other. cellestial workaround: `track_titles` split
   into row/column booleans and names moved by hand so two bands' titles do not collide top-right.
-- [ ] 9.9 Leader-line labels for a subset of breaks on a discrete axis (ComplexHeatmap `anno_mark`).
+- [x] 9.9 Leader-line labels for a subset of breaks on a discrete axis (ComplexHeatmap `anno_mark`).
   Label only chosen breaks, spread evenly so they do not overlap, a connecting line from each true
   position to its label; any side (left/right/top/bottom); theme text styling (italic). Not in
   lets-plot or ggplot2: API to agree with the user first. cellestial workaround: `key_labels` as axis
   text plus `geom_*sidesegment` leader lines inside a side band.
+  (`guide_axis_mark(spread="nearest"|"even", link_width=20, padding=4)` on `scale_x/y_discrete(guide=)` or
+  `guides(x=/y=)` (continuous too); the scale's `breaks=` picks the subset (user's choice), `limits=` keeps the
+  order. Nearest = anno_mark cluster spreading; three-part links styled by the ticks; any side, coord_flip, side
+  band axes, facets, gggrid. Zoom gap: zoomed labels sit at their breaks without links. `memory/axis_marks.md`.)
 - [ ] 9.10 More than one side band per axis, or a band on each side (a y-side band left for gene
   labels and another right for a module track). ggside allows one band per axis: a deviation, design
   to agree with the user first.

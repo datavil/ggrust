@@ -5,9 +5,11 @@ Ported from lets-plot's ``lets_plot/plot/guide.py`` (MIT, see THIRD_PARTY_NOTICE
 
 from __future__ import annotations
 
+import math
+from numbers import Real
 from typing import TYPE_CHECKING, Literal
 
-from ggrust.errors import SpecError, did_you_mean
+from ggrust.errors import SpecError, UnsupportedValueError, did_you_mean
 from ggrust.plot.core import FeatureSpec
 
 if TYPE_CHECKING:
@@ -16,7 +18,7 @@ if TYPE_CHECKING:
 
     from ggrust._typing import Number
 
-__all__ = ["guide_colorbar", "guide_legend", "guides", "layer_key"]
+__all__ = ["guide_axis_mark", "guide_colorbar", "guide_legend", "guides", "layer_key"]
 
 
 def _guide(name: str | None, **kwargs: Any) -> FeatureSpec:
@@ -27,6 +29,103 @@ def _guide(name: str | None, **kwargs: Any) -> FeatureSpec:
         )
         raise SpecError(message)
     return FeatureSpec("guide", name=name, **kwargs)
+
+
+_SPREADS: tuple[str, ...] = ("nearest", "even")
+
+
+def guide_axis_mark(
+    *,
+    spread: Literal["nearest", "even"] | None = None,
+    link_width: Number | None = None,
+    padding: Number | None = None,
+) -> FeatureSpec:
+    """Axis guide that labels the scale's breaks with leader lines (ComplexHeatmap ``anno_mark``).
+
+    Pick the breaks to label with the scale's ``breaks=`` (for example a few genes
+    of a heatmap's rows), and its ``limits=`` to keep the axis order (without
+    limits a discrete axis moves its breaks to the front, as in lets-plot). Their
+    labels are spread along the axis so they never
+    overlap, and a line links each break's true position to its label: straight
+    out for a third of the link, slanted over the middle third, straight into the
+    label. Works on any axis side (``position=``), under ``coord_flip()``, and on
+    side panel axes (``scale_xsidey_*()``, ``scale_ysidex_*()``). Labels take the
+    axis text theme (``axis_text_y=element_text(face="italic")``); on top and
+    bottom axes they read upwards, and the theme's text angle is not applied. The
+    link takes the axis ticks' line (the label colour when ticks are blank). A
+    ggrust guide: lets-plot and ggplot2 have no equivalent.
+
+    In HTML output with zoom (``ggtb()``), zoomed labels sit at their breaks
+    without links; resetting the zoom restores the spread layout.
+
+    Parameters
+    ----------
+    spread : {"nearest", "even"}, default="nearest"
+        ``"nearest"``: each label at its break when there is room, pushed apart
+        only as far as needed (``anno_mark``). ``"even"``: equal slots over the
+        whole axis, in break order.
+    link_width : float, default=20
+        Pixels across the axis the link takes past the ticks (``anno_mark``'s 5 mm).
+    padding : float, default=4
+        Pixels kept between neighbouring labels (``anno_mark``'s 1 mm).
+
+    Returns
+    -------
+    FeatureSpec
+        Guide specification for ``scale_*(guide=...)`` or ``guides(x=...)``.
+
+    Raises
+    ------
+    SpecError
+        If ``spread`` is unknown.
+    UnsupportedValueError
+        If ``spread`` is not a string, or ``link_width`` or ``padding`` is not a
+        number of 0 or more.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"fruit": ["apple", "banana", "cherry", "date", "fig", "grape"],
+    ...         "month": ["Jan"] * 6, "sales": [3, 5, 2, 8, 6, 4]}
+    >>> plot = (
+    ...     ggplot(data, aes("month", "fruit", fill="sales"))
+    ...     + geom_tile()
+    ...     + scale_y_discrete(
+    ...         breaks=["banana", "cherry", "grape"],
+    ...         limits=data["fruit"],
+    ...         guide=guide_axis_mark(),
+    ...     )
+    ... )
+    """
+    if spread is not None and not (isinstance(spread, str) and spread in _SPREADS):
+        listing = ", ".join(map(repr, _SPREADS))
+        if isinstance(spread, str):
+            reason = (
+                f"unknown spread {spread!r}; use one of {listing}{did_you_mean(spread, _SPREADS)}"
+            )
+            raise SpecError(
+                f"guide_axis_mark(spread={spread!r}): {reason}", path="spread", reason=reason
+            )
+        reason = f"expected one of {listing}, got {type(spread).__name__}"
+        raise UnsupportedValueError(
+            f"guide_axis_mark(spread={spread!r}): {reason}", path="spread", reason=reason
+        )
+    for name, value in (("link_width", link_width), ("padding", padding)):
+        if value is None:
+            continue
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, Real)
+            or not math.isfinite(value)
+            or not value >= 0
+        ):
+            reason = f"expected pixels (a number of 0 or more), got {value!r}"
+            raise UnsupportedValueError(
+                f"guide_axis_mark({name}={value!r}): {reason}", path=name, reason=reason
+            )
+    return FeatureSpec(
+        "guide", name="axis_mark", spread=spread, link_width=link_width, padding=padding
+    )
 
 
 def guides(**kwargs: object) -> FeatureSpec:

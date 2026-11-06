@@ -264,6 +264,14 @@ impl PositionScale {
         }
     }
 
+    /// `guide_axis_mark()` options, when the axis spreads its labels with links.
+    pub fn mark(&self) -> Option<crate::layout::axis_mark::AxisMark> {
+        match self {
+            PositionScale::Continuous(scale) => scale.mark,
+            PositionScale::Discrete(scale) => scale.mark,
+        }
+    }
+
     /// Whether the breaks are fixed (every category, or `breaks=[...]`): the axis
     /// shows all of them instead of choosing a count.
     pub fn has_fixed_breaks(&self) -> bool {

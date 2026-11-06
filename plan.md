@@ -451,7 +451,7 @@ extension, bug-hunter pass, `make check`, commit + push. Already available and b
   Done: `FeatureSpec`, `PlotSpec`, `SupPlotsSpec` `__add__` return `NotImplemented` (return hints
   unchanged: typeshed's `NotImplemented` fits any return type, and a `| NotImplementedType` union
   leaked into every `plot + layer` for type checkers); array operands return it whole. No
-  `__ggrust_add__` hook (open question for the user). `deviations.md` row (lets_plot raises).
+  `__ggrust_add__` hook: `__radd__` is enough (decided (user) 2026-11-06). `deviations.md` row (lets_plot raises).
 - [ ] 10.3 **Nested (bracket) axis guide** (most valuable; replaces 9.11; ~300 cellestial lines).
   legendry's `guide_axis_nested(key=, type="bracket"|"box"|"fence", ...)`: group labels with a bracket
   spanning a run of discrete breaks, on any side, on side-band axes too, under `coord_flip`, facets

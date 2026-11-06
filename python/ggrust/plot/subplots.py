@@ -78,7 +78,8 @@ class SupPlotsSpec(FeatureSpec):
     ``layout``, ``ncol``, ``nrow``, ``size``, ``theme`` (the grid's own: figures keep
     theirs), ``labels``, ``grid[i]`` or ``grid[row, column]``, and ``plots()``
     (every plot, nested grids flattened). ``with_figure()`` and ``with_layout()``
-    return changed copies. A grid has no ``build()``: build its plots one by one.
+    return changed copies; ``grid[i] = figure`` and ``grid[i] += layer`` change one
+    cell in place. A grid has no ``build()``: build its plots one by one.
 
     Examples
     --------
@@ -298,16 +299,54 @@ class SupPlotsSpec(FeatureSpec):
         >>> grid.with_figure((0, 1), line)[1] is line
         True
         """
-        if figure is not None and not isinstance(figure, PlotSpec | SupPlotsSpec):
-            message = (
-                f"with_figure(): figure must be a plot (ggplot()), a grid (gggrid()) or "
-                f"None, got {type(figure).__name__}"
-            )
-            raise TypeError(message)
+        self.__check_figure("with_figure()", figure)
         position = self.__cell_position(cell)
         grid = SupPlotsSpec.duplicate(self)
         grid.__figures[position] = figure
         return grid
+
+    def __setitem__(self, cell: Cell, figure: Figure) -> None:
+        """Replace the figure of a cell in place: ``grid[i] = plot``.
+
+        Makes ``grid[i] += layer`` add a layer (or any feature) to one cell's
+        figure. This grid is changed; grids copied from it earlier are not.
+        Use ``with_figure`` for a changed copy instead.
+
+        Parameters
+        ----------
+        cell : int or tuple of (int, int)
+            The cell's index in ``figures``, or its ``(row, column)``.
+            Negative values count from the end.
+        figure : PlotSpec, SupPlotsSpec or None
+            The new figure; None empties the cell.
+
+        Raises
+        ------
+        PlotIndexError
+            If the cell is outside the grid.
+        TypeError
+            If ``cell`` is malformed or ``figure`` is not a plot, a grid or None.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> grid = gggrid([ggplot() + geom_point(), ggplot() + geom_line()], ncol=2)
+        >>> grid[0] += geom_line()
+        >>> [layer.geom for layer in grid[0].layers]
+        ['point', 'line']
+        """
+        self.__check_figure("grid[cell] = figure", figure)
+        self.__figures[self.__cell_position(cell)] = figure
+
+    @staticmethod
+    def __check_figure(where: str, figure: object) -> None:
+        """Raise ``TypeError`` unless ``figure`` is a plot, a grid or None."""
+        if figure is not None and not isinstance(figure, PlotSpec | SupPlotsSpec):
+            message = (
+                f"{where}: figure must be a plot (ggplot()), a grid (gggrid()) or "
+                f"None, got {type(figure).__name__}"
+            )
+            raise TypeError(message)
 
     def with_layout(self, **options: object) -> SupPlotsSpec:
         """Return a copy of the grid with new ``gggrid()`` layout options.

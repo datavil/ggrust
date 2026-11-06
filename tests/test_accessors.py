@@ -434,6 +434,32 @@ def test_with_figure() -> None:
         grid.with_figure(0, geom_point())  # ty: ignore[invalid-argument-type]
 
 
+def test_setitem_changes_one_cell_in_place() -> None:
+    first, line = points(), ggplot() + geom_line()
+    inner = gggrid([first, first])
+    grid = gggrid([first, first, inner], ncol=2) + ggtitle("Title")
+    before = SupPlotsSpec.duplicate(grid)
+    grid[0] += geom_line()  # ty: ignore[unsupported-operator]
+    assert [layer.geom for layer in grid[0].layers] == ["point", "line"]  # ty: ignore[unresolved-attribute]
+    assert first.layers[-1].geom == "point"  # the old figure is not changed
+    assert before[0] is first  # earlier copies are not changed
+    grid[1, 1] = line
+    assert grid[3] is line
+    grid[-1] = None
+    assert grid[3] is None
+    grid[2][1] += geom_line()  # nested grid, changed in place through its cell
+    assert grid[2] is inner and [layer.geom for layer in inner[1].layers] == ["point", "line"]
+    assert grid.labels == {"title": "Title"}
+    assert grid.as_dict()["figures"][3] is None
+    assert grid.layout == before.with_figure(3, None).layout
+    with pytest.raises(PlotIndexError):
+        grid[9] = line
+    with pytest.raises(TypeError, match="grid\\[cell\\] = figure: figure must be a plot"):
+        grid[0] = geom_point()
+    with pytest.raises(TypeError, match="a grid cell is an int or a"):
+        grid["a"] = line
+
+
 def test_with_layout() -> None:
     first = points()
     grid = gggrid([first, first, first], ncol=2) + ggsize(500, 300) + ggtitle("T")

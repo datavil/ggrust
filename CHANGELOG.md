@@ -2,6 +2,20 @@
 
 All notable changes to ggrust. Each version is also a [GitHub Release](https://github.com/datavil/ggrust/releases).
 
+## [0.6.1] - 2026-11-06
+
+### Added
+
+- Side band axis theme elements, as R ggside's `ggside.axis.*`: `theme(ggside_axis_text, ggside_axis_ticks, ggside_axis_ticks_length, ggside_axis_minor_ticks, ggside_axis_minor_ticks_length, ggside_axis_line)`, each with `_x`, `_x_top`, `_x_bottom`, `_y`, `_y_left`, `_y_right` variants. Anything unset falls back to the main `axis_*` theme.
+- `guide_axis_mark()`: label a subset of an axis's breaks with leader lines (ComplexHeatmap's `anno_mark` as an axis guide). `spread="nearest"` or `"even"`, `link_width`, `padding`. Works on discrete and continuous axes, every side, side bands, facets and `gggrid(align=True)`.
+- Several side bands per axis: `side_pos=` on a ggside layer overrides `ggside()` for that layer, `side_band=` names a band (bands on one side stack outward in plot order), and `side_size=` sets a band's share of the panel. `scale_xsidey_*` / `scale_ysidex_*` take `side_pos=` and `side_band=` to set one band's axis.
+- Docs: the ggrust logo, and a showcase of plots on the README and docs home page.
+
+### Fixed
+
+- A y side band's own x axis now reserves room for its ticks and labels (it could overflow the canvas).
+- Blank side band axis labels no longer take up room.
+
 ## [0.6.0] - 2026-11-06
 
 ### Highlights

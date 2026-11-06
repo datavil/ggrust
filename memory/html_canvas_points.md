@@ -1,7 +1,7 @@
 # Canvas points: placeholder in the SVG, sprites at quarter pixels
 
 Plan 4.4 (decided with the user): in HTML only, a point batch with more than
-50,000 drawable markers (2,000 for zoomable `ggtb()` plots) (`render/canvas.rs`, same drawability + scene clip box
+5,000 drawable markers (2,000 for zoomable `ggtb()` plots) (`render/canvas.rs`, same drawability + scene clip box
 as the SVG writer) becomes an empty `<foreignObject class="ggrust-canvas">`
 over the whole scene; its markers travel as base64 Float32 xy + a style table
 + u16/u32 style indices. SVG and PNG output never change.
@@ -40,3 +40,11 @@ over the whole scene; its markers travel as base64 Float32 xy + a style table
   playwright + CDP `Performance.getMetrics` (Script/RecalcStyle/Layout/Task
   durations) at `device_scale_factor=2`; the hidden browser pane runs no rAF
   and dpr 1 hides costs.
+
+- **Threshold lowered from 50,000 to 5,000** (2026-11-06, user). The cellestial
+  docs page was 97 MB: its ~17k-point UMAPs stayed SVG, at ~66 B per circle
+  plus ~110 B of interactive-legend `<g class="keyed">` wrapper per point.
+  For one such plot lets-plot's HTML is 1.07 MB, ggrust's was 3.42 MB. The
+  canvas payload is ~11-14 B per point. Trade-off kept: without JavaScript
+  (static notebook viewers such as GitHub) these mid-sized layers are now
+  missing too, not only the >50k ones. SVG and PNG output are unchanged.

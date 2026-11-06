@@ -21,7 +21,7 @@ use crate::scene::geometry::{ClipBox, is_drawable_marker};
 use crate::scene::{Color, MarkerPart, MarkerShape, PerItem, Points};
 
 /// Batches with more drawable markers than this go to the canvas.
-pub(super) const CANVAS_THRESHOLD: usize = 50_000;
+pub(super) const CANVAS_THRESHOLD: usize = 5_000;
 
 /// The threshold of zoomable plots: every zoom step moves each SVG marker, and
 /// the browser's layout of thousands of moved elements drops frames, while a

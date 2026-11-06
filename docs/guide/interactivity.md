@@ -26,7 +26,7 @@ breaks and labels stay readable.
 
 ## Large data
 
-Point layers with more than 50,000 points (2,000 when the plot has a toolbar, `ggtb()`) are drawn on a
+Point layers with more than 5,000 points (2,000 when the plot has a toolbar, `ggtb()`) are drawn on a
 canvas from binary buffers instead of thousands of SVG elements, so zooming stays fast. ggrust does not sample: every row is drawn (lets-plot
 samples layers above 100,000 points by default).
 

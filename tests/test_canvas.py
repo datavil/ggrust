@@ -1,6 +1,6 @@
 """Canvas point layers of HTML output (plan.md 4.4).
 
-A point batch with more than 50,000 drawable markers (2,000 when the plot zooms,
+A point batch with more than 5,000 drawable markers (2,000 when the plot zooms,
 ``ggtb()``) is written as an empty
 ``<foreignObject class="ggrust-canvas">`` and drawn by the runtime from base64
 typed arrays (``crates/ggrust-core/src/render/canvas.rs``). The payload tests run
@@ -19,7 +19,7 @@ import numpy as np
 import polars as pl
 import pytest
 
-THRESHOLD = 50_000
+THRESHOLD = 5_000
 ZOOM_THRESHOLD = 2_000
 
 

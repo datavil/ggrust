@@ -13,7 +13,7 @@
 // With `ggtb()` it also adds lets-plot's toolbar (pan, rubber band zoom,
 // centerpoint zoom, reset) and zooms panels: see "Zoom and pan" below. With
 // `ggtb(layers=...)` the toolbar also hides and shows layers: see "Layer toggles".
-// Dense point batches (more than 50k markers) arrive as base64 typed arrays
+// Dense point batches (more than 5k markers) arrive as base64 typed arrays
 // and are stamped on a canvas inside their SVG placeholder: see "Canvas points".
 // Clicking a discrete legend key hides or shows its marks and their tooltips:
 // see "Interactive legend".

@@ -120,6 +120,40 @@ pub struct AxisLine {
     pub extent: f64,
 }
 
+/// The elements of one side band's own axis (R ggside `ggside.axis.*`), for the
+/// axis drawn on one screen side. Each falls back to the main axis element.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BandAxisTheme {
+    /// Tick labels (`ggside_axis_text*`).
+    pub text: Option<TextStyle>,
+    /// Ticks (`ggside_axis_ticks*`).
+    pub ticks: Option<LineStyle>,
+    /// Tick length (`ggside_axis_ticks_length*`).
+    pub ticks_length: f64,
+    /// Minor ticks (`ggside_axis_minor_ticks*`).
+    pub minor_ticks: Option<LineStyle>,
+    /// Minor tick length (`ggside_axis_minor_ticks_length*`).
+    pub minor_ticks_length: f64,
+    /// Axis line (`ggside_axis_line*`).
+    pub line: Option<AxisLine>,
+}
+
+/// The side band axis elements by the screen side the band's axis is drawn on.
+/// As in ggside, `_x` elements reach only the horizontal axes of y-side bands
+/// (`top`, `bottom`), `_y` elements only the vertical axes of x-side bands
+/// (`left`, `right`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BandAxisThemes {
+    /// Axis on top of a y-side band (`ggside_axis_*_x_top`).
+    pub top: BandAxisTheme,
+    /// Axis below a y-side band (`ggside_axis_*_x_bottom`).
+    pub bottom: BandAxisTheme,
+    /// Axis left of an x-side band (`ggside_axis_*_y_left`).
+    pub left: BandAxisTheme,
+    /// Axis right of an x-side band (`ggside_axis_*_y_right`).
+    pub right: BandAxisTheme,
+}
+
 /// Style of a rectangle element: fill and an optional border.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RectStyle {
@@ -348,6 +382,9 @@ pub struct Theme {
     /// Gap between the main panel and a ggside side panel (`ggside_panel_spacing`,
     /// px): horizontal (left/right panels), vertical (top/bottom panels).
     pub ggside_panel_spacing: (f64, f64),
+    /// Side band axis elements (`ggside_axis_text*`, `ggside_axis_ticks*`,
+    /// `ggside_axis_line*`, ...), each resolved down to the main axis element.
+    pub ggside_axis: BandAxisThemes,
     /// Space between legend boxes (`legend_spacing`), horizontal and vertical.
     pub legend_spacing: (f64, f64),
     /// Space between the plot area and the legends (`legend_box_spacing`).
@@ -396,6 +433,27 @@ impl Default for Theme {
         // The built-in tables always resolve (unit-tested); no user input is involved.
         Theme::from_spec(None, &mut Vec::new()).expect("the built-in default theme resolves")
     }
+}
+
+/// The ggside side band axis elements (`ggside_axis_text`, `..._x`, `..._x_top`, ...).
+const GGSIDE_AXIS_ELEMENTS: &[&str] = &[
+    "text",
+    "ticks",
+    "ticks_length",
+    "minor_ticks",
+    "minor_ticks_length",
+    "line",
+];
+
+/// The suffixes of every ggside side band axis element, most general first.
+const GGSIDE_AXIS_SUFFIXES: &[&str] =
+    &["", "_x", "_x_top", "_x_bottom", "_y", "_y_left", "_y_right"];
+
+/// Whether `key` is a ggside side band axis option of `element` (`"text"`, ...).
+fn is_ggside_axis(key: &str, element: &str) -> bool {
+    key.strip_prefix("ggside_axis_")
+        .and_then(|rest| rest.strip_prefix(element))
+        .is_some_and(|suffix| GGSIDE_AXIS_SUFFIXES.contains(&suffix))
 }
 
 /// Every theme option the resolver reads; other `theme(...)` options are reported.
@@ -520,6 +578,10 @@ impl Theme {
         theme.axis_text_spacing = swap(theme.axis_text_spacing);
         theme.axis_ticks_length = swap(theme.axis_ticks_length);
         theme.axis_minor_ticks_length = swap(theme.axis_minor_ticks_length);
+        // Band axes follow their aesthetic too: x bottom <-> y left, top <-> right.
+        let axes = &mut theme.ggside_axis;
+        std::mem::swap(&mut axes.bottom, &mut axes.left);
+        std::mem::swap(&mut axes.top, &mut axes.right);
         theme
     }
 
@@ -579,7 +641,10 @@ pub fn geom_palette(spec: Option<&ThemeSpec>) -> Result<GeomPalette> {
 
 fn report_unbuilt(spec: &ThemeSpec, warnings: &mut Vec<String>) {
     for (key, value) in &spec.elements {
-        if !BUILT_OPTIONS.contains(&key.as_str()) {
+        let ggside_axis = GGSIDE_AXIS_ELEMENTS
+            .iter()
+            .any(|element| is_ggside_axis(key, element));
+        if !BUILT_OPTIONS.contains(&key.as_str()) && !ggside_axis {
             warnings.push(format!("at 'theme.{key}': not supported yet; ignored"));
             continue;
         }
@@ -587,7 +652,8 @@ fn report_unbuilt(spec: &ThemeSpec, warnings: &mut Vec<String>) {
             continue;
         };
         // Axis labels read angle and vjust (layout/rotated.rs); other text does not yet.
-        let axis_text = matches!(key.as_str(), "axis_text" | "axis_text_x" | "axis_text_y");
+        let axis_text = matches!(key.as_str(), "axis_text" | "axis_text_x" | "axis_text_y")
+            || is_ggside_axis(key, "text");
         // Axis titles read angle and vjust (layout `axis_title_justification`):
         // turned by the angle, vjust moves a title along its axis.
         let axis_title = matches!(key.as_str(), "axis_title" | "axis_title_x" | "axis_title_y");
@@ -629,7 +695,8 @@ fn report_unbuilt(spec: &ThemeSpec, warnings: &mut Vec<String>) {
                 ));
             }
         }
-        let axis_line = matches!(key.as_str(), "axis_line" | "axis_line_x" | "axis_line_y");
+        let axis_line = matches!(key.as_str(), "axis_line" | "axis_line_x" | "axis_line_y")
+            || is_ggside_axis(key, "line");
         for (property, present) in [
             ("arrow", element.arrow.is_some()),
             ("extent", element.extent.is_some()),
@@ -716,10 +783,11 @@ impl Resolver<'_> {
     }
 
     /// An axis line from its style chain; arrow and extent come only from the
-    /// `axis_line` options (`axis_line_x`, `axis_line`), not from `line` or `axis`.
-    fn axis_line(&self, keys: &[&str]) -> Option<AxisLine> {
+    /// first `line_keys` keys, the axis line options (`axis_line_x`, `axis_line`),
+    /// not from `line` or `axis`.
+    fn axis_line(&self, keys: &[&str], line_keys: usize) -> Option<AxisLine> {
         let style = self.line(keys)?;
-        let props = self.values.element_props(&keys[..2]);
+        let props = self.values.element_props(&keys[..line_keys]);
         Some(AxisLine {
             style,
             arrow: props.arrow,
@@ -763,6 +831,110 @@ impl Resolver<'_> {
                         format!("expected a number, got {value}"),
                     )
                 }),
+        }
+    }
+
+    /// The side band axis elements for the `axis` ("x" or "y") drawn on screen
+    /// `side`: R ggside's chain (`ggside_axis_text_y_left` <- `ggside_axis_text_y`
+    /// <- `ggside_axis_text`), then the main axis element's chain.
+    fn band_axis(&mut self, axis: &str, side: &str) -> Result<BandAxisTheme> {
+        let chain = |element: &str, main: &[&str]| -> Vec<String> {
+            [
+                format!("ggside_axis_{element}_{axis}_{side}"),
+                format!("ggside_axis_{element}_{axis}"),
+                format!("ggside_axis_{element}"),
+            ]
+            .into_iter()
+            .chain(main.iter().map(|key| (*key).to_owned()))
+            .collect()
+        };
+        let axis_key = format!("axis_{axis}");
+        let text = chain(
+            "text",
+            &[
+                &format!("axis_text_{axis}"),
+                "axis_text",
+                "text",
+                &axis_key,
+                "axis",
+            ],
+        );
+        let ticks = chain(
+            "ticks",
+            &[
+                &format!("axis_ticks_{axis}"),
+                "axis_ticks",
+                &axis_key,
+                "axis",
+                "line",
+            ],
+        );
+        let ticks_length = chain(
+            "ticks_length",
+            &[&format!("axis_ticks_length_{axis}"), "axis_ticks_length"],
+        );
+        let minor_ticks = chain(
+            "minor_ticks",
+            &[
+                &format!("axis_minor_ticks_{axis}"),
+                "axis_minor_ticks",
+                &axis_key,
+                "axis",
+                "line",
+            ],
+        );
+        let minor_ticks_length = chain(
+            "minor_ticks_length",
+            &[
+                &format!("axis_minor_ticks_length_{axis}"),
+                "axis_minor_ticks_length",
+            ],
+        );
+        let line = chain(
+            "line",
+            &[
+                &format!("axis_line_{axis}"),
+                "axis_line",
+                &axis_key,
+                "axis",
+                "line",
+            ],
+        );
+        Ok(BandAxisTheme {
+            text: self.band_text(&as_refs(&text)),
+            ticks: self.line(&as_refs(&ticks)),
+            ticks_length: self.number_of_set(&as_refs(&ticks_length), 4.0)?,
+            minor_ticks: self.line(&as_refs(&minor_ticks)),
+            minor_ticks_length: self.number_of_set(&as_refs(&minor_ticks_length), 2.0)?,
+            line: self.axis_line(&as_refs(&line), 5),
+        })
+    }
+
+    /// [`Self::text`] for a band axis: resolved from the first key that is set, so
+    /// warnings name it; warnings from a main axis key are dropped, since the main
+    /// element reports them already.
+    fn band_text(&mut self, keys: &[&str]) -> Option<TextStyle> {
+        let first = keys
+            .iter()
+            .position(|key| self.values.has_element(key))
+            .unwrap_or(0);
+        let reported = self.warnings.len();
+        let text = self.text(&keys[first..]);
+        if !keys[first].starts_with("ggside_") {
+            self.warnings.truncate(reported);
+        }
+        text
+    }
+
+    /// [`Self::number`], with an error naming the key that holds the bad value
+    /// (a band axis chain starts at keys the user may not have written).
+    fn number_of_set(&self, keys: &[&str], default: f64) -> Result<f64> {
+        match keys
+            .iter()
+            .position(|key| self.values.value_of(&[key]).is_some())
+        {
+            None => Ok(default),
+            Some(index) => self.number(&keys[index..], default),
         }
     }
 
@@ -873,8 +1045,8 @@ impl Resolver<'_> {
                     2.0,
                 )?,
             ),
-            axis_line_x: self.axis_line(&[&line_x, "axis_line", &axis_x, "axis", "line"]),
-            axis_line_y: self.axis_line(&[&line_y, "axis_line", &axis_y, "axis", "line"]),
+            axis_line_x: self.axis_line(&[&line_x, "axis_line", &axis_x, "axis", "line"], 2),
+            axis_line_y: self.axis_line(&[&line_y, "axis_line", &axis_y, "axis", "line"], 2),
             panel_grid_major_x: self.line(&as_refs(&grid("major", "x"))),
             panel_grid_major_y: self.line(&as_refs(&grid("major", "y"))),
             panel_grid_minor_x: self.line(&as_refs(&grid("minor", "x"))),
@@ -918,6 +1090,12 @@ impl Resolver<'_> {
                     GGSIDE_PANEL_SPACING,
                 )?,
             ),
+            ggside_axis: BandAxisThemes {
+                top: self.band_axis("x", "top")?,
+                bottom: self.band_axis("x", "bottom")?,
+                left: self.band_axis("y", "left")?,
+                right: self.band_axis("y", "right")?,
+            },
             legend_spacing: (
                 self.number(&["legend_spacing_x", "legend_spacing"], 10.0)?,
                 self.number(&["legend_spacing_y", "legend_spacing"], 10.0)?,
@@ -1461,6 +1639,156 @@ mod tests {
             Theme::from_spec(Some(&spec(r#"{"exponent_format": "e"}"#)), &mut warnings).unwrap();
         assert_eq!(theme.exponent_format.style, ExponentStyle::E);
         assert!(warnings.is_empty(), "{warnings:?}");
+    }
+
+    #[test]
+    fn ggside_axis_elements_fall_back_to_the_main_axis_elements() {
+        let theme = Theme::default();
+        let axes = theme.ggside_axis;
+        for band in [axes.top, axes.bottom] {
+            assert_eq!(
+                format!("{:?}", band.text),
+                format!("{:?}", theme.axis_text_x)
+            );
+            assert_eq!(band.ticks, theme.axis_ticks_x);
+            assert_eq!(band.ticks_length, theme.axis_ticks_length.0);
+            assert_eq!(band.minor_ticks, theme.axis_minor_ticks_x);
+            assert_eq!(band.minor_ticks_length, theme.axis_minor_ticks_length.0);
+            assert_eq!(band.line, theme.axis_line_x);
+        }
+        for band in [axes.left, axes.right] {
+            assert_eq!(
+                format!("{:?}", band.text),
+                format!("{:?}", theme.axis_text_y)
+            );
+            assert_eq!(band.ticks, theme.axis_ticks_y);
+            assert_eq!(band.ticks_length, theme.axis_ticks_length.1);
+            assert_eq!(band.line, theme.axis_line_y);
+        }
+        // Main options reach the band axes.
+        let theme = Theme::from_spec(
+            Some(&spec(
+                r#"{"axis_text_y": {"color": "red", "blank": false}, "axis_ticks_length": 9}"#,
+            )),
+            &mut Vec::new(),
+        )
+        .unwrap();
+        let left = theme.ggside_axis.left;
+        assert_eq!(left.text.unwrap().color, Color::rgb(255, 0, 0));
+        assert_eq!(left.ticks_length, 9.0);
+        assert_eq!(theme.ggside_axis.top.ticks_length, 9.0);
+    }
+
+    #[test]
+    fn ggside_axis_y_styles_only_the_vertical_band_axes_most_specific_first() {
+        let mut warnings = Vec::new();
+        let theme = Theme::from_spec(
+            Some(&spec(
+                r#"{"ggside_axis_text_y": {"blank": true},
+                    "ggside_axis_text_y_right": {"color": "blue", "blank": false},
+                    "ggside_axis_text": {"size": 20, "blank": false},
+                    "ggside_axis_ticks_x": {"blank": true},
+                    "ggside_axis_ticks_length_x_top": 11,
+                    "ggside_axis_ticks_length": 7,
+                    "ggside_axis_line_y_left": {"color": "red", "extent": 0.5, "blank": false},
+                    "ggside_axis_minor_ticks_x": {"color": "green", "blank": false}}"#,
+            )),
+            &mut warnings,
+        )
+        .unwrap();
+        assert!(warnings.is_empty(), "{warnings:?}");
+        let axes = theme.ggside_axis;
+        // `_y` blanks the left band axis label; `_y_right` wins on the right.
+        assert_eq!(axes.left.text, None);
+        let right = axes.right.text.unwrap();
+        assert_eq!(right.color, Color::rgb(0, 0, 255));
+        assert_eq!(right.size, 20.0);
+        // `ggside_axis_text` reaches the x band axes, the main axes stay.
+        assert_eq!(axes.top.text.unwrap().size, 20.0);
+        assert_eq!(
+            theme.axis_text_x.unwrap().size,
+            Theme::default().axis_text_x.unwrap().size
+        );
+        assert!(theme.axis_text_y.is_some());
+        // Ticks and lengths.
+        assert_eq!((axes.top.ticks, axes.bottom.ticks), (None, None));
+        assert_eq!(axes.left.ticks, theme.axis_ticks_y);
+        assert!(theme.axis_ticks_x.is_some());
+        assert_eq!(axes.top.ticks_length, 11.0);
+        assert_eq!(axes.bottom.ticks_length, 7.0);
+        assert_eq!(theme.axis_ticks_length, Theme::default().axis_ticks_length);
+        // Lines: style, extent, and only on the left.
+        let line = axes.left.line.unwrap();
+        assert_eq!(
+            (line.style.color, line.extent),
+            (Color::rgb(255, 0, 0), 0.5)
+        );
+        assert_eq!(axes.right.line, theme.axis_line_y);
+        assert_eq!(axes.top.minor_ticks.unwrap().color, Color::rgb(0, 128, 0));
+        assert_eq!(theme.axis_minor_ticks_x, None);
+    }
+
+    #[test]
+    fn ggside_axis_elements_follow_their_aesthetic_under_coord_flip() {
+        let theme = Theme::from_spec(
+            Some(&spec(r#"{"ggside_axis_text_y": {"blank": true}}"#)),
+            &mut Vec::new(),
+        )
+        .unwrap()
+        .flipped();
+        // The x-side band's (y) axis is horizontal after the flip.
+        assert_eq!(theme.ggside_axis.bottom.text, None);
+        assert!(theme.ggside_axis.left.text.is_some());
+    }
+
+    #[test]
+    fn bad_ggside_tick_lengths_name_the_key_set() {
+        let error = Theme::from_spec(
+            Some(&spec(r#"{"ggside_axis_ticks_length": "long"}"#)),
+            &mut Vec::new(),
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(error.contains("theme.ggside_axis_ticks_length'"), "{error}");
+    }
+
+    #[test]
+    fn ggside_text_warnings_name_the_key_set_once() {
+        let mut warnings = Vec::new();
+        Theme::from_spec(
+            Some(&spec(
+                r#"{"ggside_axis_text_y": {"face": "bogus", "blank": false}}"#,
+            )),
+            &mut warnings,
+        )
+        .unwrap();
+        assert_eq!(warnings.len(), 1, "{warnings:?}");
+        assert!(
+            warnings[0].contains("theme.ggside_axis_text_y.face"),
+            "{warnings:?}"
+        );
+        let mut main = Vec::new();
+        Theme::from_spec(
+            Some(&spec(
+                r#"{"axis_text_y": {"face": "bogus", "blank": false}}"#,
+            )),
+            &mut main,
+        )
+        .unwrap();
+        assert_eq!(main.len(), 1, "{main:?}");
+    }
+
+    #[test]
+    fn unknown_ggside_axis_options_are_still_reported() {
+        let mut warnings = Vec::new();
+        Theme::from_spec(
+            Some(&spec(
+                r#"{"ggside_axis_text_z": {"blank": true}, "ggside_axis_txt": {"blank": true}}"#,
+            )),
+            &mut warnings,
+        )
+        .unwrap();
+        assert_eq!(warnings.len(), 2, "{warnings:?}");
     }
 
     #[test]

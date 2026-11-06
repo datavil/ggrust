@@ -266,7 +266,7 @@ fn layout_free(
     // of the panel only, so narrowing repeats until it fits (converges fast).
     let labels_height = x_labels_height(&layout.x_breaks, theme);
     let secondary_height = secondary_x_height(&layout, theme);
-    let mut band_height = band_x_height(&layout, theme);
+    let mut band_height = band_x_height(&layout, theme).unwrap_or(0.0);
     let mut layout = layout;
     let mut narrowed = area;
     for _ in 0..FIT_PASSES {
@@ -291,7 +291,7 @@ fn layout_free(
             panel_min_size,
             bands,
         );
-        let wanted = band_x_height(&layout, theme);
+        let wanted = band_x_height(&layout, theme).unwrap_or(0.0);
         if wanted > band_height {
             // The narrower band turned its labels: give them their room now.
             band_height = wanted;
@@ -312,14 +312,13 @@ fn layout_free(
     layout
 }
 
-/// Height of the labels of the left/right side panels' own x axes in `layout`
-/// (a simple text band at least).
-fn band_x_height(layout: &PlotLayout, theme: &Theme) -> f64 {
-    let simple = theme.axis_text_x.map_or(0.0, text_band);
+/// Height of the tallest of the left/right side panels' own x axes in `layout`
+/// (ticks, spacing and labels, from each band's axis theme), none without one.
+fn band_x_height(layout: &PlotLayout, theme: &Theme) -> Option<f64> {
     [Side::Top, Side::Bottom]
         .into_iter()
-        .map(|side| side_panel::horizontal_labels_height(&layout.bands, side, theme))
-        .fold(simple, f64::max)
+        .filter_map(|side| side_panel::horizontal_axis_height(&layout.bands, side, theme))
+        .reduce(f64::max)
 }
 
 /// Passes [`layout_free_once`] makes at most to give side panels' x labels room
@@ -391,23 +390,27 @@ fn layout_free_once(
     bands: &[BandRequest],
 ) -> PlotLayout {
     let simple = theme.axis_text_x.map_or(0.0, text_band);
+    // First guess for a side panel's own x axis: the main axis's with simple labels.
+    let simple_band = x_axis_band(simple, theme);
     let first = layout_with(
         area,
         theme,
         titles,
         (x_scale, y_scale),
         legend_space,
-        (simple, simple, simple),
+        (simple, simple, simple_band),
         None,
         panel_min_size,
         bands,
     );
     let needed = x_labels_height(&first.x_breaks, theme);
     let needed_secondary = secondary_x_height(&first, theme);
-    let mut band_height = band_x_height(&first, theme);
-    if needed <= simple && needed_secondary <= simple && band_height <= simple {
+    let measured_band = band_x_height(&first, theme);
+    let band_fits = measured_band.is_none_or(|height| (height - simple_band).abs() < 1e-9);
+    if needed <= simple && needed_secondary <= simple && band_fits {
         return first;
     }
+    let mut band_height = measured_band.unwrap_or(0.0);
     let (x_breaks, needed) = if needed > simple {
         let limit = first.content.height * AXIS_LABELS_MAX_SHARE;
         let x_breaks = fit_x_labels(first.x_breaks, x_scale, first.panel.width, limit, theme);
@@ -431,7 +434,7 @@ fn layout_free_once(
     };
     let mut layout = relayout(band_height);
     for _ in 0..BAND_LABEL_PASSES {
-        let wanted = band_x_height(&layout, theme);
+        let wanted = band_x_height(&layout, theme).unwrap_or(0.0);
         if wanted <= band_height {
             break;
         }
@@ -450,7 +453,7 @@ fn layout_with(
     titles: &Titles,
     (x_scale, y_scale): (&PositionScale, &PositionScale),
     legend_space: Margins,
-    (labels_height, secondary_height, band_labels_height): (f64, f64, f64),
+    (labels_height, secondary_height, band_axis_height): (f64, f64, f64),
     x_breaks: Option<AxisBreaks>,
     panel_min_size: f64,
     bands: &[BandRequest],
@@ -490,19 +493,15 @@ fn layout_with(
         };
         x_axis_band(height, theme)
     };
-    // A left/right side panel's own axis needs the room of its labels on its side
-    // (`band_labels_height`, measured by an earlier pass), even where the x axis
-    // leaves that side empty.
+    // A left/right side panel's own axis needs its room on its side
+    // (`band_axis_height`: ticks, spacing and labels, measured by an earlier pass
+    // with the band's axis theme), even where the x axis leaves that side empty.
     let band_x_axis = |far: bool| {
         let wanted = bands.iter().any(|band| {
             !band.side.is_horizontal()
                 && side_panel::band_axis_side(band, x_sides) == Some(Side::of(true, far))
         });
-        if wanted {
-            x_axis_band(band_labels_height, theme)
-        } else {
-            0.0
-        }
+        if wanted { band_axis_height } else { 0.0 }
     };
     let top_axis =
         shown(x_sides, true, x_band_on(true)).max(band_x_axis(true)) + tree_band(0, true);

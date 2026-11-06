@@ -26,6 +26,7 @@ against cellestial's tests and golden images.
 | Cluster outlines: `geom_mark_hull`, `geom_mark_ellipse` (with labels) | ex1.8 `2ddd496` | `layers/outline.py` `cluster_outlines`: per-cluster `scipy.stats.gaussian_kde` contours drawn as `geom_path` | Optional: hulls look different from density contours. Keep the KDE look if wanted (or use `geom_density2d` per group); offer hulls as a new style |
 | Live figures of a grid: `SupPlotsSpec.figures` | spec accessors `794e33e` | `util/operations.py` `_grid_figures`: reads the name-mangled `vars(grid)["_SupPlotsSpec__figures"]` | `grid.figures` |
 | Panel tags across a grid: `gggrid(tag_levels="A")`, grid captions | ex2.3 `4794478`, ua.7 `898773f` | Multi-panel figures label panels by hand or outside cellestial | `tag_levels=` |
+| Side band axis theme elements: `theme(ggside_axis_text_y=element_blank())` hides only the x side band's track names (`_x` the y side band's), likewise `ggside_axis_ticks*`, `ggside_axis_line*`, `ggside_axis_ticks_length*` | 9.8 | `complex/annotated_heatmap.py`: `track_titles` split into row/column booleans and names moved by hand so the two bands' titles do not collide top-right | One `track_titles` theme switch per band: `ggside_axis_text_y` (column tracks) and `ggside_axis_text_x` (row tracks) |
 
 ## New capabilities with no workaround yet
 

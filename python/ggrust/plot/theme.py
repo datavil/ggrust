@@ -161,6 +161,48 @@ def theme(
     ggside_panel_spacing: Number | None = None,
     ggside_panel_spacing_x: Number | None = None,
     ggside_panel_spacing_y: Number | None = None,
+    ggside_axis_text: ThemeElement | None = None,
+    ggside_axis_text_x: ThemeElement | None = None,
+    ggside_axis_text_x_top: ThemeElement | None = None,
+    ggside_axis_text_x_bottom: ThemeElement | None = None,
+    ggside_axis_text_y: ThemeElement | None = None,
+    ggside_axis_text_y_left: ThemeElement | None = None,
+    ggside_axis_text_y_right: ThemeElement | None = None,
+    ggside_axis_ticks: ThemeElement | None = None,
+    ggside_axis_ticks_x: ThemeElement | None = None,
+    ggside_axis_ticks_x_top: ThemeElement | None = None,
+    ggside_axis_ticks_x_bottom: ThemeElement | None = None,
+    ggside_axis_ticks_y: ThemeElement | None = None,
+    ggside_axis_ticks_y_left: ThemeElement | None = None,
+    ggside_axis_ticks_y_right: ThemeElement | None = None,
+    ggside_axis_ticks_length: Number | None = None,
+    ggside_axis_ticks_length_x: Number | None = None,
+    ggside_axis_ticks_length_x_top: Number | None = None,
+    ggside_axis_ticks_length_x_bottom: Number | None = None,
+    ggside_axis_ticks_length_y: Number | None = None,
+    ggside_axis_ticks_length_y_left: Number | None = None,
+    ggside_axis_ticks_length_y_right: Number | None = None,
+    ggside_axis_minor_ticks: ThemeElement | None = None,
+    ggside_axis_minor_ticks_x: ThemeElement | None = None,
+    ggside_axis_minor_ticks_x_top: ThemeElement | None = None,
+    ggside_axis_minor_ticks_x_bottom: ThemeElement | None = None,
+    ggside_axis_minor_ticks_y: ThemeElement | None = None,
+    ggside_axis_minor_ticks_y_left: ThemeElement | None = None,
+    ggside_axis_minor_ticks_y_right: ThemeElement | None = None,
+    ggside_axis_minor_ticks_length: Number | None = None,
+    ggside_axis_minor_ticks_length_x: Number | None = None,
+    ggside_axis_minor_ticks_length_x_top: Number | None = None,
+    ggside_axis_minor_ticks_length_x_bottom: Number | None = None,
+    ggside_axis_minor_ticks_length_y: Number | None = None,
+    ggside_axis_minor_ticks_length_y_left: Number | None = None,
+    ggside_axis_minor_ticks_length_y_right: Number | None = None,
+    ggside_axis_line: ThemeElement | None = None,
+    ggside_axis_line_x: ThemeElement | None = None,
+    ggside_axis_line_x_top: ThemeElement | None = None,
+    ggside_axis_line_x_bottom: ThemeElement | None = None,
+    ggside_axis_line_y: ThemeElement | None = None,
+    ggside_axis_line_y_left: ThemeElement | None = None,
+    ggside_axis_line_y_right: ThemeElement | None = None,
 ) -> FeatureSpec:
     """Set theme options: element_*() values, numbers or names per theme element.
 
@@ -229,6 +271,32 @@ def theme(
     ggside_panel_spacing, ggside_panel_spacing_x, ggside_panel_spacing_y : float, optional
         Gap between the main panel and a side panel, in pixels: ``_x`` beside a y
         side panel, ``_y`` beside an x side panel. Default 2 pt (about 2.7 px).
+    ggside_axis_text, ggside_axis_text_* : dict or str, optional
+        Tick labels of a side panel's own axis, as R ggside's ``ggside.axis.text*``.
+        Suffixes: ``_x``, ``_x_top``, ``_x_bottom``, ``_y``, ``_y_left``,
+        ``_y_right`` (the same for every ``ggside_axis_*`` element). ``_y``
+        styles only the x side panel's (y) axis and ``_x`` only the y side
+        panel's (x) axis; ``_top``, ``_bottom``, ``_left``, ``_right`` pick the
+        axis drawn on that side. The most specific one set wins, and anything
+        unset comes from the main ``axis_text*`` elements, so the main axes never
+        change. ``ggside_axis_text_y=element_blank()`` hides the x side panel's
+        track names and frees their room. Under ``coord_flip()`` the elements
+        follow their aesthetic, as the main ``axis_*`` ones do.
+    ggside_axis_ticks, ggside_axis_ticks_* : dict or str, optional
+        Ticks of a side panel's own axis (``element_line()``), with the same
+        suffix rules; unset ones come from ``axis_ticks*``.
+    ggside_axis_ticks_length, ggside_axis_ticks_length_* : float, optional
+        Tick length of a side panel's own axis, in pixels; unset ones come from
+        ``axis_ticks_length*``.
+    ggside_axis_minor_ticks, ggside_axis_minor_ticks_* : dict or str, optional
+        Minor ticks of a side panel's own axis; unset ones come from
+        ``axis_minor_ticks*``.
+    ggside_axis_minor_ticks_length, ggside_axis_minor_ticks_length_* : float, optional
+        Minor tick length of a side panel's own axis, in pixels; unset ones come
+        from ``axis_minor_ticks_length*``.
+    ggside_axis_line, ggside_axis_line_* : dict or str, optional
+        Axis line of a side panel's own axis (``element_line()``, with ``arrow``
+        and ``extent`` as on ``axis_line``); unset ones come from ``axis_line*``.
     legend_box_just : str, optional
         Justification of the legends within their box.
     legend_box_spacing : float, optional

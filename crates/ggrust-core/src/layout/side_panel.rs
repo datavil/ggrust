@@ -16,8 +16,8 @@
 use super::side::{AxisEdge, Side};
 use super::{
     AxisBreaks, LabelArrangement, Orientation, PlotLayout, axis_side_nodes, choose_breaks,
-    fit_x_labels, fit_y_labels, label_sizes, minor_breaks, rect_node, segment, x_labels_height,
-    y_axis_width,
+    fit_x_labels, fit_y_labels, label_sizes, minor_breaks, rect_node, segment, text_band,
+    x_axis_band, x_labels_height, y_axis_width,
 };
 use crate::coord::Panel;
 use crate::scale::{AxisSides, PositionScale};
@@ -136,6 +136,37 @@ pub(super) fn band_axis_side(request: &BandRequest, cross_sides: AxisSides) -> O
     (sides.primary || sides.secondary).then(|| Side::of(!vertical_axis, !sides.primary))
 }
 
+/// The theme a band's own axis on screen `side` is laid out and drawn with: the
+/// main theme with that side's ggside axis elements (`Theme::ggside_axis`, already
+/// resolved down to the main ones) in place of the main axis elements, so blank
+/// band labels take no room and the main axes keep their own look.
+pub(super) fn band_axis_theme(theme: &Theme, side: Side) -> Theme {
+    let axes = &theme.ggside_axis;
+    let band = match side {
+        Side::Top => axes.top,
+        Side::Bottom => axes.bottom,
+        Side::Left => axes.left,
+        Side::Right => axes.right,
+    };
+    let mut theme = theme.clone();
+    if side.is_horizontal() {
+        theme.axis_text_x = band.text;
+        theme.axis_ticks_x = band.ticks;
+        theme.axis_ticks_length.0 = band.ticks_length;
+        theme.axis_minor_ticks_x = band.minor_ticks;
+        theme.axis_minor_ticks_length.0 = band.minor_ticks_length;
+        theme.axis_line_x = band.line;
+    } else {
+        theme.axis_text_y = band.text;
+        theme.axis_ticks_y = band.ticks;
+        theme.axis_ticks_length.1 = band.ticks_length;
+        theme.axis_minor_ticks_y = band.minor_ticks;
+        theme.axis_minor_ticks_length.1 = band.minor_ticks_length;
+        theme.axis_line_y = band.line;
+    }
+    theme
+}
+
 /// Blank the labels of `breaks` whose box would leave the band's span `length`
 /// (px along its own axis, from its start): a label at the band's edge would run
 /// into the main axis's end label. Ticks stay. Category labels all stay: they
@@ -211,7 +242,8 @@ pub(super) fn layout_bands(
         .map(|(request, thickness)| {
             let vertical_axis = request.side.is_horizontal();
             let axis_side = band_axis_side(request, cross_sides);
-            let breaks = axis_side.map(|_| {
+            let breaks = axis_side.map(|side| {
+                let theme = &band_axis_theme(theme, side);
                 // Fit labels to the band, then blank the end labels that leave it.
                 // Returns the breaks and each label's extent along the axis.
                 let fit = |breaks: AxisBreaks| -> (AxisBreaks, Vec<f64>) {
@@ -308,19 +340,26 @@ pub(super) fn vertical_axis_width(bands: &[BandLayout], side: Side, theme: &Them
         .iter()
         .filter(|band| band.axis_side == Some(side))
         .filter_map(|band| band.breaks.as_ref())
-        .map(|breaks| y_axis_width(breaks, theme))
+        .map(|breaks| y_axis_width(breaks, &band_axis_theme(theme, side)))
         .fold(0.0, f64::max)
 }
 
-/// Height of the tallest axis labels of the left and right `bands` drawn on
-/// `side` (top or bottom), 0 without one: the main x axis band grows to hold them.
-pub(super) fn horizontal_labels_height(bands: &[BandLayout], side: Side, theme: &Theme) -> f64 {
+/// Height of the tallest own axis of the left and right `bands` drawn on `side`
+/// (top or bottom): ticks, spacing and labels (a simple text band at least), from
+/// the band's axis theme; none without one. The main x axis band grows to hold it.
+pub(super) fn horizontal_axis_height(
+    bands: &[BandLayout],
+    side: Side,
+    theme: &Theme,
+) -> Option<f64> {
+    let theme = band_axis_theme(theme, side);
+    let simple = theme.axis_text_x.map_or(0.0, text_band);
     bands
         .iter()
         .filter(|band| band.axis_side == Some(side))
         .filter_map(|band| band.breaks.as_ref())
-        .map(|breaks| x_labels_height(breaks, theme))
-        .fold(0.0, f64::max)
+        .map(|breaks| x_axis_band(x_labels_height(breaks, &theme).max(simple), &theme))
+        .reduce(f64::max)
 }
 
 impl PlotLayout {
@@ -508,6 +547,7 @@ pub fn draw_band_axis(
         return nodes;
     };
     // The axis runs at the main axis's line on that side, beside the band.
+    let theme = &band_axis_theme(theme, side);
     let base = AxisEdge::of(layout, side).base;
     let edge = AxisEdge { side, base };
     let own = layout.band_as_panel(band);
@@ -645,11 +685,71 @@ mod tests {
             assert_eq!(labels, ["Adelie", "Gentoo", "Chinstrap"], "{side:?}");
         }
         // The narrow right band turns its labels; the x axis band holds them.
-        let needed = horizontal_labels_height(&layout.bands, Side::Bottom, &theme);
-        assert!(needed > 2.0 * simple, "labels {needed} px tall");
-        assert!(layout.axis_bands.bottom >= super::super::x_axis_band(needed, &theme) - 1e-9);
+        let needed = horizontal_axis_height(&layout.bands, Side::Bottom, &theme).unwrap();
+        assert!(needed > 2.0 * simple, "axis {needed} px tall");
+        assert!(layout.axis_bands.bottom >= needed - 1e-9);
         // The top band's own axis widens the y axis band to its widest label.
         assert!(layout.axis_bands.left >= vertical_axis_width(&layout.bands, Side::Left, &theme));
+    }
+
+    #[test]
+    fn band_axis_theme_takes_the_band_elements_and_blank_labels_take_no_room() {
+        let mut main = ContinuousPositionScale::default();
+        main.train_range(0.0, 10.0);
+        let main = PositionScale::Continuous(main);
+        let species = discrete(&["Adelie", "Gentoo", "Chinstrap"]);
+        let band = |side| BandRequest {
+            side,
+            size: BandSize::OfPanel(0.1),
+            spacing: 2.0,
+            cross: &species,
+            decorated: true,
+        };
+        let spec: crate::spec::ThemeSpec = serde_json::from_str(
+            r#"{"ggside_axis_text_y": {"blank": true}, "ggside_axis_ticks_y": {"blank": true}}"#,
+        )
+        .unwrap();
+        let theme = Theme::from_spec(Some(&spec), &mut Vec::new()).unwrap();
+        let area = Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 800.0,
+            height: 600.0,
+        };
+        let layout_of = |theme: &Theme| {
+            super::super::layout_plot(
+                area,
+                theme,
+                &super::super::Titles::default(),
+                &main,
+                &main,
+                crate::layout::Margins::uniform(0.0),
+                None,
+                super::super::PANEL_MIN_SIZE,
+                &[band(Side::Right), band(Side::Top)],
+            )
+        };
+        let layout = layout_of(&theme);
+        let plain = layout_of(&Theme::default());
+        // The top band's (y) axis has no labels and no ticks: it adds no width.
+        let left = band_axis_theme(&theme, Side::Left);
+        assert_eq!((left.axis_text_y, left.axis_ticks_y), (None, None));
+        assert_eq!(
+            format!("{:?}", left.axis_text_x),
+            format!("{:?}", theme.axis_text_x)
+        );
+        assert_eq!(vertical_axis_width(&layout.bands, Side::Left, &theme), 0.0);
+        assert!(vertical_axis_width(&plain.bands, Side::Left, &plain_theme()) > 0.0);
+        assert!(layout.axis_bands.left < plain.axis_bands.left);
+        // The right band's (x) axis keeps its labels and room.
+        assert_eq!(
+            horizontal_axis_height(&layout.bands, Side::Bottom, &theme),
+            horizontal_axis_height(&plain.bands, Side::Bottom, &plain_theme())
+        );
+    }
+
+    fn plain_theme() -> Theme {
+        Theme::default()
     }
 
     #[test]

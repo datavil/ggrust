@@ -141,6 +141,11 @@ impl Values {
         })
     }
 
+    /// Whether `key` holds an element (`element_*()` or blank).
+    pub fn has_element(&self, key: &str) -> bool {
+        matches!(self.entries.get(key), Some(Entry::Element(_)))
+    }
+
     /// The first plain value among `keys` (most specific first).
     pub fn value_of(&self, keys: &[&str]) -> Option<&Value> {
         keys.iter().find_map(|key| match self.entries.get(*key) {

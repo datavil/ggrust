@@ -42,6 +42,12 @@ Step ex2.2 (2026-11-05), design approved by the user.
   first, often 0 at the edge, which `keep_labels_inside` blanks), so when no label
   survives `layout_bands` retries `scale.breaks(2..=3)` and keeps the first set with a
   visible, non-overlapping label (a density band had ticks but no number).
+- **Band axis theme (9.8):** `Theme::ggside_axis` holds ggside's `ggside_axis_*` elements
+  resolved per screen side of the band's axis (`_x_top/_x_bottom` = y band, `_y_left/_y_right`
+  = x band), each chain ending in the main `axis_*` chain. Every band axis helper in
+  `side_panel.rs` (measure and draw) goes through `band_axis_theme(theme, side)`, a theme copy
+  with those swapped into the main axis fields, so a blank band label takes no room. New
+  band axis code must use it too, never `theme.axis_text_*` directly.
 - **HTML zoom:** band layers live in `g.side-x` / `g.side-y` (screen axis shared), and the
   runtime's `treeGroups` treats them like axis dendrograms (inner group, one-axis
   matrix). Tooltip layers carry `side`; `moveTargets` moves them along that axis when the

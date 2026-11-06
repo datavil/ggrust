@@ -397,7 +397,7 @@ Requests from cellestial, found reproducing Zamboni et al. 2025 Fig. 3b/e with `
 ggrust 0.6 (2026-11-06; cellestial PR datavil/cellestial#76, branch `claude/zamboni-fig3-d1c0fe`). Each one
 removes a cellestial workaround: add a row to [cellestial_workarounds.md](cellestial_workarounds.md) when it lands.
 
-- [ ] 9.8 Side-band axis theme elements (highest priority). Port R ggside's `ggside.axis.text`,
+- [x] 9.8 Side-band axis theme elements (highest priority, done 2026-11-06: `theme(ggside_axis_text*=, ...)`, `memory/side_panels.md`). Port R ggside's `ggside.axis.text`,
   `.ticks`, `.ticks.length`, `.line` (each with `.x`/`.y` and `.x.top`/`.x.bottom`/`.y.left`/`.y.right`)
   as `ggside_axis_text*` etc. ggside's mapping: `*.y` styles only the x-side bands' own (y) axis,
   `*.x` only the y-side bands' own (x) axis; unset elements fall back to the main `axis_*` ones.

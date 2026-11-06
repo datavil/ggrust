@@ -7,16 +7,18 @@
 //! ([`Interaction`]) ride along as JSON in a
 //! `<script type="application/vnd.ggrust-tooltips+json">` inside the root element. Dense point batches are drawn on a canvas by the
 //! runtime from a third payload (see `canvas`): without JavaScript they are
-//! missing from the static view.
+//! missing from the static view. Point targets that are exactly a canvas
+//! batch's markers refer to it (`"canvas": n`) instead of repeating x and y.
 
 use std::fmt::Write as _;
 
 use serde_json::{Value, json};
 
+use super::canvas::Batch;
 use super::svg::{SvgOptions, fragment, sanitize_id, to_svg_with_canvas};
 use crate::layout::zoom::{Zoom, ZoomAxis};
 use crate::scene::{Node, Scene};
-use crate::tooltip::{Interaction, write_script_json};
+use crate::tooltip::{HoverTargets, Interaction, WithCanvasTargets, write_script_json};
 
 /// The runtime: one JavaScript function expression called with the engine version.
 const RUNTIME: &str = include_str!("../../../../js/ggrust.js");
@@ -101,7 +103,15 @@ fn write_fragment(
     let mut output = svg.into_bytes();
     // Escaped so that they cannot end their script elements (see `write_script_json`).
     if let Some(interaction) = interaction.filter(|interaction| !interaction.layers.is_empty()) {
-        script_element(&mut output, "ggrust-tooltips", interaction);
+        let canvas = canvas_targets(interaction, &canvas_batches);
+        script_element(
+            &mut output,
+            "ggrust-tooltips",
+            &WithCanvasTargets {
+                interaction,
+                canvas: &canvas,
+            },
+        );
     }
     if !canvas_batches.is_empty() {
         script_element(&mut output, "ggrust-canvas", &canvas_batches);
@@ -124,6 +134,23 @@ fn write_fragment(
     // Only `&str` text and serde_json output were written.
     String::from_utf8(output)
         .unwrap_or_else(|error| String::from_utf8_lossy(error.as_bytes()).into_owned())
+}
+
+/// Per tooltip layer, the canvas batch whose markers are exactly its point
+/// targets (same count, order and Float32 centres), so the tooltip payload can
+/// refer to it instead of repeating the positions. Anything else (culled or
+/// non-finite markers, other geoms, SVG points) keeps its x and y inline.
+fn canvas_targets(interaction: &Interaction, batches: &[Batch]) -> Vec<Option<usize>> {
+    interaction
+        .layers
+        .iter()
+        .map(|layer| match &layer.targets {
+            HoverTargets::Points { x, y, .. } => {
+                batches.iter().position(|batch| batch.same_points(x, y))
+            }
+            _ => None,
+        })
+        .collect()
 }
 
 /// `<script type="application/vnd.{class}+json" class="{class}">{json}</script>`.
@@ -339,6 +366,120 @@ mod tests {
         assert!(srcdoc.contains("overflow: hidden;"));
         assert!(!srcdoc.contains('<') && !srcdoc.contains('"'));
         assert_eq!(html.matches("<script").count(), 0);
+    }
+
+    /// A scene with one dense point batch, and tooltips on points at `x`, `y`.
+    fn dense_points(x: Vec<f64>, y: Vec<f64>) -> (Scene, Interaction) {
+        use crate::scene::{MarkerShape, PerItem, Points};
+        use crate::tooltip::{LayerContent, LayerInteraction, Lookup, TextColumn};
+        let count = super::super::canvas::CANVAS_THRESHOLD + 1;
+        let points = Points {
+            keys: None,
+            x: (0..count)
+                .map(|index| (index % 100) as f64 + 0.25)
+                .collect(),
+            y: (0..count).map(|index| (index / 100) as f64 + 0.5).collect(),
+            shape: PerItem::Uniform(MarkerShape::Circle),
+            size: PerItem::Uniform(2.0),
+            fill: PerItem::Uniform(None),
+            stroke: PerItem::Uniform(None),
+            stroke_width: PerItem::Uniform(0.0),
+        };
+        let (x, y) = (
+            if x.is_empty() { points.x.clone() } else { x },
+            if y.is_empty() { points.y.clone() } else { y },
+        );
+        let scene = Scene {
+            width: 200.0,
+            height: 200.0,
+            background: None,
+            nodes: vec![Node::Points(points)],
+        };
+        let mut content = LayerContent::default();
+        content
+            .lines
+            .push(TextColumn::new(None, vec![Some("row".into()); count]));
+        let interaction = Interaction {
+            layers: vec![LayerInteraction {
+                panel: [0.0, 0.0, 200.0, 200.0],
+                layer: 0,
+                lookup: Lookup::Nearest,
+                targets: HoverTargets::Points {
+                    radius: vec![1.0; x.len()],
+                    rows: (0..x.len() as u32).collect(),
+                    x,
+                    y,
+                },
+                content,
+                anchor: None,
+                min_width: None,
+                keys: None,
+                side: None,
+            }],
+            zoom: None,
+        };
+        (scene, interaction)
+    }
+
+    fn tooltip_targets(scene: &Scene, interaction: &Interaction) -> Value {
+        let html = to_html(
+            scene,
+            Some(interaction),
+            &HtmlOptions {
+                id: "t".into(),
+                document: HtmlDocument::Fragment,
+            },
+        );
+        let payload = html
+            .split("class=\"ggrust-tooltips\">")
+            .nth(1)
+            .and_then(|rest| rest.split("</script>").next())
+            .unwrap_or_default();
+        let parsed: Value = serde_json::from_str(payload).unwrap_or_default();
+        parsed["layers"][0]["targets"].clone()
+    }
+
+    #[test]
+    fn canvas_point_targets_refer_to_their_batch() {
+        let (scene, interaction) = dense_points(Vec::new(), Vec::new());
+        let targets = tooltip_targets(&scene, &interaction);
+        assert_eq!(targets["kind"], "points");
+        assert_eq!(targets["canvas"], 0);
+        assert!(targets.get("x").is_none() && targets.get("y").is_none());
+        assert_eq!(targets["rows"].as_array().map(Vec::len), Some(5001));
+        assert_eq!(targets["radius"][0], 1.0);
+        // Serialized on its own (no canvas), the targets keep x and y.
+        let json = serde_json::to_value(&interaction).unwrap_or_default();
+        assert_eq!(json["layers"][0]["targets"]["x"][1], 1.25);
+    }
+
+    #[test]
+    fn targets_that_differ_from_the_batch_stay_inline() {
+        let (scene, _) = dense_points(Vec::new(), Vec::new());
+        let Some(Node::Points(points)) = scene.nodes.first() else {
+            unreachable!()
+        };
+        // One moved point, then one point missing: not the same points.
+        let mut moved = points.x.clone();
+        moved[7] += 0.5;
+        let missing = points.x[1..].to_vec();
+        for x in [moved, missing] {
+            let y = points.y[..x.len()].to_vec();
+            let (scene, interaction) = dense_points(x, y);
+            let targets = tooltip_targets(&scene, &interaction);
+            assert!(targets.get("canvas").is_none(), "{targets}");
+            assert_eq!(
+                targets["x"].as_array().map(Vec::len),
+                Some(target_count(&interaction))
+            );
+        }
+    }
+
+    fn target_count(interaction: &Interaction) -> usize {
+        match &interaction.layers[0].targets {
+            HoverTargets::Points { x, .. } => x.len(),
+            _ => 0,
+        }
     }
 
     #[test]

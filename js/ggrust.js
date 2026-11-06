@@ -626,8 +626,10 @@
     }
     var holders = plot.svg.querySelectorAll("foreignObject.ggrust-canvas");
     plot.canvases = [];
+    plot.canvasXy = {};
     for (var i = 0; i < holders.length; i++) {
-      var batch = payload[+holders[i].getAttribute("data-batch")];
+      var number = +holders[i].getAttribute("data-batch");
+      var batch = payload[number];
       if (!batch) continue;
       var width = +holders[i].getAttribute("width"), height = +holders[i].getAttribute("height");
       var ratio = window.devicePixelRatio || 1;
@@ -652,6 +654,7 @@
       };
       holders[i].ggrustCanvas = layer;
       plot.canvases.push(layer);
+      plot.canvasXy[number] = layer.xy;
       drawCanvas(layer, { scale: 1, offset: 0 }, { scale: 1, offset: 0 }, 1);
     }
   }
@@ -1760,6 +1763,26 @@
     plot.svg.addEventListener("wheel", function (event) { onWheel(plot, event); }, { passive: false });
   }
 
+  // Point targets that are exactly a canvas batch's markers carry `canvas` (the
+  // batch number) instead of x and y: read them from the decoded batch, at the
+  // 0.01 px the engine writes inline targets with (same nearest point on ties),
+  // as plain arrays (zoomed positions must not round to Float32). False when
+  // the batch is missing, so the layer is dropped rather than half indexed.
+  function canvasTargets(plot, layer) {
+    var t = layer.targets;
+    if (t.canvas === undefined) return true;
+    var xy = plot.canvasXy && plot.canvasXy[t.canvas];
+    var n = t.rows.length;
+    if (!xy || xy.length !== 2 * n) return false;
+    t.x = new Array(n);
+    t.y = new Array(n);
+    for (var i = 0; i < n; i++) {
+      t.x[i] = Math.round(xy[2 * i] * 100) / 100;
+      t.y[i] = Math.round(xy[2 * i + 1] * 100) / 100;
+    }
+    return true;
+  }
+
   function attach(plot) {
     var data = plot.root.querySelector('script[type="application/vnd.ggrust-tooltips+json"]');
     if (!data || !plot.svg) {
@@ -1771,7 +1794,7 @@
     } catch (error) {
       return;
     }
-    plot.layers = payload.layers || [];
+    plot.layers = (payload.layers || []).filter(function (layer) { return canvasTargets(plot, layer); });
     plot.layers.forEach(index);
     var viewBox = plot.svg.viewBox && plot.svg.viewBox.baseVal;
     plot.width = viewBox && viewBox.width ? viewBox.width : plot.svg.width.baseVal.value;

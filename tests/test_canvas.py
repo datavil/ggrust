@@ -18,6 +18,7 @@ import ggrust as gg
 import numpy as np
 import polars as pl
 import pytest
+from ggrust.plot.core import PlotSpec
 
 THRESHOLD = 5_000
 ZOOM_THRESHOLD = 2_000
@@ -391,3 +392,153 @@ def test_toolbar_style_and_height(page, tmp_path: Path) -> None:
     assert style["background"] == "rgba(255, 255, 255, 0.85)"
     assert style["selected"] == "rgb(44, 44, 42)"
     assert style["buttons"] == 5  # the layers menu is on by default
+
+
+# ---- Tooltip targets that refer to their canvas batch ----
+
+
+def tooltip_payload(html: str) -> dict:
+    """The tooltip payload of an HTML output."""
+    found = re.search(r'class="ggrust-tooltips">(.*?)</script>', html, re.S)
+    assert found is not None
+    return json.loads(found.group(1))
+
+
+def tooltip_scatter(n: int = THRESHOLD + 1) -> PlotSpec:
+    """A colored scatter whose points show their name and group."""
+    return (
+        gg.ggplot(dense_frame(n), gg.aes("x", "y", color="g"))
+        + gg.geom_point(tooltips=gg.layer_tooltips().line("@name").line("@g"))
+        + gg.ggsize(500, 400)
+    )
+
+
+def test_canvas_point_targets_refer_to_their_batch() -> None:
+    html = tooltip_scatter().to_html()
+    (layer,) = tooltip_payload(html)["layers"]
+    targets = layer["targets"]
+    assert targets["kind"] == "points"
+    assert targets["canvas"] == 0
+    assert "x" not in targets and "y" not in targets
+    assert len(targets["rows"]) == len(targets["radius"]) == canvas_payload(html)[0]["count"]
+
+
+def test_targets_stay_inline_unless_exactly_a_canvas_batch() -> None:
+    # SVG points: no batch to refer to.
+    (layer,) = tooltip_payload(tooltip_scatter(THRESHOLD).to_html())["layers"]
+    assert "canvas" not in layer["targets"] and len(layer["targets"]["x"]) == THRESHOLD
+    # Zero-size markers are not drawn (so not on the canvas) but stay hover
+    # targets: the batch is not the same points.
+    data = dense_frame(THRESHOLD + 11).with_columns(
+        size=pl.when(pl.int_range(pl.len()) < 10).then(0.0).otherwise(2.0)
+    )
+    plot = (
+        gg.ggplot(data, gg.aes("x", "y", size="size"))
+        + gg.geom_point(tooltips=gg.layer_tooltips().line("@name"))
+        + gg.scale_size_identity()
+    )
+    html = plot.to_html()
+    (batch,) = canvas_payload(html)
+    (layer,) = tooltip_payload(html)["layers"]
+    assert batch["count"] == THRESHOLD + 1
+    assert len(layer["targets"]["x"]) == THRESHOLD + 11
+    assert "canvas" not in layer["targets"]
+
+
+def test_facet_targets_refer_to_their_own_batches() -> None:
+    plot = tooltip_scatter(4 * THRESHOLD) + gg.facet_wrap("g")
+    html = plot.to_html()
+    layers = tooltip_payload(html)["layers"]
+    batches = canvas_payload(html)
+    assert sorted(layer["targets"]["canvas"] for layer in layers) == [0, 1, 2]
+    for layer in layers:
+        assert len(layer["targets"]["rows"]) == batches[layer["targets"]["canvas"]]["count"]
+
+
+def inline_targets(html: str) -> str:
+    """``html`` with canvas references replaced by x/y arrays, as written before
+    the reference existed (positions rounded to 0.01 px)."""
+    import base64
+
+    payload = tooltip_payload(html)
+    batches = canvas_payload(html)
+    for layer in payload["layers"]:
+        targets = layer["targets"]
+        number = targets.pop("canvas", None)
+        if number is None:
+            continue
+        xy = np.frombuffer(base64.b64decode(batches[number]["xy"]), dtype="<f4")
+        targets["x"] = [round(float(value), 2) for value in xy[0::2]]
+        targets["y"] = [round(float(value), 2) for value in xy[1::2]]
+    text = json.dumps(payload).replace("<", "\\u003c").replace(">", "\\u003e")
+    text = text.replace("&", "\\u0026")
+    return re.sub(
+        r'(class="ggrust-tooltips">).*?(</script>)',
+        lambda match: match.group(1) + text + match.group(2),
+        html,
+        count=1,
+        flags=re.S,
+    )
+
+
+LOOKUP_GRID = """() => {
+  const plot = document.querySelector('.ggrust-plot').ggrust;
+  const results = [];
+  for (let x = 0; x <= plot.width; x += 4) {
+    for (let y = 0; y <= plot.height; y += 4) {
+      const found = window.ggrust.lookup(plot, x, y);
+      results.push(found ? found.hits.map(h => [h.row, h.x, h.y]) : null);
+    }
+  }
+  return results;
+}"""
+
+
+def zoom_in(page) -> None:
+    """Three wheel steps at the panel centre, waiting for the redraw."""
+    page.locator(".ggrust-toolbar button").first.click()
+    box = page.locator(".ggrust-plot > svg").bounding_box()
+    page.mouse.move(box["x"] + 250, box["y"] + 200)
+    for _ in range(3):
+        page.mouse.wheel(0, -100)
+    page.mouse.move(0, 0)
+    page.wait_for_function(
+        """() => {
+          const tile = document.querySelector('.ggrust-plot').ggrust.zoom.plots[0].tiles[0];
+          return !tile.dirty && tile.views.h[0] !== tile.spec.horizontal.domain[0];
+        }"""
+    )
+
+
+def hover_text(page, x: float, y: float) -> str:
+    """The plot's text with the cursor at scene pixel ``x``, ``y``."""
+    box = page.locator(".ggrust-plot > svg").bounding_box()
+    page.mouse.move(box["x"] + x, box["y"] + y)
+    page.wait_for_function("document.querySelector('.ggrust-plot').innerText.includes('dense')")
+    text = page.locator(".ggrust-plot").inner_text()
+    page.mouse.move(0, 0)
+    return text
+
+
+@pytest.mark.parametrize("action", ["none", "zoom", "hidden key"])
+def test_canvas_targets_answer_as_inline_targets(page, tmp_path: Path, action: str) -> None:
+    """Every cursor position finds the same rows as with x/y arrays in the payload."""
+    plot = tooltip_scatter(ZOOM_THRESHOLD + 1 if action == "zoom" else THRESHOLD + 1)
+    html = (plot + gg.ggtb() if action == "zoom" else plot).to_html()
+    assert '"canvas":0' in html
+    answers = []
+    for version in (html, inline_targets(html)):
+        load(page, version, tmp_path)
+        if action == "zoom":
+            zoom_in(page)
+        if action == "hidden key":
+            page.locator("g.legend-key").nth(1).click()
+        grid = page.evaluate(LOOKUP_GRID)
+        # The cursor over the first answering grid position (columns of 101).
+        first = next(index for index, found in enumerate(grid) if found)
+        answers.append((grid, hover_text(page, 4 * (first // 101), 4 * (first % 101))))
+        assert page.errors == []
+    (grid, text), (inline_grid, inline_text) = answers
+    assert sum(found is not None for found in grid) > 500
+    assert grid == inline_grid
+    assert text == inline_text

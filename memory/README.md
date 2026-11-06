@@ -36,7 +36,7 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [HTML output: explicit ids, inlined runtime](html_renderer.md): per-display id prefix (not the content hash), runtime is a function expression without trailing `;`, `vertical-align:top` on the root.
 - [Tooltips follow lets-plot](letsplot_tooltips.md): how to measure real lets-plot hovers, default-line rules, 100-break position format, unadjusted values, HTML-only tooltip columns.
 - [Zoom/pan follows lets-plot via coord limits](html_zoom.md): JS breaks ported from Rust and tested against it, SVG templates stamped at new breaks, anchored marks, `g.tile` order, toolbar svg trap.
-- [Canvas points: placeholder + quarter-pixel sprites](html_canvas_points.md): dense batches as foreignObject canvas in HTML, Rust marker parts, sprites at quarter pixels, cull before quantizing.
+- [Canvas points: placeholder + quarter-pixel sprites](html_canvas_points.md): dense batches as foreignObject canvas in HTML, Rust marker parts, sprites at quarter pixels, cull before quantizing, tooltip targets refer to the batch xy.
 - [Interactive legend](html_interactive_legend.md): rows keyed by resolved style; draw once and tag marks via a probe draw with key-coded colors (never draw per key subset).
 - [Repel follows lets-plot's force layout](letsplot_repel.md): exact LabelForceLayout port (1e-6 with lets-plot widths), font widths cause the visible differences, nudge moves labels not segment starts.
 - [geom_imshow and export sizes follow lets-plot](letsplot_imshow_and_export.md): fast Rust-encoded imshow href (pixels, not bytes, match) kept encoded in SVG, L* grey mapper, style label format/lablim, measured scale/dpi/unit rules, raster PDF (replaced by vector in lp5.13).

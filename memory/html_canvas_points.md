@@ -48,3 +48,17 @@ over the whole scene; its markers travel as base64 Float32 xy + a style table
   canvas payload is ~11-14 B per point. Trade-off kept: without JavaScript
   (static notebook viewers such as GitHub) these mid-sized layers are now
   missing too, not only the >50k ones. SVG and PNG output are unchanged.
+
+- **Tooltip targets refer to their canvas batch** (2026-11-06, HTML size). Point
+  targets that are exactly a batch's markers (same count, order and Float32
+  centres: `canvas::Batch::same_points`, a content check in `html::canvas_targets`)
+  are written `{"kind":"points","canvas":n,"radius":..,"rows":..}`; the runtime
+  (`canvasTargets`) rebuilds x/y from the decoded `xy`, **rounded to 0.01 px** like
+  inline targets: with Float32 centres, 4 of 2,833 cursor positions picked the
+  other point of a near-tie. Plain arrays, not Float32Array (zoom maps them).
+  Anything else keeps x/y inline: SVG points, markers culled from the canvas
+  (zero/NaN size, past the clip margin), other geoms. Matching by content means
+  facets, grids and several batches need no bookkeeping. Radii stay inline (the
+  canvas has sizes per style, not hover radii). 17k-point UMAP, 12 colors, id
+  tooltip: 1,485,803 -> 1,255,956 B. Test: `test_canvas_targets_answer_as_inline_targets`
+  compares `ggrust.lookup` on a grid against the same page with inline arrays.

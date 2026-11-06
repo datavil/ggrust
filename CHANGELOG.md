@@ -2,7 +2,7 @@
 
 All notable changes to ggrust. Each version is also a [GitHub Release](https://github.com/datavil/ggrust/releases).
 
-## [Unreleased]
+## [0.6.2] - 2026-11-06
 
 ### Fixed
 

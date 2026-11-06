@@ -2,6 +2,12 @@
 
 All notable changes to ggrust. Each version is also a [GitHub Release](https://github.com/datavil/ggrust/releases).
 
+## [Unreleased]
+
+### Fixed
+
+- Interactive legend: clicking a key on a dense (canvas) point layer no longer blocks the page. The key dims at once and the canvas is redrawn once on the next frame; a double-click redraws one to two times instead of three.
+
 ## [0.6.1] - 2026-11-06
 
 ### Added

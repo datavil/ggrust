@@ -660,6 +660,7 @@
   // pixel -> pixel), with marker geometry scaled by `k`.
   function drawCanvas(layer, h, v, k) {
     layer.view = [h, v, k];
+    layer.drawnHiddenKeys = layer.hiddenKeys;
     var context = layer.canvas.getContext("2d");
     var ratio = layer.ratio, xy = layer.xy, style = layer.style;
     var markerKey = layer.key, hiddenKeys = layer.hiddenKeys;
@@ -1851,10 +1852,33 @@
         return (ids || []).some(function (id) { return hidden[id]; });
       });
       layer.hiddenKeys = flags.some(Boolean) ? flags : null;
-      var view = layer.view;
-      if (view) drawCanvas(layer, view[0], view[1], view[2]);
+      scheduleKeyedDraw(layer);
     });
     if (plot.overlay) show(plot, null);
+  }
+
+  // A canvas redraw costs a stamp per marker (about 150 ms for 200k), so a
+  // legend click does not draw at once: the key's new opacity paints first,
+  // then the canvas is drawn once for every click of that frame (the two
+  // clicks and the dblclick of a double-click), and not at all when the
+  // hidden keys end as last drawn (the zoom may have drawn them meanwhile).
+  function scheduleKeyedDraw(layer) {
+    if (layer.keyedDrawPending) return;
+    layer.keyedDrawPending = true;
+    requestAnimationFrame(function () {
+      setTimeout(function () {
+        layer.keyedDrawPending = false;
+        var view = layer.view;
+        if (view && !sameFlags(layer.drawnHiddenKeys, layer.hiddenKeys)) drawCanvas(layer, view[0], view[1], view[2]);
+      }, 0);
+    });
+  }
+
+  function sameFlags(a, b) {
+    if (!a || !b) return !a && !b;
+    if (a.length !== b.length) return false;
+    for (var i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
+    return true;
   }
 
   function attachLegend(plot) {

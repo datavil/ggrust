@@ -212,10 +212,49 @@ def test_dense_canvas_points_hide_by_key(page, tmp_path: Path) -> None:
     }"""
     before = page.evaluate(painted)
     page.locator("g.legend-key").first.click()
+    page.wait_for_function(f"({painted})() < {before}")
     hidden = page.evaluate(painted)
     assert 0 < hidden < before
     page.locator("g.legend-key").first.click()
-    assert page.evaluate(painted) == before
+    page.wait_for_function(f"({painted})() === {before}")
+    assert page.errors == []
+
+
+def test_canvas_redraws_are_deferred_and_coalesced(page, tmp_path: Path) -> None:
+    """A click leaves the canvas to the next frame; a double-click draws at most twice."""
+    data = frame(60_000)
+    plot = gg.ggplot(data, gg.aes("x", "y", color="kind")) + gg.geom_point()
+    load(page, plot.to_html(), tmp_path)
+    page.evaluate("""() => {
+      const context = document.querySelector('foreignObject.ggrust-canvas canvas').getContext('2d');
+      window.draws = 0;
+      const clear = context.clearRect.bind(context);
+      context.clearRect = (...args) => { window.draws++; return clear(...args); };
+    }""")
+    key = page.locator("g.legend-key").first
+    # The click handler returns before the canvas is drawn.
+    assert (
+        page.evaluate("""() => {
+      const key = document.querySelector('g.legend-key');
+      key.dispatchEvent(new MouseEvent('click', {bubbles: true}));
+      return window.draws;
+    }""")
+        == 0
+    )
+    page.wait_for_function("window.draws === 1")
+    # Toggling back and forth within one frame draws nothing.
+    page.evaluate("""() => {
+      const key = document.querySelector('g.legend-key');
+      key.dispatchEvent(new MouseEvent('click', {bubbles: true}));
+      key.dispatchEvent(new MouseEvent('click', {bubbles: true}));
+    }""")
+    page.wait_for_timeout(200)
+    assert page.evaluate("window.draws") == 1
+    key.click()  # show all again
+    page.wait_for_function("window.draws === 2")
+    key.dblclick()  # click, click, dblclick: the first click and the isolation
+    page.wait_for_timeout(300)
+    assert page.evaluate("window.draws") <= 4
     assert page.errors == []
 
 

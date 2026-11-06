@@ -21,3 +21,8 @@ ua.9 (2026-11-05). HTML only; static output never sees the tags.
 - Zoom: `collectMarks` must recurse into `g.keyed` like `g.layer`, or texts stretch.
 - Clicks: the JS adds a `fill=none pointer-events=all` rect over the key's bbox; a
   double-click comes after two clicks (net no change), then isolates.
+- Canvas redraws are deferred (`scheduleKeyedDraw`: rAF + setTimeout, coalesced, skipped
+  when `drawnHiddenKeys` already match). A redraw is one `drawImage` per marker (~150 ms
+  for 200k); drawing synchronously on click blocked the page, and a double-click drew 3x.
+  CPU-backed canvases and ImageBitmap sprites were measured: no faster. Tests must wait
+  for the draw (`wait_for_function`), not read pixels right after the click.

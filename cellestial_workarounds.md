@@ -46,3 +46,4 @@ options, not part of the switch:
 | Raincloud plots: half violins, `stat_halfeye`, intervals | ex1.6 `a469251` | A distribution plot style |
 | `gghighlight` | ex2.5 `0dd73e0` | Highlight one cluster or condition, grey out the rest |
 | Secondary axes: `sec_axis`, `dup_axis` | exc.4 `5ee84c5` | Dual units on QC plots |
+| `+` defers unknown operands: `PlotSpec.__add__`, `FeatureSpec.__add__` and `SupPlotsSpec.__add__` return `NotImplemented`, so a plain object's `__radd__(plot)` runs | 10.2 | `layers/_deferred.py`: `DeferredLayer` subclasses `PlotSpec` and skips its `__init__` only so Python tries its `__radd__` before `PlotSpec.__add__` raises | A plain class with `__radd__(self, plot)`; drop the `PlotSpec` base and the skipped `__init__` (the subclass form keeps working) |

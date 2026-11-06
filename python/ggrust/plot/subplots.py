@@ -8,6 +8,7 @@ with identical ``as_dict()`` output and ``+`` semantics. The engine lays grids o
 from __future__ import annotations
 
 import copy
+from types import NotImplementedType
 from typing import TYPE_CHECKING, TypeAlias, cast
 
 from ggrust.errors import PlotIndexError, SpecError, did_you_mean
@@ -424,12 +425,21 @@ class SupPlotsSpec(FeatureSpec):
         return index % count
 
     def __add__(self, other: object) -> SupPlotsSpec:
+        """Return a new figure with ``other`` added, or ``NotImplemented`` for other operands.
+
+        Figure-level features (``ggsize``, ``theme``, titles, tags, insets) are added;
+        anything else is left to its own ``__radd__``, and Python raises ``TypeError``
+        when that side does not handle the figure either.
+        """
         if isinstance(other, DummySpec):
             return self
         if isinstance(other, FeatureSpecArray):
             supplots = SupPlotsSpec.duplicate(self)
             for element in other.elements():
-                supplots = supplots.__add__(element)
+                added = supplots.__add__(element)
+                if isinstance(added, NotImplementedType):
+                    return NotImplemented
+                supplots = added
             return supplots
         if isinstance(other, FeatureSpec) and other.kind in [
             "ggsize",
@@ -460,8 +470,7 @@ class SupPlotsSpec(FeatureSpec):
             supplots = SupPlotsSpec.duplicate(self)
             supplots.props()["insets"] = [*supplots.props().get("insets", []), other]
             return supplots
-        message = f"unsupported operand type(s) for +: {self.__class__} and {other.__class__}"
-        raise TypeError(message)
+        return NotImplemented
 
     def as_dict(self) -> dict[str, Any]:
         """Return the figure as a lets_plot-compatible dictionary.

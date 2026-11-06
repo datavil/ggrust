@@ -4,6 +4,10 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ## [Unreleased]
 
+### Changed
+
+- `PlotSpec`, `FeatureSpec` and `SupPlotsSpec` `+` returns `NotImplemented` for operands it does not handle, so another object's `__radd__(plot)` runs: a plain class can extend `+` without subclassing `PlotSpec`. Unhandled operands still raise `TypeError` (Python's standard message). lets_plot raises in `__add__` itself.
+
 ### Added
 
 - Side band panel theme elements, as R ggside's `ggside.panel.*`: `theme(ggside_panel_border=, ggside_panel_background=)` and their `ggside_xside_panel_*` / `ggside_yside_panel_*` forms, falling back to the main `panel_border` / `panel_background`. `ggside_panel_border=element_blank()` drops the side bands' frames and keeps the main panel's.

@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import copy
 from collections.abc import Iterable, Iterator
+from types import NotImplementedType
 from typing import TYPE_CHECKING, Any, cast
 
 if TYPE_CHECKING:
@@ -192,6 +193,10 @@ class FeatureSpec:
         return json.dumps(self.as_dict(), indent=2, default=repr)
 
     def __add__(self, other: object) -> FeatureSpec:
+        """Return ``self + other``, or ``NotImplemented`` so ``other.__radd__`` runs.
+
+        Python raises ``TypeError`` when neither side handles the operands.
+        """
         if isinstance(other, DummySpec):
             return self
         if (
@@ -200,8 +205,7 @@ class FeatureSpec:
             and other.kind not in ["plot", "subplots"]
         ):
             return FeatureSpecArray(self, other)
-        message = f"unsupported operand type(s) for +: {self.__class__} and {other.__class__}"
-        raise TypeError(message)
+        return NotImplemented
 
 
 class PlotSpec(FeatureSpec):
@@ -525,6 +529,12 @@ class PlotSpec(FeatureSpec):
         return bool(self.__layers)
 
     def __add__(self, other: object) -> PlotSpec:
+        """Return a new plot with ``other`` added, or ``NotImplemented`` for other operands.
+
+        Any object that is not a ``FeatureSpec`` is left to its own ``__radd__(plot)``,
+        so third-party layers can extend ``+``. Python raises ``TypeError`` when that
+        side does not handle the plot either.
+        """
         if isinstance(other, DummySpec):
             return self
         # lets_plot: plot + plot is not rejected; it is stored under "plot".
@@ -574,7 +584,10 @@ class PlotSpec(FeatureSpec):
                 return plot
             if isinstance(other, FeatureSpecArray):
                 for element in other.elements():
-                    plot = plot.__add__(element)
+                    added = plot.__add__(element)
+                    if isinstance(added, NotImplementedType):
+                        return NotImplemented
+                    plot = added
                 return plot
             if other.kind == "guides":
                 existing = plot.props().get("guides", {})
@@ -588,8 +601,7 @@ class PlotSpec(FeatureSpec):
                 return plot
             plot.props()[other.kind] = other
             return plot
-        message = f"unsupported operand type(s) for +: {self.__class__} and {other.__class__}"
-        raise TypeError(message)
+        return NotImplemented
 
     def __highlighted(self, highlight: FeatureSpec) -> PlotSpec:
         """Return this plot (already a copy) rewritten by ``+ gghighlight()``."""

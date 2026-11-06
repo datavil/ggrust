@@ -132,12 +132,89 @@ def test_plus_semantics():
     assert (plot + plot).props()["plot"] is plot
     with pytest.raises(TypeError):
         _ = gg.geom_point() + plot
-    # cellestial's deferred layers rely on TypeError for unknown right operands.
-    with pytest.raises(TypeError):
+    # Unknown right operands still raise TypeError (Python's, after NotImplemented).
+    with pytest.raises(TypeError, match="unsupported operand type"):
         _ = plot + object()
     # Adding returns a copy: the original plot is unchanged.
     _ = plot + gg.geom_point()
     assert not plot.has_layers()
+
+
+class _RightAdder:
+    """A plain (non-FeatureSpec) object extending ``+`` through ``__radd__``."""
+
+    def __init__(self) -> None:
+        self.received: list[object] = []
+
+    def __radd__(self, left: object) -> str:
+        self.received.append(left)
+        return "handled"
+
+
+def test_plus_unknown_operand_defers_to_radd():
+    plot = gg.ggplot(FRAME, gg.aes("x", "y")) + gg.geom_point()
+    grid = gg.gggrid([plot, plot])
+    layer = gg.geom_point()
+    labels = gg.labs(x="a", y="b")  # a FeatureSpecArray
+    for left in (plot, grid, layer, labels, gg.ggsize(1, 1)):
+        adder = _RightAdder()
+        assert left + adder == "handled"
+        assert adder.received == [left]
+    # The plot passed to __radd__ is the original, unchanged.
+    assert len(plot.layers) == 1
+
+
+def test_plus_plotspec_subclass_radd_still_runs():
+    # cellestial's DeferredLayer today: a PlotSpec subclass that skips __init__.
+    class Deferred(PlotSpec):
+        def __init__(self) -> None:
+            pass
+
+        def __radd__(self, left: object) -> str:
+            return "deferred"
+
+    plot = gg.ggplot(FRAME, gg.aes("x", "y"))
+    assert plot + Deferred() == "deferred"
+
+
+@pytest.mark.parametrize(
+    "build",
+    [
+        lambda plot: plot + object(),
+        lambda plot: plot + 1,
+        lambda plot: plot + None,
+        lambda plot: gg.gggrid([plot]) + object(),
+        lambda plot: gg.gggrid([plot]) + gg.geom_point(),
+        lambda plot: gg.gggrid([plot]) + (gg.ggsize(1, 1) + gg.geom_point()),
+        lambda plot: gg.geom_point() + object(),
+        lambda plot: gg.geom_point() + plot,
+        lambda plot: gg.labs(x="a", y="b") + plot,
+    ],
+)
+def test_plus_unhandled_operand_raises_type_error(build):
+    plot = gg.ggplot(FRAME, gg.aes("x", "y"))
+    with pytest.raises(TypeError, match="unsupported operand type"):
+        build(plot)
+
+
+def test_plus_supported_combinations_unchanged_against_lets_plot():
+    def build(module):
+        plot = (
+            module.ggplot(FRAME, module.aes("x", "y"))
+            + (module.geom_point() + module.ggsize(300, 200))
+            + module.labs(x="a", y="b")
+            + module.theme_bw()
+            + module.theme(legend_position="bottom")
+            + module.scale_x_log10()
+        )
+        grid = module.gggrid([plot, plot]) + (module.ggsize(400, 300) + module.ggtitle("t"))
+        return plot.as_dict(), grid.as_dict()
+
+    ours_plot, ours_grid = build(gg)
+    theirs_plot, theirs_grid = build(lp)
+    assert without_data(ours_plot) == without_data(theirs_plot)
+    assert without_data(ours_grid)["ggsize"] == without_data(theirs_grid)["ggsize"]
+    assert without_data(ours_grid)["ggtitle"] == without_data(theirs_grid)["ggtitle"]
 
 
 def test_layer_plus_own_feature_replaces_it():

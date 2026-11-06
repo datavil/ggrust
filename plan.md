@@ -441,13 +441,17 @@ extension, bug-hunter pass, `make check`, commit + push. Already available and b
   whether to also port ggside's `ggside.xside.panel.*` / `ggside.yside.panel.*` variants (R has them,
   unlike the axis ones); default plan: yes, they are cheap and follow the same fallback chain
   (`xside` -> `ggside` -> main). Tests: theme units, a golden (dotplot + blank band border), SVG check.
-- [ ] 10.2 **`PlotSpec.__add__` returns `NotImplemented` for unknown operands** (tiny).
+- [x] 10.2 **`PlotSpec.__add__` returns `NotImplemented` for unknown operands** (tiny).
   `python/ggrust/plot/core.py` (`PlotSpec.__add__`, raise at the end) and the other `__add__`s
   (`FeatureSpec`, `SupPlotsSpec`) for consistency, so a foreign object's `__radd__` runs; Python still
   raises `TypeError` when nobody handles it, so the error type is unchanged (check the message stays
   helpful, tests assert on type). cellestial's `DeferredLayer` can then stop subclassing `PlotSpec`.
   Ask the user whether a `ggplot_add`-style hook (`__ggrust_add__(plot) -> PlotSpec`) is also wanted;
   default plan: no, `__radd__` is the Python-native hook. Test: a plain class with `__radd__`.
+  Done: `FeatureSpec`, `PlotSpec`, `SupPlotsSpec` `__add__` return `NotImplemented` (return hints
+  unchanged: typeshed's `NotImplemented` fits any return type, and a `| NotImplementedType` union
+  leaked into every `plot + layer` for type checkers); array operands return it whole. No
+  `__ggrust_add__` hook (open question for the user). `deviations.md` row (lets_plot raises).
 - [ ] 10.3 **Nested (bracket) axis guide** (most valuable; replaces 9.11; ~300 cellestial lines).
   legendry's `guide_axis_nested(key=, type="bracket"|"box"|"fence", ...)`: group labels with a bracket
   spanning a run of discrete breaks, on any side, on side-band axes too, under `coord_flip`, facets

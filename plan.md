@@ -421,6 +421,70 @@ removes a cellestial workaround: add a row to [cellestial_workarounds.md](celles
   `scale_*side*_*(side_pos=, side_band=)`; `memory/side_panels.md`, `tests/test_ggside_bands.py`.)
 - [ ] 9.11 (lower priority) Bracket + multi-line text beside groups of rows or columns on a discrete
   axis (GO terms in Fig. 3b). cellestial draws a `group_labels` option with segments and text for now.
+  (Folded into 10.3: the nested axis guide covers it; multi-line text = labels with `\n`.)
+
+### Phase 10: cellestial Phase 5 requests (2026-11-06)
+
+From cellestial PR datavil/cellestial#76 (branches `claude/zamboni-fig3-d1c0fe`, `claude/ggrust-phase5-f50370`).
+One step per session, in this order (blockers and small wins first). Each step: agree any open API
+question with the user before coding, add a [cellestial_workarounds.md](cellestial_workarounds.md) row
+when it lands, a [deviations.md](deviations.md) row for every difference from lets-plot/ggplot2/R
+extension, bug-hunter pass, `make check`, commit + push. Already available and being adopted (no work):
+`guide_axis_mark`, `side_pos`, `scale_size_area` + `size_unit`, `gggrid(design=)`, `register_font`.
+
+- [ ] 10.1 **Side-band panel border and background** (blocks cellestial Phase 5; small).
+  `theme(ggside_panel_border=, ggside_panel_background=)`, falling back to `panel_border` /
+  `panel_background`, as R ggside's `ggside.panel.border` / `ggside.panel.background`. Today every
+  band draws the main `panel_border` (`layout/side_panel.rs` `draw_band_axis`) and the main
+  `panel_background` (same file, the band grid function), so a bracket band on a dotplot gets its own frame. Follow the 9.8 pattern
+  (`ggside_axis_*` in `theme/mod.rs` + Python `theme()` + `element_blank()` works). Decide with the user
+  whether to also port ggside's `ggside.xside.panel.*` / `ggside.yside.panel.*` variants (R has them,
+  unlike the axis ones); default plan: yes, they are cheap and follow the same fallback chain
+  (`xside` -> `ggside` -> main). Tests: theme units, a golden (dotplot + blank band border), SVG check.
+- [ ] 10.2 **`PlotSpec.__add__` returns `NotImplemented` for unknown operands** (tiny).
+  `python/ggrust/plot/core.py` (`PlotSpec.__add__`, raise at the end) and the other `__add__`s
+  (`FeatureSpec`, `SupPlotsSpec`) for consistency, so a foreign object's `__radd__` runs; Python still
+  raises `TypeError` when nobody handles it, so the error type is unchanged (check the message stays
+  helpful, tests assert on type). cellestial's `DeferredLayer` can then stop subclassing `PlotSpec`.
+  Ask the user whether a `ggplot_add`-style hook (`__ggrust_add__(plot) -> PlotSpec`) is also wanted;
+  default plan: no, `__radd__` is the Python-native hook. Test: a plain class with `__radd__`.
+- [ ] 10.3 **Nested (bracket) axis guide** (most valuable; replaces 9.11; ~300 cellestial lines).
+  legendry's `guide_axis_nested(key=, type="bracket"|"box"|"fence", ...)`: group labels with a bracket
+  spanning a run of discrete breaks, on any side, on side-band axes too, under `coord_flip`, facets
+  and `gggrid(align=True)`. Theme-styled text and line (legendry: `legendry.bracket`,
+  `legendry.guide_spacing`; map to ggrust names with the user). API to agree first: how groups are
+  given (legendry `key_range_manual(start, end, name)` / `key_range_auto(sep=)` from `group.level`
+  labels, or a mapping `{group: [levels]}`), bracket shapes in scope (start with `bracket`, then
+  `box`/`fence` if cheap), nesting depth (one level first). Build on `layout/axis_mark.rs` (a guide
+  riding on the axis label arrangement, measure = draw, `memory/axis_marks.md`) and
+  `axis_side_nodes`. Zoom: brackets follow the breaks or hide; decide and record. Also tick off the
+  ggh4x note in `extensions.md` ex2.4. Tests: Python API + errors, goldens per side and on a side band.
+- [ ] 10.4 **Collected axes in `gggrid`** (patchwork 1.2). `gggrid(axes="keep"|"collect"|"collect_x"|
+  "collect_y", axis_titles=same)`: inner cells in a row/column with identical axes drop their axis
+  (ticks, labels) and duplicated titles, patchwork's rules (collect only where the axis is shared and
+  equal; titles collect to the outer edge, one per run). Check patchwork's exact equality rule and how
+  it interacts with `sharex/sharey`, `align`, `design=` spans and nested grids; record the semantics in
+  `memory/letsplot_grids.md` or a new memory file. Lives in `layout/grid.rs` (two-phase layout,
+  `memory/patchwork_extras.md`). lets-plot has none: deviation row (follows patchwork).
+  cellestial removes `_share_axis` / `_share_labels` / `_share_ticks`.
+- [ ] 10.5 **Dendrogram leaves that span a range of levels.** In `scale_*_dendro` / `guide_axis_dendro`
+  (and the band form), map each leaf to a run of discrete levels (a group of cells), with the leaf
+  drawn at the run's centre and the run kept contiguous in the level order. API to agree first, e.g.
+  `ClusterTree.from_linkage(Z, labels)` + `scale_x_dendro(tree, leaf_levels={leaf: [levels]})` or a
+  `groups=` column mapping level -> leaf label. Code: `python/ggrust/plot/dendrogram.py`,
+  `layout/dendrogram.rs` (`memory/dendrograms.md`). legendry has no equivalent: deviation row.
+  cellestial removes the hand-drawn `geom_path` trees in per-cell heatmap / annotated_heatmap.
+- [ ] 10.6 (lower priority, one session each, ask the user which first)
+  - 10.6a `geom_density2d(contour_var="density"|"ndensity"|"count", breaks=[...])`, as ggplot2
+    (lets-plot has no `contour_var`: deviation row). `stat/density2d.rs` + `stat/contour.rs`
+    `LevelOptions`. Lets cellestial drop scipy KDE + skimage marching squares.
+  - 10.6b `stat_centroid` / `stat_summary_xy(fun="median"|"mean")` for text/label geoms (ggpp names),
+    labels at cluster centres instead of a legend. A new `stat/centroid.rs` (one file + one registry line).
+    Consider `direct_label()` sugar later.
+  - 10.6c `geom_streamline` (metR) for RNA velocity streams: streamlines integrated in Rust over a
+    gridded vector field (`dx`, `dy`), arrow heads via `geom::Arrow`. Largest of the three; design with
+    the user (metR's parameters: `L`, `res`, `n`, `jitter`, `arrow`). Alternative: `arrow(ends="mid")`
+    on paths only.
 
 ## Performance strategy (honest)
 

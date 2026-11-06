@@ -11,6 +11,10 @@
 //! have the same geometry), and `style` one index per marker (`u16`, or `u32`
 //! past 65536 styles; absent with a single style). Markers are kept in data
 //! order. Static SVG and PNG never use this.
+//!
+//! Tooltip point targets that are exactly a batch's markers (same count, order
+//! and Float32 centres, see [`Batch::same_points`]) are written as a reference
+//! to the batch, and the runtime reads their x and y from its `xy`.
 
 use std::collections::HashMap;
 
@@ -53,8 +57,45 @@ fn drawable<'a>(points: &'a Points, clip_box: &'a ClipBox) -> impl Iterator<Item
     })
 }
 
+/// A dense batch: its payload, and the drawn centres it encodes (to find the
+/// hover targets that are the same points, see [`Batch::same_points`]).
+pub(super) struct Batch {
+    /// The canvas payload (see the module docs).
+    pub(super) payload: Value,
+    /// The `xy` of the payload before base64: little-endian Float32 pairs.
+    xy: Vec<u8>,
+}
+
+impl serde::Serialize for Batch {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.payload.serialize(serializer)
+    }
+}
+
+impl Batch {
+    /// Whether the markers of this batch are exactly the points `x`, `y`: same
+    /// count, same order and the same Float32 centres. Hover targets that pass
+    /// can take their positions from the canvas payload instead of carrying a
+    /// second copy (tooltip payload, `canvas` reference).
+    pub(super) fn same_points(&self, x: &[f64], y: &[f64]) -> bool {
+        x.len() == y.len()
+            && self.xy.len() == x.len() * 8
+            && self
+                .xy
+                .chunks_exact(8)
+                .zip(x.iter().zip(y))
+                .all(|(pair, (&x, &y))| {
+                    let (drawn_x, drawn_y) = (
+                        f32::from_le_bytes([pair[0], pair[1], pair[2], pair[3]]),
+                        f32::from_le_bytes([pair[4], pair[5], pair[6], pair[7]]),
+                    );
+                    drawn_x == x as f32 && drawn_y == y as f32
+                })
+    }
+}
+
 /// The canvas payload of a dense batch (see the module docs).
-pub(super) fn encode(points: &Points, clip_box: &ClipBox) -> Value {
+pub(super) fn encode(points: &Points, clip_box: &ClipBox) -> Batch {
     let uniform = matches!(
         (
             &points.shape,
@@ -131,7 +172,7 @@ pub(super) fn encode(points: &Points, clip_box: &ClipBox) -> Value {
             .map(|tag| serde_json::from_str(tag).unwrap_or(Value::Null))
             .collect();
     }
-    batch
+    Batch { payload: batch, xy }
 }
 
 fn style_key(points: &Points, index: usize) -> StyleKey {
@@ -248,7 +289,7 @@ mod tests {
     fn uniform_batch_has_one_style_and_no_index() {
         let clip = ClipBox::for_scene(1000.0, 1000.0);
         let points = batch(3, PerItem::Uniform(Some(Color::rgba(255, 0, 0, 128))));
-        let value = encode(&points, &clip);
+        let value = encode(&points, &clip).payload;
         assert_eq!(value["count"], 3);
         assert!(value.get("style").is_none());
         assert_eq!(
@@ -271,7 +312,7 @@ mod tests {
         let blue = Some(Color::rgb(0, 0, 255));
         let mut points = batch(4, PerItem::Varying(vec![red, blue, red, None]));
         points.y[3] = f64::INFINITY; // skipped, as in the SVG
-        let value = encode(&points, &clip);
+        let value = encode(&points, &clip).payload;
         assert_eq!(value["count"], 3);
         assert_eq!(value["style_type"], "u16");
         assert_eq!(value["styles"].as_array().unwrap().len(), 2);

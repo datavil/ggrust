@@ -10,7 +10,6 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
 
 use rayon::prelude::*;
-use serde_json::Value;
 
 use super::{canvas, webfont};
 
@@ -78,7 +77,7 @@ pub(super) fn to_svg_with_canvas(
     scene: &Scene,
     options: &SvgOptions,
     output: String,
-) -> (String, Vec<Value>) {
+) -> (String, Vec<canvas::Batch>) {
     write_svg(
         scene,
         options,
@@ -96,7 +95,7 @@ fn write_svg(
     options: &SvgOptions,
     canvas: Option<CanvasBatches>,
     output: String,
-) -> (String, Vec<Value>) {
+) -> (String, Vec<canvas::Batch>) {
     let mut writer = SvgWriter {
         output,
         id_prefix: match &options.id_prefix {
@@ -188,7 +187,7 @@ type WebFonts = BTreeMap<String, (FaceRef, BTreeSet<String>)>;
 struct CanvasBatches {
     width: f64,
     height: f64,
-    batches: Vec<Value>,
+    batches: Vec<canvas::Batch>,
 }
 
 impl SvgWriter {

@@ -209,7 +209,7 @@ pub struct Interaction {
 }
 
 /// One layer in one panel.
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct LayerInteraction {
     /// The panel, `[x, y, width, height]` in scene pixels: axis tooltips sit on
     /// its edges, anchored tooltips in its corners.
@@ -222,22 +222,111 @@ pub struct LayerInteraction {
     /// The targets.
     pub targets: HoverTargets,
     /// Text per layer row.
-    #[serde(flatten)]
     pub content: LayerContent,
     /// `layer_tooltips().anchor(...)`, e.g. `top_right`.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub anchor: Option<String>,
     /// `layer_tooltips().min_width(...)` in pixels.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub min_width: Option<f64>,
     /// Legend keys of the layer rows (interactive legend): rows of a hidden key
     /// do not answer the cursor.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub keys: Option<crate::interactive_legend::RowKeys>,
     /// A side panel layer: the screen axis it shares with its panel (`"x"`
     /// horizontal, `"y"` vertical), the only one its targets move along on zoom.
-    #[serde(skip_serializing_if = "Option::is_none")]
     pub side: Option<&'static str>,
+}
+
+/// The JSON fields of a [`LayerInteraction`], with its targets as `T` (inline,
+/// or a reference to a canvas batch).
+#[derive(Serialize)]
+struct LayerFields<'a, T> {
+    panel: &'a [f64; 4],
+    layer: usize,
+    lookup: Lookup,
+    targets: T,
+    #[serde(flatten)]
+    content: &'a LayerContent,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    anchor: Option<&'a String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    min_width: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    keys: Option<&'a crate::interactive_legend::RowKeys>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    side: Option<&'static str>,
+}
+
+/// Point targets whose centres are the markers of canvas batch `canvas` (same
+/// count and order): the runtime reads x and y from that batch's `xy`.
+#[derive(Serialize)]
+struct CanvasPoints<'a> {
+    kind: &'static str,
+    canvas: usize,
+    #[serde(serialize_with = "rounded")]
+    radius: &'a [f64],
+    rows: &'a [u32],
+}
+
+impl LayerInteraction {
+    fn fields<T>(&self, targets: T) -> LayerFields<'_, T> {
+        LayerFields {
+            panel: &self.panel,
+            layer: self.layer,
+            lookup: self.lookup,
+            targets,
+            content: &self.content,
+            anchor: self.anchor.as_ref(),
+            min_width: self.min_width,
+            keys: self.keys.as_ref(),
+            side: self.side,
+        }
+    }
+}
+
+impl Serialize for LayerInteraction {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.fields(&self.targets).serialize(serializer)
+    }
+}
+
+/// An [`Interaction`] whose point targets that are exactly a canvas batch's
+/// markers refer to that batch instead of repeating x and y (HTML size: the
+/// positions are already in the canvas payload). `canvas[i]` is the batch of
+/// layer `i`, or `None` to keep the targets inline.
+pub struct WithCanvasTargets<'a> {
+    /// The tooltips.
+    pub interaction: &'a Interaction,
+    /// Per layer, the canvas batch holding its point positions.
+    pub canvas: &'a [Option<usize>],
+}
+
+impl Serialize for WithCanvasTargets<'_> {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        use serde::ser::SerializeStruct;
+        struct Layers<'a>(&'a WithCanvasTargets<'a>);
+        impl Serialize for Layers<'_> {
+            fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+                use serde::ser::SerializeSeq;
+                let layers = &self.0.interaction.layers;
+                let mut sequence = serializer.serialize_seq(Some(layers.len()))?;
+                for (index, layer) in layers.iter().enumerate() {
+                    match (&layer.targets, self.0.canvas.get(index).copied().flatten()) {
+                        (HoverTargets::Points { radius, rows, .. }, Some(canvas)) => sequence
+                            .serialize_element(&layer.fields(CanvasPoints {
+                                kind: "points",
+                                canvas,
+                                radius,
+                                rows,
+                            }))?,
+                        _ => sequence.serialize_element(layer)?,
+                    }
+                }
+                sequence.end()
+            }
+        }
+        let mut state = serializer.serialize_struct("Interaction", 1)?;
+        state.serialize_field("layers", &Layers(self))?;
+        state.end()
+    }
 }
 
 impl LayerInteraction {

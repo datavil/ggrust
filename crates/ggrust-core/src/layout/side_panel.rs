@@ -40,7 +40,7 @@ pub struct BandRequest<'a> {
     pub side: Side,
     /// Thickness rule.
     pub size: BandSize,
-    /// Gap between the panel and the band (px).
+    /// Gap between the panel (or the next band inward) and the band (px).
     pub spacing: f64,
     /// The band's own scale, across it (screen terms).
     pub cross: &'a PositionScale,
@@ -55,10 +55,13 @@ pub struct BandRequest<'a> {
 pub struct BandLayout {
     /// The screen side.
     pub side: Side,
-    /// Gap between the panel and the band (px).
+    /// Gap between the panel (or the next band inward) and the band (px).
     pub gap: f64,
     /// Thickness across the shared axis (px).
     pub thickness: f64,
+    /// Extent of the bands between it and the panel on its side (px, 0 for the
+    /// innermost band): bands on one side stack outward.
+    pub offset: f64,
     /// ggside look (see [`BandRequest::decorated`]).
     pub decorated: bool,
     /// Breaks of the band's own axis (decorated bands with an axis).
@@ -237,10 +240,15 @@ pub(super) fn layout_bands(
     theme: &Theme,
     (width_limit, height_limit): (f64, f64),
 ) -> Vec<BandLayout> {
+    // Bands on one side stack outward in request order.
+    let mut offsets = [0.0_f64; 4];
     requests
         .iter()
         .zip(thicknesses)
         .map(|(request, thickness)| {
+            let slot = &mut offsets[request.side as usize];
+            let offset = *slot;
+            *slot += request.spacing + thickness;
             let vertical_axis = request.side.is_horizontal();
             let axis_side = band_axis_side(request, cross_sides);
             let breaks = axis_side.map(|side| {
@@ -326,6 +334,7 @@ pub(super) fn layout_bands(
                 side: request.side,
                 gap: request.spacing,
                 thickness: *thickness,
+                offset,
                 decorated: request.decorated,
                 breaks,
                 axis_side,
@@ -363,13 +372,19 @@ pub(super) fn horizontal_axis_height(
         .reduce(f64::max)
 }
 
+/// Total extent (gaps and thicknesses) of the `bands` on `side`.
+pub(super) fn side_extent(bands: &[BandLayout], side: Side) -> f64 {
+    bands
+        .iter()
+        .filter(|band| band.side == side)
+        .map(BandLayout::extent)
+        .sum()
+}
+
 impl PlotLayout {
-    /// How far the band on `side` pushes that side's axis out (0 without one).
+    /// How far the bands on `side` push that side's axis out (0 without one).
     pub fn band_extent(&self, side: Side) -> f64 {
-        self.bands
-            .iter()
-            .find(|band| band.side == side)
-            .map_or(0.0, BandLayout::extent)
+        side_extent(&self.bands, side)
     }
 
     /// The rectangle of `band`, beside the panel.
@@ -377,22 +392,22 @@ impl PlotLayout {
         let panel = self.panel;
         match band.side {
             Side::Top => Rect {
-                y: panel.y - band.gap - band.thickness,
+                y: panel.y - band.offset - band.gap - band.thickness,
                 height: band.thickness,
                 ..panel
             },
             Side::Bottom => Rect {
-                y: panel.y + panel.height + band.gap,
+                y: panel.y + panel.height + band.offset + band.gap,
                 height: band.thickness,
                 ..panel
             },
             Side::Left => Rect {
-                x: panel.x - band.gap - band.thickness,
+                x: panel.x - band.offset - band.gap - band.thickness,
                 width: band.thickness,
                 ..panel
             },
             Side::Right => Rect {
-                x: panel.x + panel.width + band.gap,
+                x: panel.x + panel.width + band.offset + band.gap,
                 width: band.thickness,
                 ..panel
             },
@@ -691,6 +706,69 @@ mod tests {
         assert!(layout.axis_bands.bottom >= needed - 1e-9);
         // The top band's own axis widens the y axis band to its widest label.
         assert!(layout.axis_bands.left >= vertical_axis_width(&layout.bands, Side::Left, &theme));
+    }
+
+    #[test]
+    fn bands_on_one_side_stack_outward_and_both_sides_take_bands() {
+        let mut main = ContinuousPositionScale::default();
+        main.train_range(0.0, 10.0);
+        let main = PositionScale::Continuous(main);
+        let tracks = discrete(&["module"]);
+        let band = |side, share| BandRequest {
+            side,
+            size: BandSize::OfPanel(share),
+            spacing: 3.0,
+            cross: &tracks,
+            decorated: true,
+        };
+        let theme = Theme::default();
+        let area = Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 800.0,
+            height: 600.0,
+        };
+        let layout_with = |requests: &[BandRequest]| {
+            super::super::layout_plot(
+                area,
+                &theme,
+                &super::super::Titles::default(),
+                &main,
+                &main,
+                crate::layout::Margins::uniform(0.0),
+                None,
+                super::super::PANEL_MIN_SIZE,
+                requests,
+            )
+        };
+        let layout = layout_with(&[
+            band(Side::Left, 0.1),
+            band(Side::Left, 0.2),
+            band(Side::Right, 0.1),
+        ]);
+        let [inner, outer, right] = &layout.bands[..] else {
+            panic!("three bands, got {:?}", layout.bands);
+        };
+        let panel = layout.panel;
+        let (inner_rect, outer_rect, right_rect) = (
+            layout.band_rect(inner),
+            layout.band_rect(outer),
+            layout.band_rect(right),
+        );
+        // Thickness is each band's share of the panel width.
+        assert!((inner.thickness - 0.1 * panel.width).abs() < 1e-9);
+        assert!((outer.thickness - 0.2 * panel.width).abs() < 1e-9);
+        // Inner band 3 px left of the panel, the outer one 3 px left of it.
+        assert!((inner_rect.x + inner_rect.width + 3.0 - panel.x).abs() < 1e-9);
+        assert!((outer_rect.x + outer_rect.width + 3.0 - inner_rect.x).abs() < 1e-9);
+        assert!((right_rect.x - 3.0 - (panel.x + panel.width)).abs() < 1e-9);
+        // The left axis sits past both bands.
+        let extent = layout.band_extent(Side::Left);
+        assert!((extent - (inner.extent() + outer.extent())).abs() < 1e-9);
+        assert!((outer_rect.x - (panel.x - extent)).abs() < 1e-9);
+        // One band: offset 0, same rectangle as before stacking existed.
+        let single = layout_with(&[band(Side::Left, 0.1)]);
+        assert_eq!(single.bands[0].offset, 0.0);
     }
 
     #[test]

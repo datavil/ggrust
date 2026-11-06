@@ -1038,8 +1038,17 @@ impl PreparedPlot {
         layout: &'l PlotLayout,
         band: usize,
     ) -> Option<&'l crate::layout::side_panel::BandLayout> {
+        // Bands on one side are laid out in band order: count the earlier ones.
         let side = self.bands.get(band)?.setup.screen_side(self.flipped);
-        layout.bands.iter().find(|laid| laid.side == side)
+        let before = self.bands[..band]
+            .iter()
+            .filter(|other| other.setup.screen_side(self.flipped) == side)
+            .count();
+        layout
+            .bands
+            .iter()
+            .filter(|laid| laid.side == side)
+            .nth(before)
     }
 
     /// The data aesthetic drawn along a screen axis (`horizontal`: x), swapped

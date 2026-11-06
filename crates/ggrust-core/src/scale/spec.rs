@@ -25,6 +25,63 @@ pub struct PositionScales {
     pub xside_y: AxisScaleSpec,
     /// The y side panel's own x axis (ggside `scale_ysidex_*()`).
     pub yside_x: AxisScaleSpec,
+    /// Side band scales that name their band (`side_pos=`, `side_band=`), one per
+    /// distinct target, merged key by key. They replace `xside_y` / `yside_x` for
+    /// the bands they target.
+    pub targeted: Vec<TargetedSideScale>,
+}
+
+/// The side bands a `scale_xsidey_*()` / `scale_ysidex_*()` call with `side_pos=`
+/// or `side_band=` sets: every band on its axis matching each key it gives.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct SideTarget {
+    /// An x side band scale (`scale_xsidey_*()`), else a y one.
+    pub shares_x: bool,
+    /// `side_pos=`: the far side (top, right) or not; `None`: either side.
+    pub far: Option<bool>,
+    /// `side_band=`: the band's name; `None`: any band.
+    pub name: Option<String>,
+}
+
+impl SideTarget {
+    /// Whether it targets the band on axis `shares_x`, side `far`, named `name`.
+    pub fn matches(&self, shares_x: bool, far: bool, name: Option<&str>) -> bool {
+        self.shares_x == shares_x
+            && self.far.is_none_or(|own| own == far)
+            && self.name.as_deref().is_none_or(|own| Some(own) == name)
+    }
+
+    /// How specific it is: both keys, then a name, then a side.
+    fn rank(&self) -> u8 {
+        u8::from(self.name.is_some()) * 2 + u8::from(self.far.is_some())
+    }
+}
+
+/// The merged options of the scale calls with one [`SideTarget`].
+#[derive(Debug, Clone)]
+pub struct TargetedSideScale {
+    /// The bands it sets.
+    pub target: SideTarget,
+    /// The merged options.
+    pub spec: AxisScaleSpec,
+}
+
+impl PositionScales {
+    /// The options of the most specific targeted scale of the band on axis
+    /// `shares_x`, side `far`, named `name` (`None`: no targeted scale; the band
+    /// takes `xside_y` / `yside_x`).
+    pub fn side_spec(
+        &self,
+        shares_x: bool,
+        far: bool,
+        name: Option<&str>,
+    ) -> Option<&AxisScaleSpec> {
+        self.targeted
+            .iter()
+            .filter(|scale| scale.target.matches(shares_x, far, name))
+            .max_by_key(|scale| scale.target.rank())
+            .map(|scale| &scale.spec)
+    }
 }
 
 /// One merged option with the path of the call that set it.
@@ -447,18 +504,34 @@ impl AxisScaleSpec {
 /// Read the x and y scale options; options not built yet are reported in `warnings`.
 pub fn position_scales(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<PositionScales> {
     let mut merged: [AxisScaleSpec; 4] = Default::default();
+    let mut targeted: Vec<TargetedSideScale> = Vec::new();
     for (index, scale) in spec.scales.iter().enumerate() {
         let path = format!("scales[{index}]");
         let side = side_of_scale(scale, &path)?;
+        let side_target = side_target(scale, side, &path)?;
         for aesthetic in scale.aesthetic.as_slice() {
-            let target = match (aesthetic, side) {
-                (Aesthetic::X, None) => &mut merged[0],
-                (Aesthetic::Y, None) => &mut merged[1],
-                (Aesthetic::Y, Some(true)) => &mut merged[2],
-                (Aesthetic::X, Some(false)) => &mut merged[3],
+            let target = match (aesthetic, side, &side_target) {
+                (Aesthetic::X, None, _) => &mut merged[0],
+                (Aesthetic::Y, None, _) => &mut merged[1],
+                (Aesthetic::Y, Some(true), Some(wanted))
+                | (Aesthetic::X, Some(false), Some(wanted)) => {
+                    let at = match targeted.iter().position(|scale| scale.target == *wanted) {
+                        Some(at) => at,
+                        None => {
+                            targeted.push(TargetedSideScale {
+                                target: wanted.clone(),
+                                spec: AxisScaleSpec::default(),
+                            });
+                            targeted.len() - 1
+                        }
+                    };
+                    &mut targeted[at].spec
+                }
+                (Aesthetic::Y, Some(true), None) => &mut merged[2],
+                (Aesthetic::X, Some(false), None) => &mut merged[3],
                 // Style scales: see `style::spec`.
-                (other, _) if super::style::default_mapper(*other).is_some() => continue,
-                (Aesthetic::X | Aesthetic::Y, Some(shares_x)) => {
+                (other, _, _) if super::style::default_mapper(*other).is_some() => continue,
+                (Aesthetic::X | Aesthetic::Y, Some(shares_x), _) => {
                     let (panel, other) = if shares_x { ("x", "y") } else { ("y", "x") };
                     return Err(Error::spec(
                         format!("{path}.aesthetic"),
@@ -468,7 +541,7 @@ pub fn position_scales(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<Po
                         ),
                     ));
                 }
-                (other, _) => {
+                (other, _, _) => {
                     warnings.push(format!(
                         "at '{path}': scales for '{other}' are not supported yet; ignored"
                     ));
@@ -507,7 +580,69 @@ pub fn position_scales(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<Po
         y,
         xside_y,
         yside_x,
+        targeted,
     })
+}
+
+/// The bands a side scale names with `side_pos=` / `side_band=` (`None`: all
+/// bands on its axis without a targeted scale, or not a side scale).
+fn side_target(scale: &ScaleSpec, side: Option<bool>, path: &str) -> Result<Option<SideTarget>> {
+    let given = |value: &Option<Value>| value.clone().filter(|value| !value.is_null());
+    let (position, band) = (given(&scale.side_pos), given(&scale.side_band));
+    let Some(shares_x) = side else {
+        if let Some(key) = [("side_pos", &position), ("side_band", &band)]
+            .into_iter()
+            .find_map(|(key, value)| value.is_some().then_some(key))
+        {
+            return Err(Error::spec(
+                format!("{path}.{key}"),
+                format!("only side band scales (scale_xsidey_*(), scale_ysidex_*()) take {key}"),
+            ));
+        }
+        return Ok(None);
+    };
+    if position.is_none() && band.is_none() {
+        return Ok(None);
+    }
+    let accepted: [&str; 2] = if shares_x {
+        ["top", "bottom"]
+    } else {
+        ["left", "right"]
+    };
+    let far = match &position {
+        None => None,
+        Some(value) => {
+            let text = value.as_str().unwrap_or_default();
+            if !accepted.contains(&text) {
+                let panel = if shares_x { "xsidey" } else { "ysidex" };
+                return Err(Error::spec(
+                    format!("{path}.side_pos"),
+                    format!(
+                        "a scale_{panel}_*() band goes '{}' or '{}', got {value}{}",
+                        accepted[0],
+                        accepted[1],
+                        crate::suggest::did_you_mean(text, accepted.iter().copied())
+                    ),
+                ));
+            }
+            Some(text == "top" || text == "right")
+        }
+    };
+    let name = match &band {
+        None => None,
+        Some(Value::String(text)) if !text.is_empty() => Some(text.clone()),
+        Some(value) => {
+            return Err(Error::spec(
+                format!("{path}.side_band"),
+                format!("expected the band's name as a non-empty string, got {value}"),
+            ));
+        }
+    };
+    Ok(Some(SideTarget {
+        shares_x,
+        far,
+        name,
+    }))
 }
 
 /// The side panel a scale belongs to (`"ggside"`: `Some(true)` the x side panel,
@@ -768,6 +903,57 @@ mod tests {
 
     fn plot_with(scale: &str) -> String {
         format!(r#"{{"kind": "plot", "scales": [{scale}]}}"#)
+    }
+
+    #[test]
+    fn side_scales_target_bands_by_side_and_name() {
+        let json = plot_with(
+            r#"{"aesthetic": "x", "ggside": "y", "expand": [0, 1]},
+               {"aesthetic": "x", "ggside": "y", "side_pos": "left", "expand": [0, 2]},
+               {"aesthetic": "x", "ggside": "y", "side_band": "score", "expand": [0, 3]},
+               {"aesthetic": "x", "ggside": "y", "side_pos": "left", "side_band": "score",
+                "expand": [0, 4]},
+               {"aesthetic": "x", "ggside": "y", "side_pos": "left", "name": "later"}"#,
+        );
+        let (scales, warnings) = scales(&json).unwrap();
+        assert!(warnings.is_empty(), "{warnings:?}");
+        assert_eq!(scales.targeted.len(), 3);
+        let expand = |spec: &AxisScaleSpec| spec.expand.as_ref().map(|(value, _)| value[1]);
+        assert_eq!(expand(&scales.yside_x), Some(1.0));
+        // Same target merges key by key.
+        let left = scales.side_spec(false, false, None).unwrap();
+        assert_eq!(
+            (expand(left), left.name.as_deref()),
+            (Some(2.0), Some("later"))
+        );
+        assert_eq!(
+            expand(scales.side_spec(false, false, Some("score")).unwrap()),
+            Some(4.0)
+        );
+        assert_eq!(
+            expand(scales.side_spec(false, true, Some("score")).unwrap()),
+            Some(3.0)
+        );
+        // A right band without a name, or an x side band: no targeted scale.
+        assert!(scales.side_spec(false, true, None).is_none());
+        assert!(scales.side_spec(true, true, None).is_none());
+    }
+
+    #[test]
+    fn side_scale_targets_are_checked() {
+        let error = |scale: &str| scales(&plot_with(scale)).err().unwrap().to_string();
+        let message = error(r#"{"aesthetic": "y", "ggside": "x", "side_pos": "left"}"#);
+        assert!(
+            message.contains("scales[0].side_pos") && message.contains("'top'"),
+            "{message}"
+        );
+        let message = error(r#"{"aesthetic": "x", "side_band": "a"}"#);
+        assert!(
+            message.contains("scales[0].side_band") && message.contains("scale_xsidey_*()"),
+            "{message}"
+        );
+        let message = error(r#"{"aesthetic": "x", "ggside": "y", "side_band": 3}"#);
+        assert!(message.contains("non-empty string"), "{message}");
     }
 
     #[test]

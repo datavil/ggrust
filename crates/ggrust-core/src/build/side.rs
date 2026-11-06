@@ -20,14 +20,17 @@ use crate::theme::Theme;
 use crate::{Error, Result};
 
 /// A band and what its layers ask of it (before its scale is built).
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(super) struct BandSetup {
     pub key: BandKey,
     /// ggside if any of its layers is a ggside layer, else marginal.
     pub style: BandStyle,
-    /// Marginal bands: the largest `margin_size` of its layers (lets-plot default
-    /// 0.1).
-    pub size: f64,
+    /// The largest size its layers of that style give: `side_size` (share of the
+    /// panel) for a ggside band, `margin_size` for a marginal one; `None`: the
+    /// default (`ggside_panel_scale_*`, lets-plot's 0.1).
+    pub size: Option<f64>,
+    /// The `side_band` name of its layers (`None`: the side's unnamed band).
+    pub name: Option<String>,
 }
 
 /// A prepared band: its setup and its own trained scale (data terms: the y scale
@@ -39,47 +42,73 @@ pub(super) struct SideBand {
 }
 
 /// The bands of a plot (sorted by key) and each layer's band index.
+///
+/// Layers on the same side with the same `side_band` name (or none) share a band.
+/// The bands on one side get their slot, from the panel outward, in the order of
+/// their first layer.
 pub(super) fn band_setups(sides: &[Option<LayerSide>]) -> (Vec<BandSetup>, Vec<Option<usize>>) {
     let mut setups: Vec<BandSetup> = Vec::new();
+    let same = |setup: &BandSetup, side: &LayerSide| {
+        setup.key.shares_x == side.band.shares_x
+            && setup.key.far == side.band.far
+            && setup.name == side.name
+    };
     for side in sides.iter().flatten() {
-        match setups.iter_mut().find(|setup| setup.key == side.band) {
+        match setups.iter_mut().find(|setup| same(setup, side)) {
             Some(setup) => {
                 if side.style == BandStyle::Ggside {
                     setup.style = BandStyle::Ggside;
                 }
-                if let Some(size) = side.size {
-                    setup.size = if setup.size_given() {
-                        setup.size.max(size)
-                    } else {
-                        size
-                    };
-                }
             }
-            None => setups.push(BandSetup {
-                key: side.band,
-                style: side.style,
-                size: side.size.unwrap_or(-DEFAULT_MARGIN_SIZE),
-            }),
+            None => {
+                let slot = setups
+                    .iter()
+                    .filter(|setup| {
+                        setup.key.shares_x == side.band.shares_x && setup.key.far == side.band.far
+                    })
+                    .count();
+                setups.push(BandSetup {
+                    key: BandKey { slot, ..side.band },
+                    style: side.style,
+                    size: None,
+                    name: side.name.clone(),
+                });
+            }
         }
     }
-    for setup in &mut setups {
-        setup.size = setup.size.abs();
+    // Sizes count only from layers of the band's final style (a margin's
+    // `margin_size` is not a ggside panel share).
+    for side in sides.iter().flatten() {
+        if let (Some(size), Some(setup)) =
+            (side.size, setups.iter_mut().find(|setup| same(setup, side)))
+            && side.style == setup.style
+        {
+            setup.size = Some(setup.size.map_or(size, |current| current.max(size)));
+        }
     }
-    setups.sort_by_key(|setup| setup.key);
-    let bands = sides
+    let bands: Vec<Option<usize>> = sides
         .iter()
-        .map(|side| side.and_then(|side| setups.iter().position(|setup| setup.key == side.band)))
+        .map(|side| {
+            side.as_ref()
+                .and_then(|side| setups.iter().position(|setup| same(setup, side)))
+        })
         .collect();
-    (setups, bands)
+    // Sort by key, keeping each layer's index pointing at its band.
+    let mut order: Vec<usize> = (0..setups.len()).collect();
+    order.sort_by_key(|index| setups[*index].key);
+    let mut new_index = vec![0; setups.len()];
+    for (new, old) in order.iter().enumerate() {
+        new_index[*old] = new;
+    }
+    let sorted = order.iter().map(|index| setups[*index].clone()).collect();
+    let bands = bands
+        .into_iter()
+        .map(|band| band.map(|band| new_index[band]))
+        .collect();
+    (sorted, bands)
 }
 
 impl BandSetup {
-    /// Whether a layer gave `margin_size` (a default size is stored negated until
-    /// [`band_setups`] ends).
-    fn size_given(&self) -> bool {
-        self.size >= 0.0
-    }
-
     /// The data aesthetic across the band (y for a band sharing x).
     pub fn cross_aesthetic(&self) -> Aesthetic {
         if self.key.shares_x {
@@ -102,7 +131,15 @@ impl BandSetup {
 
     /// The options of the band's own scale: `scale_xsidey_*()` / `scale_ysidex_*()`
     /// for a ggside band; a margin's grows away from the panel below and left.
+    /// A ggside band takes the most specific `scale_*side*_*(side_pos=, side_band=)`
+    /// that targets it (see [`PositionScales::side_spec`]).
     pub fn cross_spec(&self, scales: &PositionScales) -> AxisScaleSpec {
+        if self.style == BandStyle::Ggside
+            && let Some(spec) =
+                scales.side_spec(self.key.shares_x, self.key.far, self.name.as_deref())
+        {
+            return spec.clone();
+        }
         match (self.style, self.key.shares_x) {
             (BandStyle::Ggside, true) => scales.xside_y.clone(),
             (BandStyle::Ggside, false) => scales.yside_x.clone(),
@@ -205,11 +242,11 @@ pub(super) fn band_requests<'a>(
             let (size, spacing) = match band.setup.style {
                 BandStyle::Ggside => {
                     let (x_share, y_share) = theme.ggside_panel_scale;
-                    let share = if band.setup.key.shares_x {
+                    let share = band.setup.size.unwrap_or(if band.setup.key.shares_x {
                         x_share
                     } else {
                         y_share
-                    };
+                    });
                     let (horizontal_gap, vertical_gap) = theme.ggside_panel_spacing;
                     let spacing = if side.is_horizontal() {
                         vertical_gap
@@ -218,7 +255,10 @@ pub(super) fn band_requests<'a>(
                     };
                     (BandSize::OfPanel(share), spacing)
                 }
-                BandStyle::Marginal => (BandSize::OfTotal(band.setup.size), 0.0),
+                BandStyle::Marginal => (
+                    BandSize::OfTotal(band.setup.size.unwrap_or(DEFAULT_MARGIN_SIZE)),
+                    0.0,
+                ),
             };
             BandRequest {
                 side,
@@ -322,9 +362,21 @@ mod tests {
 
     fn side(shares_x: bool, far: bool, style: BandStyle, size: Option<f64>) -> Option<LayerSide> {
         Some(LayerSide {
-            band: BandKey { shares_x, far },
+            band: BandKey {
+                shares_x,
+                far,
+                slot: 0,
+            },
             style,
             size,
+            name: None,
+        })
+    }
+
+    fn named(shares_x: bool, far: bool, name: &str, size: Option<f64>) -> Option<LayerSide> {
+        side(shares_x, far, BandStyle::Ggside, size).map(|side| LayerSide {
+            name: Some(name.to_owned()),
+            ..side
         })
     }
 
@@ -341,8 +393,58 @@ mod tests {
         assert_eq!(setups.len(), 2);
         assert_eq!(bands, vec![None, Some(1), Some(0), Some(1), Some(0)]);
         assert_eq!(setups[0].style, BandStyle::Marginal);
-        assert!((setups[0].size - 0.2).abs() < 1e-12);
-        assert!((setups[1].size - DEFAULT_MARGIN_SIZE).abs() < 1e-12);
+        assert_eq!(setups[0].size, Some(0.2));
+        assert_eq!(setups[1].size, None);
+    }
+
+    #[test]
+    fn named_bands_stack_outward_in_plot_order() {
+        let sides = [
+            None,
+            named(false, false, "score", None),
+            side(false, true, BandStyle::Ggside, None),
+            side(false, false, BandStyle::Ggside, Some(0.05)),
+            named(false, false, "score", Some(0.2)),
+            named(false, false, "other", Some(0.1)),
+            named(false, false, "score", Some(0.3)),
+        ];
+        let (setups, bands) = band_setups(&sides);
+        // Left bands first (far = false), by slot; then the right band.
+        let summary: Vec<(bool, usize, Option<&str>, Option<f64>)> = setups
+            .iter()
+            .map(|setup| {
+                (
+                    setup.key.far,
+                    setup.key.slot,
+                    setup.name.as_deref(),
+                    setup.size,
+                )
+            })
+            .collect();
+        assert_eq!(
+            summary,
+            vec![
+                (false, 0, Some("score"), Some(0.3)),
+                (false, 1, None, Some(0.05)),
+                (false, 2, Some("other"), Some(0.1)),
+                (true, 0, None, None),
+            ]
+        );
+        assert_eq!(
+            bands,
+            vec![None, Some(0), Some(3), Some(1), Some(0), Some(2), Some(0)]
+        );
+    }
+
+    #[test]
+    fn a_margin_size_does_not_size_a_ggside_band() {
+        let sides = [
+            side(true, true, BandStyle::Marginal, Some(0.4)),
+            side(true, true, BandStyle::Ggside, None),
+        ];
+        let (setups, _) = band_setups(&sides);
+        assert_eq!(setups[0].style, BandStyle::Ggside);
+        assert_eq!(setups[0].size, None);
     }
 
     #[test]

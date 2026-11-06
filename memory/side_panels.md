@@ -27,7 +27,7 @@ Step ex2.2 (2026-11-05), design approved by the user.
 - **Tracks:** a side tile/raster without its own cross mapping gets a constant discrete
   column (label = its fill/color column) in `map_layer_into`, after dropping the
   inherited plot mapping on that axis.
-- **Layout:** `PlotLayout.bands` (one per screen side); `band_rect` derives from the panel,
+- **Layout:** `PlotLayout.bands` (any number per screen side, see 9.10 below); `band_rect` derives from the panel,
   so `fit_ratio` and `gggrid(align=True)` move bands along. `AxisEdge::of`, titles and
   legend origins add `band_extent(side)`. ggside size is a share of the panel, a margin's
   of panel + margins (`side_panel::split`). A top/bottom band's own axis widens the y axis
@@ -48,6 +48,17 @@ Step ex2.2 (2026-11-05), design approved by the user.
   `side_panel.rs` (measure and draw) goes through `band_axis_theme(theme, side)`, a theme copy
   with those swapped into the main axis fields, so a blank band label takes no room. New
   band axis code must use it too, never `theme.axis_text_*` directly.
+- **Several bands per axis (9.10, user's API):** a ggside layer's `side_pos` overrides
+  `ggside()`; `side_band` names a band. `BandKey.slot` (0 nearest the panel) is set in
+  `band_setups` from first appearance per (axis, side, name), after `layer_side` (which
+  leaves it 0), then setups are sorted by key and layer indices remapped. Size: `side_size`
+  counts only from layers of the band's final style (a `margin_size` is not a panel share).
+  Layout: bands of one side are requested and laid out in key order, so
+  `BandLayout.offset` (inner bands' extent, set in `layout_bands`) places them and
+  `band_extent` sums a side; `build.rs::band_layout` finds a band as the n-th laid band
+  on its screen side, never by side alone. Side scales: `PositionScales.targeted`
+  (`SideTarget`, most specific match replaces `xside_y`/`yside_x`). One-band output is
+  byte-identical (offset 0); keep it so.
 - **HTML zoom:** band layers live in `g.side-x` / `g.side-y` (screen axis shared), and the
   runtime's `treeGroups` treats them like axis dendrograms (inner group, one-axis
   matrix). Tooltip layers carry `side`; `moveTargets` moves them along that axis when the

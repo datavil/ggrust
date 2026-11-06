@@ -9,6 +9,16 @@ heatmap. ``ggside()`` moves the side panels, ``scale_xsidey_*()`` and
 ``scale_ysidex_*()`` set their own axes, and ``theme(ggside_panel_scale=...,
 ggside_panel_spacing=...)`` their size and gap.
 
+More than one band per axis (not in R ggside, which has one): every side layer takes
+``side_pos=`` (``"top"``/``"bottom"`` for ``geom_xside*()``, ``"left"``/``"right"`` for
+``geom_yside*()``) to override ``ggside()`` for that layer, ``side_band="name"`` to put it
+in a band of its own (layers with the same side and name share a band; the bands on one
+side stack outward from the panel in plot order, ``ggside_panel_spacing`` apart) and
+``side_size=`` for its band's thickness as a share of the panel (else
+``ggside_panel_scale_*``). ``scale_xsidey_*()`` and ``scale_ysidex_*()`` take the same
+``side_pos=`` / ``side_band=`` to set one band's own axis; without them they set every band
+on their axis that no such scale names.
+
 ``ggmarginal()`` is lets-plot's marginal plot: copies of a layer in margins of the
 panel, without axes, background or grid. Both draw on the same engine.
 
@@ -18,6 +28,8 @@ lets-plot's own keys (``marginal``, ``margin_side``, ``margin_size``).
 
 from __future__ import annotations
 
+import math
+import numbers
 from typing import TYPE_CHECKING, Any, Literal
 
 from ggrust.errors import SpecError, did_you_mean
@@ -114,10 +126,15 @@ def _side(
     FeatureSpec
         ``feature``, marked.
     """
+    _check_band_keys(f"geom_{axis}side{geom}", axis, given, size=True)
     other = "y" if axis == "x" else "x"
     for layer in _layers(feature):
         props = layer.props()
         props["ggside"] = axis
+        # Every layer of a layer list (boxplot + outliers) goes in the same band.
+        for key in ("side_pos", "side_band", "side_size"):
+            if given.get(key) is not None:
+                props[key] = given[key]
         if orientation and props.get("orientation") is None:
             props["orientation"] = "y"
         mapping = props.get("mapping")
@@ -125,6 +142,68 @@ def _side(
         if geom in ("boxplot", "violin") and own.get(other) is None and given.get(other) is None:
             props[other] = 0
     return feature
+
+
+_BAND_SIDES: dict[SideAxis, tuple[str, str]] = {"x": ("top", "bottom"), "y": ("left", "right")}
+
+
+def _check_band_keys(function: str, axis: SideAxis, given: dict[str, Any], *, size: bool) -> None:
+    """Check the ``side_pos=``, ``side_band=`` (and ``side_size=``) arguments of a side call.
+
+    Parameters
+    ----------
+    function : str
+        The call, for messages (``geom_ysidetile``).
+    axis : {"x", "y"}
+        The axis its band shares with the main panel.
+    given : dict
+        The keyword arguments the user gave.
+    size : bool
+        Whether the call takes ``side_size=`` (layers do, scales do not).
+
+    Raises
+    ------
+    SpecError
+        If a value is not accepted.
+    """
+    position = given.get("side_pos")
+    accepted = _BAND_SIDES[axis]
+    if position is not None and position not in accepted:
+        reason = (
+            f"expected '{accepted[0]}' or '{accepted[1]}'{did_you_mean(str(position), accepted)}"
+        )
+        raise SpecError(
+            f"{function}(side_pos={position!r}): {reason}", path="side_pos", reason=reason
+        )
+    band = given.get("side_band")
+    if band is not None and (not isinstance(band, str) or not band):
+        reason = (
+            "expected the band's name as a non-empty string (layers with the same name share "
+            "a band)"
+        )
+        raise SpecError(
+            f"{function}(side_band={band!r}): {reason}", path="side_band", reason=reason
+        )
+    if not size:
+        if given.get("side_size") is not None:
+            reason = "a scale sets no band size; give side_size= on the band's layers"
+            raise SpecError(f"{function}(side_size=...): {reason}", path="side_size", reason=reason)
+        return
+    thickness = given.get("side_size")
+    valid = (
+        isinstance(thickness, numbers.Real)
+        and not isinstance(thickness, bool)
+        and math.isfinite(thickness)
+        and thickness > 0
+    )
+    if thickness is not None and not valid:
+        reason = (
+            "expected the band's thickness as a positive share of the main panel (ggside's "
+            "default is 0.1)"
+        )
+        raise SpecError(
+            f"{function}(side_size={thickness!r}): {reason}", path="side_size", reason=reason
+        )
 
 
 def geom_xsidetile(mapping: FeatureSpec | None = None, **kwargs: Any) -> LayerSpec:
@@ -869,10 +948,44 @@ def geom_ysidetext(mapping: FeatureSpec | None = None, **kwargs: Any) -> LayerSp
     return _side(layer, "y", "text", kwargs, orientation=False)
 
 
-def _side_scale(scale: FeatureSpec, panel: SideAxis) -> FeatureSpec:
-    """Mark ``scale`` as the own scale of the ``panel`` side panel."""
-    scale.props()["ggside"] = panel
+def _side_scale(
+    scale: FeatureSpec, panel: SideAxis, function: str, given: dict[str, Any]
+) -> FeatureSpec:
+    """Mark ``scale`` as the own scale of the ``panel`` side panel.
+
+    Parameters
+    ----------
+    scale : FeatureSpec
+        The scale, built from ``given``.
+    panel : {"x", "y"}
+        The axis the side panel shares with the main panel.
+    function : str
+        The call, for messages.
+    given : dict
+        The keyword arguments the user gave (``side_pos=``, ``side_band=`` pick the band).
+
+    Returns
+    -------
+    FeatureSpec
+        ``scale``, marked.
+
+    Raises
+    ------
+    SpecError
+        If ``side_pos=`` or ``side_band=`` is not accepted.
+    """
+    _check_band_keys(function, panel, given, size=False)
+    props = scale.props()
+    props["ggside"] = panel
+    for key in ("side_pos", "side_band"):
+        if given.get(key) is not None:
+            props[key] = given[key]
     return scale
+
+
+def _band_keys(kwargs: dict[str, Any]) -> dict[str, Any]:
+    """Remove and return the band keys (``side_pos``, ``side_band``, ``side_size``)."""
+    return {key: kwargs.pop(key) for key in ("side_pos", "side_band", "side_size") if key in kwargs}
 
 
 def scale_xsidey_continuous(name: str | None = None, **kwargs: Any) -> FeatureSpec:
@@ -897,7 +1010,8 @@ def scale_xsidey_continuous(name: str | None = None, **kwargs: Any) -> FeatureSp
     >>> plot = ggplot(data, aes("x", "y")) + geom_point() + geom_xsidedensity()
     >>> plot = plot + scale_xsidey_continuous(breaks=[0.0, 0.2])
     """
-    return _side_scale(scale_y_continuous(name, **kwargs), "x")
+    band = _band_keys(kwargs)
+    return _side_scale(scale_y_continuous(name, **kwargs), "x", "scale_xsidey_continuous", band)
 
 
 def scale_xsidey_discrete(name: str | None = None, **kwargs: Any) -> FeatureSpec:
@@ -936,7 +1050,8 @@ def scale_xsidey_discrete(name: str | None = None, **kwargs: Any) -> FeatureSpec
     ...     + scale_xsidey_discrete(limits=["module", "cell_type"])
     ... )
     """
-    return _side_scale(scale_y_discrete(name, **kwargs), "x")
+    band = _band_keys(kwargs)
+    return _side_scale(scale_y_discrete(name, **kwargs), "x", "scale_xsidey_discrete", band)
 
 
 def scale_ysidex_continuous(name: str | None = None, **kwargs: Any) -> FeatureSpec:
@@ -964,7 +1079,8 @@ def scale_ysidex_continuous(name: str | None = None, **kwargs: Any) -> FeatureSp
     >>> plot = ggplot(data, aes("height", "weight")) + geom_point() + geom_ysidedensity()
     >>> plot = plot + scale_ysidex_continuous(breaks=[0.0, 0.04])
     """
-    return _side_scale(scale_x_continuous(name, **kwargs), "y")
+    band = _band_keys(kwargs)
+    return _side_scale(scale_x_continuous(name, **kwargs), "y", "scale_ysidex_continuous", band)
 
 
 def scale_ysidex_discrete(name: str | None = None, **kwargs: Any) -> FeatureSpec:
@@ -1001,7 +1117,8 @@ def scale_ysidex_discrete(name: str | None = None, **kwargs: Any) -> FeatureSpec
     ...     + scale_ysidex_discrete(expand=[0, 0])
     ... )
     """
-    return _side_scale(scale_x_discrete(name, **kwargs), "y")
+    band = _band_keys(kwargs)
+    return _side_scale(scale_x_discrete(name, **kwargs), "y", "scale_ysidex_discrete", band)
 
 
 _POSITIONS: dict[str, tuple[str, str]] = {"x_pos": ("top", "bottom"), "y_pos": ("right", "left")}

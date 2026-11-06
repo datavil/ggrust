@@ -24,6 +24,10 @@ pub struct BandKey {
     pub shares_x: bool,
     /// The far side: top for an x band, right for a y band (before `coord_flip`).
     pub far: bool,
+    /// Place among the bands on that side, from the panel outward (0 nearest).
+    /// Set by the builder from the layers' `side_band` names in plot order;
+    /// [`layer_side`] leaves it 0.
+    pub slot: usize,
 }
 
 /// How a band looks and trains.
@@ -38,15 +42,19 @@ pub enum BandStyle {
 }
 
 /// The side panel a layer draws in.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct LayerSide {
-    /// The band.
+    /// The band (`slot` still 0, see [`BandKey::slot`]).
     pub band: BandKey,
     /// ggside or marginal.
     pub style: BandStyle,
-    /// `margin_size`: the band's share of the plotting area along its axis
-    /// (marginal layers only; `None`: the default 0.1).
+    /// Marginal layers: `margin_size`, the band's share of the plotting area
+    /// (`None`: the default 0.1). ggside layers: `side_size`, a share of the main
+    /// panel (`None`: the theme's `ggside_panel_scale_*`).
     pub size: Option<f64>,
+    /// ggside layers: `side_band`, the name of the band on its side (`None`: the
+    /// side's unnamed band).
+    pub name: Option<String>,
 }
 
 /// The plot's `ggside(x_pos=, y_pos=)` options.
@@ -177,18 +185,22 @@ pub fn layer_side(
             "t" => BandKey {
                 shares_x: true,
                 far: true,
+                slot: 0,
             },
             "b" => BandKey {
                 shares_x: true,
                 far: false,
+                slot: 0,
             },
             "r" => BandKey {
                 shares_x: false,
                 far: true,
+                slot: 0,
             },
             "l" => BandKey {
                 shares_x: false,
                 far: false,
+                slot: 0,
             },
             _ => {
                 let got = layer
@@ -222,10 +234,20 @@ pub fn layer_side(
                 }
             }
         };
+        if let Some(key) = given_ggside_key(layer) {
+            return Err(Error::spec(
+                format!("{path}.{key}"),
+                format!(
+                    "only ggside layers (geom_xside*(), geom_yside*()) take {key}; a \
+                     ggmarginal() layer is placed by its margin_side and margin_size"
+                ),
+            ));
+        }
         return Ok(Some(LayerSide {
             band,
             style: BandStyle::Marginal,
             size,
+            name: None,
         }));
     }
     if let Some(key) = [
@@ -241,18 +263,101 @@ pub fn layer_side(
             "only marginal layers take a margin; build them with ggmarginal()",
         ));
     }
-    Ok(ggside.map(|shares_x| LayerSide {
-        band: BandKey {
-            shares_x,
-            far: if shares_x {
+    let Some(shares_x) = ggside else {
+        if let Some(key) = given_ggside_key(layer) {
+            return Err(Error::spec(
+                format!("{path}.{key}"),
+                format!(
+                    "only ggside layers (geom_xside*(), geom_yside*()) take {key}; this \
+                     layer draws in the main panel"
+                ),
+            ));
+        }
+        return Ok(None);
+    };
+    let accepted: [&str; 2] = if shares_x {
+        ["top", "bottom"]
+    } else {
+        ["left", "right"]
+    };
+    let far = match layer.side_pos.as_ref().filter(|value| !value.is_null()) {
+        None => {
+            if shares_x {
                 options.x_top
             } else {
                 options.y_right
-            },
+            }
+        }
+        Some(value) => {
+            let text = value.as_str().unwrap_or_default();
+            if !accepted.contains(&text) {
+                let panel = if shares_x { "x" } else { "y" };
+                return Err(Error::spec(
+                    format!("{path}.side_pos"),
+                    format!(
+                        "a geom_{panel}side*() layer's band goes '{}' or '{}', got {value}{}",
+                        accepted[0],
+                        accepted[1],
+                        did_you_mean(text, accepted.iter().copied())
+                    ),
+                ));
+            }
+            text == "top" || text == "right"
+        }
+    };
+    let name = match layer.side_band.as_ref().filter(|value| !value.is_null()) {
+        None => None,
+        Some(Value::String(text)) if !text.is_empty() => Some(text.clone()),
+        Some(value) => {
+            return Err(Error::spec(
+                format!("{path}.side_band"),
+                format!(
+                    "expected the band's name as a non-empty string (layers with the same \
+                     name share a band), got {value}"
+                ),
+            ));
+        }
+    };
+    let size = match layer.side_size.as_ref().filter(|value| !value.is_null()) {
+        None => None,
+        Some(value) => match value
+            .as_f64()
+            .filter(|size| size.is_finite() && *size > 0.0)
+        {
+            Some(size) => Some(size),
+            None => {
+                return Err(Error::spec(
+                    format!("{path}.side_size"),
+                    format!(
+                        "expected the band's thickness as a positive share of the main panel \
+                         (ggside's default is 0.1), got {value}"
+                    ),
+                ));
+            }
+        },
+    };
+    Ok(Some(LayerSide {
+        band: BandKey {
+            shares_x,
+            far,
+            slot: 0,
         },
         style: BandStyle::Ggside,
-        size: None,
+        size,
+        name,
     }))
+}
+
+/// The first ggside band key (`side_pos`, `side_band`, `side_size`) `layer` gives.
+fn given_ggside_key(layer: &LayerSpec) -> Option<&'static str> {
+    [
+        ("side_pos", &layer.side_pos),
+        ("side_band", &layer.side_band),
+        ("side_size", &layer.side_size),
+    ]
+    .into_iter()
+    .find(|(_, value)| value.as_ref().is_some_and(|value| !value.is_null()))
+    .map(|(key, _)| key)
 }
 
 #[cfg(test)]
@@ -284,7 +389,8 @@ mod tests {
             side.band,
             BandKey {
                 shares_x: true,
-                far: false
+                far: false,
+                slot: 0,
             }
         );
         assert_eq!(side.style, BandStyle::Ggside);
@@ -292,6 +398,53 @@ mod tests {
             .expect("valid")
             .expect("a side layer");
         assert!(!side.band.shares_x && side.band.far);
+    }
+
+    #[test]
+    fn side_pos_band_and_size_place_a_ggside_layer() {
+        let options = SideOptions::default();
+        let spec = layer(
+            json!({"ggside": "y", "side_pos": "left", "side_band": "score",
+                                "side_size": 0.25}),
+        );
+        let side = layer_side(&spec, "layers[0]", options)
+            .expect("valid")
+            .expect("a side layer");
+        assert!(!side.band.shares_x && !side.band.far);
+        assert_eq!(side.name.as_deref(), Some("score"));
+        assert_eq!(side.size, Some(0.25));
+        let side = layer_side(
+            &layer(json!({"ggside": "x", "side_pos": "bottom"})),
+            "layers[0]",
+            options,
+        )
+        .expect("valid")
+        .expect("a side layer");
+        assert!(side.band.shares_x && !side.band.far && side.name.is_none());
+    }
+
+    #[test]
+    fn band_keys_are_checked() {
+        let message = |extra: Value| {
+            layer_side(&layer(extra), "layers[2]", SideOptions::default())
+                .expect_err("invalid")
+                .to_string()
+        };
+        let error = message(json!({"ggside": "y", "side_pos": "top"}));
+        assert!(
+            error.contains("layers[2].side_pos") && error.contains("'left'"),
+            "{error}"
+        );
+        let error = message(json!({"ggside": "x", "side_pos": "botom"}));
+        assert!(error.contains("did you mean 'bottom'"), "{error}");
+        let error = message(json!({"ggside": "x", "side_band": ""}));
+        assert!(error.contains("layers[2].side_band"), "{error}");
+        let error = message(json!({"ggside": "x", "side_size": 0}));
+        assert!(error.contains("layers[2].side_size"), "{error}");
+        let error = message(json!({"side_pos": "left"}));
+        assert!(error.contains("main panel"), "{error}");
+        let error = message(json!({"marginal": true, "margin_side": "t", "side_band": "a"}));
+        assert!(error.contains("ggmarginal()"), "{error}");
     }
 
     #[test]

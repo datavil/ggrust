@@ -61,6 +61,13 @@ pub struct ScaleSpec {
     /// panel whose own (cross) axis this scale sets.
     #[serde(default)]
     pub ggside: Option<Value>,
+    /// ggside scale: the screen side of the band it sets (`side_pos=`); with
+    /// `side_band`, see [`crate::scale::spec::SideTarget`].
+    #[serde(default)]
+    pub side_pos: Option<Value>,
+    /// ggside scale: the name of the band it sets (`side_band=`).
+    #[serde(default)]
+    pub side_band: Option<Value>,
     /// Mapper-specific options. Validated by the scale implementation.
     #[serde(flatten)]
     pub parameters: Options,

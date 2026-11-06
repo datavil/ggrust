@@ -67,6 +67,18 @@ pub struct LayerSpec {
     /// axis the layer shares with the main panel (see [`super::side`]).
     #[serde(default)]
     pub ggside: Option<Value>,
+    /// ggside layer: the screen side of its band (`"top"`/`"bottom"` for an x side
+    /// layer, `"left"`/`"right"` for a y one), overriding `ggside(x_pos=, y_pos=)`.
+    #[serde(default)]
+    pub side_pos: Option<Value>,
+    /// ggside layer: the name of its band; layers with the same name (and side)
+    /// share a band, and bands on one side stack outward in plot order.
+    #[serde(default)]
+    pub side_band: Option<Value>,
+    /// ggside layer: its band's thickness as a share of the main panel
+    /// (overrides `ggside_panel_scale_*`; the largest of a band's layers wins).
+    #[serde(default)]
+    pub side_size: Option<Value>,
     /// lets-plot `ggmarginal()`: the layer draws in a margin of the panel.
     #[serde(default)]
     pub marginal: Option<Value>,

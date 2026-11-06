@@ -112,6 +112,11 @@ Justin Landis. They stay aligned with the main panel, also when you zoom.
 [`ggmarginal`](../reference/api/ggmarginal.md) is lets-plot's shortcut for the same
 idea.
 
+Unlike ggside, an axis can have more than one band: `side_pos="left"` (or `"right"`,
+`"top"`, `"bottom"`) puts a layer's band on that side, `side_band="name"` gives it a band
+of its own (bands on one side stack outward in plot order) and `side_size=0.2` sets its
+thickness. `scale_ysidex_discrete(side_pos="left", ...)` sets that band's own axis.
+
 ```python
 --8<-- "side_panels.py:code"
 ```

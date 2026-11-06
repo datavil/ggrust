@@ -209,6 +209,8 @@ fn with_limits(spec: &PlotSpec, aesthetic: Aesthetic, limits: &[String]) -> Plot
             scale_mapper_kind: None,
             scale_group: BTreeMap::new(),
             ggside: None,
+            side_pos: None,
+            side_band: None,
             parameters: Options::new(),
         }),
     }

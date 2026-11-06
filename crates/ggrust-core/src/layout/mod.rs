@@ -537,12 +537,7 @@ fn layout_with(
         theme,
         label_limit,
     );
-    let band_extent = |bands: &[side_panel::BandLayout], side: Side| {
-        bands
-            .iter()
-            .find(|band| band.side == side)
-            .map_or(0.0, side_panel::BandLayout::extent)
-    };
+    let band_extent = side_panel::side_extent;
     let top = top + band_extent(&laid_bands, Side::Top);
 
     let y_breaks = choose_breaks(

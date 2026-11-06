@@ -17,9 +17,9 @@ use super::{canvas, webfont};
 use crate::parallel;
 use crate::scene::geometry::{ClipBox, is_drawable_marker, is_drawable_stroke, is_drawable_width};
 use crate::scene::{
-    Bitmap, Color, Group, HorizontalAlign, Image, KEYED_ROLE, KeyedItems, LAYER_ROLE, MarkerPart,
-    Node, Orientation, Path, PerItem, Points, Rect, Rects, SUPERSCRIPT_RISE, SUPERSCRIPT_SCALE,
-    Scene, Stroke, Text, VerticalAlign,
+    Bitmap, Color, Group, HorizontalAlign, Image, KeyedItems, LAYER_ROLE, MarkerPart, Node,
+    Orientation, Path, PerItem, Points, Rect, Rects, SUPERSCRIPT_RISE, SUPERSCRIPT_SCALE, Scene,
+    Stroke, Text, VerticalAlign,
 };
 use crate::text::{CSS_FONT_FAMILY, FaceRef, FontFamily, loaded, measure, single_line};
 
@@ -343,6 +343,7 @@ impl SvgWriter {
             // Static output draws anchored content inline.
             if self.zoomable {
                 self.anchor_open(x, y);
+                self.raw(">");
             }
             self.nodes(&group.nodes);
             if self.zoomable {
@@ -384,13 +385,19 @@ impl SvgWriter {
         }
     }
 
-    /// `<g data-anchor="x y">`: the runtime moves the group with this point.
+    /// `<g data-anchor="x y"` (the tag left open for more attributes): the
+    /// runtime moves the group with this point.
     fn anchor_open(&mut self, x: f64, y: f64) {
         self.raw("<g data-anchor=\"");
         self.number(x);
         self.raw(" ");
         self.number(y);
-        self.raw("\">");
+        self.raw("\"");
+    }
+
+    /// ` data-k="<item>"`: a marker's key combination in its batch's `data-keys`.
+    fn key_index(&mut self, item: u8) {
+        let _ = write!(self.output, " data-k=\"{item}\"");
     }
 
     /// `<prefix>-clip<number>`; the prefix is sanitized, so no escaping is needed.
@@ -420,47 +427,30 @@ impl SvgWriter {
             self.raw("></foreignObject>\n");
             return;
         }
-        if let Some(keyed) = points.keys.as_ref().filter(|_| self.canvas.is_some()) {
-            // Interactive legend: runs of markers of one key, in drawing order.
-            self.keyed_points(points, keyed);
-            return;
-        }
-        self.svg_points(points);
+        // Interactive legend (HTML only): one batch, a key index per marker
+        // (see `svg_points`).
+        let keyed = points
+            .keys
+            .as_ref()
+            .filter(|keyed| self.canvas.is_some() && keyed.items.len() == points.len())
+            .filter(|keyed| keyed.combinations.iter().any(|tag| tag != "[]"));
+        self.svg_points(points, keyed);
     }
 
-    /// `points` as runs of one key combination, each in a `g.keyed`.
-    fn keyed_points(&mut self, points: &Points, keyed: &KeyedItems) {
-        let items = &keyed.items;
-        if items.len() != points.len() {
-            self.svg_points(points);
-            return;
-        }
-        let mut start = 0;
-        for end in 1..=items.len() {
-            if end < items.len() && items[end] == items[start] {
-                continue;
-            }
-            let run = points.slice(start..end);
-            match keyed.combinations.get(items[start] as usize) {
-                Some(tag) if tag != "[]" => {
-                    self.raw("<g");
-                    self.attribute("class", KEYED_ROLE);
-                    self.attribute("data-key", tag);
-                    self.raw(">\n");
-                    self.svg_points(&run);
-                    self.raw("</g>\n");
-                }
-                _ => self.svg_points(&run),
-            }
-            start = end;
-        }
-    }
-
-    /// `points` as SVG markers (not on a canvas).
-    fn svg_points(&mut self, points: &Points) {
+    /// `points` as SVG markers (not on a canvas). With `keyed` (interactive
+    /// legend), the batch group holds the combination table (`data-keys`,
+    /// index -> key id list, JSON) and every keyed marker its index (`data-k`,
+    /// on its anchor group or on each part); markers without a key get none and
+    /// stay visible. Per-run `g.keyed` wrappers cost more than the markers when
+    /// keys interleave (memory/html_interactive_legend.md).
+    fn svg_points(&mut self, points: &Points, keyed: Option<&KeyedItems>) {
         self.raw("<g");
         if self.zoomable {
             self.raw(" class=\"ggrust-points\"");
+        }
+        if let Some(keyed) = keyed {
+            let table = format!("[{}]", keyed.combinations.join(","));
+            self.attribute("data-keys", &table);
         }
         if let PerItem::Uniform(fill) = points.fill {
             self.fill(fill);
@@ -506,8 +496,18 @@ impl SvgWriter {
             // The runtime moves a lone circle by its centre, anything else by its anchor.
             let anchored =
                 self.zoomable && !matches!(parts.as_slice(), [MarkerPart::Circle { .. }]);
+            // The marker's key index: on its anchor group, else on every part.
+            let key_index = keyed.and_then(|keyed| {
+                let item = keyed.items[index];
+                let tag = keyed.combinations.get(item as usize)?;
+                (tag != "[]").then_some(item)
+            });
             if anchored {
                 self.anchor_open(x, y);
+                if let Some(item) = key_index {
+                    self.key_index(item);
+                }
+                self.raw(">");
             }
             for part in parts.drain(..) {
                 match part {
@@ -532,6 +532,9 @@ impl SvgWriter {
                         self.attribute_number("x2", end.0);
                         self.attribute_number("y2", end.1);
                     }
+                }
+                if let Some(item) = key_index.filter(|_| !anchored) {
+                    self.key_index(item);
                 }
                 if let Some(fill) = fill {
                     self.fill(fill);
@@ -1078,6 +1081,75 @@ mod tests {
             height: 100.0,
             background: None,
             nodes: vec![plot(0.0), rects, plot(100.0), plot(200.0)],
+        }
+    }
+
+    /// Four markers with interleaved keys a, b, a and none; the second a square.
+    fn keyed_scene() -> Scene {
+        let points = Points {
+            keys: Some(KeyedItems {
+                combinations: vec![
+                    "[\"k\\u001fa\"]".into(),
+                    "[\"k\\u001fb\"]".into(),
+                    "[]".into(),
+                ],
+                items: vec![0, 1, 0, 2],
+            }),
+            x: vec![10.0, 20.0, 30.0, 40.0],
+            y: vec![10.0, 20.0, 30.0, 40.0],
+            shape: PerItem::Varying(vec![
+                MarkerShape::Circle,
+                MarkerShape::Circle,
+                MarkerShape::Square,
+                MarkerShape::Circle,
+            ]),
+            size: PerItem::Uniform(3.0),
+            fill: PerItem::Uniform(Some(Color::rgb(10, 20, 30))),
+            stroke: PerItem::Uniform(None),
+            stroke_width: PerItem::Uniform(0.0),
+        };
+        Scene {
+            width: 100.0,
+            height: 100.0,
+            background: None,
+            nodes: vec![Node::Points(points)],
+        }
+    }
+
+    #[test]
+    fn interleaved_keyed_points_are_one_batch_with_key_indices() {
+        let scene = keyed_scene();
+        for zoomable in [false, true] {
+            let options = SvgOptions {
+                id_prefix: Some("t".into()),
+                zoomable,
+            };
+            let html = to_svg_with_canvas(&scene, &options, String::new()).0;
+            assert!(!html.contains("class=\"keyed\""), "{html}");
+            assert_eq!(html.matches("data-keys=").count(), 1, "{html}");
+            assert!(
+                html.contains("data-keys=\"[[&quot;k\\u001fa&quot;],[&quot;k\\u001fb&quot;],[]]\"")
+            );
+            // In data order; the untagged marker has no index.
+            let indices: Vec<&str> = html
+                .split("data-k=\"")
+                .skip(1)
+                .map(|rest| &rest[..1])
+                .collect();
+            assert_eq!(indices, ["0", "1", "0"], "{html}");
+            assert_eq!(html.matches("<circle").count(), 3);
+            if zoomable {
+                // A square moves by its anchor group, which holds the index.
+                assert!(
+                    html.contains("<g data-anchor=\"30 30\" data-k=\"0\"><rect x=\"28.5"),
+                    "{html}"
+                );
+            } else {
+                assert!(html.contains("height=\"3\" data-k=\"0\"/>"), "{html}");
+            }
+            // Static output: untouched.
+            let svg = to_svg_with(&scene, &options);
+            assert!(!svg.contains("data-k"), "{svg}");
         }
     }
 

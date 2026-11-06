@@ -14,8 +14,17 @@ ua.9 (2026-11-05). HTML only; static output never sees the tags.
   `probe_color(combination)`, alpha kept) and walk both trees (`tag_marks`): marks stay
   exactly as drawn, in data order. A mark whose probe color decodes to nothing stays
   visible; tree shapes that differ leave the layer untagged.
-- Mixed point batches keep one batch: `Points.keys` -> keyed `<g>` runs in SVG, a u8 key
-  index per drawn marker in the canvas payload (`drawCanvas` skips hidden keys).
+- Mixed point batches keep one batch: `Points.keys` -> a u8 key index per drawn marker,
+  in the canvas payload (`drawCanvas` skips hidden keys) and in SVG.
+- **SVG point batches: no per-run `g.keyed` wrappers** (2026-11-06, HTML size). Keys
+  interleave in real data (single-cell rows sorted by barcode), so runs were ~1 point:
+  ~110 B of wrappers per ~66 B circle. Now the batch `<g>` holds the table
+  (`data-keys` = JSON array of the key-id arrays) and each keyed marker `data-k="i"` (on
+  its `data-anchor` group when anchored, else on every part); `[]` markers get none and
+  stay visible, also without JS. The runtime tags batches `data-kb="<plot id>-n"` and
+  hides with one `<style>` in the plot root (`g[data-kb=..]>[data-k=..]{display:none}`),
+  never touching each marker. 4,000 points, 12 interleaved keys: 906 KB -> 664 KB.
+  Uniform-key batches and other geoms keep `g.keyed`. Static SVG/PNG never see either.
 - Tooltips: `LayerInteraction.keys` (combinations + per-row index); `candidates()`
   filters hidden targets, `hover_x` lines skip a hidden line by its first vertex.
 - Zoom: `collectMarks` must recurse into `g.keyed` like `g.layer`, or texts stretch.

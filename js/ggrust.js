@@ -1813,8 +1813,10 @@
   //
   // Discrete legend keys (`g.legend-key`) and the marks they stand for
   // (`g.keyed`, runs of marks of one key combination) carry `data-key`: a
-  // JSON array of key ids (legend title and label); dense canvas points carry
-  // a key index per marker instead. Clicking a key hides or
+  // JSON array of key ids (legend title and label). SVG point batches of mixed
+  // keys carry a table of those arrays instead (`data-keys`) and a table index
+  // per marker (`data-k`), hidden by one CSS rule per hidden (batch, index);
+  // dense canvas points carry a key index per marker. Clicking a key hides or
   // shows its marks across layers, panels and plots of the figure, and their
   // tooltips; double-clicking isolates it within its legend (again: show all).
 
@@ -1836,6 +1838,15 @@
     plot.legend.marks.forEach(function (mark) {
       mark.element.style.display = mark.ids.some(function (id) { return hidden[id]; }) ? "none" : "";
     });
+    var rules = [];
+    plot.legend.batches.forEach(function (batch) {
+      batch.combinations.forEach(function (ids, index) {
+        if ((ids || []).some(function (id) { return hidden[id]; })) {
+          rules.push('g[data-kb="' + batch.id + '"]>[data-k="' + index + '"]');
+        }
+      });
+    });
+    if (plot.legend.style) plot.legend.style.textContent = rules.length ? rules.join(",") + "{display:none}" : "";
     plot.layers.forEach(function (layer) {
       if (!layer.keys) return;
       var any = false;
@@ -1885,13 +1896,32 @@
     if (!plot.svg) return;
     var keyElements = plot.svg.querySelectorAll("g.legend-key[data-key]");
     if (!keyElements.length) return;
-    plot.legend = { hidden: {}, keys: [], marks: [] };
+    plot.legend = { hidden: {}, keys: [], marks: [], batches: [], style: null };
     var marks = plot.svg.querySelectorAll("g.keyed[data-key]");
     for (var m = 0; m < marks.length; m++) {
       plot.legend.marks.push({ element: marks[m], ids: keyIds(marks[m]) });
     }
+    // Batch ids are unique per plot (the plot id), so rules never reach another output.
+    var batches = plot.svg.querySelectorAll("g[data-keys]");
+    for (var b = 0; b < batches.length; b++) {
+      var batch = { id: plot.id + "-" + b, combinations: [] };
+      try {
+        batch.combinations = JSON.parse(batches[b].getAttribute("data-keys")) || [];
+      } catch (error) {
+        batch.combinations = [];
+      }
+      batches[b].setAttribute("data-kb", batch.id);
+      plot.legend.batches.push(batch);
+    }
+    if (batches.length) {
+      plot.legend.style = document.createElement("style");
+      plot.root.appendChild(plot.legend.style);
+    }
     var known = {};
     plot.legend.marks.forEach(function (mark) { mark.ids.forEach(function (id) { known[id] = true; }); });
+    plot.legend.batches.forEach(function (batch) {
+      batch.combinations.forEach(function (ids) { (ids || []).forEach(function (id) { known[id] = true; }); });
+    });
     (plot.canvases || []).forEach(function (layer) {
       (layer.keys || []).forEach(function (ids) { (ids || []).forEach(function (id) { known[id] = true; }); });
     });

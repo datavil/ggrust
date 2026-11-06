@@ -50,13 +50,55 @@ def key_tags(html: str, role: str) -> list[list[str]]:
     return [json.loads(tag.replace("&quot;", '"')) for tag in found]
 
 
+def batch_body(html: str, start: int) -> str:
+    """The content of the ``<g>`` element whose opening tag ends at ``start``."""
+    depth = 1
+    for tag in re.finditer(r"<g\b|</g>", html[start:]):
+        depth += 1 if tag.group() == "<g" else -1
+        if depth == 0:
+            return html[start : start + tag.start()]
+    raise AssertionError("unclosed <g>")
+
+
+def marker_keys(html: str) -> list[list[str]]:
+    """The key ids of every tagged SVG marker, in document order.
+
+    A keyed point batch holds its combination table (``data-keys``) and each
+    tagged marker its index into it (``data-k``).
+    """
+    found = []
+    for batch in re.finditer(r'<g[^>]*data-keys="([^"]*)"[^>]*>', html):
+        table = json.loads(batch.group(1).replace("&quot;", '"'))
+        indices = re.findall(r'data-k="(\d+)"', batch_body(html, batch.end()))
+        found.extend(table[int(index)] for index in indices)
+    return found
+
+
 def test_html_tags_legend_keys_and_marks() -> None:
-    html = scatter(frame()).to_html()
+    data = frame()
+    html = scatter(data).to_html()
     assert key_tags(html, "legend-key") == [["kind\x1fa"], ["kind\x1fb"], ["kind\x1fc"]]
-    marks = key_tags(html, "keyed")
-    # Points: runs of one kind, in data order; smooth: one line per kind.
-    assert {tuple(ids) for ids in marks} == {(f"kind\x1f{kind}",) for kind in "abc"}
-    assert len(marks) > 6
+    # Smooth: a band and a line per kind; points: one batch, a key index per marker.
+    assert {tuple(ids) for ids in key_tags(html, "keyed")} == {(f"kind\x1f{k}",) for k in "abc"}
+    assert marker_keys(html) == [[f"kind\x1f{kind}"] for kind in data["kind"]]
+
+
+def test_interleaved_point_keys_write_no_per_run_groups() -> None:
+    """Keys alternating row by row: one batch, markers in data order, no ``g.keyed``."""
+    data = frame().with_columns(pl.Series("kind", ["a", "b", "c"] * 30))
+    plot = gg.ggplot(data, gg.aes("x", "y", color="kind")) + gg.geom_point()
+    html = plot.to_html()
+    assert '<g class="keyed"' not in html
+    assert html.count("data-keys=") == 1
+    assert marker_keys(html) == [[f"kind\x1f{kind}"] for kind in data["kind"]]
+    # Markers keep the static order (data order, so stacking order too).
+    circle = r'<circle cx="([^"]+)" cy="([^"]+)" r="[^"]+"( data-k="\d+")?'
+    batch = re.search(r"<g[^>]*data-keys=[^>]*>", html)
+    assert batch is not None
+    tagged = re.findall(circle, batch_body(html, batch.end()))
+    assert len(tagged) == data.height and all(index for _, _, index in tagged)
+    static = [(x, y) for x, y, _ in re.findall(circle, plot.to_svg())]
+    assert [(x, y) for x, y, _ in tagged] == static[: data.height]
 
 
 def test_html_marks_match_static_svg_apart_from_tags() -> None:
@@ -82,7 +124,7 @@ def test_boxplot_outliers_carry_their_box_key() -> None:
     outlier_groups = [
         json.loads(key.replace("&quot;", '"')) for key, body in groups if "<circle" in body
     ]
-    assert ["kind\x1fb"] in outlier_groups
+    assert ["kind\x1fb"] in outlier_groups + marker_keys(html)
 
 
 def test_static_output_has_no_legend_tags() -> None:
@@ -101,13 +143,16 @@ def test_rows_outside_the_breaks_and_layers_without_legends_stay_untagged() -> N
         + gg.scale_color_discrete(breaks=["a", "b"])
     )
     html = plot.to_html()
-    assert {tuple(ids) for ids in key_tags(html, "keyed")} == {("kind\x1fa",), ("kind\x1fb",)}
+    assert key_tags(html, "keyed") == []
+    # Kind c and the black layer stay untagged (and visible).
+    assert marker_keys(html) == [[f"kind\x1f{kind}"] for kind in data["kind"] if kind != "c"]
 
 
 def test_two_legends_tag_marks_with_both_keys() -> None:
     data = frame().with_columns(pl.Series("size", ["s", "t"] * 45))
     plot = gg.ggplot(data, gg.aes("x", "y", color="kind", shape="size")) + gg.geom_point()
-    marks = key_tags(plot.to_html(), "keyed")
+    marks = marker_keys(plot.to_html())
+    assert len(marks) == data.height
     assert len({tuple(ids) for ids in marks}) == 6
     assert all(len(ids) == 2 and ids[1].startswith("size\x1f") for ids in marks)
 
@@ -141,9 +186,22 @@ def load(page, html: str, tmp_path: Path) -> None:
     assert page.errors == []
 
 
-HIDDEN_MARKS = """() => [...document.querySelectorAll('g.keyed')]
-  .filter(group => getComputedStyle(group).display === 'none')
-  .map(group => JSON.parse(group.getAttribute('data-key'))[0])"""
+HIDDEN_MARKS = """() => [
+  ...[...document.querySelectorAll('g.keyed')]
+    .filter(group => getComputedStyle(group).display === 'none')
+    .map(group => JSON.parse(group.getAttribute('data-key'))[0]),
+  ...[...document.querySelectorAll('[data-k]')]
+    .filter(marker => getComputedStyle(marker).display === 'none')
+    .map(marker => JSON.parse(marker.parentElement.getAttribute('data-keys'))
+      [+marker.dataset.k][0]),
+]"""
+
+# Key ids of every SVG marker of a keyed batch, ``null`` when hidden; untagged: "".
+MARKERS = """() => [...document.querySelectorAll('g[data-keys]')].flatMap(batch => {
+  const table = JSON.parse(batch.getAttribute('data-keys'));
+  return [...batch.children].map(marker => getComputedStyle(marker).display === 'none'
+    ? null : (marker.dataset.k === undefined ? '' : table[+marker.dataset.k][0]));
+})"""
 
 OPACITIES = """() => [...document.querySelectorAll('g.legend-key')]
   .map(key => key.style.opacity)"""
@@ -183,6 +241,88 @@ def test_click_hides_a_key_and_its_tooltips(page, tmp_path: Path) -> None:
     assert page.evaluate(HIDDEN_MARKS) == []
     page.mouse.move(x, y)
     page.wait_for_function("document.querySelector('.ggrust-plot').innerText.includes('outlier')")
+    assert page.errors == []
+
+
+def spread_scatter() -> tuple[pl.DataFrame, PlotSpec]:
+    """300 non-overlapping points, kinds interleaved row by row, zoomable."""
+    n = 300
+    data = pl.DataFrame(
+        {
+            "x": np.arange(n, dtype=float),
+            "y": (np.arange(n) * 7 % n).astype(float),
+            "kind": ["a", "b", "c"] * (n // 3),
+            "name": [f"row{index}" for index in range(n)],
+        }
+    )
+    plot = (
+        gg.ggplot(data, gg.aes("x", "y", color="kind"))
+        + gg.geom_point(tooltips=gg.layer_tooltips().line("@name"))
+        + gg.ggsize(500, 400)
+        + gg.ggtb()
+    )
+    return data, plot
+
+
+def target_point(page, row: int) -> tuple[float, float]:
+    """Client coordinates of the tooltip target of point ``row``."""
+    return page.evaluate(
+        """(row) => {
+          const plot = document.querySelector('.ggrust-plot').ggrust;
+          const layer = plot.layers.find(layer => layer.targets.kind === 'points');
+          const i = layer.targets.rows.indexOf(row);
+          const box = plot.svg.getBoundingClientRect();
+          const scale = plot.scale;
+          return [box.left + layer.targets.x[i] * scale, box.top + layer.targets.y[i] * scale];
+        }""",
+        row,
+    )
+
+
+def test_svg_markers_hide_by_key_with_tooltips_and_zoom(page, tmp_path: Path) -> None:
+    """A click hides exactly that key's SVG markers and their tooltips; zoom still moves them."""
+    data, plot = spread_scatter()
+    html = plot.to_html()
+    assert '<g class="keyed"' not in html and 'data-batch="' not in html
+    load(page, html, tmp_path)
+    kinds = [f"kind\x1f{kind}" for kind in data["kind"]]
+    assert page.evaluate(MARKERS) == kinds
+    box = page.locator(".ggrust-plot > svg").bounding_box()
+    page.mouse.move(box["x"] + 5, box["y"] + 5)
+    page.wait_for_function("document.querySelector('.ggrust-plot').ggrust.scale > 0")
+    page.locator("g.legend-key").nth(1).click()
+    hidden = [None if kind == "kind\x1fb" else kind for kind in kinds]
+    assert page.evaluate(MARKERS) == hidden
+    assert set(page.evaluate(HIDDEN_MARKS)) == {"kind\x1fb"}
+    plot_text = "document.querySelector('.ggrust-plot').innerText"
+    # Row 151 is kind b (hidden, silent), row 150 kind a (answers).
+    page.mouse.move(*target_point(page, 151))
+    page.wait_for_timeout(150)
+    assert "row151" not in page.locator(".ggrust-plot").inner_text()
+    page.mouse.move(*target_point(page, 150))
+    page.wait_for_function(f"{plot_text}.includes('row150')")
+    # Zoom with b hidden: every circle moves, b stays hidden.
+    centres = (
+        "() => [...document.querySelectorAll('g[data-keys] > circle')]"
+        ".map(c => c.getAttribute('cx'))"
+    )
+    before = page.evaluate(centres)
+    page.locator(".ggrust-toolbar button").first.click()
+    page.mouse.move(box["x"] + 250, box["y"] + 200)
+    for _ in range(3):
+        page.mouse.wheel(0, -100)
+    page.wait_for_function(
+        """() => {
+          const tile = document.querySelector('.ggrust-plot').ggrust.zoom.plots[0].tiles[0];
+          return !tile.dirty && tile.views.h[0] !== tile.spec.horizontal.domain[0];
+        }"""
+    )
+    after = page.evaluate(centres)
+    assert len(after) == len(before)
+    assert all(old != new for old, new in zip(before, after, strict=True))
+    assert page.evaluate(MARKERS) == hidden
+    page.locator("g.legend-key").nth(1).click()
+    assert page.evaluate(MARKERS) == kinds
     assert page.errors == []
 
 

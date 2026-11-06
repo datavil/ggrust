@@ -16,7 +16,7 @@ from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).parent))
 import ggrust
-from cases import CASES
+from cases import CASES, EXTENSION_CASES
 
 GOLDEN = Path(__file__).parent / "golden"
 OUTPUT = Path(__file__).parent / "output"
@@ -32,9 +32,12 @@ def render(case) -> np.ndarray:
     return np.asarray(Image.open(io.BytesIO(buffer.getvalue())).convert("RGBA"), dtype=np.int16)
 
 
-@pytest.mark.parametrize("name", CASES)
+ALL_CASES = {**CASES, **EXTENSION_CASES}
+
+
+@pytest.mark.parametrize("name", ALL_CASES)
 def test_matches_golden(name):
-    actual = render(CASES[name])
+    actual = render(ALL_CASES[name])
     golden_path = GOLDEN / f"{name}.png"
     if os.environ.get("GGRUST_BLESS"):
         GOLDEN.mkdir(exist_ok=True)

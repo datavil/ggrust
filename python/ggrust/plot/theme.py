@@ -161,6 +161,12 @@ def theme(
     ggside_panel_spacing: Number | None = None,
     ggside_panel_spacing_x: Number | None = None,
     ggside_panel_spacing_y: Number | None = None,
+    ggside_panel_background: ThemeElement | None = None,
+    ggside_xside_panel_background: ThemeElement | None = None,
+    ggside_yside_panel_background: ThemeElement | None = None,
+    ggside_panel_border: ThemeElement | None = None,
+    ggside_xside_panel_border: ThemeElement | None = None,
+    ggside_yside_panel_border: ThemeElement | None = None,
     ggside_axis_text: ThemeElement | None = None,
     ggside_axis_text_x: ThemeElement | None = None,
     ggside_axis_text_x_top: ThemeElement | None = None,
@@ -271,6 +277,24 @@ def theme(
     ggside_panel_spacing, ggside_panel_spacing_x, ggside_panel_spacing_y : float, optional
         Gap between the main panel and a side panel, in pixels: ``_x`` beside a y
         side panel, ``_y`` beside an x side panel. Default 2 pt (about 2.7 px).
+    ggside_panel_background, ggside_*side_panel_background : dict or str, optional
+        Background of the ggside side panels (``element_rect()``), as R ggside's
+        ``ggside.panel.background``: ``ggside_xside_panel_background`` styles the x
+        side panels (above or below), ``ggside_yside_panel_background`` the y side
+        panels (left or right). Unset ones fall back
+        to ``ggside_panel_background``, then to ``panel_background``, so by default
+        a side panel looks like the main one. The background's border color and
+        size frame the side panel the way they frame the main panel:
+        ``ggside_panel_background=element_rect(size=0)`` keeps the fill and drops
+        the frame, ``element_blank()`` drops both. ``ggmarginal()`` margins draw
+        neither.
+    ggside_panel_border, ggside_*side_panel_border : dict or str, optional
+        Border of the ggside side panels, drawn over their layers, as R ggside's
+        ``ggside.panel.border``, with the same suffix and fallback rules (last
+        ``panel_border``). ``ggside_panel_border=element_blank()`` keeps the main
+        panel's border and drops the side panels' ones. Under ``coord_flip()`` the
+        ``_xside_`` and ``_yside_`` elements follow their aesthetic, as the
+        ``ggside_axis_*`` ones do.
     ggside_axis_text, ggside_axis_text_* : dict or str, optional
         Tick labels of a side panel's own axis, as R ggside's ``ggside.axis.text*``.
         Suffixes: ``_x``, ``_x_top``, ``_x_bottom``, ``_y``, ``_y_left``,

@@ -22,7 +22,7 @@ use super::{
 use crate::coord::Panel;
 use crate::scale::{AxisSides, PositionScale};
 use crate::scene::{Group, Node, Rect};
-use crate::theme::Theme;
+use crate::theme::{BandPanelTheme, Theme};
 
 /// How thick a band is.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -438,6 +438,17 @@ impl PlotLayout {
     }
 }
 
+/// The panel elements of a band (`ggside_panel_*`), by the screen axis it shares:
+/// a band above or below the panel takes the `xside` ones (the theme is already
+/// flipped under `coord_flip`).
+fn band_panel_theme(theme: &Theme, band: &BandLayout) -> BandPanelTheme {
+    if band.side.is_horizontal() {
+        theme.ggside_panel.xside
+    } else {
+        theme.ggside_panel.yside
+    }
+}
+
 /// The static parts of a decorated band under its layers: background and the grid
 /// lines across the shared axis (at its own axis's breaks). `panel` maps the band.
 pub fn draw_band_background(
@@ -451,7 +462,7 @@ pub fn draw_band_background(
     }
     let rect = layout.band_rect(band);
     let mut nodes = Vec::new();
-    if let Some(style) = theme.panel_background {
+    if let Some(style) = band_panel_theme(theme, band).background {
         nodes.push(rect_node(rect, style));
     }
     let Some(breaks) = &band.breaks else {
@@ -540,7 +551,7 @@ pub fn draw_band_shared_grid(
     grid
 }
 
-/// The band's border (`panel_border`) and its own axis, drawn above its layers.
+/// The band's border (`ggside_panel_border`) and its own axis, drawn above its layers.
 pub fn draw_band_axis(
     layout: &PlotLayout,
     band: &BandLayout,
@@ -552,7 +563,7 @@ pub fn draw_band_axis(
     }
     let rect = layout.band_rect(band);
     let mut nodes = Vec::new();
-    if let Some(line) = theme.panel_border {
+    if let Some(line) = band_panel_theme(theme, band).border {
         nodes.push(Node::Rects(crate::scene::Rects {
             rects: vec![rect],
             fill: crate::scene::PerItem::Uniform(None),

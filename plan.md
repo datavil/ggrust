@@ -432,7 +432,7 @@ when it lands, a [deviations.md](deviations.md) row for every difference from le
 extension, bug-hunter pass, `make check`, commit + push. Already available and being adopted (no work):
 `guide_axis_mark`, `side_pos`, `scale_size_area` + `size_unit`, `gggrid(design=)`, `register_font`.
 
-- [ ] 10.1 **Side-band panel border and background** (blocks cellestial Phase 5; small).
+- [x] 10.1 **Side-band panel border and background** (blocks cellestial Phase 5; small). Done 2026-11-06: `theme(ggside_panel_border=, ggside_panel_background=)` plus the `ggside_xside_panel_*` / `ggside_yside_panel_*` forms (plan default), golden `ggside_band_panels` (new `EXTENSION_CASES` for ggrust-only goldens), `memory/side_panels.md`.
   `theme(ggside_panel_border=, ggside_panel_background=)`, falling back to `panel_border` /
   `panel_background`, as R ggside's `ggside.panel.border` / `ggside.panel.background`. Today every
   band draws the main `panel_border` (`layout/side_panel.rs` `draw_band_axis`) and the main

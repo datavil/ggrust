@@ -2,6 +2,12 @@
 
 All notable changes to ggrust. Each version is also a [GitHub Release](https://github.com/datavil/ggrust/releases).
 
+## [Unreleased]
+
+### Added
+
+- Side band panel theme elements, as R ggside's `ggside.panel.*`: `theme(ggside_panel_border=, ggside_panel_background=)` and their `ggside_xside_panel_*` / `ggside_yside_panel_*` forms, falling back to the main `panel_border` / `panel_background`. `ggside_panel_border=element_blank()` drops the side bands' frames and keeps the main panel's.
+
 ## [0.6.2] - 2026-11-06
 
 ### Fixed

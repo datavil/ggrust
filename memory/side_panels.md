@@ -48,6 +48,14 @@ Step ex2.2 (2026-11-05), design approved by the user.
   `side_panel.rs` (measure and draw) goes through `band_axis_theme(theme, side)`, a theme copy
   with those swapped into the main axis fields, so a blank band label takes no room. New
   band axis code must use it too, never `theme.axis_text_*` directly.
+- **Band panel theme (10.1):** `Theme::ggside_panel` holds `ggside_panel_background` /
+  `ggside_panel_border` per shared axis (`xside`, `yside`), chain `ggside_xside_panel_*` ->
+  `ggside_panel_*` -> main `panel_*`, swapped in `Theme::flipped` like `ggside_axis`. Band
+  drawing in `side_panel.rs` reads them through `band_panel_theme(theme, band)` (screen
+  axis: top/bottom bands take `xside`), never `theme.panel_border`/`panel_background`.
+  Trap: lets-plot themes frame panels with `panel_background`'s border, not `panel_border`
+  (blank in every named theme), so a band frame usually comes through the background chain;
+  tests that count fills must hide legends (keys take the panel background's fill).
 - **Several bands per axis (9.10, user's API):** a ggside layer's `side_pos` overrides
   `ggside()`; `side_band` names a band. `BandKey.slot` (0 nearest the panel) is set in
   `band_setups` from first appearance per (axis, side, name), after `layer_side` (which

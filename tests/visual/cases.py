@@ -2,7 +2,9 @@
 
 Each case is a function ``(module) -> plot`` where ``module`` is ``ggrust`` or
 ``lets_plot``, so the same code feeds the golden tests and the side-by-side report.
-Add a case here when a phase adds a visible feature. Cases that need random data use
+Add a case here when a phase adds a visible feature; ggrust-only features (no lets_plot
+counterpart) go in ``EXTENSION_CASES``, golden-tested but left out of the report. Cases
+that need random data use
 their own seeded generator, so a case renders the same whichever cases run first.
 """
 
@@ -791,3 +793,36 @@ CASES = {
         marginal_densities,
     ]
 }
+
+
+def ggside_band_panels(m):
+    # Plan 10.1: a dotplot with a bracket-like annotation band on top. The main panel
+    # keeps its border, the x side band drops it (ggside_panel_border blank) and the
+    # y side band gets its own (ggside_yside_panel_border).
+    genes = ["CD3E", "MS4A1", "NKG7", "LYZ", "FCGR3A"]
+    clusters = ["T", "B", "NK", "Mono"]
+    frame = pl.DataFrame(
+        {
+            "gene": [gene for _ in clusters for gene in genes],
+            "cluster": [cluster for cluster in clusters for _ in genes],
+            "mean": [((index * 3) % 7) / 6 for index in range(20)],
+            "pct": [10 + (index * 17) % 80 for index in range(20)],
+        }
+    )
+    groups = pl.DataFrame({"gene": genes, "group": ["lymphoid"] * 3 + ["myeloid"] * 2})
+    sizes = pl.DataFrame({"cluster": clusters, "cells": [420, 180, 95, 260]})
+    return (
+        m.ggplot(frame, m.aes("gene", "cluster"))
+        + m.geom_point(m.aes(size="pct", color="mean"))
+        + m.geom_xsidetile(m.aes(x="gene", fill="group"), data=groups)
+        + m.geom_ysidecol(m.aes(y="cluster", x="cells"), data=sizes, fill="#9a9a9a")
+        + m.theme(
+            panel_border=m.element_rect(color="#474747", size=1),
+            ggside_panel_border=m.element_blank(),
+            ggside_yside_panel_border=m.element_rect(color="#d62728", size=1),
+        )
+        + m.ggsize(520, 380)
+    )
+
+
+EXTENSION_CASES = {case.__name__: case for case in [ggside_band_panels]}

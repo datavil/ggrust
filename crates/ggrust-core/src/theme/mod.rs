@@ -154,6 +154,27 @@ pub struct BandAxisThemes {
     pub right: BandAxisTheme,
 }
 
+/// A side band's own panel background and border (R ggside `ggside.panel.*`).
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BandPanelTheme {
+    /// Background (`ggside_panel_background`).
+    pub background: Option<RectStyle>,
+    /// Border, drawn above the band's layers (`ggside_panel_border`).
+    pub border: Option<LineStyle>,
+}
+
+/// The side band panel elements by the axis the band shares, resolved through
+/// R ggside's chain (`ggside_xside_panel_border` <- `ggside_panel_border` <-
+/// `panel_border`). Under `coord_flip` they swap with the other axis elements, so
+/// `xside` always styles the bands above or below the panel on screen.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct BandPanelThemes {
+    /// Bands that share the horizontal axis (`ggside_xside_panel_*`).
+    pub xside: BandPanelTheme,
+    /// Bands that share the vertical axis (`ggside_yside_panel_*`).
+    pub yside: BandPanelTheme,
+}
+
 /// Style of a rectangle element: fill and an optional border.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RectStyle {
@@ -385,6 +406,10 @@ pub struct Theme {
     /// Side band axis elements (`ggside_axis_text*`, `ggside_axis_ticks*`,
     /// `ggside_axis_line*`, ...), each resolved down to the main axis element.
     pub ggside_axis: BandAxisThemes,
+    /// Side band panel background and border (`ggside_panel_background`,
+    /// `ggside_panel_border` and their `ggside_xside_` / `ggside_yside_` forms),
+    /// each resolved down to the main panel element.
+    pub ggside_panel: BandPanelThemes,
     /// Space between legend boxes (`legend_spacing`), horizontal and vertical.
     pub legend_spacing: (f64, f64),
     /// Space between the plot area and the legends (`legend_box_spacing`).
@@ -537,6 +562,12 @@ const BUILT_OPTIONS: &[&str] = &[
     "ggside_panel_spacing",
     "ggside_panel_spacing_x",
     "ggside_panel_spacing_y",
+    "ggside_panel_background",
+    "ggside_xside_panel_background",
+    "ggside_yside_panel_background",
+    "ggside_panel_border",
+    "ggside_xside_panel_border",
+    "ggside_yside_panel_border",
     "legend_box",
     "legend_box_just",
     "legend_box_spacing",
@@ -582,6 +613,8 @@ impl Theme {
         let axes = &mut theme.ggside_axis;
         std::mem::swap(&mut axes.bottom, &mut axes.left);
         std::mem::swap(&mut axes.top, &mut axes.right);
+        let panels = &mut theme.ggside_panel;
+        std::mem::swap(&mut panels.xside, &mut panels.yside);
         theme
     }
 
@@ -910,6 +943,25 @@ impl Resolver<'_> {
         })
     }
 
+    /// The panel elements of the bands sharing one axis (`"xside"` or `"yside"`):
+    /// R ggside's chain (`ggside_xside_panel_border` <- `ggside_panel_border`),
+    /// then the main panel element's chain.
+    fn band_panel(&self, axis: &str) -> BandPanelTheme {
+        let background = format!("ggside_{axis}_panel_background");
+        let border = format!("ggside_{axis}_panel_border");
+        BandPanelTheme {
+            background: self.rect(&[
+                &background,
+                "ggside_panel_background",
+                "panel_background",
+                "rect",
+            ]),
+            border: self
+                .rect(&[&border, "ggside_panel_border", "panel_border", "rect"])
+                .and_then(|rect| rect.border),
+        }
+    }
+
     /// [`Self::text`] for a band axis: resolved from the first key that is set, so
     /// warnings name it; warnings from a main axis key are dropped, since the main
     /// element reports them already.
@@ -1095,6 +1147,10 @@ impl Resolver<'_> {
                 bottom: self.band_axis("x", "bottom")?,
                 left: self.band_axis("y", "left")?,
                 right: self.band_axis("y", "right")?,
+            },
+            ggside_panel: BandPanelThemes {
+                xside: self.band_panel("xside"),
+                yside: self.band_panel("yside"),
             },
             legend_spacing: (
                 self.number(&["legend_spacing_x", "legend_spacing"], 10.0)?,
@@ -1677,6 +1733,43 @@ mod tests {
         assert_eq!(left.text.unwrap().color, Color::rgb(255, 0, 0));
         assert_eq!(left.ticks_length, 9.0);
         assert_eq!(theme.ggside_axis.top.ticks_length, 9.0);
+    }
+
+    #[test]
+    fn ggside_panel_elements_fall_back_through_ggside_to_the_main_panel() {
+        // Default and bw: the band panels look like the main panel.
+        for named in [None, Some(r#"{"name": "bw"}"#)] {
+            let spec = named.map(spec);
+            let theme = Theme::from_spec(spec.as_ref(), &mut Vec::new()).unwrap();
+            for band in [theme.ggside_panel.xside, theme.ggside_panel.yside] {
+                assert_eq!(band.background, theme.panel_background);
+                assert_eq!(band.border, theme.panel_border);
+            }
+        }
+        let mut warnings = Vec::new();
+        let theme = Theme::from_spec(
+            Some(&spec(
+                r#"{"name": "bw",
+                    "panel_border": {"color": "black", "blank": false},
+                    "ggside_panel_border": {"blank": true},
+                    "ggside_yside_panel_border": {"color": "red", "size": 2, "blank": false},
+                    "ggside_panel_background": {"fill": "blue", "blank": false},
+                    "ggside_xside_panel_background": {"blank": true}}"#,
+            )),
+            &mut warnings,
+        )
+        .unwrap();
+        assert!(warnings.is_empty(), "{warnings:?}");
+        assert!(theme.panel_border.is_some() && theme.panel_background.is_some());
+        let panels = theme.ggside_panel;
+        assert_eq!(panels.xside.border, None);
+        let yside = panels.yside.border.unwrap();
+        assert_eq!((yside.color, yside.width), (Color::rgb(255, 0, 0), 2.0));
+        assert_eq!(panels.xside.background, None);
+        assert_eq!(panels.yside.background.unwrap().fill, Color::rgb(0, 0, 255));
+        // coord_flip: the elements follow the axis the band shares on screen.
+        let flipped = theme.flipped().ggside_panel;
+        assert_eq!((flipped.xside, flipped.yside), (panels.yside, panels.xside));
     }
 
     #[test]

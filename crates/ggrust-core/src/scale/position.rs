@@ -187,6 +187,16 @@ impl PositionScale {
         }
     }
 
+    /// The scale as its axis draws it (see
+    /// [`ContinuousPositionScale::axis_identity`],
+    /// [`DiscretePositionScale::axis_identity`]).
+    pub fn axis_identity(&self) -> PositionScale {
+        match self {
+            PositionScale::Continuous(scale) => PositionScale::Continuous(scale.axis_identity()),
+            PositionScale::Discrete(scale) => PositionScale::Discrete(scale.axis_identity()),
+        }
+    }
+
     /// Widen the domain to include `[low, high]`, even past continuous limits
     /// (a geom's width span).
     pub fn train_span(&mut self, low: f64, high: f64) {

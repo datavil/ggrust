@@ -61,7 +61,10 @@ def without_data(value):
 
 
 # ggrust extensions: extra trailing parameters lets_plot does not have (deviations.md).
-EXTENSIONS = {"ggtb": ("layers",), "gggrid": ("design", "tag_levels", "tag_level")}
+EXTENSIONS = {
+    "ggtb": ("layers",),
+    "gggrid": ("design", "tag_levels", "tag_level", "axes", "axis_titles"),
+}
 # Extras that sit among keyword-only parameters, before `**other_args`.
 KEYWORD_EXTENSIONS = {"geom_boxplot": ("outlier_jitter", "outlier_seed")}
 

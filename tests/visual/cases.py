@@ -900,6 +900,55 @@ def nested_side_band(m):
     )
 
 
+def _city_weather(m, seed):
+    """Four seeded line plots of daily temperatures, one per city (gggrid axes cases)."""
+    random = np.random.default_rng(seed)
+    plots = []
+    for index, city in enumerate(["Oslo", "Lisbon", "Cairo", "Lima"]):
+        frame = pl.DataFrame(
+            {
+                "day": np.arange(1, 31, dtype=float),
+                "temperature": 8.0 * index + random.normal(10, 2.5, 30).cumsum() / 6,
+            }
+        )
+        plots.append(
+            m.ggplot(frame, m.aes("day", "temperature"))
+            + m.geom_line(color="#377eb8")
+            + m.ggtitle(city)
+            + m.labs(x="Day of month", y="Temperature (C)")
+        )
+    return plots
+
+
+def grid_axes_collect(m):
+    plots = _city_weather(m, 31)
+    return m.gggrid(plots, ncol=2, sharex=True, sharey=True, axes="collect") + m.ggsize(700, 500)
+
+
+def grid_axes_collect_x(m):
+    plots = _city_weather(m, 32)
+    return m.gggrid(plots, ncol=2, sharex=True, sharey=True, axes="collect_x") + m.ggsize(700, 500)
+
+
+def grid_axis_titles_collect(m):
+    plots = _city_weather(m, 33)
+    return m.gggrid(
+        plots, ncol=2, sharex=True, sharey=True, axes="collect", axis_titles="collect"
+    ) + m.ggsize(700, 500)
+
+
+def grid_axes_design(m):
+    plots = _city_weather(m, 34)[:3]
+    return m.gggrid(
+        plots,
+        design="AB\nCC",
+        sharey=True,
+        axes="collect",
+        axis_titles="collect",
+        align=True,
+    ) + m.ggsize(700, 500)
+
+
 EXTENSION_CASES = {
     case.__name__: case
     for case in [
@@ -909,5 +958,9 @@ EXTENSION_CASES = {
         nested_right_chevron_box,
         nested_coord_flip,
         nested_side_band,
+        grid_axes_collect,
+        grid_axes_collect_x,
+        grid_axis_titles_collect,
+        grid_axes_design,
     ]
 }

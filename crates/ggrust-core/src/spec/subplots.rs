@@ -133,6 +133,13 @@ pub struct GridLayoutSpec {
     /// `new` starts the next level.
     #[serde(default)]
     pub tag_level: Option<String>,
+    /// `axes=`: `keep`, `collect`, `collect_x` or `collect_y` (patchwork):
+    /// inner plots drop axes equal to their neighbours'.
+    #[serde(default)]
+    pub axes: Option<String>,
+    /// `axis_titles=`: the same values for axis titles.
+    #[serde(default)]
+    pub axis_titles: Option<String>,
     /// Keys no component consumes.
     #[serde(flatten)]
     pub unsupported: Options,

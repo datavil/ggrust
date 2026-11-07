@@ -494,8 +494,32 @@ fn layout_with(
         x_scale.secondary_on_far_side(),
         y_scale.secondary_on_far_side(),
     ];
+    // Axes and titles a containing grid collected take no room (`gggrid(axes=)`).
+    let collected = theme.grid_collected;
+    let title_room = |side: Side, band: f64| {
+        if collected.title(side) == side::TitleRoom::Dropped {
+            0.0
+        } else {
+            band
+        }
+    };
+    let axis_room = |side: Side, band: f64| {
+        if collected.axis_hidden(side) {
+            0.0
+        } else {
+            band
+        }
+    };
     let (x_title_top, x_title_bottom) = axis_title_bands(theme, titles, 0, x_sides, far_sides[0]);
     let (y_title_right, y_title_left) = axis_title_bands(theme, titles, 1, y_sides, far_sides[1]);
+    let (x_title_top, x_title_bottom) = (
+        title_room(Side::Top, x_title_top),
+        title_room(Side::Bottom, x_title_bottom),
+    );
+    let (y_title_right, y_title_left) = (
+        title_room(Side::Right, y_title_right),
+        title_room(Side::Left, y_title_left),
+    );
 
     let x_band_on = |far: bool| {
         let height = if far_sides[0] == Some(far) {
@@ -515,12 +539,12 @@ fn layout_with(
         });
         if wanted { band_axis_height } else { 0.0 }
     };
-    let top_axis = shown(x_sides, true, x_band_on(true)).max(band_x_axis(true))
-        + nested_band(0, true)
-        + tree_band(0, true);
-    let bottom_axis = shown(x_sides, false, x_band_on(false)).max(band_x_axis(false))
-        + nested_band(0, false)
-        + tree_band(0, false);
+    let top_axis = axis_room(Side::Top, shown(x_sides, true, x_band_on(true)))
+        .max(band_x_axis(true))
+        + axis_room(Side::Top, nested_band(0, true) + tree_band(0, true));
+    let bottom_axis = axis_room(Side::Bottom, shown(x_sides, false, x_band_on(false)))
+        .max(band_x_axis(false))
+        + axis_room(Side::Bottom, nested_band(0, false) + tree_band(0, false));
     let top = content.y
         + headings_band(theme, titles)
         + legend_space.top
@@ -591,12 +615,12 @@ fn layout_with(
     // is not drawn.
     let band_y_axis =
         |far: bool| side_panel::vertical_axis_width(&laid_bands, Side::of(false, far), theme);
-    let left_axis = shown(y_sides, false, y_width_on(false)).max(band_y_axis(false))
-        + nested_band(1, false)
-        + tree_band(1, false);
-    let right_axis = shown(y_sides, true, y_width_on(true)).max(band_y_axis(true))
-        + nested_band(1, true)
-        + tree_band(1, true);
+    let left_axis = axis_room(Side::Left, shown(y_sides, false, y_width_on(false)))
+        .max(band_y_axis(false))
+        + axis_room(Side::Left, nested_band(1, false) + tree_band(1, false));
+    let right_axis = axis_room(Side::Right, shown(y_sides, true, y_width_on(true)))
+        .max(band_y_axis(true))
+        + axis_room(Side::Right, nested_band(1, true) + tree_band(1, true));
     let left = content.x + legend_space.left + y_title_left + inset.left + left_axis;
     let horizontal_requests: Vec<&BandRequest> = bands
         .iter()
@@ -1307,7 +1331,8 @@ pub fn draw_axes_and_titles(
     titles: &Titles,
     mapper: &Panel,
 ) -> Vec<Node> {
-    let mut nodes = draw_axes(layout, theme, mapper, layout.axis_sides);
+    let shown = theme.grid_collected.drawn(layout.axis_sides);
+    let mut nodes = draw_axes(layout, theme, mapper, shown);
     nodes.push(draw_titles(layout, theme, titles));
     nodes
 }
@@ -1356,6 +1381,9 @@ pub fn draw_axes(
             continue;
         };
         let side = Side::of(index == 0, secondary);
+        if theme.grid_collected.axis_hidden(side) {
+            continue;
+        }
         let edge = AxisEdge::of(layout, side);
         // Past the axis when it is drawn on that side too (`position="both"`).
         let drawn = if secondary {
@@ -1380,7 +1408,12 @@ pub fn draw_axes(
     let [x_tree, y_tree] = &layout.dendrograms;
     let mut trees = Vec::new();
     let any = |sides: AxisSides| sides.primary || sides.secondary;
-    if let Some(tree) = x_tree.as_ref().filter(|_| any(shown[0])) {
+    // A tree on a side a grid collected goes with that side's axis.
+    let tree_shown = |tree: &dendrogram::AxisDendrogram, index: usize| {
+        let side = Side::of(index == 0, tree.on_secondary(layout.axis_sides[index]));
+        any(shown[index]) && !theme.grid_collected.axis_hidden(side)
+    };
+    if let Some(tree) = x_tree.as_ref().filter(|tree| tree_shown(tree, 0)) {
         let levels = discrete_levels(mapper.x_scale);
         let (baseline, growth) = tree_baseline(layout, tree, true);
         let pixel = |value: f64| mapper.x_pixel(value);
@@ -1394,7 +1427,7 @@ pub fn draw_axes(
             line,
         ));
     }
-    if let Some(tree) = y_tree.as_ref().filter(|_| any(shown[1])) {
+    if let Some(tree) = y_tree.as_ref().filter(|tree| tree_shown(tree, 1)) {
         let levels = discrete_levels(mapper.y_scale);
         let (baseline, growth) = tree_baseline(layout, tree, false);
         let pixel = |value: f64| mapper.y_pixel(value);
@@ -1536,90 +1569,22 @@ fn discrete_levels(scale: &PositionScale) -> Vec<&str> {
 
 /// Plot title, subtitle and axis titles, placed around `layout.panel` (the union of
 /// all panels in a faceted plot).
-pub fn draw_titles<'a>(layout: &PlotLayout, theme: &Theme, titles: &'a Titles) -> Node {
+pub fn draw_titles(layout: &PlotLayout, theme: &Theme, titles: &Titles) -> Node {
     let panel = layout.panel;
     let content = layout.content;
-    let bottom = panel.y + panel.height;
     let mut titles_nodes = Vec::new();
-    // Each axis title on its side: the primary one where `position=` puts it, a
-    // secondary axis's title on the other side.
-    let placed =
-        |index: usize, primary: &'a Option<String>, secondary: &'a Option<String>| match layout
-            .secondary_far_side(index)
-        {
-            Some(far) => vec![(primary, !far), (secondary, far)],
-            None => vec![(primary, title_on_secondary(layout.axis_sides[index]))],
-        };
-    for (text, far) in placed(0, &titles.x, &titles.x_secondary) {
-        let (Some(style), Some(title)) = (theme.axis_title_x, present(text)) else {
+    let far_sides = [layout.secondary_far_side(0), layout.secondary_far_side(1)];
+    for (side, text) in side_titles(layout.axis_sides, far_sides, titles) {
+        // A title a grid collected is drawn by another plot or by the grid.
+        if theme.grid_collected.title(side) != side::TitleRoom::Drawn {
             continue;
-        };
-        // Below the x axis, not at the plot edge: they differ only when the panel is
-        // at its minimum size and the axis runs past the plot (lets-plot does the same).
-        let (along, across) = axis_title_extent(style, title, 0.0);
-        let y = if far {
-            panel.y
-                - layout.top_band
-                - layout.band_extent(Side::Top)
-                - layout.axis_bands.top
-                - theme.plot_inset.top
-                - theme.axis_title_x_margin.bottom
-                - across / 2.0
+        }
+        let span = if side.is_horizontal() {
+            (panel.x, panel.width)
         } else {
-            bottom
-                + layout.band_extent(Side::Bottom)
-                + layout.axis_bands.bottom
-                + theme.plot_inset.bottom
-                + theme.axis_title_x_margin.top
-                + across / 2.0
+            (panel.y, panel.height)
         };
-        let x = justified_at(
-            panel.x,
-            panel.width,
-            along,
-            axis_title_justification(style, 0.0).0,
-        );
-        titles_nodes.push(text_node(
-            title,
-            style,
-            (x, y),
-            HorizontalAlign::Middle,
-            rotated::angle(style),
-        ));
-    }
-    for (text, far) in placed(1, &titles.y, &titles.y_secondary) {
-        let (Some(style), Some(title)) = (theme.axis_title_y, present(text)) else {
-            continue;
-        };
-        // Rotated: the justification runs from the bottom of the panel up.
-        let (along, across) = axis_title_extent(style, title, 90.0);
-        let centre = justified_at(
-            0.0,
-            panel.height,
-            along,
-            axis_title_justification(style, 90.0).1,
-        );
-        let angle = if style.angle.is_finite() {
-            style.angle
-        } else {
-            90.0
-        };
-        // lets-plot keeps the angle on the right (ggplot2 turns it to -90).
-        let x = if far {
-            content.x + content.width
-                - layout.legend_space.right
-                - theme.axis_title_y_margin.right
-                - across / 2.0
-        } else {
-            content.x + layout.legend_space.left + theme.axis_title_y_margin.left + across / 2.0
-        };
-        titles_nodes.push(text_node(
-            title,
-            style,
-            (x, panel.y + panel.height - centre),
-            HorizontalAlign::Middle,
-            angle,
-        ));
+        titles_nodes.extend(axis_title_node(layout, theme, text, side, span));
     }
     let span = |position: TitlePosition| match position {
         TitlePosition::Panel => (panel.x, panel.width),
@@ -1644,6 +1609,106 @@ pub fn draw_titles<'a>(layout: &PlotLayout, theme: &Theme, titles: &'a Titles) -
         panel,
     ));
     role_group("titles", titles_nodes)
+}
+
+/// Each axis title of `layout` with its screen side: the primary one where
+/// `position=` puts it, a secondary axis's title on the other side.
+///
+/// `axis_sides` and `far_sides` are the screen axes' sides and their secondary
+/// axes' sides ([`PlotLayout::axis_sides`], [`PlotLayout::secondary_far_side`]).
+pub(crate) fn side_titles<'a>(
+    axis_sides: [AxisSides; 2],
+    far_sides: [Option<bool>; 2],
+    titles: &'a Titles,
+) -> Vec<(Side, &'a Option<String>)> {
+    let placed = |index: usize, primary: &'a Option<String>, secondary: &'a Option<String>| {
+        let horizontal = index == 0;
+        match far_sides[index] {
+            Some(far) => vec![
+                (Side::of(horizontal, !far), primary),
+                (Side::of(horizontal, far), secondary),
+            ],
+            None => vec![(
+                Side::of(horizontal, title_on_secondary(axis_sides[index])),
+                primary,
+            )],
+        }
+    };
+    let mut sides = placed(0, &titles.x, &titles.x_secondary);
+    sides.extend(placed(1, &titles.y, &titles.y_secondary));
+    sides
+}
+
+/// The axis title `text` on `side` of `layout`, justified along `span` (start,
+/// length; the panel's, or a run of panels for a title a grid collected). None
+/// when blank or absent.
+pub(crate) fn axis_title_node(
+    layout: &PlotLayout,
+    theme: &Theme,
+    text: &Option<String>,
+    side: Side,
+    (start, length): (f64, f64),
+) -> Option<Node> {
+    let panel = layout.panel;
+    let content = layout.content;
+    let far = side.is_secondary();
+    let title = present(text)?;
+    if side.is_horizontal() {
+        let style = theme.axis_title_x?;
+        // Below the x axis, not at the plot edge: they differ only when the panel is
+        // at its minimum size and the axis runs past the plot (lets-plot does the same).
+        let (along, across) = axis_title_extent(style, title, 0.0);
+        let y = if far {
+            panel.y
+                - layout.top_band
+                - layout.band_extent(Side::Top)
+                - layout.axis_bands.top
+                - theme.plot_inset.top
+                - theme.axis_title_x_margin.bottom
+                - across / 2.0
+        } else {
+            panel.y
+                + panel.height
+                + layout.band_extent(Side::Bottom)
+                + layout.axis_bands.bottom
+                + theme.plot_inset.bottom
+                + theme.axis_title_x_margin.top
+                + across / 2.0
+        };
+        let x = justified_at(start, length, along, axis_title_justification(style, 0.0).0);
+        return Some(text_node(
+            title,
+            style,
+            (x, y),
+            HorizontalAlign::Middle,
+            rotated::angle(style),
+        ));
+    }
+    let style = theme.axis_title_y?;
+    // Rotated: the justification runs from the bottom of the span up.
+    let (along, across) = axis_title_extent(style, title, 90.0);
+    let centre = justified_at(0.0, length, along, axis_title_justification(style, 90.0).1);
+    let angle = if style.angle.is_finite() {
+        style.angle
+    } else {
+        90.0
+    };
+    // lets-plot keeps the angle on the right (ggplot2 turns it to -90).
+    let x = if far {
+        content.x + content.width
+            - layout.legend_space.right
+            - theme.axis_title_y_margin.right
+            - across / 2.0
+    } else {
+        content.x + layout.legend_space.left + theme.axis_title_y_margin.left + across / 2.0
+    };
+    Some(text_node(
+        title,
+        style,
+        (x, start + length - centre),
+        HorizontalAlign::Middle,
+        angle,
+    ))
 }
 
 /// Height of a plot title, subtitle or caption band: its lines and its top and

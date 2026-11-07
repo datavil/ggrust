@@ -1148,6 +1148,107 @@ impl PreparedPlot {
         }
     }
 
+    /// What each screen side of the plot shows, for a grid collecting axes and
+    /// titles (`gggrid(axes=, axis_titles=)`, [`crate::grid_axes`]). None for a
+    /// faceted plot: it keeps its axes and titles.
+    pub(crate) fn side_keys(&self) -> Option<crate::grid_axes::SideKeys<'_>> {
+        use crate::grid_axes::{AxisKey, TitleKey};
+        use crate::layout::side::Side;
+        if self.facets.is_some() {
+            return None;
+        }
+        let (_, tile_x, tile_y) = &self.tiles[0];
+        let (horizontal, vertical) = self.screen_scales(tile_x, tile_y);
+        let theme = &self.theme;
+        let mut keys = crate::grid_axes::SideKeys::default();
+        for side in Side::ALL {
+            let (scale, index) = if side.is_horizontal() {
+                (horizontal, 0)
+            } else {
+                (vertical, 1)
+            };
+            let sides = scale.sides();
+            let secondary = side.is_secondary();
+            let drawn = if secondary {
+                sides.secondary
+            } else {
+                sides.primary
+            };
+            let nested = scale
+                .nested()
+                .and_then(|nested| nested.opposite_on_secondary(sides))
+                == Some(secondary);
+            let tree = match scale {
+                PositionScale::Discrete(discrete) => discrete
+                    .dendrogram
+                    .as_ref()
+                    .is_some_and(|tree| tree.on_secondary(sides) == secondary),
+                PositionScale::Continuous(_) => false,
+            };
+            if drawn || nested || tree {
+                keys.axes[side.index()] = Some(AxisKey {
+                    scale: scale.axis_identity(),
+                    text: [theme.axis_text_x, theme.axis_text_y][index],
+                    ticks: [theme.axis_ticks_x, theme.axis_ticks_y][index],
+                    minor_ticks: [theme.axis_minor_ticks_x, theme.axis_minor_ticks_y][index],
+                    line: [theme.axis_line_x, theme.axis_line_y][index],
+                    lengths: [
+                        [
+                            theme.axis_ticks_length.0,
+                            theme.axis_minor_ticks_length.0,
+                            theme.axis_text_spacing.0,
+                        ],
+                        [
+                            theme.axis_ticks_length.1,
+                            theme.axis_minor_ticks_length.1,
+                            theme.axis_text_spacing.1,
+                        ],
+                    ][index],
+                });
+            }
+        }
+        let far_sides = [
+            horizontal.secondary_on_far_side(),
+            vertical.secondary_on_far_side(),
+        ];
+        let axis_sides = [horizontal.sides(), vertical.sides()];
+        for (side, text) in crate::layout::side_titles(axis_sides, far_sides, &self.titles) {
+            let style = if side.is_horizontal() {
+                theme.axis_title_x
+            } else {
+                theme.axis_title_y
+            };
+            let text = text.as_deref().filter(|text| !text.is_empty());
+            if let (Some(style), Some(text)) = (style, text) {
+                keys.titles[side.index()] = Some(TitleKey { text, style });
+            }
+        }
+        Some(keys)
+    }
+
+    /// Set the axes and titles a containing grid collected from the plot.
+    pub(crate) fn set_grid_collected(&mut self, collected: crate::layout::side::CollectedSides) {
+        self.theme.grid_collected = collected;
+    }
+
+    /// The plot's axis title on `side` as laid out by `arrangement`, justified
+    /// along `span` (start, length): a title a grid collected over a run of
+    /// plots and draws itself. None without a title there.
+    pub(crate) fn collected_title_node(
+        &self,
+        arrangement: &Arrangement,
+        side: crate::layout::side::Side,
+        span: (f64, f64),
+    ) -> Option<Node> {
+        let layout = arrangement.plot_layout();
+        let far_sides = [layout.secondary_far_side(0), layout.secondary_far_side(1)];
+        let (_, text) =
+            crate::layout::side_titles(layout.axis_sides, far_sides, &arrangement.titles)
+                .into_iter()
+                .find(|(title_side, _)| *title_side == side)?;
+        crate::layout::axis_title_node(layout, &self.theme, text, side, span)
+    }
+
     /// Lay the plot out to fill `area`, with panels at least `panel_min_size` px
     /// across ([`PANEL_MIN_SIZE`] for a whole figure).
     pub fn arrange(&self, area: Rect, panel_min_size: f64) -> Result<Arrangement> {
@@ -1441,7 +1542,9 @@ impl PreparedPlot {
     /// The zoom payload of the plot as laid out by `arrangement` (`ggtb`).
     fn zoom_plot(&self, arrangement: &Arrangement) -> ZoomPlot {
         let layouts: Vec<(&PlotLayout, [AxisSides; 2])> = match &arrangement.layout {
-            Arranged::Single(layout) => vec![(layout, layout.axis_sides)],
+            Arranged::Single(layout) => {
+                vec![(layout, self.theme.grid_collected.drawn(layout.axis_sides))]
+            }
             Arranged::Facets(layout) => layout
                 .tiles
                 .iter()
@@ -1596,7 +1699,8 @@ impl PreparedPlot {
                     tile.push(band_layers_group(layout, band_layout, moving));
                     tile.extend(draw_band_axis(layout, band_layout, theme, &band_panel));
                 }
-                tile.extend(draw_axes(layout, theme, &panel, layout.axis_sides));
+                let shown = theme.grid_collected.drawn(layout.axis_sides);
+                tile.extend(draw_axes(layout, theme, &panel, shown));
                 nodes.push(tile_group(tile));
             }
             Arranged::Facets(layout) => {

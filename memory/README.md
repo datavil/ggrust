@@ -79,3 +79,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Plot files (.ggrs)](plot_files.md): object tree via vars() of allowlisted classes (not as_dict), new private attrs change the format, `$` tags, frames once by id, hashes catch damage not edits.
 - [Axis marks (leader-line labels)](axis_marks.md): guide rides on `LabelArrangement::Mark`, measure = draw, no wrap/blank/rotate, discrete breaks need `limits=`, zoom shows labels at breaks, ggsave writes to lets-plot-images/.
 - [Nested axis guide](axis_nested.md): legendry brackets ride on `AxisBreaks.nested` (side="axis") or the layout (opposite), squish ends to the panel (0.2 expansion < 0.4 pad), zoom group outside `axis-*`.
+- [Collected grid axes](grid_axes.md): patchwork runs per side, span extent for axes, mask on `Theme.grid_collected`, Debug-text keys (NaN), `axis_identity()` after sharing.

@@ -22,6 +22,7 @@ use crate::build::{
     build_plot_with,
 };
 use crate::data::DataFrame;
+use crate::grid_axes;
 use crate::grid_share;
 use crate::grid_tags::{self, FigureTags};
 use crate::layout::PANEL_MIN_SIZE;
@@ -414,6 +415,8 @@ struct PreparedGrid<'s> {
     legend_groups: Vec<Collected>,
     /// `ggsize`, or the default size.
     size: (f64, f64),
+    /// Titles the grid draws across runs of plots (`axis_titles=`).
+    run_titles: Vec<grid_axes::RunTitle>,
 }
 
 impl<'s> PreparedGrid<'s> {
@@ -608,6 +611,7 @@ impl<'s> PreparedGrid<'s> {
             };
             elements.push(element);
         }
+        let run_titles = collect_axes(spec, &spans, &mut elements, path)?;
         let (legend_groups, passed_up) = if collects && own_guides == Guides::Auto {
             (Vec::new(), collected)
         } else {
@@ -645,6 +649,7 @@ impl<'s> PreparedGrid<'s> {
             insets,
             legend_groups,
             size,
+            run_titles,
         };
         Ok((grid, passed_up))
     }
@@ -843,6 +848,7 @@ impl<'s> PreparedGrid<'s> {
                 nodes: figure_nodes,
             }));
         }
+        nodes.extend(self.run_title_nodes(grid_layout));
         nodes.extend(heading_nodes(
             grid_layout.content.y,
             (union.x, union.width),
@@ -862,6 +868,43 @@ impl<'s> PreparedGrid<'s> {
         nodes.extend(tag_nodes(theme, &self.titles.tag, grid_layout.inner, union));
         nodes.extend(inset::draw(&self.insets, &inset_areas, true, interaction)?);
         Ok(nodes)
+    }
+
+    /// The axis titles the grid collected over runs of plots, each centred on
+    /// its run's panels at its first plot's distance from the panel.
+    fn run_title_nodes(&self, grid_layout: &GridLayout) -> Vec<Node> {
+        let mut nodes = Vec::new();
+        for title in &self.run_titles {
+            let Some(Some(Placed::Plot(plot, arrangement, _))) =
+                grid_layout.placed.get(title.figure)
+            else {
+                continue;
+            };
+            let frames: Vec<Rect> = title
+                .members
+                .iter()
+                .filter_map(|member| grid_layout.placed.get(*member)?.as_ref()?.frame())
+                .collect();
+            let Some(union) = frames.into_iter().reduce(union) else {
+                continue;
+            };
+            let span = if title.side.is_horizontal() {
+                (union.x, union.width)
+            } else {
+                (union.y, union.height)
+            };
+            nodes.extend(plot.collected_title_node(arrangement, title.side, span));
+        }
+        if nodes.is_empty() {
+            return nodes;
+        }
+        vec![Node::Group(Group {
+            key: None,
+            clip: None,
+            role: Some("titles"),
+            anchor: None,
+            nodes,
+        })]
     }
 
     /// Each legend group measured, with the theme it is measured and drawn with
@@ -960,6 +1003,47 @@ fn align(placed: &mut [Option<Placed>], spans: &[Span]) -> Result<()> {
         })?;
     }
     Ok(())
+}
+
+/// Collect the plots' axes and axis titles (`gggrid(axes=, axis_titles=)`, see
+/// [`crate::grid_axes`]): sets what each plot drops and returns the titles the
+/// grid draws across runs.
+fn collect_axes(
+    spec: &SubplotsSpec,
+    spans: &[Span],
+    elements: &mut [Option<Element>],
+    path: &str,
+) -> Result<Vec<grid_axes::RunTitle>> {
+    let layout = &spec.layout;
+    let axes = grid_axes::Collect::parse(layout.axes.as_deref(), "axes")
+        .map_err(|error| nest_error(error, path))?;
+    let titles = grid_axes::Collect::parse(layout.axis_titles.as_deref(), "axis_titles")
+        .map_err(|error| nest_error(error, path))?;
+    if axes == grid_axes::Collect::Keep && titles == grid_axes::Collect::Keep {
+        return Ok(Vec::new());
+    }
+    let collected = {
+        let keys: Vec<Option<grid_axes::SideKeys>> = elements
+            .iter()
+            .map(|element| match element {
+                Some(Element::Plot(plot, _)) => plot.side_keys(),
+                _ => None,
+            })
+            .collect();
+        grid_axes::collect(
+            axes,
+            titles,
+            (layout.ncol as usize, layout.nrow as usize),
+            spans,
+            &keys,
+        )
+    };
+    for (element, sides) in elements.iter_mut().zip(&collected.collected) {
+        if let Some(Element::Plot(plot, _)) = element {
+            plot.set_grid_collected(*sides);
+        }
+    }
+    Ok(collected.run_titles)
 }
 
 /// Add a figure's tooltips, zoom panels and notes to the grid's.

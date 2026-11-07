@@ -464,6 +464,10 @@ pub struct Theme {
     pub panel_spacing: (f64, f64),
     /// How numbers write exponents (`exponent_format`; see [`exponent_format`]).
     pub exponent_format: ExponentFormat,
+    /// Axes and axis titles a containing `gggrid(axes=, axis_titles=)` collected
+    /// from this plot, per screen side. Not a theme option: the grid sets it on
+    /// the plot it prepared ([`crate::grid_axes`]).
+    pub grid_collected: crate::layout::side::CollectedSides,
 }
 
 impl Default for Theme {
@@ -1216,6 +1220,7 @@ impl Resolver<'_> {
                 self.number(&["panel_spacing_y", "panel_spacing"], 10.0)?,
             ),
             exponent_format: ExponentFormat::default(),
+            grid_collected: Default::default(),
         })
     }
 }

@@ -11,6 +11,7 @@ pub mod error;
 pub mod facet;
 pub mod geom;
 pub mod grid;
+pub mod grid_axes;
 pub mod grid_share;
 pub mod grid_tags;
 pub mod interactive_legend;

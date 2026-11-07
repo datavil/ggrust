@@ -20,7 +20,7 @@ behavior in Rust; the R packages and their authors designed it.
 | [Several color scales in one plot](#clustered-heatmaps) | [`new_scale_fill`](../reference/api/new_scale_fill.md), `new_scale_color`, `new_scale` | [ggnewscale](https://cran.r-project.org/package=ggnewscale) |
 | [Dendrograms](#clustered-heatmaps) | `hclust`, [`scale_y_dendro`](../reference/api/scale_y_dendro.md), `scale_x_dendro`, `guide_axis_dendro`, [`geom_dendrogram`](../reference/api/geom_dendrogram.md) | [legendry](https://cran.r-project.org/package=legendry), [ggh4x](https://cran.r-project.org/package=ggh4x), [ggdendro](https://cran.r-project.org/package=ggdendro) |
 | [Raincloud plots](#raincloud-plots) | [`stat_halfeye`](../reference/api/stat_halfeye.md), `stat_slab`, `stat_interval`, `stat_pointinterval`, [`geom_half_violin`](../reference/api/geom_half_violin.md), `geom_half_boxplot`, `geom_half_point` | [ggdist](https://cran.r-project.org/package=ggdist), [gghalves](https://cran.r-project.org/package=gghalves) |
-| [Figure layouts](#figure-layouts) | `gggrid(design=, tag_levels=)`, [`inset_element`](../reference/api/inset_element.md) | [patchwork](https://cran.r-project.org/package=patchwork) |
+| [Figure layouts](#figure-layouts) | `gggrid(design=, tag_levels=, axes=, axis_titles=)`, [`inset_element`](../reference/api/inset_element.md) | [patchwork](https://cran.r-project.org/package=patchwork) |
 | [Rasterized layers](#rasterized-layers) | [`rasterize`](../reference/api/rasterize.md) | [ggrastr](https://cran.r-project.org/package=ggrastr), [scattermore](https://cran.r-project.org/package=scattermore) |
 
 Two more, `geom_text_repel` / `geom_label_repel` ([ggrepel](https://cran.r-project.org/package=ggrepel))
@@ -158,8 +158,10 @@ Together they make raincloud plots; panel B of the next example is a `stat_halfe
 ## Figure layouts
 
 `gggrid` accepts a `design` string that names a cell per letter, and `tag_levels` tags
-the panels A, B, C (or a, 1, i). `inset_element` places a plot inside another. These
-follow [patchwork](https://cran.r-project.org/package=patchwork) by Thomas Lin
+the panels A, B, C (or a, 1, i). `axes="collect"` shows axes that repeat once per run
+of plots (with `sharex` / `sharey`), and `axis_titles="collect"` turns repeated axis
+titles into one title centred on the run. `inset_element` places a plot inside
+another. These follow [patchwork](https://cran.r-project.org/package=patchwork) by Thomas Lin
 Pedersen.
 
 ```python

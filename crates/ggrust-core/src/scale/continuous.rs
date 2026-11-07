@@ -122,6 +122,17 @@ impl ContinuousPositionScale {
         });
     }
 
+    /// The scale as its axis draws it: the trained domain and the ranges past the
+    /// limits joined into one domain, so scales that differ only in how they got
+    /// their range compare equal (`gggrid(axes=)` after `sharex`).
+    pub fn axis_identity(&self) -> ContinuousPositionScale {
+        ContinuousPositionScale {
+            domain: self.raw_domain(),
+            beyond_limits: None,
+            ..self.clone()
+        }
+    }
+
     /// Widen the domain to include `[low, high]`, even past the limits.
     pub fn train_beyond_limits(&mut self, low: f64, high: f64) {
         self.beyond_limits = Some(match self.beyond_limits {

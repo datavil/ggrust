@@ -17,6 +17,12 @@ TAG_LEVELS = ("A", "a", "1", "i", "I")
 """Numberings ``tag_levels`` accepts: letters, lowercase letters, numbers, roman
 numerals in lowercase and uppercase (patchwork's)."""
 
+COLLECT_VALUES = ("keep", "collect", "collect_x", "collect_y")
+"""Values ``axes`` and ``axis_titles`` accept (patchwork's)."""
+
+Collect = Literal["keep", "collect", "collect_x", "collect_y"]
+"""A value of ``axes`` or ``axis_titles``."""
+
 Area = tuple[int, int, int, int]
 """Cells a figure spans in a ``design``: ``(left, top, right, bottom)``, 0-based and
 inclusive."""
@@ -38,6 +44,8 @@ def gggrid(
     design: str | None = None,
     tag_levels: str | list[str] | None = None,
     tag_level: Literal["keep", "new"] | None = None,
+    axes: Collect | None = None,
+    axis_titles: Collect | None = None,
 ) -> SupPlotsSpec:
     r"""Combine plots into a grid.
 
@@ -85,6 +93,21 @@ def gggrid(
         For a grid nested in a tagged grid: ``"keep"`` (default) numbers its plots
         on with the outer grid's; ``"new"`` takes one outer tag and numbers its
         plots at the next level of ``tag_levels``.
+    axes : {"keep", "collect", "collect_x", "collect_y"}, optional
+        Collect axes that repeat (patchwork's ``plot_layout(axes=)``): plots next
+        to each other whose axis on a side is identical (same scale, same axis
+        theme and, for x, the same columns; for y, the same rows) show it once,
+        on the outer plot of the run: the bottom-most for a bottom axis, the
+        left-most for a left axis. The others drop the axis (line, ticks,
+        labels) and its room. ``"collect_x"`` and ``"collect_y"`` collect one
+        direction only. Use with ``sharex`` / ``sharey`` so the axes are
+        identical. Empty cells, nested grids and faceted plots break runs.
+        Default ``"keep"``. A ggrust extension.
+    axis_titles : {"keep", "collect", "collect_x", "collect_y"}, optional
+        Collect axis titles that repeat (patchwork's ``plot_layout(axis_titles=)``):
+        neighbouring plots with the same title on a side keep one, centred on
+        their panels when the run spans several columns (x) or rows (y). Works
+        without ``axes``. Default ``"keep"``. A ggrust extension.
 
     Returns
     -------
@@ -102,6 +125,17 @@ def gggrid(
     A design layout with tags A, B, C:
 
     >>> plot = gggrid([points, bars, points], design="AAB\nCCB", tag_levels="A")
+
+    Shared axes shown once, with one title per axis:
+
+    >>> plot = gggrid(
+    ...     [points, points, points, points],
+    ...     ncol=2,
+    ...     sharex=True,
+    ...     sharey=True,
+    ...     axes="collect",
+    ...     axis_titles="collect",
+    ... )
     """
     if not len(plots):
         message = "gggrid(): 'plots' is empty; pass a list of plots (None leaves a cell empty)"
@@ -113,6 +147,8 @@ def gggrid(
             f"{did_you_mean(str(tag_level), ['keep', 'new'])}"
         )
         raise SpecError(message, path="layout.tag_level", reason=message)
+    for key, value in (("axes", axes), ("axis_titles", axis_titles)):
+        _check_collect(key, value)
     areas: list[Area] | None = None
     if design is not None:
         if ncol is not None:
@@ -154,6 +190,11 @@ def gggrid(
         align=align,
         guides=guides,
         **_extension_options(design, areas, levels, tag_level),
+        **{
+            key: value
+            for key, value in (("axes", axes), ("axis_titles", axis_titles))
+            if value is not None
+        },
     )
     return SupPlotsSpec(figures=plots, layout=layout)
 
@@ -174,6 +215,24 @@ def _extension_options(
     if tag_level is not None:
         options["tag_level"] = tag_level
     return options
+
+
+def _check_collect(key: str, value: object) -> None:
+    """Check an ``axes`` / ``axis_titles`` value against :data:`COLLECT_VALUES`.
+
+    Raises
+    ------
+    SpecError
+        If ``value`` is set and not one of them.
+    """
+    if value is None or value in COLLECT_VALUES:
+        return
+    message = (
+        f"gggrid(): {key} must be one of "
+        f"{', '.join(repr(name) for name in COLLECT_VALUES)}, got {value!r}"
+        f"{did_you_mean(str(value), COLLECT_VALUES)}"
+    )
+    raise SpecError(message, path=f"layout.{key}", reason=message)
 
 
 def _tag_levels(tag_levels: str | list[str] | None) -> list[str] | None:

@@ -67,6 +67,73 @@ impl Side {
     }
 }
 
+impl Side {
+    /// Every side: bottom, top, left, right (the order of [`Side::index`]).
+    pub const ALL: [Side; 4] = [Side::Bottom, Side::Top, Side::Left, Side::Right];
+
+    /// Position in [`Side::ALL`].
+    pub fn index(self) -> usize {
+        match self {
+            Side::Bottom => 0,
+            Side::Top => 1,
+            Side::Left => 2,
+            Side::Right => 3,
+        }
+    }
+}
+
+/// What happens to an axis title a grid collected (`gggrid(axis_titles=)`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum TitleRoom {
+    /// Drawn by the plot (not collected).
+    #[default]
+    Drawn,
+    /// Keeps its room but is not drawn: another plot's title stands for it, or
+    /// the grid draws it across a run of plots.
+    Hidden,
+    /// Removed with its room.
+    Dropped,
+}
+
+/// Axes and axis titles a grid collected from one plot (`gggrid(axes=,
+/// axis_titles=)`, patchwork's `plot_layout(axes=, axis_titles=)`), per screen
+/// side in [`Side::ALL`] order. A collected axis (line, ticks, labels, and a
+/// nested guide or tree on that side) takes no room and is not drawn.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct CollectedSides {
+    /// Whether the axis on each side is collected.
+    pub axes: [bool; 4],
+    /// The axis title on each side.
+    pub titles: [TitleRoom; 4],
+}
+
+impl CollectedSides {
+    /// Whether the axis on `side` is collected (not drawn, no room).
+    pub fn axis_hidden(&self, side: Side) -> bool {
+        self.axes[side.index()]
+    }
+
+    /// The title on `side`.
+    pub fn title(&self, side: Side) -> TitleRoom {
+        self.titles[side.index()]
+    }
+
+    /// `sides` (horizontal, vertical) without the collected sides: what is drawn.
+    pub fn drawn(&self, sides: [AxisSides; 2]) -> [AxisSides; 2] {
+        let [horizontal, vertical] = sides;
+        [
+            AxisSides {
+                primary: horizontal.primary && !self.axis_hidden(Side::Bottom),
+                secondary: horizontal.secondary && !self.axis_hidden(Side::Top),
+            },
+            AxisSides {
+                primary: vertical.primary && !self.axis_hidden(Side::Left),
+                secondary: vertical.secondary && !self.axis_hidden(Side::Right),
+            },
+        ]
+    }
+}
+
 /// The screen sides an axis of `sides` is drawn on, primary first.
 pub fn screen_sides(sides: AxisSides, horizontal: bool) -> impl Iterator<Item = Side> {
     [(sides.primary, false), (sides.secondary, true)]

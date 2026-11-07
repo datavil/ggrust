@@ -74,6 +74,15 @@ impl Default for DiscretePositionScale {
 }
 
 impl DiscretePositionScale {
+    /// The scale as its axis draws it, for comparing axes (`gggrid(axes=)`):
+    /// without the lookup set of known levels, whose `Debug` order is random.
+    pub fn axis_identity(&self) -> DiscretePositionScale {
+        DiscretePositionScale {
+            known: std::collections::HashSet::new(),
+            ..self.clone()
+        }
+    }
+
     /// Show only these categories, in this order (repeats ignored). An empty list
     /// means no limits, as in lets-plot.
     pub fn set_limits(&mut self, limits: Vec<String>) {

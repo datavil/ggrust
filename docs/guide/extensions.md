@@ -134,7 +134,9 @@ A clustered heatmap combines three extensions:
   `geom_dendrogram` draws a tree as a layer, as
   [ggdendro](https://cran.r-project.org/package=ggdendro) by Andrie de Vries does. A
   tree computed elsewhere, for example by scipy or scanpy, can be passed in as its
-  linkage matrix.
+  linkage matrix. With `leaf_levels={leaf: [levels]}` each leaf stands for a run of
+  axis levels, so a tree over clusters can sit beside a heatmap of single cells: the
+  runs follow the tree, and each leaf is drawn at the centre of its run.
 - `new_scale_fill` starts a second fill scale, so each annotation track gets its own
   colors and legend, as in [ggnewscale](https://cran.r-project.org/package=ggnewscale)
   by Elio Campitelli.

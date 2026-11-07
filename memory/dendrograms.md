@@ -23,6 +23,13 @@ axis band or opposite band.
   zoom rewrites `axis-*` innerHTML), clipped by the engine to the panel span; the runtime
   wraps the paths in an inner `<g>` and sets a one-axis matrix (outer clip stays put),
   strokes non-scaling. Browser test: `tests/test_dendrogram_zoom.py`.
+- **Leaves over runs of levels (10.5, `leaf_levels={leaf: [levels]}`):** the tree
+  sets the limits to the runs end to end (`AxisDendrogram::ordered_levels`), and
+  `draw` places each leaf at the midpoint of its run's first and last axis positions
+  (a level -> position HashMap, so 50k cells stay linear). `leaf_levels: None` is the
+  one-level-per-leaf case, so every path goes through `levels_of`. Checks live twice
+  on purpose: Python fails early, Rust `leaf_levels_from_value` guards raw specs.
+  Tests: `tests/test_dendrogram_leaf_levels.py`, goldens `dendro_runs_*`.
 - Fixtures: `tests/fixtures/generate_hclust_reference.R` (jsonlite `auto_unbox` +
   `I()` so length-1 vectors stay lists). legendry and ggh4x installed into a scratch
   `R_LIBS` for the reference render.

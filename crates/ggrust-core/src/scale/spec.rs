@@ -105,6 +105,8 @@ pub struct AxisScaleSpec {
     break_width: Set<String>,
     /// `scale_*_dendro(tree)`: the tree as given in the spec.
     dendrogram: Set<Value>,
+    /// `scale_*_dendro(leaf_levels=)`: `{leaf: [levels]}`.
+    leaf_levels: Set<Value>,
     /// `guide_axis_dendro(...)` options (`space`, `side`, `type`).
     dendrogram_guide: Set<Options>,
     /// `guide_axis_mark(...)` options (`spread`, `link_width`, `padding`).
@@ -324,13 +326,7 @@ impl AxisScaleSpec {
             scale.set_limits(categories);
         }
         if let Some(dendrogram) = self.axis_dendrogram()? {
-            let ordered = dendrogram
-                .tree
-                .ordered_labels()
-                .into_iter()
-                .map(str::to_owned)
-                .collect();
-            scale.set_limits(ordered);
+            scale.set_limits(dendrogram.ordered_levels());
             scale.dendrogram = Some(std::sync::Arc::new(dendrogram));
         }
         scale.reverse =
@@ -366,11 +362,17 @@ impl AxisScaleSpec {
             return Ok(None);
         };
         let tree = tree_from_value(value, path)?;
+        let leaf_levels = self
+            .leaf_levels
+            .as_ref()
+            .map(|(runs, runs_path)| leaf_levels_from_value(runs, runs_path, &tree))
+            .transpose()?;
         let mut dendrogram = AxisDendrogram {
             tree,
             side: DendrogramSide::Axis,
             space: DEFAULT_SPACE,
             kind: DendrogramType::Rectangle,
+            leaf_levels,
         };
         let Some((options, guide_path)) = &self.dendrogram_guide else {
             return Ok(Some(dendrogram));
@@ -728,7 +730,12 @@ fn merge(target: &mut AxisScaleSpec, scale: &ScaleSpec, path: &str) {
         target.break_width = Some((width.clone(), at("break_width")));
     }
     if let Some(tree) = scale.parameters.get("dendrogram") {
+        // The tree and its runs are one unit: a later tree drops earlier runs.
         target.dendrogram = Some((tree.clone(), at("dendrogram")));
+        target.leaf_levels = scale
+            .parameters
+            .get("leaf_levels")
+            .map(|runs| (runs.clone(), at("leaf_levels")));
     }
     if let Some(options) = dendrogram_guide(scale) {
         target.dendrogram_guide = Some((options, at("guide")));
@@ -781,6 +788,90 @@ fn dendrogram_guide(scale: &ScaleSpec) -> Option<Options> {
         }
         _ => None,
     }
+}
+
+/// The runs of `scale_*_dendro(leaf_levels={leaf: [levels]})`, indexed like
+/// `tree.labels`: every leaf has a non-empty run, and no level is in two runs
+/// (or twice in one).
+fn leaf_levels_from_value(value: &Value, path: &str, tree: &Tree) -> Result<Vec<Vec<String>>> {
+    let Some(entries) = value.as_object() else {
+        return Err(Error::spec(
+            path,
+            format!("leaf_levels is a mapping {{leaf: [levels]}}, got {value}"),
+        ));
+    };
+    let leaf_index: std::collections::HashMap<&str, usize> = tree
+        .labels
+        .iter()
+        .enumerate()
+        .map(|(index, label)| (label.as_str(), index))
+        .collect();
+    let mut runs: Vec<Option<Vec<String>>> = vec![None; tree.labels.len()];
+    let mut owner: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    for (leaf, levels) in entries {
+        let at = format!("{path}.{leaf}");
+        let Some(&index) = leaf_index.get(leaf.as_str()) else {
+            return Err(Error::spec(
+                &at,
+                format!(
+                    "'{leaf}' is not a leaf of the tree; leaf_levels keys are the tree's leaf \
+                     names{}",
+                    crate::suggest::did_you_mean(leaf, tree.labels.iter().map(String::as_str))
+                ),
+            ));
+        };
+        let run = levels
+            .as_array()
+            .and_then(|items| {
+                items
+                    .iter()
+                    .map(|item| item.as_str().map(str::to_owned))
+                    .collect::<Option<Vec<_>>>()
+            })
+            .ok_or_else(|| {
+                Error::spec(
+                    &at,
+                    format!("the levels of leaf '{leaf}' are a list of strings, got {levels}"),
+                )
+            })?;
+        if run.is_empty() {
+            return Err(Error::spec(
+                &at,
+                format!("leaf '{leaf}' has no levels; give it at least one, or drop the leaf"),
+            ));
+        }
+        for level in &run {
+            if let Some(previous) = owner.insert(level.clone(), leaf.clone()) {
+                let place = if previous == *leaf {
+                    format!("twice in the run of leaf '{leaf}'")
+                } else {
+                    format!("in the runs of leaves '{previous}' and '{leaf}'")
+                };
+                return Err(Error::spec(
+                    &at,
+                    format!("level '{level}' is {place}; each level belongs to one leaf, once"),
+                ));
+            }
+        }
+        runs[index] = Some(run);
+    }
+    let missing: Vec<String> = tree
+        .labels
+        .iter()
+        .zip(&runs)
+        .filter(|(_, run)| run.is_none())
+        .map(|(label, _)| format!("'{label}'"))
+        .collect();
+    if !missing.is_empty() {
+        return Err(Error::spec(
+            path,
+            format!(
+                "leaf_levels has no run for the leaves {}; give every leaf of the tree its levels",
+                missing.join(", ")
+            ),
+        ));
+    }
+    Ok(runs.into_iter().flatten().collect())
 }
 
 /// A tree from `{"labels": [...], "merge": [[a, b], ...], "height": [...],
@@ -916,7 +1007,14 @@ fn report_unbuilt(scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
     for (key, _) in present.iter().filter(|(_, present)| *present) {
         warnings.push(format!("at '{path}.{key}': not supported yet; ignored"));
     }
-    let built = ["datetime", "time", "break_width", "dendrogram", "sec_axis"];
+    let built = [
+        "datetime",
+        "time",
+        "break_width",
+        "dendrogram",
+        "leaf_levels",
+        "sec_axis",
+    ];
     for key in scale
         .parameters
         .keys()
@@ -952,6 +1050,63 @@ mod tests {
 
     fn plot_with(scale: &str) -> String {
         format!(r#"{{"kind": "plot", "scales": [{scale}]}}"#)
+    }
+
+    const TREE: &str = r#"{"labels": ["a", "b", "c"], "merge": [[-1, -2], [-3, 1]],
+        "height": [1, 2], "order": [2, 0, 1]}"#;
+
+    fn dendro_scale(leaf_levels: &str) -> Result<PositionScale> {
+        let json = plot_with(&format!(
+            r#"{{"aesthetic": "y", "discrete": true, "dendrogram": {TREE},
+                 "leaf_levels": {leaf_levels}}}"#
+        ));
+        let (scales, warnings) = scales(&json)?;
+        assert!(warnings.is_empty(), "{warnings:?}");
+        built(&scales.y, true)
+    }
+
+    #[test]
+    fn leaf_levels_put_runs_in_tree_order_and_keep_their_order() {
+        let PositionScale::Discrete(scale) =
+            dendro_scale(r#"{"a": ["a2", "a1"], "b": ["b1"], "c": ["c1", "c2", "c3"]}"#).unwrap()
+        else {
+            panic!("expected a discrete scale");
+        };
+        assert_eq!(
+            scale.effective_levels(),
+            ["c1", "c2", "c3", "a2", "a1", "b1"]
+        );
+        let dendrogram = scale.dendrogram.as_deref().unwrap();
+        assert_eq!(dendrogram.level_set().len(), 6);
+    }
+
+    #[test]
+    fn leaf_levels_are_checked() {
+        let error = |runs: &str| dendro_scale(runs).err().unwrap().to_string();
+        let message = error(r#"{"a": ["x"], "b": ["y"], "cc": ["z"]}"#);
+        assert!(message.contains("'cc' is not a leaf"), "{message}");
+        let message = error(r#"{"a": ["x"]}"#);
+        assert!(
+            message.contains("no run for the leaves 'b', 'c'"),
+            "{message}"
+        );
+        let message = error(r#"{"a": ["x"], "b": [], "c": ["z"]}"#);
+        assert!(message.contains("leaf 'b' has no levels"), "{message}");
+        let message = error(r#"{"a": ["x"], "b": ["x"], "c": ["z"]}"#);
+        assert!(
+            message.contains("in the runs of leaves 'a' and 'b'"),
+            "{message}"
+        );
+        let message = error(r#"{"a": ["x", "x"], "b": ["y"], "c": ["z"]}"#);
+        assert!(
+            message.contains("twice in the run of leaf 'a'"),
+            "{message}"
+        );
+        let message = error(r#"{"a": [1], "b": ["y"], "c": ["z"]}"#);
+        assert!(message.contains("a list of strings"), "{message}");
+        assert!(message.contains("leaf_levels.a"), "{message}");
+        let message = error(r#"["a"]"#);
+        assert!(message.contains("a mapping"), "{message}");
     }
 
     #[test]

@@ -2618,8 +2618,7 @@ fn axis_scale(
             }
         }
         if let Some(dendrogram) = &discrete.dendrogram {
-            let leaves: std::collections::HashSet<&str> =
-                dendrogram.tree.labels.iter().map(String::as_str).collect();
+            let leaves = dendrogram.level_set();
             if let Some(level) = discrete
                 .trained_levels()
                 .iter()
@@ -2631,14 +2630,20 @@ fn axis_scale(
                         Column::Continuous(_) => false,
                     })
                     .map_or(String::new(), |(_, _, path)| path.clone());
-                return Err(Error::spec(
-                    path,
+                let message = if dendrogram.leaf_levels.is_some() {
+                    format!(
+                        "'{level}' is on the {axis} axis but in no run of \
+                         scale_{axis}_dendro(leaf_levels=); add it to its leaf's levels, or \
+                         filter the data to the listed levels"
+                    )
+                } else {
                     format!(
                         "'{level}' is on the {axis} axis but not a leaf of its dendrogram \
                          (scale_{axis}_dendro()); cluster every level, or filter the data to \
                          the tree's leaves"
-                    ),
-                ));
+                    )
+                };
+                return Err(Error::spec(path, message));
             }
         }
         if !discrete.has_levels()

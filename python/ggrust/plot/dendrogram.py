@@ -4,13 +4,14 @@ Not in lets-plot. ``hclust()`` clusters rows (or columns) in Rust with the merge
 heights and leaf order of R's ``hclust``. The tree is drawn by itself with
 ``geom_dendrogram()`` (as ggdendro), or beside a discrete axis that it also orders
 with ``scale_x_dendro()`` / ``scale_y_dendro()`` and ``guide_axis_dendro()`` (as
-the R package legendry, the successor of ggh4x's ``guide_dendro``).
+the R package legendry, the successor of ggh4x's ``guide_dendro``). With
+``leaf_levels=`` a leaf stands for a run of axis levels (the cells of a cluster).
 """
 
 from __future__ import annotations
 
 import math
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from numbers import Real
 from typing import TYPE_CHECKING, Any, Literal, TypeAlias
@@ -18,7 +19,7 @@ from typing import TYPE_CHECKING, Any, Literal, TypeAlias
 from ggrust._data import as_arrow
 from ggrust._ggrust import dendrogram_segments
 from ggrust._ggrust import hclust as _hclust
-from ggrust.errors import SpecError, UnsupportedValueError
+from ggrust.errors import SpecError, UnsupportedValueError, did_you_mean
 from ggrust.plot.core import FeatureSpec, aes
 from ggrust.plot.geom import geom_segment
 from ggrust.plot.geom_beeswarm import _check_choice
@@ -487,6 +488,7 @@ def _dendro_scale(
     format: str | None,
     guide: FeatureSpec | str | None,
     position: AxisPosition | None = None,
+    leaf_levels: Mapping[str, Iterable[str]] | None = None,
 ) -> FeatureSpec:
     """Build the ``scale_{aesthetic}_dendro()`` spec."""
     function = f"scale_{aesthetic}_dendro"
@@ -512,7 +514,61 @@ def _dendro_scale(
         reverse=reverse,
         position=position,
         dendrogram=tree.to_dict(),
+        leaf_levels=None if leaf_levels is None else _leaf_levels(function, tree, leaf_levels),
     )
+
+
+def _leaf_levels(function: str, tree: ClusterTree, leaf_levels: object) -> dict[str, list[str]]:
+    """Check ``leaf_levels={leaf: [levels]}`` against ``tree`` and return its spec form."""
+
+    def fail(path: str, reason: str, error: type[SpecError] = SpecError) -> SpecError:
+        return error(f"{function}(leaf_levels=...): {reason}", path=path, reason=reason)
+
+    if not isinstance(leaf_levels, Mapping):
+        reason = f"expected a mapping {{leaf: [levels]}}, got {type(leaf_levels).__name__}"
+        raise fail("leaf_levels", reason, UnsupportedValueError)
+    leaves = set(tree.labels)
+    runs: dict[str, list[str]] = {}
+    owner: dict[str, str] = {}
+    for leaf, levels in leaf_levels.items():
+        path = f"leaf_levels.{leaf}"
+        if leaf not in leaves:
+            reason = (
+                f"{leaf!r} is not a leaf of the tree; keys are the tree's leaf names"
+                f"{did_you_mean(str(leaf), tree.labels)}"
+            )
+            raise fail(path, reason)
+        if isinstance(levels, (str, bytes, Mapping)) or not isinstance(levels, Iterable):
+            reason = (
+                f"the levels of leaf {leaf!r} must be a sequence of str (e.g. [{levels!r}]), "
+                f"not {type(levels).__name__}"
+            )
+            raise fail(path, reason, UnsupportedValueError)
+        levels = list(levels)
+        if not levels:
+            raise fail(path, f"leaf {leaf!r} has no levels; give it at least one")
+        for level in levels:
+            if not isinstance(level, str):
+                reason = f"levels are str, got {type(level).__name__} {level!r} in leaf {leaf!r}"
+                raise fail(path, reason, UnsupportedValueError)
+            if level in owner:
+                place = (
+                    f"twice in the run of leaf {leaf!r}"
+                    if owner[level] == leaf
+                    else f"in the runs of leaves {owner[level]!r} and {leaf!r}"
+                )
+                reason = f"level {level!r} is {place}; each level belongs to one leaf, once"
+                raise fail(path, reason)
+            owner[level] = leaf
+        runs[leaf] = levels
+    missing = [leaf for leaf in tree.labels if leaf not in runs]
+    if missing:
+        reason = (
+            f"no levels for the leaves {', '.join(repr(leaf) for leaf in missing)}; "
+            "give every leaf of the tree its levels"
+        )
+        raise fail("leaf_levels", reason)
+    return runs
 
 
 def _guide_name(guide: FeatureSpec) -> object:
@@ -532,12 +588,13 @@ def scale_x_dendro(
     format: str | None = None,
     guide: FeatureSpec | str | None = None,
     position: AxisPosition | None = None,
+    leaf_levels: Mapping[str, Iterable[str]] | None = None,
 ) -> FeatureSpec:
     """Discrete x scale ordered by a clustering tree, drawn below the axis (legendry).
 
-    The axis levels are the tree's leaves in its order; every value mapped to x
-    must be a leaf. The tree is drawn by ``guide`` (default
-    ``guide_axis_dendro()``).
+    The axis levels are the tree's leaves in its order (or, with ``leaf_levels``,
+    their runs of levels); every value mapped to x must be one of them. The tree
+    is drawn by ``guide`` (default ``guide_axis_dendro()``).
 
     Parameters
     ----------
@@ -554,6 +611,13 @@ def scale_x_dendro(
     position : str, optional
         Side of the axis, as in ``scale_x_discrete()`` / ``scale_y_discrete()``;
         a ``side="axis"`` tree follows the axis there.
+    leaf_levels : mapping of str to iterable of str, optional
+        The axis levels of each leaf, ``{leaf: [levels]}`` (a list, tuple or
+        polars Series of str), for a tree over groups
+        of levels (for example clusters over the cells of a heatmap). The runs
+        follow the tree's leaf order, each keeps its given order, and each leaf is
+        drawn at the centre of its run. Every leaf needs a non-empty run; a level
+        belongs to one run. Default: each leaf is the level of its own name.
 
     Returns
     -------
@@ -563,7 +627,11 @@ def scale_x_dendro(
     Raises
     ------
     UnsupportedValueError
-        If ``clust`` is not an :class:`ClusterTree` or ``guide`` is another guide.
+        If ``clust`` is not an :class:`ClusterTree`, ``guide`` is another guide, or
+        ``leaf_levels`` is not a mapping of leaf names to lists of str.
+    SpecError
+        If ``leaf_levels`` names an unknown leaf, misses a leaf, has an empty run,
+        or repeats a level.
 
     Examples
     --------
@@ -572,8 +640,17 @@ def scale_x_dendro(
     >>> tree = hclust(frame, labels="city")
     >>> plot = ggplot(frame, aes("city", "jan")) + geom_bar(stat="identity")
     >>> plot = plot + scale_x_dendro(tree)
+
+    A tree over groups of levels, each leaf at the centre of its run:
+
+    >>> cells = {"cell": ["o1", "o2", "r1", "c1"], "jan": [-4.0, -3.0, 8.0, 14.0]}
+    >>> runs = {"Oslo": ["o1", "o2"], "Rome": ["r1"], "Cairo": ["c1"]}
+    >>> plot = ggplot(cells, aes("cell", "jan")) + geom_bar(stat="identity")
+    >>> plot = plot + scale_x_dendro(tree, leaf_levels=runs)
     """
-    return _dendro_scale("x", clust, name, breaks, labels, expand, reverse, format, guide, position)
+    return _dendro_scale(
+        "x", clust, name, breaks, labels, expand, reverse, format, guide, position, leaf_levels
+    )
 
 
 def scale_y_dendro(
@@ -587,6 +664,7 @@ def scale_y_dendro(
     format: str | None = None,
     guide: FeatureSpec | str | None = None,
     position: AxisPosition | None = None,
+    leaf_levels: Mapping[str, Iterable[str]] | None = None,
 ) -> FeatureSpec:
     """Discrete y scale ordered by a clustering tree, drawn left of the axis (legendry).
 
@@ -608,6 +686,13 @@ def scale_y_dendro(
     position : str, optional
         Side of the axis, as in ``scale_x_discrete()`` / ``scale_y_discrete()``;
         a ``side="axis"`` tree follows the axis there.
+    leaf_levels : mapping of str to iterable of str, optional
+        The axis levels of each leaf, ``{leaf: [levels]}`` (a list, tuple or
+        polars Series of str), for a tree over groups
+        of levels (for example clusters over the cells of a heatmap). The runs
+        follow the tree's leaf order, each keeps its given order, and each leaf is
+        drawn at the centre of its run. Every leaf needs a non-empty run; a level
+        belongs to one run. Default: each leaf is the level of its own name.
 
     Returns
     -------
@@ -617,7 +702,11 @@ def scale_y_dendro(
     Raises
     ------
     UnsupportedValueError
-        If ``clust`` is not an :class:`ClusterTree` or ``guide`` is another guide.
+        If ``clust`` is not an :class:`ClusterTree`, ``guide`` is another guide, or
+        ``leaf_levels`` is not a mapping of leaf names to lists of str.
+    SpecError
+        If ``leaf_levels`` names an unknown leaf, misses a leaf, has an empty run,
+        or repeats a level.
 
     Examples
     --------
@@ -632,4 +721,6 @@ def scale_y_dendro(
     >>> plot = ggplot(long, aes("cell", "gene", fill="value")) + geom_tile()
     >>> plot = plot + scale_y_dendro(rows)
     """
-    return _dendro_scale("y", clust, name, breaks, labels, expand, reverse, format, guide, position)
+    return _dendro_scale(
+        "y", clust, name, breaks, labels, expand, reverse, format, guide, position, leaf_levels
+    )

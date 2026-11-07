@@ -10,6 +10,10 @@
 //! `dendrogram-x` / `dendrogram-y` group clipped to the panel's span along the axis,
 //! which the HTML runtime moves with zoom and pan along that axis.
 //!
+//! A leaf may stand for a run of levels (`leaf_levels`, for example the cells of
+//! one cluster): the runs follow the tree's order, each keeps its given level
+//! order, and the leaf is drawn at the centre of its run.
+//!
 //! What it does not do: facets (the build drops the tree with a warning),
 //! labels inside the guide (legendry `labels=`; hide axis text with the theme instead).
 
@@ -51,6 +55,35 @@ pub struct AxisDendrogram {
     pub space: f64,
     /// Elbow or straight links.
     pub kind: DendrogramType,
+    /// The axis levels of each leaf, indexed like `tree.labels` (`scale_*_dendro(
+    /// leaf_levels=)`); None: each leaf is the level of its own name.
+    pub leaf_levels: Option<Vec<Vec<String>>>,
+}
+
+impl AxisDendrogram {
+    /// The levels of leaf `leaf` (an index into `tree.labels`).
+    fn levels_of(&self, leaf: usize) -> &[String] {
+        match &self.leaf_levels {
+            Some(runs) => &runs[leaf],
+            None => std::slice::from_ref(&self.tree.labels[leaf]),
+        }
+    }
+
+    /// The axis levels in the tree's order: the leaves, or their runs end to end.
+    pub fn ordered_levels(&self) -> Vec<String> {
+        self.tree
+            .order
+            .iter()
+            .flat_map(|leaf| self.levels_of(*leaf).iter().cloned())
+            .collect()
+    }
+
+    /// Every level the tree places on the axis.
+    pub fn level_set(&self) -> std::collections::HashSet<&str> {
+        (0..self.tree.labels.len())
+            .flat_map(|leaf| self.levels_of(leaf).iter().map(String::as_str))
+            .collect()
+    }
 }
 
 /// Default `space` (px): legendry's `rel(10)` of the tick length, rounded.
@@ -92,7 +125,8 @@ pub enum Growth {
 /// The tree's segments in scene pixels: `leaf_pixel` maps an axis position to a
 /// pixel along the axis, `baseline` is the leaves' pixel across it and `growth`
 /// the direction of the root. `levels` are the axis categories in axis order;
-/// leaves not on the axis are not drawn (the build rejects such trees).
+/// a leaf sits at the centre of its levels (one level, or a run). Trees with a
+/// level not on the axis are not drawn (the build rejects such trees).
 pub fn draw(
     dendrogram: &AxisDendrogram,
     levels: &[&str],
@@ -105,12 +139,26 @@ pub fn draw(
     if dendrogram.space <= 0.0 {
         return Vec::new();
     }
+    let index: std::collections::HashMap<&str, usize> = levels
+        .iter()
+        .enumerate()
+        .map(|(position, level)| (*level, position))
+        .collect();
     let mut leaf_position = Vec::with_capacity(tree.labels.len());
-    for label in &tree.labels {
-        match levels.iter().position(|level| level == label) {
-            Some(position) => leaf_position.push(position as f64),
-            None => return Vec::new(),
+    for leaf in 0..tree.labels.len() {
+        let mut span: Option<(usize, usize)> = None;
+        for level in dendrogram.levels_of(leaf) {
+            let Some(&position) = index.get(level.as_str()) else {
+                return Vec::new();
+            };
+            span = Some(span.map_or((position, position), |(low, high)| {
+                (low.min(position), high.max(position))
+            }));
         }
+        let Some((low, high)) = span else {
+            return Vec::new();
+        };
+        leaf_position.push((low + high) as f64 / 2.0);
     }
     let top = tree.max_height();
     let per_unit = if top > 0.0 {
@@ -217,5 +265,69 @@ pub fn gap(theme: &Theme, horizontal: bool) -> f64 {
         theme.axis_text_spacing.0
     } else {
         theme.axis_text_spacing.1
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn dendrogram(leaf_levels: Option<Vec<Vec<String>>>) -> AxisDendrogram {
+        let labels = ["a", "b"].map(str::to_owned).to_vec();
+        AxisDendrogram {
+            tree: Tree::from_spec("tree", labels, vec![[-1, -2]], vec![1.0], vec![0, 1]).unwrap(),
+            side: DendrogramSide::Axis,
+            space: 10.0,
+            kind: DendrogramType::Rectangle,
+            leaf_levels,
+        }
+    }
+
+    /// The along-axis pixels of the two leaf drops of a one-merge tree.
+    fn leaf_pixels(dendrogram: &AxisDendrogram, levels: &[&str]) -> Vec<f64> {
+        let paths = draw(
+            dendrogram,
+            levels,
+            &|position| position * 10.0,
+            0.0,
+            Growth::Vertical(-1.0),
+            None,
+        );
+        match paths.as_slice() {
+            [Node::Path(path)] => vec![path.points[0].0, path.points[3].0],
+            other => panic!("expected one link, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn leaves_sit_at_their_level_or_the_centre_of_their_run() {
+        assert_eq!(leaf_pixels(&dendrogram(None), &["a", "b"]), [0.0, 10.0]);
+        let runs = vec![
+            vec!["a1".to_owned(), "a2".to_owned()],
+            vec!["b1".to_owned(), "b2".to_owned(), "b3".to_owned()],
+        ];
+        let tree = dendrogram(Some(runs));
+        assert_eq!(tree.ordered_levels(), ["a1", "a2", "b1", "b2", "b3"]);
+        assert_eq!(
+            leaf_pixels(&tree, &["a1", "a2", "b1", "b2", "b3"]),
+            [5.0, 30.0]
+        );
+        // Reversed axis: the runs swap ends, the centres follow.
+        assert_eq!(
+            leaf_pixels(&tree, &["b3", "b2", "b1", "a2", "a1"]),
+            [35.0, 10.0]
+        );
+        // A run level off the axis: no tree.
+        assert!(
+            draw(
+                &tree,
+                &["a1", "b1"],
+                &|p| p,
+                0.0,
+                Growth::Vertical(-1.0),
+                None
+            )
+            .is_empty()
+        );
     }
 }

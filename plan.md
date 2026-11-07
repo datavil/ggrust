@@ -478,7 +478,7 @@ extension, bug-hunter pass, `make check`, commit + push. Already available and b
   `memory/letsplot_grids.md` or a new memory file. Lives in `layout/grid.rs` (two-phase layout,
   `memory/patchwork_extras.md`). lets-plot has none: deviation row (follows patchwork).
   cellestial removes `_share_axis` / `_share_labels` / `_share_ticks`.
-- [ ] 10.5 **Dendrogram leaves that span a range of levels.** In `scale_*_dendro` / `guide_axis_dendro`
+- [x] 10.5 **Dendrogram leaves that span a range of levels.** Done 2026-11-07 (user's API): `scale_*_dendro(tree, leaf_levels={leaf: [levels]})`, runs end to end in the tree's order, each in its given order, leaf at the run centre; strict errors (missing/unknown leaf, empty run, repeated level, data level in no run); a later dendro scale replaces tree and runs together. `tests/test_dendrogram_leaf_levels.py`, goldens `dendro_runs_axis` / `dendro_runs_band_grid`, `memory/dendrograms.md`. In `scale_*_dendro` / `guide_axis_dendro`
   (and the band form), map each leaf to a run of discrete levels (a group of cells), with the leaf
   drawn at the run's centre and the run kept contiguous in the level order. API to agree first, e.g.
   `ClusterTree.from_linkage(Z, labels)` + `scale_x_dendro(tree, leaf_levels={leaf: [levels]})` or a

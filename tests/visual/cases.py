@@ -949,6 +949,76 @@ def grid_axes_design(m):
     ) + m.ggsize(700, 500)
 
 
+def _cluster_cells(m):
+    """Per-cell expression of four clusters, the cluster tree and its runs of cells."""
+    random = np.random.default_rng(31)
+    genes = ["CD3E", "NKG7", "MS4A1", "CD79A", "LYZ", "CD14"]
+    profiles = {
+        "T": [5.0, 1.5, 0.2, 0.1, 0.3, 0.2],
+        "NK": [2.0, 5.5, 0.1, 0.2, 0.4, 0.1],
+        "B": [0.2, 0.1, 6.0, 5.0, 0.3, 0.2],
+        "Mono": [0.1, 0.3, 0.2, 0.1, 6.5, 5.5],
+    }
+    sizes = {"T": 14, "NK": 6, "B": 10, "Mono": 8}
+    tree = m.hclust(
+        pl.DataFrame(
+            {
+                "cluster": list(profiles),
+                **{
+                    gene: [profile[index] for profile in profiles.values()]
+                    for index, gene in enumerate(genes)
+                },
+            }
+        ),
+        labels="cluster",
+    )
+    runs = {cluster: [f"{cluster}{index}" for index in range(n)] for cluster, n in sizes.items()}
+    cells = pl.DataFrame(
+        [
+            {
+                "cell": cell,
+                "gene": gene,
+                "expression": max(profile[index] + random.normal(0, 0.8), 0),
+            }
+            for cluster, profile in profiles.items()
+            for cell in runs[cluster]
+            for index, gene in enumerate(genes)
+        ]
+    )
+    return cells, tree, runs
+
+
+def dendro_runs_axis(m):
+    # One leaf per cluster, each over the run of its cells (cellestial's per-cell heatmap).
+    cells, tree, runs = _cluster_cells(m)
+    return (
+        m.ggplot(cells, m.aes("gene", "cell", fill="expression"))
+        + m.geom_tile()
+        + m.scale_y_dendro(tree, leaf_levels=runs, name="cells")
+        + m.theme(axis_text_y=m.element_blank(), axis_ticks_y=m.element_blank())
+        + m.ggsize(500, 500)
+    )
+
+
+def dendro_runs_band_grid(m):
+    # scanpy's layout: cells along x, the tree above the panel, aligned with a bar plot.
+    cells, tree, runs = _cluster_cells(m)
+    heatmap = (
+        m.ggplot(cells, m.aes("cell", "gene", fill="expression"))
+        + m.geom_tile()
+        + m.scale_x_dendro(tree, leaf_levels=runs, guide=m.guide_axis_dendro(side="opposite"))
+        + m.theme(axis_text_x=m.element_blank(), axis_ticks_x=m.element_blank())
+    )
+    totals = cells.group_by("cell", maintain_order=True).agg(total=pl.col("expression").sum())
+    bars = (
+        m.ggplot(totals, m.aes("cell", "total"))
+        + m.geom_bar(stat="identity")
+        + m.scale_x_discrete(limits=[cell for leaf in tree.ordered_labels for cell in runs[leaf]])
+        + m.theme(axis_text_x=m.element_blank())
+    )
+    return m.gggrid([heatmap, bars], ncol=1, heights=[3, 1], align=True) + m.ggsize(700, 500)
+
+
 EXTENSION_CASES = {
     case.__name__: case
     for case in [
@@ -962,5 +1032,7 @@ EXTENSION_CASES = {
         grid_axes_collect_x,
         grid_axis_titles_collect,
         grid_axes_design,
+        dendro_runs_axis,
+        dendro_runs_band_grid,
     ]
 }

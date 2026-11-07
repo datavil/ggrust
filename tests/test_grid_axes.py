@@ -115,19 +115,15 @@ def test_different_axes_and_titles_are_kept():
 
 def test_empty_cells_and_faceted_plots_break_runs():
     faceted = _plot() + gg.facet_wrap("day")
-    svg = (
-        gg.gggrid([_plot(), _plot(), faceted, None], ncol=2, sharex=True, axes="collect")
-        + gg.ggsize(600, 400)
-    ).to_svg()
-    # Plot 0 sits above a faceted plot and plot 1 above an empty cell: both keep x.
-    rects = _ggrust_panel_rects(svg)
-    keep_rects = _ggrust_panel_rects(
-        (
-            gg.gggrid([_plot(), _plot(), faceted, None], ncol=2, sharex=True) + gg.ggsize(600, 400)
-        ).to_svg()
-    )
-    assert rects[0][3] == pytest.approx(keep_rects[0][3], abs=0.05)
-    assert rects[1][3] == pytest.approx(keep_rects[1][3], abs=0.05)
+
+    def svg(**options: object) -> str:
+        plots = [_plot(), _plot(), faceted, None]
+        grid = gg.gggrid(plots, ncol=2, sharex=True, **options) + gg.ggsize(600, 400)
+        return grid.to_svg()
+
+    # Plot 0 sits above a faceted plot and plot 1 above an empty cell: no x axis
+    # is collected, so every x label stays.
+    assert _count(svg(axes="collect_x"), "3") == _count(svg(), "3")
 
 
 def test_align_still_lines_up_the_panels():
@@ -167,3 +163,62 @@ def test_discrete_axes_are_collected():
         gg.gggrid(plots, ncol=2, sharex=True, sharey=True, axes="collect") + gg.ggsize(600, 400)
     ).to_svg()
     assert _count(svg, "banana") == 2
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        {"axes": "collect"},
+        {"axes": "collect", "axis_titles": "collect"},
+        {"axes": "collect_x", "axis_titles": "collect_y", "align": True},
+    ],
+)
+def test_panels_stay_equal_as_patchwork(options):
+    # The dropped axes' room goes to every panel, not to the plot that dropped it.
+    rects = _ggrust_panel_rects(_grid(**options).to_svg())
+    widths = {round(rect[2], 1) for rect in rects}
+    heights = {round(rect[3], 1) for rect in rects}
+    assert len(widths) == 1, rects
+    assert len(heights) == 1, rects
+
+
+def test_equal_panels_follow_relative_widths():
+    plots = [_plot(), _plot(1.0), _plot(2.0), _plot(3.0)]
+    grid = gg.gggrid(plots, ncol=2, sharey=True, widths=[1, 2], axes="collect") + gg.ggsize(
+        600, 400
+    )
+    left, right, _, _ = _ggrust_panel_rects(grid.to_svg())
+    assert right[2] == pytest.approx(2 * left[2], abs=0.5)
+
+
+def test_keep_leaves_lets_plot_cells_alone():
+    # Without collecting, cells stay equal (lets-plot) and wide labels shrink their panel.
+    wide = _plot() + gg.scale_y_continuous(
+        breaks=[1, 2, 3, 4], labels=["one thousand", "2", "3", "4"]
+    )
+    rects = _ggrust_panel_rects((gg.gggrid([wide, _plot()], ncol=2) + gg.ggsize(600, 300)).to_svg())
+    assert rects[0][2] < rects[1][2] - 20
+
+
+def test_uneven_rows_still_get_equal_panels():
+    # Bug hunt: a title on one plot, or an empty cell under another, used to leave
+    # its neighbours' panels taller; collecting aligns the panels as patchwork.
+    titled = [_plot() + gg.ggtitle("T", "sub"), _plot(1.0), _plot(2.0), _plot(3.0)]
+    for plots in (titled, [_plot(), _plot(1.0), _plot(2.0)]):
+        grid = gg.gggrid(plots, ncol=2, sharex=True, sharey=True, axes="collect") + gg.ggsize(
+            600, 400
+        )
+        rects = _ggrust_panel_rects(grid.to_svg())
+        assert len({round(rect[3], 1) for rect in rects}) == 1, rects
+        assert len({round(rect[2], 1) for rect in rects}) == 1, rects
+
+
+def test_fixed_aspect_plots_do_not_widen_their_column():
+    plots = [_plot() + gg.coord_fixed(), _plot(), _plot(), _plot()]
+    # Without align (which lines plot 2 up with the fixed panel), the aspect
+    # slack must not count as axis room: both columns stay as wide.
+    grid = gg.gggrid(
+        plots, ncol=2, sharex=True, sharey=True, axes="collect_x", align=False
+    ) + gg.ggsize(600, 400)
+    rects = _ggrust_panel_rects(grid.to_svg())
+    assert rects[2][2] == pytest.approx(rects[3][2], abs=1.0)

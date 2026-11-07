@@ -27,7 +27,8 @@ use crate::grid_share;
 use crate::grid_tags::{self, FigureTags};
 use crate::layout::PANEL_MIN_SIZE;
 use crate::layout::grid::{
-    DEFAULT_SPACING, Span, cell_rects, figure_spans, shrink_to_aspect, span_rect,
+    DEFAULT_SPACING, Span, cell_rects, figure_spans, panel_cell_sizes, relative_sizes,
+    shrink_to_aspect, span_rect,
 };
 use crate::layout::tag::{tag_bands, tag_nodes};
 use crate::layout::zoom::Zoom;
@@ -417,6 +418,9 @@ struct PreparedGrid<'s> {
     size: (f64, f64),
     /// Titles the grid draws across runs of plots (`axis_titles=`).
     run_titles: Vec<grid_axes::RunTitle>,
+    /// Whether the grid collects axes or titles: its cells are then sized for
+    /// equal panels (patchwork).
+    collects_axes: bool,
 }
 
 impl<'s> PreparedGrid<'s> {
@@ -509,7 +513,14 @@ impl<'s> PreparedGrid<'s> {
             _ => (None, &[][..]),
         };
         let figure_tag = |index: usize| figure_tags.and_then(|tags| tags.get(index));
-        let align = layout.align.unwrap_or(context.container_aligns);
+        // Collecting axes or titles aligns panels unless `align=False` is given:
+        // patchwork's equal panels are aligned panels.
+        let collecting = [&layout.axes, &layout.axis_titles]
+            .iter()
+            .any(|value| value.as_deref().is_some_and(|value| value != "keep"));
+        let align = layout
+            .align
+            .unwrap_or(context.container_aligns || collecting);
         let own_guides = Guides::of(spec, path)?;
         let collects = if context.container_collects {
             own_guides != Guides::Keep
@@ -611,7 +622,7 @@ impl<'s> PreparedGrid<'s> {
             };
             elements.push(element);
         }
-        let run_titles = collect_axes(spec, &spans, &mut elements, path)?;
+        let (collects_axes, run_titles) = collect_axes(spec, &spans, &mut elements, path)?;
         let (legend_groups, passed_up) = if collects && own_guides == Guides::Auto {
             (Vec::new(), collected)
         } else {
@@ -650,6 +661,7 @@ impl<'s> PreparedGrid<'s> {
             legend_groups,
             size,
             run_titles,
+            collects_axes,
         };
         Ok((grid, passed_up))
     }
@@ -694,31 +706,59 @@ impl<'s> PreparedGrid<'s> {
             shrink(without_titles, theme.plot_inset),
             legend_space(&blocks, theme.legend_box_spacing),
         );
-        let columns = layout.ncol as usize;
-        let cells = cell_rects(
+        let (columns, rows) = (layout.ncol as usize, layout.nrow as usize);
+        let spacing = (
+            layout.hspace.unwrap_or(DEFAULT_SPACING),
+            layout.vspace.unwrap_or(DEFAULT_SPACING),
+        );
+        let mut cells = cell_rects(
             elements_area,
-            (columns, layout.nrow as usize),
-            (
-                layout.hspace.unwrap_or(DEFAULT_SPACING),
-                layout.vspace.unwrap_or(DEFAULT_SPACING),
-            ),
+            (columns, rows),
+            spacing,
             layout.widths.as_deref(),
             layout.heights.as_deref(),
         );
         let fit = layout.fit.unwrap_or(true);
-        let mut placed = Vec::with_capacity(self.elements.len());
-        for (element, span) in self.elements.iter().zip(&self.spans) {
-            let Some(element) = element else {
-                placed.push(None);
-                continue;
-            };
-            let cell = span_rect(&cells, columns, *span);
-            let cell = if fit {
-                cell
-            } else {
-                shrink_to_aspect(cell, element.own_size())
-            };
-            placed.push(Some(Placed::new(element, cell)?));
+        let mut placed = self.place(&cells, columns, fit)?;
+        // A grid collecting axes keeps its panels equal, as patchwork: the cells
+        // are resized so each keeps its figures' axes, titles and margins around
+        // panels of the relative `widths` / `heights` (the dropped axes' room
+        // goes to every panel, not to the plot that dropped them).
+        if self.collects_axes && fit {
+            for _ in 0..EQUAL_PANEL_PASSES {
+                let (horizontal, vertical) =
+                    decorations(&placed, &self.spans, &cells, (columns, rows));
+                let gaps = |count: usize, gap: f64| gap * count.saturating_sub(1) as f64;
+                let widths = panel_cell_sizes(
+                    elements_area.width - gaps(columns, spacing.0),
+                    &relative_sizes(columns, layout.widths.as_deref()),
+                    &horizontal,
+                );
+                let heights = panel_cell_sizes(
+                    elements_area.height - gaps(rows, spacing.1),
+                    &relative_sizes(rows, layout.heights.as_deref()),
+                    &vertical,
+                );
+                let (Some(widths), Some(heights)) = (widths, heights) else {
+                    break;
+                };
+                let resized = cell_rects(
+                    elements_area,
+                    (columns, rows),
+                    spacing,
+                    Some(&widths),
+                    Some(&heights),
+                );
+                let moved = resized.iter().zip(&cells).any(|(new, old)| {
+                    (new.width - old.width).abs() > ALIGN_TOLERANCE
+                        || (new.height - old.height).abs() > ALIGN_TOLERANCE
+                });
+                if !moved {
+                    break;
+                }
+                cells = resized;
+                placed = self.place(&cells, columns, fit)?;
+            }
         }
         if self.align {
             align(&mut placed, &self.spans)?;
@@ -733,6 +773,31 @@ impl<'s> PreparedGrid<'s> {
             placed,
             spans: &self.spans,
         })
+    }
+
+    /// Every figure laid out in its span of `cells` (shrunk to its own aspect
+    /// ratio without `fit`).
+    fn place<'e>(
+        &'e self,
+        cells: &[Rect],
+        columns: usize,
+        fit: bool,
+    ) -> Result<Vec<Option<Placed<'e, 's>>>> {
+        let mut placed = Vec::with_capacity(self.elements.len());
+        for (element, span) in self.elements.iter().zip(&self.spans) {
+            let Some(element) = element else {
+                placed.push(None);
+                continue;
+            };
+            let cell = span_rect(cells, columns, *span);
+            let cell = if fit {
+                cell
+            } else {
+                shrink_to_aspect(cell, element.own_size())
+            };
+            placed.push(Some(Placed::new(element, cell)?));
+        }
+        Ok(placed)
     }
 
     /// [`PreparedGrid::layout`] with the panels' outer edges ([`GridLayout::frame`])
@@ -942,6 +1007,42 @@ impl<'s> PreparedGrid<'s> {
     }
 }
 
+/// Layout passes that resize a collecting grid's cells toward equal panels.
+const EQUAL_PANEL_PASSES: usize = 4;
+
+/// Per column and per row, the room its figures keep around their panels: cell
+/// extent minus panel extent, the largest over the figures that span only that
+/// column (row). 0 where no such figure has panels.
+fn decorations(
+    placed: &[Option<Placed>],
+    spans: &[Span],
+    cells: &[Rect],
+    (columns, rows): (usize, usize),
+) -> (Vec<f64>, Vec<f64>) {
+    let mut horizontal = vec![0.0_f64; columns];
+    let mut vertical = vec![0.0_f64; rows];
+    for (figure, span) in placed.iter().zip(spans) {
+        // A fixed aspect ratio leaves slack around the panel that is not room
+        // for axes or titles.
+        if let Some(Placed::Plot(plot, _, _)) = figure
+            && plot.has_aspect()
+        {
+            continue;
+        }
+        let Some(frame) = figure.as_ref().and_then(Placed::frame) else {
+            continue;
+        };
+        let cell = span_rect(cells, columns, *span);
+        if span.left == span.right {
+            horizontal[span.left] = horizontal[span.left].max(cell.width - frame.width);
+        }
+        if span.top == span.bottom {
+            vertical[span.top] = vertical[span.top].max(cell.height - frame.height);
+        }
+    }
+    (horizontal, vertical)
+}
+
 /// lets-plot `CompositeFigureGridAlignmentLayout`, over spans and nested grids:
 /// every figure's panels take the range its edges share with the figures that
 /// start (or end) in the same column (or row), and the figure is laid out again
@@ -1007,20 +1108,20 @@ fn align(placed: &mut [Option<Placed>], spans: &[Span]) -> Result<()> {
 
 /// Collect the plots' axes and axis titles (`gggrid(axes=, axis_titles=)`, see
 /// [`crate::grid_axes`]): sets what each plot drops and returns the titles the
-/// grid draws across runs.
+/// grid draws across runs, after whether the grid collects at all.
 fn collect_axes(
     spec: &SubplotsSpec,
     spans: &[Span],
     elements: &mut [Option<Element>],
     path: &str,
-) -> Result<Vec<grid_axes::RunTitle>> {
+) -> Result<(bool, Vec<grid_axes::RunTitle>)> {
     let layout = &spec.layout;
     let axes = grid_axes::Collect::parse(layout.axes.as_deref(), "axes")
         .map_err(|error| nest_error(error, path))?;
     let titles = grid_axes::Collect::parse(layout.axis_titles.as_deref(), "axis_titles")
         .map_err(|error| nest_error(error, path))?;
     if axes == grid_axes::Collect::Keep && titles == grid_axes::Collect::Keep {
-        return Ok(Vec::new());
+        return Ok((false, Vec::new()));
     }
     let collected = {
         let keys: Vec<Option<grid_axes::SideKeys>> = elements
@@ -1043,7 +1144,7 @@ fn collect_axes(
             plot.set_grid_collected(*sides);
         }
     }
-    Ok(collected.run_titles)
+    Ok((true, collected.run_titles))
 }
 
 /// Add a figure's tooltips, zoom panels and notes to the grid's.

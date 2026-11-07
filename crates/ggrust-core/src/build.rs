@@ -1226,6 +1226,11 @@ impl PreparedPlot {
         Some(keys)
     }
 
+    /// Whether the plot keeps a fixed aspect ratio (`coord_fixed`, rasters).
+    pub(crate) fn has_aspect(&self) -> bool {
+        self.aspect.is_some()
+    }
+
     /// Set the axes and titles a containing grid collected from the plot.
     pub(crate) fn set_grid_collected(&mut self, collected: crate::layout::side::CollectedSides) {
         self.theme.grid_collected = collected;

@@ -31,6 +31,11 @@ Source: patchwork 1.3 `collect_axes`, `collect_axis_titles`, `rle_2d`, `grob_id`
   `train_beyond_limits`, leaving each plot's own `domain`; join them first or shared
   axes never match.
 
-Open: panels that drop an axis grow (cells stay equal); patchwork keeps panels equal.
+- **Equal panels (user, 2026-11-07):** a collecting grid resizes its cells after placing
+  (`decorations` = cell minus panel, max per single-span column/row; `panel_cell_sizes`),
+  up to 4 passes, then `align`, which a collecting grid turns on by default (figures
+  of one column/row with different titles/legends otherwise got unequal panels;
+  patchwork's equal panels are aligned ones). Fixed-aspect plots are skipped. Only when collecting and `fit`; `"keep"` grids keep
+  lets-plot's equal cells (parity).
 
 See [[patchwork-extras]], [[axis-positions]], deviations.md row "Collected axes in a grid".

@@ -142,9 +142,10 @@ pub fn span_rect(cells: &[Rect], columns: usize, span: Span) -> Rect {
     }
 }
 
-/// lets-plot `cellSizeList`: `total` split by relative `sizes`.
-fn cell_sizes(total: f64, count: usize, sizes: Option<&[f64]>) -> Vec<f64> {
-    let relative: Vec<f64> = match sizes {
+/// `count` relative sizes from `widths=` / `heights=`: missing entries repeat
+/// the last one, none means equal.
+pub fn relative_sizes(count: usize, sizes: Option<&[f64]>) -> Vec<f64> {
+    match sizes {
         Some(sizes) if !sizes.is_empty() => {
             let last = sizes[sizes.len() - 1];
             (0..count)
@@ -152,7 +153,30 @@ fn cell_sizes(total: f64, count: usize, sizes: Option<&[f64]>) -> Vec<f64> {
                 .collect()
         }
         _ => vec![1.0; count],
-    };
+    }
+}
+
+/// Cell sizes (px, summing to `total`) whose panels follow `relative` when each
+/// cell keeps `decorations` px around its panel (patchwork's fixed axis rows and
+/// null-unit panels). None when the decorations leave no room for panels.
+pub fn panel_cell_sizes(total: f64, relative: &[f64], decorations: &[f64]) -> Option<Vec<f64>> {
+    let room = total - decorations.iter().sum::<f64>();
+    let sum: f64 = relative.iter().sum();
+    if !(room > 0.0 && sum > 0.0) {
+        return None;
+    }
+    Some(
+        relative
+            .iter()
+            .zip(decorations)
+            .map(|(size, decoration)| size / sum * room + decoration)
+            .collect(),
+    )
+}
+
+/// lets-plot `cellSizeList`: `total` split by relative `sizes`.
+fn cell_sizes(total: f64, count: usize, sizes: Option<&[f64]>) -> Vec<f64> {
+    let relative = relative_sizes(count, sizes);
     let sum: f64 = relative.iter().sum();
     relative
         .iter()
@@ -280,6 +304,13 @@ mod tests {
         );
         let count = figure_spans((2, 1), 2, Some(&[[0, 0, 0, 0]]));
         assert!(count.expect_err("count").contains("1 areas for 2 figures"));
+    }
+
+    #[test]
+    fn panel_cell_sizes_keep_panels_relative() {
+        let sizes = panel_cell_sizes(300.0, &[1.0, 2.0], &[60.0, 0.0]).unwrap();
+        assert_eq!(sizes, vec![140.0, 160.0]);
+        assert_eq!(panel_cell_sizes(50.0, &[1.0], &[60.0]), None);
     }
 
     #[test]

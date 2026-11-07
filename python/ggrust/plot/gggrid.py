@@ -102,7 +102,11 @@ def gggrid(
         labels) and its room. ``"collect_x"`` and ``"collect_y"`` collect one
         direction only. Use with ``sharex`` / ``sharey`` so the axes are
         identical. Empty cells, nested grids and faceted plots break runs.
-        Default ``"keep"``. A ggrust extension.
+        A grid that collects axes or titles keeps its panels the same size
+        (relative to ``widths`` / ``heights``), as patchwork: the cells are
+        resized so the room an axis frees goes to every panel, and panels are
+        aligned unless ``align=False`` is given. Default ``"keep"``. A ggrust
+        extension.
     axis_titles : {"keep", "collect", "collect_x", "collect_y"}, optional
         Collect axis titles that repeat (patchwork's ``plot_layout(axis_titles=)``):
         neighbouring plots with the same title on a side keep one, centred on

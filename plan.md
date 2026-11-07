@@ -470,7 +470,7 @@ extension, bug-hunter pass, `make check`, commit + push. Already available and b
   riding on the axis label arrangement, measure = draw, `memory/axis_marks.md`) and
   `axis_side_nodes`. Zoom: brackets follow the breaks or hide; decide and record. Also tick off the
   ggh4x note in `extensions.md` ex2.4. Tests: Python API + errors, goldens per side and on a side band.
-- [x] 10.4 **Collected axes in `gggrid`** (patchwork 1.2). Done 2026-11-07: `gggrid(axes=, axis_titles=)` with patchwork 1.3's `collect_axes` / `collect_axis_titles` rules per side (`grid_axes.rs`, mask `Theme.grid_collected`, run titles drawn by the grid); faceted plots and nested grids break runs; goldens `grid_axes_*`, `tests/test_grid_axes.py`, `memory/grid_axes.md`. Open (gap row): panels that drop an axis grow; patchwork keeps them equal. `gggrid(axes="keep"|"collect"|"collect_x"|
+- [x] 10.4 **Collected axes in `gggrid`** (patchwork 1.2). Done 2026-11-07: `gggrid(axes=, axis_titles=)` with patchwork 1.3's `collect_axes` / `collect_axis_titles` rules per side (`grid_axes.rs`, mask `Theme.grid_collected`, run titles drawn by the grid); faceted plots and nested grids break runs; goldens `grid_axes_*`, `tests/test_grid_axes.py`, `memory/grid_axes.md`. Follow-up (user, 2026-11-07): collecting grids size their cells for equal panels, as patchwork. `gggrid(axes="keep"|"collect"|"collect_x"|
   "collect_y", axis_titles=same)`: inner cells in a row/column with identical axes drop their axis
   (ticks, labels) and duplicated titles, patchwork's rules (collect only where the axis is shared and
   equal; titles collect to the outer edge, one per run). Check patchwork's exact equality rule and how

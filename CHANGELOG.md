@@ -4,12 +4,17 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-11-07
+
 ### Changed
 
+- HTML output draws point layers with more than 5,000 markers on a canvas (was 50,000), so mid-sized scatters make much smaller pages. SVG and PNG output are unchanged.
+- Smaller interactive HTML: the interactive legend indexes keys per marker instead of wrapping runs of points, and point tooltips on canvas layers reuse the canvas coordinates. Rendering is unchanged.
 - `PlotSpec`, `FeatureSpec` and `SupPlotsSpec` `+` returns `NotImplemented` for operands it does not handle, so another object's `__radd__(plot)` runs: a plain class can extend `+` without subclassing `PlotSpec`. Unhandled operands still raise `TypeError` (Python's standard message). lets_plot raises in `__add__` itself.
 
 ### Added
 
+- `grid[i] = figure` on `gggrid` results replaces a cell in place (int or `(row, column)`, negative from the end, `None` empties it), so `grid[i] += layer` adds a layer to one plot of a grid, nested grids included.
 - `scale_x_dendro(leaf_levels=)` / `scale_y_dendro(leaf_levels=)`: dendrogram leaves that span a run of axis levels, `{leaf: [levels]}` (for example a tree over clusters beside a heatmap of their cells). The runs are placed end to end in the tree's order, each in its given order, and each leaf is drawn at the centre of its run, on either side, reversed, under `coord_flip()` and in `gggrid(align=True)`. Every leaf needs a run, and a level belongs to one run; mistakes raise `SpecError` naming the leaf.
 - `gggrid(axes=, axis_titles=)`, as patchwork's `plot_layout(axes=, axis_titles=)`: `"collect"` (or `"collect_x"` / `"collect_y"`) draws an axis that repeats in neighbouring plots once, on the outer plot of the run, and frees the room of the others; repeated axis titles become one, centred on the run's panels. Axes count as equal when their scales and axis theme match (use `sharex` / `sharey`) and, for x, they span the same columns (y: rows). Empty cells, nested grids and faceted plots break runs. A collecting grid keeps its panels equal (relative to `widths` / `heights`), as patchwork: the dropped room is shared by all panels. Default `"keep"`.
 - `guide_axis_nested()` and `key_range_manual()`, as R legendry: brackets (or boxes) naming groups of an axis's breaks, past the axis labels or across the panel (`side="opposite"`). Groups as a mapping `{group: [levels]}` or `key_range_manual(start, end, name)`; `bracket="line" | "square" | "chevron"`, `type="box"`, `pad_discrete`, `angle`; multi-line names with `\n`. Theme elements `legendry_bracket`, `legendry_bracket_size`, `legendry_box`, `legendry_guide_spacing`. Works on every side, `coord_flip()`, facets, `gggrid(align=True)`, side band axes and the HTML zoom.

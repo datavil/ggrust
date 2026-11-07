@@ -120,12 +120,19 @@
 }
 
 /* Home page hero. */
+/* Text and plot share a row while both fit, else the plot wraps below the text. */
 .md-typeset .hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  gap: 2rem;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1.5rem 2rem;
   align-items: center;
   margin-bottom: 2rem;
+}
+
+.md-typeset .hero > div:first-child {
+  flex: 1 1 20rem;
+  max-width: 34rem;
 }
 
 /* Light or dark sticker; the theme hides the other one via #only-light / #only-dark. */
@@ -167,13 +174,9 @@
 }
 
 .md-typeset .hero .ggrust-figure {
+  flex: 0 1 auto;
+  max-width: 100%;
   margin: 0;
-}
-
-@media screen and (max-width: 60em) {
-  .md-typeset .hero {
-    grid-template-columns: 1fr;
-  }
 }
 
 .md-typeset .gallery a,

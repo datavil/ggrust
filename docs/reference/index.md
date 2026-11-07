@@ -328,7 +328,7 @@ Titles, axis labels and legends.
 | [`guide_colorbar()`](api/guide_colorbar.md) | Show a colorbar for a continuous color or fill scale. |
 | [`guide_axis_mark()`](api/guide_axis_mark.md) | Axis guide that labels the scale's breaks with leader lines (ComplexHeatmap ``anno_mark``). |
 | [`guide_axis_nested()`](api/guide_axis_nested.md) | Axis guide with brackets naming groups of breaks (R legendry ``guide_axis_nested``). |
-| [`key_range_manual()`](api/key_range_manual.md) | Groups of ``guide_axis_nested()`` given by their first and last break (legendry). |
+| [`key_range_manual()`](api/key_range_manual.md) | Give the groups of ``guide_axis_nested()`` by their first and last break (legendry). |
 | [`layer_key()`](api/layer_key.md) | Describe a layer's entry in a manual legend (``manual_key=`` of any geom). |
 
 ## Themes

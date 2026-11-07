@@ -278,3 +278,29 @@
   --md-code-hl-variable-color: #ebe3ee;
   --md-code-hl-generic-color: #8f8394;
 }
+
+/* Wide screens: the section tabs move up into the header row, next to the site
+   title, instead of taking a second row with an empty header above it. */
+@media screen and (min-width: 76.25em) {
+  .md-tabs {
+    position: relative;
+    z-index: 5;
+    margin-top: -2.4rem;
+    background: transparent;
+    pointer-events: none;
+  }
+
+  .md-typeset .md-tabs__list,
+  .md-tabs .md-tabs__list {
+    margin-left: 7rem;
+  }
+
+  /* The theme hides tabs once they leave the top of the page; in the header
+     row they start there, so keep them shown (they scroll away with the page). */
+  .md-tabs__link,
+  .md-tabs[hidden] .md-tabs__link {
+    pointer-events: auto;
+    opacity: 1;
+    transform: none;
+  }
+}

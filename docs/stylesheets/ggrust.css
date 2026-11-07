@@ -135,10 +135,27 @@
   max-width: 34rem;
 }
 
+/* Logo on the left, title and tagline stacked to its right. */
+.md-typeset .hero .hero-head {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  column-gap: 1.2rem;
+  align-items: center;
+}
+
 /* Light or dark sticker; the theme hides the other one via #only-light / #only-dark. */
 .md-typeset .hero .hero-logo {
-  margin-bottom: 0.6rem;
+  grid-row: span 2;
   line-height: 0;
+}
+
+.md-typeset .hero .hero-head h1 {
+  align-self: end;
+}
+
+.md-typeset .hero .hero-head .tagline {
+  align-self: start;
+  margin: 0;
 }
 
 .md-typeset .hero .hero-logo img {

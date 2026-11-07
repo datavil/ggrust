@@ -486,6 +486,7 @@ extension, bug-hunter pass, `make check`, commit + push. Already available and b
   `layout/dendrogram.rs` (`memory/dendrograms.md`). legendry has no equivalent: deviation row.
   cellestial removes the hand-drawn `geom_path` trees in per-cell heatmap / annotated_heatmap.
 - [ ] 10.6 (lower priority, one session each, ask the user which first)
+  Deferred by the user (2026-11-07): not needed for cellestial Phase 5; pick up on request.
   - 10.6a `geom_density2d(contour_var="density"|"ndensity"|"count", breaks=[...])`, as ggplot2
     (lets-plot has no `contour_var`: deviation row). `stat/density2d.rs` + `stat/contour.rs`
     `LevelOptions`. Lets cellestial drop scipy KDE + skimage marching squares.

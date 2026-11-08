@@ -32,13 +32,21 @@ Each number is the median warm render time, from building the plot to the file o
   is the 10k-row facet PNG (42 MB vs 35 MB).
 - **Ranking of the other two.** ggplot2 is a median 6.6x faster than lets-plot on the
   same work. lets-plot pays to serialise every row to JSON, and its PNG export is
-  especially slow and memory-hungry (a 1M-point scatter PNG peaks at 8.2 GB).
+  especially slow and memory-hungry (a 1M-point scatter PNG peaks at 8.0 GB).
 - **Startup** (new process, import, one tiny PNG): ggrust 0.18 s, lets-plot 0.31 s,
   R 0.44 s (median of 6; first ggrust run 0.57 s, cold disk cache).
 
-![time](report-three-way-time.png)
+![overview](../docs/images/benchmarks/overview.png)
 
-![memory](report-three-way-memory.png)
+![time PNG](../docs/images/benchmarks/time-png.png)
+
+![time SVG](../docs/images/benchmarks/time-svg.png)
+
+![memory PNG](../docs/images/benchmarks/memory-png.png)
+
+![memory SVG](../docs/images/benchmarks/memory-svg.png)
+
+The same charts with context are on the docs site's [benchmarks page](https://ggrust.datavil.org/benchmarks/).
 
 ## Scenarios
 
@@ -103,7 +111,7 @@ equivalent in ggplot2), notebook display, PDF.
 
 ```bash
 uv run python benchmarks/three_way.py --work /tmp/ggrust-bench     # ~45 min on an M4 Pro
-uv run python benchmarks/three_way_charts.py benchmarks/results/three-way-<stamp>.json
+uv run python benchmarks/three_way_charts.py benchmarks/results/three-way-<stamp>.json  # writes docs/images/benchmarks/
 ```
 
 Raw results: `results/three-way-20261108-112228.json` (10k) and

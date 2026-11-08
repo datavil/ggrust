@@ -28,11 +28,20 @@ It was started for [Cellestial](https://github.com/datavil/cellestial), which ne
 
 ## Highlights
 
-- __Fast and lean__: a median __40x__ faster SVG, __22x__ faster PNG and __14x__ lower peak memory than Lets-Plot on identical work ([details](#performance)).
+- __Fast and lean__: at 1M rows a typical plot renders __5x faster than ggplot2__ and __95x faster than Lets-Plot__, with 4x and 8x less memory ([benchmarks](#performance)).
 - __ggplot2 extensions, built in__: beeswarms, significance brackets, cluster marks, side panels, dendrograms, raincloud plots, patchwork layouts and more, under their R names ([list](#ggplot2-extensions-built-in)).
 - __The Lets-Plot API__: most code ports with an import swap, `lets_plot` -> `ggrust`.
 - __Interactive__: notebook and HTML output with tooltips, zoom and pan; dense point layers drawn on a canvas.
 - __Publication output__: SVG, PNG, vector PDF and HTML, with your own fonts. Data crosses into Rust once, as Arrow, so [Polars](https://pola.rs/) and pandas frames work directly.
+
+<p align="center">
+  <a href="https://ggrust.datavil.org/benchmarks/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/benchmarks/overview-dark.png">
+      <img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/benchmarks/overview.png" alt="At 1M rows ggrust renders a typical plot in 62 ms (ggplot2 334 ms, Lets-Plot 5.9 s) with 129 MB peak memory (ggplot2 560 MB, Lets-Plot 1.0 GB)" width="100%">
+    </picture>
+  </a>
+</p>
 
 ## Installation
 
@@ -97,18 +106,18 @@ ggrust reimplements their behavior in Rust; the R packages and their authors des
 
 ## Performance
 
-Compared with Lets-Plot on identical work: same data, every row drawn (Lets-Plot sampling turned off), same output size. Measured on an Apple M4 Pro, ggrust 0.1.0 vs lets-plot 4.11.0.
+11 everyday plots (scatter, histogram, boxplot, violin, density, lm smooth, line, 2D bins, facets and more) at 10k, 100k and 1M rows, each saved as SVG and PNG. Same data, every row drawn (Lets-Plot's sampling turned off), same output size, each run in a fresh process. Apple M4 Pro; ggrust 0.8.0, R ggplot2 4.0.1 (svglite, ragg), lets-plot 4.11.0.
 
-- __Speed__: SVG a median __40x__ faster (5x to 185x over 23 cases), PNG a median __22x__ faster (13x to 119x).
-- __Memory__: a median __14x__ lower peak memory (3.6x to 220x). A 1M-point scatter PNG peaks at 44 MB above the data in ggrust and 9.6 GB in Lets-Plot.
-- No case was slower. The weakest spots are point-heavy PNGs (13x to 21x) and large SVGs, where ggrust still peaks at 430 MB for 1M points.
+| 1M rows | SVG, all 11 plots | PNG, all 11 plots | peak memory per plot |
+|---|---:|---:|---:|
+| __ggrust__ | __0.89 s__ | __18.1 s__ | __129 MB__ |
+| ggplot2 | 9.67 s (10.9x) | 25.0 s (1.4x) | 560 MB |
+| Lets-Plot | 71.6 s (80.5x) | > 495 s (> 27x) | 1.0 GB |
 
-<p align="center">
-  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/benchmarks/report-speedup.png" alt="Speed-up over Lets-Plot per case" width="49%">
-  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/benchmarks/report-memory.png" alt="Peak memory ratio over Lets-Plot per case" width="49%">
-</p>
+- ggrust is faster in 64 of 66 cases against ggplot2 and in all 66 against Lets-Plot.
+- The one weak spot is line charts saved as PNG at 100k rows and more: the 1M-row line PNG takes 17.3 s of ggrust's 18.1 s PNG total (ggplot2 5.4 s). Without it, ggrust renders the other 10 PNGs in 0.8 s and ggplot2 in 19.5 s. A fix is in progress.
 
-Full methodology, raw numbers and side-by-side output images are in the [benchmark report](benchmarks/REPORT.md).
+Charts, rules and how to reproduce: the [benchmarks page](https://ggrust.datavil.org/benchmarks/). Raw numbers: [benchmarks/REPORT-three-way.md](benchmarks/REPORT-three-way.md).
 
 ## More examples
 

@@ -62,11 +62,14 @@ ggrust plot.
 
 ## Fast and lean
 
-On identical work (same data, every row drawn, same output size), ggrust renders SVG a
-median **40x** faster and PNG **22x** faster than lets-plot, with **14x** lower peak
-memory. A one-million-point scatter PNG peaks at 44 MB in ggrust and 9.6 GB in lets-plot.
+On identical work (same data, every row drawn, same output size), a typical plot at 1M
+rows renders in **62 ms** in ggrust, 334 ms in ggplot2 and 5.9 s in lets-plot, with
+**4x** less memory than ggplot2 and **8x** less than lets-plot.
 
-[:octicons-arrow-right-24: Benchmark report](https://github.com/datavil/ggrust/blob/main/benchmarks/REPORT.md)
+![ggrust vs ggplot2 vs lets-plot at 1M rows](images/benchmarks/overview.png#only-light)
+![ggrust vs ggplot2 vs lets-plot at 1M rows](images/benchmarks/overview-dark.png#only-dark)
+
+[:octicons-arrow-right-24: Benchmarks](benchmarks.md)
 
 ## Why ggrust
 

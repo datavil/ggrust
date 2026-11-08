@@ -18,3 +18,7 @@ What it takes to stay exact:
 Deliberate difference: `density` below 1/15 raises (matplotlib divides by zero).
 The class is `StreamplotSet` because `Streamplot.md` and `streamplot.md` collide on
 case-insensitive file systems in the API reference.
+
+float32 grids (scVelo's `compute_velocity_on_grid` returns float32 `X_grid`) differ by
+< 1e-6: matplotlib takes `dx` and the origin in float32, ggrust in float64. Same lines
+and vertex counts (checked on pancreas: 77/77 lines); not worth emulating.

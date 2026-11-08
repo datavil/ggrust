@@ -86,9 +86,10 @@ def test_colorbar_options_come_from_one_guide():
     # lets-plot takes the last colorbar guide whole (guides() over the scale's guide),
     # it does not mix their fields.
     def bar_width(plot):
-        pattern = r'<rect x="[\d.]+" y="[\d.]+" width="([\d.]+)" height="23"'
-        widths = re.findall(pattern, plot.to_svg())
-        return max(float(width) for width in widths)
+        # The bar is the union of its (overlapping) segments.
+        pattern = r'<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)" height="23"'
+        spans = [(float(x), float(width)) for x, width in re.findall(pattern, plot.to_svg())]
+        return round(max(x + width for x, width in spans) - min(x for x, _ in spans), 2)
 
     base = (
         gg.ggplot(FRAME, gg.aes("x", "y", color="v"))

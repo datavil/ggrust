@@ -504,13 +504,27 @@ pub(super) fn draw_colorbar(
     layout: &ColorbarLayout,
     theme: &Theme,
 ) -> Vec<Node> {
+    // Snap the bar onto whole units (moving ticks and labels with it, by less than
+    // half a unit): a bar off the pixel grid gets a faint, light anti-aliased
+    // column along its edges that reads as white peeking out.
+    let snap = |value: f64| {
+        if value.is_finite() {
+            value.round() - value
+        } else {
+            0.0
+        }
+    };
+    let snapped = layout.translated((snap(layout.bar.x), snap(layout.bar.y)));
+    let layout = &snapped;
     let bar = layout.bar;
     let horizontal = layout.horizontal;
     let mut nodes = Vec::new();
-    // Each segment runs to the bar's far end, so later ones cover earlier ones
-    // without seams; the first is longer by the end padding (lets-plot
-    // `addColorBar`). Vertical bars start at the top (high values), horizontal ones
-    // at the left (low values).
+    // Each segment runs one step past the next segment's start, so later ones
+    // cover the seams of earlier ones; the first is longer by the end padding
+    // (lets-plot `addColorBar`). lets-plot runs every segment to the bar's far end
+    // instead, which stacks dozens of anti-aliased edges on a bar that does not
+    // sit on whole pixels and lets lighter colors bleed down its side. Vertical
+    // bars start at the top (high values), horizontal ones at the left (low values).
     let count = colorbar.colors.len().max(1);
     let length = if horizontal { bar.width } else { bar.height };
     let step = (length - 2.0 * BAR_END_PADDING) / count as f64;
@@ -524,14 +538,27 @@ pub(super) fn draw_colorbar(
     } else {
         colorbar.colors.iter().map(|color| Some(*color)).collect()
     };
-    let mut start = 0.0;
+    // Segment `index` starts here; the last two end at the bar's far end.
+    let start_of = |index: usize| -> f64 {
+        if index == 0 {
+            0.0
+        } else {
+            BAR_END_PADDING + step * index as f64
+        }
+    };
     let mut rects = Vec::with_capacity(count);
     for index in 0..colors.len() {
+        let start = start_of(index);
+        let end = if index + 2 >= colors.len() {
+            length
+        } else {
+            start_of(index + 2)
+        };
         rects.push(if horizontal {
             Rect {
                 x: bar.x + start,
                 y: bar.y,
-                width: bar.width - start,
+                width: end - start,
                 height: bar.height,
             }
         } else {
@@ -539,10 +566,9 @@ pub(super) fn draw_colorbar(
                 x: bar.x,
                 y: bar.y + start,
                 width: bar.width,
-                height: bar.height - start,
+                height: end - start,
             }
         });
-        start += step + if index == 0 { BAR_END_PADDING } else { 0.0 };
     }
     nodes.push(Node::Rects(Rects {
         rects,
@@ -680,6 +706,42 @@ mod tests {
     }
 
     #[test]
+    fn segments_sit_on_whole_units_and_overlap_one_step() {
+        let colorbar = Colorbar {
+            title: "v".into(),
+            domain: (0.0, 10.0),
+            breaks: vec![(0.0, Label::plain("0")), (10.0, Label::plain("10"))],
+            colors: vec![Color::WHITE; 4],
+            bar_width: Some(10.0),
+            bar_height: Some(44.0),
+            label_ends: false,
+            na: None,
+        };
+        let theme = Theme::default();
+        let layout = layout_colorbar(&colorbar, (0.0, 0.0), false, &theme).translated((3.4, 5.6));
+        let nodes = draw_colorbar(&colorbar, &layout, &theme);
+        let Some(Node::Rects(segments)) = nodes.first() else {
+            panic!("the bar segments come first");
+        };
+        let (x, y) = (layout.bar.x.round(), layout.bar.y.round());
+        // 44 long, 2 padding at each end: four steps of 10.
+        let spans: Vec<(f64, f64, f64, f64)> = segments
+            .rects
+            .iter()
+            .map(|rect| (rect.x - x, rect.y - y, rect.width, rect.height))
+            .collect();
+        assert_eq!(
+            spans,
+            vec![
+                (0.0, 0.0, 10.0, 22.0),
+                (0.0, 12.0, 10.0, 20.0),
+                (0.0, 22.0, 10.0, 22.0),
+                (0.0, 32.0, 10.0, 12.0),
+            ]
+        );
+    }
+
+    #[test]
     fn na_swatch_follows_the_bar_and_grows_the_size() {
         let mut colorbar = Colorbar {
             title: "v".into(),
@@ -708,11 +770,15 @@ mod tests {
         assert!(with_na.size.0 >= horizontal.size.0 + 11.5 + 23.0);
         let moved = with_na.translated((5.0, 7.0)).na.expect("moved swatch").0;
         assert_eq!((moved.x, moved.y), (swatch.x + 5.0, swatch.y + 7.0));
+        // Drawing snaps the bar (and the swatch with it) onto whole units.
+        let bar = with_na.bar;
+        let shift = (bar.x.round() - bar.x, bar.y.round() - bar.y);
+        let drawn = with_na.translated(shift).na.expect("snapped swatch").0;
         let nodes = draw_colorbar(&colorbar, &with_na, &theme);
         assert!(
             nodes
                 .iter()
-                .any(|node| matches!(node, Node::Rects(rects) if rects.rects == vec![swatch]))
+                .any(|node| matches!(node, Node::Rects(rects) if rects.rects == vec![drawn]))
         );
     }
 

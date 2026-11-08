@@ -147,8 +147,15 @@ def test_legends_stack_left_justified_or_sit_side_by_side_top_justified():
 def test_horizontal_colorbar_runs_left_to_right_with_labels_below():
     svg = (plot(color="v") + gg.theme(legend_position="bottom")).to_svg()
     [(x, y, w, h)] = legend_boxes(svg)
-    bar = re.search(rf'<rect x="{NUMBER}" y="{NUMBER}" width="115" height="23" fill="([^"]+)"', svg)
-    assert bar, "a 115 x 23 px bar (5 x 1 key sizes)"
+    # The bar is the union of its (overlapping) segments.
+    segments = re.findall(
+        rf'<rect x="{NUMBER}" y="{NUMBER}" width="{NUMBER}" height="23" fill=', svg
+    )
+    assert segments, "a colorbar 23 px thick"
+    left = min(float(sx) for sx, _, _ in segments)
+    right = max(float(sx) + float(sw) for sx, _, sw in segments)
+    assert round(right - left, 2) == 115, "a 115 x 23 px bar (5 x 1 key sizes)"
+    bar_top = float(segments[0][1])
     labels = {
         text: (float(lx), float(ly))
         for lx, ly, text in re.findall(rf'<text x="{NUMBER}" y="{NUMBER}"[^>]*>(\d+)</text>', svg)
@@ -157,7 +164,7 @@ def test_horizontal_colorbar_runs_left_to_right_with_labels_below():
     assert list(labels) == ["0", "5", "10", "15", "20", "25"]
     xs = [position[0] for position in labels.values()]
     assert xs == sorted(xs)
-    assert all(position[1] > float(bar.group(2)) + 23 for position in labels.values())
+    assert all(position[1] > bar_top + 23 for position in labels.values())
 
 
 LABELS = [f"category {index}" for index in range(7)]

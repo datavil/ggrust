@@ -53,6 +53,8 @@ def _shapes(svg: str) -> list[tuple[str, float, float]]:
     Tiles are the rectangles of the most common size (one size per layer), which
     leaves out the background and the color bar.
     """
+    # ggrust's legend (and its evenly sliced color bar) follows the panel.
+    svg = svg.split('<g class="legend">')[0]
     rects = []
     for rect in re.findall(r"<rect\b[^>]*>", svg):
         fill = re.search(r'fill="([^"]+)"', rect)

@@ -1,9 +1,10 @@
 """Colorbars must match lets-plot: segment colors and lengths, tick positions, labels.
 
 Both SVGs are read into ``[(title, segments, ticks, labels), ...]`` per colorbar, with
-segments as ``(fill, height)`` and ticks as y offsets from the bar top (within 0.02 px:
-ggrust writes 2 decimals; the left-edge tick of each break). Positions on the page are not
-compared (ggrust measures text with the real font).
+segments as ``(fill, start)`` (offset of the segment's top from the bar top: segments
+are drawn overlapping, so where each begins is what shows) and ticks as y offsets from
+the bar top (within 0.02 px: ggrust writes 2 decimals; the left-edge tick of each break).
+Positions on the page are not compared (ggrust measures text with the real font).
 """
 
 import re
@@ -36,7 +37,7 @@ def _theirs(svg: str) -> list:
         if not rects:
             continue
         top = float(rects[0][0])
-        segments = [(_hex(fill), round(float(height), 2)) for _, height, fill in rects]
+        segments = [(_hex(fill), round(float(y) - top, 2)) for y, _, fill in rects]
         ticks = [float(y) - top for y in re.findall(r'<line x1="0.0" y1="([\d.]+)"', part)]
         labels = re.findall(r'class="legend-item"[^>]*>\s*<tspan>([^<]*)<', part)
         result.append((title, segments, ticks, labels))
@@ -54,7 +55,7 @@ def _ours(svg: str) -> list:
         if not rects:
             continue
         top = float(rects[0][0])
-        segments = [(fill.lower(), round(float(height), 2)) for _, height, fill in rects]
+        segments = [(fill.lower(), round(float(y) - top, 2)) for y, _, fill in rects]
         # Ticks: one path per edge; keep the left-edge ones (x == bar x), in order.
         paths = re.findall(r'<path d="M([\d.]+) ([\d.]+)L', part)
         left = min(float(x) for x, _ in paths) if paths else 0

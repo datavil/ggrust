@@ -1019,6 +1019,38 @@ def dendro_runs_band_grid(m):
     return m.gggrid([heatmap, bars], ncol=1, heights=[3, 1], align=True) + m.ggsize(700, 500)
 
 
+def streamline_wind_grid(m):
+    # A field on a regular grid: drawn as given, arrows half way along each line.
+    east, north = np.meshgrid(np.linspace(-3, 3, 31), np.linspace(-2, 2, 21))
+    wind = pl.DataFrame(
+        {
+            "east": east.ravel(),
+            "north": north.ravel(),
+            "u": (-north - 0.3 * east).ravel(),
+            "v": (east - 0.3 * north).ravel(),
+        }
+    )
+    return (
+        m.ggplot(wind, m.aes("east", "north"))
+        + m.geom_streamline(m.aes(u="u", v="v"), density=1.2, color="#2b6cb0")
+        + m.coord_fixed()
+    )
+
+
+def streamline_scattered_groups(m):
+    # Scattered vectors averaged onto a grid per group (color), as RNA velocity streams.
+    generator = np.random.default_rng(11)
+    x, y = generator.normal(size=(2, 1500))
+    frame = pl.DataFrame(
+        {"x": x, "y": y, "u": 1 - y**2, "v": 0.5 * x, "half": np.where(x > 0, "east", "west")}
+    )
+    return (
+        m.ggplot(frame, m.aes("x", "y", color="half"))
+        + m.geom_point(alpha=0.15, size=1)
+        + m.geom_streamline(m.aes(u="u", v="v"), n_neighbors=20, size=0.8)
+    )
+
+
 EXTENSION_CASES = {
     case.__name__: case
     for case in [
@@ -1034,5 +1066,7 @@ EXTENSION_CASES = {
         grid_axes_design,
         dendro_runs_axis,
         dendro_runs_band_grid,
+        streamline_wind_grid,
+        streamline_scattered_groups,
     ]
 }

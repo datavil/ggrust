@@ -513,6 +513,12 @@ extension, bug-hunter pass, `make check`, commit + push. Already available and b
     fixed bandwidth factor), 9-10x faster on pbmc3k. A standalone function, not a `stat_density2d`
     option: that stat keeps lets-plot's bandwidths and triangle contours. cellestial's
     `cluster_outlines()` can drop scipy.stats and scikit-image once it requires this release.
+    Done (2026-11-08, dependency port step 2b): `geom_streamline` / `stat_streamline`
+    (`stat/streamline.rs`, `geom/streamline.rs`, new aesthetics `u`, `v`): one layer over
+    `velocity_grid` + `streamplot`, per group and panel. Complete regular grids are used as given
+    (`gridded=` forces either way), scattered rows are gridded first; one arrowhead per line half
+    way along it, as matplotlib. metR's names, matplotlib's algorithm and options (deviation row).
+    Layer lines equal the two functions called by hand. cellestial's `stream()` becomes one layer.
 
 ## Performance strategy (honest)
 

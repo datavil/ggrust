@@ -47,6 +47,7 @@ mod sina;
 mod size_unit;
 mod smooth;
 mod step;
+mod streamline;
 mod text;
 mod tile;
 mod violin;
@@ -84,6 +85,7 @@ pub use sina::SinaGeom;
 pub use slab::SlabGeom;
 pub use smooth::SmoothGeom;
 pub use step::StepGeom;
+pub use streamline::StreamlineGeom;
 pub use text::{LabelGeom, TextGeom};
 pub use tile::TileGeom;
 pub use violin::ViolinGeom;
@@ -275,6 +277,7 @@ pub static GEOMS: &[&dyn Geom] = &[
     &MARK_HULL_GEOM,
     &MARK_ELLIPSE_GEOM,
     &MARK_RECT_GEOM,
+    &StreamlineGeom,
 ];
 
 /// lets-plot geoms the Python API builds but the engine does not draw yet (plan.md).

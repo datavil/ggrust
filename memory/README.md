@@ -83,3 +83,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Axis marks (leader-line labels)](axis_marks.md): guide rides on `LabelArrangement::Mark`, measure = draw, no wrap/blank/rotate, discrete breaks need `limits=`, zoom shows labels at breaks, ggsave writes to lets-plot-images/.
 - [Nested axis guide](axis_nested.md): legendry brackets ride on `AxisBreaks.nested` (side="axis") or the layout (opposite), squish ends to the panel (0.2 expansion < 0.4 pad), zoom group outside `axis-*`.
 - [Collected grid axes](grid_axes.md): patchwork runs per side, span extent for axes, mask on `Theme.grid_collected`, Debug-text keys (NaN), `axis_identity()` after sharing.
+- [geom_streamline](geom_streamline.md): stat per group/panel with one group per line, grid detection by exact coordinates, u/v aesthetics, core errors relocated, head from `Streamline::arrow()` in data units.

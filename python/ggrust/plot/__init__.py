@@ -65,6 +65,7 @@ from ggrust.plot.geom_halves import geom_half_boxplot, geom_half_point, geom_hal
 from ggrust.plot.geom_imshow import geom_imshow
 from ggrust.plot.geom_mark import geom_mark_ellipse, geom_mark_hull, geom_mark_rect
 from ggrust.plot.geom_pointdensity import geom_pointdensity, stat_pointdensity
+from ggrust.plot.geom_streamline import geom_streamline, stat_streamline
 from ggrust.plot.gggrid import gggrid
 from ggrust.plot.gghighlight import gghighlight
 from ggrust.plot.ggtb import ggtb
@@ -306,6 +307,7 @@ __all__ = [
     "geom_sina",
     "geom_smooth",
     "geom_step",
+    "geom_streamline",
     "geom_text",
     "geom_text_repel",
     "geom_tile",
@@ -448,6 +450,7 @@ __all__ = [
     "stat_pointinterval",
     "stat_poly_eq",
     "stat_slab",
+    "stat_streamline",
     "stat_sum",
     "stat_summary",
     "stat_summary_bin",

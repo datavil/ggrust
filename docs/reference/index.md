@@ -47,6 +47,7 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_path()`](api/geom_path.md) | Connect observations in data order. |
 | [`geom_segment()`](api/geom_segment.md) | Line segments from (x, y) to (xend, yend), optionally with arrows. |
 | [`geom_curve()`](api/geom_curve.md) | Curved lines from (x, y) to (xend, yend), optionally with arrows. |
+| [`geom_streamline()`](api/geom_streamline.md) | Streamlines of a vector field, with an arrowhead along each line. |
 | [`geom_hline()`](api/geom_hline.md) | Horizontal reference lines at ``yintercept``. |
 | [`geom_vline()`](api/geom_vline.md) | Vertical reference lines at ``xintercept``. |
 | [`geom_abline()`](api/geom_abline.md) | Straight reference lines ``y = intercept + slope * x`` across the panel. |
@@ -97,6 +98,7 @@ Layers named after their stat: each summarises the data, then draws it with a ge
 | [`stat_ecdf()`](api/stat_ecdf.md) | Empirical cumulative distribution of x (``stat="ecdf"``), drawn as steps. |
 | [`stat_sum()`](api/stat_sum.md) | Rows at each distinct (x, y) (``stat="sum"``), drawn as points sized by the count. |
 | [`stat_pointdensity()`](api/stat_pointdensity.md) | Density of points around each point (``stat="pointdensity"``), drawn as points. |
+| [`stat_streamline()`](api/stat_streamline.md) | Streamlines of a vector field (``stat="streamline"``), drawn by ``geom``. |
 | [`stat_slab()`](api/stat_slab.md) | Density slab of y per x: a filled density on one side of each x. |
 | [`stat_pointinterval()`](api/stat_pointinterval.md) | Point summary of y with quantile intervals around it, per x. |
 | [`stat_interval()`](api/stat_interval.md) | Stacked quantile intervals of y per x, colored by level. |
@@ -251,7 +253,7 @@ Cluster rows or columns as R's hclust, draw the tree, and order a discrete axis 
 
 ## Streamlines (matplotlib streamplot)
 
-Integrate the streamlines and arrows of a gridded vector field as matplotlib's ``streamplot``, to draw with ``geom_path`` and ``geom_segment`` (not in lets-plot).
+Integrate the streamlines and arrows of a gridded vector field as matplotlib's ``streamplot``, to draw with ``geom_path`` and ``geom_segment`` (not in lets-plot; ``geom_streamline`` draws them as one layer).
 
 | Name | Description |
 |---|---|

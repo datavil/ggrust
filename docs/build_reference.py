@@ -68,6 +68,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "geom_path",
             "geom_segment",
             "geom_curve",
+            "geom_streamline",
             "geom_hline",
             "geom_vline",
             "geom_abline",
@@ -116,6 +117,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "stat_ecdf",
             "stat_sum",
             "stat_pointdensity",
+            "stat_streamline",
             "stat_slab",
             "stat_pointinterval",
             "stat_interval",
@@ -247,7 +249,8 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
     ),
     "Streamlines (matplotlib streamplot)": (
         "Integrate the streamlines and arrows of a gridded vector field as matplotlib's "
-        "``streamplot``, to draw with ``geom_path`` and ``geom_segment`` (not in lets-plot).",
+        "``streamplot``, to draw with ``geom_path`` and ``geom_segment`` (not in lets-plot; "
+        "``geom_streamline`` draws them as one layer).",
         ["streamplot", "StreamplotSet"],
     ),
     "Velocity grids (scVelo compute_velocity_on_grid)": (

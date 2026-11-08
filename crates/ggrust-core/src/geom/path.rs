@@ -168,13 +168,30 @@ pub(super) fn draw_paths(
     sort_by_x: bool,
     steps: Option<Steps>,
 ) -> Result<Vec<Node>> {
+    draw_paths_with(
+        layer,
+        panel,
+        sort_by_x,
+        steps,
+        Arrow::parse(&layer.parameters)?,
+    )
+}
+
+/// [`draw_paths`] with heads from `arrow` at the line ends instead of the
+/// layer's `arrow` option (`geom_streamline` places its own).
+pub(super) fn draw_paths_with(
+    layer: &DrawLayer,
+    panel: &Panel,
+    sort_by_x: bool,
+    steps: Option<Steps>,
+    arrow: Option<Arrow>,
+) -> Result<Vec<Node>> {
     let (Some(x), Some(y)) = (
         layer.data.continuous(Aesthetic::X),
         layer.data.continuous(Aesthetic::Y),
     ) else {
         return Ok(Vec::new());
     };
-    let arrow = Arrow::parse(&layer.parameters)?;
     let row_count = layer.data.row_count();
     let group_index = layer.data.group_index();
     let group_count = group_index

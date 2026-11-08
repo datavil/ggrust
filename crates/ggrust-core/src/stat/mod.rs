@@ -30,6 +30,7 @@ mod r_density;
 mod sina;
 mod slab;
 mod smooth;
+mod streamline;
 mod sum;
 mod summary;
 mod ydensity;
@@ -56,6 +57,7 @@ pub use quasirandom::QuasirandomStat;
 pub use sina::SinaStat;
 pub use slab::SlabStat;
 pub use smooth::SmoothStat;
+pub use streamline::StreamlineStat;
 pub use sum::SumStat;
 pub use summary::{SummaryBinStat, SummaryStat};
 pub use ydensity::{YDensityStat, quantiles as ydensity_quantiles};
@@ -152,6 +154,7 @@ pub static STATS: &[&dyn Stat] = &[
     &CompareMeansStat,
     &CorStat,
     &PolyEqStat,
+    &StreamlineStat,
 ];
 
 /// lets-plot stats the Python API builds but the engine does not compute yet

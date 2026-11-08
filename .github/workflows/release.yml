@@ -39,6 +39,8 @@ jobs:
       - name: Build wheel
         uses: PyO3/maturin-action@v1
         with:
+          # GitHub serves maturin v1.16.0's aarch64-linux archive as a 504 (2026-11-08).
+          maturin-version: v1.15.0
           target: ${{ matrix.platform.target }}
           manylinux: ${{ matrix.platform.manylinux || 'auto' }}
           args: --release --out dist

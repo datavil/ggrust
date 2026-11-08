@@ -519,6 +519,12 @@ extension, bug-hunter pass, `make check`, commit + push. Already available and b
     (`gridded=` forces either way), scattered rows are gridded first; one arrowhead per line half
     way along it, as matplotlib. metR's names, matplotlib's algorithm and options (deviation row).
     Layer lines equal the two functions called by hand. cellestial's `stream()` becomes one layer.
+    Done (2026-11-08, dependency port step 3): `kernel_density(values, at, bandwidth=)`
+    (`kernel_density.rs`, `GaussianKde<1>` from `kde.rs`), scipy's 1D `gaussian_kde(values)(at)`
+    as an `(x, density)` frame. Within 1e-15 of the peak on fixtures (scipy's variance is an
+    Accelerate `ddot`, not reproduced), 9e-14 of the peak / 5e-13 relative on pbmc3k stacked violins,
+    2x faster. A standalone function, not a `stat_ydensity` / `stat_density` option: those keep
+    lets-plot's R bandwidths. cellestial's heatmap violins can drop scipy.stats with this release.
 
 ## Performance strategy (honest)
 

@@ -13,6 +13,10 @@
 //! diagonals (OpenBLAS / Accelerate style). `neff` (a BLAS `ddot` in scipy) may
 //! differ by one ulp, which moves the result by about 1e-16 relative.
 //!
+//! In 1D the variance dot product is an Accelerate `ddot` in scipy, which is not
+//! reproduced: densities differ by about 1e-15 of the peak (bit-identical for
+//! small samples).
+//!
 //! What it does not do: point weights, `integrate_*`, `resample`, `logpdf`.
 
 use rayon::prelude::*;
@@ -51,13 +55,12 @@ impl<const D: usize> GaussianKde<D> {
     pub fn new(points: &[[f64; D]], bandwidth: BandwidthMethod, path: &str) -> Result<Self> {
         let n = points.len();
         if n < 2 || n <= D {
-            return Err(Error::spec(
-                path,
-                format!(
-                    "a {D}D kernel density needs more than {} finite points, got {n}",
-                    D.max(1)
-                ),
-            ));
+            let reason = if D == 1 {
+                format!("a kernel density needs at least 2 finite values, got {n}")
+            } else {
+                format!("a {D}D kernel density needs more than {D} finite points, got {n}")
+            };
+            return Err(Error::spec(path, reason));
         }
         if let Some(index) = points
             .iter()
@@ -103,13 +106,18 @@ impl<const D: usize> GaussianKde<D> {
             ));
         }
         let Some(data_cholesky) = cholesky(&covariance) else {
-            return Err(Error::spec(
-                path,
+            let reason = if D == 1 {
+                format!(
+                    "the {n} values are all equal (their variance is zero, a singular \
+                     covariance), so they have no density; pass values that spread"
+                )
+            } else {
                 format!(
                     "the {n} points lie on a line or a point (their covariance is singular), \
                      so they have no {D}D density; pass points that spread in every dimension"
-                ),
-            ));
+                )
+            };
+            return Err(Error::spec(path, reason));
         };
         let mut cholesky = data_cholesky;
         for row in cholesky.iter_mut() {

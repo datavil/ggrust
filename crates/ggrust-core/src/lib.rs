@@ -17,6 +17,7 @@ pub mod grid_share;
 pub mod grid_tags;
 pub mod interactive_legend;
 pub mod kde;
+pub mod kernel_density;
 pub mod layout;
 pub mod marching_squares;
 pub(crate) mod numeric;

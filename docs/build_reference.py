@@ -264,6 +264,11 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
         "``geom_path`` (not in lets-plot).",
         ["density_outline"],
     ),
+    "Kernel densities (scipy gaussian_kde)": (
+        "Evaluate a 1D Gaussian kernel density at chosen points, as scipy's "
+        "``gaussian_kde``, to build density shapes outside a layer (not in lets-plot).",
+        ["kernel_density"],
+    ),
     "Side panels and marginal plots (ggside, ggmarginal)": (
         "Layers in bands beside the panel that share one of its axes, such as heatmap "
         "annotation tracks and marginal densities (R package ggside; ``ggmarginal()`` "

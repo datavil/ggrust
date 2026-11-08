@@ -13,6 +13,7 @@ __all__ = [
     "describe_frame",
     "engine_version",
     "hclust",
+    "kernel_density",
     "referenced_columns",
     "register_font",
     "register_font_bytes",
@@ -341,4 +342,19 @@ def density_outline(
         If an option is out of range, too few finite points remain or they lie on a line.
     TypeError
         If ``points`` is not a sequence of ``(x, y)`` number pairs.
+    """
+
+def kernel_density(
+    values: object,
+    at: object,
+    bandwidth: str | float,
+) -> tuple[list[float], list[float]]:
+    """``(at, density)``: the 1D Gaussian kernel density of ``values`` at each of ``at``.
+
+    Raises
+    ------
+    ggrust.errors.SpecError
+        If fewer than 2 finite values remain, they are all equal or ``bandwidth`` is invalid.
+    TypeError
+        If ``values`` or ``at`` is not a sequence of numbers.
     """

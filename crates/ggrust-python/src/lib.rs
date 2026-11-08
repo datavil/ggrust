@@ -435,23 +435,7 @@ mod _ggrust {
         bandwidth: Bound<'_, PyAny>,
     ) -> PyResult<(Vec<f64>, Vec<f64>, Vec<u32>)> {
         use ggrust_core::density_outline::{DensityOutlineOptions, density_outline};
-        use ggrust_core::kde::BandwidthMethod;
-        let bandwidth = if let Ok(name) = bandwidth.extract::<String>() {
-            match name.as_str() {
-                "scott" => BandwidthMethod::Scott,
-                "silverman" => BandwidthMethod::Silverman,
-                _ => {
-                    return Err(to_python_error(ggrust_core::Error::spec(
-                        "bandwidth",
-                        format!(
-                            "unknown bandwidth rule '{name}'; pass 'scott', 'silverman' or a number"
-                        ),
-                    )));
-                }
-            }
-        } else {
-            BandwidthMethod::Factor(bandwidth.extract::<f64>()?)
-        };
+        let bandwidth = bandwidth_method(&bandwidth)?;
         let options = DensityOutlineOptions {
             level,
             padding,
@@ -462,6 +446,44 @@ mod _ggrust {
             .detach(|| density_outline(&points, &options))
             .map_err(to_python_error)?;
         Ok((outline.x, outline.y, outline.path))
+    }
+
+    /// scipy's `bw_method`: `"scott"`, `"silverman"` or a factor.
+    fn bandwidth_method(
+        bandwidth: &Bound<'_, PyAny>,
+    ) -> PyResult<ggrust_core::kde::BandwidthMethod> {
+        use ggrust_core::kde::BandwidthMethod;
+        if let Ok(name) = bandwidth.extract::<String>() {
+            return match name.as_str() {
+                "scott" => Ok(BandwidthMethod::Scott),
+                "silverman" => Ok(BandwidthMethod::Silverman),
+                _ => Err(to_python_error(ggrust_core::Error::spec(
+                    "bandwidth",
+                    format!(
+                        "unknown bandwidth rule '{name}'; pass 'scott', 'silverman' or a number"
+                    ),
+                ))),
+            };
+        }
+        Ok(BandwidthMethod::Factor(bandwidth.extract::<f64>()?))
+    }
+
+    /// One-dimensional Gaussian kernel density of `values` at each of `at`
+    /// (scipy's `gaussian_kde(values)(at)`): `(at, density)` columns. `bandwidth` is
+    /// `"scott"`, `"silverman"` or a factor.
+    #[pyfunction]
+    #[pyo3(signature = (values, at, bandwidth))]
+    fn kernel_density(
+        python: Python<'_>,
+        values: Vec<f64>,
+        at: Vec<f64>,
+        bandwidth: Bound<'_, PyAny>,
+    ) -> PyResult<(Vec<f64>, Vec<f64>)> {
+        let bandwidth = bandwidth_method(&bandwidth)?;
+        let density = python
+            .detach(|| ggrust_core::kernel_density::kernel_density(&values, &at, bandwidth))
+            .map_err(to_python_error)?;
+        Ok((at, density))
     }
 
     /// Column names `layer_tooltips()` reads, sorted: exported for HTML output only.

@@ -277,6 +277,14 @@ Outline a 2D point cloud where its kernel density falls to a fraction of the pea
 |---|---|
 | [`density_outline()`](api/density_outline.md) | Outline a 2D point cloud where its kernel density falls to ``level`` of the peak. |
 
+## Kernel densities (scipy gaussian_kde)
+
+Evaluate a 1D Gaussian kernel density at chosen points, as scipy's ``gaussian_kde``, to build density shapes outside a layer (not in lets-plot).
+
+| Name | Description |
+|---|---|
+| [`kernel_density()`](api/kernel_density.md) | Evaluate the Gaussian kernel density of ``values`` at the points ``at``. |
+
 ## Side panels and marginal plots (ggside, ggmarginal)
 
 Layers in bands beside the panel that share one of its axes, such as heatmap annotation tracks and marginal densities (R package ggside; ``ggmarginal()`` as lets-plot).

@@ -273,6 +273,9 @@ nav = [
     { "Density outlines (scipy gaussian_kde + skimage find_contours)" = [
       "reference/api/density_outline.md",
     ] },
+    { "Kernel densities (scipy gaussian_kde)" = [
+      "reference/api/kernel_density.md",
+    ] },
     { "Side panels and marginal plots (ggside, ggmarginal)" = [
       "reference/api/geom_xsidetile.md",
       "reference/api/geom_ysidetile.md",

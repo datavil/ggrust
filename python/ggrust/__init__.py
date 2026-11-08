@@ -15,6 +15,7 @@ from ggrust._render import GgrustWarning
 from ggrust.density_outline import density_outline
 from ggrust.export import ggsave
 from ggrust.fonts import register_font, register_font_dir, registered_fonts
+from ggrust.kernel_density import kernel_density
 from ggrust.mapping import as_discrete
 from ggrust.plot import (
     ClusterTree,
@@ -389,6 +390,7 @@ __all__ = [
     "guides",
     "hclust",
     "inset_element",
+    "kernel_density",
     "key_range_manual",
     "labs",
     "layer",

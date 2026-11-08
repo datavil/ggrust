@@ -237,9 +237,12 @@ impl AxisScaleSpec {
                 scale.fixed_breaks = Some(values);
                 scale.labels = labels.map(|(labels, _)| labels);
             }
-            (None, Some((_, path))) => warnings.push(format!(
-                "at '{path}': labels of a continuous axis need breaks (as in lets-plot); ignored"
-            )),
+            // ggplot2: the labels name the generated breaks (lets-plot ignores
+            // them); see `ContinuousPositionScale::attach_labels`.
+            (None, Some((labels, path))) => {
+                scale.labels = Some(labels);
+                scale.labels_without_breaks = Some(path);
+            }
             (None, None) => {}
         }
         if let Some((name, path)) = &self.trans {

@@ -107,6 +107,16 @@ impl PositionScale {
         })
     }
 
+    /// `labels=[...]` without `breaks=` on a continuous axis: fix the generated
+    /// breaks of the trained scale and label them (see
+    /// [`ContinuousPositionScale::attach_labels`]); a no-op otherwise.
+    pub fn attach_labels(&mut self) -> crate::Result<()> {
+        match self {
+            PositionScale::Continuous(scale) => scale.attach_labels(),
+            PositionScale::Discrete(_) => Ok(()),
+        }
+    }
+
     /// Sample the secondary axis transform over the final range (after training,
     /// coord limits and grid sharing); a no-op without a secondary axis.
     pub fn resolve_secondary(&mut self) -> crate::Result<()> {

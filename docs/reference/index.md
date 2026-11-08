@@ -412,7 +412,7 @@ Combine plots into one figure, and configure tooltips and the zoom/pan toolbar.
 |---|---|
 | [`gggrid()`](api/gggrid.md) | Combine plots into a grid. |
 | [`SupPlotsSpec`](api/SupPlotsSpec.md) | Several plots in one figure. Build it with ``gggrid()``. |
-| [`GGBunch`](api/GGBunch.md) | lets_plot's deprecated free-layout bunch of plots. Not supported; use ``gggrid``. |
+| [`GGBunch`](api/GGBunch.md) | A free-layout bunch of plots. Not supported yet; use ``gggrid`` for a grid. |
 | [`layer_tooltips()`](api/layer_tooltips.md) | Configure hover tooltips. |
 | [`ggtb()`](api/ggtb.md) | Add the zoom/pan toolbar to an HTML plot. |
 

@@ -28,7 +28,7 @@ plot.to_svg("web.svg", w=800, h=500, unit="px")
 ```
 
 Units are `"in"`, `"cm"`, `"mm"` and `"px"`. A size without a unit is in inches, as in
-lets-plot.
+both lets-plot and ggplot2.
 
 ## Fonts
 

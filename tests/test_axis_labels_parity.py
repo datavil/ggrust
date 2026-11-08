@@ -33,7 +33,6 @@ CASES = {
         point(m) + m.scale_x_continuous(breaks=[1, 2, 3], labels=["a", "b", "c"])
     ),
     "labels_dict": lambda m: point(m) + m.scale_x_continuous(labels={1: "one", 3: "three"}),
-    "labels_without_breaks": lambda m: point(m) + m.scale_x_continuous(labels=["a", "b"]),
     "breaks_and_limits": lambda m: (
         point(m) + m.scale_x_continuous(limits=[1, 3], breaks=[0.5, 1, 2, 4])
     ),
@@ -91,9 +90,8 @@ CASES = {
     "log_value_format": lambda m: (
         point(m, {"x": [1.0, 1e5], "y": [1.0, 2.0]}) + m.scale_x_log10(format="{}")
     ),
-    "labels_without_breaks_ignore_format": lambda m: (
-        point(m) + m.scale_y_continuous(labels=["a", "b", "c"], format=".2f")
-    ),
+    # Continuous `labels=` without `breaks=` follow ggplot2, not lets-plot (which
+    # ignores them): see tests/test_axis_labels_without_breaks.py.
     "numeric_categories": lambda m: (
         point(m, {"c": ["1", "2.5", "inf", "x"], "y": [1.0, 2.0, 3.0, 4.0]}, x="c")
         + m.scale_x_discrete(format="{.1f}")

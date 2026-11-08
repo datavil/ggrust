@@ -87,7 +87,7 @@ def ggsize(width: Number, height: Number) -> FeatureSpec:
 
 
 class GGBunch(FeatureSpec):
-    """lets_plot's deprecated free-layout bunch of plots. Not supported; use ``gggrid``.
+    """A free-layout bunch of plots. Not supported yet; use ``gggrid`` for a grid.
 
     Exported so code that names it (type hints, ``isinstance``) keeps importing.
 
@@ -102,5 +102,5 @@ class GGBunch(FeatureSpec):
     """
 
     def __init__(self) -> None:
-        message = "GGBunch is deprecated in lets_plot and not supported by ggrust; use gggrid()"
+        message = "GGBunch is not supported by ggrust yet; use gggrid() to lay out plots in a grid"
         raise NotImplementedError(message)

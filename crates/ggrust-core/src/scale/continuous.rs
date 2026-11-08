@@ -38,6 +38,9 @@ pub struct ContinuousPositionScale {
     pub fixed_breaks: Option<Vec<Option<f64>>>,
     /// `labels=[...]`, one per fixed break.
     pub labels: Option<Vec<String>>,
+    /// Spec path of `labels=[...]` given without `breaks=`: once the scale is
+    /// trained, [`Self::attach_labels`] fixes the generated breaks and labels them.
+    pub labels_without_breaks: Option<String>,
     /// `format=...` for labels not given in `labels`.
     pub format: Option<LabelPattern>,
     /// `coord_*(xlim=...)` in transformed units: replaces that side of the
@@ -75,6 +78,7 @@ impl Default for ContinuousPositionScale {
             transform: Transform::Identity,
             fixed_breaks: None,
             labels: None,
+            labels_without_breaks: None,
             format: None,
             coord_limits: [None, None],
             include_zero: false,
@@ -89,7 +93,46 @@ impl Default for ContinuousPositionScale {
     }
 }
 
+/// Breaks generated for `labels=[...]` without `breaks=`: ggplot2's default
+/// count, the same at any plot size.
+pub const LABELLED_BREAKS_COUNT: usize = 5;
+
 impl ContinuousPositionScale {
+    /// `labels=[...]` without `breaks=` (ggplot2): the trained scale generates
+    /// [`LABELLED_BREAKS_COUNT`] breaks, which become fixed breaks (they stay
+    /// attached to their labels under HTML zoom) labelled in order. An error when
+    /// the counts differ, naming the generated breaks. Call it again after the
+    /// range changes: the breaks are generated anew.
+    pub fn attach_labels(&mut self) -> crate::Result<()> {
+        let Some(path) = &self.labels_without_breaks else {
+            return Ok(());
+        };
+        let path = path.clone();
+        // Generated again after a range change (gggrid sharing).
+        self.fixed_breaks = None;
+        let generated = self.breaks(LABELLED_BREAKS_COUNT);
+        let values: Vec<Option<f64>> = generated
+            .positions
+            .iter()
+            .map(|&position| Some(self.transform.inverse(position)))
+            .collect();
+        let count = self.labels.as_ref().map_or(0, Vec::len);
+        if count != values.len() {
+            let shown: Vec<String> = generated.labels.iter().map(Label::to_string).collect();
+            return Err(crate::Error::spec(
+                path,
+                format!(
+                    "{count} labels for {} computed breaks ({}); give one label per break, \
+                     or set breaks=[...] too",
+                    values.len(),
+                    shown.join(", ")
+                ),
+            ));
+        }
+        self.fixed_breaks = Some(values);
+        Ok(())
+    }
+
     /// Write exponents as the theme's `exponent_format` says (generated labels
     /// and `format=` patterns).
     pub fn set_exponent_format(&mut self, exponent: ExponentFormat) {
@@ -441,6 +484,70 @@ fn widen_degenerate(low: f64, high: f64) -> (f64, f64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn labelled(labels: &[&str]) -> ContinuousPositionScale {
+        let mut scale = ContinuousPositionScale {
+            labels: Some(labels.iter().map(|label| label.to_string()).collect()),
+            labels_without_breaks: Some("scales[0].labels".to_string()),
+            multiplicative_expand: 0.0,
+            ..ContinuousPositionScale::default()
+        };
+        scale.train_range(0.0, 100.0);
+        scale
+    }
+
+    #[test]
+    fn labels_without_breaks_fix_the_generated_breaks() {
+        let mut scale = labelled(&["a", "b", "c", "d", "e", "f"]);
+        scale.attach_labels().expect("six breaks over 0..100");
+        assert_eq!(
+            scale.fixed_breaks,
+            Some(vec![
+                Some(0.0),
+                Some(20.0),
+                Some(40.0),
+                Some(60.0),
+                Some(80.0),
+                Some(100.0)
+            ])
+        );
+        // A wider range generates the breaks anew.
+        let mut wider = scale.clone();
+        wider.train_range(0.0, 1000.0);
+        wider.attach_labels().expect("six breaks over 0..1000");
+        assert_eq!(wider.fixed_breaks.as_ref().map(Vec::len), Some(6));
+        assert_eq!(wider.fixed_breaks.as_ref().and_then(|v| v[5]), Some(1000.0));
+        // Any target count gives the same, labelled breaks now.
+        let breaks = scale.breaks(1);
+        let texts: Vec<String> = breaks.labels.iter().map(Label::to_string).collect();
+        assert_eq!(texts, ["a", "b", "c", "d", "e", "f"]);
+    }
+
+    #[test]
+    fn labels_without_breaks_must_match_the_generated_count() {
+        let error = labelled(&["a", "b"])
+            .attach_labels()
+            .expect_err("two labels for six breaks");
+        let message = error.to_string();
+        assert!(message.contains("scales[0].labels"), "{message}");
+        assert!(
+            message.contains("2 labels for 6 computed breaks (0, 20, 40, 60, 80, 100)"),
+            "{message}"
+        );
+        assert!(message.contains("breaks=[...]"), "{message}");
+    }
+
+    #[test]
+    fn attach_labels_leaves_given_breaks_alone() {
+        let mut scale = ContinuousPositionScale {
+            fixed_breaks: Some(vec![Some(1.0)]),
+            labels: Some(vec!["one".to_string()]),
+            ..ContinuousPositionScale::default()
+        };
+        scale.train_range(0.0, 2.0);
+        scale.attach_labels().expect("no labels without breaks");
+        assert_eq!(scale.fixed_breaks, Some(vec![Some(1.0)]));
+    }
 
     #[test]
     fn spans_widen_the_domain_past_limits() {

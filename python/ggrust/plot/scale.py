@@ -212,8 +212,9 @@ def scale_x_continuous(
     breaks : list of float, optional
         Fixed break positions in data units; breaks outside the axis are dropped.
     labels : list of str or dict, optional
-        One label per break (a dict maps breaks to labels). Ignored without
-        ``breaks``, as in lets-plot.
+        One label per break (a dict maps breaks to labels). Without ``breaks``,
+        the labels name the breaks generated for the axis (about 5, as in
+        ggplot2), and a different count raises ``SpecError``.
     format : str, optional
         Label format: a number format (``".2f"``, ``","``, ``"e"``, ``"%"``) or a
         template (``"{.1f} %"``, ``"{d} cells"``). ``labels`` take precedence.
@@ -290,8 +291,9 @@ def scale_y_continuous(
         Side of the panel the axis (ticks, labels, title) is drawn on;
         ``'both'`` draws ticks and labels on both sides, the title on the left.
     labels : list of str or dict, optional
-        One label per break (a dict maps breaks to labels). Ignored without
-        ``breaks``, as in lets-plot.
+        One label per break (a dict maps breaks to labels). Without ``breaks``,
+        the labels name the breaks generated for the axis (about 5, as in
+        ggplot2), and a different count raises ``SpecError``.
     limits : list, optional
         ``[low, high]`` in data units; ``None`` leaves a side free.
     expand : list, optional
@@ -421,8 +423,9 @@ def scale_x_datetime(
         ``ms``, ``sec``, ``min``, ``hour``, ``day``, ``week``, ``month`` or
         ``year`` (plurals allowed), e.g. ``"2 weeks"``.
     labels : list of str or dict, optional
-        One label per break (a dict maps breaks to labels). Ignored without
-        ``breaks``, as in lets-plot.
+        One label per break (a dict maps breaks to labels). Without ``breaks``,
+        the labels name the breaks generated for the axis (about 5, as in
+        ggplot2), and a different count raises ``SpecError``.
     format : str, optional
         Date-time label pattern (``"%d.%m.%y"``, ``"%b %Y"``, ``"{%H:%M}"``).
         ``labels`` take precedence.
@@ -545,8 +548,9 @@ def scale_x_time(
         Fixed distance between breaks, e.g. ``"15 min"`` (see
         ``scale_x_datetime``; months count as 30 days, years as 365).
     labels : list of str or dict, optional
-        One label per break (a dict maps breaks to labels). Ignored without
-        ``breaks``, as in lets-plot.
+        One label per break (a dict maps breaks to labels). Without ``breaks``,
+        the labels name the breaks generated for the axis (about 5, as in
+        ggplot2), and a different count raises ``SpecError``.
     limits : list, optional
         ``[low, high]`` as durations; ``None`` leaves a side free.
     expand : list, optional

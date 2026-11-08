@@ -699,12 +699,19 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     let (free_x, free_y) = facets
         .as_ref()
         .map_or((false, false), |facets| (facets.free_x, facets.free_y));
-    // Secondary axes sample their transform over each final range.
+    // `labels=` without `breaks=` fix the generated breaks of each final range,
+    // then secondary axes sample their transform over it.
     let resolve = |scale: &mut PositionScale| {
         scale
-            .resolve_secondary()
+            .attach_labels()
+            .and_then(|()| scale.resolve_secondary())
             .map_err(|error| error.with_notes(&warnings))
     };
+    for scale in &mut band_scales {
+        scale
+            .attach_labels()
+            .map_err(|error| error.with_notes(&warnings))?;
+    }
     if free_x {
         x_group_scales.iter_mut().try_for_each(resolve)?;
     } else {

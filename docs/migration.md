@@ -61,7 +61,11 @@ differences:
   order) match lets-plot.
 - **Unknown export units raise.** `to_png(..., unit="pt")` raises an error that lists the
   accepted units; lets-plot silently uses inches.
-- **Export sizes without a unit are inches**, as in lets-plot; a unitless `w` or `h` of
+- **Continuous axis `labels` without `breaks` are used.** lets-plot ignores them; ggrust
+  follows ggplot2 and puts them on the axis's generated breaks (about 5, the same at any
+  plot size, kept on their values under zoom). A different number of labels raises
+  `SpecError`, which lists the generated breaks: pass `breaks=` too.
+- **Export sizes without a unit are inches**, as in lets-plot and ggplot2; a unitless `w` or `h` of
   20 or more raises (it was probably meant as pixels): pass `unit="px"`.
 - **PDF export is vector.** lets-plot converts its PNG to a one-page raster PDF with
   Pillow; ggrust writes paths and real, selectable text in the embedded font, on a page

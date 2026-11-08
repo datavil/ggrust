@@ -528,6 +528,23 @@ extension, bug-hunter pass, `make check`, commit + push. Already available and b
     2x faster. A standalone function, not a `stat_ydensity` / `stat_density` option: those keep
     lets-plot's R bandwidths. cellestial's heatmap violins can drop scipy.stats with this release.
 
+### Phase 11: lets-plot leftovers (2026-11-09)
+
+Kept only for lets-plot compatibility, reviewed with the user. Done: continuous axis `labels`
+without `breaks` follow ggplot2 (deviation row); the `GGBunch` stub's message drops lets_plot;
+export docs say a unitless size is inches in both lets-plot and ggplot2.
+
+- [ ] 11.1 **Working `sampling=`** (user, 2026-11-09): every geom and stat honours `sampling=`,
+  default no sampling (unchanged). lets_plot 4.11's eight samplers, `+`-composable as in lets_plot:
+  `sampling_random`, `sampling_random_stratified`, `sampling_pick`, `sampling_systematic`,
+  `sampling_group_random`, `sampling_group_systematic`, `sampling_vertex_vw`,
+  `sampling_vertex_dp`. Picks match lets-plot (port its Kotlin RNG and the VW / DP simplifiers;
+  `memory/letsplot_jitter.md` has the XorWow port). Until then `sampling=` is accepted and
+  ignored (docs/migration.md says it warns; check). Own session.
+- [ ] 11.2 **`ggbunch(plots, regions)`** (user, 2026-11-09): lets_plot 4.11's free layout,
+  plots placed by `(x, y, width, height)` regions in figure fractions, overlap allowed (not the
+  same as `gggrid`). Then point the `GGBunch` stub's message at `ggbunch()`. Own session.
+
 ## Performance strategy (honest)
 
 - Biggest structural win: lets-plot serializes data to JSON in Python, then parses it in Kotlin/JS.

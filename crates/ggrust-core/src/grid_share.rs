@@ -268,8 +268,12 @@ fn share_continuous(
             // Both limits given: the user fixed the range.
             if !matches!(scale.limits(), [Some(_), Some(_)]) {
                 scale.train_span(low, high);
-                // A secondary axis samples its transform over the new range.
-                if let Err(error) = scale.resolve_secondary() {
+                // `labels=` without `breaks=` name the breaks of the new range,
+                // then a secondary axis samples its transform over it.
+                if let Err(error) = scale
+                    .attach_labels()
+                    .and_then(|()| scale.resolve_secondary())
+                {
                     failed.get_or_insert(error);
                 }
             }

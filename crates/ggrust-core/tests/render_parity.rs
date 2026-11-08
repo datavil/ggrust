@@ -378,3 +378,64 @@ fn interleaved_text_under_a_clip_stays_fast() {
     // Was 27.6 s with full-canvas text layers; debug builds are slower, so the bound is loose.
     assert!(elapsed < 10.0, "took {elapsed:.1} s");
 }
+
+/// Long open paths are stroked in chunks in PNG (`render::png::stroke_chunked`).
+/// The chunked stroke must match resvg's single stroke of the SVG path: joins at
+/// chunk boundaries drawn, translucent overlaps not blended twice. Only
+/// anti-aliased edge pixels may differ.
+#[test]
+fn long_dense_lines_match_the_svg_stroke() {
+    // 10000 segments zigzagging across the panel (x sorted, y jumping), with a
+    // gap (NaN) splitting the path into two subpaths.
+    let mut state = 7_u64;
+    let points: Vec<(f64, f64)> = (0..10_001)
+        .map(|index| {
+            state = state
+                .wrapping_mul(6_364_136_223_846_793_005)
+                .wrapping_add(1_442_695_040_888_963_407);
+            let y = 10.0 + (state >> 11) as f64 / (1_u64 << 53) as f64 * 80.0;
+            let x = 10.0 + index as f64 * 180.0 / 10_000.0;
+            if index == 5000 { (f64::NAN, y) } else { (x, y) }
+        })
+        .collect();
+    for alpha in [255, 128] {
+        let color = Color {
+            red: 200,
+            green: 30,
+            blue: 30,
+            alpha,
+        };
+        let node = Node::Path(Path {
+            points: points.clone(),
+            closed: false,
+            fill: None,
+            stroke: Some(Stroke::solid(color, 1.1)),
+        });
+        let scene = scene(vec![node]);
+        let direct = Pixmap::decode_png(&to_png(&scene, 2.0).unwrap()).unwrap();
+        let via_svg = Pixmap::decode_png(
+            &svg_to_png(&to_svg(&scene), scene.width, scene.height, 2.0).unwrap(),
+        )
+        .unwrap();
+        let differences: Vec<u8> = direct
+            .data()
+            .iter()
+            .zip(via_svg.data())
+            .map(|(a, b)| a.abs_diff(*b))
+            .collect();
+        let mean =
+            differences.iter().map(|&d| f64::from(d)).sum::<f64>() / differences.len() as f64;
+        let large =
+            differences.iter().filter(|&&d| d > 32).count() as f64 / differences.len() as f64;
+        assert!(mean < 0.5, "alpha {alpha}: mean channel difference {mean}");
+        assert!(
+            large < 0.002,
+            "alpha {alpha}: {large} of channels differ by > 32"
+        );
+        // The translucent stroke is not blended twice where chunks overlap: the
+        // darkest red is the stroke's own composite over white, as in the SVG.
+        let darkest =
+            |pixmap: &Pixmap| pixmap.pixels().iter().map(|p| p.demultiply().green()).min();
+        assert_eq!(darkest(&direct), darkest(&via_svg), "alpha {alpha}");
+    }
+}

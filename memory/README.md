@@ -47,6 +47,7 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Overflow guards](overflow_guards.md): legends reflow/wrap/"+K more", discrete axis labels wrap then cut past 1/2, titles wrap; only overflowing plots change; gggrid/colorbars not yet.
 - [Docs site: Zensical, generated live plots](docs_site_zensical.md): examples render to gitignored iframes in CI; src is relative to the .md file; ruff mangles snippet lines in md; every API docstring example is a doctest and its `plot` is embedded.
 - [PNG marker sprites](png_marker_sprites.md): coverage per geometry, colors at stamp, 1/16 px steps, test against shift noise, rare geometries traced.
+- [PNG: chunked line strokes](png_chunked_line_strokes.md): tiny-skia walks every active edge per subscanline; long polylines stroked in 256-segment chunks (17 s -> 2 s), translucent via an opaque layer.
 - [Large output memory](large_output_memory.md): exact reserve + 1 byte doubles, no format!/escape copies of payloads, encoded tooltip texts, measure RSS.
 - [Density, smooth, abline follow lets-plot](letsplot_density_smooth_abline.md): line-by-line stat ports, repeated first vertex, Kotlin Random for loess sampling, ggplot2 per-model SE (user's choice), seam-free quantile bands, abline() = y = x.
 - [Date-time axes](letsplot_datetime_axes.md): DateTimeBreaksHelper port in epoch ms, compare under TZ=UTC, exact time multiples, break_width = fixed layout, zoom keeps date breaks, UTC only.

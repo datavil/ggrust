@@ -28,6 +28,14 @@ use crate::{Error, Result};
 /// (see `render::sprite`); smaller ones are traced exactly.
 const SPRITE_MIN_MARKERS: usize = 1000;
 
+/// Open paths with more segments than this are stroked in chunks of
+/// `STROKE_CHUNK_SEGMENTS` (see `Canvas::stroke_chunked`); shorter ones in one go.
+/// Translucent strokes need a layer per path (about 6 ms at 3000 x 2400 px), which
+/// only pays off once a single stroke is slow.
+const STROKE_CHUNK_MIN_SEGMENTS: usize = 1024;
+const STROKE_CHUNK_MIN_SEGMENTS_TRANSLUCENT: usize = 4096;
+const STROKE_CHUNK_SEGMENTS: usize = 256;
+
 /// Screen resolution (lets-plot's PNG default `pHYs`): one layout pixel per pixel.
 pub const SCREEN_DPI: f64 = 96.0;
 
@@ -442,8 +450,27 @@ impl Canvas {
     }
 
     fn path(&mut self, path: &Path, mask: Option<&Mask>) {
+        let subpaths = self.clip_box.subpaths(&path.points, path.closed);
+        if !path.closed
+            && let Some(stroke) = path
+                .stroke
+                .as_ref()
+                .filter(|stroke| is_drawable_stroke(stroke) && stroke.dash_pattern().is_none())
+            && subpaths
+                .iter()
+                .map(|run| run.len().saturating_sub(1))
+                .sum::<usize>()
+                > if stroke.color.alpha == u8::MAX {
+                    STROKE_CHUNK_MIN_SEGMENTS
+                } else {
+                    STROKE_CHUNK_MIN_SEGMENTS_TRANSLUCENT
+                }
+            && self.stroke_chunked(&subpaths, stroke, mask)
+        {
+            return;
+        }
         let mut builder = PathBuilder::new();
-        for subpath in self.clip_box.subpaths(&path.points, path.closed) {
+        for subpath in subpaths {
             for (index, &(x, y)) in subpath.iter().enumerate() {
                 if index == 0 {
                     builder.move_to(x as f32, y as f32);
@@ -548,6 +575,112 @@ impl Canvas {
         };
         self.pixmap
             .stroke_path(geometry, &paint(stroke.color), &style, self.transform, mask);
+    }
+
+    /// Stroke long open polylines in chunks of `STROKE_CHUNK_SEGMENTS` segments.
+    ///
+    /// tiny-skia walks every active edge of a path on every quarter-pixel scanline,
+    /// through a linked list. A dense line (`geom_line` over 1M rows: 166k segments
+    /// per group, each spanning much of the panel height) keeps ~100k edges active
+    /// in a list far larger than the CPU cache, and stroking it in one go took 17 s.
+    /// Chunks keep each list small: same picture, about 5x faster.
+    ///
+    /// Each chunk repeats the previous chunk's last segment, so the join at the
+    /// boundary is drawn. Chunks overlap, so a translucent stroke is drawn opaque
+    /// into a layer that is then composited at the stroke's alpha (no double
+    /// blending); the layer covers the path's bounds only. Returns `false`, with
+    /// nothing drawn, when that layer cannot be allocated: the caller then strokes
+    /// the path in one go. Only anti-aliased edge pixels differ from a single stroke: where
+    /// chunks overlap, coverage combines as `1 - (1 - a)(1 - b)` instead of the
+    /// exact union.
+    fn stroke_chunked(
+        &mut self,
+        subpaths: &[Vec<(f64, f64)>],
+        stroke: &Stroke,
+        mask: Option<&Mask>,
+    ) -> bool {
+        // Translucent: an opaque layer over the path's device bounds, padded by the
+        // widest miter join (limit 4: twice the stroke width) and one pixel.
+        let mut layer = None;
+        if stroke.color.alpha < u8::MAX {
+            let pad = 2.0 * stroke.width + 1.0 / self.scale;
+            let (mut left, mut top) = (f64::INFINITY, f64::INFINITY);
+            let (mut right, mut bottom) = (f64::NEG_INFINITY, f64::NEG_INFINITY);
+            for &(x, y) in subpaths.iter().flatten() {
+                (left, right) = (left.min(x), right.max(x));
+                (top, bottom) = (top.min(y), bottom.max(y));
+            }
+            let device = |value: f64, limit: u32| (value * self.scale).clamp(0.0, f64::from(limit));
+            let (width, height) = (self.pixmap.width(), self.pixmap.height());
+            let x0 = device(left - pad, width).floor();
+            let y0 = device(top - pad, height).floor();
+            let x1 = device(right + pad, width).ceil();
+            let y1 = device(bottom + pad, height).ceil();
+            if !(x1 > x0 && y1 > y0) {
+                return true; // nothing on the canvas
+            }
+            let Some(pixmap) = Pixmap::new((x1 - x0) as u32, (y1 - y0) as u32) else {
+                return false;
+            };
+            layer = Some((pixmap, x0 as i32, y0 as i32));
+        }
+        let style = tiny_skia::Stroke {
+            width: stroke.width as f32,
+            line_cap: LineCap::Butt,
+            line_join: LineJoin::Miter,
+            ..tiny_skia::Stroke::default()
+        };
+        let stroke_paint = paint(Color {
+            alpha: u8::MAX,
+            ..stroke.color
+        });
+        for subpath in subpaths {
+            let mut start = 0;
+            while start + 1 < subpath.len() {
+                let end = (start + STROKE_CHUNK_SEGMENTS).min(subpath.len() - 1);
+                let first = start.saturating_sub(1);
+                let mut builder = PathBuilder::new();
+                builder.move_to(subpath[first].0 as f32, subpath[first].1 as f32);
+                for &(x, y) in &subpath[first + 1..=end] {
+                    builder.line_to(x as f32, y as f32);
+                }
+                if let Some(geometry) = builder.finish() {
+                    match layer.as_mut() {
+                        Some((layer, x0, y0)) => layer.stroke_path(
+                            &geometry,
+                            &stroke_paint,
+                            &style,
+                            self.transform.post_translate(-*x0 as f32, -*y0 as f32),
+                            None,
+                        ),
+                        None => self.pixmap.stroke_path(
+                            &geometry,
+                            &stroke_paint,
+                            &style,
+                            self.transform,
+                            mask,
+                        ),
+                    }
+                }
+                start = end;
+            }
+        }
+        if let Some((layer, x0, y0)) = layer {
+            let layer_paint = tiny_skia::PixmapPaint {
+                opacity: f32::from(stroke.color.alpha) / 255.0,
+                quality: tiny_skia::FilterQuality::Nearest,
+                ..tiny_skia::PixmapPaint::default()
+            };
+            self.pixmap.draw_pixmap(
+                x0,
+                y0,
+                layer.as_ref(),
+                &layer_paint,
+                Transform::identity(),
+                mask,
+            );
+        }
+        true
     }
 
     /// Render a run of text nodes through resvg (glyph outlines and shaping).

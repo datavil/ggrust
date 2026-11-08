@@ -102,6 +102,7 @@ def theme(
     legend_box_spacing: Number | None = None,
     legend_ticks: ThemeElement | None = None,
     legend_ticks_length: Number | None = None,
+    legend_interactive: bool | None = None,
     panel_background: ThemeElement | None = None,
     panel_border: ThemeElement | None = None,
     panel_border_ontop: bool | None = None,
@@ -345,6 +346,11 @@ def theme(
         Ticks of the color bar (``element_line()``).
     legend_ticks_length : float, optional
         Length of the color bar ticks, in pixels.
+    legend_interactive : bool, optional
+        ggrust extension, HTML output only. Clickable discrete legend keys:
+        click hides or shows a key's marks, double-click isolates the key.
+        ``False`` turns it off and leaves the key data out of the HTML.
+        On by default.
     panel_background, panel_border : dict or str, optional
         Panel background and border (``element_rect()``).
     panel_border_ontop : bool, optional

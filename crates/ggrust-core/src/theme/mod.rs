@@ -434,6 +434,9 @@ pub struct Theme {
     pub legend_ticks_length: f64,
     /// `legend_position`.
     pub legend_position: LegendPosition,
+    /// `legend_interactive` (ggrust extension, HTML only): clickable discrete
+    /// legend keys. `false` drops the key data from the output.
+    pub legend_interactive: bool,
     /// `legend_justification`: (x, y) in 0..1.
     pub legend_justification: (f64, f64),
     /// `legend_direction`.
@@ -595,6 +598,7 @@ const BUILT_OPTIONS: &[&str] = &[
     "legend_box_spacing",
     "legend_ticks",
     "legend_ticks_length",
+    "legend_interactive",
     "strip_text",
     "strip_text_x",
     "strip_text_y",
@@ -1188,6 +1192,7 @@ impl Resolver<'_> {
             legend_ticks,
             legend_ticks_length: self.number(&["legend_ticks_length"], 4.0)?,
             legend_position: legend_position(self.values.value_of(&["legend_position"]))?,
+            legend_interactive: legend_interactive(self.values.value_of(&["legend_interactive"]))?,
             legend_justification: legend_justification(
                 self.values.value_of(&["legend_justification"]),
             )?,
@@ -1271,6 +1276,17 @@ fn as_refs(keys: &[String]) -> Vec<&str> {
 }
 
 /// lets-plot `LegendThemeConfig.toPosition`.
+fn legend_interactive(value: Option<&Value>) -> Result<bool> {
+    match value {
+        None => Ok(true),
+        Some(Value::Bool(flag)) => Ok(*flag),
+        Some(other) => Err(Error::spec(
+            "theme.legend_interactive",
+            format!("expected True or False, got {other}"),
+        )),
+    }
+}
+
 fn legend_position(value: Option<&Value>) -> Result<LegendPosition> {
     Ok(match value {
         None => LegendPosition::Right,

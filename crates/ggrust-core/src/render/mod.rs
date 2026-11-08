@@ -10,6 +10,7 @@ mod png;
 mod raster;
 mod sprite;
 mod svg;
+pub(crate) use svg::push_base64;
 mod webfont;
 
 pub use html::{HtmlDocument, HtmlOptions, to_html};

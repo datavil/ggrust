@@ -972,7 +972,7 @@ pub fn draw_legends(block: &LegendBlock, origin: (f64, f64), theme: &Theme) -> R
                             ));
                         }
                     }
-                    if let Some(key) = key {
+                    if let Some(key) = key.filter(|_| theme.legend_interactive) {
                         let nodes = legend_nodes.split_off(start);
                         legend_nodes.push(Node::Group(Group {
                             clip: None,

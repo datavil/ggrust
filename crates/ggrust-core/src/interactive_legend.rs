@@ -52,8 +52,21 @@ pub struct RowKeys {
     /// Distinct key combinations, each a list of key ids (one per legend the
     /// row has a key in), in order of first row.
     pub combinations: Vec<Vec<String>>,
-    /// Combination of every row.
+    /// Combination of every row. Written as base64 bytes, one per row (there
+    /// are at most [`MAX_COMBINATIONS`] + 1 combinations).
+    #[serde(serialize_with = "rows_base64")]
     pub rows: Vec<u32>,
+}
+
+/// One byte per row, base64: about a third of the size of a JSON array.
+fn rows_base64<S: serde::Serializer>(rows: &[u32], serializer: S) -> Result<S::Ok, S::Error> {
+    let bytes: Vec<u8> = rows
+        .iter()
+        .map(|&row| u8::try_from(row).unwrap_or(u8::MAX))
+        .collect();
+    let mut text = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    crate::render::push_base64(&mut text, &bytes);
+    serializer.serialize_str(&text)
 }
 
 /// The keys of `row_count` rows styled `styles`, or `None` when the layer shows

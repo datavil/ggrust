@@ -7,6 +7,7 @@ The browser tests drive headless Chromium through playwright and are skipped
 when it is not installed (``uv run playwright install chromium``).
 """
 
+import base64
 import json
 import re
 from collections.abc import Iterator
@@ -16,6 +17,7 @@ import ggrust as gg
 import numpy as np
 import polars as pl
 import pytest
+from ggrust.errors import SpecError
 from ggrust.plot.core import PlotSpec
 
 
@@ -60,17 +62,24 @@ def batch_body(html: str, start: int) -> str:
     raise AssertionError("unclosed <g>")
 
 
+def batch_items(tag: str) -> list[int]:
+    """The combination index of every child element of a keyed batch (``data-ki``)."""
+    found = re.search(r'data-ki="([^"]*)"', tag)
+    assert found is not None, tag
+    return list(base64.b64decode(found.group(1)))
+
+
 def marker_keys(html: str) -> list[list[str]]:
     """The key ids of every tagged SVG marker, in document order.
 
-    A keyed point batch holds its combination table (``data-keys``) and each
-    tagged marker its index into it (``data-k``).
+    A keyed point batch holds its combination table (``data-keys``) and the
+    index into it of every child element (``data-ki``, base64 bytes); markers
+    of the empty combination are untagged.
     """
     found = []
     for batch in re.finditer(r'<g[^>]*data-keys="([^"]*)"[^>]*>', html):
         table = json.loads(batch.group(1).replace("&quot;", '"'))
-        indices = re.findall(r'data-k="(\d+)"', batch_body(html, batch.end()))
-        found.extend(table[int(index)] for index in indices)
+        found.extend(table[index] for index in batch_items(batch.group()) if table[index])
     return found
 
 
@@ -92,13 +101,15 @@ def test_interleaved_point_keys_write_no_per_run_groups() -> None:
     assert html.count("data-keys=") == 1
     assert marker_keys(html) == [[f"kind\x1f{kind}"] for kind in data["kind"]]
     # Markers keep the static order (data order, so stacking order too).
-    circle = r'<circle cx="([^"]+)" cy="([^"]+)" r="[^"]+"( data-k="\d+")?'
+    circle = r'<circle cx="([^"]+)" cy="([^"]+)" r="[^"]+"'
     batch = re.search(r"<g[^>]*data-keys=[^>]*>", html)
     assert batch is not None
     tagged = re.findall(circle, batch_body(html, batch.end()))
-    assert len(tagged) == data.height and all(index for _, _, index in tagged)
-    static = [(x, y) for x, y, _ in re.findall(circle, plot.to_svg())]
-    assert [(x, y) for x, y, _ in tagged] == static[: data.height]
+    assert len(tagged) == data.height == len(batch_items(batch.group()))
+    # One byte string per batch, no attribute per marker.
+    assert 'data-k="' not in html[: html.index("</svg>")]
+    static = re.findall(circle, plot.to_svg())
+    assert tagged == static[: data.height]
 
 
 def test_html_marks_match_static_svg_apart_from_tags() -> None:
@@ -155,6 +166,56 @@ def test_two_legends_tag_marks_with_both_keys() -> None:
     assert len(marks) == data.height
     assert len({tuple(ids) for ids in marks}) == 6
     assert all(len(ids) == 2 and ids[1].startswith("size\x1f") for ids in marks)
+
+
+def has_legend_data(html: str) -> bool:
+    """Whether the HTML carries any interactive legend data (marks or tooltips)."""
+    svg = html[: html.index("</svg>")]
+    tooltips = re.search(r"vnd\.ggrust-tooltips\+json\">(.*?)</script>", html, re.S)
+    layers = json.loads(tooltips.group(1))["layers"] if tooltips else []
+    return (
+        'class="keyed"' in svg
+        or "data-keys=" in svg
+        or "data-ki=" in svg
+        or any("keys" in layer for layer in layers)
+    )
+
+
+def test_legend_interactive_false_drops_the_key_data() -> None:
+    data = frame()
+    plot = scatter(data)
+    assert has_legend_data(plot.to_html())
+    html = (plot + gg.theme(legend_interactive=False)).to_html()
+    assert not has_legend_data(html)
+    # The legend still draws (same as static), with no clickable keys.
+    assert 'class="legend-key"' not in html
+    assert html.count("<text") == plot.to_svg().count("<text")
+
+
+def test_hidden_legend_writes_no_key_data() -> None:
+    plot = scatter(frame()) + gg.theme(legend_position="none")
+    assert not has_legend_data(plot.to_html())
+
+
+def test_canvas_tooltips_reuse_the_batch_keys() -> None:
+    """Dense points carry their keys once: in the canvas batch, not the tooltips."""
+    data = frame(6_000)
+    html = (gg.ggplot(data, gg.aes("x", "y", color="kind")) + gg.geom_point()).to_html()
+    batches = json.loads(
+        re.search(r'vnd\.ggrust-canvas\+json"[^>]*>(.*?)</script>', html, re.S).group(1)
+    )
+    assert all("key" in batch for batch in batches)
+    tooltips = re.search(r'vnd\.ggrust-tooltips\+json"[^>]*>(.*?)</script>', html, re.S)
+    layers = json.loads(tooltips.group(1))["layers"]
+    assert [layer["targets"].get("canvas") for layer in layers] == [0]
+    assert "keys" not in layers[0]
+
+
+def test_legend_interactive_takes_a_bool() -> None:
+    with pytest.raises(SpecError) as error:
+        (scatter(frame()) + gg.theme(legend_interactive="no")).to_html()  # ty: ignore[invalid-argument-type]
+    assert "theme.legend_interactive" in str(error.value)
+    assert "True or False" in str(error.value)
 
 
 # ---- Browser tests ----

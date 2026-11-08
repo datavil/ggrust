@@ -140,11 +140,15 @@
   function candidates(layer, x, y) {
     var key = Math.floor(x / CELL) + "," + (layer.lookup === "hover_x" ? 0 : Math.floor(y / CELL));
     var list = layer.cells.get(key) || [];
-    return layer.hiddenKeys ? list.filter(function (i) { return !keyHidden(layer, i); }) : list;
+    var keyed = layer.canvasKeys ? layer.canvasKeys.hiddenKeys : layer.hiddenKeys;
+    return keyed ? list.filter(function (i) { return !keyHidden(layer, i); }) : list;
   }
 
-  // Whether target `i` of `layer` belongs to a legend key switched off.
+  // Whether target `i` of `layer` belongs to a legend key switched off. Targets
+  // that are the markers of a keyed canvas batch take its key per marker.
   function keyHidden(layer, i) {
+    var canvas = layer.canvasKeys;
+    if (canvas) return !!canvas.hiddenKeys && canvas.hiddenKeys[canvas.key[i]];
     return !!layer.hiddenKeys && layer.hiddenKeys[layer.keys.rows[layer.targets.rows[i]]];
   }
 
@@ -627,6 +631,7 @@
     var holders = plot.svg.querySelectorAll("foreignObject.ggrust-canvas");
     plot.canvases = [];
     plot.canvasXy = {};
+    plot.canvasLayers = {};
     for (var i = 0; i < holders.length; i++) {
       var number = +holders[i].getAttribute("data-batch");
       var batch = payload[number];
@@ -655,6 +660,7 @@
       holders[i].ggrustCanvas = layer;
       plot.canvases.push(layer);
       plot.canvasXy[number] = layer.xy;
+      plot.canvasLayers[number] = layer;
       drawCanvas(layer, { scale: 1, offset: 0 }, { scale: 1, offset: 0 }, 1);
     }
   }
@@ -1819,6 +1825,8 @@
     var xy = plot.canvasXy && plot.canvasXy[t.canvas];
     var n = t.rows.length;
     if (!xy || xy.length !== 2 * n) return false;
+    var canvas = plot.canvasLayers[t.canvas];
+    if (!layer.keys && canvas.key && canvas.key.length === n) layer.canvasKeys = canvas;
     t.x = new Array(n);
     t.y = new Array(n);
     for (var i = 0; i < n; i++) {
@@ -1840,6 +1848,10 @@
       return;
     }
     plot.layers = (payload.layers || []).filter(function (layer) { return canvasTargets(plot, layer); });
+    plot.layers.forEach(function (layer) {
+      // Legend keys of the rows: one byte per row, base64.
+      if (layer.keys && typeof layer.keys.rows === "string") layer.keys.rows = new Uint8Array(decodeBase64(layer.keys.rows));
+    });
     plot.layers.forEach(index);
     var viewBox = plot.svg.viewBox && plot.svg.viewBox.baseVal;
     plot.width = viewBox && viewBox.width ? viewBox.width : plot.svg.width.baseVal.value;
@@ -1883,7 +1895,8 @@
   // (`g.keyed`, runs of marks of one key combination) carry `data-key`: a
   // JSON array of key ids (legend title and label). SVG point batches of mixed
   // keys carry a table of those arrays instead (`data-keys`) and a table index
-  // per marker (`data-k`), hidden by one CSS rule per hidden (batch, index);
+  // per child element (`data-ki`, base64 bytes), set as `data-k` on each marker
+  // at load and hidden by one CSS rule per hidden (batch, index);
   // dense canvas points carry a key index per marker. Clicking a key hides or
   // shows its marks across layers, panels and plots of the figure, and their
   // tooltips; double-clicking isolates it within its legend (again: show all).
@@ -1960,6 +1973,25 @@
     return true;
   }
 
+  // Give every marker of a keyed batch its `data-k` (its combination index)
+  // from the batch's `data-ki` (base64, one byte per child element), so one
+  // CSS rule per hidden (batch, index) hides it. Unkeyed markers get none.
+  function setChildKeys(batch, combinations) {
+    var text = batch.getAttribute("data-ki");
+    if (!text) return;
+    var items;
+    try {
+      items = new Uint8Array(decodeBase64(text));
+    } catch (error) {
+      return;
+    }
+    var child = batch.firstElementChild;
+    for (var i = 0; child && i < items.length; i++, child = child.nextElementSibling) {
+      var ids = combinations[items[i]];
+      if (ids && ids.length) child.setAttribute("data-k", items[i]);
+    }
+  }
+
   function attachLegend(plot) {
     if (!plot.svg) return;
     var keyElements = plot.svg.querySelectorAll("g.legend-key[data-key]");
@@ -1979,6 +2011,7 @@
         batch.combinations = [];
       }
       batches[b].setAttribute("data-kb", batch.id);
+      setChildKeys(batches[b], batch.combinations);
       plot.legend.batches.push(batch);
     }
     if (batches.length) {

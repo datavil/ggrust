@@ -297,6 +297,10 @@ pub struct WithCanvasTargets<'a> {
     pub interaction: &'a Interaction,
     /// Per layer, the canvas batch holding its point positions.
     pub canvas: &'a [Option<usize>],
+    /// Per layer, whether that batch carries a legend key per marker (the
+    /// interactive legend): the runtime then reads the targets' keys from the
+    /// batch, and the layer's own row keys are left out.
+    pub canvas_keyed: &'a [bool],
 }
 
 impl Serialize for WithCanvasTargets<'_> {
@@ -310,13 +314,18 @@ impl Serialize for WithCanvasTargets<'_> {
                 let mut sequence = serializer.serialize_seq(Some(layers.len()))?;
                 for (index, layer) in layers.iter().enumerate() {
                     match (&layer.targets, self.0.canvas.get(index).copied().flatten()) {
-                        (HoverTargets::Points { radius, rows, .. }, Some(canvas)) => sequence
-                            .serialize_element(&layer.fields(CanvasPoints {
+                        (HoverTargets::Points { radius, rows, .. }, Some(canvas)) => {
+                            let mut fields = layer.fields(CanvasPoints {
                                 kind: "points",
                                 canvas,
                                 radius,
                                 rows,
-                            }))?,
+                            });
+                            if self.0.canvas_keyed.get(index).copied().unwrap_or(false) {
+                                fields.keys = None;
+                            }
+                            sequence.serialize_element(&fields)?
+                        }
                         _ => sequence.serialize_element(layer)?,
                     }
                 }

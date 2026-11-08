@@ -790,7 +790,10 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         &mut layer_legends,
     )
     .map_err(|error| error.with_notes(&warnings))?;
-    assign_row_keys(&mut prepared_tiles, &layer_legends);
+    // Interactive legend: no keys when there is no legend to click.
+    if theme.legend_interactive && theme.legend_position != LegendPosition::None {
+        assign_row_keys(&mut prepared_tiles, &layer_legends);
+    }
     let tooltip_setups = tooltip_setups(spec, &titles, &style_specs, &orientations);
     // coord_flip: the screen axes take the other scale, title and theme elements.
     let flipped = spec

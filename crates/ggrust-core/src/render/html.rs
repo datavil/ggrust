@@ -104,12 +104,17 @@ fn write_fragment(
     // Escaped so that they cannot end their script elements (see `write_script_json`).
     if let Some(interaction) = interaction.filter(|interaction| !interaction.layers.is_empty()) {
         let canvas = canvas_targets(interaction, &canvas_batches);
+        let canvas_keyed: Vec<bool> = canvas
+            .iter()
+            .map(|batch| batch.is_some_and(|b| canvas_batches[b].payload.get("key").is_some()))
+            .collect();
         script_element(
             &mut output,
             "ggrust-tooltips",
             &WithCanvasTargets {
                 interaction,
                 canvas: &canvas,
+                canvas_keyed: &canvas_keyed,
             },
         );
     }

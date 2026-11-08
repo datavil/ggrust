@@ -394,9 +394,34 @@ impl SvgWriter {
         self.raw("\"");
     }
 
-    /// ` data-k="<item>"`: a marker's key combination in its batch's `data-keys`.
-    fn key_index(&mut self, item: u8) {
-        let _ = write!(self.output, " data-k=\"{item}\"");
+    /// The key combination (index into `keyed.combinations`) of every child
+    /// element [`Self::svg_points`] writes for `points`, in order: one per
+    /// anchored marker, else one per marker part. The runtime gives each child
+    /// its `data-k` from this (a byte per child instead of an attribute).
+    fn child_key_items(&self, points: &Points, keyed: &KeyedItems) -> Vec<u8> {
+        let mut items = Vec::with_capacity(points.len());
+        for index in 0..points.len() {
+            let (x, y, size) = (points.x[index], points.y[index], points.size.get(index));
+            if !is_drawable_marker(x, y, size) || !self.clip_box.contains(x, y) {
+                continue;
+            }
+            let mut parts = 0usize;
+            let mut lone_circle = true;
+            points.shape.get(index).for_each_part(
+                x,
+                y,
+                size,
+                points.stroke_width.get(index),
+                |part| {
+                    lone_circle = parts == 0 && matches!(part, MarkerPart::Circle { .. });
+                    parts += 1;
+                },
+            );
+            let anchored = self.zoomable && !lone_circle;
+            let children = if anchored { 1 } else { parts };
+            items.extend(std::iter::repeat_n(keyed.items[index], children));
+        }
+        items
     }
 
     /// `<prefix>-clip<number>`; the prefix is sanitized, so no escaping is needed.
@@ -450,6 +475,10 @@ impl SvgWriter {
         if let Some(keyed) = keyed {
             let table = format!("[{}]", keyed.combinations.join(","));
             self.attribute("data-keys", &table);
+            let items = self.child_key_items(points, keyed);
+            let mut text = String::with_capacity(items.len().div_ceil(3) * 4);
+            push_base64(&mut text, &items);
+            self.attribute("data-ki", &text);
         }
         if let PerItem::Uniform(fill) = points.fill {
             self.fill(fill);
@@ -495,17 +524,8 @@ impl SvgWriter {
             // The runtime moves a lone circle by its centre, anything else by its anchor.
             let anchored =
                 self.zoomable && !matches!(parts.as_slice(), [MarkerPart::Circle { .. }]);
-            // The marker's key index: on its anchor group, else on every part.
-            let key_index = keyed.and_then(|keyed| {
-                let item = keyed.items[index];
-                let tag = keyed.combinations.get(item as usize)?;
-                (tag != "[]").then_some(item)
-            });
             if anchored {
                 self.anchor_open(x, y);
-                if let Some(item) = key_index {
-                    self.key_index(item);
-                }
                 self.raw(">");
             }
             for part in parts.drain(..) {
@@ -531,9 +551,6 @@ impl SvgWriter {
                         self.attribute_number("x2", end.0);
                         self.attribute_number("y2", end.1);
                     }
-                }
-                if let Some(item) = key_index.filter(|_| !anchored) {
-                    self.key_index(item);
                 }
                 if let Some(fill) = fill {
                     self.fill(fill);
@@ -904,7 +921,7 @@ fn clip_count(node: &Node) -> usize {
 }
 
 /// Standard base64 (RFC 4648, padded).
-pub(super) fn push_base64(output: &mut String, bytes: &[u8]) {
+pub(crate) fn push_base64(output: &mut String, bytes: &[u8]) {
     const ALPHABET: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
     output.reserve(bytes.len().div_ceil(3) * 4);
     for chunk in bytes.chunks(3) {
@@ -1083,7 +1100,8 @@ mod tests {
         }
     }
 
-    /// Four markers with interleaved keys a, b, a and none; the second a square.
+    /// Four markers with interleaved keys a, b, a and none; the second a plus
+    /// (two line parts), the third a square.
     fn keyed_scene() -> Scene {
         let points = Points {
             keys: Some(KeyedItems {
@@ -1098,7 +1116,7 @@ mod tests {
             y: vec![10.0, 20.0, 30.0, 40.0],
             shape: PerItem::Varying(vec![
                 MarkerShape::Circle,
-                MarkerShape::Circle,
+                MarkerShape::Plus,
                 MarkerShape::Square,
                 MarkerShape::Circle,
             ]),
@@ -1129,23 +1147,13 @@ mod tests {
             assert!(
                 html.contains("data-keys=\"[[&quot;k\\u001fa&quot;],[&quot;k\\u001fb&quot;],[]]\"")
             );
-            // In data order; the untagged marker has no index.
-            let indices: Vec<&str> = html
-                .split("data-k=\"")
-                .skip(1)
-                .map(|rest| &rest[..1])
-                .collect();
-            assert_eq!(indices, ["0", "1", "0"], "{html}");
-            assert_eq!(html.matches("<circle").count(), 3);
-            if zoomable {
-                // A square moves by its anchor group, which holds the index.
-                assert!(
-                    html.contains("<g data-anchor=\"30 30\" data-k=\"0\"><rect x=\"28.5"),
-                    "{html}"
-                );
-            } else {
-                assert!(html.contains("height=\"3\" data-k=\"0\"/>"), "{html}");
-            }
+            // One byte per child element, in data order (base64): a plus is two
+            // lines unless it moves by an anchor group; the untagged marker takes
+            // the trailing "[]" index. No attribute per marker.
+            let expected = if zoomable { "AAEAAg==" } else { "AAEBAAI=" };
+            assert!(html.contains(&format!("data-ki=\"{expected}\"")), "{html}");
+            assert!(!html.contains("data-k=\""), "{html}");
+            assert_eq!(html.matches("<circle").count(), 2);
             // Static output: untouched.
             let svg = to_svg_with(&scene, &options);
             assert!(!svg.contains("data-k"), "{svg}");

@@ -470,6 +470,17 @@ def inline_targets(html: str) -> str:
         xy = np.frombuffer(base64.b64decode(batches[number]["xy"]), dtype="<f4")
         targets["x"] = [round(float(value), 2) for value in xy[0::2]]
         targets["y"] = [round(float(value), 2) for value in xy[1::2]]
+        # Legend keys of a keyed batch: the batch holds them per marker, the
+        # inline layer per row.
+        if "key" in batches[number] and "keys" not in layer:
+            marker_keys = base64.b64decode(batches[number]["key"])
+            rows = bytearray(max(targets["rows"]) + 1)
+            for marker, row in enumerate(targets["rows"]):
+                rows[row] = marker_keys[marker]
+            layer["keys"] = {
+                "combinations": batches[number]["keys"],
+                "rows": base64.b64encode(bytes(rows)).decode(),
+            }
     text = json.dumps(payload).replace("<", "\\u003c").replace(">", "\\u003e")
     text = text.replace("&", "\\u0026")
     return re.sub(

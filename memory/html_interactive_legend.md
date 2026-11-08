@@ -19,11 +19,19 @@ ua.9 (2026-11-05). HTML only; static output never sees the tags.
 - **SVG point batches: no per-run `g.keyed` wrappers** (2026-11-06, HTML size). Keys
   interleave in real data (single-cell rows sorted by barcode), so runs were ~1 point:
   ~110 B of wrappers per ~66 B circle. Now the batch `<g>` holds the table
-  (`data-keys` = JSON array of the key-id arrays) and each keyed marker `data-k="i"` (on
-  its `data-anchor` group when anchored, else on every part); `[]` markers get none and
-  stay visible, also without JS. The runtime tags batches `data-kb="<plot id>-n"` and
-  hides with one `<style>` in the plot root (`g[data-kb=..]>[data-k=..]{display:none}`),
-  never touching each marker. 4,000 points, 12 interleaved keys: 906 KB -> 664 KB.
+  (`data-keys` = JSON array of the key-id arrays). 4,000 points, 12 interleaved keys:
+  906 KB -> 664 KB.
+- **Per-element key data is bytes, never attributes** (2026-11-08, HTML size: per-marker
+  `data-k="i"` was 11 B/marker, ~80% of the legend's 6-10% overhead). The batch holds
+  `data-ki` = base64, one byte per child element (one per anchored marker, else one per
+  part; `SvgWriter::child_key_items` must mirror `svg_points`' skip and anchor rules).
+  The runtime writes `data-k` on each child at load (`setChildKeys`) and hides with one
+  `<style>` (`g[data-kb=..]>[data-k=..]{display:none}`). Tooltip `keys.rows` is base64
+  bytes too; canvas tooltip layers carry no `keys` at all: the runtime reads the batch's
+  per-marker `key` (`layer.canvasKeys`, targets = drawn markers, same order).
+  Result: 1.5-2.5% (SVG points), 3.3-4% (canvas: the 1.33 B/marker `key`).
+- No key data when nothing is clickable: `theme(legend_position="none")` and
+  `theme(legend_interactive=False)` skip `assign_row_keys` and the legend-key groups.
   Uniform-key batches and other geoms keep `g.keyed`. Static SVG/PNG never see either.
 - Tooltips: `LayerInteraction.keys` (combinations + per-row index); `candidates()`
   filters hidden targets, `hover_x` lines skip a hidden line by its first vertex.

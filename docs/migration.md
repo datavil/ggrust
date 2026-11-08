@@ -41,7 +41,9 @@ These lets-plot features are out of scope: maps (livemap, GIS, geocoding), `bist
 (`corr_plot`, `qq_plot`, ...), smoothing and regression, contour and 2D density, polar
 coordinates, pie and waterfall charts, and frontends other than Jupyter and standalone
 HTML. `GGBunch` is exported so code that names it still imports, but creating one raises
-`NotImplementedError`; use `gggrid` instead.
+`NotImplementedError`. Use `gggrid` for a grid, or for plots placed freely (overlap
+allowed) add `inset_element(plot, left, bottom, right, top, align_to="full")` to an
+empty `ggplot() + theme_void()`. lets_plot's `ggbunch()` is not ported for the same reason.
 
 Options that ggrust accepts for compatibility but does not act on (for example a
 layer's `sampling`) raise a `GgrustWarning` that names the option, rather than being

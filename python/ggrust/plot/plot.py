@@ -87,7 +87,11 @@ def ggsize(width: Number, height: Number) -> FeatureSpec:
 
 
 class GGBunch(FeatureSpec):
-    """A free-layout bunch of plots. Not supported yet; use ``gggrid`` for a grid.
+    """A free-layout bunch of plots. Not supported: use insets or ``gggrid`` instead.
+
+    For plots placed by figure fractions (overlap allowed), add
+    ``inset_element(plot, left, bottom, right, top, align_to="full")`` to an empty
+    ``ggplot() + theme_void()``. For a grid, use ``gggrid``.
 
     Exported so code that names it (type hints, ``isinstance``) keeps importing.
 
@@ -97,10 +101,14 @@ class GGBunch(FeatureSpec):
     >>> try:
     ...     GGBunch()
     ... except NotImplementedError:
-    ...     print("use gggrid() instead")
-    use gggrid() instead
+    ...     print("use inset_element() or gggrid() instead")
+    use inset_element() or gggrid() instead
     """
 
     def __init__(self) -> None:
-        message = "GGBunch is not supported by ggrust yet; use gggrid() to lay out plots in a grid"
+        message = (
+            "GGBunch is not supported by ggrust; for plots placed freely by figure fractions, "
+            "add inset_element(plot, left, bottom, right, top, align_to='full') to an empty "
+            "ggplot() + theme_void(); for a grid, use gggrid()"
+        )
         raise NotImplementedError(message)

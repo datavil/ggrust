@@ -315,7 +315,9 @@ def test_ggsave_without_path_writes_filename_as_given(tmp_path, monkeypatch):
 def test_unsupported_names_raise_on_use():
     with pytest.raises(NotImplementedError, match="gggrid") as error:
         gg.GGBunch()
-    assert "not supported by ggrust yet" in str(error.value)
+    assert "not supported by ggrust;" in str(error.value)
+    assert "inset_element(" in str(error.value)
+    assert "align_to='full'" in str(error.value)
     assert "lets_plot" not in str(error.value)
     assert issubclass(gg.GGBunch, gg.plot.core.FeatureSpec)
 

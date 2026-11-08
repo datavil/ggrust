@@ -6,6 +6,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Changed
 
+- `GGBunch()` raises with a recipe for free layouts (`inset_element(..., align_to="full")` on an empty `ggplot()`); lets_plot's `ggbunch()` will not be ported (see deviations.md).
 - Continuous axis `labels=[...]` without `breaks=` are used, as in ggplot2: they name the axis's generated breaks (about 5, the same at any plot size, kept on their values under HTML zoom). A different number of labels raises `SpecError`, which lists the generated breaks. lets-plot ignores such labels, and ggrust used to warn and ignore them (see deviations.md).
 - The `GGBunch` stub's error no longer refers to lets_plot: "GGBunch is not supported by ggrust yet; use gggrid() to lay out plots in a grid".
 - `ggsave(plot, filename)` without `path` writes to `filename` as given (relative to the working directory, or absolute), as ggplot2. It no longer writes into a `lets-plot-images/` folder (lets_plot's default; see deviations.md).

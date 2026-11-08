@@ -49,6 +49,7 @@ ggplot2 extension features (ggnewscale, ggbeeswarm, ...): [extensions.md](extens
 | Several side bands per axis (9.10) | Agreed with the user (2026-11-06): extend ggside in its style, not a ComplexHeatmap object. Per-layer `side_pos=` (overrides `ggside()`), `side_band=` (named bands stack outward in plot order), `side_size=` (share of the panel); `scale_*side*_*(side_pos=, side_band=)` targets one band, most specific wins. A deviation from ggside (one band per axis). |
 | Notebook setup | Agreed with the user (2026-11-05): no `LetsPlot` class (ports delete `setup_html()`); `ggrust.display("html" \| "svg" \| "png")` picks the notebook output, kept out of `__all__` so star imports do not shadow IPython's `display`. |
 | Plot files (`.ggrs`) | Agreed with the user (2026-11-05): `ggsave(plot, "x.ggrs")` and `ggload("x.ggrs")` save and open the plot object itself (lets-plot and ggplot2 have no safe equivalent; R uses `saveRDS`). A zip: `manifest.json` (format version, SHA-256 + size per entry), `plot.json` (allowlisted ggrust classes as tagged JSON), `data/*.arrow` (Arrow IPC, restored as polars, pandas or pyarrow), `fonts/*` (registered fonts the plot names, embedded). Loading runs no code; callables (`sec_axis` transforms) refuse to save with the spec path (sampling them is for later); signing (Ed25519) is for later. Extension `.ggrs` only; names `ggsave`/`ggload`, no `save_plot` (user, 2026-11-06). See `memory/plot_files.md`. |
+| No `ggbunch()` | lets_plot's free layout is not ported (2026-11-09, user): `inset_element(plot, left, bottom, right, top, align_to="full")` on an empty `ggplot() + theme_void() + ggsize(w, h)` places plots by figure fractions with overlap, which covers it; `gggrid(design=)` covers non-overlapping free layouts. The `GGBunch` stub points there. |
 | HTML canvas threshold | Point batches with more than 5,000 drawable markers (2,000 for `ggtb()` plots) go to the HTML canvas, down from 50,000 (2026-11-06): mid-sized SVG scatters made HTML ~3x larger than lets-plot. See `memory/html_canvas_points.md` |
 
 ## Scope: what cellestial actually uses
@@ -541,7 +542,7 @@ export docs say a unitless size is inches in both lets-plot and ggplot2.
   `sampling_vertex_dp`. Picks match lets-plot (port its Kotlin RNG and the VW / DP simplifiers;
   `memory/letsplot_jitter.md` has the XorWow port). Until then `sampling=` is accepted and
   ignored (docs/migration.md says it warns; check). Own session.
-- [ ] 11.2 **`ggbunch(plots, regions)`** (user, 2026-11-09): lets_plot 4.11's free layout,
+- [x] 11.2 Skipped (user, 2026-11-09): insets already do this; see the decisions table ("No `ggbunch()`"). Was: **`ggbunch(plots, regions)`**: lets_plot 4.11's free layout,
   plots placed by `(x, y, width, height)` regions in figure fractions, overlap allowed (not the
   same as `gggrid`). Then point the `GGBunch` stub's message at `ggbunch()`. Own session.
 

@@ -195,7 +195,7 @@ def table(results: list[dict[str, Any]]) -> str:
 
     def cell(result: dict[str, Any], key: str, pattern: str) -> str:
         if "timeout_seconds" in result:
-            return f">{result['timeout_seconds']:.0f}"
+            return f">{result['timeout_seconds']:.0f}" if key == "warm_seconds" else "timeout"
         return pattern.format(result[key]) if key in result else "err"
 
     for rows, scenario_index, output_format in keys:

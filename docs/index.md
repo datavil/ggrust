@@ -63,8 +63,8 @@ ggrust plot.
 ## Fast and lean
 
 On identical work (same data, every row drawn, same output size), a typical plot at 1M
-rows renders in **62 ms** in ggrust, 334 ms in ggplot2 and 5.9 s in lets-plot, with
-**4x** less memory than ggplot2 and **8x** less than lets-plot.
+rows renders in **65 ms** in ggrust, 334 ms in ggplot2 and 5.9 s in lets-plot, with
+**4x** less memory than ggplot2 and **7.5x** less than lets-plot.
 
 ![ggrust vs ggplot2 vs lets-plot at 1M rows](images/benchmarks/overview.png#only-light)
 ![ggrust vs ggplot2 vs lets-plot at 1M rows](images/benchmarks/overview-dark.png#only-dark)

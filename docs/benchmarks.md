@@ -1,6 +1,6 @@
 # Benchmarks
 
-*November 2026. ggrust 0.8.0, ggplot2 4.0.1, lets-plot 4.11.0.*
+*November 2026. ggrust main (after 0.8.0), ggplot2 4.0.1, lets-plot 4.11.0.*
 
 ggrust does the heavy work of a plot (stats, scales, layout, rendering) in Rust. Here is
 what that buys you compared with the two libraries people usually reach for: R's
@@ -12,10 +12,9 @@ ggrust.
 ![ggrust vs ggplot2 vs lets-plot at 1M rows](images/benchmarks/overview.png#only-light)
 ![ggrust vs ggplot2 vs lets-plot at 1M rows](images/benchmarks/overview-dark.png#only-dark)
 
-At 1M rows the typical plot takes **62 ms** in ggrust, **334 ms** in ggplot2 and **5.9 s**
-in lets-plot, and ggrust needs 4x less memory than ggplot2 and 8x less than lets-plot.
-ggrust is faster in 64 of the 66 cases against ggplot2 and in all 66 against lets-plot.
-The two cases it loses are [described below](#where-ggrust-is-slower).
+At 1M rows the typical plot takes **65 ms** in ggrust, **334 ms** in ggplot2 and **5.9 s**
+in lets-plot, and ggrust needs 4x less memory than ggplot2 and 7.5x less than lets-plot.
+ggrust is faster than both in **all 66 cases**.
 
 ## Summary
 
@@ -26,29 +25,27 @@ divided by ggrust's.
 
     | library | SVG total | factor | PNG total | factor | memory per plot |
     |---|---:|---:|---:|---:|---:|
-    | **ggrust** 0.8.0 | **0.89 s** | **1.0** | **18.1 s** | **1.0** | **129 MB** |
-    | ggplot2 4.0.1 | 9.67 s | 10.9 | 25.0 s | 1.4 | 560 MB |
-    | lets-plot 4.11.0 | 71.6 s | 80.5 | > 495 s | > 27 | 1.0 GB |
+    | **ggrust** main | **0.91 s** | **1.0** | **2.85 s** | **1.0** | **138 MB** |
+    | ggplot2 4.0.1 | 9.67 s | 10.6 | 25.0 s | 8.8 | 560 MB |
+    | lets-plot 4.11.0 | 71.6 s | 78.9 | > 495 s | > 174 | 1.0 GB |
 
-    The PNG totals are dominated by one plot: the 1M-row line chart takes 17.3 s of
-    ggrust's 18.1 s. Without it, ggrust renders the other 10 PNGs in 0.8 s and ggplot2 in
-    19.5 s. lets-plot did not finish the line PNG within 300 s; it counts as 300 s here.
+    lets-plot did not finish the 1M-row line PNG within 300 s; it counts as 300 s here.
 
 === "100k rows"
 
     | library | SVG total | factor | PNG total | factor | memory per plot |
     |---|---:|---:|---:|---:|---:|
-    | **ggrust** 0.8.0 | **0.10 s** | **1.0** | **1.06 s** | **1.0** | **28 MB** |
-    | ggplot2 4.0.1 | 1.66 s | 17.1 | 3.23 s | 3.0 | 121 MB |
-    | lets-plot 4.11.0 | 6.55 s | 67.3 | 46.3 s | 43.5 | 248 MB |
+    | **ggrust** main | **0.10 s** | **1.0** | **0.42 s** | **1.0** | **30 MB** |
+    | ggplot2 4.0.1 | 1.66 s | 16.5 | 3.23 s | 7.8 | 121 MB |
+    | lets-plot 4.11.0 | 6.55 s | 65.3 | 46.3 s | 111.1 | 248 MB |
 
 === "10k rows"
 
     | library | SVG total | factor | PNG total | factor | memory per plot |
     |---|---:|---:|---:|---:|---:|
-    | **ggrust** 0.8.0 | **0.02 s** | **1.0** | **0.15 s** | **1.0** | **18 MB** |
-    | ggplot2 4.0.1 | 0.86 s | 35.2 | 1.17 s | 7.8 | 36 MB |
-    | lets-plot 4.11.0 | 0.95 s | 38.8 | 8.41 s | 56.2 | 128 MB |
+    | **ggrust** main | **0.02 s** | **1.0** | **0.14 s** | **1.0** | **18 MB** |
+    | ggplot2 4.0.1 | 0.86 s | 34.6 | 1.17 s | 8.2 | 36 MB |
+    | lets-plot 4.11.0 | 0.95 s | 38.2 | 8.41 s | 58.8 | 128 MB |
 
 ## Rules
 
@@ -114,7 +111,7 @@ Each panel has its own linear axis, so you can read every plot's gap.
     ![Render time to SVG per plot at 1M rows](images/benchmarks/time-svg-dark.png#only-dark)
 
 Plots that draw a mark per row (scatter, smooth, facet) gain the most: at 1M rows ggrust
-writes the PNG in 0.11 to 0.14 s, ggplot2 in 4.2 to 4.7 s and lets-plot in 40 to 46 s.
+writes the PNG in 0.12 to 0.14 s, ggplot2 in 4.2 to 4.7 s and lets-plot in 40 to 46 s.
 Stat plots (histogram, bar, boxplot, violin, density, bin2d) draw few marks, so the stat
 dominates. R's stats are vectorised C, which makes this where ggplot2 comes closest:
 ggrust is 5x to 16x faster at 1M rows.
@@ -140,19 +137,21 @@ lets-plot.
 ![Scatter plot render time as data grows](images/benchmarks/scaling.png#only-light)
 ![Scatter plot render time as data grows](images/benchmarks/scaling-dark.png#only-dark)
 
-## Where ggrust is slower
+## A fix this benchmark found
 
-**Line charts saved as PNG with 100k rows or more.** The `line` plot draws 6 lines of
-about 166k vertices each at 1M rows, zigzagging across the whole panel. ggrust takes
-0.89 s at 100k rows (ggplot2 0.54 s) and 17.3 s at 1M rows (ggplot2 5.4 s, lets-plot more
-than 300 s). The same plot as SVG is 5x faster in ggrust than in ggplot2, so the cost is
-rasterising very long anti-aliased lines, not the stat or the layout. A fix is in
-progress.
+The first run had one weak spot: **line charts saved as PNG with 100k rows or more.**
+The `line` plot draws 6 lines of about 166k vertices each at 1M rows, zigzagging across
+the whole panel, and ggrust took 17.3 s for the PNG (ggplot2 5.4 s). The SVG was fast, so
+the cost was rasterising very long anti-aliased lines in one piece. ggrust now strokes
+long lines in chunks, with the same picture: the 1M-row line PNG takes **2.0 s** (2.7x
+faster than ggplot2) and the 100k-row one 0.23 s (ggplot2 0.54 s). The numbers on this
+page include the fix.
 
 ## Setup
 
 - **Machine.** Apple M4 Pro (12 cores), 24 GB memory, macOS 27.
-- **Python.** Python 3.14, ggrust 0.8.0 (release build), lets-plot 4.11.0, polars.
+- **Python.** Python 3.14, ggrust main at commit `a3e895a` (0.8.0 plus the line fix,
+  release build), lets-plot 4.11.0, polars.
 - **R.** R 4.5.2, ggplot2 4.0.1, svglite 2.2.2, ragg 1.5.0, data.table.
 - **Not measured.** Interactive HTML (lets-plot renders it in the browser, and ggplot2
   has no equivalent), notebook display and PDF.

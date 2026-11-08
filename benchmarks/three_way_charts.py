@@ -3,6 +3,8 @@
 Linear axes on purpose: a log axis hides how large the gaps are.
 
 uv run python benchmarks/three_way_charts.py results/three-way-A.json results/three-way-B.json
+
+Later files override earlier ones for the same case, so a partial re-run can be appended.
 """
 
 from __future__ import annotations
@@ -81,7 +83,11 @@ def load(paths: list[str]) -> pl.DataFrame:
                     "timed_out": "timeout_seconds" in result,
                 }
             )
-    return pl.DataFrame(rows).with_columns(pl.col("scenario").cast(pl.Enum(SCENARIOS)))
+    # A later file replaces an earlier one's measurement of the same case (a re-run).
+    frame = pl.DataFrame(rows).unique(
+        ["library", "scenario", "rows", "format"], keep="last", maintain_order=True
+    )
+    return frame.with_columns(pl.col("scenario").cast(pl.Enum(SCENARIOS)))
 
 
 def look(mode: Mode, legend: bool = False) -> FeatureSpec:
@@ -264,7 +270,7 @@ def compact(frame: pl.DataFrame, mode: Mode) -> PlotSpec:
     data = data.with_columns(
         label=pl.Series([f"  {value:.2f}s" for value in data["seconds"]], dtype=pl.String)
     )
-    limit = float(data["seconds"].max() or 1.0)
+    limit = max(data["seconds"].to_list())
     step = 2.0 if limit > 4 else 1.0
     breaks = [step * index for index in range(int(limit * 1.13 // step) + 1)]
     return (

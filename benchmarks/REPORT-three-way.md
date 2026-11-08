@@ -1,7 +1,8 @@
 # ggrust vs lets-plot vs R ggplot2: benchmark report
 
-Measured on 2026-11-08 at commit `9db79d3` (ggrust 0.8.0) plus the scripts
-`three_way.py`, `three_way.R` and `three_way_charts.py`.
+Measured on 2026-11-08. ggplot2 and lets-plot at commit `9db79d3`; ggrust re-run at
+`a3e895a` (0.8.0 plus chunked line strokes in PNG, the fix this benchmark prompted).
+Scripts: `three_way.py`, `three_way.R` and `three_way_charts.py`.
 
 ## Summary
 
@@ -10,26 +11,27 @@ Each number is the median warm render time, from building the plot to the file o
 
 | ggrust compared with | SVG speed-up, median (range) | PNG speed-up, median (range) | memory, median (range) |
 |---|---:|---:|---:|
-| lets-plot 4.11 | **68x** (26x to 176x) | **79x** (27x to 352x) | 4.8x lower SVG, 9.5x lower PNG |
-| R ggplot2 4.0.1 | **20x** (5x to 80x) | **7.7x** (0.3x to 38x) | 3.6x lower SVG, 3.3x lower PNG |
+| lets-plot 4.11 | **60x** (24x to 180x) | **77x** (27x to 336x) | 4.5x lower SVG, 9.2x lower PNG |
+| R ggplot2 4.0.1 | **18x** (5x to 84x) | **7.2x** (2.3x to 36x) | 3.3x lower SVG, 3.2x lower PNG |
 
-- **ggrust is faster in 64 of 66 cases against ggplot2 and in every case against lets-plot.**
-- **One real weakness: `geom_line` to PNG at large sizes.** 100k rows: ggrust 0.89 s,
-  ggplot2 0.54 s. 1M rows: ggrust 17.3 s, ggplot2 5.4 s (lets-plot did not finish in 300 s).
-  The same plot as SVG is 5x to 12x faster in ggrust than in ggplot2, so the slow part is
-  rasterising long, self-overlapping polylines (6 lines of ~166k vertices zigzagging over
-  the whole panel), not the stat or layout. This was known (plan 6.4 noted 12.1 s) and
-  is the clearest optimisation target the benchmark found.
+- **ggrust is faster than both libraries in all 66 cases.**
+- **The line PNG weakness is fixed.** The first run (ggrust `9db79d3`) found one: `geom_line`
+  to PNG took 0.89 s at 100k rows (ggplot2 0.54 s) and 17.3 s at 1M rows (ggplot2 5.4 s),
+  because ggrust rasterised 6 self-overlapping polylines of ~166k vertices each in one
+  piece. Stroking long lines in chunks (same picture, `memory/png_chunked_line_strokes.md`)
+  brought it to 0.23 s and 1.98 s, 2.3x and 2.7x faster than ggplot2. lets-plot did not
+  finish the 1M-row line PNG in 300 s. The re-run moved no other ggrust case beyond
+  sub-millisecond noise.
 - **Point-heavy plots gain the most.** At 1M rows (scatter, smooth, facet) ggrust writes
-  the PNG in 0.11 to 0.14 s, ggplot2 + ragg in 4.2 to 4.7 s (~35x), lets-plot in 40 to
-  45 s (~330x).
+  the PNG in 0.12 to 0.14 s, ggplot2 + ragg in 4.2 to 4.7 s (~35x), lets-plot in 40 to
+  46 s (~330x).
 - **Stat plots (histogram, bar, boxplot, violin, density, bin2d)** at 1M rows are 5x to
-  16x faster than ggplot2 and 78x to 176x faster than lets-plot (all sizes: 5x to 73x and
-  28x to 176x). This is where R comes closest: its stats are vectorised C and few marks
+  16x faster than ggplot2 and 75x to 180x faster than lets-plot (all sizes: 4.6x to 74x and
+  27x to 180x). This is where R comes closest: its stats are vectorised C and few marks
   are drawn.
-- **Memory.** At 1M rows ggrust peaks 52 to 418 MB above the data, ggplot2 345 MB to
-  1.9 GB, lets-plot 616 MB to 9 GB. The one case where ggrust uses more memory than ggplot2
-  is the 10k-row facet PNG (42 MB vs 35 MB).
+- **Memory.** At 1M rows ggrust peaks 52 to 369 MB above the data, ggplot2 345 MB to
+  1.9 GB, lets-plot 616 MB to 9 GB. ggrust uses more memory than ggplot2 only in two
+  10k-row PNGs (bar and facet, a few MB).
 - **Ranking of the other two.** ggplot2 is a median 6.6x faster than lets-plot on the
   same work. lets-plot pays to serialise every row to JSON, and its PNG export is
   especially slow and memory-hungry (a 1M-point scatter PNG peaks at 8.0 GB).
@@ -111,82 +113,84 @@ equivalent in ggplot2), notebook display, PDF.
 
 ```bash
 uv run python benchmarks/three_way.py --work /tmp/ggrust-bench     # ~45 min on an M4 Pro
-uv run python benchmarks/three_way_charts.py benchmarks/results/three-way-<stamp>.json  # writes docs/images/benchmarks/
+uv run python benchmarks/three_way_charts.py benchmarks/results/three-way-<stamp>.json ...  # writes docs/images/benchmarks/
 ```
 
 Raw results: `results/three-way-20261108-112228.json` (10k) and
-`results/three-way-20261108-112328.json` (100k, 1M), with markdown tables next to them.
+`results/three-way-20261108-112328.json` (100k, 1M) for all three libraries, and
+`results/three-way-20261108-123445.json`, the ggrust re-run at `a3e895a` that replaces
+ggrust's earlier rows. Pass all three to `three_way_charts.py` in that order.
 
 ## Full results
 
 Time in seconds (warm median), memory in MB above the data. Speed-ups are lets-plot or
-ggplot2 time divided by ggrust time; below 1x means ggrust is slower.
+ggplot2 time divided by ggrust time. ggrust rows are from the `a3e895a` re-run.
 
 | scenario | rows | format | ggrust s | lets-plot s | ggplot2 s | vs lets-plot | vs ggplot2 | ggrust MB | lets-plot MB | ggplot2 MB |
 |---|---:|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| scatter | 10,000 | png | 0.008 | 0.624 | 0.096 | 82.1x | 12.6x | 21 | 250 | 30 |
-| scatter | 10,000 | svg | 0.002 | 0.082 | 0.050 | 46.6x | 28.1x | 12 | 57 | 33 |
-| color_discrete | 10,000 | png | 0.009 | 0.689 | 0.146 | 76.8x | 16.3x | 24 | 277 | 40 |
-| color_discrete | 10,000 | svg | 0.003 | 0.088 | 0.099 | 26.3x | 29.3x | 15 | 57 | 44 |
-| histogram | 10,000 | png | 0.011 | 0.313 | 0.054 | 27.9x | 4.9x | 22 | 200 | 26 |
-| histogram | 10,000 | svg | 0.001 | 0.027 | 0.043 | 28.3x | 45.6x | 11 | 27 | 21 |
-| bar | 10,000 | png | 0.009 | 0.336 | 0.056 | 37.4x | 6.2x | 22 | 199 | 22 |
-| bar | 10,000 | svg | 0.001 | 0.027 | 0.045 | 31.0x | 51.7x | 11 | 27 | 22 |
-| boxplot | 10,000 | png | 0.007 | 0.307 | 0.079 | 42.5x | 10.9x | 23 | 201 | 37 |
-| boxplot | 10,000 | svg | 0.001 | 0.034 | 0.065 | 28.3x | 53.2x | 12 | 26 | 34 |
-| violin | 10,000 | png | 0.011 | 0.641 | 0.080 | 58.2x | 7.3x | 23 | 218 | 62 |
-| violin | 10,000 | svg | 0.004 | 0.202 | 0.066 | 45.5x | 14.9x | 14 | 32 | 49 |
-| density | 10,000 | png | 0.015 | 0.907 | 0.114 | 61.2x | 7.7x | 24 | 213 | 38 |
-| density | 10,000 | svg | 0.005 | 0.217 | 0.098 | 48.1x | 21.6x | 13 | 30 | 31 |
-| smooth | 10,000 | png | 0.008 | 0.663 | 0.118 | 82.1x | 14.7x | 22 | 273 | 162 |
-| smooth | 10,000 | svg | 0.002 | 0.088 | 0.073 | 45.6x | 37.6x | 12 | 54 | 163 |
-| line | 10,000 | png | 0.044 | 2.167 | 0.147 | 49.0x | 3.3x | 22 | 216 | 71 |
-| line | 10,000 | svg | 0.003 | 0.064 | 0.097 | 25.7x | 38.6x | 13 | 35 | 54 |
-| bin2d | 10,000 | png | 0.008 | 0.311 | 0.093 | 40.8x | 12.2x | 21 | 202 | 34 |
-| bin2d | 10,000 | svg | 0.001 | 0.031 | 0.081 | 28.3x | 72.9x | 11 | 26 | 25 |
-| facet | 10,000 | png | 0.020 | 1.453 | 0.191 | 72.7x | 9.5x | 42 | 567 | 35 |
-| facet | 10,000 | svg | 0.002 | 0.089 | 0.146 | 49.0x | 80.1x | 13 | 51 | 39 |
-| scatter | 100,000 | png | 0.018 | 4.210 | 0.528 | 234.3x | 29.4x | 28 | 1300 | 163 |
-| scatter | 100,000 | svg | 0.010 | 0.889 | 0.206 | 89.8x | 20.8x | 25 | 376 | 173 |
-| color_discrete | 100,000 | png | 0.027 | 4.362 | 0.530 | 162.6x | 19.8x | 37 | 1326 | 104 |
-| color_discrete | 100,000 | svg | 0.024 | 0.977 | 0.270 | 40.2x | 11.1x | 42 | 382 | 163 |
-| histogram | 100,000 | png | 0.012 | 0.543 | 0.060 | 45.7x | 5.0x | 25 | 247 | 88 |
-| histogram | 100,000 | svg | 0.002 | 0.253 | 0.048 | 106.3x | 20.2x | 15 | 77 | 70 |
-| bar | 100,000 | png | 0.011 | 0.578 | 0.074 | 54.5x | 7.0x | 27 | 246 | 79 |
-| bar | 100,000 | svg | 0.003 | 0.260 | 0.060 | 88.8x | 20.5x | 17 | 77 | 86 |
-| boxplot | 100,000 | png | 0.014 | 0.632 | 0.093 | 45.2x | 6.7x | 39 | 248 | 110 |
-| boxplot | 100,000 | svg | 0.006 | 0.338 | 0.077 | 57.3x | 13.1x | 27 | 104 | 65 |
-| violin | 100,000 | png | 0.016 | 1.037 | 0.097 | 63.2x | 5.9x | 32 | 255 | 134 |
-| violin | 100,000 | svg | 0.009 | 0.585 | 0.081 | 67.8x | 9.4x | 27 | 113 | 79 |
-| density | 100,000 | png | 0.016 | 1.189 | 0.093 | 72.8x | 5.7x | 31 | 244 | 77 |
-| density | 100,000 | svg | 0.006 | 0.505 | 0.076 | 79.9x | 12.0x | 25 | 94 | 92 |
-| smooth | 100,000 | png | 0.019 | 4.064 | 0.558 | 212.9x | 29.2x | 31 | 1308 | 238 |
-| smooth | 100,000 | svg | 0.010 | 0.890 | 0.272 | 85.9x | 26.2x | 27 | 378 | 251 |
-| line | 100,000 | png | 0.890 | 24.128 | 0.539 | 27.1x | 0.6x | 101 | 380 | 372 |
-| line | 100,000 | svg | 0.017 | 0.650 | 0.197 | 38.4x | 11.6x | 35 | 166 | 141 |
-| bin2d | 100,000 | png | 0.010 | 0.552 | 0.092 | 56.6x | 9.4x | 27 | 248 | 133 |
-| bin2d | 100,000 | svg | 0.002 | 0.267 | 0.081 | 112.8x | 34.2x | 15 | 81 | 70 |
-| facet | 100,000 | png | 0.032 | 5.036 | 0.570 | 159.8x | 18.1x | 54 | 1640 | 209 |
-| facet | 100,000 | svg | 0.007 | 0.931 | 0.291 | 130.2x | 40.7x | 38 | 343 | 141 |
-| scatter | 1,000,000 | png | 0.113 | 39.790 | 4.247 | 351.7x | 37.5x | 52 | 8161 | 761 |
-| scatter | 1,000,000 | svg | 0.085 | 9.071 | 1.571 | 106.3x | 18.4x | 121 | 3490 | 740 |
-| color_discrete | 1,000,000 | png | 0.188 | 42.579 | 4.301 | 226.7x | 22.9x | 236 | 8857 | 770 |
-| color_discrete | 1,000,000 | svg | 0.226 | 9.480 | 1.835 | 41.9x | 8.1x | 371 | 3357 | 818 |
-| histogram | 1,000,000 | png | 0.029 | 3.054 | 0.203 | 103.6x | 6.9x | 122 | 733 | 414 |
-| histogram | 1,000,000 | svg | 0.021 | 2.769 | 0.193 | 133.2x | 9.3x | 113 | 616 | 416 |
-| bar | 1,000,000 | png | 0.034 | 3.162 | 0.216 | 93.2x | 6.4x | 95 | 754 | 415 |
-| bar | 1,000,000 | svg | 0.026 | 2.799 | 0.207 | 105.9x | 7.8x | 87 | 622 | 399 |
-| boxplot | 1,000,000 | png | 0.059 | 4.755 | 0.334 | 80.4x | 5.6x | 216 | 1040 | 469 |
-| boxplot | 1,000,000 | svg | 0.052 | 4.065 | 0.334 | 78.2x | 6.4x | 198 | 903 | 543 |
-| violin | 1,000,000 | png | 0.065 | 6.021 | 0.319 | 92.9x | 4.9x | 156 | 1096 | 498 |
-| violin | 1,000,000 | svg | 0.059 | 5.602 | 0.312 | 95.2x | 5.3x | 150 | 882 | 515 |
-| density | 1,000,000 | png | 0.043 | 5.708 | 0.232 | 133.1x | 5.4x | 119 | 864 | 403 |
-| density | 1,000,000 | svg | 0.032 | 5.003 | 0.220 | 154.4x | 6.8x | 120 | 764 | 345 |
-| smooth | 1,000,000 | png | 0.125 | 40.869 | 4.715 | 326.2x | 37.6x | 136 | 8457 | 1116 |
-| smooth | 1,000,000 | svg | 0.097 | 9.688 | 1.787 | 99.5x | 18.3x | 205 | 3562 | 986 |
-| line | 1,000,000 | png | 17.264 | >300 | 5.445 | - | 0.3x | 418 | >300 | 1854 |
-| line | 1,000,000 | svg | 0.193 | 8.728 | 1.039 | 45.1x | 5.4x | 325 | 1489 | 1089 |
-| bin2d | 1,000,000 | png | 0.026 | 3.523 | 0.283 | 135.9x | 10.9x | 69 | 847 | 467 |
-| bin2d | 1,000,000 | svg | 0.018 | 3.197 | 0.283 | 176.0x | 15.6x | 62 | 689 | 577 |
-| facet | 1,000,000 | png | 0.139 | 45.489 | 4.698 | 327.4x | 33.8x | 122 | 9023 | 962 |
-| facet | 1,000,000 | svg | 0.078 | 11.229 | 1.887 | 143.3x | 24.1x | 264 | 3170 | 801 |
+| scatter | 10,000 | png | 0.008 | 0.624 | 0.096 | 80.3x | 12.3x | 23 | 250 | 30 |
+| scatter | 10,000 | svg | 0.002 | 0.082 | 0.050 | 38.2x | 23.0x | 12 | 57 | 33 |
+| color_discrete | 10,000 | png | 0.009 | 0.689 | 0.146 | 75.7x | 16.0x | 24 | 277 | 40 |
+| color_discrete | 10,000 | svg | 0.003 | 0.088 | 0.099 | 26.9x | 30.0x | 14 | 57 | 44 |
+| histogram | 10,000 | png | 0.012 | 0.313 | 0.054 | 26.8x | 4.7x | 22 | 200 | 26 |
+| histogram | 10,000 | svg | 0.001 | 0.027 | 0.043 | 29.7x | 47.8x | 11 | 27 | 21 |
+| bar | 10,000 | png | 0.009 | 0.336 | 0.056 | 35.4x | 5.9x | 24 | 199 | 22 |
+| bar | 10,000 | svg | 0.001 | 0.027 | 0.045 | 28.6x | 47.6x | 12 | 27 | 22 |
+| boxplot | 10,000 | png | 0.007 | 0.307 | 0.079 | 42.3x | 10.9x | 23 | 201 | 37 |
+| boxplot | 10,000 | svg | 0.001 | 0.034 | 0.065 | 27.3x | 51.4x | 13 | 26 | 34 |
+| violin | 10,000 | png | 0.011 | 0.641 | 0.080 | 56.4x | 7.0x | 23 | 218 | 62 |
+| violin | 10,000 | svg | 0.004 | 0.202 | 0.066 | 48.8x | 16.0x | 15 | 32 | 49 |
+| density | 10,000 | png | 0.016 | 0.907 | 0.114 | 57.6x | 7.2x | 24 | 213 | 38 |
+| density | 10,000 | svg | 0.005 | 0.217 | 0.098 | 45.3x | 20.4x | 13 | 30 | 31 |
+| smooth | 10,000 | png | 0.008 | 0.663 | 0.118 | 78.2x | 14.0x | 22 | 273 | 162 |
+| smooth | 10,000 | svg | 0.002 | 0.088 | 0.073 | 46.0x | 38.0x | 13 | 54 | 163 |
+| line | 10,000 | png | 0.034 | 2.167 | 0.147 | 64.2x | 4.4x | 25 | 216 | 71 |
+| line | 10,000 | svg | 0.003 | 0.064 | 0.097 | 23.9x | 35.9x | 14 | 35 | 54 |
+| bin2d | 10,000 | png | 0.008 | 0.311 | 0.093 | 39.4x | 11.8x | 22 | 202 | 34 |
+| bin2d | 10,000 | svg | 0.001 | 0.031 | 0.081 | 28.8x | 74.1x | 12 | 26 | 25 |
+| facet | 10,000 | png | 0.021 | 1.453 | 0.191 | 70.5x | 9.2x | 44 | 567 | 35 |
+| facet | 10,000 | svg | 0.002 | 0.089 | 0.146 | 51.3x | 84.0x | 15 | 51 | 39 |
+| scatter | 100,000 | png | 0.019 | 4.210 | 0.528 | 224.0x | 28.1x | 29 | 1300 | 163 |
+| scatter | 100,000 | svg | 0.009 | 0.889 | 0.206 | 95.1x | 22.0x | 24 | 376 | 173 |
+| color_discrete | 100,000 | png | 0.029 | 4.362 | 0.530 | 150.4x | 18.3x | 42 | 1326 | 104 |
+| color_discrete | 100,000 | svg | 0.025 | 0.977 | 0.270 | 39.6x | 10.9x | 50 | 382 | 163 |
+| histogram | 100,000 | png | 0.013 | 0.543 | 0.060 | 41.7x | 4.6x | 29 | 247 | 88 |
+| histogram | 100,000 | svg | 0.003 | 0.253 | 0.048 | 92.2x | 17.5x | 17 | 77 | 70 |
+| bar | 100,000 | png | 0.012 | 0.578 | 0.074 | 48.9x | 6.3x | 24 | 246 | 79 |
+| bar | 100,000 | svg | 0.003 | 0.260 | 0.060 | 82.3x | 19.0x | 19 | 77 | 86 |
+| boxplot | 100,000 | png | 0.015 | 0.632 | 0.093 | 42.2x | 6.2x | 37 | 248 | 110 |
+| boxplot | 100,000 | svg | 0.006 | 0.338 | 0.077 | 56.2x | 12.8x | 30 | 104 | 65 |
+| violin | 100,000 | png | 0.016 | 1.037 | 0.097 | 63.1x | 5.9x | 37 | 255 | 134 |
+| violin | 100,000 | svg | 0.010 | 0.585 | 0.081 | 60.0x | 8.3x | 30 | 113 | 79 |
+| density | 100,000 | png | 0.017 | 1.189 | 0.093 | 71.5x | 5.6x | 37 | 244 | 77 |
+| density | 100,000 | svg | 0.006 | 0.505 | 0.076 | 83.1x | 12.5x | 27 | 94 | 92 |
+| smooth | 100,000 | png | 0.020 | 4.064 | 0.558 | 200.5x | 27.5x | 33 | 1308 | 238 |
+| smooth | 100,000 | svg | 0.011 | 0.890 | 0.272 | 81.1x | 24.8x | 29 | 378 | 251 |
+| line | 100,000 | png | 0.232 | 24.128 | 0.539 | 104.1x | 2.3x | 40 | 380 | 372 |
+| line | 100,000 | svg | 0.017 | 0.650 | 0.197 | 37.7x | 11.4x | 31 | 166 | 141 |
+| bin2d | 100,000 | png | 0.011 | 0.552 | 0.092 | 52.3x | 8.7x | 28 | 248 | 133 |
+| bin2d | 100,000 | svg | 0.003 | 0.267 | 0.081 | 104.3x | 31.6x | 18 | 81 | 70 |
+| facet | 100,000 | png | 0.034 | 5.036 | 0.570 | 149.0x | 16.9x | 53 | 1640 | 209 |
+| facet | 100,000 | svg | 0.008 | 0.931 | 0.291 | 120.5x | 37.7x | 38 | 343 | 141 |
+| scatter | 1,000,000 | png | 0.119 | 39.790 | 4.247 | 335.8x | 35.8x | 52 | 8161 | 761 |
+| scatter | 1,000,000 | svg | 0.086 | 9.071 | 1.571 | 104.9x | 18.2x | 122 | 3490 | 740 |
+| color_discrete | 1,000,000 | png | 0.209 | 42.579 | 4.301 | 203.6x | 20.6x | 238 | 8857 | 770 |
+| color_discrete | 1,000,000 | svg | 0.237 | 9.480 | 1.835 | 40.1x | 7.8x | 369 | 3357 | 818 |
+| histogram | 1,000,000 | png | 0.032 | 3.054 | 0.203 | 95.1x | 6.3x | 122 | 733 | 414 |
+| histogram | 1,000,000 | svg | 0.022 | 2.769 | 0.193 | 127.3x | 8.9x | 114 | 616 | 416 |
+| bar | 1,000,000 | png | 0.035 | 3.162 | 0.216 | 90.2x | 6.2x | 98 | 754 | 415 |
+| bar | 1,000,000 | svg | 0.027 | 2.799 | 0.207 | 102.4x | 7.6x | 87 | 622 | 399 |
+| boxplot | 1,000,000 | png | 0.062 | 4.755 | 0.334 | 76.2x | 5.4x | 220 | 1040 | 469 |
+| boxplot | 1,000,000 | svg | 0.054 | 4.065 | 0.334 | 74.6x | 6.1x | 214 | 903 | 543 |
+| violin | 1,000,000 | png | 0.067 | 6.021 | 0.319 | 89.9x | 4.8x | 162 | 1096 | 498 |
+| violin | 1,000,000 | svg | 0.060 | 5.602 | 0.312 | 93.5x | 5.2x | 154 | 882 | 515 |
+| density | 1,000,000 | png | 0.044 | 5.708 | 0.232 | 130.0x | 5.3x | 118 | 864 | 403 |
+| density | 1,000,000 | svg | 0.033 | 5.003 | 0.220 | 150.0x | 6.6x | 114 | 764 | 345 |
+| smooth | 1,000,000 | png | 0.132 | 40.869 | 4.715 | 308.8x | 35.6x | 142 | 8457 | 1116 |
+| smooth | 1,000,000 | svg | 0.100 | 9.688 | 1.787 | 96.8x | 17.9x | 208 | 3562 | 986 |
+| line | 1,000,000 | png | 1.982 | >300 | 5.445 | - | 2.7x | 276 | timeout | 1854 |
+| line | 1,000,000 | svg | 0.197 | 8.728 | 1.039 | 44.2x | 5.3x | 323 | 1489 | 1089 |
+| bin2d | 1,000,000 | png | 0.026 | 3.523 | 0.283 | 135.9x | 10.9x | 72 | 847 | 467 |
+| bin2d | 1,000,000 | svg | 0.018 | 3.197 | 0.283 | 180.3x | 16.0x | 61 | 689 | 577 |
+| facet | 1,000,000 | png | 0.140 | 45.489 | 4.698 | 326.0x | 33.7x | 133 | 9023 | 962 |
+| facet | 1,000,000 | svg | 0.073 | 11.229 | 1.887 | 153.7x | 25.8x | 248 | 3170 | 801 |

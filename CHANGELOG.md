@@ -4,6 +4,15 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-11-08
+
+### Added
+
+- `geom_streamline()` / `stat_streamline()`, as R metR: `ggplot(data) + geom_streamline(aes(x=, y=, u=, v=))` draws streamlines with one arrowhead half way along each line, per group and facet panel. Rows that form a complete regular grid are used as the field; scattered rows are first averaged onto a grid with `velocity_grid()` (`gridded=` forces either). Lines are integrated with `streamplot()` (`density`, `minlength`, `maxlength`, `integration_direction`, `broken_streamlines`). New stat-only aesthetics `u` and `v`. Not in lets-plot (see deviations.md).
+- `velocity_grid(points, vectors, ...)`: average vectors at scattered points onto a regular grid (Gaussian-weighted nearest neighbours), as scVelo's `compute_velocity_on_grid`, without scVelo. Returns a `VelocityGrid(x, y, u, v)` that feeds `streamplot()` directly. Same values as scVelo 0.3.4 on the reference cases; about 7x faster.
+- `density_outline(points, level=...)`: outline a 2D point cloud where its Gaussian kernel density falls to `level` times its peak, as scipy's `gaussian_kde` plus scikit-image's `find_contours`, without either. Returns an `(x, y, path)` frame for `geom_path()`. Same contours as scipy 1.17 / scikit-image 0.26 on the reference cases; about 10x faster.
+- `kernel_density(values, at, bandwidth=...)`: the Gaussian kernel density of a 1D sample at given points, as scipy's 1D `gaussian_kde` (Scott, Silverman or a factor), returned as an `(x, density)` frame. Within 1e-13 of scipy's values on the reference cases.
+
 ## [0.7.1] - 2026-11-08
 
 ### Added

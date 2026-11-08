@@ -21,9 +21,6 @@ the guide only lays it out; `spread="nearest"` (ComplexHeatmap `anno_mark`) defa
   Heatmap marks need `limits=` too; the first render looked like a link bug.
 - **Zoom**: the axis has fixed breaks, so the runtime stamps `placer.node` at the true
   pixel (labels at breaks, no links); reset restores the saved static axis. Documented gap.
-- **`ggsave(plot, "a/b.png")` writes under `lets-plot-images/`** (lets-plot's default
-  `path`). Render inspection PNGs with `plot.to_png(path)`; the stray untracked
-  `lets-plot-images/` folder came from that.
 
 See [[deviations-md]] row "Leader-line axis labels"; related: [[side-panels]],
 [[axis-positions]], [[dendrograms]].

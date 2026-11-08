@@ -4,6 +4,10 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ## [Unreleased]
 
+### Changed
+
+- `ggsave(plot, filename)` without `path` writes to `filename` as given (relative to the working directory, or absolute), as ggplot2. It no longer writes into a `lets-plot-images/` folder (lets_plot's default; see deviations.md).
+
 ## [0.8.0] - 2026-11-08
 
 ### Added

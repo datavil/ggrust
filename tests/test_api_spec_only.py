@@ -300,10 +300,16 @@ def test_ggsave_writes_by_extension(tmp_path):
         gg.ggsave(gg.geom_point(), "plot.svg", path=str(tmp_path))
 
 
-def test_ggsave_default_directory_is_lets_plots(tmp_path, monkeypatch):
+def test_ggsave_without_path_writes_filename_as_given(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+    (tmp_path / "sub").mkdir()
     plot = gg.ggplot(FRAME, gg.aes("x", "y")) + gg.geom_point()
-    assert gg.ggsave(plot, "a.svg") == str(tmp_path / "lets-plot-images" / "a.svg")
+    assert gg.ggsave(plot, "a.svg") == str(tmp_path / "a.svg")
+    assert gg.ggsave(plot, "sub/b.svg") == str(tmp_path / "sub" / "b.svg")
+    assert (tmp_path / "a.svg").is_file() and (tmp_path / "sub" / "b.svg").is_file()
+    assert not (tmp_path / "lets-plot-images").exists()
+    absolute = tmp_path / "c.svg"
+    assert gg.ggsave(plot, absolute) == str(absolute)
 
 
 def test_unsupported_names_raise_on_use():

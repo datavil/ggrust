@@ -14,8 +14,6 @@ from ggrust.plot.subplots import SupPlotsSpec
 
 __all__ = ["ggsave"]
 
-_DEFAULT_EXPORT_DIRECTORY = "lets-plot-images"  # lets_plot's default, kept for compatibility
-
 
 def ggsave(
     plot: PlotSpec | SupPlotsSpec,
@@ -29,7 +27,7 @@ def ggsave(
     unit: str | None = None,
     dpi: int | None = None,
 ) -> str:
-    """Save a plot to ``path/filename``; the extension picks the format.
+    """Save a plot to ``filename`` (inside ``path`` if given); the extension picks the format.
 
     Parameters
     ----------
@@ -41,7 +39,9 @@ def ggsave(
         and registered fonts, never code (a plot holding a Python function, such as a
         ``sec_axis`` transform, raises ``ExportError``).
     path : str, optional
-        Directory; ``./lets-plot-images`` when None (as lets_plot).
+        Directory to join in front of ``filename``. When None, ``filename`` is used as
+        given: relative to the current working directory, or absolute. lets_plot writes
+        into ``./lets-plot-images`` instead.
     iframe : bool, default True
         HTML only: write an ``<iframe srcdoc>`` sized to the plot (as lets_plot).
     scale : float, optional
@@ -85,7 +85,7 @@ def ggsave(
             "'.svg', '.png', '.pdf', '.html', '.ggrs' (e.g. 'plot.png')"
         )
         raise ExportError(message)
-    pathname = os.path.join(path or os.path.join(os.getcwd(), _DEFAULT_EXPORT_DIRECTORY), filename)
+    pathname = filename if path is None else os.path.join(path, filename)
     extension = extension[1:].lower()
     if extension == "svg":
         export_svg(plot, pathname, w=w, h=h, unit=unit)

@@ -13,5 +13,3 @@
 - **Point order matters only with heads.** A plain y line keeps lets-plot's top-to-bottom
   order (dash phase, existing goldens); with heads it runs from the origin so
   `ends="last"` points up (ggplot2).
-- `ggsave` with a relative path writes under `lets-plot-images/` (lets-plot rule): use
-  absolute paths for scratch renders.

@@ -228,7 +228,8 @@ Steps inside a phase are ordered; each builds on the previous.
   (CI: `make check` on ubuntu with Chromium, visual diffs uploaded on failure. Release: abi3 wheels via maturin-action for linux x86_64/aarch64 (manylinux 2_28), macOS intel/arm, windows x64/arm64, plus an sdist; every wheel and the sdist build are smoke-tested (`.github/smoke_test.py`); PyPI trusted publishing only on a `v*` tag matching the version. sdist now ships `js/` (it did not compile from source before). Docs: mkdocs-material + mkdocstrings (numpy style, runtime inspection so assignment-built scales get signatures), strict build on PRs, Pages deploy from main; home page, migration note, 124-entry reference. Material reaches end of life in May 2027; Zensical reads the same mkdocs.yml.)
 - [x] 7.1b Custom fonts: `register_font`, `register_font_dir`, `registered_fonts`; `element_text(family=)` and text geoms' `family` draw registered fonts in layout, PNG, PDF, SVG and HTML (see the decisions table and `memory/custom_fonts.md`).
   (Follow-up, not scheduled: per-glyph fallback across fonts for characters the requested font lacks, e.g. CJK in a Latin font.)
-- [ ] 7.2 cellestial switches dependency `lets-plot` -> `ggrust` (with user approval). Workarounds ggrust now removes: [cellestial_workarounds.md](cellestial_workarounds.md).
+- [x] 7.2 cellestial switches dependency `lets-plot` -> `ggrust` (with user approval). Workarounds ggrust now removes: [cellestial_workarounds.md](cellestial_workarounds.md).
+  (Done in cellestial: `pyproject.toml` depends on `ggrust>=0.8.0,<1.0`, no `lets-plot`; only lets-plot.org doc links remain in docstrings. Ticked 2026-11-09.)
 
 ### Phase 8: lets-plot gaps (see [plan-letsplot-gaps.md](plan-letsplot-gaps.md))
 
@@ -341,11 +342,12 @@ Cellestial work is on branch `ggrust-port-track-titles` (row titles only, uncomm
   Five legends (four categorical, two colorbars) in one bottom row are wider than 900 px;
   the row is centred, so both ends are cut off (lets-plot only cut the right end).
   Expected (ggplot2): the legend box wraps to more rows, or grows the canvas, so every legend fits.
-- [ ] 9.2 `align=True` does not give a grid row's axis area the tallest cell's axis height.
+- [x] 9.2 `align=True` does not give a grid row's axis area the tallest cell's axis height.
   At 900 px the rotated row-track titles (e.g. "n_genes", "louvain") are clipped at the bottom:
   the axis area under the strips is only as tall as the heatmap's one-line key labels.
   At 1800x600 they fit. Expected: the aligned axis band in a grid row is as tall as the tallest
   cell's axis text, so no cell clips.
+  (Fixed by the grid alignment work (ex2.3 / 10.4): a 900x450 repro of four rotated-title tracks + heatmap, `align=True`, `guides="collect"`, shows every title in full. Checked 2026-11-09.)
 - [x] 9.3 Position scale `position=` is ignored (`GgrustWarning: at 'scales[0].position': not supported yet; ignored`).
   Repro: `ggplot(f) + geom_tile(aes("x", "y", fill="v")) + scale_y_continuous(breaks=[0], labels=["track"], position="right")`.
   Cellestial needs it to title column tracks on the right; with the label on the left, `align=True`

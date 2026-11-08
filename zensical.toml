@@ -264,6 +264,10 @@ nav = [
       "reference/api/streamplot.md",
       "reference/api/StreamplotSet.md",
     ] },
+    { "Velocity grids (scVelo compute_velocity_on_grid)" = [
+      "reference/api/velocity_grid.md",
+      "reference/api/VelocityGrid.md",
+    ] },
     { "Side panels and marginal plots (ggside, ggmarginal)" = [
       "reference/api/geom_xsidetile.md",
       "reference/api/geom_ysidetile.md",

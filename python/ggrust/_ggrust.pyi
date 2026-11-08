@@ -22,6 +22,7 @@ __all__ = [
     "streamplot",
     "tooltip_columns",
     "validate_spec",
+    "velocity_grid",
 ]
 
 class ColumnSummary(TypedDict, total=False):
@@ -302,4 +303,24 @@ def streamplot(
         If the grid, field, density or start points are invalid.
     ValueError
         If ``integration_direction`` is unknown.
+    """
+
+def velocity_grid(
+    points: object,
+    vectors: object,
+    density: float,
+    smooth: float,
+    n_neighbors: int | None,
+    min_mass: float,
+    cutoff_percentile: float,
+    adjust_for_stream: bool,
+) -> tuple[list[float], list[float], list[list[float]], list[list[float]]]:
+    """Grid ``(x, y, u, v)`` of cell velocities, ``u[row][column]`` at ``(x[column], y[row])``.
+
+    Raises
+    ------
+    ggrust.errors.SpecError
+        If an option is out of range, the lengths differ or a dimension has no spread.
+    TypeError
+        If ``points`` or ``vectors`` is not a sequence of ``(x, y)`` number pairs.
     """

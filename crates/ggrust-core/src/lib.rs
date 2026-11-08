@@ -30,6 +30,7 @@ pub mod suggest;
 pub mod text;
 pub mod theme;
 pub mod tooltip;
+pub mod velocity_grid;
 
 pub use error::{Error, Result};
 

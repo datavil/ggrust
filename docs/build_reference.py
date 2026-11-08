@@ -250,6 +250,11 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
         "``streamplot``, to draw with ``geom_path`` and ``geom_segment`` (not in lets-plot).",
         ["streamplot", "StreamplotSet"],
     ),
+    "Velocity grids (scVelo compute_velocity_on_grid)": (
+        "Average cell velocities onto a regular grid as scVelo's "
+        "``compute_velocity_on_grid``, ready for ``streamplot`` (not in lets-plot).",
+        ["velocity_grid", "VelocityGrid"],
+    ),
     "Side panels and marginal plots (ggside, ggmarginal)": (
         "Layers in bands beside the panel that share one of its axes, such as heatmap "
         "annotation tracks and marginal densities (R package ggside; ``ggmarginal()`` "

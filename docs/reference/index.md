@@ -258,6 +258,15 @@ Integrate the streamlines and arrows of a gridded vector field as matplotlib's `
 | [`streamplot()`](api/streamplot.md) | Streamlines of the vector field ``(u, v)``, as ``matplotlib.pyplot.streamplot``. |
 | [`StreamplotSet`](api/StreamplotSet.md) | Streamlines and their arrows, as matplotlib's ``StreamplotSet``. |
 
+## Velocity grids (scVelo compute_velocity_on_grid)
+
+Average cell velocities onto a regular grid as scVelo's ``compute_velocity_on_grid``, ready for ``streamplot`` (not in lets-plot).
+
+| Name | Description |
+|---|---|
+| [`velocity_grid()`](api/velocity_grid.md) | Average cell velocities onto a regular grid, as scVelo's ``compute_velocity_on_grid``. |
+| [`VelocityGrid`](api/VelocityGrid.md) | Velocities on a regular grid, laid out for ``streamplot(x, y, u, v)``. |
+
 ## Side panels and marginal plots (ggside, ggmarginal)
 
 Layers in bands beside the panel that share one of its axes, such as heatmap annotation tracks and marginal densities (R package ggside; ``ggmarginal()`` as lets-plot).

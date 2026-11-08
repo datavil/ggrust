@@ -502,6 +502,10 @@ extension, bug-hunter pass, `make check`, commit + push. Already available and b
     `StreamplotSet(lines, arrows)` frames for `geom_path` + `geom_segment(arrow=)`. cellestial's
     `stream()` can drop its matplotlib call; the gridding (scVelo's `compute_velocity_on_grid`) is
     still scVelo's. `geom_streamline` itself is still open.
+    Done (2026-11-08, dependency port step 1): `velocity_grid()` (`velocity_grid.rs`), a port of
+    scVelo 0.3.4's `compute_velocity_on_grid` (bit-identical on float64 fixture cases and pancreas,
+    7x faster), returning `VelocityGrid(x, y, u, v)` for `streamplot()`. cellestial's `stream()`
+    can drop scVelo once it requires this ggrust release.
 
 ## Performance strategy (honest)
 

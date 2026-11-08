@@ -390,6 +390,37 @@ mod _ggrust {
         Ok(((line_x, line_y, line_group), arrows))
     }
 
+    /// Cell velocities averaged onto a grid (scVelo's `compute_velocity_on_grid`):
+    /// `(x, y, u, v)` with `u[row][column]` at `(x[column], y[row])`.
+    #[pyfunction]
+    #[pyo3(signature = (points, vectors, density, smooth, n_neighbors, min_mass, cutoff_percentile, adjust_for_stream))]
+    #[allow(clippy::too_many_arguments, clippy::type_complexity)]
+    fn velocity_grid(
+        python: Python<'_>,
+        points: Vec<[f64; 2]>,
+        vectors: Vec<[f64; 2]>,
+        density: f64,
+        smooth: f64,
+        n_neighbors: Option<usize>,
+        min_mass: f64,
+        cutoff_percentile: f64,
+        adjust_for_stream: bool,
+    ) -> PyResult<(Vec<f64>, Vec<f64>, Vec<Vec<f64>>, Vec<Vec<f64>>)> {
+        use ggrust_core::velocity_grid::{VelocityGridOptions, velocity_grid};
+        let options = VelocityGridOptions {
+            density,
+            smooth,
+            n_neighbors,
+            min_mass,
+            cutoff_percentile,
+            adjust_for_stream,
+        };
+        let grid = python
+            .detach(|| velocity_grid(&points, &vectors, &options))
+            .map_err(to_python_error)?;
+        Ok((grid.x, grid.y, grid.u, grid.v))
+    }
+
     /// Column names `layer_tooltips()` reads, sorted: exported for HTML output only.
     ///
     /// Raises `ggrust.errors.SpecError` (with its `path`) if the spec is invalid.

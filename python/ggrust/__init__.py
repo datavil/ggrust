@@ -254,6 +254,7 @@ from ggrust.plot import (
 )
 from ggrust.plot_file import ggload
 from ggrust.streamplot import StreamplotSet, streamplot
+from ggrust.velocity_grid import VelocityGrid, velocity_grid
 
 __version__ = _distribution_version("ggrust")
 
@@ -263,6 +264,7 @@ __all__ = [
     "GgrustWarning",
     "StreamplotSet",
     "SupPlotsSpec",
+    "VelocityGrid",
     "__version__",
     "aes",
     "arrow",
@@ -500,6 +502,7 @@ __all__ = [
     "theme_minimal2",
     "theme_none",
     "theme_void",
+    "velocity_grid",
     "xlab",
     "xlim",
     "ylab",

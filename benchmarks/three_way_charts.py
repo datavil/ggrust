@@ -111,6 +111,8 @@ def look(mode: Mode, legend: bool = False) -> FeatureSpec:
         legend_position="top" if legend else "none",
         legend_text=element_text(color=colors["ink"], size=12),
         legend_title=element_blank(),
+        legend_background=element_blank(),
+        legend_key=element_blank(),
     )
 
 
@@ -139,13 +141,20 @@ def with_labels(frame: pl.DataFrame, metric: str) -> pl.DataFrame:
     return frame.with_columns(label=pl.Series([memory_label(v) for v in frame["memory"]]))
 
 
-def bars(data: pl.DataFrame, value: str, mode: Mode, text_size: float, room: float) -> PlotSpec:
+def bars(
+    data: pl.DataFrame,
+    value: str,
+    mode: Mode,
+    text_size: float,
+    room: float,
+    width: float = 0.72,
+) -> PlotSpec:
     """Horizontal bars per library, ggrust on top, value printed after each bar."""
     order = list(reversed(LIBRARIES))
     data = data.with_columns(pl.col("library").cast(pl.Enum(order)))
     return (
         ggplot(data, aes("library", value))
-        + geom_bar(aes(fill="library"), stat="identity", width=0.72, size=0)
+        + geom_bar(aes(fill="library"), stat="identity", width=width, size=0)
         + geom_text(aes(label="label"), hjust=0, size=text_size, color=PALETTES[mode]["ink"])
         + scale_y_continuous(expand=[room, 0])
         + scale_fill_manual(values=[PALETTES[mode][name] for name in order])
@@ -244,6 +253,39 @@ def scaling(frame: pl.DataFrame, mode: Mode) -> PlotSpec:
     )
 
 
+def compact(frame: pl.DataFrame, mode: Mode) -> PlotSpec:
+    """README headline in the spirit of uv's: thin bars, values, faint grid, no title."""
+    colors = PALETTES[mode]
+    data = (
+        frame.filter(pl.col("rows") == 1_000_000)
+        .group_by("library")
+        .agg(pl.col("seconds").median())
+    )
+    data = data.with_columns(
+        label=pl.Series([f"  {value:.2f}s" for value in data["seconds"]], dtype=pl.String)
+    )
+    limit = float(data["seconds"].max() or 1.0)
+    step = 2.0 if limit > 4 else 1.0
+    breaks = [step * index for index in range(int(limit * 1.13 // step) + 1)]
+    return (
+        bars(data, "seconds", mode, text_size=5, room=0.0, width=0.5)
+        + scale_y_continuous(
+            breaks=breaks,
+            labels=[f"{value:g}s" for value in breaks],
+            limits=[0, limit * 1.13],
+            expand=[0, 0],
+        )
+        + look(mode)
+        + theme(
+            axis_text_y=element_text(color=colors["muted"], size=11),
+            axis_text_x=element_text(color=colors["ink"], size=13),
+            panel_grid_major_y=element_line(color=colors["grid"], size=0.8),
+            plot_margin=[4, 10, 2, 4],
+        )
+        + ggsize(620, 140)
+    )
+
+
 def main() -> None:
     """Write every chart, light and dark, into docs/images/benchmarks."""
     frame = load(sys.argv[1:])
@@ -258,6 +300,7 @@ def main() -> None:
             "memory-png": per_scenario(frame, "PNG", "memory", mode),
             "memory-svg": per_scenario(frame, "SVG", "memory", mode),
             "scaling": scaling(frame, mode),
+            "headline": compact(frame, mode),
         }
         for name, plot in charts.items():
             path = OUTPUT / f"{name}{suffix}.png"

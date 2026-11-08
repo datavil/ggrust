@@ -13,6 +13,17 @@
 
 The __Grammar of Graphics__, written in Rust, used from Python.
 
+<p align="center">
+  <a href="https://ggrust.datavil.org/benchmarks/">
+    <picture>
+      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/benchmarks/headline-dark.png">
+      <img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/benchmarks/headline.png" alt="Median render time per plot at 1M rows: ggrust 0.06 s, ggplot2 0.33 s, Lets-Plot 5.86 s" width="620">
+    </picture>
+  </a>
+</p>
+
+<p align="center"><i>Median time to render one of 11 everyday plots with 1M rows, as SVG and PNG (<a href="https://ggrust.datavil.org/benchmarks/">benchmarks</a>).</i></p>
+
 __ggrust__ is a plotting library with a [Lets-Plot](https://lets-plot.org/) compatible Python API. Plots are built the familiar ggplot way, layer by layer with `+`, while the stats, scales, layout and rendering all run in Rust.
 
 It was started for [Cellestial](https://github.com/datavil/cellestial), which needed a maintained backend for its Lets-Plot based API.
@@ -33,15 +44,6 @@ It was started for [Cellestial](https://github.com/datavil/cellestial), which ne
 - __The Lets-Plot API__: most code ports with an import swap, `lets_plot` -> `ggrust`.
 - __Interactive__: notebook and HTML output with tooltips, zoom and pan; dense point layers drawn on a canvas.
 - __Publication output__: SVG, PNG, vector PDF and HTML, with your own fonts. Data crosses into Rust once, as Arrow, so [Polars](https://pola.rs/) and pandas frames work directly.
-
-<p align="center">
-  <a href="https://ggrust.datavil.org/benchmarks/">
-    <picture>
-      <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/benchmarks/overview-dark.png">
-      <img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/benchmarks/overview.png" alt="At 1M rows ggrust renders a typical plot in 62 ms (ggplot2 334 ms, Lets-Plot 5.9 s) with 129 MB peak memory (ggplot2 560 MB, Lets-Plot 1.0 GB)" width="100%">
-    </picture>
-  </a>
-</p>
 
 ## Installation
 

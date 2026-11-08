@@ -421,6 +421,49 @@ mod _ggrust {
         Ok((grid.x, grid.y, grid.u, grid.v))
     }
 
+    /// Outline of a 2D point cloud at `level` of its peak kernel density:
+    /// `(x, y, path)` vertex columns. `bandwidth` is `"scott"`, `"silverman"` or a factor.
+    #[pyfunction]
+    #[pyo3(signature = (points, level, padding, grid_size, bandwidth))]
+    #[allow(clippy::type_complexity)]
+    fn density_outline(
+        python: Python<'_>,
+        points: Vec<[f64; 2]>,
+        level: f64,
+        padding: f64,
+        grid_size: usize,
+        bandwidth: Bound<'_, PyAny>,
+    ) -> PyResult<(Vec<f64>, Vec<f64>, Vec<u32>)> {
+        use ggrust_core::density_outline::{DensityOutlineOptions, density_outline};
+        use ggrust_core::kde::BandwidthMethod;
+        let bandwidth = if let Ok(name) = bandwidth.extract::<String>() {
+            match name.as_str() {
+                "scott" => BandwidthMethod::Scott,
+                "silverman" => BandwidthMethod::Silverman,
+                _ => {
+                    return Err(to_python_error(ggrust_core::Error::spec(
+                        "bandwidth",
+                        format!(
+                            "unknown bandwidth rule '{name}'; pass 'scott', 'silverman' or a number"
+                        ),
+                    )));
+                }
+            }
+        } else {
+            BandwidthMethod::Factor(bandwidth.extract::<f64>()?)
+        };
+        let options = DensityOutlineOptions {
+            level,
+            padding,
+            grid_size,
+            bandwidth,
+        };
+        let outline = python
+            .detach(|| density_outline(&points, &options))
+            .map_err(to_python_error)?;
+        Ok((outline.x, outline.y, outline.path))
+    }
+
     /// Column names `layer_tooltips()` reads, sorted: exported for HTML output only.
     ///
     /// Raises `ggrust.errors.SpecError` (with its `path`) if the spec is invalid.

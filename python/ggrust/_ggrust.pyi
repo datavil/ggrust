@@ -9,6 +9,7 @@ from typing import Any, TypedDict
 __all__ = [
     "correlation_matrix",
     "dendrogram_segments",
+    "density_outline",
     "describe_frame",
     "engine_version",
     "hclust",
@@ -323,4 +324,21 @@ def velocity_grid(
         If an option is out of range, the lengths differ or a dimension has no spread.
     TypeError
         If ``points`` or ``vectors`` is not a sequence of ``(x, y)`` number pairs.
+    """
+
+def density_outline(
+    points: object,
+    level: float,
+    padding: float,
+    grid_size: int,
+    bandwidth: str | float,
+) -> tuple[list[float], list[float], list[int]]:
+    """Outline ``(x, y, path)`` vertex columns of a point cloud at ``level`` of its peak density.
+
+    Raises
+    ------
+    ggrust.errors.SpecError
+        If an option is out of range, too few finite points remain or they lie on a line.
+    TypeError
+        If ``points`` is not a sequence of ``(x, y)`` number pairs.
     """

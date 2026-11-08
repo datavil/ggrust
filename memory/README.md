@@ -60,6 +60,7 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Geom colors and manual legends](letsplot_geom_palette_manual_key.md): pen = flavor ink, paper = flavor white, brush #118ed8; geom defaults are PEN/BRUSH/PAPER; manual keys sort by index, legends keyed by title.
 - [streamplot is a bit-exact matplotlib port](streamplot_matplotlib_port.md): half-to-even rounding, mask state kept across lines, masked corners, numpy op order; fixture regenerated with matplotlib.
 - [velocity_grid is a bit-exact scVelo port](velocity_grid_scvelo_port.md): sklearn's kd-tree distance is FMA-contracted on arm64, numpy pairwise vs sequential sums, float32 input left as a known gap.
+- [density_outline ports scipy gaussian_kde + skimage find_contours](density_outline_scipy_skimage_port.md): memory layout changes numpy's sums, FMA cov/kernel/interp, inverse-diagonal Cholesky, Accelerate ddot neff not reproduced, float32 gap.
 - [ggsci palettes](ggsci_palettes.md): fixed tables per mapper kind, brewer overflow + warning after training (`palette_size`), R rgb() alpha rounding.
 - [ggbeeswarm layouts](ggbeeswarm_layouts.md): stats (not positions) for the plot ranges, dodge_width, R `density()` port (4.4 coords), round R fixtures before write_json.
 - [ggnewscale scale groups](ggnewscale_scale_groups.md): `ScaleKey` = aesthetic + group, Python tags at `+` time, every style lookup goes through the layer's group, group 0 unchanged.

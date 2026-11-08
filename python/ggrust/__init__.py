@@ -12,6 +12,7 @@ from importlib.metadata import version as _distribution_version
 from ggrust._display import display as display
 from ggrust._ggrust import engine_version
 from ggrust._render import GgrustWarning
+from ggrust.density_outline import density_outline
 from ggrust.export import ggsave
 from ggrust.fonts import register_font, register_font_dir, registered_fonts
 from ggrust.mapping import as_discrete
@@ -272,6 +273,7 @@ __all__ = [
     "coord_cartesian",
     "coord_fixed",
     "coord_flip",
+    "density_outline",
     "derive",
     "dup_axis",
     "element_blank",

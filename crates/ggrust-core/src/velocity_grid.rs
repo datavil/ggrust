@@ -15,6 +15,7 @@
 
 use rayon::prelude::*;
 
+use crate::numeric::pairwise_sum;
 use crate::{Error, Result};
 
 /// The options of scVelo's `compute_velocity_on_grid`, with scVelo's defaults.
@@ -332,37 +333,6 @@ fn grid_point(
         mass,
         length: length_u / count + length_v / count,
     }
-}
-
-/// numpy's `add.reduce` over a contiguous axis: a pairwise sum (blocks of 8
-/// up to 128 values, sequential below 8).
-fn pairwise_sum(values: &[f64]) -> f64 {
-    fn pairwise(values: &[f64]) -> f64 {
-        let n = values.len();
-        if n < 8 {
-            values.iter().fold(0.0, |sum, value| sum + value)
-        } else if n <= 128 {
-            let mut partial = [0.0; 8];
-            partial.copy_from_slice(&values[..8]);
-            let blocks = n - n % 8;
-            for block in values[8..blocks].chunks_exact(8) {
-                for (sum, value) in partial.iter_mut().zip(block) {
-                    *sum += value;
-                }
-            }
-            let mut sum = ((partial[0] + partial[1]) + (partial[2] + partial[3]))
-                + ((partial[4] + partial[5]) + (partial[6] + partial[7]));
-            for value in &values[blocks..] {
-                sum += value;
-            }
-            sum
-        } else {
-            let half = n / 2;
-            let half = half - half % 8;
-            pairwise(&values[..half]) + pairwise(&values[half..])
-        }
-    }
-    pairwise(values)
 }
 
 /// `np.percentile(values, percent)` with numpy's default linear method.

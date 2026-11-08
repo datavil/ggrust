@@ -267,6 +267,14 @@ Average cell velocities onto a regular grid as scVelo's ``compute_velocity_on_gr
 | [`velocity_grid()`](api/velocity_grid.md) | Average cell velocities onto a regular grid, as scVelo's ``compute_velocity_on_grid``. |
 | [`VelocityGrid`](api/VelocityGrid.md) | Velocities on a regular grid, laid out for ``streamplot(x, y, u, v)``. |
 
+## Density outlines (scipy gaussian_kde + skimage find_contours)
+
+Outline a 2D point cloud where its kernel density falls to a fraction of the peak, as scipy's ``gaussian_kde`` with scikit-image's ``find_contours``, to draw with ``geom_path`` (not in lets-plot).
+
+| Name | Description |
+|---|---|
+| [`density_outline()`](api/density_outline.md) | Outline a 2D point cloud where its kernel density falls to ``level`` of the peak. |
+
 ## Side panels and marginal plots (ggside, ggmarginal)
 
 Layers in bands beside the panel that share one of its axes, such as heatmap annotation tracks and marginal densities (R package ggside; ``ggmarginal()`` as lets-plot).

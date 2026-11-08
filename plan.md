@@ -506,6 +506,13 @@ extension, bug-hunter pass, `make check`, commit + push. Already available and b
     scVelo 0.3.4's `compute_velocity_on_grid` (bit-identical on float64 fixture cases and pancreas,
     7x faster), returning `VelocityGrid(x, y, u, v)` for `streamplot()`. cellestial's `stream()`
     can drop scVelo once it requires this ggrust release.
+    Done (2026-11-08, dependency port step 2): `density_outline()` (`density_outline.rs` over
+    `kde.rs`, a D-dimensional port of scipy's `gaussian_kde`, and `marching_squares.rs`, a port of
+    skimage's `find_contours`), returning an `(x, y, path)` frame for `geom_path`. Same contours and
+    vertex counts as scipy + scikit-image, vertices within 1e-14 of the span (bit-identical with a
+    fixed bandwidth factor), 9-10x faster on pbmc3k. A standalone function, not a `stat_density2d`
+    option: that stat keeps lets-plot's bandwidths and triangle contours. cellestial's
+    `cluster_outlines()` can drop scipy.stats and scikit-image once it requires this release.
 
 ## Performance strategy (honest)
 

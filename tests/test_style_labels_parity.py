@@ -47,6 +47,14 @@ CASES = {
         _points(m, color="value")
         + m.scale_color_continuous(breaks=[1500, 2500], labels=["abcdef", "g"], lablim=3)
     ),
+    "colorbar_default_labels_lablim_ignored": lambda m: (
+        _points(m, color="value") + m.scale_color_continuous(lablim=3)
+    ),
+    "fill_colorbar_lablim_ignored": lambda m: (
+        m.ggplot(FRAME, m.aes("x", "y", fill="value"))
+        + m.geom_tile()
+        + m.scale_fill_viridis(lablim=2, format="{d} u")
+    ),
     "size_format": lambda m: _points(m, size="value") + m.scale_size(format="{.0f}k"),
     "size_lablim_ignored": lambda m: _points(m, size="value") + m.scale_size(lablim=2),
     "discrete_format": lambda m: _points(m, color="name") + m.scale_color_hue(format="<{}>"),

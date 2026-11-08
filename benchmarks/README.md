@@ -3,6 +3,9 @@
 **Final report against lets-plot (step 6.4): [REPORT.md](REPORT.md).** The sections below
 are the earlier per-step measurements.
 
+**Three-way report against lets-plot and R ggplot2: [REPORT-three-way.md](REPORT-three-way.md)**
+(`three_way.py` + `three_way.R`, 11 plot types, 10k to 1M rows, SVG and PNG, time and memory).
+
 `benchmarks/run.py` measures ggrust against lets-plot on **identical work**:
 
 - same polars frame, same scatter plot (`geom_point(size=1)`), same size (600 x 400)

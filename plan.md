@@ -497,6 +497,11 @@ extension, bug-hunter pass, `make check`, commit + push. Already available and b
     gridded vector field (`dx`, `dy`), arrow heads via `geom::Arrow`. Largest of the three; design with
     the user (metR's parameters: `L`, `res`, `n`, `jitter`, `arrow`). Alternative: `arrow(ends="mid")`
     on paths only.
+    Done first (2026-11-08, user request): `streamplot()` (`streamplot.rs`), a line-by-line port of
+    matplotlib 3.10's `streamplot` (lines and arrows bit-identical on the fixture cases), returning
+    `StreamplotSet(lines, arrows)` frames for `geom_path` + `geom_segment(arrow=)`. cellestial's
+    `stream()` can drop its matplotlib call; the gridding (scVelo's `compute_velocity_on_grid`) is
+    still scVelo's. `geom_streamline` itself is still open.
 
 ## Performance strategy (honest)
 

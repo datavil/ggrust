@@ -253,6 +253,7 @@ from ggrust.plot import (
     ylim,
 )
 from ggrust.plot_file import ggload
+from ggrust.streamplot import StreamplotSet, streamplot
 
 __version__ = _distribution_version("ggrust")
 
@@ -260,6 +261,7 @@ __all__ = [
     "ClusterTree",
     "GGBunch",
     "GgrustWarning",
+    "StreamplotSet",
     "SupPlotsSpec",
     "__version__",
     "aes",
@@ -487,6 +489,7 @@ __all__ = [
     "stat_sum",
     "stat_summary",
     "stat_summary_bin",
+    "streamplot",
     "theme",
     "theme_bw",
     "theme_classic",

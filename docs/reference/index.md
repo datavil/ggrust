@@ -249,6 +249,15 @@ Cluster rows or columns as R's hclust, draw the tree, and order a discrete axis 
 | [`scale_y_dendro()`](api/scale_y_dendro.md) | Discrete y scale ordered by a clustering tree, drawn left of the axis (legendry). |
 | [`guide_axis_dendro()`](api/guide_axis_dendro.md) | Axis guide that draws the scale's tree beside the axis (R legendry). |
 
+## Streamlines (matplotlib streamplot)
+
+Integrate the streamlines and arrows of a gridded vector field as matplotlib's ``streamplot``, to draw with ``geom_path`` and ``geom_segment`` (not in lets-plot).
+
+| Name | Description |
+|---|---|
+| [`streamplot()`](api/streamplot.md) | Streamlines of the vector field ``(u, v)``, as ``matplotlib.pyplot.streamplot``. |
+| [`StreamplotSet`](api/StreamplotSet.md) | Streamlines and their arrows, as matplotlib's ``StreamplotSet``. |
+
 ## Side panels and marginal plots (ggside, ggmarginal)
 
 Layers in bands beside the panel that share one of its axes, such as heatmap annotation tracks and marginal densities (R package ggside; ``ggmarginal()`` as lets-plot).

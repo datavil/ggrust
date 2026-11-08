@@ -245,6 +245,11 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "guide_axis_dendro",
         ],
     ),
+    "Streamlines (matplotlib streamplot)": (
+        "Integrate the streamlines and arrows of a gridded vector field as matplotlib's "
+        "``streamplot``, to draw with ``geom_path`` and ``geom_segment`` (not in lets-plot).",
+        ["streamplot", "StreamplotSet"],
+    ),
     "Side panels and marginal plots (ggside, ggmarginal)": (
         "Layers in bands beside the panel that share one of its axes, such as heatmap "
         "annotation tracks and marginal densities (R package ggside; ``ggmarginal()`` "

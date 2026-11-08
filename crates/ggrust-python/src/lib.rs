@@ -329,6 +329,67 @@ mod _ggrust {
         ))
     }
 
+    /// Streamlines of `(u, v)` on the grid `x` by `y` (matplotlib's `streamplot`):
+    /// `(lines, arrows)` with lines as `(x, y, group)` columns and arrows as
+    /// `(x, y, xend, yend, group)` columns.
+    #[pyfunction]
+    #[pyo3(signature = (x, y, u, v, density, minlength, maxlength, integration_direction, broken_streamlines, start_points=None))]
+    #[allow(clippy::too_many_arguments, clippy::type_complexity)]
+    fn streamplot(
+        python: Python<'_>,
+        x: Vec<f64>,
+        y: Vec<f64>,
+        u: Vec<Vec<f64>>,
+        v: Vec<Vec<f64>>,
+        density: (f64, f64),
+        minlength: f64,
+        maxlength: f64,
+        integration_direction: &str,
+        broken_streamlines: bool,
+        start_points: Option<Vec<[f64; 2]>>,
+    ) -> PyResult<(
+        (Vec<f64>, Vec<f64>, Vec<u32>),
+        (Vec<f64>, Vec<f64>, Vec<f64>, Vec<f64>, Vec<u32>),
+    )> {
+        use ggrust_core::streamplot::{IntegrationDirection, StreamplotOptions, streamplot};
+        let direction = match integration_direction {
+            "both" => IntegrationDirection::Both,
+            "forward" => IntegrationDirection::Forward,
+            "backward" => IntegrationDirection::Backward,
+            other => {
+                return Err(PyValueError::new_err(format!(
+                    "unknown integration_direction '{other}'; accepted: both, forward, backward"
+                )));
+            }
+        };
+        let options = StreamplotOptions {
+            density,
+            minlength,
+            maxlength,
+            direction,
+            broken_streamlines,
+            start_points,
+        };
+        let lines = python
+            .detach(|| streamplot(&x, &y, &u, &v, &options))
+            .map_err(to_python_error)?;
+        let (mut line_x, mut line_y, mut line_group) = (Vec::new(), Vec::new(), Vec::new());
+        let mut arrows = (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new());
+        for (group, line) in (0u32..).zip(&lines) {
+            line_x.extend_from_slice(&line.x);
+            line_y.extend_from_slice(&line.y);
+            line_group.extend(std::iter::repeat_n(group, line.x.len()));
+            if let Some(arrow) = line.arrow() {
+                arrows.0.push(arrow.x);
+                arrows.1.push(arrow.y);
+                arrows.2.push(arrow.x_end);
+                arrows.3.push(arrow.y_end);
+                arrows.4.push(group);
+            }
+        }
+        Ok(((line_x, line_y, line_group), arrows))
+    }
+
     /// Column names `layer_tooltips()` reads, sorted: exported for HTML output only.
     ///
     /// Raises `ggrust.errors.SpecError` (with its `path`) if the spec is invalid.

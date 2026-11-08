@@ -19,6 +19,7 @@ __all__ = [
     "registered_font_files",
     "registered_fonts",
     "render",
+    "streamplot",
     "tooltip_columns",
     "validate_spec",
 ]
@@ -276,4 +277,29 @@ def dendrogram_segments(
         If the tree is malformed.
     ValueError
         If ``kind`` is not ``"rectangle"`` or ``"triangle"``.
+    """
+
+def streamplot(
+    x: list[float],
+    y: list[float],
+    u: list[list[float]],
+    v: list[list[float]],
+    density: tuple[float, float],
+    minlength: float,
+    maxlength: float,
+    integration_direction: str,
+    broken_streamlines: bool,
+    start_points: list[tuple[float, float]] | None = None,
+) -> tuple[
+    tuple[list[float], list[float], list[int]],
+    tuple[list[float], list[float], list[float], list[float], list[int]],
+]:
+    """Streamlines ``(x, y, group)`` and arrows ``(x, y, xend, yend, group)``.
+
+    Raises
+    ------
+    ggrust.errors.SpecError
+        If the grid, field, density or start points are invalid.
+    ValueError
+        If ``integration_direction`` is unknown.
     """

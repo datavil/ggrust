@@ -24,6 +24,7 @@ pub mod scale;
 pub mod scene;
 pub mod spec;
 pub mod stat;
+pub mod streamplot;
 pub mod style;
 pub mod suggest;
 pub mod text;

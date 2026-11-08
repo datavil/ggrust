@@ -260,6 +260,10 @@ nav = [
       "reference/api/scale_y_dendro.md",
       "reference/api/guide_axis_dendro.md",
     ] },
+    { "Streamlines (matplotlib streamplot)" = [
+      "reference/api/streamplot.md",
+      "reference/api/StreamplotSet.md",
+    ] },
     { "Side panels and marginal plots (ggside, ggmarginal)" = [
       "reference/api/geom_xsidetile.md",
       "reference/api/geom_ysidetile.md",

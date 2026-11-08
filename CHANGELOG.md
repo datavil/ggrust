@@ -4,6 +4,12 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-11-08
+
+### Added
+
+- `streamplot(x, y, u, v, density=...)`: matplotlib's streamlines computed in Rust, no matplotlib needed. Returns a `StreamplotSet` with `lines` (x, y, group) and `arrows` (x, y, xend, yend, group) polars frames, ready for `geom_path()` + `geom_segment(arrow=)`. Lines and arrows match matplotlib 3.10 exactly on the reference cases. Masked arrays and NaN/inf are treated as missing; a density that would need more than 1e8 mask cells raises an error instead of aborting.
+
 ## [0.7.0] - 2026-11-07
 
 ### Changed

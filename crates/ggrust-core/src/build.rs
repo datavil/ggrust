@@ -57,6 +57,7 @@ use crate::{Error, Result};
 
 pub mod inspect;
 mod side;
+mod space3d;
 
 /// Plot size when `ggsize` is not given (lets-plot default).
 pub const DEFAULT_SIZE: (f64, f64) = (600.0, 400.0);
@@ -240,6 +241,7 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     let mut warnings = Vec::new();
     report_unimplemented(spec, &mut warnings);
     let coord = resolve_coord(spec, &mut warnings)?;
+    space3d::check_layers(spec, &mut warnings).map_err(|error| error.with_notes(&warnings))?;
     let scales =
         position_scales(spec, &mut warnings).map_err(|error| error.with_notes(&warnings))?;
 
@@ -754,8 +756,12 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
             }
         }
     }
-    let theme = Theme::from_spec(spec.theme.as_ref(), &mut warnings)
+    let mut theme = Theme::from_spec(spec.theme.as_ref(), &mut warnings)
         .map_err(|error| error.with_notes(&warnings))?;
+    // coord_3d draws its layers apart (`space3d::draw_tile`): no clickable keys.
+    if space3d::is_3d(spec) {
+        theme.legend_interactive = false;
+    }
     side::check_theme(&theme, &band_setups).map_err(|error| error.with_notes(&warnings))?;
     let bands = band_setups
         .into_iter()
@@ -777,6 +783,21 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         titles.x_secondary = secondary(tile_x, &titles.x);
         titles.y_secondary = secondary(tile_y, &titles.y);
     }
+    let space = match space3d::is_3d(spec) {
+        true => Some(
+            space3d::prepare(
+                spec,
+                &scales.z,
+                &mut prepared_tiles,
+                &mut titles,
+                &orientations,
+                exponent_format,
+                &mut warnings,
+            )
+            .map_err(|error| error.with_notes(&warnings))?,
+        ),
+        false => None,
+    };
     // Legends: each layer once, from the first panel where it has rows.
     let legend_layers: Vec<&PreparedLayer> = (0..spec.layers.len())
         .filter_map(|index| {
@@ -833,6 +854,7 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         legends,
         size: (width, height),
         tooltip_setups,
+        space,
         warnings,
     })
 }
@@ -861,6 +883,8 @@ pub struct PreparedPlot {
     pub size: (f64, f64),
     /// Per layer: what its tooltips read from the spec.
     tooltip_setups: Vec<LayerTooltipSetup>,
+    /// `coord_3d`: the view, z scale and box titles.
+    space: Option<space3d::Space3d>,
     /// Things the user should know: ignored options, removed rows, ...
     pub warnings: Vec<String>,
 }
@@ -1275,13 +1299,19 @@ impl PreparedPlot {
                 legend_space(&self.theme, block.size)
             });
         let band_requests = side::band_requests(&self.bands, &self.theme, self.flipped);
+        // coord_3d draws its axes inside the panel.
+        let flat_theme = self
+            .space
+            .as_ref()
+            .map(|_| space3d::layout_theme(&self.theme));
+        let layout_theme = flat_theme.as_ref().unwrap_or(&self.theme);
         let layout_with = |titles: &Titles| match &self.facets {
             None => {
                 let (_, tile_x, tile_y) = &self.tiles[0];
                 let (horizontal, vertical) = self.screen_scales(tile_x, tile_y);
                 Arranged::Single(layout_plot(
                     area,
-                    &self.theme,
+                    layout_theme,
                     titles,
                     horizontal,
                     vertical,
@@ -1293,7 +1323,7 @@ impl PreparedPlot {
             }
             Some(facets) => Arranged::Facets(layout_facets(
                 area,
-                &self.theme,
+                layout_theme,
                 titles,
                 &self.facet_grid(facets),
                 legend_space,
@@ -1392,6 +1422,23 @@ impl PreparedPlot {
         interaction: &mut Interaction,
         warnings: &mut Vec<String>,
     ) -> Result<()> {
+        if self.space.is_some() {
+            // coord_3d is static (tier 1): no tooltips, zoom or interactive legend.
+            let note =
+                "coord_3d() plots are static: no tooltips, zoom or interactive legend in HTML \
+                        output"
+                    .to_owned();
+            if !warnings.contains(&note)
+                && (interaction.zoom.is_some()
+                    || self
+                        .tooltip_setups
+                        .iter()
+                        .any(|setup| setup.tooltips.is_some()))
+            {
+                warnings.push(note);
+            }
+            return Ok(());
+        }
         let panels: Vec<(Rect, usize)> = match &arrangement.layout {
             Arranged::Single(layout) => vec![(layout.panel, 0)],
             Arranged::Facets(layout) => layout
@@ -1666,6 +1713,20 @@ impl PreparedPlot {
         };
         let mut nodes = Vec::new();
         match &arrangement.layout {
+            Arranged::Single(layout) if self.space.is_some() => {
+                let (layers, tile_x, tile_y) = &self.tiles[0];
+                if let Some(space) = &self.space {
+                    let tile = space3d::draw_tile(
+                        space,
+                        layers,
+                        (tile_x, tile_y),
+                        layout.panel,
+                        theme,
+                        self.layer_background(),
+                    )?;
+                    nodes.push(tile_group(tile));
+                }
+            }
             Arranged::Single(layout) => {
                 let (layers, tile_x, tile_y) = &self.tiles[0];
                 let (horizontal, vertical) = self.screen_scales(tile_x, tile_y);
@@ -1725,6 +1786,18 @@ impl PreparedPlot {
                 let tiles = layout.tiles.iter().zip(&self.tiles).collect();
                 let drawn =
                     parallel::ordered_map(tiles, parallel, |(tile, (layers, tile_x, tile_y))| {
+                        if let Some(space) = &self.space {
+                            let mut panel_nodes = vec![tile_group(space3d::draw_tile(
+                                space,
+                                layers,
+                                (tile_x, tile_y),
+                                tile.layout.panel,
+                                theme,
+                                self.layer_background(),
+                            )?)];
+                            panel_nodes.extend(draw_strips(tile, theme));
+                            return Ok(panel_nodes);
+                        }
                         let (horizontal, vertical) = self.screen_scales(tile_x, tile_y);
                         let panel = Panel {
                             rect: tile.layout.panel,
@@ -2005,15 +2078,26 @@ fn merge_tile_warnings(warnings: Vec<String>) -> Vec<String> {
 /// Title, subtitle and axis titles. Axis titles follow lets-plot: `labs(x=...)`
 /// first, then the scale's `name`, otherwise `defaultScaleName` (see
 /// [`default_axis_title`]).
+/// A position axis title: from `labs()`, else the scale's name, else the mapped
+/// columns ([`default_scale_name`]).
+fn axis_title(
+    spec: &PlotSpec,
+    aesthetic: Aesthetic,
+    scale_name: &Option<String>,
+    orientations: &[bool],
+) -> String {
+    let from_labs = match spec.guides.get(aesthetic.as_str()) {
+        Some(GuideSpec::Full(options)) => options.title.clone(),
+        _ => None,
+    };
+    from_labs
+        .or_else(|| scale_name.clone())
+        .unwrap_or_else(|| default_scale_name(spec, aesthetic, 0, orientations))
+}
+
 fn plot_titles(spec: &PlotSpec, scales: &PositionScales, orientations: &[bool]) -> Titles {
     let axis_title = |aesthetic: Aesthetic, scale_name: &Option<String>| {
-        let from_labs = match spec.guides.get(aesthetic.as_str()) {
-            Some(GuideSpec::Full(options)) => options.title.clone(),
-            _ => None,
-        };
-        from_labs
-            .or_else(|| scale_name.clone())
-            .unwrap_or_else(|| default_scale_name(spec, aesthetic, 0, orientations))
+        axis_title(spec, aesthetic, scale_name, orientations)
     };
     let title = spec.ggtitle.as_ref();
     Titles {
@@ -2751,7 +2835,12 @@ fn compute_layer(
     layer_data.set_group_index(group_index)?;
 
     // Constant positions, e.g. geom_point(x=1.5): one value repeated for every row.
-    for &aesthetic in geom.required_aesthetics() {
+    // A constant z (coord_3d) too; it is scaled with the mapped ones (`space3d`).
+    let constant_z = geom
+        .optional_aesthetics()
+        .iter()
+        .filter(|aesthetic| **aesthetic == Aesthetic::Z);
+    for &aesthetic in geom.required_aesthetics().iter().chain(constant_z) {
         if layer_data.contains(aesthetic) {
             continue;
         }
@@ -3688,6 +3777,12 @@ fn validate_parameters(
         .chain(
             geom.required_aesthetics()
                 .iter()
+                .map(|aesthetic| aesthetic.as_str()),
+        )
+        .chain(
+            geom.optional_aesthetics()
+                .iter()
+                .filter(|aesthetic| **aesthetic == Aesthetic::Z)
                 .map(|aesthetic| aesthetic.as_str()),
         )
         .chain(
@@ -4859,6 +4954,10 @@ fn resolve_coord(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<&'static
     {
         return Ok(preferred);
     }
+    // coord_3d projects in its own module (`crate::coord3d`); layers draw on a flat panel.
+    if coord_spec.name == "3d" {
+        return Ok(&coord::Cartesian);
+    }
     match coord::coord(&coord_spec.name) {
         Some(coord) => Ok(coord),
         None => {
@@ -4935,7 +5034,10 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
                     matches!(options.name.as_deref(), Some("axis_mark" | "axis_nested"))
                 }
             };
+        // `labs(z=)` titles the z axis of coord_3d.
+        let is_z_title = key == "z" && space3d::is_3d(spec) && is_axis_title_only("x", guide);
         let built = is_axis_title_only(key, guide)
+            || is_z_title
             || is_axis_mark
             || (is_style && guide.is_built_style_guide());
         if !built {

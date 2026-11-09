@@ -15,6 +15,7 @@
 mod axis;
 pub mod axis_mark;
 pub mod axis_nested;
+pub mod box3d;
 mod colorbar;
 pub mod dendrogram;
 pub mod facet;

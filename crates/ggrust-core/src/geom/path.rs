@@ -52,6 +52,11 @@ impl Geom for PathGeom {
         &[Aesthetic::X, Aesthetic::Y]
     }
 
+    /// `z`: depth under `coord_3d` (see `crate::coord3d`).
+    fn optional_aesthetics(&self) -> &'static [Aesthetic] {
+        &[Aesthetic::Z]
+    }
+
     fn style_defaults(&self) -> &'static [(Aesthetic, StyleDefault)] {
         LINE_STYLE_DEFAULTS
     }

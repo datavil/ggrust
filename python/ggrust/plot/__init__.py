@@ -1,6 +1,6 @@
 """lets_plot-compatible plot specification API."""
 
-from ggrust.plot.coord import coord_cartesian, coord_fixed, coord_flip
+from ggrust.plot.coord import coord_3d, coord_cartesian, coord_fixed, coord_flip
 from ggrust.plot.core import aes, layer
 from ggrust.plot.dendrogram import (
     ClusterTree,
@@ -122,6 +122,7 @@ from ggrust.plot.scale import (
     scale_y_log10,
     scale_y_reverse,
     scale_y_time,
+    scale_z_continuous,
     xlim,
     ylim,
 )
@@ -253,6 +254,7 @@ __all__ = [
     "SupPlotsSpec",
     "aes",
     "arrow",
+    "coord_3d",
     "coord_cartesian",
     "coord_fixed",
     "coord_flip",
@@ -470,6 +472,7 @@ __all__ = [
     "scale_y_time",
     "scale_ysidex_continuous",
     "scale_ysidex_discrete",
+    "scale_z_continuous",
     "sec_axis",
     "stat_centroid",
     "stat_compare_means",

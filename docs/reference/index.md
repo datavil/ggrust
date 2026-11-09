@@ -148,6 +148,7 @@ Axes: breaks, labels, limits and transforms.
 |---|---|
 | [`scale_x_continuous()`](api/scale_x_continuous.md) | Continuous position scale x. |
 | [`scale_y_continuous()`](api/scale_y_continuous.md) | Continuous position scale y. See ``scale_x_continuous``. |
+| [`scale_z_continuous()`](api/scale_z_continuous.md) | Continuous position scale z: the vertical axis of ``coord_3d()``. |
 | [`sec_axis()`](api/sec_axis.md) | Add a secondary axis on the other side of a continuous position scale (ggplot2). |
 | [`dup_axis()`](api/dup_axis.md) | Copy the primary axis to the other side (ggplot2 ``dup_axis()``). |
 | [`derive()`](api/derive.md) | Take a secondary axis option from the primary axis (ggplot2 ``derive()``). |
@@ -369,6 +370,7 @@ Coordinate systems, and small multiples.
 | [`coord_cartesian()`](api/coord_cartesian.md) | Cartesian coordinates; limits zoom without dropping data. |
 | [`coord_fixed()`](api/coord_fixed.md) | Cartesian coordinates with a fixed aspect ratio. |
 | [`coord_flip()`](api/coord_flip.md) | Swap the x and y axes. |
+| [`coord_3d()`](api/coord_3d.md) | Show x, y and z in a static 3D view (ggrust only: lets-plot and ggplot2 have no 3D). |
 | [`facet_wrap()`](api/facet_wrap.md) | Wrap one panel per level of ``facets`` into rows. |
 | [`facet_grid()`](api/facet_grid.md) | Lay panels out in a grid: columns by ``x``, rows by ``y``. |
 

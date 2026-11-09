@@ -190,6 +190,7 @@ nav = [
     { "Position scales" = [
       "reference/api/scale_x_continuous.md",
       "reference/api/scale_y_continuous.md",
+      "reference/api/scale_z_continuous.md",
       "reference/api/sec_axis.md",
       "reference/api/dup_axis.md",
       "reference/api/derive.md",
@@ -341,6 +342,7 @@ nav = [
       "reference/api/coord_cartesian.md",
       "reference/api/coord_fixed.md",
       "reference/api/coord_flip.md",
+      "reference/api/coord_3d.md",
       "reference/api/facet_wrap.md",
       "reference/api/facet_grid.md",
     ] },

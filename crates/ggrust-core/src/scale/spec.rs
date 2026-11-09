@@ -21,6 +21,8 @@ pub struct PositionScales {
     pub x: AxisScaleSpec,
     /// Vertical axis.
     pub y: AxisScaleSpec,
+    /// Depth axis of `coord_3d` (`scale_z_continuous()`).
+    pub z: AxisScaleSpec,
     /// The x side panel's own y axis (ggside `scale_xsidey_*()`).
     pub xside_y: AxisScaleSpec,
     /// The y side panel's own x axis (ggside `scale_ysidex_*()`).
@@ -609,7 +611,7 @@ impl AxisScaleSpec {
 
 /// Read the x and y scale options; options not built yet are reported in `warnings`.
 pub fn position_scales(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<PositionScales> {
-    let mut merged: [AxisScaleSpec; 4] = Default::default();
+    let mut merged: [AxisScaleSpec; 5] = Default::default();
     let mut targeted: Vec<TargetedSideScale> = Vec::new();
     for (index, scale) in spec.scales.iter().enumerate() {
         let path = format!("scales[{index}]");
@@ -619,6 +621,7 @@ pub fn position_scales(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<Po
             let target = match (aesthetic, side, &side_target) {
                 (Aesthetic::X, None, _) => &mut merged[0],
                 (Aesthetic::Y, None, _) => &mut merged[1],
+                (Aesthetic::Z, None, _) => &mut merged[4],
                 (Aesthetic::Y, Some(true), Some(wanted))
                 | (Aesthetic::X, Some(false), Some(wanted)) => {
                     let at = match targeted.iter().position(|scale| scale.target == *wanted) {
@@ -688,10 +691,11 @@ pub fn position_scales(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<Po
             target.nested_guide = Some((options, format!("guides.{aesthetic}")));
         }
     }
-    let [x, y, xside_y, yside_x] = merged;
+    let [x, y, xside_y, yside_x, z] = merged;
     Ok(PositionScales {
         x,
         y,
+        z,
         xside_y,
         yside_x,
         targeted,

@@ -1,12 +1,14 @@
-"""Coordinate systems: ``coord_cartesian``, ``coord_fixed`` and ``coord_flip``.
+"""Coordinate systems: ``coord_cartesian``, ``coord_fixed``, ``coord_flip`` and ``coord_3d``.
 
 Ported from lets-plot's ``lets_plot/plot/coord.py`` (MIT, see THIRD_PARTY_NOTICES.md).
 """
 
 from __future__ import annotations
 
+import math
 from typing import TYPE_CHECKING
 
+from ggrust.errors import SpecError
 from ggrust.plot.core import FeatureSpec
 
 if TYPE_CHECKING:
@@ -14,7 +16,7 @@ if TYPE_CHECKING:
 
     from ggrust._typing import Number
 
-__all__ = ["coord_cartesian", "coord_fixed", "coord_flip"]
+__all__ = ["coord_3d", "coord_cartesian", "coord_fixed", "coord_flip"]
 
 
 def coord_cartesian(
@@ -102,3 +104,61 @@ def coord_flip(
     >>> plot = plot + coord_flip()
     """
     return FeatureSpec("coord", name="flip", xlim=xlim, ylim=ylim, flip=True)
+
+
+def coord_3d(
+    azimuth: Number = -60.0,
+    elevation: Number = 30.0,
+    perspective: bool = False,
+) -> FeatureSpec:
+    """Show x, y and z in a static 3D view (ggrust only: lets-plot and ggplot2 have no 3D).
+
+    Map ``z`` in ``aes()``. ``geom_point`` and ``geom_path`` draw in 3D; any other
+    geom raises ``SpecError``. Points (and paths, as whole lines) are drawn back
+    to front. The box is 4:4:3 and the default view is matplotlib's. Legends,
+    themes and facets work as in 2D; HTML output has no rotation, tooltips or zoom.
+
+    Parameters
+    ----------
+    azimuth : float, default -60.0
+        View angle around the z axis, in degrees (matplotlib ``azim``).
+    elevation : float, default 30.0
+        View angle above the x-y plane, in degrees (matplotlib ``elev``).
+    perspective : bool, default False
+        Perspective projection (the far side looks smaller) instead of
+        orthographic.
+
+    Returns
+    -------
+    FeatureSpec
+        The coordinate system.
+
+    Raises
+    ------
+    SpecError
+        If ``azimuth`` or ``elevation`` is not a finite number.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {
+    ...     "length": [5.1, 4.9, 6.4, 6.9, 6.3, 5.8],
+    ...     "width": [3.5, 3.0, 3.2, 3.1, 3.3, 2.7],
+    ...     "petal": [1.4, 1.4, 4.5, 4.9, 6.0, 5.1],
+    ...     "species": ["A", "A", "B", "B", "C", "C"],
+    ... }
+    >>> plot = ggplot(data, aes("length", "width", z="petal", color="species")) + geom_point()
+    >>> plot = plot + coord_3d(azimuth=-50, elevation=20)
+    """
+    for key, angle in (("azimuth", azimuth), ("elevation", elevation)):
+        if (
+            isinstance(angle, bool)
+            or not isinstance(angle, int | float)
+            or not math.isfinite(angle)
+        ):
+            raise SpecError(
+                f"coord_3d({key}=...): expected a finite angle in degrees, got {angle!r}"
+            )
+    return FeatureSpec(
+        "coord", name="3d", azimuth=azimuth, elevation=elevation, perspective=perspective
+    )

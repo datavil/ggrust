@@ -6,6 +6,7 @@
 pub mod build;
 pub mod cluster;
 pub mod coord;
+pub mod coord3d;
 pub mod data;
 pub mod density_outline;
 pub mod error;

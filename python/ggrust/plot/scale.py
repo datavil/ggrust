@@ -50,6 +50,7 @@ __all__ = [
     "scale_y_log10",
     "scale_y_reverse",
     "scale_y_time",
+    "scale_z_continuous",
     "xlim",
     "ylim",
 ]
@@ -354,6 +355,71 @@ def scale_y_continuous(
         format=format,
         position=position,
         sec_axis=_checked_sec_axis(sec_axis),
+    )
+
+
+def scale_z_continuous(
+    name: str | None = None,
+    *,
+    breaks: Breaks | None = None,
+    break_width: Number | None = None,
+    labels: Labels | None = None,
+    limits: Limits | None = None,
+    expand: Sequence[Number] | None = None,
+    na_value: Number | None = None,
+    trans: Transform | None = None,
+    format: str | None = None,
+) -> FeatureSpec:
+    """Continuous position scale z: the vertical axis of ``coord_3d()``.
+
+    Neither lets-plot nor ggplot2 has a z position scale; this one takes the
+    options of ``scale_x_continuous`` that make sense for the 3D box.
+
+    Parameters
+    ----------
+    name : str, optional
+        Axis title (``labs(z=...)`` takes precedence).
+    breaks : list of float, optional
+        Fixed break positions in data units; breaks outside the axis are dropped.
+    break_width : float, optional
+        Distance between breaks, in transformed units. ``breaks`` take precedence.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    limits : list, optional
+        ``[low, high]`` in data units; ``None`` leaves a side free.
+    expand : list, optional
+        ``[multiplicative]`` or ``[multiplicative, additive]`` expansion.
+    na_value : float, optional
+        Height where missing values, and values outside ``limits``, are drawn;
+        by default they are dropped.
+    trans : {'identity', 'log10', 'log2', 'sqrt', 'reverse'}, optional
+        Transformation of the data.
+    format : str, optional
+        Label format, as in ``scale_x_continuous``.
+
+    Returns
+    -------
+    FeatureSpec
+        Scale specification.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": [1, 2, 3, 4], "y": [2, 1, 4, 3], "height": [10, 40, 20, 30]}
+    >>> plot = ggplot(data, aes("x", "y", z="height")) + geom_point() + coord_3d()
+    >>> plot = plot + scale_z_continuous("Height (m)", breaks=[10, 20, 30, 40])
+    """
+    return _scale(
+        "z",
+        name=name,
+        breaks=breaks,
+        break_width=break_width,
+        labels=labels,
+        limits=limits,
+        expand=expand,
+        na_value=na_value,
+        trans=trans,
+        format=format,
     )
 
 

@@ -1,4 +1,4 @@
-//! Coordinate system: `coord_cartesian`, `coord_fixed`, `coord_flip`.
+//! Coordinate system: `coord_cartesian`, `coord_fixed`, `coord_flip`, `coord_3d`.
 
 use serde::Deserialize;
 
@@ -21,6 +21,15 @@ pub struct CoordSpec {
     /// Swap x and y.
     #[serde(default)]
     pub flip: bool,
+    /// `coord_3d`: view angle around the z axis, degrees.
+    #[serde(default)]
+    pub azimuth: Option<f64>,
+    /// `coord_3d`: view angle above the x-y plane, degrees.
+    #[serde(default)]
+    pub elevation: Option<f64>,
+    /// `coord_3d`: perspective projection instead of orthographic.
+    #[serde(default)]
+    pub perspective: Option<bool>,
     /// Keys no component consumes.
     #[serde(flatten)]
     pub unsupported: Options,

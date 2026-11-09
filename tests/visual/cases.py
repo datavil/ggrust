@@ -1051,6 +1051,35 @@ def streamline_scattered_groups(m):
     )
 
 
+def coord_3d_points_path(m):
+    # coord_3d (tier 1): colored clusters drawn back to front and a helix path, in
+    # the default (matplotlib) view.
+    random = np.random.default_rng(31)
+    centres = {"A": (5.0, 3.4, 1.5), "B": (6.0, 2.8, 4.3), "C": (6.6, 3.0, 5.6)}
+    frame = pl.DataFrame(
+        {
+            "length": np.concatenate([random.normal(c[0], 0.35, 60) for c in centres.values()]),
+            "width": np.concatenate([random.normal(c[1], 0.3, 60) for c in centres.values()]),
+            "petal": np.concatenate([random.normal(c[2], 0.4, 60) for c in centres.values()]),
+            "species": [name for name in centres for _ in range(60)],
+        }
+    )
+    turns = np.linspace(0, 4 * np.pi, 120)
+    helix = pl.DataFrame(
+        {
+            "length": 5.8 + 0.8 * np.cos(turns),
+            "width": 3.1 + 0.4 * np.sin(turns),
+            "petal": 1 + turns / (4 * np.pi) * 5,
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("length", "width", z="petal"))
+        + m.geom_path(data=helix, color="#9a9a9a")
+        + m.geom_point(m.aes(color="species"))
+        + m.coord_3d()
+    )
+
+
 EXTENSION_CASES = {
     case.__name__: case
     for case in [
@@ -1068,5 +1097,6 @@ EXTENSION_CASES = {
         dendro_runs_band_grid,
         streamline_wind_grid,
         streamline_scattered_groups,
+        coord_3d_points_path,
     ]
 }

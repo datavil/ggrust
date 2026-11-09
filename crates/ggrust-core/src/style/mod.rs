@@ -347,6 +347,36 @@ impl Styles {
         Styles { values }
     }
 
+    /// The given rows, in order: varying values are taken, uniform ones kept
+    /// (`coord_3d` draws rows back to front).
+    pub fn take(&self, rows: &[u32]) -> Styles {
+        fn pick<T: Clone>(items: &PerItem<T>, rows: &[u32]) -> PerItem<T> {
+            match items {
+                PerItem::Uniform(value) => PerItem::Uniform(value.clone()),
+                PerItem::Varying(values) => PerItem::Varying(
+                    rows.iter()
+                        .map(|&row| values[row as usize].clone())
+                        .collect(),
+                ),
+            }
+        }
+        let values = self
+            .values
+            .iter()
+            .map(|(aesthetic, values)| {
+                let taken = match values {
+                    StyleValues::Colors(items) => StyleValues::Colors(pick(items, rows)),
+                    StyleValues::Numbers(items) => StyleValues::Numbers(pick(items, rows)),
+                    StyleValues::Shapes(items) => StyleValues::Shapes(pick(items, rows)),
+                    StyleValues::Linetypes(items) => StyleValues::Linetypes(pick(items, rows)),
+                    StyleValues::Texts(items) => StyleValues::Texts(pick(items, rows)),
+                };
+                (*aesthetic, taken)
+            })
+            .collect();
+        Styles { values }
+    }
+
     /// Whether row `row` of `aesthetic` equals the first item of `value` (NaN
     /// equals NaN). False when the aesthetic is absent or the kinds differ.
     pub fn row_equals(&self, aesthetic: Aesthetic, row: usize, value: &StyleValues) -> bool {

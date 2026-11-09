@@ -50,6 +50,7 @@ GALLERY: dict[str, list[str]] = {
     "Ridgelines": ["ridges", "netflix_ridges", "unknown_pleasures"],
     "Labels, facets and grids": ["text_repel", "facets", "grid"],
     "Interactivity": ["tooltips", "many_points"],
+    "3D": ["surface"],
     "ggplot2 extensions": [
         "beeswarm",
         "compare_means",

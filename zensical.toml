@@ -175,6 +175,18 @@ nav = [
       "reference/api/position_stack.md",
       "reference/api/position_fill.md",
     ] },
+    { "Sampling" = [
+      "reference/api/sampling_random.md",
+      "reference/api/sampling_systematic.md",
+      "reference/api/sampling_fraction.md",
+      "reference/api/sampling_none.md",
+      "reference/api/sampling_random_stratified.md",
+      "reference/api/sampling_pick.md",
+      "reference/api/sampling_group_random.md",
+      "reference/api/sampling_group_systematic.md",
+      "reference/api/sampling_vertex_vw.md",
+      "reference/api/sampling_vertex_dp.md",
+    ] },
     { "Position scales" = [
       "reference/api/scale_x_continuous.md",
       "reference/api/scale_y_continuous.md",

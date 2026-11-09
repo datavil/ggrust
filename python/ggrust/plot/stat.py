@@ -68,8 +68,9 @@ def stat_summary(
         False hides this layer from the legend.
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -178,8 +179,9 @@ def stat_summary_bin(
         False hides this layer from the legend.
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -288,8 +290,9 @@ def stat_ecdf(
         False hides this layer from the legend.
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -483,8 +486,9 @@ def stat_sum(
         False hides this layer from the legend.
     inherit_aes : bool, optional
         False ignores the plot's default mapping for this layer.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).

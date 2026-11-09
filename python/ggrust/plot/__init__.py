@@ -92,6 +92,18 @@ from ggrust.plot.position import (
     position_stack,
 )
 from ggrust.plot.rasterize import rasterize
+from ggrust.plot.sampling import (
+    sampling_fraction,
+    sampling_group_random,
+    sampling_group_systematic,
+    sampling_none,
+    sampling_pick,
+    sampling_random,
+    sampling_random_stratified,
+    sampling_systematic,
+    sampling_vertex_dp,
+    sampling_vertex_vw,
+)
 from ggrust.plot.scale import (
     lims,
     scale_x_continuous,
@@ -372,6 +384,16 @@ __all__ = [
     "position_nudge",
     "position_stack",
     "rasterize",
+    "sampling_fraction",
+    "sampling_group_random",
+    "sampling_group_systematic",
+    "sampling_none",
+    "sampling_pick",
+    "sampling_random",
+    "sampling_random_stratified",
+    "sampling_systematic",
+    "sampling_vertex_dp",
+    "sampling_vertex_vw",
     "scale_alpha",
     "scale_alpha_identity",
     "scale_alpha_manual",

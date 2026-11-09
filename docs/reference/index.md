@@ -123,6 +123,23 @@ Arrange marks that would overlap.
 | [`position_stack()`](api/position_stack.md) | Stack overlapping objects on top of each other. |
 | [`position_fill()`](api/position_fill.md) | Stack overlapping objects and normalise each stack to height 1. |
 
+## Sampling
+
+Draw fewer rows of a large layer (ggrust draws every row by default).
+
+| Name | Description |
+|---|---|
+| [`sampling_random()`](api/sampling_random.md) | Keep ``n`` rows chosen at random. |
+| [`sampling_systematic()`](api/sampling_systematic.md) | Keep every k-th row, the smallest k that leaves at most ``n`` rows. |
+| [`sampling_fraction()`](api/sampling_fraction.md) | Keep a random share of the rows (ggrust extension, not in lets_plot). |
+| [`sampling_none()`](api/sampling_none.md) | Draw every row (no sampling). |
+| [`sampling_random_stratified()`](api/sampling_random_stratified.md) | lets_plot's stratified random sampling. Not applied by ggrust. |
+| [`sampling_pick()`](api/sampling_pick.md) | lets_plot's first-n sampling. Not applied by ggrust. |
+| [`sampling_group_random()`](api/sampling_group_random.md) | lets_plot's random sampling of whole groups. Not applied by ggrust. |
+| [`sampling_group_systematic()`](api/sampling_group_systematic.md) | lets_plot's systematic sampling of whole groups. Not applied by ggrust. |
+| [`sampling_vertex_vw()`](api/sampling_vertex_vw.md) | lets_plot's Visvalingam-Whyatt path simplification. Not applied by ggrust. |
+| [`sampling_vertex_dp()`](api/sampling_vertex_dp.md) | lets_plot's Douglas-Peucker path simplification. Not applied by ggrust. |
+
 ## Position scales
 
 Axes: breaks, labels, limits and transforms.

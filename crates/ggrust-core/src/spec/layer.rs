@@ -53,7 +53,7 @@ pub struct LayerSpec {
     /// Annotation labels, `layer_labels()`.
     #[serde(default)]
     pub labels: Option<TooltipsSpec>,
-    /// Sampling strategy. Accepted; currently unused.
+    /// `sampling=`: `"none"`, a sampler spec or a chain (see [`crate::sampling`]).
     #[serde(default)]
     pub sampling: Option<Value>,
     /// ggnewscale scale group per style aesthetic (`new_scale_color()` before the
@@ -101,13 +101,12 @@ impl LayerSpec {
     }
 
     pub(super) fn collect_unsupported(&self, parent: &str, found: &mut Vec<String>) {
-        // ggrust never samples, so only an explicit "none" matches what it does.
-        if self
-            .sampling
-            .as_ref()
-            .is_some_and(|sampling| sampling != "none")
-        {
-            found.push(join_path(parent, "sampling"));
+        // lets-plot samplers the engine skips (stratified, group, vertex).
+        if let Some(sampling) = &self.sampling {
+            found.extend(crate::sampling::unsupported_paths(
+                sampling,
+                &join_path(parent, "sampling"),
+            ));
         }
         self.data_meta
             .collect_unsupported(&join_path(parent, "data_meta"), found);

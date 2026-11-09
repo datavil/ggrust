@@ -33,6 +33,7 @@ use crate::layout::{
 use crate::parallel;
 use crate::parameters::Parameters;
 use crate::position::{self, Position};
+use crate::sampling::Sampling;
 use crate::scale::datetime::TemporalKind;
 use crate::scale::format::Label;
 use crate::scale::label_pattern::{LabelPattern, PatternValue};
@@ -2826,6 +2827,17 @@ fn compute_layer(
     if let (Some(visited), Some(rank)) = (&visited, &group_rank) {
         regroup_by_rank(&mut layer_data, visited, rank)?;
     }
+    // `sampling=`: on the stat output of this panel, as lets-plot samples.
+    let sampled_rows = match &spec.sampling {
+        Some(value) => {
+            let rows = Sampling::parse(value, &at("sampling"))?.keep(layer_data.row_count());
+            if let Some(rows) = &rows {
+                layer_data = layer_data.take(rows);
+            }
+            rows
+        }
+        None => None,
+    };
     // Aesthetics drawn from stat variables, which are in data units.
     let mut from_variables = BTreeSet::new();
     // Stat variables: the layer's `..name..` mappings, then the stat's defaults
@@ -2906,8 +2918,13 @@ fn compute_layer(
     // positions while drawing). Columns are shared, so this costs no copy.
     let unadjusted = layer_data.clone();
     // Data columns line up with the layer rows only when the stat kept them.
-    let tooltip_columns = match (is_identity, unadjusted.source_rows()) {
-        (true, SourceRows::All) => tooltip_columns,
+    // Sampling selects rows of the data columns too.
+    let tooltip_columns = match (is_identity, unadjusted.source_rows(), &sampled_rows) {
+        (true, SourceRows::All, None) => tooltip_columns,
+        (true, SourceRows::Selected(rows), Some(sampled)) if rows == sampled => tooltip_columns
+            .into_iter()
+            .map(|(name, column)| (name, column.take(sampled)))
+            .collect(),
         _ => Vec::new(),
     };
     let trains_unadjusted = positions

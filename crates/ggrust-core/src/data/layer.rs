@@ -303,6 +303,32 @@ impl LayerData {
         Ok(())
     }
 
+    /// The given rows, in order (sampling): every column, group and panel index.
+    /// Source rows follow the taken rows; aggregated rows stay aggregated.
+    pub fn take(&self, rows: &[u32]) -> LayerData {
+        let take_index = |index: &Vec<u32>| {
+            rows.iter()
+                .map(|&row| index[row as usize])
+                .collect::<Vec<_>>()
+        };
+        LayerData {
+            row_count: rows.len(),
+            columns: self
+                .columns
+                .iter()
+                .map(|(variable, column)| (*variable, column.take(rows)))
+                .collect(),
+            group_index: self.group_index.as_ref().map(take_index),
+            panel_index: self.panel_index.as_ref().map(take_index),
+            source_rows: match &self.source_rows {
+                SourceRows::All => SourceRows::Selected(rows.to_vec()),
+                SourceRows::Selected(sources) => SourceRows::Selected(take_index(sources)),
+                SourceRows::Aggregated => SourceRows::Aggregated,
+            },
+            discrete_axes: self.discrete_axes,
+        }
+    }
+
     fn check_length(&self, what: &str, length: usize) -> Result<()> {
         if length == self.row_count {
             return Ok(());
@@ -329,6 +355,26 @@ mod tests {
         }
         assert_eq!(Computed::from_mapping("count"), None);
         assert_eq!(Computed::from_mapping("..nope.."), None);
+    }
+
+    #[test]
+    fn take_keeps_rows_indices_and_sources() {
+        let mut data = LayerData::new(4);
+        let values = ContinuousColumn::from_values(vec![1.0, 2.0, 3.0, 4.0]);
+        data.insert(Aesthetic::X, Column::Continuous(values))
+            .unwrap();
+        data.set_group_index(Some(vec![0, 1, 0, 1])).unwrap();
+        data.set_panel_index(Some(vec![0, 0, 1, 1])).unwrap();
+        let taken = data.take(&[1, 3]);
+        assert_eq!(taken.row_count(), 2);
+        assert_eq!(taken.continuous(Aesthetic::X).unwrap().get(1), Some(4.0));
+        assert_eq!(taken.group_index(), Some(&[1, 1][..]));
+        assert_eq!(taken.panel_index(), Some(&[0, 1][..]));
+        assert_eq!(taken.source_rows(), &SourceRows::Selected(vec![1, 3]));
+        assert_eq!(
+            taken.take(&[1]).source_rows(),
+            &SourceRows::Selected(vec![3])
+        );
     }
 
     #[test]

@@ -6,6 +6,8 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Added
 
+- Working `sampling=` on layers: `sampling_random(n, seed=None)` and `sampling_systematic(n)` (lets_plot specs, ggrust's own row picks), `sampling_fraction(fraction, seed=None)` (ggrust extension: `0.2` keeps 20% of the rows), `sampling_none()` (returns `"none"`), chains joined with `+`, and `sampling=5000` as a shortcut for `sampling_random(5000)`. Sampling runs on each facet panel's stat output, as lets-plot. ggrust still never samples by default.
+- `sampling_random_stratified`, `sampling_pick`, `sampling_group_random`, `sampling_group_systematic`, `sampling_vertex_vw` and `sampling_vertex_dp` are exported so lets_plot code imports; rendering warns and skips them.
 - `geom_text` and `geom_label` take `label_format` (a number format such as `".3~f"` or a template such as `"{.1f} kg"` or `"{} items"`, also for text labels and constant `label=`), `na_text` (what a missing label shows, default `n/a`) and `check_overlap=True` (a label that touches one drawn before it in the same layer is skipped), as lets_plot. The periodic table example formats its atomic masses with `label_format` instead of rounding the data.
 - `stat_centroid(fun="mean"|"median")` and `stat_summary_xy(fun_x=, fun_y=)`, as the R package ggpp (`stat="centroid"` / `"summary_xy"` in any geom): one row per group and facet panel at the centre of its x and y. `geom_text(aes(label="cluster"), stat="centroid")` names each cluster at its centre instead of in a legend.
 - `geom_density2d(contour_var="density"|"ndensity"|"count")` and `geom_density2df(...)`, as ggplot2: contour the density, the density divided by its maximum (comparable across samples of different sizes) or the density times the number of points. lets_plot has no `contour_var`.
@@ -19,6 +21,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Changed
 
+- `sampling=` is applied instead of being ignored with a warning. `sampling={"name": "random", ...}` and `sampling_systematic(...)` now drop rows; invalid samplings raise `SpecError` (a float `sampling=0.2` raises `UnsupportedValueError` and suggests `sampling_fraction(0.2)`).
 - The default `linewidth` scale follows lets_plot 4.11: range 1..7 (was ggplot2's 1..6) and missing values drawn 1 unit wide (were not drawn). Plots that map `linewidth` draw slightly thicker lines.
 - Point shapes 19 and 20 grow with `stroke` like shape 21, as in ggplot2 (lets_plot ignores it, issue 1158). Shape 16, the default, is unchanged.
 - `GGBunch()` raises with a recipe for free layouts (`inset_element(..., align_to="full")` on an empty `ggplot()`); lets_plot's `ggbunch()` will not be ported (see deviations.md).

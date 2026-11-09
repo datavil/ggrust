@@ -43,7 +43,7 @@ def test_invalid_spec_raises_with_path():
 
 
 def test_unsupported_options_are_listed():
-    spec = {"kind": "plot", "layers": [{"geom": "point", "sampling": {"name": "random"}}]}
+    spec = {"kind": "plot", "layers": [{"geom": "point", "sampling": {"name": "pick", "n": 5}}]}
     assert validate_spec(json.dumps(spec)) == ["layers[0].sampling"]
 
 

@@ -60,8 +60,8 @@ Guide: TypeAlias = str | FeatureSpec
 ManualKey: TypeAlias = str | FeatureSpec
 """A manual legend key label, or a ``layer_key()`` spec."""
 
-Sampling: TypeAlias = str | FeatureSpec
-"""A lets_plot sampling spec (accepted and ignored: ggrust draws every row)."""
+Sampling: TypeAlias = Literal["none"] | int | FeatureSpec
+"""``"none"``, a row count ``n`` (``sampling_random(n)``) or a ``sampling_*()`` spec."""
 
 Tooltips: TypeAlias = Literal["none"] | FeatureSpec | Sequence[str]
 """``layer_tooltips()``, a list of column names, or ``"none"``."""

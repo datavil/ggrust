@@ -363,7 +363,7 @@ mod tests {
                 "figures": [{
                     "kind": "plot",
                     "future_option": true,
-                    "layers": [{"geom": "point", "sampling": {"name": "random"},
+                    "layers": [{"geom": "point", "sampling": {"name": "pick", "n": 5},
                                 "tooltips": {"lines": ["@x"], "sparkle": 1}}],
                     "theme": {"axis_text": {"size": 3, "glow": 1}},
                     "guides": {"color": {"name": "legend", "shimmer": 2}},

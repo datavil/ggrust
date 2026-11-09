@@ -98,6 +98,7 @@ def every_option(name):
             "map_join",  # GIS (out of scope): lets_plot rewrites it when added to a plot
             "tooltips",
             "arrow",
+            "sampling",  # validated at spec time; parity in tests/test_sampling.py
         ):
             options[parameter.name] = f"v{index}"
     return options

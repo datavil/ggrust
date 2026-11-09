@@ -25,6 +25,7 @@ pub mod parallel;
 pub mod parameters;
 pub mod position;
 pub mod render;
+pub mod sampling;
 pub mod scale;
 pub mod scene;
 pub mod spec;

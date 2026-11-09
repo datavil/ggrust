@@ -3,7 +3,7 @@
 Critical lessons: approaches that work, or that break things. One file per lesson.
 Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 
-- [lets-plot silently samples data](letsplot_default_sampling.md): points capped at 100k, text 5k, etc. Disable or match it in benchmarks.
+- [lets-plot silently samples data](letsplot_default_sampling.md): points capped at 100k, text 5k, etc. Disable with `sampling="none"` in benchmarks; ggrust samples only on request (11.1).
 - [cellestial reads PlotSpec internals](cellestial_spec_coupling.md): `as_dict()` layout, `FeatureSpec` classes and `+` semantics must match lets_plot.
 - [One build path: uv](build_single_path.md): never `uv run --no-sync` after `maturin develop`; it tests a stale extension (false green).
 - [lets-plot drops polars Categorical order](categorical_order_lets_plot.md): `factor_levels` only for ordered pandas / polars Enum / as_discrete. Read order from Arrow dictionaries; polars exports first appearance, only unordered pandas differs.

@@ -51,6 +51,7 @@ ggplot2 extension features (ggnewscale, ggbeeswarm, ...): [extensions.md](extens
 | Plot files (`.ggrs`) | Agreed with the user (2026-11-05): `ggsave(plot, "x.ggrs")` and `ggload("x.ggrs")` save and open the plot object itself (lets-plot and ggplot2 have no safe equivalent; R uses `saveRDS`). A zip: `manifest.json` (format version, SHA-256 + size per entry), `plot.json` (allowlisted ggrust classes as tagged JSON), `data/*.arrow` (Arrow IPC, restored as polars, pandas or pyarrow), `fonts/*` (registered fonts the plot names, embedded). Loading runs no code; callables (`sec_axis` transforms) refuse to save with the spec path (sampling them is for later); signing (Ed25519) is for later. Extension `.ggrs` only; names `ggsave`/`ggload`, no `save_plot` (user, 2026-11-06). See `memory/plot_files.md`. |
 | No `ggbunch()` | lets_plot's free layout is not ported (2026-11-09, user): `inset_element(plot, left, bottom, right, top, align_to="full")` on an empty `ggplot() + theme_void() + ggsize(w, h)` places plots by figure fractions with overlap, which covers it; `gggrid(design=)` covers non-overlapping free layouts. The `GGBunch` stub points there. |
 | HTML canvas threshold | Point batches with more than 5,000 drawable markers (2,000 for `ggtb()` plots) go to the HTML canvas, down from 50,000 (2026-11-06): mid-sized SVG scatters made HTML ~3x larger than lets-plot. See `memory/html_canvas_points.md` |
+| Sampling (2026-11-09) | No default sampling. `sampling=` works with `sampling_random`, `sampling_systematic`, ggrust's `sampling_fraction` and an int shortcut; picks are ggrust's own, not lets-plot's. lets_plot's other six samplers warn and are deferred until requested (step 11.1) |
 
 ## Scope: what cellestial actually uses
 
@@ -536,13 +537,15 @@ Kept only for lets-plot compatibility, reviewed with the user. Done: continuous 
 without `breaks` follow ggplot2 (deviation row); the `GGBunch` stub's message drops lets_plot;
 export docs say a unitless size is inches in both lets-plot and ggplot2.
 
-- [ ] 11.1 **Working `sampling=`** (user, 2026-11-09): every geom and stat honours `sampling=`,
-  default no sampling (unchanged). lets_plot 4.11's eight samplers, `+`-composable as in lets_plot:
-  `sampling_random`, `sampling_random_stratified`, `sampling_pick`, `sampling_systematic`,
-  `sampling_group_random`, `sampling_group_systematic`, `sampling_vertex_vw`,
-  `sampling_vertex_dp`. Picks match lets-plot (port its Kotlin RNG and the VW / DP simplifiers;
-  `memory/letsplot_jitter.md` has the XorWow port). Until then `sampling=` is accepted and
-  ignored (docs/migration.md says it warns; check). Own session.
+- [x] 11.1 **Working `sampling=`**, reduced scope (user, 2026-11-09): not the eight-sampler port
+  with lets-plot-identical picks. Done: `sampling_random(n, seed)` and `sampling_systematic(n)`
+  (lets_plot specs, ggrust's own picks), `sampling_fraction(fraction, seed)` (extension),
+  `sampling_none()` (returns `"none"`), `+` chains, `sampling=<int>` as `sampling_random(n)`.
+  Rust `sampling/` module (one file per sampler), applied per facet panel on the stat output as
+  lets-plot. Default stays no sampling. lets_plot's other six samplers (`random_stratified`,
+  `pick`, `group_random`, `group_systematic`, `vertex_vw`, `vertex_dp`) build their specs and
+  warn; deferred until requested. Open: a float shortcut (`sampling=0.2` as
+  `sampling_fraction(0.2)`) awaits the user's yes; today it raises.
 - [x] 11.2 Skipped (user, 2026-11-09): insets already do this; see the decisions table ("No `ggbunch()`"). Was: **`ggbunch(plots, regions)`**: lets_plot 4.11's free layout,
   plots placed by `(x, y, width, height)` regions in figure fractions, overlap allowed (not the
   same as `gggrid`). Then point the `GGBunch` stub's message at `ggbunch()`. Own session.

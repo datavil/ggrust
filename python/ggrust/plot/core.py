@@ -854,6 +854,10 @@ class LayerSpec(FeatureSpec):
         return LayerSpec(**other.props())
 
     def __init__(self, **kwargs: object) -> None:
+        if kwargs.get("sampling") is not None:
+            from ggrust.plot.sampling import resolve_sampling
+
+            kwargs["sampling"] = resolve_sampling(kwargs["sampling"])
         super().__init__("layer", name=None, **kwargs)
 
     def get_plot_layer_data(self) -> PlotData | None:

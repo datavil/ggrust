@@ -95,8 +95,9 @@ def geom_beeswarm(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"``.
     orientation : {"x", "y"}, optional
@@ -231,8 +232,9 @@ def geom_quasirandom(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"``.
     orientation : {"x", "y"}, optional

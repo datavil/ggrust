@@ -45,9 +45,13 @@ HTML. `GGBunch` is exported so code that names it still imports, but creating on
 allowed) add `inset_element(plot, left, bottom, right, top, align_to="full")` to an
 empty `ggplot() + theme_void()`. lets_plot's `ggbunch()` is not ported for the same reason.
 
-Options that ggrust accepts for compatibility but does not act on (for example a
-layer's `sampling`) raise a `GgrustWarning` that names the option, rather than being
-silently ignored.
+Options that ggrust accepts for compatibility but does not act on raise a
+`GgrustWarning` that names the option, rather than being silently ignored. For
+`sampling=` this concerns lets_plot's stratified, group and vertex samplers
+(`sampling_random_stratified`, `sampling_pick`, `sampling_group_random`,
+`sampling_group_systematic`, `sampling_vertex_vw`, `sampling_vertex_dp`): they build
+the lets_plot spec, then warn and draw every row. `sampling_random`,
+`sampling_systematic` and `sampling="none"` work.
 
 ## Differences in behavior
 
@@ -57,7 +61,14 @@ differences:
 
 - **No default sampling.** lets-plot silently samples large layers (for example points
   above 100,000 rows). ggrust draws every row; dense point layers in HTML are drawn on
-  a canvas, so they stay fast.
+  a canvas, so they stay fast. To draw fewer rows, ask for it: `sampling=5000` (a
+  shortcut for `sampling_random(5000)`), `sampling_systematic(n)`, or ggrust's
+  `sampling_fraction(0.2)` (20% of the rows). As in lets-plot, sampling runs on each
+  facet panel's stat output (a histogram samples its bins). `sampling_random` picks
+  other rows than lets-plot for the same seed; without a seed it uses a fixed one, so
+  renders repeat. `sampling_systematic(n)` keeps every `ceil(rows / n)`-th row, which
+  can be a few rows off lets-plot's count. `sampling_none()` returns `"none"`
+  (lets_plot has no such function; it writes `sampling="none"`).
 - **Unordered pandas categoricals** keep their category order (as in ggplot2). lets-plot
   uses first appearance. Polars `Categorical` (first appearance) and `Enum` (category
   order) match lets-plot.

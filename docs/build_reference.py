@@ -141,6 +141,21 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "position_fill",
         ],
     ),
+    "Sampling": (
+        "Draw fewer rows of a large layer (ggrust draws every row by default).",
+        [
+            "sampling_random",
+            "sampling_systematic",
+            "sampling_fraction",
+            "sampling_none",
+            "sampling_random_stratified",
+            "sampling_pick",
+            "sampling_group_random",
+            "sampling_group_systematic",
+            "sampling_vertex_vw",
+            "sampling_vertex_dp",
+        ],
+    ),
     "Position scales": (
         "Axes: breaks, labels, limits and transforms.",
         [

@@ -106,8 +106,9 @@ def geom_point(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -181,8 +182,9 @@ def geom_path(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -256,8 +258,9 @@ def geom_line(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -333,8 +336,9 @@ def geom_step(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -415,8 +419,9 @@ def geom_freqpoly(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -492,8 +497,9 @@ def geom_polygon(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -576,8 +582,9 @@ def geom_abline(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -659,8 +666,9 @@ def geom_hline(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -740,8 +748,9 @@ def geom_vline(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -823,8 +832,9 @@ def geom_errorbar(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -907,8 +917,9 @@ def geom_crossbar(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -998,8 +1009,9 @@ def geom_pointrange(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -1079,8 +1091,9 @@ def geom_linerange(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -1156,8 +1169,9 @@ def geom_segment(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -1247,8 +1261,9 @@ def geom_curve(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -1349,8 +1364,9 @@ def geom_text(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -1450,8 +1466,9 @@ def geom_label(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -1546,8 +1563,9 @@ def geom_blank(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     map : DataFrame or dict, optional
         Spatial data (lets_plot ``map``); not supported by ggrust yet.
     map_join : str or list of str, optional
@@ -1637,8 +1655,9 @@ def geom_bar(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -1725,8 +1744,9 @@ def geom_col(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -1821,8 +1841,9 @@ def geom_histogram(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     threshold : float, optional
         Densities under this value are not drawn.
     tooltips : FeatureSpec or list of str, optional
@@ -2155,8 +2176,9 @@ def geom_violin(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -2288,8 +2310,9 @@ def geom_sina(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -2417,8 +2440,9 @@ def geom_density(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -2538,8 +2562,9 @@ def geom_smooth(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -2646,8 +2671,9 @@ def geom_area(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -2842,8 +2868,9 @@ def geom_ribbon(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -2929,8 +2956,9 @@ def geom_area_ridges(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -3045,8 +3073,9 @@ def geom_count(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -3127,8 +3156,9 @@ def geom_jitter(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -3211,8 +3241,9 @@ def geom_tile(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -3303,8 +3334,9 @@ def geom_bin2d(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -3401,8 +3433,9 @@ def geom_hex(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -3502,8 +3535,9 @@ def geom_contour(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -3597,8 +3631,9 @@ def geom_contourf(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -3697,8 +3732,9 @@ def geom_density2d(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -3817,8 +3853,9 @@ def geom_density2df(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -3924,8 +3961,9 @@ def geom_raster(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     fill_by : str, optional
         Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
     na_rm : bool, optional
@@ -4000,8 +4038,9 @@ def geom_rect(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -4102,8 +4141,9 @@ def geom_bracket(
         False hides this layer from the legend.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     label_format : str, optional
         Format pattern of the label text, e.g. ``".2f"`` or ``"{d} %"``.
     na_text : str, optional
@@ -4218,8 +4258,9 @@ def geom_text_repel(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).
@@ -4379,8 +4420,9 @@ def geom_label_repel(
         False ignores the plot's default mapping for this layer.
     manual_key : str or FeatureSpec, optional
         This layer's key in a manual legend: a label, or ``layer_key()``.
-    sampling : str or FeatureSpec, optional
-        lets_plot sampling; accepted and ignored, as ggrust draws every row.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
     tooltips : FeatureSpec or list of str, optional
         Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
         tooltips (HTML output).

@@ -57,6 +57,7 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_ribbon()`](api/geom_ribbon.md) | Fill the band between ymin and ymax along x. |
 | [`geom_area_ridges()`](api/geom_area_ridges.md) | Ridgeline plot: one density curve per y level. |
 | [`geom_polygon()`](api/geom_polygon.md) | Draw filled polygons, one per group. |
+| [`geom_surface()`](api/geom_surface.md) | Draw a filled surface over an x-y grid, under ``coord_3d()`` (ggrust only). |
 | [`geom_rect()`](api/geom_rect.md) | Rectangles from ``xmin``, ``xmax``, ``ymin``, ``ymax``. |
 | [`geom_bar()`](api/geom_bar.md) | Bars, by default the count of rows per x (``stat="count"``), stacked. |
 | [`geom_col()`](api/geom_col.md) | Bars with heights taken from the data (ggplot2 ``geom_col``), stacked. |

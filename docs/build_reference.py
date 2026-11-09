@@ -78,6 +78,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "geom_ribbon",
             "geom_area_ridges",
             "geom_polygon",
+            "geom_surface",
             "geom_rect",
             "geom_bar",
             "geom_col",

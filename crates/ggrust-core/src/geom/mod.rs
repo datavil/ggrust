@@ -49,6 +49,7 @@ mod size_unit;
 mod smooth;
 mod step;
 mod streamline;
+pub mod surface;
 mod text;
 mod tile;
 mod violin;
@@ -87,6 +88,7 @@ pub use slab::SlabGeom;
 pub use smooth::SmoothGeom;
 pub use step::StepGeom;
 pub use streamline::StreamlineGeom;
+pub use surface::SurfaceGeom;
 pub use text::{LabelGeom, TextGeom};
 pub use tile::TileGeom;
 pub use violin::ViolinGeom;
@@ -233,6 +235,7 @@ pub static GEOMS: &[&dyn Geom] = &[
     &RugGeom,
     &CurveGeom,
     &PolygonGeom,
+    &SurfaceGeom,
     &VerticalLineGeom,
     &HorizontalLineGeom,
     &AbLineGeom,

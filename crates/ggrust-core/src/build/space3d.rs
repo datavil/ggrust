@@ -12,7 +12,7 @@ use super::{PreparedLayer, axis_title, layer_stat, merged_mapping};
 use crate::coord::{Cartesian, Panel};
 use crate::coord3d::{self, Projector, Scales3d, View, identity_scale};
 use crate::data::Column;
-use crate::geom::DrawLayer;
+use crate::geom::{DrawLayer, surface};
 use crate::layout::Titles;
 use crate::layout::box3d::{self, Titles3d};
 use crate::parameters::Parameters;
@@ -44,6 +44,12 @@ pub(super) fn check_layers(spec: &PlotSpec, warnings: &mut Vec<String>) -> Resul
     for (index, layer) in spec.layers.iter().enumerate() {
         let maps_z = merged_mapping(spec, layer).0.contains_key(&Aesthetic::Z);
         let draws_3d = coord3d::GEOMS.contains(&layer.geom.as_str());
+        if !three_d && layer.geom == "surface" {
+            return Err(Error::spec(
+                format!("layers[{index}].geom"),
+                "geom_surface draws only under coord_3d(); add coord_3d() to the plot",
+            ));
+        }
         if three_d && !draws_3d {
             return Err(Error::spec(
                 format!("layers[{index}].geom"),
@@ -205,6 +211,22 @@ pub(super) fn draw_tile(
         flipped: false,
     };
     for layer in layers.iter().filter(|layer| layer.band.is_none()) {
+        if layer.geom.name() == "surface" {
+            let draw_layer = DrawLayer {
+                data: &layer.data,
+                styles: &layer.styles,
+                parameters: Parameters::new(&layer.options, &layer.path),
+                background,
+            };
+            nodes.push(Node::Group(Group {
+                key: None,
+                clip: None,
+                role: Some(LAYER_ROLE),
+                anchor: None,
+                nodes: surface::draw_3d(&draw_layer, &scales, &projector, &layer.path)?,
+            }));
+            continue;
+        }
         let by_group = layer.geom.name() == "path";
         let (data, styles) = coord3d::project_layer(
             &layer.data,

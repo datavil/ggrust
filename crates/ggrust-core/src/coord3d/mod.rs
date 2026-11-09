@@ -11,7 +11,9 @@
 //! azimuth and elevation in degrees (default -60 and 30), a 4:4:3 box, an
 //! orthographic projection unless `perspective=True`. See deviations.md.
 //!
-//! What it does not do: rotation in HTML, surfaces, depth sorting across layers
+//! `geom_surface` (`crate::geom::surface`) sorts its own cells.
+//!
+//! What it does not do: rotation in HTML, depth sorting across layers
 //! (layers stack in layer order), splitting a path to sort its segments.
 
 use crate::data::{Column, ContinuousColumn, LayerData};
@@ -30,7 +32,7 @@ pub const DEFAULT_AZIMUTH: f64 = -60.0;
 /// Default elevation in degrees.
 pub const DEFAULT_ELEVATION: f64 = 30.0;
 /// Geoms that draw under `coord_3d`.
-pub const GEOMS: &[&str] = &["point", "path"];
+pub const GEOMS: &[&str] = &["point", "path", "surface"];
 
 /// The camera of a `coord_3d` plot.
 #[derive(Debug, Clone, Copy, PartialEq)]

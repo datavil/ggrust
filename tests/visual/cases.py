@@ -1080,6 +1080,20 @@ def coord_3d_points_path(m):
     )
 
 
+def coord_3d_surface(m):
+    # geom_surface: matplotlib's sin(r) surface example, cells far to near,
+    # filled by the mean height of their corners.
+    axis = np.linspace(-10, 10, 30)
+    x, y = np.meshgrid(axis, axis)
+    frame = pl.DataFrame({"x": x.ravel(), "y": y.ravel(), "z": np.sin(np.hypot(x, y)).ravel()})
+    return (
+        m.ggplot(frame, m.aes("x", "y", z="z", fill="z"))
+        + m.geom_surface(alpha=0.8)
+        + m.scale_fill_gradient(low="#00FFFF", high="#FF00FF")
+        + m.coord_3d()
+    )
+
+
 EXTENSION_CASES = {
     case.__name__: case
     for case in [
@@ -1098,5 +1112,6 @@ EXTENSION_CASES = {
         streamline_wind_grid,
         streamline_scattered_groups,
         coord_3d_points_path,
+        coord_3d_surface,
     ]
 }

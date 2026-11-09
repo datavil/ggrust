@@ -64,6 +64,7 @@ __all__ = [
     "geom_sina",
     "geom_smooth",
     "geom_step",
+    "geom_surface",
     "geom_text",
     "geom_text_repel",
     "geom_tile",
@@ -539,6 +540,76 @@ def geom_polygon(
         tooltips=tooltips,
         color_by=color_by,
         fill_by=fill_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
+def geom_surface(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Draw a filled surface over an x-y grid, under ``coord_3d()`` (ggrust only).
+
+    The rows are the grid's vertices: a meshgrid flattened, in any order (one row
+    per x, y pair, with its ``z``). Each grid cell whose four corners have a ``z``
+    is drawn as one quad, far cells first, so nearer cells hide farther ones. A
+    cell's fill is the mean of its corners' fills: map ``fill="z"`` to colour the
+    surface by height, as matplotlib's ``plot_surface(cmap=...)``. Lets-plot and
+    ggplot2 have no surface geom.
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``: ``x``, ``y`` and ``z`` are required.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        This layer's key in a manual legend: a label, or ``layer_key()``.
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed
+        with a warning. Cells with a missing corner are left out.
+    **other_args
+        Constant aesthetics: ``fill``, ``color`` (cell outline, default white),
+        ``size`` (outline width, default 0.2; ``0`` draws none), ``alpha``,
+        ``linetype``.
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Raises
+    ------
+    SpecError
+        When rendering: without ``coord_3d()``, or when x and y are not on a grid.
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from ggrust import *
+    >>> x, y = np.meshgrid(np.linspace(-10, 10, 40), np.linspace(-10, 10, 40))
+    >>> data = {"x": x.ravel(), "y": y.ravel(), "z": np.sin(np.hypot(x, y)).ravel()}
+    >>> plot = ggplot(data, aes("x", "y", z="z", fill="z")) + geom_surface(alpha=0.8)
+    >>> plot = plot + scale_fill_gradient(low="#00FFFF", high="#FF00FF") + coord_3d()
+    """
+    return _geom(
+        "surface",
+        mapping=mapping,
+        data=data,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        manual_key=manual_key,
         na_rm=na_rm,
         **other_args,
     )

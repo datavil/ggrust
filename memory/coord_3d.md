@@ -20,5 +20,11 @@ Static 3D (tier 1) without touching the 2D `Coord` trait or any renderer.
   boxes, 2 often leaves one label in range.
 - `interaction()` returns early for 3D (hover targets would use the flat panel).
 
+- **geom_surface draws itself** (`geom::surface::draw_3d`, called from
+  `space3d::draw_tile`): cells need 3D depth, which the flat-panel 2D path loses.
+  Its 2D `Geom::draw` errors. Grid = distinct x and y values (exact equality), a
+  guard rejects scattered data (cells > 4 x rows). Mean-depth painter's sort leaves
+  small artifacts on steep surfaces, as matplotlib's does.
+
 Recorded deviations: deviations.md rows "3D ...". Tests: `tests/test_coord_3d.py`,
 golden `coord_3d_points_path`.

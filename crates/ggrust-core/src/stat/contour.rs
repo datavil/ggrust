@@ -19,7 +19,8 @@
 //!   shared edges match exactly.
 //!
 //! Levels: `bins` (default 10) equal steps over the z range, or `binwidth` steps,
-//! each shifted half a step up (lets-plot `computeLevels`). `..level..` of a line is
+//! each shifted half a step up (lets-plot `computeLevels`); explicit `breaks` win
+//! over both (ggplot2), and then bands lie only between two breaks. `..level..` of a line is
 //! its level; of a band, lets-plot's fill level: the z minimum (lowest band), the
 //! mean of its two levels, or the z maximum (highest band). Bands fill by
 //! `..level..` by default, as ggplot2 (lets-plot draws them all in one blue).
@@ -33,7 +34,7 @@ use crate::data::{Computed, ContinuousColumn, LayerData, Variable};
 use crate::parallel;
 use crate::parameters::Parameters;
 use crate::scale::breaks::is_degenerate_range;
-use crate::spec::Aesthetic;
+use crate::spec::{Aesthetic, Value};
 use crate::{Error, Result};
 use ahash::AHashMap;
 
@@ -55,7 +56,7 @@ impl Stat for ContourStat {
     }
 
     fn parameters(&self) -> &'static [&'static str] {
-        &["bins", "binwidth"]
+        &["bins", "binwidth", "breaks"]
     }
 
     fn aesthetics(&self) -> &'static [Aesthetic] {
@@ -172,12 +173,15 @@ pub(super) fn contour_columns(pieces: Vec<Piece>) -> (GroupColumns, Option<Vec<u
     )
 }
 
-/// `bins` and `binwidth` (lets-plot `BinStatUtil.BinOptions` for levels).
-#[derive(Clone, Copy, Debug)]
+/// `bins`, `binwidth` (lets-plot `BinStatUtil.BinOptions` for levels) and `breaks`
+/// (ggplot2).
+#[derive(Clone, Debug)]
 pub(super) struct LevelOptions {
     count: usize,
     /// Positive, or `None`.
     width: Option<f64>,
+    /// Explicit levels, ascending and distinct; win over `count` and `width`.
+    breaks: Option<Vec<f64>>,
 }
 
 impl LevelOptions {
@@ -188,11 +192,56 @@ impl LevelOptions {
         // As lets-plot: an integer clamped to 1..500.
         let count = (count.trunc().max(1.0) as usize).min(MAX_BIN_COUNT);
         let width = parameters.number("binwidth")?.filter(|width| *width > 0.0);
-        Ok(LevelOptions { count, width })
+        let breaks = parameters
+            .value("breaks")
+            .map(|value| {
+                let invalid = || {
+                    Error::spec(
+                        parameters.path_of("breaks"),
+                        format!(
+                            "expected a non-empty list of finite numbers (the contour levels), \
+                             got {value}; pass e.g. breaks=[0.01, 0.02, 0.05]"
+                        ),
+                    )
+                };
+                let Value::Array(items) = value else {
+                    return Err(invalid());
+                };
+                let mut breaks: Vec<f64> = items
+                    .iter()
+                    .map(|item| item.as_f64().filter(|number| number.is_finite()))
+                    .collect::<Option<_>>()
+                    .ok_or_else(invalid)?;
+                if breaks.is_empty() {
+                    return Err(invalid());
+                }
+                if breaks.len() > MAX_BIN_COUNT {
+                    return Err(Error::spec(
+                        parameters.path_of("breaks"),
+                        format!(
+                            "at most {MAX_BIN_COUNT} contour levels, got {}; pass fewer breaks",
+                            breaks.len()
+                        ),
+                    ));
+                }
+                breaks.sort_by(f64::total_cmp);
+                breaks.dedup();
+                Ok(breaks)
+            })
+            .transpose()?;
+        Ok(LevelOptions {
+            count,
+            width,
+            breaks,
+        })
     }
 
-    /// lets-plot `computeLevels`: `None` for a degenerate z range.
+    /// The levels: `breaks` as given, else lets-plot `computeLevels` (`None` for a
+    /// degenerate z range).
     pub(super) fn levels(&self, (low, high): (f64, f64)) -> Option<Vec<f64>> {
+        if let Some(breaks) = &self.breaks {
+            return Some(breaks.clone());
+        }
         if is_degenerate_range(low, high) {
             return None;
         }
@@ -349,8 +398,13 @@ impl Grid {
         fill_levels.extend(levels.windows(2).map(|pair| (pair[0] + pair[1]) / 2.0));
         fill_levels.push(z_high);
         let cells = Cells::new(self);
-        let first = usize::from(!lowest);
-        let bands: Vec<usize> = (first..=levels.len()).collect();
+        // Explicit breaks bound every band on both sides (ggplot2): nothing below the
+        // first break or above the last is filled.
+        let bands: Vec<usize> = if options.breaks.is_some() {
+            (1..levels.len()).collect()
+        } else {
+            (usize::from(!lowest)..=levels.len()).collect()
+        };
         let parallel = parallel::is_worth(self.z.len() * bands.len());
         let pieces = parallel::ordered_map(bands, parallel, |band| Piece {
             points: cells.isoband(band, &levels),
@@ -800,7 +854,11 @@ mod tests {
     }
 
     fn options(count: usize) -> LevelOptions {
-        LevelOptions { count, width: None }
+        LevelOptions {
+            count,
+            width: None,
+            breaks: None,
+        }
     }
 
     /// Signed area of rings stored one after another (each closed).
@@ -831,9 +889,58 @@ mod tests {
         let by_width = LevelOptions {
             count: 10,
             width: Some(3.0),
+            breaks: None,
         };
         assert_eq!(by_width.levels((0.0, 8.0)).unwrap(), vec![1.5, 4.5, 7.5]);
         assert!(options(10).levels((2.0, 2.0)).is_none());
+    }
+
+    fn parse_levels(options: &str) -> Result<LevelOptions> {
+        let options: crate::spec::Options = serde_json::from_str(options).unwrap();
+        LevelOptions::from_parameters(&Parameters::new(&options, "layers[0]"))
+    }
+
+    #[test]
+    fn breaks_win_over_bins_and_binwidth() {
+        let options =
+            parse_levels(r#"{"bins": 3, "binwidth": 2, "breaks": [5, 1, 3, 3]}"#).unwrap();
+        // Sorted and distinct; kept even for a flat z range (ggplot2).
+        assert_eq!(options.levels((0.0, 8.0)).unwrap(), vec![1.0, 3.0, 5.0]);
+        assert_eq!(options.levels((2.0, 2.0)).unwrap(), vec![1.0, 3.0, 5.0]);
+        for bad in [
+            r#"{"breaks": []}"#,
+            r#"{"breaks": 0.5}"#,
+            r#"{"breaks": [1, "a"]}"#,
+        ] {
+            let error = parse_levels(bad).unwrap_err().to_string();
+            assert!(error.contains("layers[0].breaks"), "{error}");
+            assert!(error.contains("list of finite numbers"), "{error}");
+        }
+        let many: Vec<usize> = (0..=MAX_BIN_COUNT).collect();
+        let error = parse_levels(&format!(r#"{{"breaks": {many:?}}}"#))
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("at most 500 contour levels"), "{error}");
+    }
+
+    #[test]
+    fn breaks_bound_every_band() {
+        let grid = Grid::from_nodes(&surface(101, |x, y| (x * x + y * y).sqrt()))
+            .unwrap()
+            .unwrap();
+        let options = parse_levels(r#"{"breaks": [0.5, 1.0, 1.5]}"#).unwrap();
+        // Two bands, both rings between two breaks; nothing below 0.5 or above 1.5.
+        let bands = grid.bands(&options, true);
+        let levels: Vec<f64> = bands.iter().map(|band| band.level).collect();
+        assert_eq!(levels, vec![0.75, 1.25]);
+        let area: f64 = rings(&bands[0].points)
+            .iter()
+            .map(|ring| signed_area(ring))
+            .sum();
+        let expected = std::f64::consts::PI * (1.0 - 0.25);
+        assert!((area - expected).abs() < 0.01, "{area} vs {expected}");
+        // 1.5 is beyond the grid corners (radius sqrt 2): no line.
+        assert_eq!(grid.lines(&options).len(), 2);
     }
 
     #[test]
@@ -947,6 +1054,7 @@ mod tests {
             &LevelOptions {
                 count: 1,
                 width: Some(0.5),
+                breaks: None,
             },
             true,
         );

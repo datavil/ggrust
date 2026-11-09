@@ -10,6 +10,11 @@
 //! for `density2df`, which leaves out the band below the first level (lets-plot)
 //! and fills by `..level..` by default (ggplot2).
 //!
+//! `contour_var` picks what is contoured, as ggplot2: `"density"` (default),
+//! `"ndensity"` (density / its maximum, per group) or `"count"` (density x the
+//! number of points, or their summed weights). `breaks` sets the levels in those
+//! units (`contour.rs`).
+//!
 //! What it does not do: `contour=False` raw density output (lets_plot's Python API
 //! does not expose it).
 
@@ -45,7 +50,16 @@ impl Stat for Density2dStat {
     }
 
     fn parameters(&self) -> &'static [&'static str] {
-        &["kernel", "adjust", "bw", "n", "bins", "binwidth"]
+        &[
+            "kernel",
+            "adjust",
+            "bw",
+            "n",
+            "bins",
+            "binwidth",
+            "breaks",
+            "contour_var",
+        ]
     }
 
     fn aesthetics(&self) -> &'static [Aesthetic] {
@@ -107,6 +121,7 @@ fn compute(
 ) -> Result<LayerData> {
     let options = Density2dOptions::from_parameters(parameters)?;
     let levels = LevelOptions::from_parameters(parameters)?;
+    let contour_var = ContourVar::from_parameters(parameters)?;
     let empty = ContinuousColumn::from_values(Vec::new());
     let x = data.continuous(Aesthetic::X).unwrap_or(&empty);
     let y = data.continuous(Aesthetic::Y).unwrap_or(&empty);
@@ -128,7 +143,7 @@ fn compute(
         };
         let x_steps = step_values(x_range.0, x_range.1, options.x_count);
         let y_steps = step_values(y_range.0, y_range.1, options.y_count);
-        let z = options.density(&points, &x_steps, &y_steps);
+        let z = contour_var.of(options.density(&points, &x_steps, &y_steps), &points);
         let grid = Grid::new(x_steps, y_steps, z);
         let pieces = if filled {
             grid.bands(&levels, false)
@@ -137,6 +152,58 @@ fn compute(
         };
         Ok(contour_columns(pieces))
     })
+}
+
+/// `contour_var`: what the contours are levels of (ggplot2).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ContourVar {
+    /// The density estimate (default; lets-plot's only choice).
+    Density,
+    /// Density divided by its maximum over the group's grid.
+    NormalizedDensity,
+    /// Density times the number of points (the summed weights, with `weight`).
+    Count,
+}
+
+impl ContourVar {
+    fn from_parameters(parameters: &Parameters) -> Result<Self> {
+        let Some(value) = parameters.value("contour_var") else {
+            return Ok(ContourVar::Density);
+        };
+        match value.as_str() {
+            Some("density") => Ok(ContourVar::Density),
+            Some("ndensity") => Ok(ContourVar::NormalizedDensity),
+            Some("count") => Ok(ContourVar::Count),
+            other => Err(Error::spec(
+                parameters.path_of("contour_var"),
+                format!(
+                    "expected one of 'density', 'ndensity' (density / its maximum) or \
+                     'count' (density x number of points), got {value}{}",
+                    other
+                        .map(|name| crate::suggest::did_you_mean(
+                            name,
+                            ["density", "ndensity", "count"]
+                        ))
+                        .unwrap_or_default()
+                ),
+            )),
+        }
+    }
+
+    /// The contoured grid from the density grid of `points`.
+    fn of(self, mut density: Vec<f64>, points: &[(f64, f64, f64)]) -> Vec<f64> {
+        let factor = match self {
+            ContourVar::Density => return density,
+            ContourVar::NormalizedDensity => {
+                1.0 / density.iter().copied().fold(f64::NEG_INFINITY, f64::max)
+            }
+            ContourVar::Count => points.iter().map(|point| point.2).sum(),
+        };
+        for cell in &mut density {
+            *cell *= factor;
+        }
+        density
+    }
 }
 
 /// `kernel`, `adjust`, `bw` and `n`.
@@ -328,6 +395,25 @@ mod tests {
     fn parse(options: &str) -> Result<Density2dOptions> {
         let options: crate::spec::Options = serde_json::from_str(options).unwrap();
         Density2dOptions::from_parameters(&Parameters::new(&options, "layers[0]"))
+    }
+
+    #[test]
+    fn contour_var_scales_the_density() {
+        let density = vec![0.5, 2.0, 1.0];
+        let points = [(0.0, 0.0, 1.0), (1.0, 1.0, 2.0)];
+        assert_eq!(ContourVar::Density.of(density.clone(), &points), density);
+        assert_eq!(
+            ContourVar::NormalizedDensity.of(density.clone(), &points),
+            vec![0.25, 1.0, 0.5]
+        );
+        assert_eq!(ContourVar::Count.of(density, &points), vec![1.5, 6.0, 3.0]);
+        let options: crate::spec::Options =
+            serde_json::from_str(r#"{"contour_var": "counts"}"#).unwrap();
+        let error = ContourVar::from_parameters(&Parameters::new(&options, "layers[0]"))
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("layers[0].contour_var"), "{error}");
+        assert!(error.contains("did you mean 'count'?"), "{error}");
     }
 
     #[test]

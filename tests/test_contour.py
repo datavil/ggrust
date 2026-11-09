@@ -7,13 +7,16 @@ geometry by area in data space.
 """
 
 import inspect
+import json
 import re
 import warnings
 from collections.abc import Callable
 from pathlib import Path
 from types import ModuleType
+from typing import Any
 
 import numpy as np
+import polars as pl
 import pytest
 
 warnings.filterwarnings("ignore", category=SyntaxWarning)
@@ -151,10 +154,12 @@ def test_lines_default_style_matches_lets_plot() -> None:
 
 
 def test_signatures_match_lets_plot() -> None:
+    # ggplot2's breaks and contour_var are ggrust extensions (deviations.md).
+    extensions = {"breaks", "contour_var"}
     for name in ("geom_contour", "geom_contourf", "geom_density2d", "geom_density2df"):
         ours = list(inspect.signature(getattr(gg, name)).parameters)
         theirs = list(inspect.signature(getattr(lp, name)).parameters)
-        assert ours == theirs
+        assert [parameter for parameter in ours if parameter not in extensions] == theirs
 
 
 def test_spec_matches_lets_plot() -> None:
@@ -251,3 +256,78 @@ def test_bands_fill_by_level_by_default(geom: str) -> None:
     fills = {fill for _, vertices, fill in _paths(constant) if vertices > 5}
     assert fills == {"#118ed8"}
     assert "level" not in _texts(constant)
+
+
+DENSITY2D_REFERENCE = json.loads(
+    (Path(__file__).parent / "fixtures" / "density2d_reference.json").read_text()
+)
+
+
+@pytest.mark.parametrize("case", DENSITY2D_REFERENCE["cases"], ids=lambda case: case["contour_var"])
+def test_contour_var_and_breaks_match_ggplot2(case: dict[str, Any]) -> None:
+    # ggplot2's kde2d with MASS::bandwidth.nrd: a normal kernel with sd h / 4.
+    data = {"x": DENSITY2D_REFERENCE["x"], "y": DENSITY2D_REFERENCE["y"]}
+    bw = [h / 4 for h in DENSITY2D_REFERENCE["h"]]
+    options = {"contour_var": case["contour_var"], "breaks": case["breaks"], "bw": bw}
+    lines = (gg.ggplot(data, gg.aes("x", "y")) + gg.geom_density2d(**options)).layer_data(0)
+    by_level = lines.group_by("level", maintain_order=True).agg(
+        pl.col("group").n_unique().alias("pieces"),
+        pl.col("x").min().alias("xmin"),
+        pl.col("x").max().alias("xmax"),
+        pl.col("y").min().alias("ymin"),
+        pl.col("y").max().alias("ymax"),
+    )
+    assert by_level.height == len(case["lines"])
+    for ours, theirs in zip(by_level.iter_rows(named=True), case["lines"], strict=True):
+        assert ours["level"] == pytest.approx(theirs["level"])
+        assert ours["pieces"] == theirs["pieces"]
+        for key in ("xmin", "xmax", "ymin", "ymax"):
+            assert ours[key] == pytest.approx(theirs[key], abs=1e-4), key
+    bands = (gg.ggplot(data, gg.aes("x", "y")) + gg.geom_density2df(**options)).layer_data(0)
+    assert sorted(bands["level"].unique().to_list()) == pytest.approx(case["bands"])
+
+
+def test_default_contour_var_is_the_density() -> None:
+    base = gg.ggplot(FAITHFUL, gg.aes("eruptions", "waiting"))
+    for geom in (gg.geom_density2d, gg.geom_density2df):
+        default = (base + geom()).layer_data(0)
+        explicit = (base + geom(contour_var="density")).layer_data(0)
+        assert default.equals(explicit)
+
+
+def test_ndensity_compares_groups_of_different_spreads() -> None:
+    # The same shape at twice the scale has a quarter of the peak density: its half
+    # maximum (ndensity 0.5) contour is the first one scaled by 2.
+    rng = np.random.default_rng(3)
+    small = rng.normal(0, 1, size=(300, 2))
+    both = np.vstack([small, 2 * small])
+    data = {"x": both[:, 0].tolist(), "y": both[:, 1].tolist(), "sample": ["a"] * 300 + ["b"] * 300}
+    plot = gg.ggplot(data, gg.aes("x", "y", color="sample")) + gg.geom_density2d(
+        contour_var="ndensity", breaks=[0.5]
+    )
+    boxes = (
+        plot.layer_data(0)
+        .group_by("color")
+        .agg(pl.col("x").min().alias("xmin"), pl.col("x").max().alias("xmax"))
+        .sort("color")
+    )
+    step = (both[:, 0].max() - both[:, 0].min()) / 99
+    assert boxes["xmin"][1] == pytest.approx(2 * boxes["xmin"][0], abs=2 * step)
+    assert boxes["xmax"][1] == pytest.approx(2 * boxes["xmax"][0], abs=2 * step)
+
+
+def test_contour_breaks_set_the_levels() -> None:
+    plot = gg.ggplot(GRID, gg.aes("x", "y", z="z")) + gg.geom_contour(
+        bins=3, breaks=[0.2, 0.4, 0.6]
+    )
+    assert sorted(plot.layer_data(0)["level"].unique().to_list()) == pytest.approx([0.2, 0.4, 0.6])
+    bands = gg.ggplot(GRID, gg.aes("x", "y", z="z")) + gg.geom_contourf(breaks=[0.2, 0.4, 0.6])
+    assert sorted(bands.layer_data(0)["level"].unique().to_list()) == pytest.approx([0.3, 0.5])
+
+
+def test_bad_contour_var_and_breaks_name_the_parameter() -> None:
+    base = gg.ggplot(FAITHFUL, gg.aes("eruptions", "waiting"))
+    with pytest.raises(SpecError, match=r"layers\[0\]\.contour_var.*did you mean 'count'"):
+        (base + gg.geom_density2d(contour_var="counts")).to_svg()  # ty: ignore[invalid-argument-type]
+    with pytest.raises(SpecError, match=r"layers\[0\]\.breaks.*list of finite numbers"):
+        (base + gg.geom_density2df(breaks=[])).to_svg()

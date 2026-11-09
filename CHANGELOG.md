@@ -6,6 +6,8 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Added
 
+- `geom_density2d(contour_var="density"|"ndensity"|"count")` and `geom_density2df(...)`, as ggplot2: contour the density, the density divided by its maximum (comparable across samples of different sizes) or the density times the number of points. lets_plot has no `contour_var`.
+- `breaks=[...]` on `geom_density2d`, `geom_density2df`, `geom_contour` and `geom_contourf`: explicit contour levels (in `contour_var` units), winning over `bins` and `binwidth`; bands are drawn only between two breaks, as ggplot2.
 - `geom_segment` and `geom_curve` take `size_start`/`size_end` and `stroke_start`/`stroke_end`: the line stops at the outline of a point of that size and stroke at each end (as lets-plot, same pixels), so arrows between points no longer hide under them. Mapping a column to them warns and is not supported yet (see deviations.md).
 - `geom_segment(spacer=)`: pixels cut off both ends, as `geom_curve(spacer=)` and lets_plot.
 - `scale_linewidth()`, `scale_linewidth_identity()`, `scale_stroke()` and `scale_stroke_identity()`, as lets_plot: `range` (default 1..7), breaks, labels, limits and legends. Mapping `stroke` now uses a 1..7 scale (it was not scaled). Limits that exclude the data draw `na_value` instead of failing (lets_plot issue 769).

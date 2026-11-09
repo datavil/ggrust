@@ -25,5 +25,10 @@ GitHub): `ContourStatUtil.kt`, `ContourFillHelper.kt`, `Contour.kt`,
 - Polygon rings: `geom/polygon.rs` `draw_polygons(split_rings=true)` splits a group where
   a vertex repeats the ring start (lets-plot multi-ring polygons); `geom_polygon` itself
   does not split yet.
+- **contour_var / breaks (10.6a, ggplot2)**: z is scaled per group before contouring
+  (`ndensity` / max, `count` x summed weights). `breaks` replace the computed levels and
+  bands then lie only between two breaks (`lowest` ignored). Checked against ggplot2 4.0.1
+  with `bw = MASS::bandwidth.nrd / 4` (fixture `tests/fixtures/density2d_reference.json`):
+  line bounding boxes match to 1e-4.
 
 **How to apply:** read before touching contour stats, isobands, or multi-ring polygons.

@@ -3474,6 +3474,7 @@ def geom_contour(
     tooltips: Tooltips | None = None,
     bins: int | None = None,
     binwidth: float | None = None,
+    breaks: Sequence[float] | None = None,
     color_by: str | None = None,
     na_rm: bool | None = None,
     **other_args: Any,
@@ -3510,6 +3511,8 @@ def geom_contour(
         Number of levels, evenly spaced over the z range.
     binwidth : float, optional
         Distance between levels; wins over ``bins``.
+    breaks : list of float, optional
+        Explicit levels (z values); win over ``bins`` and ``binwidth`` (ggplot2).
     color_by : str, optional
         Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
     na_rm : bool, optional
@@ -3543,6 +3546,7 @@ def geom_contour(
         tooltips=tooltips,
         bins=bins,
         binwidth=binwidth,
+        breaks=breaks,
         color_by=color_by,
         na_rm=na_rm,
         **other_args,
@@ -3562,6 +3566,7 @@ def geom_contourf(
     tooltips: Tooltips | None = None,
     bins: int | None = None,
     binwidth: float | None = None,
+    breaks: Sequence[float] | None = None,
     color_by: str | None = None,
     fill_by: str | None = None,
     na_rm: bool | None = None,
@@ -3601,6 +3606,9 @@ def geom_contourf(
         Number of levels, evenly spaced over the z range.
     binwidth : float, optional
         Distance between levels; wins over ``bins``.
+    breaks : list of float, optional
+        Explicit levels (z values); win over ``bins`` and ``binwidth`` (ggplot2).
+        Bands are drawn only between two breaks.
     color_by : str, optional
         Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
     fill_by : str, optional
@@ -3636,6 +3644,7 @@ def geom_contourf(
         tooltips=tooltips,
         bins=bins,
         binwidth=binwidth,
+        breaks=breaks,
         color_by=color_by,
         fill_by=fill_by,
         na_rm=na_rm,
@@ -3660,6 +3669,8 @@ def geom_density2d(
     n: int | Sequence[int] | None = None,
     bins: int | None = None,
     binwidth: float | None = None,
+    breaks: Sequence[float] | None = None,
+    contour_var: Literal["density", "ndensity", "count"] | None = None,
     color_by: str | None = None,
     na_rm: bool | None = None,
     **other_args: Any,
@@ -3705,6 +3716,13 @@ def geom_density2d(
         Number of levels, evenly spaced over the z range.
     binwidth : float, optional
         Distance between levels; wins over ``bins``.
+    breaks : list of float, optional
+        Explicit levels in the units of ``contour_var``; win over ``bins`` and
+        ``binwidth`` (ggplot2).
+    contour_var : {"density", "ndensity", "count"}, default="density"
+        What the levels are levels of: the density, the density divided by its maximum
+        (``"ndensity"``, comparable across groups and samples), or the density times the
+        number of points (``"count"``). ggplot2's parameter; lets_plot has none.
     color_by : str, optional
         Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
     na_rm : bool, optional
@@ -3742,6 +3760,8 @@ def geom_density2d(
         n=n,
         bins=bins,
         binwidth=binwidth,
+        breaks=breaks,
+        contour_var=contour_var,
         color_by=color_by,
         na_rm=na_rm,
         **other_args,
@@ -3765,6 +3785,8 @@ def geom_density2df(
     n: int | Sequence[int] | None = None,
     bins: int | None = None,
     binwidth: float | None = None,
+    breaks: Sequence[float] | None = None,
+    contour_var: Literal["density", "ndensity", "count"] | None = None,
     color_by: str | None = None,
     fill_by: str | None = None,
     na_rm: bool | None = None,
@@ -3814,6 +3836,14 @@ def geom_density2df(
         Number of levels, evenly spaced over the z range.
     binwidth : float, optional
         Distance between levels; wins over ``bins``.
+    breaks : list of float, optional
+        Explicit levels in the units of ``contour_var``; win over ``bins`` and
+        ``binwidth`` (ggplot2).
+        Bands are drawn only between two breaks.
+    contour_var : {"density", "ndensity", "count"}, default="density"
+        What the levels are levels of: the density, the density divided by its maximum
+        (``"ndensity"``, comparable across groups and samples), or the density times the
+        number of points (``"count"``). ggplot2's parameter; lets_plot has none.
     color_by : str, optional
         Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
     fill_by : str, optional
@@ -3853,6 +3883,8 @@ def geom_density2df(
         n=n,
         bins=bins,
         binwidth=binwidth,
+        breaks=breaks,
+        contour_var=contour_var,
         color_by=color_by,
         fill_by=fill_by,
         na_rm=na_rm,

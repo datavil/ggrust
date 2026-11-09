@@ -544,8 +544,8 @@ export docs say a unitless size is inches in both lets-plot and ggplot2.
   Rust `sampling/` module (one file per sampler), applied per facet panel on the stat output as
   lets-plot. Default stays no sampling. lets_plot's other six samplers (`random_stratified`,
   `pick`, `group_random`, `group_systematic`, `vertex_vw`, `vertex_dp`) build their specs and
-  warn; deferred until requested. Open: a float shortcut (`sampling=0.2` as
-  `sampling_fraction(0.2)`) awaits the user's yes; today it raises.
+  warn; deferred until requested. No float shortcut (user, 2026-11-09): `sampling=0.2`
+  raises and suggests `sampling_fraction(0.2)`.
 - [x] 11.2 Skipped (user, 2026-11-09): insets already do this; see the decisions table ("No `ggbunch()`"). Was: **`ggbunch(plots, regions)`**: lets_plot 4.11's free layout,
   plots placed by `(x, y, width, height)` regions in figure fractions, overlap allowed (not the
   same as `gggrid`). Then point the `GGBunch` stub's message at `ggbunch()`. Own session.

@@ -4,6 +4,8 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-11-09
+
 ### Added
 
 - Working `sampling=` on layers: `sampling_random(n, seed=None)` and `sampling_systematic(n)` (lets_plot specs, ggrust's own row picks), `sampling_fraction(fraction, seed=None)` (ggrust extension: `0.2` keeps 20% of the rows), `sampling_none()` (returns `"none"`), chains joined with `+`, and `sampling=5000` as a shortcut for `sampling_random(5000)`. Sampling runs on each facet panel's stat output, as lets-plot. ggrust still never samples by default.

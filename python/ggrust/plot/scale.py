@@ -7,6 +7,7 @@ later phase.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from types import FunctionType
 from typing import TYPE_CHECKING, Any, cast
@@ -140,12 +141,18 @@ def _scale(
     Raises
     ------
     SpecError
-        If ``oob`` is not ``"censor"`` or ``"squish"``, or ``position`` is not a
-        side of the scale's axis.
+        If ``oob`` is not ``"censor"`` or ``"squish"``, ``position`` is not a
+        side of the scale's axis, or ``na_value`` / ``break_width`` is NaN or
+        infinite.
     UnsupportedValueError
         If ``oob`` or ``position`` is not a string.
     """
     _check_position(aesthetic, position)
+    for key, value in (("na_value", na_value), ("break_width", kwargs.get("break_width"))):
+        # NaN and infinity reach the engine as null and would be dropped silently.
+        if isinstance(value, float) and not math.isfinite(value):
+            reason = f"expected a finite number, got {value}"
+            raise SpecError(f"scale_*({key}={value}): {reason}", path=key, reason=reason)
     if oob is not None and not isinstance(oob, str):
         reason = f"expected an oob name, got {type(oob).__name__}; use 'censor' or 'squish'"
         raise UnsupportedValueError(f"scale_*(oob={oob!r}): {reason}", path="oob", reason=reason)
@@ -218,8 +225,15 @@ def scale_x_continuous(
     format : str, optional
         Label format: a number format (``".2f"``, ``","``, ``"e"``, ``"%"``) or a
         template (``"{.1f} %"``, ``"{d} cells"``). ``labels`` take precedence.
-    break_width, lablim, na_value
-        As in lets-plot; not drawn yet (ggrust warns).
+    break_width : float, optional
+        Distance between breaks: a break at every multiple of it, in transformed
+        units (``2`` on a log10 axis is every other power of ten). ``breaks`` take
+        precedence.
+    lablim : int, optional
+        Ignored on continuous axes, as in lets-plot.
+    na_value : float, optional
+        Position where missing values, and values outside ``limits``, are drawn
+        (as ggplot2); by default they are dropped.
     position : {'bottom', 'top', 'both'}, default='bottom'
         Side of the panel the axis (ticks, labels, title) is drawn on;
         ``'both'`` draws ticks and labels on both sides, the title at the bottom.
@@ -285,8 +299,15 @@ def scale_y_continuous(
         Axis title (``labs(x=...)`` takes precedence).
     breaks : list of float, optional
         Fixed break positions in data units; breaks outside the axis are dropped.
-    break_width, lablim, na_value
-        As in lets-plot; not drawn yet (ggrust warns).
+    break_width : float, optional
+        Distance between breaks: a break at every multiple of it, in transformed
+        units (``2`` on a log10 axis is every other power of ten). ``breaks`` take
+        precedence.
+    lablim : int, optional
+        Ignored on continuous axes, as in lets-plot.
+    na_value : float, optional
+        Position where missing values, and values outside ``limits``, are drawn
+        (as ggplot2); by default they are dropped.
     position : {'left', 'right', 'both'}, default='left'
         Side of the panel the axis (ticks, labels, title) is drawn on;
         ``'both'`` draws ticks and labels on both sides, the title on the left.
@@ -434,8 +455,11 @@ def scale_x_datetime(
     expand : list, optional
         ``[multiplicative]`` or ``[multiplicative, additive]`` expansion; the
         additive part is in milliseconds.
-    lablim, na_value
-        As in lets-plot; not drawn yet (ggrust warns).
+    lablim : int, optional
+        Ignored on continuous axes, as in lets-plot.
+    na_value : float, optional
+        Position, in milliseconds, where missing values and values outside
+        ``limits`` are drawn; by default they are dropped.
     position : {'bottom', 'top', 'both'}, default='bottom'
         Side of the panel the axis (ticks, labels, title) is drawn on;
         ``'both'`` draws ticks and labels on both sides, the title at the bottom.
@@ -556,8 +580,11 @@ def scale_x_time(
     expand : list, optional
         ``[multiplicative]`` or ``[multiplicative, additive]`` expansion; the
         additive part is in milliseconds.
-    lablim, na_value
-        As in lets-plot; not drawn yet (ggrust warns).
+    lablim : int, optional
+        Ignored on continuous axes, as in lets-plot.
+    na_value : float, optional
+        Position, in milliseconds, where missing values and values outside
+        ``limits`` are drawn; by default they are dropped.
     position : {'bottom', 'top', 'both'}, default='bottom'
         Side of the panel the axis (ticks, labels, title) is drawn on;
         ``'both'`` draws ticks and labels on both sides, the title at the bottom.
@@ -668,8 +695,10 @@ def scale_x_discrete(
         ones are empty. A dict maps categories to labels.
     format : str, optional
         Label template, e.g. ``"<{}>"``. ``labels`` take precedence.
-    lablim, na_value
-        As in lets-plot; not drawn yet (ggrust warns).
+    lablim : int, optional
+        Most characters of a tick label; longer labels are cut and end in ``...``.
+    na_value : str, optional
+        Ignored (ggrust warns): missing categories are dropped.
     position : {'bottom', 'top', 'both'}, default='bottom'
         Side of the panel the axis (ticks, labels, title) is drawn on;
         ``'both'`` draws ticks and labels on both sides, the title at the bottom.
@@ -741,8 +770,10 @@ def scale_y_discrete(
     labels : list of str or dict, optional
         Labels aligned with ``breaks`` (or the categories in axis order); missing
         ones are empty. A dict maps categories to labels.
-    lablim, na_value
-        As in lets-plot; not drawn yet (ggrust warns).
+    lablim : int, optional
+        Most characters of a tick label; longer labels are cut and end in ``...``.
+    na_value : str, optional
+        Ignored (ggrust warns): missing categories are dropped.
     position : {'left', 'right', 'both'}, default='left'
         Side of the panel the axis (ticks, labels, title) is drawn on;
         ``'both'`` draws ticks and labels on both sides, the title on the left.

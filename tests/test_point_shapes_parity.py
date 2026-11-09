@@ -120,7 +120,10 @@ def both(**parameters):
 
 @pytest.mark.parametrize("shape", range(26))
 def test_every_shape_matches_lets_plot(shape):
-    assert_same(*both(shape=shape))
+    # 19 and 20 grow with stroke in ggrust (ggplot2; lets-plot#1158 ignores it,
+    # see deviations.md): without a stroke they match lets-plot.
+    stroke = {"stroke": 0} if shape in (19, 20) else {}
+    assert_same(*both(shape=shape, **stroke))
 
 
 @pytest.mark.parametrize(

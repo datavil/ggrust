@@ -87,3 +87,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Collected grid axes](grid_axes.md): patchwork runs per side, span extent for axes, mask on `Theme.grid_collected`, Debug-text keys (NaN), `axis_identity()` after sharing.
 - [geom_streamline](geom_streamline.md): stat per group/panel with one group per line, grid detection by exact coordinates, u/v aesthetics, core errors relocated, head from `Streamline::arrow()` in data units.
 - [Colorbar pixel edges](colorbar_pixel_edges.md): slices overlap one step (not to the far end) and the drawn bar snaps to whole units; stacked AA edges bled light colors/white down the side.
+- [Positional scale options](letsplot_position_scale_options.md): numeric break_width = fixed multiples (thinning is label layout), lablim discrete only, positional na_value follows ggplot2, linewidth/stroke 1..7, shape 19 grows with stroke.

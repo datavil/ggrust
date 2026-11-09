@@ -36,6 +36,12 @@ pub struct ContinuousPositionScale {
     /// `breaks=[...]` in data units (`None` items are skipped): fixed breaks
     /// instead of generated ones.
     pub fixed_breaks: Option<Vec<Option<f64>>>,
+    /// `break_width=...` (number axes): a break at every multiple of this width,
+    /// in transformed units, across the expanded domain; laid out as fixed breaks.
+    pub break_width: Option<f64>,
+    /// `na_value=...` in transformed units: missing values, and values outside the
+    /// limits or the transform's domain, are drawn here instead of dropped (ggplot2).
+    pub na_value: Option<f64>,
     /// `labels=[...]`, one per fixed break.
     pub labels: Option<Vec<String>>,
     /// Spec path of `labels=[...]` given without `breaks=`: once the scale is
@@ -77,6 +83,8 @@ impl Default for ContinuousPositionScale {
             limits: [None, None],
             transform: Transform::Identity,
             fixed_breaks: None,
+            break_width: None,
+            na_value: None,
             labels: None,
             labels_without_breaks: None,
             format: None,
@@ -96,6 +104,12 @@ impl Default for ContinuousPositionScale {
 /// Breaks generated for `labels=[...]` without `breaks=`: ggplot2's default
 /// count, the same at any plot size.
 pub const LABELLED_BREAKS_COUNT: usize = 5;
+
+/// Most breaks a `break_width` may give before it is widened.
+const MAX_WIDTH_BREAKS: f64 = 10_000.0;
+
+/// Relative slack for breaks on a domain edge (in widths, or in domain spans).
+const EDGE_TOLERANCE: f64 = 1e-9;
 
 impl ContinuousPositionScale {
     /// `labels=[...]` without `breaks=` (ggplot2): the trained scale generates
@@ -344,6 +358,9 @@ impl ContinuousPositionScale {
                 .unzip();
             return ScaleBreaks { positions, labels };
         }
+        if let Some(width) = self.break_width {
+            return self.fixed(&self.width_multiples(width));
+        }
         let (values, mut breaks) = self.generated_breaks(target_count);
         if let Some(format) = &self.format {
             // The break values themselves: inverse(apply(1000)) is 999.999... on log axes.
@@ -355,6 +372,35 @@ impl ContinuousPositionScale {
         breaks
     }
 
+    /// `break_width=...` breaks (lets-plot `breaks = multiples of the width`): every
+    /// multiple of `width` inside the expanded domain, in transformed units (2 on
+    /// a log10 axis is every other power of ten), as data values. A width far
+    /// below the span is widened to a whole multiple giving at most
+    /// [`MAX_WIDTH_BREAKS`] (lets-plot would make them all, or hang).
+    fn width_multiples(&self, width: f64) -> Vec<Option<f64>> {
+        let (low, high) = self.expanded_domain();
+        let (low, high) = (low.min(high), low.max(high));
+        if !(low.is_finite() && high.is_finite() && width.is_finite() && width > 0.0) {
+            return Vec::new();
+        }
+        let factor = ((high - low) / width / MAX_WIDTH_BREAKS).ceil().max(1.0);
+        let width = width * factor;
+        // A multiple on an edge can land an ulp past it (0.3 / 0.1 = 2.9999999999999996).
+        let (first, last) = (
+            (low / width - EDGE_TOLERANCE).ceil(),
+            (high / width + EDGE_TOLERANCE).floor(),
+        );
+        if !(first.is_finite() && last.is_finite()) || last < first {
+            return Vec::new();
+        }
+        let mut values: Vec<f64> = (0..=(last - first) as u64)
+            .map(|step| self.transform.inverse((first + step as f64) * width))
+            .collect();
+        // Ascending data values, as lets-plot lists them (reverse axes too).
+        values.sort_by(f64::total_cmp);
+        values.into_iter().map(Some).collect()
+    }
+
     /// `breaks=[...]` in their given order (lets-plot `ScaleBreaks.Fixed`): nulls,
     /// values outside the transform's domain and positions outside the expanded
     /// domain are dropped with their labels. Labels are `labels`, else `format`,
@@ -362,6 +408,9 @@ impl ContinuousPositionScale {
     fn fixed(&self, values: &[Option<f64>]) -> ScaleBreaks {
         let (low, high) = self.expanded_domain();
         let (low, high) = (low.min(high), low.max(high));
+        // Breaks on an edge survive rounding (3 x 0.1 is 0.30000000000000004).
+        let tolerance = (high - low) * EDGE_TOLERANCE;
+        let (low, high) = (low - tolerance, high + tolerance);
         let default = LabelPattern::parse("{,~g}")
             .ok()
             .map(|pattern| pattern.with_exponent(self.exponent_format));
@@ -484,6 +533,8 @@ fn widen_degenerate(low: f64, high: f64) -> (f64, f64) {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::data::Column;
+    use crate::scale::PositionScale;
 
     fn labelled(labels: &[&str]) -> ContinuousPositionScale {
         let mut scale = ContinuousPositionScale {
@@ -652,5 +703,110 @@ mod tests {
         };
         scale.train_range(2.0, 10.0);
         assert_eq!(scale.limited_domain(), (0.0, 10.0));
+    }
+
+    fn widths(low: f64, high: f64, width: f64, transform: Transform) -> Vec<String> {
+        let mut scale = ContinuousPositionScale {
+            break_width: Some(width),
+            transform,
+            ..ContinuousPositionScale::default()
+        };
+        scale.train_range(low, high);
+        scale
+            .breaks(5)
+            .labels
+            .iter()
+            .map(Label::to_string)
+            .collect()
+    }
+
+    #[test]
+    fn break_width_gives_every_multiple_in_the_expanded_domain() {
+        // 0..10 expands to -0.5..10.5 (lets-plot: 0, 3, 6, 9 and 0, 10.25).
+        assert_eq!(
+            widths(0.0, 10.0, 3.0, Transform::Identity),
+            ["0", "3", "6", "9"]
+        );
+        assert_eq!(
+            widths(0.0, 10.0, 10.25, Transform::Identity),
+            ["0", "10.25"]
+        );
+        assert_eq!(
+            widths(0.13, 0.91, 0.25, Transform::Identity),
+            ["0.25", "0.5", "0.75"]
+        );
+        assert_eq!(
+            widths(-7.0, 13.0, 5.0, Transform::Identity),
+            ["-5", "0", "5", "10"]
+        );
+    }
+
+    #[test]
+    fn break_width_counts_in_transformed_units() {
+        // log10 0..4 expands to -0.2..4.2: every second power of ten.
+        assert_eq!(
+            widths(0.0, 4.0, 2.0, Transform::Log10),
+            ["1", "100", "10,000"]
+        );
+        // Reverse axes list ascending data values, as lets-plot.
+        assert_eq!(
+            widths(-10.0, 0.0, 3.0, Transform::Reverse),
+            ["0", "3", "6", "9"]
+        );
+    }
+
+    #[test]
+    fn break_width_keeps_breaks_on_the_domain_edges() {
+        let edges = |low: f64, high: f64, width: f64| {
+            let mut scale = ContinuousPositionScale {
+                break_width: Some(width),
+                multiplicative_expand: 0.0,
+                ..ContinuousPositionScale::default()
+            };
+            scale.train_range(low, high);
+            let labels: Vec<String> = scale
+                .breaks(5)
+                .labels
+                .iter()
+                .map(Label::to_string)
+                .collect();
+            labels
+        };
+        assert_eq!(edges(0.0, 0.3, 0.1), ["0", "0.1", "0.2", "0.3"]);
+        assert_eq!(
+            edges(-0.3, 0.3, 0.1),
+            ["-0.3", "-0.2", "-0.1", "0", "0.1", "0.2", "0.3"]
+        );
+        assert_eq!(edges(1e-5, 3e-5, 1e-5).len(), 3);
+    }
+
+    #[test]
+    fn tiny_break_width_is_widened() {
+        assert!(widths(0.0, 1e6, 1e-9, Transform::Identity).len() <= MAX_WIDTH_BREAKS as usize);
+    }
+
+    #[test]
+    fn break_width_breaks_are_fixed() {
+        let scale = PositionScale::Continuous(ContinuousPositionScale {
+            break_width: Some(1.0),
+            ..ContinuousPositionScale::default()
+        });
+        assert!(scale.has_fixed_breaks());
+    }
+
+    #[test]
+    fn na_value_places_missing_and_dropped_positions() {
+        let scale = PositionScale::Continuous(ContinuousPositionScale {
+            na_value: Some(0.0),
+            limits: [Some(1.0), Some(3.0)],
+            ..ContinuousPositionScale::default()
+        });
+        let column =
+            ContinuousColumn::from_options(vec![Some(2.0), None, Some(f64::NAN), Some(9.0)]);
+        let Ok(Column::Continuous(positions)) = scale.positions(Column::Continuous(column)) else {
+            panic!("continuous positions");
+        };
+        let values: Vec<Option<f64>> = (0..positions.len()).map(|row| positions.get(row)).collect();
+        assert_eq!(values, [Some(2.0), Some(0.0), Some(0.0), Some(0.0)]);
     }
 }

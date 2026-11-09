@@ -303,7 +303,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
         ],
     ),
     "Size, shape and alpha scales": (
-        "Map data to point size, point shape and transparency.",
+        "Map data to point size, point shape, transparency and line widths.",
         [
             "scale_size",
             "scale_size_area",
@@ -317,6 +317,10 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "scale_alpha",
             "scale_alpha_manual",
             "scale_alpha_identity",
+            "scale_linewidth",
+            "scale_linewidth_identity",
+            "scale_stroke",
+            "scale_stroke_identity",
         ],
     ),
     "Coordinates and facets": (

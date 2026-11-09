@@ -13,10 +13,10 @@ use std::sync::Arc;
 use super::{
     ALPHA, BrewerMapper, COLORMAP_NAMES, ColormapMapper, ContinuousDomain, DiscreteDomain,
     GRADIENT_HIGH, GRADIENT_LOW, GRADIENT2_HIGH, GRADIENT2_LOW, GRADIENT2_MID, Gradient2Mapper,
-    GradientMapper, GreyMapper, HOLLOW_SHAPES, HueMapper, IdentityMapper, Level, ManualColorMapper,
-    ManualNumberMapper, NA_COLOR, NA_SHAPE, Oob, Overflow, PaletteChoice, PaletteType,
-    ProportionalMapper, SIZE, SIZE_AREA_MAX, ShapeMapper, StyleMapper, colormap, default_mapper,
-    scheme_by_name, scheme_names,
+    GradientMapper, GreyMapper, HOLLOW_SHAPES, HueMapper, IdentityMapper, LINEWIDTH, Level,
+    ManualColorMapper, ManualNumberMapper, NA_COLOR, NA_SHAPE, Oob, Overflow, PaletteChoice,
+    PaletteType, ProportionalMapper, SIZE, SIZE_AREA_MAX, STROKE, ShapeMapper, StyleMapper,
+    colormap, default_mapper, scheme_by_name, scheme_names,
 };
 use super::{GgsciMapper, ScaleKey, ggsci_family};
 use crate::scale::Transform;
@@ -301,10 +301,15 @@ impl StyleScaleSpec {
             let linear = match aesthetic {
                 Aesthetic::Size => &SIZE,
                 Aesthetic::Alpha => &ALPHA,
+                Aesthetic::Linewidth => &LINEWIDTH,
+                Aesthetic::Stroke => &STROKE,
                 _ => {
                     return Err(Error::spec(
                         path,
-                        format!("range applies to size and alpha scales, not '{aesthetic}'"),
+                        format!(
+                            "range applies to size, alpha, linewidth and stroke scales, not \
+                             '{aesthetic}'"
+                        ),
                     ));
                 }
             };
@@ -935,6 +940,8 @@ impl StyleScaleSpec {
         }
         let default_na = match aesthetic {
             Aesthetic::Alpha => ALPHA.missing(),
+            Aesthetic::Linewidth => LINEWIDTH.missing(),
+            Aesthetic::Stroke => STROKE.missing(),
             _ => SIZE.missing(),
         };
         Ok(ManualNumberMapper {

@@ -43,11 +43,13 @@ pub use identity::IdentityMapper;
 pub use linetype::{ALL_LINETYPES, LinetypeMapper};
 pub use manual::ManualColorMapper;
 pub use manual::ManualNumberMapper;
-pub use numeric::{ALPHA, LINEWIDTH, LinearMapper, ProportionalMapper, SIZE, SIZE_AREA_MAX};
+pub use numeric::{
+    ALPHA, LINEWIDTH, LinearMapper, ProportionalMapper, SIZE, SIZE_AREA_MAX, STROKE,
+};
 pub use shape::{ALL_SHAPES, HIDDEN_SHAPE, HOLLOW_SHAPES, NA_SHAPE, ShapeMapper};
 
 use super::breaks::linear_breaks;
-use super::format::{Label, format_breaks};
+use super::format::{Label, cut_label, format_breaks};
 use super::label_pattern::{LabelPattern, PatternValue};
 use super::number_format::ExponentFormat;
 use super::{ContinuousPositionScale, Transform};
@@ -148,6 +150,7 @@ pub fn default_mapper(aesthetic: Aesthetic) -> Option<Arc<dyn StyleMapper>> {
         Aesthetic::Size => Some(Arc::new(SIZE.clone())),
         Aesthetic::Alpha => Some(Arc::new(ALPHA.clone())),
         Aesthetic::Linewidth => Some(Arc::new(LINEWIDTH.clone())),
+        Aesthetic::Stroke => Some(Arc::new(STROKE.clone())),
         Aesthetic::Shape => Some(Arc::new(ShapeMapper::all())),
         Aesthetic::Linetype => Some(Arc::new(LinetypeMapper::all())),
         _ => None,
@@ -840,17 +843,6 @@ impl StyleScale {
                 .collect(),
         )
     }
-}
-
-/// A label's text cut to `limit` characters plus `...` when longer (lets-plot
-/// `lablim`).
-fn cut_label(mut label: Label, limit: Option<usize>) -> Label {
-    if let Some(limit) = limit
-        && label.text.chars().count() > limit
-    {
-        label.text = label.text.chars().take(limit).collect::<String>() + "...";
-    }
-    label
 }
 
 /// lets-plot `alignLablesAndBreaks`: as many labels as breaks, missing ones empty.

@@ -1,4 +1,4 @@
-"""Size and alpha scales, with their ``_manual`` variants.
+"""Size, alpha, linewidth and stroke scales, with the ``_manual`` variants.
 
 Ported from lets-plot's ``lets_plot/plot/scale.py`` (MIT, see THIRD_PARTY_NOTICES.md).
 """
@@ -20,9 +20,11 @@ if TYPE_CHECKING:
 __all__ = [
     "scale_alpha",
     "scale_alpha_manual",
+    "scale_linewidth",
     "scale_size",
     "scale_size_area",
     "scale_size_manual",
+    "scale_stroke",
 ]
 
 
@@ -80,6 +82,124 @@ def scale_size(
     >>> plot = plot + scale_size(range=[2, 12])
     """
     return _scale("size", **locals())
+
+
+def scale_linewidth(
+    range: Sequence[Number] | None = None,
+    name: str | None = None,
+    breaks: Breaks | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    na_value: Number | None = None,
+    guide: Guide | None = None,
+    trans: Transform | None = None,
+    format: str | None = None,
+) -> FeatureSpec:
+    """Line widths for ``linewidth``: data mapped linearly onto ``range``.
+
+    ``linewidth`` sets the width of lines in lollipops, ranges, ribbons and other
+    geoms that draw a line next to their points.
+
+    Parameters
+    ----------
+    range : list of float, optional
+        ``[thinnest, thickest]`` width (default ``[1, 7]``, 2.2 to 15.4 px).
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        ``[low, high]`` data range of a continuous scale, or the levels (and their
+        order) of a discrete one. Data outside the limits gets ``na_value``.
+    na_value : float, optional
+        Width of missing data and data outside ``limits`` (default 1).
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"none"``, or a ``guide_legend()`` spec.
+    trans : {'identity', 'log10', 'log2', 'sqrt', 'reverse'}, optional
+        Map (and pick legend breaks) in transformed units.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
+        (``"{.1f} %"``). ``labels`` take precedence.
+
+    Returns
+    -------
+    FeatureSpec
+        The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"city": ["Oslo", "Rome", "Lima", "Cairo"], "low": [-7, 3, 15, 9],
+    ...         "high": [22, 31, 26, 35], "mean": [6, 16, 19, 22],
+    ...         "sunny_days": [120, 250, 140, 330]}
+    >>> plot = ggplot(data, aes("city", "mean", ymin="low", ymax="high"))
+    >>> plot = plot + geom_pointrange(aes(linewidth="sunny_days"))
+    >>> plot = plot + scale_linewidth(range=[0.5, 4])
+    """
+    return _scale("linewidth", **locals())
+
+
+def scale_stroke(
+    range: Sequence[Number] | None = None,
+    name: str | None = None,
+    breaks: Breaks | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    na_value: Number | None = None,
+    guide: Guide | None = None,
+    trans: Transform | None = None,
+    format: str | None = None,
+) -> FeatureSpec:
+    """Outline widths for ``stroke``: data mapped linearly onto ``range``.
+
+    ``stroke`` is the outline of point shapes 0..14 and 19..25; outlined points
+    grow with it.
+
+    Parameters
+    ----------
+    range : list of float, optional
+        ``[thinnest, thickest]`` outline (default ``[1, 7]``, 2.2 to 15.4 px).
+    name : str, optional
+        Legend title.
+    breaks : list, optional
+        Values that get a legend key.
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        ``[low, high]`` data range of a continuous scale, or the levels (and their
+        order) of a discrete one. Data outside the limits gets ``na_value``.
+    na_value : float, optional
+        Outline of missing data and data outside ``limits`` (default 1).
+    guide : str or FeatureSpec, optional
+        ``"legend"``, ``"none"``, or a ``guide_legend()`` spec.
+    trans : {'identity', 'log10', 'log2', 'sqrt', 'reverse'}, optional
+        Map (and pick legend breaks) in transformed units.
+    format : str, optional
+        Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
+        (``"{.1f} %"``). ``labels`` take precedence.
+
+    Returns
+    -------
+    FeatureSpec
+        The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"fruit": ["apple", "pear", "plum", "fig"], "price": [2.1, 2.8, 3.5, 6.0],
+    ...         "sweetness": [6, 7, 5, 9]}
+    >>> plot = ggplot(data, aes("fruit", "price", stroke="sweetness"))
+    >>> plot = plot + geom_point(shape=21, size=6, fill="gold") + scale_stroke(range=[0.5, 3])
+    """
+    return _scale("stroke", **locals())
 
 
 def scale_size_area(

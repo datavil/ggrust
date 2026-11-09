@@ -101,12 +101,20 @@ pub static SIZE: LinearMapper = LinearMapper {
     missing: 1.0 / POINT_UNIT_SIZE,
 };
 
-/// `linewidth` (ggplot2 `scale_linewidth`, lets-plot has none): 1..6 line
-/// units; missing values are not drawn (width 0), as ggplot2's `NA`.
+/// `linewidth` (lets-plot `scale_linewidth`): 1..7 line units (ggplot2 1..6);
+/// missing values 1 unit (ggplot2 drops them).
 pub static LINEWIDTH: LinearMapper = LinearMapper {
     name: "linewidth",
-    range: (1.0, 6.0),
-    missing: 0.0,
+    range: (1.0, 7.0),
+    missing: 1.0,
+};
+
+/// `stroke` (lets-plot `scale_stroke`; ggplot2 has none): outlines 1..7 units
+/// wide; missing values 1 unit.
+pub static STROKE: LinearMapper = LinearMapper {
+    name: "stroke",
+    range: (1.0, 7.0),
+    missing: 1.0,
 };
 
 /// `alpha`: 0.1..1; missing values fully transparent (lets-plot `DefaultNaValue`).

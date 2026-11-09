@@ -158,16 +158,20 @@ from ggrust.plot.scale_identity import (
     scale_color_identity,
     scale_fill_identity,
     scale_linetype_identity,
+    scale_linewidth_identity,
     scale_shape_identity,
     scale_size_identity,
+    scale_stroke_identity,
 )
 from ggrust.plot.scale_shape import scale_linetype_manual, scale_shape, scale_shape_manual
 from ggrust.plot.scale_size import (
     scale_alpha,
     scale_alpha_manual,
+    scale_linewidth,
     scale_size,
     scale_size_area,
     scale_size_manual,
+    scale_stroke,
 )
 from ggrust.plot.sec_axis import derive, dup_axis, sec_axis
 from ggrust.plot.side import (
@@ -410,6 +414,8 @@ __all__ = [
     "scale_fill_viridis",
     "scale_linetype_identity",
     "scale_linetype_manual",
+    "scale_linewidth",
+    "scale_linewidth_identity",
     "scale_shape",
     "scale_shape_identity",
     "scale_shape_manual",
@@ -417,6 +423,8 @@ __all__ = [
     "scale_size_area",
     "scale_size_identity",
     "scale_size_manual",
+    "scale_stroke",
+    "scale_stroke_identity",
     "scale_x_continuous",
     "scale_x_datetime",
     "scale_x_dendro",

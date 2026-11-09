@@ -23,6 +23,17 @@ pub struct Label {
     pub suffix: Option<String>,
 }
 
+/// A label's text cut to `limit` characters plus `...` when longer (lets-plot
+/// `lablim`, discrete scales only; the dots do not count toward the limit).
+pub fn cut_label(mut label: Label, limit: Option<usize>) -> Label {
+    if let Some(limit) = limit
+        && label.text.chars().count() > limit
+    {
+        label.text = label.text.chars().take(limit).collect::<String>() + "...";
+    }
+    label
+}
+
 impl Label {
     /// A label without superscript.
     pub fn plain(text: impl Into<String>) -> Self {
@@ -389,5 +400,14 @@ mod tests {
         assert_eq!(labels(&[5.0]), ["5"]);
         assert_eq!(labels(&[0.0]), ["0"]);
         assert!(labels(&[]).is_empty());
+    }
+
+    #[test]
+    fn cut_label_keeps_the_limit_and_adds_dots() {
+        let cut = |text: &str, limit| cut_label(Label::plain(text), limit).text;
+        assert_eq!(cut("alphabet", Some(3)), "alp...");
+        assert_eq!(cut("abc", Some(3)), "abc");
+        assert_eq!(cut("ε-épsilon", Some(3)), "ε-é...");
+        assert_eq!(cut("alphabet", None), "alphabet");
     }
 }

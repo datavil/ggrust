@@ -102,7 +102,13 @@ pub struct AxisScaleSpec {
     format: Set<String>,
     /// `scale_*_datetime()` (date-time) or `scale_*_time()` (duration).
     temporal: Set<TemporalKind>,
-    break_width: Set<String>,
+    /// `break_width=...`: a time interval (`"2 weeks"`) on date-time axes, a
+    /// number elsewhere.
+    break_width: Set<Value>,
+    /// `na_value=...`: where missing positions are drawn (continuous axes).
+    na_value: Set<Value>,
+    /// `lablim=...`: most characters of a category label (discrete axes).
+    label_limit: Set<Value>,
     /// `scale_*_dendro(tree)`: the tree as given in the spec.
     dendrogram: Set<Value>,
     /// `scale_*_dendro(leaf_levels=)`: `{leaf: [levels]}`.
@@ -191,6 +197,9 @@ impl AxisScaleSpec {
         scale.nested = self.axis_nested(false)?;
         let labels = self.label_texts()?;
         scale.temporal = self.temporal_axis(column_kind, warnings)?;
+        if scale.temporal.is_none() {
+            scale.break_width = self.number_break_width()?;
+        }
         // lets-plot ignores `format` too when `labels` come without `breaks`.
         if self.breaks.is_some() || labels.is_none() {
             match (&mut scale.temporal, &self.format) {
@@ -266,6 +275,25 @@ impl AxisScaleSpec {
         if let Some((limits, path)) = &self.limits {
             scale.limits = transformed_limits(limits, scale.transform, path)?;
         }
+        if let Some((value, path)) = &self.na_value {
+            scale.na_value = Some(
+                value
+                    .as_f64()
+                    .filter(|value| value.is_finite())
+                    .and_then(|value| scale.transform.apply(value))
+                    .ok_or_else(|| {
+                        Error::spec(
+                            path,
+                            format!(
+                                "na_value of a continuous axis is the position missing values \
+                                 are drawn at: a finite number inside the '{}' transform's \
+                                 domain, got {value}",
+                                scale.transform.as_str()
+                            ),
+                        )
+                    })?,
+            );
+        }
         Ok(scale)
     }
 
@@ -274,6 +302,13 @@ impl AxisScaleSpec {
         scale.sides = self.sides();
         scale.mark = self.axis_mark()?;
         scale.nested = self.axis_nested(true)?;
+        if let Some((_, path)) = &self.na_value {
+            // ggplot2 ignores it too (missing categories get their own level there).
+            warnings.push(format!(
+                "at '{path}': na_value applies to continuous axes; missing categories are \
+                 dropped; ignored"
+            ));
+        }
         if let Some((_, path)) = &self.secondary {
             warnings.push(format!(
                 "at '{path}': a secondary axis needs a continuous axis, but this one shows \
@@ -282,6 +317,7 @@ impl AxisScaleSpec {
         }
         scale.format = self.label_format(warnings);
         scale.labels = self.label_texts()?.map(|(labels, _)| labels);
+        scale.label_limit = self.label_limit(warnings);
         if let Some((breaks, path)) = &self.breaks {
             scale.set_breaks(
                 breaks
@@ -435,6 +471,44 @@ impl AxisScaleSpec {
         Ok(Some(dendrogram))
     }
 
+    /// `lablim=...` of a discrete axis (lets-plot: fractions truncate, 0 and below
+    /// mean no limit; continuous axes ignore it, as lets-plot).
+    fn label_limit(&self, warnings: &mut Vec<String>) -> Option<usize> {
+        let (value, path) = self.label_limit.as_ref()?;
+        match value.as_f64().filter(|limit| limit.is_finite()) {
+            Some(limit) => (limit.trunc() >= 1.0).then_some(limit.trunc() as usize),
+            None => {
+                warnings.push(format!(
+                    "at '{path}': expected a number of characters (e.g. lablim=10), got \
+                     {value}; ignored"
+                ));
+                None
+            }
+        }
+    }
+
+    /// `break_width=<number>` of a number axis (a time interval string is handled
+    /// by [`Self::temporal_axis`]). Zero, negative and non-number widths fail
+    /// (lets-plot draws no breaks for them).
+    fn number_break_width(&self) -> Result<Option<f64>> {
+        match &self.break_width {
+            None | Some((Value::String(_), _)) => Ok(None),
+            Some((value, path)) => value
+                .as_f64()
+                .filter(|width| width.is_finite() && *width > 0.0)
+                .map(Some)
+                .ok_or_else(|| {
+                    Error::spec(
+                        path,
+                        format!(
+                            "break_width is the distance between breaks, a positive number \
+                             (e.g. break_width=5), got {value}"
+                        ),
+                    )
+                }),
+        }
+    }
+
     /// The date-time axis: `scale_*_time()` gives durations, `scale_*_datetime()`
     /// or date-time columns give date-times (dates and times of day keep their
     /// column's kind). `break_width` elsewhere is reported and ignored.
@@ -450,17 +524,26 @@ impl AxisScaleSpec {
             (None, None) => None,
         };
         let Some(kind) = kind else {
-            if let Some((_, path)) = &self.break_width {
+            if let Some((Value::String(_), path)) = &self.break_width {
                 warnings.push(format!(
-                    "at '{path}': break_width applies to scale_*_datetime() and \
-                     scale_*_time(); ignored"
+                    "at '{path}': a time interval break_width applies to \
+                     scale_*_datetime() and scale_*_time(); ignored"
                 ));
             }
             return Ok(None);
         };
         let break_width = match &self.break_width {
-            Some((width, path)) => {
+            Some((Value::String(width), path)) => {
                 Some(TimeInterval::parse(width).map_err(|message| Error::spec(path, message))?)
+            }
+            Some((other, path)) => {
+                return Err(Error::spec(
+                    path,
+                    format!(
+                        "break_width of a date-time axis is a time interval such as \
+                         '2 weeks' or '6 hours', got {other}"
+                    ),
+                ));
             }
             None => None,
         };
@@ -721,6 +804,9 @@ fn merge(target: &mut AxisScaleSpec, scale: &ScaleSpec, path: &str) {
     if let Some(format) = &scale.format {
         target.format = Some((format.clone(), at("format")));
     }
+    if let Some(na_value) = scale.na_value.as_ref().filter(|value| !value.is_null()) {
+        target.na_value = Some((na_value.clone(), at("na_value")));
+    }
     for (key, kind) in [
         ("datetime", TemporalKind::DateTime),
         ("time", TemporalKind::Duration),
@@ -729,7 +815,16 @@ fn merge(target: &mut AxisScaleSpec, scale: &ScaleSpec, path: &str) {
             target.temporal = Some((kind, at(key)));
         }
     }
-    if let Some(Value::String(width)) = scale.parameters.get("break_width") {
+    if let Some(limit) = scale
+        .parameters
+        .get("lablim")
+        .filter(|value| !value.is_null())
+    {
+        target.label_limit = Some((limit.clone(), at("lablim")));
+    }
+    if let Some(width) = scale.parameters.get("break_width")
+        && !width.is_null()
+    {
         target.break_width = Some((width.clone(), at("break_width")));
     }
     if let Some(tree) = scale.parameters.get("dendrogram") {
@@ -993,7 +1088,6 @@ fn transformed_limits(
 /// Warn about scale options that are parsed but not built yet.
 fn report_unbuilt(scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
     let present = [
-        ("na_value", scale.na_value.is_some()),
         (
             "guide",
             scale.guide.is_some()
@@ -1014,6 +1108,7 @@ fn report_unbuilt(scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
         "datetime",
         "time",
         "break_width",
+        "lablim",
         "dendrogram",
         "leaf_levels",
         "sec_axis",
@@ -1299,15 +1394,16 @@ mod tests {
     fn unbuilt_options_and_other_aesthetics_warn() {
         let (_, warnings) = scales(
             r#"{"kind": "plot", "scales": [
-                {"aesthetic": "x", "na_value": 0, "discrete": true, "reverse": false},
-                {"aesthetic": "stroke"}]}"#,
+                {"aesthetic": "x", "scale_mapper_kind": "identity", "discrete": true,
+                 "reverse": false},
+                {"aesthetic": "weight"}]}"#,
         )
         .unwrap();
         assert_eq!(
             warnings,
             [
-                "at 'scales[0].na_value': not supported yet; ignored",
-                "at 'scales[1]': scales for 'stroke' are not supported yet; ignored",
+                "at 'scales[0].scale_mapper_kind': not supported yet; ignored",
+                "at 'scales[1]': scales for 'weight' are not supported yet; ignored",
             ]
         );
     }

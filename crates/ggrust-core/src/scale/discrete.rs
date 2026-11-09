@@ -9,7 +9,7 @@
 use std::collections::{HashMap, HashSet};
 
 use super::ScaleBreaks;
-use super::format::Label;
+use super::format::{Label, cut_label};
 use super::label_pattern::{LabelPattern, PatternValue};
 use crate::data::{ContinuousColumn, DiscreteColumn};
 
@@ -37,6 +37,8 @@ pub struct DiscretePositionScale {
     pub labels: Option<Vec<String>>,
     /// `format=...` for the category names.
     pub format: Option<LabelPattern>,
+    /// `lablim=...`: labels longer than this many characters are cut (lets-plot).
+    pub label_limit: Option<usize>,
     /// `coord_*(xlim=...)` in positions (category 0, 1, ...): replaces that side
     /// of the expanded domain.
     pub coord_limits: [Option<f64>; 2],
@@ -64,6 +66,7 @@ impl Default for DiscretePositionScale {
             extra_breaks: 0,
             labels: None,
             format: None,
+            label_limit: None,
             coord_limits: [None, None],
             dendrogram: None,
             sides: Default::default(),
@@ -310,7 +313,7 @@ impl DiscretePositionScale {
                 (None, None) => Label::plain(level),
             };
             breaks.positions.push(position as f64);
-            breaks.labels.push(label);
+            breaks.labels.push(cut_label(label, self.label_limit));
         }
         breaks
     }

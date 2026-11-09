@@ -4,7 +4,8 @@
 //! `size` x 2.2 px (x 1.5 for the small shapes 18 and 20); shapes 0..14 are drawn
 //! in `color`, 15..20 filled with `color`, 21..25 filled with `fill` and outlined
 //! in `color`. Outlined shapes are `stroke` x 2.2 px wide and grow by it (by 2x for
-//! `+`, `x` and stars, by sqrt 2 for diamonds). Defaults: size 3, stroke 0.75,
+//! `+`, `x` and stars, by sqrt 2 for diamonds); so do the solid 19 and 20, outlined
+//! in their color (ggplot2; lets-plot#1158 leaves them unchanged). Defaults: size 3, stroke 0.75,
 //! color `#474747`, fill white, shape 16 (solid circle). `alpha`, when given,
 //! replaces the alpha of both fill and outline. A missing shape is a 1 px dot.
 //!
@@ -139,8 +140,10 @@ fn shape_size(code: u8, style: MarkerStyle, size: f64, stroke: f64) -> (f64, f64
     } else {
         POINT_UNIT_SIZE
     };
+    // R draws 19 and 20 with a border (ggplot2: 19 is 21 filled in its color), so
+    // they grow with `stroke`; lets-plot ignores it there (lets-plot#1158).
     let stroke_width = match style {
-        MarkerStyle::Solid => 0.0,
+        MarkerStyle::Solid if !matches!(code, 19 | 20) => 0.0,
         _ => stroke * POINT_UNIT_SIZE,
     };
     let growth = match code {

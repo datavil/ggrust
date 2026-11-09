@@ -320,7 +320,7 @@ Layers in bands beside the panel that share one of its axes, such as heatmap ann
 
 ## Size, shape and alpha scales
 
-Map data to point size, point shape and transparency.
+Map data to point size, point shape, transparency and line widths.
 
 | Name | Description |
 |---|---|
@@ -336,6 +336,10 @@ Map data to point size, point shape and transparency.
 | [`scale_alpha()`](api/scale_alpha.md) | Transparency for ``alpha``: data mapped linearly onto ``range``. |
 | [`scale_alpha_manual()`](api/scale_alpha_manual.md) | Your own alphas for ``alpha``, matched in order with the categories (or a dict). |
 | [`scale_alpha_identity()`](api/scale_alpha_identity.md) | Use the data as alphas; no legend by default. |
+| [`scale_linewidth()`](api/scale_linewidth.md) | Line widths for ``linewidth``: data mapped linearly onto ``range``. |
+| [`scale_linewidth_identity()`](api/scale_linewidth_identity.md) | Use the data as line widths; no legend by default. |
+| [`scale_stroke()`](api/scale_stroke.md) | Outline widths for ``stroke``: data mapped linearly onto ``range``. |
+| [`scale_stroke_identity()`](api/scale_stroke_identity.md) | Use the data as point outline widths; no legend by default. |
 
 ## Coordinates and facets
 
@@ -412,7 +416,7 @@ Combine plots into one figure, and configure tooltips and the zoom/pan toolbar.
 |---|---|
 | [`gggrid()`](api/gggrid.md) | Combine plots into a grid. |
 | [`SupPlotsSpec`](api/SupPlotsSpec.md) | Several plots in one figure. Build it with ``gggrid()``. |
-| [`GGBunch`](api/GGBunch.md) | A free-layout bunch of plots. Not supported yet; use ``gggrid`` for a grid. |
+| [`GGBunch`](api/GGBunch.md) | A free-layout bunch of plots. Not supported: use insets or ``gggrid`` instead. |
 | [`layer_tooltips()`](api/layer_tooltips.md) | Configure hover tooltips. |
 | [`ggtb()`](api/ggtb.md) | Add the zoom/pan toolbar to an HTML plot. |
 
@@ -422,7 +426,7 @@ Write files, and choose how plots show in notebooks.
 
 | Name | Description |
 |---|---|
-| [`ggsave()`](api/ggsave.md) | Save a plot to ``path/filename``; the extension picks the format. |
+| [`ggsave()`](api/ggsave.md) | Save a plot to ``filename`` (inside ``path`` if given); the extension picks the format. |
 | [`ggload()`](api/ggload.md) | Open a plot saved with ``ggsave(plot, "name.ggrs")``. |
 | [`display()`](api/display.md) | Choose how plots show in notebooks, for the rest of the session. |
 | [`engine_version`](api/engine_version.md) | Return the version of the Rust engine. |

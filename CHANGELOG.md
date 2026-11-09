@@ -8,9 +8,15 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 - `geom_segment` and `geom_curve` take `size_start`/`size_end` and `stroke_start`/`stroke_end`: the line stops at the outline of a point of that size and stroke at each end (as lets-plot, same pixels), so arrows between points no longer hide under them. Mapping a column to them warns and is not supported yet (see deviations.md).
 - `geom_segment(spacer=)`: pixels cut off both ends, as `geom_curve(spacer=)` and lets_plot.
+- `scale_linewidth()`, `scale_linewidth_identity()`, `scale_stroke()` and `scale_stroke_identity()`, as lets_plot: `range` (default 1..7), breaks, labels, limits and legends. Mapping `stroke` now uses a 1..7 scale (it was not scaled). Limits that exclude the data draw `na_value` instead of failing (lets_plot issue 769).
+- `scale_x_continuous(break_width=5)` (and y): a break at every multiple of the width, in transformed units (`break_width=1` on a log10 axis is every power of ten). A width that is 0, negative or not a number raises `SpecError`.
+- `na_value=` on continuous position scales, as ggplot2: missing positions, and positions outside `limits`, are drawn at that value instead of being dropped. lets_plot documents the option but drops the rows.
+- `lablim=` on discrete position scales cuts long tick labels to that many characters plus `...`, as lets_plot. Continuous axes ignore it, as lets_plot does.
 
 ### Changed
 
+- The default `linewidth` scale follows lets_plot 4.11: range 1..7 (was ggplot2's 1..6) and missing values drawn 1 unit wide (were not drawn). Plots that map `linewidth` draw slightly thicker lines.
+- Point shapes 19 and 20 grow with `stroke` like shape 21, as in ggplot2 (lets_plot ignores it, issue 1158). Shape 16, the default, is unchanged.
 - `GGBunch()` raises with a recipe for free layouts (`inset_element(..., align_to="full")` on an empty `ggplot()`); lets_plot's `ggbunch()` will not be ported (see deviations.md).
 - Continuous axis `labels=[...]` without `breaks=` are used, as in ggplot2: they name the axis's generated breaks (about 5, the same at any plot size, kept on their values under HTML zoom). A different number of labels raises `SpecError`, which lists the generated breaks. lets-plot ignores such labels, and ggrust used to warn and ignore them (see deviations.md).
 - The `GGBunch` stub's error no longer refers to lets_plot: "GGBunch is not supported by ggrust yet; use gggrid() to lay out plots in a grid".

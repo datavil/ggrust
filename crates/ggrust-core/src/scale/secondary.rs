@@ -512,7 +512,10 @@ impl SecondaryAxis {
         }
         scale.fixed_breaks = match &self.breaks {
             Derived::Default => None,
-            Derived::Derive => primary.fixed_breaks.clone(),
+            Derived::Derive => {
+                scale.break_width = primary.break_width;
+                primary.fixed_breaks.clone()
+            }
             Derived::Given(values) => Some(values.clone()),
         };
         match &self.labels {

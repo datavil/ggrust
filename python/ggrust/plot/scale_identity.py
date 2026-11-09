@@ -23,8 +23,10 @@ __all__ = [
     "scale_color_identity",
     "scale_fill_identity",
     "scale_linetype_identity",
+    "scale_linewidth_identity",
     "scale_shape_identity",
     "scale_size_identity",
+    "scale_stroke_identity",
 ]
 
 
@@ -171,6 +173,99 @@ def scale_size_identity(
     >>> plot = plot + scale_size_identity()
     """
     return _identity("size", **locals())
+
+
+def scale_linewidth_identity(
+    name: str | None = None,
+    breaks: Breaks | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    na_value: Number | None = None,
+    guide: Guide = "none",
+    format: str | None = None,
+) -> FeatureSpec:
+    """Use the data as line widths; no legend by default.
+
+    Parameters
+    ----------
+    name : str, optional
+        Title of the scale, shown on the legend.
+    breaks : list or dict, optional
+        Values of the legend keys: a list, or a dict of labels to values.
+    labels : list or dict, optional
+        Texts at the breaks: a list, or a dict of break values to texts.
+    lablim : int, optional
+        Maximum number of characters of a label; longer labels are cut.
+    limits : list, optional
+        Data range of the scale: ``[low, high]`` (None keeps a side).
+    na_value : float, optional
+        Width used for missing data.
+    guide : str or FeatureSpec, default='none'
+        Guide: ``"legend"``, ``"none"``, or a ``guide_legend()`` spec.
+    format : str, optional
+        Format pattern of the labels, e.g. ``".2f"`` or ``"{d} px"``.
+
+    Returns
+    -------
+    FeatureSpec
+        The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": ["a", "b", "c"], "low": [0, 0, 0], "y": [3, 1, 2], "width": [0.5, 1, 3]}
+    >>> plot = ggplot(data, aes("x", ymin="low", ymax="y", linewidth="width"))
+    >>> plot = plot + geom_pointrange(aes(y="y"))
+    >>> plot = plot + scale_linewidth_identity()
+    """
+    return _identity("linewidth", **locals())
+
+
+def scale_stroke_identity(
+    name: str | None = None,
+    breaks: Breaks | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    na_value: Number | None = None,
+    guide: Guide = "none",
+    format: str | None = None,
+) -> FeatureSpec:
+    """Use the data as point outline widths; no legend by default.
+
+    Parameters
+    ----------
+    name : str, optional
+        Title of the scale, shown on the legend.
+    breaks : list or dict, optional
+        Values of the legend keys: a list, or a dict of labels to values.
+    labels : list or dict, optional
+        Texts at the breaks: a list, or a dict of break values to texts.
+    lablim : int, optional
+        Maximum number of characters of a label; longer labels are cut.
+    limits : list, optional
+        Data range of the scale: ``[low, high]`` (None keeps a side).
+    na_value : float, optional
+        Outline width used for missing data.
+    guide : str or FeatureSpec, default='none'
+        Guide: ``"legend"``, ``"none"``, or a ``guide_legend()`` spec.
+    format : str, optional
+        Format pattern of the labels, e.g. ``".2f"``.
+
+    Returns
+    -------
+    FeatureSpec
+        The scale.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": [1, 2, 3], "y": [1, 2, 3], "outline": [0.5, 1.5, 3]}
+    >>> plot = ggplot(data, aes("x", "y", stroke="outline"))
+    >>> plot = plot + geom_point(shape=21, size=5, fill="white") + scale_stroke_identity()
+    """
+    return _identity("stroke", **locals())
 
 
 def scale_alpha_identity(

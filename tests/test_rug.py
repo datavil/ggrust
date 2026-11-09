@@ -108,8 +108,8 @@ def test_mapped_styles() -> None:
     svg = plot.to_svg()
     assert isinstance(svg, str)
     widths = {float(width) for width in re.findall(r'stroke-width="([\d.]+)"', svg)}
-    # linewidth 1..6 line units (ggplot2 scale_linewidth range) x 2.2 px.
-    assert {2.2, 13.2} <= widths
+    # linewidth 1..7 line units (lets-plot scale_linewidth range) x 2.2 px.
+    assert {2.2, 15.4} <= {round(width, 3) for width in widths}
     assert "stroke-opacity" in svg or "rgba" in svg
 
 

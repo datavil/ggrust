@@ -318,6 +318,10 @@ nav = [
       "reference/api/scale_alpha.md",
       "reference/api/scale_alpha_manual.md",
       "reference/api/scale_alpha_identity.md",
+      "reference/api/scale_linewidth.md",
+      "reference/api/scale_linewidth_identity.md",
+      "reference/api/scale_stroke.md",
+      "reference/api/scale_stroke_identity.md",
     ] },
     { "Coordinates and facets" = [
       "reference/api/coord_cartesian.md",

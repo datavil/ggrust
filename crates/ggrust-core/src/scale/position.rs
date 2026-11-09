@@ -158,10 +158,26 @@ impl PositionScale {
     pub fn positions(&self, column: Column) -> Result<Column, String> {
         Ok(Column::Continuous(match (self, column) {
             (PositionScale::Continuous(scale), Column::Continuous(column)) => {
-                if scale.transform == super::Transform::Identity && scale.limits == [None, None] {
-                    column
-                } else {
-                    column.map_values(|value| scale.transform_value(value))
+                match scale.na_value {
+                    // ggplot2 `oob` then `na.value`: dropped values are drawn there.
+                    Some(missing) => ContinuousColumn::from_options(
+                        (0..column.len())
+                            .map(|row| {
+                                let value = column.get(row).filter(|value| !value.is_nan());
+                                Some(
+                                    value
+                                        .and_then(|value| scale.transform_value(value))
+                                        .unwrap_or(missing),
+                                )
+                            })
+                            .collect(),
+                    ),
+                    None if scale.transform == super::Transform::Identity
+                        && scale.limits == [None, None] =>
+                    {
+                        column
+                    }
+                    None => column.map_values(|value| scale.transform_value(value)),
                 }
             }
             (PositionScale::Discrete(scale), Column::Discrete(column)) => scale.positions(&column),
@@ -320,10 +336,12 @@ impl PositionScale {
     /// shows all of them instead of choosing a count.
     pub fn has_fixed_breaks(&self) -> bool {
         match self {
-            // A date-time `break_width` fixes the breaks too (lets-plot
-            // `DateTimeFixedBreaksGen`), so their labels are laid out as fixed.
+            // A `break_width` fixes the breaks too (lets-plot
+            // `DateTimeFixedBreaksGen`, numbers likewise), so their labels are laid
+            // out as fixed.
             PositionScale::Continuous(scale) => {
                 scale.fixed_breaks.is_some()
+                    || scale.break_width.is_some()
                     || scale
                         .temporal
                         .as_ref()

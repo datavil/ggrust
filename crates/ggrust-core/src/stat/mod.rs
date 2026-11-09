@@ -6,6 +6,7 @@ mod bin;
 mod bin2d;
 mod binhex;
 mod boxplot;
+mod centroid;
 mod compare_means;
 mod contour;
 mod cor;
@@ -40,6 +41,7 @@ pub use bin::{BinStat, bracketing_index};
 pub use bin2d::Bin2dStat;
 pub use binhex::BinHexStat;
 pub use boxplot::{BoxplotOutlierStat, BoxplotStat};
+pub use centroid::{CentroidStat, SummaryXyStat};
 pub use compare_means::CompareMeansStat;
 pub use contour::{ContourStat, ContourfStat};
 pub use cor::CorStat;
@@ -155,6 +157,8 @@ pub static STATS: &[&dyn Stat] = &[
     &CorStat,
     &PolyEqStat,
     &StreamlineStat,
+    &CentroidStat,
+    &SummaryXyStat,
 ];
 
 /// lets-plot stats the Python API builds but the engine does not compute yet

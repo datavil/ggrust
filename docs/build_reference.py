@@ -116,6 +116,8 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "stat_summary_bin",
             "stat_ecdf",
             "stat_sum",
+            "stat_centroid",
+            "stat_summary_xy",
             "stat_pointdensity",
             "stat_streamline",
             "stat_slab",

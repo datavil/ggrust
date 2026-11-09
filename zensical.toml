@@ -154,6 +154,8 @@ nav = [
       "reference/api/stat_summary_bin.md",
       "reference/api/stat_ecdf.md",
       "reference/api/stat_sum.md",
+      "reference/api/stat_centroid.md",
+      "reference/api/stat_summary_xy.md",
       "reference/api/stat_pointdensity.md",
       "reference/api/stat_streamline.md",
       "reference/api/stat_slab.md",

@@ -488,12 +488,12 @@ extension, bug-hunter pass, `make check`, commit + push. Already available and b
   `groups=` column mapping level -> leaf label. Code: `python/ggrust/plot/dendrogram.py`,
   `layout/dendrogram.rs` (`memory/dendrograms.md`). legendry has no equivalent: deviation row.
   cellestial removes the hand-drawn `geom_path` trees in per-cell heatmap / annotated_heatmap.
-- [ ] 10.6 (lower priority, one session each, ask the user which first)
+- [x] 10.6 (lower priority, one session each, ask the user which first)
   Deferred by the user (2026-11-07): not needed for cellestial Phase 5; pick up on request.
-  - 10.6a `geom_density2d(contour_var="density"|"ndensity"|"count", breaks=[...])`, as ggplot2
+  - 10.6a **Done (2026-11-09).** `geom_density2d(contour_var="density"|"ndensity"|"count", breaks=[...])`, as ggplot2
     (lets-plot has no `contour_var`: deviation row). `stat/density2d.rs` + `stat/contour.rs`
     `LevelOptions`. Lets cellestial drop scipy KDE + skimage marching squares.
-  - 10.6b `stat_centroid` / `stat_summary_xy(fun="median"|"mean")` for text/label geoms (ggpp names),
+  - 10.6b **Done (2026-11-09; `fun`/`fun_x`/`fun_y` = mean or median, user's choice).** `stat_centroid` / `stat_summary_xy(fun="median"|"mean")` for text/label geoms (ggpp names),
     labels at cluster centres instead of a legend. A new `stat/centroid.rs` (one file + one registry line).
     Consider `direct_label()` sugar later.
   - 10.6c **Done (2026-11-08, see "dependency port step 2b" below).** `geom_streamline` (metR) for RNA velocity streams: streamlines integrated in Rust over a

@@ -6,6 +6,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Added
 
+- `stat_centroid(fun="mean"|"median")` and `stat_summary_xy(fun_x=, fun_y=)`, as the R package ggpp (`stat="centroid"` / `"summary_xy"` in any geom): one row per group and facet panel at the centre of its x and y. `geom_text(aes(label="cluster"), stat="centroid")` names each cluster at its centre instead of in a legend.
 - `geom_density2d(contour_var="density"|"ndensity"|"count")` and `geom_density2df(...)`, as ggplot2: contour the density, the density divided by its maximum (comparable across samples of different sizes) or the density times the number of points. lets_plot has no `contour_var`.
 - `breaks=[...]` on `geom_density2d`, `geom_density2df`, `geom_contour` and `geom_contourf`: explicit contour levels (in `contour_var` units), winning over `bins` and `binwidth`; bands are drawn only between two breaks, as ggplot2.
 - `geom_segment` and `geom_curve` take `size_start`/`size_end` and `stroke_start`/`stroke_end`: the line stops at the outline of a point of that size and stroke at each end (as lets-plot, same pixels), so arrows between points no longer hide under them. Mapping a column to them warns and is not supported yet (see deviations.md).

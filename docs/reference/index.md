@@ -97,6 +97,8 @@ Layers named after their stat: each summarises the data, then draws it with a ge
 | [`stat_summary_bin()`](api/stat_summary_bin.md) | Summarise y in bins of x (``stat="summarybin"``), drawn as point ranges. |
 | [`stat_ecdf()`](api/stat_ecdf.md) | Empirical cumulative distribution of x (``stat="ecdf"``), drawn as steps. |
 | [`stat_sum()`](api/stat_sum.md) | Rows at each distinct (x, y) (``stat="sum"``), drawn as points sized by the count. |
+| [`stat_centroid()`](api/stat_centroid.md) | One row per group at the centroid of its x and y (``stat="centroid"``), as ggpp. |
+| [`stat_summary_xy()`](api/stat_summary_xy.md) | One row per group at a summary of x and of y (``stat="summary_xy"``), as ggpp. |
 | [`stat_pointdensity()`](api/stat_pointdensity.md) | Density of points around each point (``stat="pointdensity"``), drawn as points. |
 | [`stat_streamline()`](api/stat_streamline.md) | Streamlines of a vector field (``stat="streamline"``), drawn by ``geom``. |
 | [`stat_slab()`](api/stat_slab.md) | Density slab of y per x: a filled density on one side of each x. |

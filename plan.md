@@ -496,7 +496,7 @@ extension, bug-hunter pass, `make check`, commit + push. Already available and b
   - 10.6b `stat_centroid` / `stat_summary_xy(fun="median"|"mean")` for text/label geoms (ggpp names),
     labels at cluster centres instead of a legend. A new `stat/centroid.rs` (one file + one registry line).
     Consider `direct_label()` sugar later.
-  - 10.6c `geom_streamline` (metR) for RNA velocity streams: streamlines integrated in Rust over a
+  - 10.6c **Done (2026-11-08, see "dependency port step 2b" below).** `geom_streamline` (metR) for RNA velocity streams: streamlines integrated in Rust over a
     gridded vector field (`dx`, `dy`), arrow heads via `geom::Arrow`. Largest of the three; design with
     the user (metR's parameters: `L`, `res`, `n`, `jitter`, `arrow`). Alternative: `arrow(ends="mid")`
     on paths only.

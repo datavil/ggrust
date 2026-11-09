@@ -28,7 +28,11 @@ def legend_text(svg: str, *, ours: bool) -> list[tuple[str, str]]:
     for legend in re.findall(
         r'<g class="legend">(.*?)</g>\s*(?=<g class="legend">|</svg>)', svg, re.S
     ):
-        for size, text in re.findall(r'<text[^>]*font-size="(\d+)"[^>]*>([^<]*)</text>', legend):
+        for tag, size, text in re.findall(
+            r'(<text[^>]*font-size="(\d+)"[^>]*>)([^<]*)</text>', legend
+        ):
+            if 'text-anchor="middle"' in tag:
+                continue  # the "a" drawn by a text or label key
             result.append(("title" if size == "15" else "item", text))
     return result
 
@@ -77,6 +81,17 @@ CASES = {
     "group titled like a scale joins it": lambda m, b: (
         b + m.geom_point(m.aes(color="c")) + m.geom_line(manual_key=m.layer_key("line", group="c"))
     ),
+    "text layer": lambda m, b: b + m.geom_text(m.aes(label="c"), manual_key="labels"),
+    "label layer after a point by index": lambda m, b: (
+        b
+        + m.geom_point(manual_key=m.layer_key("pts", index=1))
+        + m.geom_label(m.aes(label="c"), manual_key=m.layer_key("lbl", index=0))
+    ),
+    "text joins a color legend": lambda m, b: (
+        b
+        + m.geom_point(m.aes(color="c"))
+        + m.geom_text(m.aes(label="c"), manual_key=m.layer_key("text", group="color"))
+    ),
 }
 
 
@@ -93,6 +108,17 @@ def test_layer_key_matches_lets_plot_as_dict():
     assert gg.layer_key("a").as_dict() == lp.layer_key("a").as_dict()
     ours = gg.layer_key("a", "g", index=2, color="red", size=3)
     assert ours.as_dict() == lp.layer_key("a", "g", index=2, color="red", size=3).as_dict()
+
+
+def test_text_and_label_keys_take_layer_colors():
+    plot = (
+        gg.ggplot(DATA, gg.aes("x", "y"))
+        + gg.geom_text(gg.aes(label="c"), color="#ff0000", manual_key="text")
+        + gg.geom_label(gg.aes(label="c"), fill="#ffff00", manual_key="label")
+    )
+    legend = plot.to_svg().split('<g class="legend">', 1)[1]
+    assert 'fill="#ff0000"' in legend  # the text key's "a"
+    assert 'fill="#ffff00"' in legend  # the label key's box
 
 
 def test_key_takes_layer_constants_and_layer_key_values():

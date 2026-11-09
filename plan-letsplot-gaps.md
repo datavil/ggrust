@@ -116,7 +116,7 @@ ggrust computes `identity`, `count`, `bin`, `boxplot` (+ outliers), `ydensity`, 
 | Score | Option | lets-plot issues | Note |
 | --- | --- | --- | --- |
 | 4 | `orientation` (bar, histogram, boxplot, violin) | | Horizontal geoms without `coord_flip`. |
-| 3 | Text and label `label_format`, `check_overlap`, `na_text` | #270 | |
+| 3 | Text and label `label_format`, `check_overlap`, `na_text` | #270 | Done (lp5.9, 2026-11-09) on `geom_text`/`geom_label`; repel and bracket geoms not yet. |
 | 3 | `manual_key` (custom legend entries) | | Done (2026-11-04): `manual_key=`, `layer_key()`, groups, `index`, `guides(<group>=)`. |
 | 2 | `size_unit` (point, text, label) | #1213, #270 | Buggy in lets-plot. |
 | 2 | `nudge_unit`, `alpha_stroke`, `halo_width`, `halo_color` | | `halo_*` done (geom_text, geom_text_repel; lets-plot has none on labels). |
@@ -188,7 +188,7 @@ around it, then rebuild with `uv run python docs/build_examples.py`.
 | Gap | Example | Workaround to undo |
 | --- | --- | --- |
 | ~~`geom_curve` (section 1)~~ | `docs/examples/periodic_table.py` | Undone in lp6.2: the first and third key arrows are `geom_curve(curvature=.4, ncp=1)` and `geom_curve(curvature=-.4, ncp=1)` again. |
-| `label_format` (section 7) | `docs/examples/periodic_table.py` | Atomic masses rounded to 3 decimals in `docs/data/make_data.py` (`elements()`). lets-plot uses `label_format=".3~f"` on the mass `geom_text`. |
+| ~~`label_format` (section 7)~~ | `docs/examples/periodic_table.py` | Undone in lp5.9: masses are unrounded in `elements.csv` and the mass `geom_text` layers use `label_format=".3~f"` (same texts as lets-plot for all 118). |
 
 ## Proposed order
 

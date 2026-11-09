@@ -13,8 +13,12 @@
 //!
 //! Lines of a multi-line text are `lineheight` (1.0) x font size apart.
 //!
-//! What it does not do (yet): `label_format`, `na_text`, `check_overlap`,
-//! `hjust`/`vjust` `inward`/`outward`.
+//! Label texts follow `label_format` and `na_text` (resolved with the styles, in
+//! `build`). `check_overlap=True` skips a text whose box (the label box, or the text
+//! block for `geom_text`, turned by `angle`) touches the box of a text drawn
+//! before it in the same layer (lets-plot `TextHelper`, ggplot2 `check_overlap`).
+//!
+//! What it does not do (yet): `hjust`/`vjust` `inward`/`outward`.
 //!
 //! `size_unit="x"`/`"y"` scales the font by one axis unit / 6 px (lets-plot's
 //! baseline text width), so `size=1` is a third of an axis unit tall.
@@ -73,6 +77,9 @@ const TEXT_PARAMETERS: &[&str] = &[
     "halo_width",
     "halo_color",
     "lineheight",
+    "label_format",
+    "na_text",
+    "check_overlap",
 ];
 
 const PARAMETERS: &[&str] = &[
@@ -83,6 +90,9 @@ const PARAMETERS: &[&str] = &[
     "label_size",
     "size_unit",
     "lineheight",
+    "label_format",
+    "na_text",
+    "check_overlap",
 ];
 
 /// lets-plot `TextGeom` `BASELINE_TEXT_WIDTH`: pixels per unit of `size` under `size_unit`.
@@ -307,6 +317,11 @@ fn draw_texts(layer: &DrawLayer, panel: &Panel, label: bool) -> Result<Vec<Node>
     let halo = if label { None } else { halo(layer)? };
     let line_height = line_height(layer)?;
     let ratio = size_unit_ratio(&layer.parameters, panel, SIZE_UNIT_TEXT_WIDTH)?;
+    let mut drawn_boxes = layer
+        .parameters
+        .boolean("check_overlap")?
+        .unwrap_or(false)
+        .then(Vec::<TextBox>::new);
     let mut nodes = Vec::new();
     for row in 0..layer.data.row_count() {
         let (px, py) = panel.map(
@@ -323,6 +338,13 @@ fn draw_texts(layer: &DrawLayer, panel: &Panel, label: bool) -> Result<Vec<Node>
         }
         look.halo = halo;
         look.line_height = line_height;
+        if let Some(drawn) = drawn_boxes.as_mut() {
+            let candidate = text_box(&look, (px, py), label, padding);
+            if drawn.iter().any(|other| other.intersects(&candidate)) {
+                continue;
+            }
+            drawn.push(candidate);
+        }
         // Anchored, so interactive zoom moves each text with its point.
         nodes.push(Node::Group(Group {
             key: None,
@@ -350,29 +372,13 @@ pub(super) fn draw_one(
     let (lines, widths) = measured_lines(look);
     let width = widths.iter().copied().fold(0.0, f64::max);
     let line_count = lines.len() as f64;
-    let (sin, cos) = look.angle.to_radians().sin_cos();
-    // Offset of the block centre from the point, in the text's own frame (y down).
     let spacing = look.line_height * look.size;
-    // The block is one font size for the first line plus the spacing per extra line.
-    let block_height = look.size + (line_count - 1.0) * spacing;
-    let pad = if label { padding * look.size } else { 0.0 };
-    // A label is placed by its box (its top at the point for vjust = 1, as
-    // lets-plot); plain text by its baselines.
-    let centre_offset = if label {
-        (
-            (0.5 - look.hjust) * (width + 2.0 * pad),
-            (look.vjust - 0.5) * (block_height + 2.0 * pad),
-        )
-    } else {
-        (
-            (0.5 - look.hjust) * width,
-            (look.vjust - 0.5) * VJUST_SPAN * look.size
-                - (1.0 - look.vjust) * (line_count - 1.0) * spacing
-                + (line_count - 1.0) * spacing / 2.0,
-        )
-    };
-    let rotate =
-        |(dx, dy): (f64, f64)| (point.0 + dx * cos + dy * sin, point.1 - dx * sin + dy * cos);
+    let Block {
+        block_height,
+        pad,
+        centre_offset,
+    } = block(look, width, lines.len(), label, padding);
+    let rotate = rotation(look.angle, point);
     let mut nodes = Vec::new();
     if label {
         let (half_width, half_height) = (width / 2.0 + pad, block_height / 2.0 + pad);
@@ -423,6 +429,116 @@ pub(super) fn draw_one(
     }
     nodes.extend(texts.into_iter().map(Node::Text));
     nodes
+}
+
+/// Size and placement of a text block (and its label box) around its point.
+struct Block {
+    /// One font size for the first line plus the line spacing per extra line.
+    block_height: f64,
+    /// Label box padding in pixels (0 for plain text).
+    pad: f64,
+    /// Offset of the block centre from the point, in the text's own frame (y down).
+    centre_offset: (f64, f64),
+}
+
+fn block(look: &Look, width: f64, line_count: usize, label: bool, padding: f64) -> Block {
+    let line_count = line_count as f64;
+    let spacing = look.line_height * look.size;
+    let block_height = look.size + (line_count - 1.0) * spacing;
+    let pad = if label { padding * look.size } else { 0.0 };
+    // A label is placed by its box (its top at the point for vjust = 1, as
+    // lets-plot); plain text by its baselines.
+    let centre_offset = if label {
+        (
+            (0.5 - look.hjust) * (width + 2.0 * pad),
+            (look.vjust - 0.5) * (block_height + 2.0 * pad),
+        )
+    } else {
+        (
+            (0.5 - look.hjust) * width,
+            (look.vjust - 0.5) * VJUST_SPAN * look.size
+                - (1.0 - look.vjust) * (line_count - 1.0) * spacing
+                + (line_count - 1.0) * spacing / 2.0,
+        )
+    };
+    Block {
+        block_height,
+        pad,
+        centre_offset,
+    }
+}
+
+/// Maps an offset in the text's own frame to pixels: turned counter-clockwise by
+/// `angle` degrees around `point`.
+fn rotation(angle: f64, point: (f64, f64)) -> impl Fn((f64, f64)) -> (f64, f64) {
+    let (sin, cos) = angle.to_radians().sin_cos();
+    move |(dx, dy)| (point.0 + dx * cos + dy * sin, point.1 - dx * sin + dy * cos)
+}
+
+/// The corners of a drawn text's box in pixels (`check_overlap`).
+struct TextBox {
+    corners: [(f64, f64); 4],
+    /// Axis-aligned bounds `(min x, min y, max x, max y)`, a cheap first test.
+    bounds: (f64, f64, f64, f64),
+}
+
+impl TextBox {
+    /// lets-plot `GeometryUtils.arePolygonsIntersected`: separating axes over the
+    /// edge normals of both boxes; touching boxes intersect.
+    fn intersects(&self, other: &TextBox) -> bool {
+        let (a, b) = (self.bounds, other.bounds);
+        if a.2 < b.0 || b.2 < a.0 || a.3 < b.1 || b.3 < a.1 {
+            return false;
+        }
+        let project = |axis: (f64, f64), corners: &[(f64, f64); 4]| {
+            corners
+                .iter()
+                .map(|&(x, y)| x * axis.0 + y * axis.1)
+                .fold((f64::INFINITY, f64::NEG_INFINITY), |(low, high), dot| {
+                    (low.min(dot), high.max(dot))
+                })
+        };
+        [&self.corners, &other.corners].iter().all(|corners| {
+            (0..4).all(|index| {
+                let (x0, y0) = corners[index];
+                let (x1, y1) = corners[(index + 1) % 4];
+                let axis = (y0 - y1, x1 - x0);
+                let (low1, high1) = project(axis, &self.corners);
+                let (low2, high2) = project(axis, &other.corners);
+                !(high1 < low2 || high2 < low1)
+            })
+        })
+    }
+}
+
+/// The box a text occupies when drawn by [`draw_one`]: the label box, or the text
+/// block (font size tall per line, as wide as its widest line), turned by `angle`.
+fn text_box(look: &Look, point: (f64, f64), label: bool, padding: f64) -> TextBox {
+    let (lines, widths) = measured_lines(look);
+    let width = widths.iter().copied().fold(0.0, f64::max);
+    let Block {
+        block_height,
+        pad,
+        centre_offset,
+    } = block(look, width, lines.len(), label, padding);
+    let rotate = rotation(look.angle, point);
+    let (half_width, half_height) = (width / 2.0 + pad, block_height / 2.0 + pad);
+    let corners = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)].map(|(sx, sy)| {
+        rotate((
+            centre_offset.0 + sx * half_width,
+            centre_offset.1 + sy * half_height,
+        ))
+    });
+    let bounds = corners.iter().fold(
+        (
+            f64::INFINITY,
+            f64::INFINITY,
+            f64::NEG_INFINITY,
+            f64::NEG_INFINITY,
+        ),
+        |(x0, y0, x1, y1), &(x, y)| (x0.min(x), y0.min(y), x1.max(x), y1.max(y)),
+    );
+    TextBox { corners, bounds }
 }
 
 /// The lines of a text (with power-of-ten superscripts) and their widths.
@@ -481,4 +597,38 @@ fn rounded_box(half_width: f64, half_height: f64, radius: f64) -> Vec<(f64, f64)
         }
     }
     points
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn square(x: f64, y: f64, half: f64, angle: f64) -> TextBox {
+        let rotate = rotation(angle, (x, y));
+        let corners = [(-1.0, -1.0), (1.0, -1.0), (1.0, 1.0), (-1.0, 1.0)]
+            .map(|(sx, sy)| rotate((sx * half, sy * half)));
+        let bounds = corners.iter().fold(
+            (f64::MAX, f64::MAX, f64::MIN, f64::MIN),
+            |(x0, y0, x1, y1), &(x, y)| (x0.min(x), y0.min(y), x1.max(x), y1.max(y)),
+        );
+        TextBox { corners, bounds }
+    }
+
+    #[test]
+    fn boxes_intersect_when_overlapping_or_touching() {
+        let a = square(0.0, 0.0, 1.0, 0.0);
+        assert!(a.intersects(&square(1.5, 0.0, 1.0, 0.0)));
+        assert!(a.intersects(&square(2.0, 0.0, 1.0, 0.0)), "touching counts");
+        assert!(!a.intersects(&square(2.01, 0.0, 1.0, 0.0)));
+    }
+
+    #[test]
+    fn turned_boxes_use_their_edges_not_their_bounds() {
+        // Two diamonds whose bounding boxes overlap but whose sides do not.
+        let a = square(0.0, 0.0, 1.0, 45.0);
+        let b = square(2.0, 2.0, 1.0, 45.0);
+        assert!(a.bounds.2 > b.bounds.0 && a.bounds.3 > b.bounds.1);
+        assert!(!a.intersects(&b));
+        assert!(a.intersects(&square(1.4, 0.0, 1.0, 45.0)));
+    }
 }

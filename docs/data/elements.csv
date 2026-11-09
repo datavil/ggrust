@@ -1,96 +1,96 @@
 atomic_number,element,symbol,atomic_mass,period,group,type,electron_configuration
-1,Hydrogen,H,1.008,1,1,Nonmetal,1s1
-2,Helium,He,4.003,1,18,Noble Gas,1s2
+1,Hydrogen,H,1.00794,1,1,Nonmetal,1s1
+2,Helium,He,4.002602,1,18,Noble Gas,1s2
 3,Lithium,Li,6.941,2,1,Alkali Metal,[He] 2s1
-4,Beryllium,Be,9.012,2,2,Alkaline Earth Metal,[He] 2s2
+4,Beryllium,Be,9.012182,2,2,Alkaline Earth Metal,[He] 2s2
 5,Boron,B,10.811,2,13,Metalloid,[He] 2s2 2p1
-6,Carbon,C,12.011,2,14,Nonmetal,[He] 2s2 2p2
-7,Nitrogen,N,14.007,2,15,Nonmetal,[He] 2s2 2p3
-8,Oxygen,O,15.999,2,16,Nonmetal,[He] 2s2 2p4
-9,Fluorine,F,18.998,2,17,Halogen,[He] 2s2 2p5
-10,Neon,Ne,20.18,2,18,Noble Gas,[He] 2s2 2p6
-11,Sodium,Na,22.99,3,1,Alkali Metal,[Ne] 3s1
+6,Carbon,C,12.0107,2,14,Nonmetal,[He] 2s2 2p2
+7,Nitrogen,N,14.0067,2,15,Nonmetal,[He] 2s2 2p3
+8,Oxygen,O,15.9994,2,16,Nonmetal,[He] 2s2 2p4
+9,Fluorine,F,18.9984032,2,17,Halogen,[He] 2s2 2p5
+10,Neon,Ne,20.1797,2,18,Noble Gas,[He] 2s2 2p6
+11,Sodium,Na,22.98976928,3,1,Alkali Metal,[Ne] 3s1
 12,Magnesium,Mg,24.305,3,2,Alkaline Earth Metal,[Ne] 3s2
-13,Aluminum,Al,26.982,3,13,Metal,[Ne] 3s2 3p1
-14,Silicon,Si,28.085,3,14,Metalloid,[Ne] 3s2 3p2
-15,Phosphorus,P,30.974,3,15,Nonmetal,[Ne] 3s2 3p3
+13,Aluminum,Al,26.9815386,3,13,Metal,[Ne] 3s2 3p1
+14,Silicon,Si,28.0855,3,14,Metalloid,[Ne] 3s2 3p2
+15,Phosphorus,P,30.973762,3,15,Nonmetal,[Ne] 3s2 3p3
 16,Sulfur,S,32.065,3,16,Nonmetal,[Ne] 3s2 3p4
 17,Chlorine,Cl,35.453,3,17,Halogen,[Ne] 3s2 3p5
 18,Argon,Ar,39.948,3,18,Noble Gas,[Ne] 3s2 3p6
-19,Potassium,K,39.098,4,1,Alkali Metal,[Ar] 4s1
+19,Potassium,K,39.0983,4,1,Alkali Metal,[Ar] 4s1
 20,Calcium,Ca,40.078,4,2,Alkaline Earth Metal,[Ar] 4s2
-21,Scandium,Sc,44.956,4,3,Transition Metal,[Ar] 3d1 4s2
+21,Scandium,Sc,44.955912,4,3,Transition Metal,[Ar] 3d1 4s2
 22,Titanium,Ti,47.867,4,4,Transition Metal,[Ar] 3d2 4s2
-23,Vanadium,V,50.941,4,5,Transition Metal,[Ar] 3d3 4s2
-24,Chromium,Cr,51.996,4,6,Transition Metal,[Ar] 3d5 4s1
-25,Manganese,Mn,54.938,4,7,Transition Metal,[Ar] 3d5 4s2
+23,Vanadium,V,50.9415,4,5,Transition Metal,[Ar] 3d3 4s2
+24,Chromium,Cr,51.9961,4,6,Transition Metal,[Ar] 3d5 4s1
+25,Manganese,Mn,54.938045,4,7,Transition Metal,[Ar] 3d5 4s2
 26,Iron,Fe,55.845,4,8,Transition Metal,[Ar] 3d6 4s2
-27,Cobalt,Co,58.933,4,9,Transition Metal,[Ar] 3d7 4s2
-28,Nickel,Ni,58.693,4,10,Transition Metal,[Ar] 3d8 4s2
+27,Cobalt,Co,58.933195,4,9,Transition Metal,[Ar] 3d7 4s2
+28,Nickel,Ni,58.6934,4,10,Transition Metal,[Ar] 3d8 4s2
 29,Copper,Cu,63.546,4,11,Transition Metal,[Ar] 3d10 4s1
 30,Zinc,Zn,65.38,4,12,Transition Metal,[Ar] 3d10 4s2
 31,Gallium,Ga,69.723,4,13,Metal,[Ar] 3d10 4s2 4p1
 32,Germanium,Ge,72.64,4,14,Metalloid,[Ar] 3d10 4s2 4p2
-33,Arsenic,As,74.922,4,15,Metalloid,[Ar] 3d10 4s2 4p3
+33,Arsenic,As,74.9216,4,15,Metalloid,[Ar] 3d10 4s2 4p3
 34,Selenium,Se,78.96,4,16,Nonmetal,[Ar] 3d10 4s2 4p4
 35,Bromine,Br,79.904,4,17,Halogen,[Ar] 3d10 4s2 4p5
 36,Krypton,Kr,83.798,4,18,Noble Gas,[Ar] 3d10 4s2 4p6
-37,Rubidium,Rb,85.468,5,1,Alkali Metal,[Kr] 5s1
+37,Rubidium,Rb,85.4678,5,1,Alkali Metal,[Kr] 5s1
 38,Strontium,Sr,87.62,5,2,Alkaline Earth Metal,[Kr] 5s2
-39,Yttrium,Y,88.906,5,3,Transition Metal,[Kr] 4d1 5s2
+39,Yttrium,Y,88.90585,5,3,Transition Metal,[Kr] 4d1 5s2
 40,Zirconium,Zr,91.224,5,4,Transition Metal,[Kr] 4d2 5s2
-41,Niobium,Nb,92.906,5,5,Transition Metal,[Kr] 4d4 5s1
+41,Niobium,Nb,92.90638,5,5,Transition Metal,[Kr] 4d4 5s1
 42,Molybdenum,Mo,95.96,5,6,Transition Metal,[Kr] 4d5 5s1
 43,Technetium,Tc,98.0,5,7,Transition Metal,[Kr] 4d5 5s2
 44,Ruthenium,Ru,101.07,5,8,Transition Metal,[Kr] 4d7 5s1
-45,Rhodium,Rh,102.906,5,9,Transition Metal,[Kr] 4d8 5s1
+45,Rhodium,Rh,102.9055,5,9,Transition Metal,[Kr] 4d8 5s1
 46,Palladium,Pd,106.42,5,10,Transition Metal,[Kr] 4d10
-47,Silver,Ag,107.868,5,11,Transition Metal,[Kr] 4d10 5s1
+47,Silver,Ag,107.8682,5,11,Transition Metal,[Kr] 4d10 5s1
 48,Cadmium,Cd,112.411,5,12,Transition Metal,[Kr] 4d10 5s2
 49,Indium,In,114.818,5,13,Metal,[Kr] 4d10 5s2 5p1
 50,Tin,Sn,118.71,5,14,Metal,[Kr] 4d10 5s2 5p2
 51,Antimony,Sb,121.76,5,15,Metalloid,[Kr] 4d10 5s2 5p3
 52,Tellurium,Te,127.6,5,16,Metalloid,[Kr] 4d10 5s2 5p4
-53,Iodine,I,126.904,5,17,Halogen,[Kr] 4d10 5s2 5p5
+53,Iodine,I,126.90447,5,17,Halogen,[Kr] 4d10 5s2 5p5
 54,Xenon,Xe,131.293,5,18,Noble Gas,[Kr] 4d10 5s2 5p6
-55,Cesium,Cs,132.905,6,1,Alkali Metal,[Xe] 6s1
+55,Cesium,Cs,132.9054519,6,1,Alkali Metal,[Xe] 6s1
 56,Barium,Ba,137.327,6,2,Alkaline Earth Metal,[Xe] 6s2
-57,Lanthanum,La,138.905,6,3,Lanthanide,[Xe] 5d1 6s2
+57,Lanthanum,La,138.90547,6,3,Lanthanide,[Xe] 5d1 6s2
 58,Cerium,Ce,140.116,6,19,Lanthanide,[Xe] 4f1 5d1 6s2
-59,Praseodymium,Pr,140.908,6,20,Lanthanide,[Xe] 4f3 6s2
+59,Praseodymium,Pr,140.90765,6,20,Lanthanide,[Xe] 4f3 6s2
 60,Neodymium,Nd,144.242,6,21,Lanthanide,[Xe] 4f4 6s2
 61,Promethium,Pm,145.0,6,22,Lanthanide,[Xe] 4f5 6s2
 62,Samarium,Sm,150.36,6,23,Lanthanide,[Xe] 4f6 6s2
 63,Europium,Eu,151.964,6,24,Lanthanide,[Xe] 4f7 6s2
 64,Gadolinium,Gd,157.25,6,25,Lanthanide,[Xe] 4f7 5d1 6s2
-65,Terbium,Tb,158.925,6,26,Lanthanide,[Xe] 4f9 6s2
+65,Terbium,Tb,158.92535,6,26,Lanthanide,[Xe] 4f9 6s2
 66,Dysprosium,Dy,162.5,6,27,Lanthanide,[Xe] 4f10 6s2
-67,Holmium,Ho,164.93,6,28,Lanthanide,[Xe] 4f11 6s2
+67,Holmium,Ho,164.93032,6,28,Lanthanide,[Xe] 4f11 6s2
 68,Erbium,Er,167.259,6,29,Lanthanide,[Xe] 4f12 6s2
-69,Thulium,Tm,168.934,6,30,Lanthanide,[Xe] 4f13 6s2
+69,Thulium,Tm,168.93421,6,30,Lanthanide,[Xe] 4f13 6s2
 70,Ytterbium,Yb,173.054,6,31,Lanthanide,[Xe] 4f14 6s2
-71,Lutetium,Lu,174.967,6,32,Lanthanide,[Xe] 4f14 5d1 6s2
+71,Lutetium,Lu,174.9668,6,32,Lanthanide,[Xe] 4f14 5d1 6s2
 72,Hafnium,Hf,178.49,6,4,Transition Metal,[Xe] 4f14 5d2 6s2
-73,Tantalum,Ta,180.948,6,5,Transition Metal,[Xe] 4f14 5d3 6s2
+73,Tantalum,Ta,180.94788,6,5,Transition Metal,[Xe] 4f14 5d3 6s2
 74,Wolfram,W,183.84,6,6,Transition Metal,[Xe] 4f14 5d4 6s2
 75,Rhenium,Re,186.207,6,7,Transition Metal,[Xe] 4f14 5d5 6s2
 76,Osmium,Os,190.23,6,8,Transition Metal,[Xe] 4f14 5d6 6s2
 77,Iridium,Ir,192.217,6,9,Transition Metal,[Xe] 4f14 5d7 6s2
 78,Platinum,Pt,195.084,6,10,Transition Metal,[Xe] 4f14 5d9 6s1
-79,Gold,Au,196.967,6,11,Transition Metal,[Xe] 4f14 5d10 6s1
+79,Gold,Au,196.966569,6,11,Transition Metal,[Xe] 4f14 5d10 6s1
 80,Mercury,Hg,200.59,6,12,Transition Metal,[Xe] 4f14 5d10 6s2
-81,Thallium,Tl,204.383,6,13,Metal,[Xe] 4f14 5d10 6s2 6p1
+81,Thallium,Tl,204.3833,6,13,Metal,[Xe] 4f14 5d10 6s2 6p1
 82,Lead,Pb,207.2,6,14,Metal,[Xe] 4f14 5d10 6s2 6p2
-83,Bismuth,Bi,208.98,6,15,Metal,[Xe] 4f14 5d10 6s2 6p3
+83,Bismuth,Bi,208.9804,6,15,Metal,[Xe] 4f14 5d10 6s2 6p3
 84,Polonium,Po,210.0,6,16,Metalloid,[Xe] 4f14 5d10 6s2 6p4
 85,Astatine,At,210.0,6,17,Halogen,[Xe] 4f14 5d10 6s2 6p5
 86,Radon,Rn,222.0,6,18,Noble Gas,[Xe] 4f14 5d10 6s2 6p6
 87,Francium,Fr,223.0,7,1,Alkali Metal,[Rn] 7s1
 88,Radium,Ra,226.0,7,2,Alkaline Earth Metal,[Rn] 7s2
 89,Actinium,Ac,227.0,7,3,Actinide,[Rn] 6d1 7s2
-90,Thorium,Th,232.038,7,19,Actinide,[Rn] 6d2 7s2
-91,Protactinium,Pa,231.036,7,20,Actinide,[Rn] 5f2 6d1 7s2
-92,Uranium,U,238.029,7,21,Actinide,[Rn] 5f3 6d1 7s2
+90,Thorium,Th,232.03806,7,19,Actinide,[Rn] 6d2 7s2
+91,Protactinium,Pa,231.03588,7,20,Actinide,[Rn] 5f2 6d1 7s2
+92,Uranium,U,238.02891,7,21,Actinide,[Rn] 5f3 6d1 7s2
 93,Neptunium,Np,237.0,7,22,Actinide,[Rn] 5f4 6d1 7s2
 94,Plutonium,Pu,244.0,7,23,Actinide,[Rn] 5f6 7s2
 95,Americium,Am,243.0,7,24,Actinide,[Rn] 5f7 7s2

@@ -20,7 +20,7 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Default style scales follow lets-plot](letsplot_style_scales.md): Set1 + generated colors, LAB gradient, size/alpha ranges, NA values; benchmark machine changed.
 - [Discrete legends follow lets-plot](letsplot_legends.md): breaks-first domain, legends grouped by title, keys for every scale label, rendered-aes order, key style precedence.
 - [Axis labels follow lets-plot](letsplot_label_formats.md): format patterns, POW exponents, decimal rounding, fixed breaks, overlap dropping (open).
-- [Text and line geoms follow lets-plot](letsplot_text_and_lines.md): line width from `size` x 2.2, text 2 px per size, vjust 0.7 em, label box placement, `,~g` numeric labels.
+- [Text and line geoms follow lets-plot](letsplot_text_and_lines.md): line width from `size` x 2.2, text 2 px per size, vjust 0.7 em, label box placement, `,~g` numeric labels; label_format/na_text/check_overlap measured (lp5.9).
 - [Port checks need a mirrored env](cellestial_port_check.md): worktree + import swap + poetry's exact versions; fresh resolves give false failures.
 - [Bars, stats and positions follow lets-plot](letsplot_bars_and_positions.md): per-group stats, `(low, high]` breaks, stack/dodge formulas, dry-run axis ranges, zero-based y.
 - [When lets-plot looks wrong, ggplot2 decides](deviate_from_lets_plot_via_ggplot2.md): parity by default; quirks follow ggplot2; every deviation is recorded in deviations.md.

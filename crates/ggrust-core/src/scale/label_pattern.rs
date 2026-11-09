@@ -128,6 +128,12 @@ impl LabelPattern {
     /// The label of one value; a power written by a number format becomes the
     /// label's superscript when it ends the label.
     pub fn format(&self, value: PatternValue) -> Label {
+        power_label(self.format_text(value))
+    }
+
+    /// The text of one value, powers of ten still written as `\(10^{n}\)` (as
+    /// [`NumberFormat::apply`] writes them; text geoms read that form).
+    pub fn format_text(&self, value: PatternValue) -> String {
         let mut text = String::new();
         for part in &self.parts {
             match (part, value) {
@@ -148,7 +154,7 @@ impl LabelPattern {
                 }
             }
         }
-        power_label(text)
+        text
     }
 }
 

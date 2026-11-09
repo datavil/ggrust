@@ -35,6 +35,7 @@ use crate::parameters::Parameters;
 use crate::position::{self, Position};
 use crate::scale::datetime::TemporalKind;
 use crate::scale::format::Label;
+use crate::scale::label_pattern::{LabelPattern, PatternValue};
 use crate::scale::number_format::{ExponentFormat, NumberFormat};
 use crate::scale::style::spec::{StyleScaleSpec, style_scale_specs};
 use crate::scale::style::{LegendEntry, ScaleKey, StyleScale, default_mapper};
@@ -4537,12 +4538,30 @@ fn resolve_styles(
         palette,
     } = context;
     let mut styles = Styles::default();
+    let label_options = LabelTextOptions::of(geom, parameters, exponent_format)?;
     for &(aesthetic, default) in geom.style_defaults() {
         let mapped = data.get(aesthetic);
         let values = match (mapped, style_scales.get(&aesthetic)) {
             // Text labels are the column's values, not a scale's output.
-            (Some(column), _) if matches!(aesthetic, Aesthetic::Label | Aesthetic::Description) => {
-                label_texts(column, exponent_format)
+            (Some(column), _) if aesthetic == Aesthetic::Label => {
+                label_texts(column, &label_options)
+            }
+            (Some(column), _) if aesthetic == Aesthetic::Description => {
+                label_texts(column, &LabelTextOptions::plain(exponent_format))
+            }
+            // A constant label goes through `label_format` too (lets-plot).
+            (None, _) if aesthetic == Aesthetic::Label && label_options.pattern.is_some() => {
+                match parameters.value(aesthetic.as_str()) {
+                    Some(value) => label_options.constant(value).map_or_else(
+                        || {
+                            parse_constant_in(default.kind(), value, palette).map_err(|message| {
+                                Error::spec(parameters.path_of(aesthetic.as_str()), message)
+                            })
+                        },
+                        Ok,
+                    )?,
+                    None => default.uniform_in(palette),
+                }
             }
             (Some(column), Some(scale)) => scale
                 .map(column)
@@ -4655,24 +4674,116 @@ fn mapped_justification(
     StyleValues::Numbers(PerItem::Varying(values))
 }
 
+/// How a layer turns label values into texts: `label_format` and `na_text`
+/// (lets-plot `TextHelper.toString`), on geoms that accept them.
+struct LabelTextOptions {
+    /// `label_format`, under the theme's `exponent_format`.
+    pattern: Option<LabelPattern>,
+    /// `na_text`: the text of a missing value (lets-plot `n/a`).
+    missing: String,
+    exponent_format: ExponentFormat,
+}
+
+impl LabelTextOptions {
+    /// lets-plot `TextHelper.DEF_NA_VALUE`.
+    const MISSING: &'static str = "n/a";
+
+    /// Default label texts: `,~g` numbers, `n/a` for missing values.
+    fn plain(exponent_format: ExponentFormat) -> Self {
+        LabelTextOptions {
+            pattern: None,
+            missing: Self::MISSING.to_owned(),
+            exponent_format,
+        }
+    }
+
+    /// The layer's `label_format` / `na_text`, read only when the geom lists them.
+    fn of(
+        geom: &dyn Geom,
+        parameters: &Parameters,
+        exponent_format: ExponentFormat,
+    ) -> Result<Self> {
+        let mut options = Self::plain(exponent_format);
+        let accepts = |name: &str| geom.parameters().contains(&name);
+        if accepts("label_format")
+            && let Some(pattern) = parameters.string("label_format")?
+        {
+            let parsed = LabelPattern::parse(pattern).map_err(|message| {
+                Error::spec(
+                    parameters.path_of("label_format"),
+                    format!(
+                        "{message}. label_format takes a number format such as '.2f' or a \
+                         template such as '{{.1f}} kg' or '{{}} items'"
+                    ),
+                )
+            })?;
+            options.pattern = Some(parsed.with_exponent(exponent_format));
+        }
+        if accepts("na_text")
+            && let Some(text) = parameters.string("na_text")?
+        {
+            text.clone_into(&mut options.missing);
+        }
+        Ok(options)
+    }
+
+    /// The text of a present value.
+    fn number(&self, value: f64) -> String {
+        match &self.pattern {
+            Some(pattern) => pattern.format_text(PatternValue::Number(value)),
+            // lets-plot formats numeric labels as `,~g` with powers of ten (`1.23457·10⁸`).
+            None => NumberFormat::parse(",~g")
+                .map(|format| format.with_exponent(self.exponent_format).apply(value))
+                .unwrap_or_else(|| value.to_string()),
+        }
+    }
+
+    fn text(&self, value: &str) -> String {
+        match &self.pattern {
+            Some(pattern) => pattern.format_text(PatternValue::Text(value)),
+            None => value.to_owned(),
+        }
+    }
+
+    /// A constant `label=` through the pattern; None leaves other values to the
+    /// generic constant parser (and its errors).
+    fn constant(&self, value: &Value) -> Option<StyleValues> {
+        let text = match value {
+            Value::Number(number) => self.number(number.as_f64()?),
+            Value::String(text) => self.text(text),
+            _ => return None,
+        };
+        Some(StyleValues::Texts(PerItem::Uniform(text)))
+    }
+}
+
 /// A column's values as label texts: levels as they are, numbers formatted as
-/// lets-plot does.
-fn label_texts(column: &Column, exponent_format: ExponentFormat) -> StyleValues {
-    // lets-plot formats numeric labels as `,~g` with powers of ten (`1.23457·10⁸`)
-    // and writes missing values as `n/a`.
-    const MISSING: &str = "n/a";
+/// lets-plot does (`label_format` when given), missing values as `na_text`.
+fn label_texts(column: &Column, options: &LabelTextOptions) -> StyleValues {
     let texts = match column {
         Column::Discrete(column) => (0..column.len())
-            .map(|row| column.label(row).unwrap_or(MISSING).to_owned())
+            .map(|row| match column.label(row) {
+                Some(label) => options.text(label),
+                None => options.missing.clone(),
+            })
             .collect(),
         Column::Continuous(column) => {
-            let format =
-                NumberFormat::parse(",~g").map(|format| format.with_exponent(exponent_format));
+            // Without a pattern, format once and reuse (the hot path for numbers).
+            let default = options
+                .pattern
+                .is_none()
+                .then(|| {
+                    NumberFormat::parse(",~g")
+                        .map(|format| format.with_exponent(options.exponent_format))
+                })
+                .flatten();
             (0..column.len())
-                .map(|row| match (column.get(row), &format) {
-                    (Some(value), Some(format)) if value.is_finite() => format.apply(value),
-                    (Some(value), None) if value.is_finite() => value.to_string(),
-                    _ => MISSING.to_owned(),
+                .map(|row| match column.get(row) {
+                    Some(value) if value.is_finite() => match &default {
+                        Some(format) => format.apply(value),
+                        None => options.number(value),
+                    },
+                    _ => options.missing.clone(),
                 })
                 .collect()
         }

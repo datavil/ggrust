@@ -67,7 +67,7 @@ plot = (
         size=5,
     )
     + geom_text(aes(label="symbol"), data=table, nudge_y=0.05, size=7, fontface="bold")
-    + geom_text(aes(label="atomic_mass"), data=table, nudge_y=-0.2, size=4)
+    + geom_text(aes(label="atomic_mass"), data=table, nudge_y=-0.2, size=4, label_format=".3~f")
     # Where the lanthanides and actinides belong.
     + geom_tile(
         aes(fill="type"),
@@ -102,7 +102,13 @@ plot = (
     + geom_text(
         aes(label="symbol"), data=key, nudge_y=0.05 * key_ratio, size=7 * key_ratio, fontface="bold"
     )
-    + geom_text(aes(label="atomic_mass"), data=key, nudge_y=-0.2 * key_ratio, size=4 * key_ratio)
+    + geom_text(
+        aes(label="atomic_mass"),
+        data=key,
+        nudge_y=-0.2 * key_ratio,
+        size=4 * key_ratio,
+        label_format=".3~f",
+    )
     # Group and period numbers.
     + geom_text(
         aes("group", "y", label="group"),

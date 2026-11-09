@@ -6,6 +6,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Added
 
+- `geom_text` and `geom_label` take `label_format` (a number format such as `".3~f"` or a template such as `"{.1f} kg"` or `"{} items"`, also for text labels and constant `label=`), `na_text` (what a missing label shows, default `n/a`) and `check_overlap=True` (a label that touches one drawn before it in the same layer is skipped), as lets_plot. The periodic table example formats its atomic masses with `label_format` instead of rounding the data.
 - `stat_centroid(fun="mean"|"median")` and `stat_summary_xy(fun_x=, fun_y=)`, as the R package ggpp (`stat="centroid"` / `"summary_xy"` in any geom): one row per group and facet panel at the centre of its x and y. `geom_text(aes(label="cluster"), stat="centroid")` names each cluster at its centre instead of in a legend.
 - `geom_density2d(contour_var="density"|"ndensity"|"count")` and `geom_density2df(...)`, as ggplot2: contour the density, the density divided by its maximum (comparable across samples of different sizes) or the density times the number of points. lets_plot has no `contour_var`.
 - `breaks=[...]` on `geom_density2d`, `geom_density2df`, `geom_contour` and `geom_contourf`: explicit contour levels (in `contour_var` units), winning over `bins` and `binwidth`; bands are drawn only between two breaks, as ggplot2.

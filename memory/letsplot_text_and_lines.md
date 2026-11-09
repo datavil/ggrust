@@ -22,3 +22,17 @@
 
 **How to apply:** check any new text/line geom against these before guessing.
 The parity tests live in `tests/test_line_text_geoms_parity.py`.
+
+## Text layer options (lp5.9, measured on lets-plot 4.11)
+
+- `label_format` / `na_text` go through `build::LabelTextOptions` while styles are
+  resolved (read only when the geom lists them): numbers and strings through
+  `LabelPattern::format_text` (strings that parse as numbers are formatted, `{}`
+  writes Kotlin's `1234567.0`, unknown patterns are literal text), constant `label=`
+  too, missing values -> `na_text` (`n/a`). Identical texts to lets-plot.
+- `check_overlap`: per layer and panel, draw order, first wins; lets-plot
+  `TextHelper` + `GeometryUtils.arePolygonsIntersected` (SAT, touching counts).
+  Box heights match lets-plot exactly; widths are the real font (lets-plot's
+  estimator is ~15% wider), so ggrust keeps a few more labels (93 vs 103 of 200).
+- **How to measure:** binary-search the smallest gap at which two equal labels both
+  stay (`tests/test_text_options.py::smallest_gap`); counts alone mix width and height.

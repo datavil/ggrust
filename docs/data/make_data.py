@@ -178,7 +178,7 @@ def elements() -> pl.DataFrame:
     """Return the 118 chemical elements with their position in the periodic table.
 
     Applies the same fixes as the lets-plot demo (new names for 113 to 118, a few
-    types) and rounds atomic masses to 3 decimals for the tile labels.
+    types). The tile labels format the atomic masses (``label_format``).
     """
     with urllib.request.urlopen(ELEMENTS_URL) as response:
         text = response.read().decode("mac_roman")
@@ -197,7 +197,7 @@ def elements() -> pl.DataFrame:
                 "atomic_number": number,
                 "element": name,
                 "symbol": symbol,
-                "atomic_mass": round(float(row["Atomic Weight"]), 3),
+                "atomic_mass": float(row["Atomic Weight"]),
                 "period": row["Period"],
                 "group": row["Group"],
                 "type": kind,

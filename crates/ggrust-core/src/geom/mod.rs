@@ -16,6 +16,7 @@ mod boxplot;
 mod bracket;
 mod contour;
 mod curve;
+mod end_padding;
 mod half_boxplot;
 mod half_point;
 mod half_violin;

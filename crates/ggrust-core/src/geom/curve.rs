@@ -6,10 +6,12 @@
 //! control points and the end point (lets-plot `Interpolation.BSPLINE`), flattened
 //! into a polyline. Arrow heads aim along the control polygon, as lets-plot.
 //!
-//! What it does not do (yet): the `size_start`/`size_end`/`stroke_start`/`stroke_end`
-//! offsets (ggrust has no such aesthetics; segments lack them too).
+//! The ends stop short of the points they connect by `size_start`/`size_end`,
+//! `stroke_start`/`stroke_end` and `spacer` (see `end_padding`), cut off the
+//! control polygon before smoothing, as lets-plot.
 
-use super::lines::{self, Arrow, LINE_STYLE_DEFAULTS};
+use super::end_padding::{self, PADDED_LINE_STYLE_DEFAULTS};
+use super::lines::{self, Arrow};
 use super::{DrawLayer, Geom};
 use crate::Error;
 use crate::Result;
@@ -64,16 +66,7 @@ impl CurveOptions {
                 ));
             }
         };
-        let spacer = match parameters.number("spacer")? {
-            None => 0.0,
-            Some(value) if value >= 0.0 => value,
-            Some(value) => {
-                return Err(Error::spec(
-                    parameters.path_of("spacer"),
-                    format!("expected a non-negative number of pixels, got {value}"),
-                ));
-            }
-        };
+        let spacer = end_padding::parse_spacer(parameters)?;
         Ok(CurveOptions {
             curvature,
             angle,
@@ -93,7 +86,7 @@ impl Geom for CurveGeom {
     }
 
     fn style_defaults(&self) -> &'static [(Aesthetic, StyleDefault)] {
-        LINE_STYLE_DEFAULTS
+        PADDED_LINE_STYLE_DEFAULTS
     }
 
     fn parameters(&self) -> &'static [&'static str] {
@@ -136,9 +129,8 @@ impl Geom for CurveGeom {
             {
                 guide = vec![start, end];
             }
-            if options.spacer > 0.0 {
-                guide = trim_end(&trim_start(&guide, options.spacer), options.spacer);
-            }
+            let (pad_start, pad_end) = end_padding::end_padding(layer.styles, row, options.spacer)?;
+            guide = end_padding::pad_ends(&guide, pad_start, pad_end);
             let mut points = basis_spline(&guide);
             let heads = arrow
                 .map(|arrow| arrow.apply_along(&mut points, &guide, &stroke))
@@ -299,46 +291,6 @@ fn flatten_cubic(p0: Point, p1: Point, p2: Point, p3: Point, points: &mut Vec<Po
     }
 }
 
-/// Cut `distance_px` off the start of a polyline (lets-plot `PolylinePadding`):
-/// the first vertex at least that far (straight-line) from the start is kept and
-/// the start moves onto the piece before it. Lines shorter than that stay whole.
-fn trim_start(points: &[Point], distance_px: f64) -> Vec<Point> {
-    if points.len() < 2 {
-        return points.to_vec();
-    }
-    let first = points[0];
-    let Some(index) = points
-        .iter()
-        .position(|point| distance(first, *point) >= distance_px)
-        .filter(|index| *index >= 1)
-    else {
-        return points.to_vec();
-    };
-    let (before, at) = (points[index - 1], points[index]);
-    let remaining = distance(first, at) - distance_px;
-    let piece = distance(at, before);
-    let moved = if piece == 0.0 {
-        at
-    } else {
-        let share = remaining / piece;
-        (
-            at.0 + (before.0 - at.0) * share,
-            at.1 + (before.1 - at.1) * share,
-        )
-    };
-    let mut trimmed = vec![moved];
-    trimmed.extend_from_slice(&points[index..]);
-    trimmed
-}
-
-/// [`trim_start`] at the end of the polyline.
-fn trim_end(points: &[Point], distance_px: f64) -> Vec<Point> {
-    let reversed: Vec<Point> = points.iter().rev().copied().collect();
-    let mut trimmed = trim_start(&reversed, distance_px);
-    trimmed.reverse();
-    trimmed
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -397,17 +349,5 @@ mod tests {
             20.0 + (polygon[1].1 - 20.0) / 6.0,
         );
         assert!(close(points[1], knot));
-    }
-
-    #[test]
-    fn trimming_follows_lets_plot_padding() {
-        let line = [(0.0, 0.0), (10.0, 0.0), (20.0, 0.0)];
-        assert_eq!(
-            trim_start(&line, 5.0),
-            vec![(5.0, 0.0), (10.0, 0.0), (20.0, 0.0)]
-        );
-        assert_eq!(trim_end(&line, 15.0), vec![(0.0, 0.0), (5.0, 0.0)]);
-        // Longer than the line: left whole.
-        assert_eq!(trim_start(&line, 25.0), line.to_vec());
     }
 }

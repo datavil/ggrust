@@ -1,4 +1,5 @@
-"""geom_curve: same curves as lets-plot (control points, B-spline, arrows, spacer).
+"""geom_curve: same curves as lets-plot (control points, B-spline, arrows, spacer,
+size_start/size_end/stroke_start/stroke_end padding).
 
 Both SVGs use ``theme_void``; the panels have the same size but lets-plot's sits
 6 px further up and left, so lets-plot's curve path (``M L C... L``) is moved onto
@@ -115,6 +116,10 @@ def _plot(module, **options):
         {"curvature": 0.7, "angle": 150},
         {"curvature": 0.5, "angle": -60},
         {"curvature": 0.3, "spacer": 20},
+        {"size_start": 5, "stroke_end": 2},
+        {"curvature": -0.6, "size_start": 3, "size_end": 6, "stroke_start": 1, "spacer": 4},
+        # The start cut leaves less than the end cut: the end stays (lets-plot).
+        {"curvature": 0.2, "size_start": 100, "size_end": 100},
     ],
 )
 def test_curve_matches_lets_plot(options: dict) -> None:

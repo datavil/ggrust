@@ -50,7 +50,7 @@ AGENTS.md: cellestial first, then general plotting needs, not all of lets-plot.
 | 2 | `geom_dotplot`, `geom_ydotplot` | `dotplot`, `ydotplot` | #1283 | |
 | 2 | `geom_lollipop` | identity | #1512 (line alpha not in legend) | |
 | 2 | `geom_spoke` | identity | #1282, #1070, #989 (no radius unit or scale, absent from legend and tooltips) | Unfinished in lets-plot. |
-| 2 | ~~`geom_curve`~~ (done, lp6.2), `geom_pointdensity` | identity / `pointdensity` | | |
+| 2 | ~~`geom_curve`~~ (done, lp6.2, with `size_start`/`size_end`/`stroke_start`/`stroke_end` as constants), ~~`geom_pointdensity`~~ (done) | identity / `pointdensity` | | |
 | 2 | `geom_band`, `geom_bracket_dodge` | identity | | Recent lets-plot additions. |
 | 2 | `geom_pie` | `count2d` | #661 (labels do not rotate to fit) | Needs `layer_labels`. |
 | 1 | `geom_map`, `geom_livemap` | | many (#1448, #795, #771, #695, #685, ...) | Geo, see section 8. |
@@ -123,7 +123,7 @@ ggrust computes `identity`, `count`, `bin`, `boxplot` (+ outliers), `ydensity`, 
 | 2 | `layer_labels` (pie labels), `layer_key` | #661 | `layer_key` done (2026-11-04). |
 | 1 | `color_by`, `fill_by` (paint_a/b/c aesthetics) | | |
 | 1 | `sampling` and every `sampling_*` function | #141 (random sampling drops boxplot boxes and keeps outliers) | lets-plot samples large data silently; ggrust draws everything. Sampling breaks stats (#141). Recommend recording "no default sampling" as a deliberate deviation. |
-| 1 | `flat`, `geodesic`, `spacer` (path, segment) | #795, #771 | Geo / segment spacing. |
+| 1 | `flat`, `geodesic`, `spacer` (path, segment) | #795, #771 | Geo / segment spacing. Segment and curve `spacer` done (lp6.2). |
 
 ## 8. Geo and maps (score 1)
 

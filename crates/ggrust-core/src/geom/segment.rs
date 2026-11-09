@@ -1,9 +1,12 @@
 //! `geom_segment`: a straight line from (`x`, `y`) to (`xend`, `yend`) per row,
-//! optionally with `arrow=arrow(...)`.
+//! optionally with `arrow=arrow(...)`. The ends stop short of the points they
+//! connect by `size_start`/`size_end`, `stroke_start`/`stroke_end` and `spacer`
+//! (see `end_padding`), as lets-plot.
 //!
-//! What it does not do (yet): `spacer`, `flat`/`geodesic`.
+//! What it does not do (yet): `flat`/`geodesic`.
 
-use super::lines::{self, Arrow, LINE_STYLE_DEFAULTS};
+use super::end_padding::{self, PADDED_LINE_STYLE_DEFAULTS};
+use super::lines::{self, Arrow};
 use super::{DrawLayer, Geom};
 use crate::Result;
 use crate::coord::Panel;
@@ -24,11 +27,11 @@ impl Geom for SegmentGeom {
     }
 
     fn style_defaults(&self) -> &'static [(Aesthetic, StyleDefault)] {
-        LINE_STYLE_DEFAULTS
+        PADDED_LINE_STYLE_DEFAULTS
     }
 
     fn parameters(&self) -> &'static [&'static str] {
-        &["arrow"]
+        &["arrow", "spacer"]
     }
 
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
@@ -41,6 +44,7 @@ impl Geom for SegmentGeom {
             return Ok(Vec::new());
         };
         let arrow = Arrow::parse(&layer.parameters)?;
+        let spacer = end_padding::parse_spacer(&layer.parameters)?;
         let mut nodes = Vec::new();
         for row in 0..layer.data.row_count() {
             let value =
@@ -53,7 +57,8 @@ impl Geom for SegmentGeom {
             let Some(stroke) = lines::stroke_at(layer.styles, row)?.filter(|_| finite) else {
                 continue;
             };
-            let mut points = vec![start, end];
+            let (pad_start, pad_end) = end_padding::end_padding(layer.styles, row, spacer)?;
+            let mut points = end_padding::pad_ends(&[start, end], pad_start, pad_end);
             let heads = arrow
                 .map(|arrow| arrow.apply(&mut points, &stroke))
                 .unwrap_or_default();

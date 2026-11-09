@@ -327,7 +327,7 @@ Group 6: score 2 and 1, only on demand.
 
 - [ ] lp6.1 Record the score-1 items (geo and maps, sampling, cmapmpl, runtime plumbing) as decisions in the table above.
 - [ ] lp6.2 Score-2 items as requested (see the gaps file); `geom_curve` first, to undo the periodic table arrow workaround.
-  (`geom_curve` done: `geom/curve.rs`, lets-plot's R-grid control points + BSPLINE path in pixels, `curvature`/`angle`/`ncp`/`spacer`/`arrow`; heads aim along the control polygon; matches lets-plot within 0.5 px (`tests/test_geom_curve.py`). Periodic table arrows curved again. Not yet: `size_start`/`size_end`/`stroke_start`/`stroke_end`.)
+  (`geom_curve` done: `geom/curve.rs`, lets-plot's R-grid control points + BSPLINE path in pixels, `curvature`/`angle`/`ncp`/`spacer`/`arrow`; heads aim along the control polygon; matches lets-plot within 0.5 px (`tests/test_geom_curve.py`). Periodic table arrows curved again. `size_start`/`size_end`/`stroke_start`/`stroke_end` done for `geom_curve` and `geom_segment` (2026-11-09, `geom/end_padding.rs`: size x 1.1 + stroke x 2.2 + spacer px, lets-plot's start-then-end cut; same pixels as lets-plot, `tests/test_geom_segment.py`), plus `geom_segment(spacer=)`; mapped columns wait for style scales (deviations.md). Still open score-2 items (user picks per session): `geom_lollipop`, `geom_spoke`, `geom_band`, `geom_bracket_dodge`, `position_dodgev`, dotplot/ydotplot, `geom_pie` + `layer_labels`, `nudge_unit`/`alpha_stroke`, theme on-top layering + `panel_inset`, tooltip theming, bistro `image_matrix`/`residual_plot`/`waterfall_plot`, `ggdeck`, multi-aesthetic scale forms, section 11 #1129/#1299/#1267.)
 
 ### Phase 9: cellestial `annotated_heatmap` layout (found 2026-11-01)
 

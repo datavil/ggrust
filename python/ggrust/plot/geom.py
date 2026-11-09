@@ -1133,6 +1133,7 @@ def geom_segment(
     sampling: Sampling | None = None,
     tooltips: Tooltips | None = None,
     arrow: FeatureSpec | None = None,
+    spacer: float | None = None,
     color_by: str | None = None,
     na_rm: bool | None = None,
     **other_args: Any,
@@ -1162,6 +1163,9 @@ def geom_segment(
         tooltips (HTML output).
     arrow : FeatureSpec, optional
         Arrow spec from ``arrow()``.
+    spacer : float, default=0.0
+        Pixels to cut off both ends, on top of the ``size_start``/``size_end`` and
+        ``stroke_start``/``stroke_end`` padding.
     color_by : str, optional
         Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
     na_rm : bool, optional
@@ -1169,7 +1173,9 @@ def geom_segment(
     **other_args
         Constant aesthetics such as ``color="red"`` or ``size=2``, and the geom's
         options. As in lets_plot; options ggrust does not read yet are reported as
-        not supported.
+        not supported. ``size_start``/``size_end`` and ``stroke_start``/``stroke_end``
+        (constant or mapped) stop the line short of a point of that size and stroke
+        at the start/end, so it touches the point's outline instead of its center.
 
     Returns
     -------
@@ -1196,6 +1202,7 @@ def geom_segment(
         sampling=sampling,
         tooltips=tooltips,
         arrow=arrow,
+        spacer=spacer,
         color_by=color_by,
         na_rm=na_rm,
         **other_args,
@@ -1256,7 +1263,8 @@ def geom_curve(
     ncp : int, default=5
         Number of control points; more give a smoother curve.
     spacer : float, default=0.0
-        Pixels to cut off both ends, leaving gaps at the start and end points.
+        Pixels to cut off both ends, on top of the ``size_start``/``size_end`` and
+        ``stroke_start``/``stroke_end`` padding.
     color_by : str, optional
         Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
     na_rm : bool, optional
@@ -1264,7 +1272,9 @@ def geom_curve(
     **other_args
         Constant aesthetics such as ``color="red"`` or ``size=2``, and the geom's
         options. As in lets_plot; options ggrust does not read yet are reported as
-        not supported.
+        not supported. ``size_start``/``size_end`` and ``stroke_start``/``stroke_end``
+        (constant or mapped) stop the line short of a point of that size and stroke
+        at the start/end, so it touches the point's outline instead of its center.
 
     Returns
     -------

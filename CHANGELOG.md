@@ -4,6 +4,11 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ## [Unreleased]
 
+### Added
+
+- `geom_segment` and `geom_curve` take `size_start`/`size_end` and `stroke_start`/`stroke_end`: the line stops at the outline of a point of that size and stroke at each end (as lets-plot, same pixels), so arrows between points no longer hide under them. Mapping a column to them warns and is not supported yet (see deviations.md).
+- `geom_segment(spacer=)`: pixels cut off both ends, as `geom_curve(spacer=)` and lets_plot.
+
 ### Changed
 
 - `GGBunch()` raises with a recipe for free layouts (`inset_element(..., align_to="full")` on an empty `ggplot()`); lets_plot's `ggbunch()` will not be ported (see deviations.md).

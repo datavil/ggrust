@@ -11,6 +11,10 @@ publish = false
 [lib]
 name = "_ggrust"
 crate-type = ["cdylib"]
+# No Rust tests live here (they are in ggrust-core; the bindings are tested by
+# pytest). A test binary would need to link libpython, which fails on CI.
+test = false
+doctest = false
 
 [dependencies]
 ggrust-core.workspace = true

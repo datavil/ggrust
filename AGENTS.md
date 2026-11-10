@@ -217,6 +217,22 @@ uv run ty check python/  # Python type check
 ```
 ```
 
+## Where documents go
+
+Root: `AGENTS.md`, `README.md`, `CHANGELOG.md`, `plan.md` (the roadmap), `deviations.md`,
+`THIRD_PARTY_NOTICES.md`. Everything else lives under [notes/](notes/README.md), which
+indexes every file with a status (live, done, archived):
+
+- `notes/plans/` detail plans and gap analyses behind `plan.md` steps
+- `notes/backlog.md` unscheduled ideas and gaps (one file, sections per theme; add
+  there, do not start a new gaps file)
+- `notes/audits/` one-off read-only audits
+- `notes/cellestial/` cellestial-facing notes
+- `notes/archive/` finished or superseded docs (kept, never deleted)
+
+A new markdown file must be added to `notes/README.md` in the same commit
+(`make check-docs` fails otherwise).
+
 ## Memory index
 
 See [memory/README.md](memory/README.md). Always read it before starting work.

@@ -16,6 +16,8 @@ are the earlier per-step measurements.
   **warm** = median of the following calls
 - **memory** = peak resident set above the level reached after building the data
 
+Results index: [results/README.md](results/README.md).
+
 Run: `uv run python benchmarks/run.py` (raw results land in `benchmarks/results/`).
 
 ## Results: 2026-10-25, Linux x86-64, 4 cores, Python 3.13, lets-plot 4.11

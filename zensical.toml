@@ -79,6 +79,7 @@ nav = [
       "gallery/side_panels.md",
       "gallery/clustered_heatmap.md",
       "gallery/figure_layout.md",
+      "gallery/funky_heatmap.md",
     ] },
   ] },
   { "Benchmarks" = "benchmarks.md" },

@@ -180,6 +180,15 @@ mod _ggrust {
             .map_err(to_python_error)
     }
 
+    /// Advance width in pixels of one line of `text` at `size` px in the default
+    /// font, with `fontface` parsed as lets-plot does (`"bold"`, `"bold_italic"`, ...).
+    #[pyfunction]
+    #[pyo3(signature = (text, size, fontface="plain"))]
+    fn text_width(text: &str, size: f64, fontface: &str) -> f64 {
+        use ggrust_core::text::{FontFace, measure};
+        measure(text, size, FontFace::from_name(fontface)).width
+    }
+
     /// Parse a plot spec (JSON of `as_dict()` without data) and return the
     /// paths of options ggrust does not support.
     ///

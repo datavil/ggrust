@@ -60,6 +60,7 @@ GALLERY: dict[str, list[str]] = {
         "side_panels",
         "clustered_heatmap",
         "figure_layout",
+        "funky_heatmap",
     ],
 }
 

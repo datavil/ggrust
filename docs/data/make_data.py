@@ -25,6 +25,11 @@ ELEMENTS_URL = (
 
 # Data of the lets-plot gallery demos remade in the ggrust gallery.
 LETS_PLOT_DATA = "https://raw.githubusercontent.com/JetBrains/lets-plot-docs/master/data/"
+# scIB benchmark metrics (Luecken et al. 2022, Nature Methods), MIT licensed.
+SCIB_URL = (
+    "https://raw.githubusercontent.com/theislab/scib-reproducibility/main/"
+    "visualization/data/metrics_RNA_allTasks.csv"
+)
 # Netflix titles as of 2021 (Kaggle "Netflix Movies and TV Shows", via TidyTuesday).
 NETFLIX_URL = (
     "https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/"
@@ -262,6 +267,32 @@ def bitcoin() -> pl.DataFrame:
     )
 
 
+def scib_immune() -> pl.DataFrame:
+    """Return the scIB integration metrics of the human immune cell task (69 runs)."""
+    metrics = pl.read_csv(io.BytesIO(download(SCIB_URL)), infer_schema_length=None)
+    metrics = metrics.rename({metrics.columns[0]: "path"})
+    parts = pl.col("path").str.strip_prefix("/").str.split("/")
+    method_output = parts.list.get(4).str.split("_")
+    return (
+        metrics.filter(pl.col("path").str.starts_with("/immune_cell_hum/"))
+        .filter(pl.col("NMI_cluster/label").is_not_null())
+        .with_columns(
+            scaling=parts.list.get(2),
+            features=parts.list.get(3),
+            method=method_output.list.get(0),
+            output=method_output.list.get(1),
+        )
+        .filter(~((pl.col("method") == "trvae") & (pl.col("output") == "full")))
+        .select(
+            "method",
+            "output",
+            "features",
+            "scaling",
+            pl.exclude("path", "method", "output", "features", "scaling"),
+        )
+    )
+
+
 if __name__ == "__main__":
     generator = np.random.default_rng(2026)
     cities().write_csv(DATA / "cities.csv")
@@ -276,3 +307,4 @@ if __name__ == "__main__":
     unemployment().write_csv(DATA / "unemployment.csv")
     presidents().write_csv(DATA / "presidents.csv")
     bitcoin().write_csv(DATA / "bitcoin.csv")
+    scib_immune().write_csv(DATA / "scib_immune.csv")

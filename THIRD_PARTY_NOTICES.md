@@ -56,6 +56,45 @@ Mikhailov. The color map `twilight` was created by Bastian Bechtold
 ## ColorBrewer
 
 `crates/ggrust-core/src/scale/style/brewer_data.rs` holds the ColorBrewer color schemes,
-taken from lets-plot (above). Copyright (c) 2002 Cynthia Brewer, Mark Harrower, and The
+taken from lets-plot (above); `python/ggrust/bistro/funky_heatmap.py` repeats the few
+funkyheatmap's default palettes are built from. Copyright (c) 2002 Cynthia Brewer, Mark Harrower, and The
 Pennsylvania State University. Licensed under the Apache-Style Software License for
 ColorBrewer Color Schemes, Version 1.1. https://colorbrewer2.org
+
+## funkyheatmap
+
+`python/ggrust/bistro/funky_heatmap.py` ports the layout, defaults and palettes of the R
+package funkyheatmap 0.5 (https://github.com/funkyheatmap/funkyheatmap), and
+`docs/data/scib_icons/` holds its three scIB output icons (`matrix.png`, `embedding.png`,
+`graph.png`, downscaled to 96 px).
+
+```
+MIT License
+
+Copyright (c) 2022 funkyheatmap authors (Robrecht Cannoodt, Wouter Saelens)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+```
+
+## scIB benchmark data
+
+`docs/data/scib_immune.csv` holds the human immune cell task metrics of the scIB
+benchmark (Luecken et al. 2022, Nature Methods), from
+https://github.com/theislab/scib-reproducibility (MIT License, Copyright (c) 2020
+Theis Lab).

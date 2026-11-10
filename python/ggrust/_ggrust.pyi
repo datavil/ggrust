@@ -88,6 +88,9 @@ def png_data_url(rgba: bytes, width: int, height: int, compression: int | None =
     Raises ``ValueError`` if ``rgba`` does not hold ``width * height * 4`` bytes.
     """
 
+def text_width(text: str, size: float, fontface: str = "plain") -> float:
+    """Advance width in pixels of one line of ``text`` at ``size`` px in the default font."""
+
 def validate_spec(spec_json: str) -> list[str]:
     """Parse a plot spec and return the paths of unsupported options.
 

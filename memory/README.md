@@ -90,3 +90,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Positional scale options](letsplot_position_scale_options.md): numeric break_width = fixed multiples (thinning is label layout), lablim discrete only, positional na_value follows ggplot2, linewidth/stroke 1..7, shape 19 grows with stroke.
 - [ggpp centroid stats](ggpp_centroid.md): mean/median by name only, ggrust groups by label (ggplot2 does not: fixture needs group=), other columns follow the per-group rule.
 - [coord_3d](coord_3d.md): project rows and reuse 2D geoms on an identity panel, reorder styles with rows, renumber path groups, z scaled after the stat, layout with axes blanked.
+- [funky_heatmap port](funky_heatmap.md): unit canvas needs `plot_inset=0`, no `alpha=1` on transparent fills, text measured with `text_width` to grow the canvas, levelmatch counts every column_groups column.

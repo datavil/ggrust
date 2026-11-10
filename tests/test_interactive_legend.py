@@ -1,4 +1,4 @@
-"""Interactive legend of HTML output (users_asks.md 4, lets-plot issue #1080).
+"""Interactive legend of HTML output (notes/backlog.md 4, lets-plot issue #1080).
 
 Clicking a discrete legend key hides or shows the marks of that key in every
 layer (canvas points included) and mutes their tooltips; double-clicking

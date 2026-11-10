@@ -7,7 +7,7 @@ treemaps, waffle, streamgraphs, bump charts, pattern fills, networks, animation,
 plus ggbreak, ggmagnify, geomtextpath and ggtext geoms) is **only added if users ask
 for it**.
 
-Rules of engagement: [AGENTS.md](AGENTS.md). Main roadmap: [plan.md](plan.md).
+Rules of engagement: [AGENTS.md](../../AGENTS.md). Main roadmap: [plan.md](../../plan.md).
 
 ## Rules for this plan
 
@@ -15,7 +15,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Main roadmap: [plan.md](plan.md).
   checked against ggplot2's own grammar. Use the R package's function and parameter
   names, in snake_case Python form (`new_scale_color`, `geom_quasirandom`), so R users
   recognise them. Ask the user when a name or behaviour is not obvious.
-- **Every step is a deviation.** Each step adds a row to [deviations.md](deviations.md)
+- **Every step is a deviation.** Each step adds a row to [deviations.md](../../deviations.md)
   ("ggrust extension, lets-plot has none, ggplot2 needs package X"), and the steps that
   change direction also get a row in the `plan.md` decisions table.
 - **Licenses.** ggrust is MIT. Many ggplot2 extensions are GPL. Read a GPL package to
@@ -27,7 +27,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Main roadmap: [plan.md](plan.md).
   needs edits across many unrelated files (likely for `ex1.3` and `ex2.2`), stop and
   show the user the design before writing code.
 - **cellestial workarounds.** When a step makes a cellestial workaround unnecessary,
-  add a row to [cellestial_workarounds.md](cellestial_workarounds.md) in the same commit.
+  add a row to [cellestial_workarounds.md](../cellestial/cellestial_workarounds.md) in the same commit.
 - **Verify like any step:** Rust unit tests, pytest, rendered PNGs compared against the
   R package's output for the same data (render the R version with `Rscript` when R is
   available, else describe the reference in the step notes).
@@ -139,7 +139,7 @@ Rules of engagement: [AGENTS.md](AGENTS.md). Main roadmap: [plan.md](plan.md).
 - [ ] exc.5 `geom_spoke` is a lets-plot geom (gaps file, score 2), so it follows
   lets-plot parity in plan.md `lp6.2`, not this plan. Listed here so it is not done twice.
 
-## User asks (users_asks.md)
+## User asks (now in notes/backlog.md)
 
 - [x] ua.7 Grid captions: `gggrid(...) + labs(caption=...)` is drawn (no longer warned), as
   lets-plot 4.11: a bottom band below the figures and collected legends, justified along

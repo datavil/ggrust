@@ -2,7 +2,8 @@
 
 Rust plotting engine with a lets_plot-compatible Python API, built for cellestial.
 Rules of engagement: [AGENTS.md](AGENTS.md). Lessons: [memory/](memory/README.md).
-ggplot2 extension features (ggnewscale, ggbeeswarm, ...): [extensions.md](extensions.md).
+ggplot2 extension features (ggnewscale, ggbeeswarm, ...): [extensions.md](notes/plans/extensions.md).
+All other docs (backlog, audits, cellestial notes): index in [notes/README.md](notes/README.md).
 
 ## Decisions (agreed with the user)
 
@@ -182,7 +183,7 @@ Steps inside a phase are ordered; each builds on the previous.
 - [x] 4.3 `ggtb` zoom/pan: re-render axes on zoom (Rust-precomputed break candidates, or JS tick generation).
   (Decided (user): JS ticks from a Rust config; marks are repositioned at their size, not re-rendered. lets-plot's toolbar above the plot (33 px; pan with 15/7 px mode locks, rubber band and centerpoint zoom with band selectors and 15 px minimum, wheel zoom 0.08 per notch around the cursor in any active tool, reset). Zoom = coord limits in transformed units, as lets-plot. `layout/zoom.rs` writes per panel both screen axes' domain, pixels, transform, break count (`AxisBreaks::target_count`) or fixed breaks with their drawn labels, and SVG templates of grid lines, ticks and labels at pixel 0; the runtime ports `linear_breaks`, `flex_breaks`, transforms and the default number format and stamps translated templates into each `g.tile`. Marks: circles by centre (radius x size factor, points only, `size_basis`/`size_zoomin`), `data-anchor` groups (non-circle markers, text/label boxes, bracket labels; `Group.anchor`, flattened in static SVG/PNG) by translate, everything else by a matrix with non-scaling strokes. Tooltip targets follow. Facets with equal scales zoom together; gggrid cells zoom apart; discrete, log/sqrt/reverse, `coord_flip`, rasters checked in a browser. JS breaks equal the engine's at the same coord limits (9 test cases + 300-range fuzz, 0 mismatches). Static SVG now wraps each panel in `<g class="tile">`; `ggtb` no longer warns. Not yet: the layout is not redone while zoomed (lets-plot re-lays out: axis bands keep their width), a user `format` on generated breaks falls back to the default format, generated rotated labels take the first label's placement, lines clipped at the scene edge show their cut when zoomed out, `hline`/`vline` do not stretch to the panel when zoomed out.)
 - [x] 4.4 Canvas point layer for dense scatter (>50k points, >5k since 2026-11-06); playwright tests for render + tooltip. (HTML only: a batch with >50k drawable markers becomes a `<foreignObject>` canvas placeholder; base64 Float32 xy + style table from Rust marker parts; quarter-pixel sprites in data order; redrawn on zoom. Without JavaScript the dense layer is missing. Found, not fixed: zoomed y breaks can differ from a static `coord_cartesian(ylim)` render.)
-- [x] 4.5 Layer visibility toggles in the `ggtb` toolbar (from `consider_later.md`, 2026-11-02).
+- [x] 4.5 Layer visibility toggles in the `ggtb` toolbar (from `notes/backlog.md`, 2026-11-02).
   (Every panel holds one `<g class="layer">` per layer in layer order (`scene::LAYER_ROLE`, empty when the layer draws nothing); static SVG and PNG draw them inline, so only zoomable HTML carries them. The zoom payload lists each plot's labels (`plots[i].layers`) and every tooltip entry its `layer` index. Hiding a layer hides its group in every panel of that plot, stops its canvas batch from drawing (`drawCanvas`) and its tooltip targets from answering; zoom keeps working. A label index no plot has is a spec error at `ggtoolbar.layers.<label>`. Indices count the layers the user added: the outlier point layer `geom_boxplot` adds (`stat="boxplot_outlier"`) shares the boxplot's group and toggle (`PreparedLayer::companion`). Not yet: labels per subplot in a grid (a dict labels the same index everywhere), hiding legends; static SVG/PNG do not check `layers` indices (they ignore `ggtb`).)
 
 ### Phase 5: Remaining cellestial features
@@ -230,10 +231,10 @@ Steps inside a phase are ordered; each builds on the previous.
   (CI: `make check` on ubuntu with Chromium, visual diffs uploaded on failure. Release: abi3 wheels via maturin-action for linux x86_64/aarch64 (manylinux 2_28), macOS intel/arm, windows x64/arm64, plus an sdist; every wheel and the sdist build are smoke-tested (`.github/smoke_test.py`); PyPI trusted publishing only on a `v*` tag matching the version. sdist now ships `js/` (it did not compile from source before). Docs: mkdocs-material + mkdocstrings (numpy style, runtime inspection so assignment-built scales get signatures), strict build on PRs, Pages deploy from main; home page, migration note, 124-entry reference. Material reaches end of life in May 2027; Zensical reads the same mkdocs.yml.)
 - [x] 7.1b Custom fonts: `register_font`, `register_font_dir`, `registered_fonts`; `element_text(family=)` and text geoms' `family` draw registered fonts in layout, PNG, PDF, SVG and HTML (see the decisions table and `memory/custom_fonts.md`).
   (Follow-up, not scheduled: per-glyph fallback across fonts for characters the requested font lacks, e.g. CJK in a Latin font.)
-- [x] 7.2 cellestial switches dependency `lets-plot` -> `ggrust` (with user approval). Workarounds ggrust now removes: [cellestial_workarounds.md](cellestial_workarounds.md).
+- [x] 7.2 cellestial switches dependency `lets-plot` -> `ggrust` (with user approval). Workarounds ggrust now removes: [cellestial_workarounds.md](notes/cellestial/cellestial_workarounds.md).
   (Done in cellestial: `pyproject.toml` depends on `ggrust>=0.8.0,<1.0`, no `lets-plot`; only lets-plot.org doc links remain in docstrings. Ticked 2026-11-09.)
 
-### Phase 8: lets-plot gaps (see [plan-letsplot-gaps.md](plan-letsplot-gaps.md))
+### Phase 8: lets-plot gaps (see [plan-letsplot-gaps.md](notes/plans/plan-letsplot-gaps.md))
 
 Steps are numbered `lpG.N`: group G of the proposed order in the gaps file, item N.
 
@@ -402,7 +403,7 @@ Cellestial work is on branch `ggrust-port-track-titles` (row titles only, uncomm
 
 Requests from cellestial, found reproducing Zamboni et al. 2025 Fig. 3b/e with `annotated_heatmap` on
 ggrust 0.6 (2026-11-06; cellestial PR datavil/cellestial#76, branch `claude/zamboni-fig3-d1c0fe`). Each one
-removes a cellestial workaround: add a row to [cellestial_workarounds.md](cellestial_workarounds.md) when it lands.
+removes a cellestial workaround: add a row to [cellestial_workarounds.md](notes/cellestial/cellestial_workarounds.md) when it lands.
 
 - [x] 9.8 Side-band axis theme elements (highest priority, done 2026-11-06: `theme(ggside_axis_text*=, ...)`, `memory/side_panels.md`). Port R ggside's `ggside.axis.text`,
   `.ticks`, `.ticks.length`, `.line` (each with `.x`/`.y` and `.x.top`/`.x.bottom`/`.y.left`/`.y.right`)
@@ -432,7 +433,7 @@ removes a cellestial workaround: add a row to [cellestial_workarounds.md](celles
 
 From cellestial PR datavil/cellestial#76 (branches `claude/zamboni-fig3-d1c0fe`, `claude/ggrust-phase5-f50370`).
 One step per session, in this order (blockers and small wins first). Each step: agree any open API
-question with the user before coding, add a [cellestial_workarounds.md](cellestial_workarounds.md) row
+question with the user before coding, add a [cellestial_workarounds.md](notes/cellestial/cellestial_workarounds.md) row
 when it lands, a [deviations.md](deviations.md) row for every difference from lets-plot/ggplot2/R
 extension, bug-hunter pass, `make check`, commit + push. Already available and being adopted (no work):
 `guide_axis_mark`, `side_pos`, `scale_size_area` + `size_unit`, `gggrid(design=)`, `register_font`.
@@ -474,7 +475,7 @@ extension, bug-hunter pass, `make check`, commit + push. Already available and b
   `box`/`fence` if cheap), nesting depth (one level first). Build on `layout/axis_mark.rs` (a guide
   riding on the axis label arrangement, measure = draw, `memory/axis_marks.md`) and
   `axis_side_nodes`. Zoom: brackets follow the breaks or hide; decide and record. Also tick off the
-  ggh4x note in `extensions.md` ex2.4. Tests: Python API + errors, goldens per side and on a side band.
+  ggh4x note in `notes/plans/extensions.md` ex2.4. Tests: Python API + errors, goldens per side and on a side band.
 - [x] 10.4 **Collected axes in `gggrid`** (patchwork 1.2). Done 2026-11-07: `gggrid(axes=, axis_titles=)` with patchwork 1.3's `collect_axes` / `collect_axis_titles` rules per side (`grid_axes.rs`, mask `Theme.grid_collected`, run titles drawn by the grid); faceted plots and nested grids break runs; goldens `grid_axes_*`, `tests/test_grid_axes.py`, `memory/grid_axes.md`. Follow-up (user, 2026-11-07): collecting grids size their cells for equal panels, as patchwork. `gggrid(axes="keep"|"collect"|"collect_x"|
   "collect_y", axis_titles=same)`: inner cells in a row/column with identical axes drop their axis
   (ticks, labels) and duplicated titles, patchwork's rules (collect only where the axis is shared and
@@ -564,6 +565,8 @@ export docs say a unitless size is inches in both lets-plot and ggplot2.
 
 
 ## Consider later (not scheduled)
+
+More unscheduled ideas and gaps: [notes/backlog.md](notes/backlog.md).
 
 - **Signed plot files.** `ggsave("x.ggrs", sign_key=...)` / `ggload(..., verify_key=...)` with an Ed25519 signature over `manifest.json`, so a reader can check who saved a file (hashes only catch damage). Discussed with the user (2026-11-05); build when someone needs it.
 - **Plot files with callables.** Save a `sec_axis` transform sampled to a lookup table instead of refusing (user's choice 2026-11-05: refuse first, sample later).

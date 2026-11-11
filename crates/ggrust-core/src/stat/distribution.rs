@@ -185,36 +185,45 @@ fn rational(x: f64, numerator: &[f64], denominator: &[f64]) -> f64 {
     horner(numerator) / horner(denominator)
 }
 
-/// The quantile of a gamma with shape `a` and rate 1, `0 < p < 1`: Newton steps
-/// on the regularized gamma `P(a, x)`, kept inside a bracket by bisection.
+/// The quantile of a gamma with shape `a` and rate 1, `0 < p < 1`: Newton steps on
+/// `ln P(a, e^u)`, which is concave in `u`, from `P(a, x) <= x^a / Gamma(a + 1)`, a
+/// start left of the root: the steps rise to it without overshooting. An answer
+/// below the smallest `f64` is 0, as R's `qgamma`.
 pub(super) fn gamma_quantile(p: f64, a: f64) -> f64 {
-    let lower = |x: f64| 1.0 - regularized_gamma_upper(a, x);
-    let (mut low, mut high) = (0.0, a.max(1.0));
-    while lower(high) < p && high < 1e300 {
-        low = high;
-        high *= 2.0;
-    }
-    let mut x = 0.5 * (low + high);
-    for _ in 0..200 {
-        let error = lower(x) - p;
-        if error > 0.0 {
-            high = x;
-        } else {
-            low = x;
+    let target = p.ln();
+    let mut u = (target + ln_gamma(a + 1.0)) / a;
+    for _ in 0..500 {
+        let x = u.exp();
+        if x == 0.0 {
+            return 0.0;
         }
-        let density = ((a - 1.0) * x.ln() - x - ln_gamma(a)).exp();
-        let step = x - error / density;
-        let next = if step > low && step < high && density > 0.0 {
-            step
-        } else {
-            0.5 * (low + high)
-        };
-        if (next - x).abs() <= 1e-14 * next.abs() {
-            return next;
+        let lower = regularized_gamma_lower(a, x);
+        let slope = (a * u - x - ln_gamma(a)).exp() / lower;
+        let step = (target - lower.ln()) / slope;
+        u += step;
+        if step.abs() <= 1e-14 * u.abs().max(1.0) {
+            break;
         }
-        x = next;
     }
-    x
+    u.exp()
+}
+
+/// The regularized lower incomplete gamma function `P(a, x)`: summed directly
+/// below `x = a + 1`, so tiny values keep their precision, else `1 - Q`.
+fn regularized_gamma_lower(a: f64, x: f64) -> f64 {
+    if x >= a + 1.0 {
+        return 1.0 - regularized_gamma_upper(a, x);
+    }
+    let (mut term, mut sum, mut denominator) = (1.0 / a, 1.0 / a, a);
+    for _ in 0..10_000 {
+        denominator += 1.0;
+        term *= x / denominator;
+        sum += term;
+        if term.abs() < sum.abs() * 1e-17 {
+            break;
+        }
+    }
+    sum * (-x + a * x.ln() - ln_gamma(a)).exp()
 }
 
 /// The regularized upper incomplete gamma function `Q(a, x)`: a series for

@@ -725,7 +725,7 @@ pub(super) fn t_quantile(p: f64, freedom: f64) -> f64 {
         if t >= 0.0 { 1.0 - tail } else { tail }
     };
     let (mut low, mut high) = (0.0, 1.0);
-    while cdf(high) < p && high < 1e12 {
+    while cdf(high) < p && high < 1e300 {
         low = high;
         high *= 2.0;
     }

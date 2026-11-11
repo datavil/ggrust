@@ -10,6 +10,7 @@
 //! What it does not do: distributions other than `norm`, `uniform`, `t`, `gamma`,
 //! `exp` and `chi2`, or `orientation="y"`.
 
+use rayon::prelude::*;
 use serde_json::Value;
 
 use super::distribution::{gamma_quantile, normal_quantile};
@@ -21,6 +22,10 @@ use crate::parameters::Parameters;
 use crate::spec::Aesthetic;
 use crate::suggest::did_you_mean;
 use crate::{Error, Result};
+
+/// Rows from which a group's quantiles are computed in parallel (see
+/// `memory/rayon_parallel_levels.md`).
+const PARALLEL_ROWS: usize = 10_000;
 
 /// lets-plot `QQLineStat.DEF_LINE_QUANTILES`.
 const DEFAULT_LINE_QUANTILES: (f64, f64) = (0.25, 0.75);
@@ -234,10 +239,15 @@ impl Stat for QqStat {
                 .collect();
             finite.sort_by(|left, right| left.0.total_cmp(&right.0));
             let count = finite.len() as f64;
-            for (index, (value, row)) in finite.into_iter().enumerate() {
+            // A t or gamma quantile is an iteration: parallel on big samples.
+            let quantile = |index: usize| distribution.quantile((index as f64 + 0.5) / count);
+            match finite.len() >= PARALLEL_ROWS {
+                true => theoretical.par_extend((0..finite.len()).into_par_iter().map(quantile)),
+                false => theoretical.extend((0..finite.len()).map(quantile)),
+            }
+            for (value, row) in finite {
                 order.push(row as u32);
                 sorted.push(value);
-                theoretical.push(distribution.quantile((index as f64 + 0.5) / count));
             }
         }
         let mut result = data.take(&order);
@@ -315,10 +325,10 @@ fn theoretical_line(
         estimated_quantile(sorted, quantiles.0),
         estimated_quantile(sorted, quantiles.1),
     );
-    // min / max keep the probabilities off 0 and 1, whose quantiles may be infinite.
+    // Clamped off 0 and 1, whose quantiles may be infinite.
     let theoretical = (
-        distribution.quantile(quantiles.0.max(edge)),
-        distribution.quantile(quantiles.1.min(1.0 - edge)),
+        distribution.quantile(quantiles.0.clamp(edge, 1.0 - edge)),
+        distribution.quantile(quantiles.1.clamp(edge, 1.0 - edge)),
     );
     if theoretical.0 == theoretical.1 {
         return (vec![theoretical.0, theoretical.1], vec![first, last]);
@@ -483,6 +493,19 @@ mod tests {
                 "{distribution:?} {p}: {value}"
             );
         }
+    }
+
+    #[test]
+    fn extreme_parameters_keep_their_precision() {
+        // R: qgamma(0.025 / 80, 0.05), qt(1 / 22, 0.01).
+        let gamma = gamma_quantile(0.0003125, 0.05);
+        assert!(
+            (gamma / 4.610_601_735_395_04e-71 - 1.0).abs() < 1e-9,
+            "{gamma}"
+        );
+        let t = Distribution::StudentT { freedom: 0.01 }.quantile(1.0 / 22.0);
+        assert!((t / -6.918_493_471_276_05e102 - 1.0).abs() < 1e-6, "{t}");
+        assert_eq!(gamma_quantile(0.5, 1e-5), 0.0);
     }
 
     #[test]

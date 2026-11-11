@@ -8,15 +8,39 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING, Literal
 
-from ggrust.errors import SpecError
+from ggrust.errors import SpecError, did_you_mean
 from ggrust.plot.core import FeatureSpec
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from ggrust._typing import Number
+    from ggrust._typing import Number, Transform
 
-__all__ = ["coord_3d", "coord_cartesian", "coord_fixed", "coord_flip", "coord_polar"]
+__all__ = [
+    "coord_3d",
+    "coord_cartesian",
+    "coord_fixed",
+    "coord_flip",
+    "coord_polar",
+    "coord_trans",
+    "coord_transform",
+]
+
+_COORD_TRANSFORMS: tuple[str, ...] = (
+    "identity",
+    "log10",
+    "log2",
+    "log",
+    "log1p",
+    "exp",
+    "logit",
+    "probit",
+    "reciprocal",
+    "pseudo_log",
+    "symlog",
+    "sqrt",
+    "reverse",
+)
 
 
 def coord_cartesian(
@@ -223,3 +247,94 @@ def coord_3d(
     return FeatureSpec(
         "coord", name="3d", azimuth=azimuth, elevation=elevation, perspective=perspective
     )
+
+
+def coord_transform(
+    x: Transform | None = None,
+    y: Transform | None = None,
+    xlim: Sequence[Number | None] | None = None,
+    ylim: Sequence[Number | None] | None = None,
+    expand: bool | None = None,
+) -> FeatureSpec:
+    """Cartesian coordinates with transformed axes (ggplot2).
+
+    Unlike a scale transform (``scale_x_log10()``), the transform applies after
+    the stats: a histogram is binned in data units, a smooth is fitted in data
+    units, and the breaks stay evenly spaced in data units while the axis is
+    warped. Lines are drawn straight between their warped points (ggplot2 bends
+    them). HTML output does not zoom.
+
+    Parameters
+    ----------
+    x, y : str, optional
+        Axis transform: ``"identity"`` (default), ``"log10"``, ``"log2"``,
+        ``"log"``, ``"log1p"``, ``"exp"``, ``"logit"``, ``"probit"``,
+        ``"reciprocal"``, ``"pseudo_log"``, ``"symlog"``, ``"sqrt"`` or
+        ``"reverse"``.
+    xlim, ylim : list, optional
+        ``[low, high]`` in data units, as in ``coord_cartesian``.
+    expand : bool, default=True
+        False drops the padding around the data on both axes.
+
+    Returns
+    -------
+    FeatureSpec
+        The coordinate system.
+
+    Raises
+    ------
+    SpecError
+        If ``x`` or ``y`` is not a transform name.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"area": [1, 3, 10, 40, 120, 900], "people": [2, 5, 9, 30, 70, 500]}
+    >>> plot = ggplot(data, aes("area", "people")) + geom_point()
+    >>> plot = plot + coord_transform(x="log10", y="log10")
+    """
+    for key, name in (("x", x), ("y", y)):
+        if name is not None and (not isinstance(name, str) or name not in _COORD_TRANSFORMS):
+            message = (
+                f"coord_transform({key}={name!r}): expected a transform name, one of "
+                f"{', '.join(_COORD_TRANSFORMS)}{did_you_mean(str(name), list(_COORD_TRANSFORMS))}"
+            )
+            raise SpecError(message)
+    return FeatureSpec("coord", name="trans", x=x, y=y, xlim=xlim, ylim=ylim, expand=expand)
+
+
+def coord_trans(
+    x: Transform | None = None,
+    y: Transform | None = None,
+    xlim: Sequence[Number | None] | None = None,
+    ylim: Sequence[Number | None] | None = None,
+    expand: bool | None = None,
+) -> FeatureSpec:
+    """Cartesian coordinates with transformed axes: ``coord_transform`` (ggplot2's older name).
+
+    Parameters
+    ----------
+    x, y : str, optional
+        Axis transform, as in ``coord_transform``.
+    xlim, ylim : list, optional
+        ``[low, high]`` in data units.
+    expand : bool, default=True
+        False drops the padding around the data on both axes.
+
+    Returns
+    -------
+    FeatureSpec
+        The coordinate system.
+
+    Raises
+    ------
+    SpecError
+        If ``x`` or ``y`` is not a transform name.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"area": [1, 3, 10, 40, 120, 900], "people": [2, 5, 9, 30, 70, 500]}
+    >>> plot = ggplot(data, aes("area", "people")) + geom_point() + coord_trans(y="sqrt")
+    """
+    return coord_transform(x=x, y=y, xlim=xlim, ylim=ylim, expand=expand)

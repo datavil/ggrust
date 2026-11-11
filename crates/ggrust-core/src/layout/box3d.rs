@@ -391,6 +391,8 @@ mod tests {
             start: None,
             direction: None,
             transform_bkgr: None,
+            x: None,
+            y: None,
             unsupported: Default::default(),
         };
         let view = View::from_spec(&spec).unwrap();

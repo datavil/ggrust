@@ -365,6 +365,8 @@ mod tests {
             start: None,
             direction: None,
             transform_bkgr: None,
+            x: None,
+            y: None,
             unsupported: Default::default(),
         };
         let error = View::from_spec(&spec).unwrap_err().to_string();

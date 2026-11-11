@@ -68,5 +68,9 @@ pub fn secondary_breaks(
         .unzip();
     let mut breaks = AxisBreaks::new(values, labels);
     breaks.arrangement = chosen.arrangement;
+    // `coord_trans()`: thinned where they land on the warped primary axis.
+    if primary_scale.coord_transform != crate::scale::Transform::Identity {
+        super::axis::thin_warped(&mut breaks, scale, length, orientation, text);
+    }
     Some(SecondaryBreaks { breaks, far_side })
 }

@@ -45,6 +45,12 @@ pub struct CoordSpec {
     /// `coord_polar`: draw the background as a circle.
     #[serde(default)]
     pub transform_bkgr: Option<bool>,
+    /// `coord_trans`: the x axis transform (`"log10"`, `"sqrt"`, ...).
+    #[serde(default)]
+    pub x: Option<String>,
+    /// `coord_trans`: the y axis transform.
+    #[serde(default)]
+    pub y: Option<String>,
     /// Keys no component consumes.
     #[serde(flatten)]
     pub unsupported: Options,

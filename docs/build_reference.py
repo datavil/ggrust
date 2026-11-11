@@ -393,6 +393,8 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "coord_fixed",
             "coord_flip",
             "coord_polar",
+            "coord_trans",
+            "coord_transform",
             "coord_3d",
             "facet_wrap",
             "facet_grid",

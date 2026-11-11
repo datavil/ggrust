@@ -32,10 +32,9 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 |---|---|---|---|---|
 | 3.10 | Per-guide `position` (`guide_legend(position=)`, `guide_colorbar(position=)`); the other per-guide options landed | Legends on several sides need a legend band per side in the layout | L | ggplot2 |
 | 3.11 | `rescaler` on continuous color scales (`minor_breaks` and `oob` on position scales landed) | Needs a numeric Python callback in style-scale mapping and guides, and a call signature (ggplot2: `function(x, to, from)`) | M | ggplot2, plotnine |
-| 3.12 | `drop`, `na_translate` on discrete scales | Keeps empty levels in legends and axes. Larger than first thought: unused levels are dropped when the Arrow column is read, before any scale exists, and `na_translate` means a new NA level on axes and legends | M | ggplot2, plotnine |
+| 3.12 | `drop`, `na_translate` on discrete scales | Keeps empty levels in legends and axes. Larger than first thought: unused levels are dropped when the Arrow column is read, before any scale exists. Plan: an optional declared level list on `DiscreteColumn` from Arrow dictionaries (polars Enum, pandas categoricals), carried through take/reorder/merge and trained first when `drop=False`; the `drop`/`na_translate` parameters on about 40 discrete scale functions; an NA key in legends and an NA category on axes, and `na_translate` means a new NA level on axes and legends | L | ggplot2, plotnine |
 | 3.14 | `geom_smooth` methods: `glm`, `rlm`, `gls`, GAM | Each method is real statistics work | L | ggplot2 (any R model function), plotnine (`glm`, `rlm`, `gls`; no GAM); lets-plot has `lm` and `loess` only |
 | 3.15 | `after_stat`, `after_scale`, `stage` | ggplot2 and plotnine syntax, `..count..` covers the main case | M | ggplot2, plotnine |
-| 3.17 | `coord_trans` | Transform after stats | M | ggplot2 (renamed `coord_transform` in 4.0), plotnine |
 | 3.18 | Binned scales: `scale_*_binned`, `scale_color_steps`, `steps2`, `stepsn` | Useful for choropleths and heatmaps | M | ggplot2 only |
 | 3.19 | `stat_quantile`, `geom_quantile` | Needs quantile regression | M | ggplot2, plotnine |
 | 3.22 | `annotation_logticks` | Pairs with log scales | M | ggplot2, plotnine |

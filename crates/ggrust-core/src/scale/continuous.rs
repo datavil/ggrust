@@ -78,6 +78,9 @@ pub struct ContinuousPositionScale {
     pub oob: PositionOob,
     /// `minor_breaks=[...]` in transformed units; `None`: halfway between breaks.
     pub minor_breaks: Option<Vec<f64>>,
+    /// `coord_trans(x=..., y=...)`: a warp of the axis after the stats. Breaks stay
+    /// in scale units; the domain is expanded and mapped in warped units (ggplot2).
+    pub coord_transform: Transform,
 }
 
 /// `oob=` of a continuous position scale (ggplot2 `scales::censor`, `squish`,
@@ -134,6 +137,7 @@ impl Default for ContinuousPositionScale {
             secondary: None,
             oob: PositionOob::Censor,
             minor_breaks: None,
+            coord_transform: Transform::Identity,
         }
     }
 }
@@ -314,12 +318,17 @@ impl ContinuousPositionScale {
         let [low_limit, high_limit] = self
             .limits
             .map(|limit| limit.filter(|value| value.is_finite()));
+        let warp = self.coord_transform;
         let zero_based = self.include_zero
+            && warp.is_in_domain(0.0)
             && low_limit.is_none_or(|limit| limit <= 0.0)
             && high_limit.is_none_or(|limit| limit >= 0.0);
         if zero_based {
             low = low.min(0.0);
             high = high.max(0.0);
+        }
+        if warp != Transform::Identity {
+            return self.warped_domain(low, high);
         }
         // Padding is in transformed units for every transform, as ggplot2
         // (`expand_range4` on the transformed limits). lets-plot pads in data units,
@@ -334,6 +343,98 @@ impl ContinuousPositionScale {
             (high + pad_high).min(f64::MAX),
         );
         widen_degenerate(low, high)
+    }
+
+    /// `coord_trans`: expand `low..high` (scale units) in warped units, back in
+    /// scale units (for the breaks). An expanded end the warp cannot invert (below
+    /// 0 under sqrt) keeps the unexpanded end; [`Self::map`] uses the warped
+    /// range itself.
+    fn warped_domain(&self, low: f64, high: f64) -> (f64, f64) {
+        let warp = self.coord_transform;
+        let Some((warped_low, warped_high)) = self.warped_range_of(low, high) else {
+            return widen_degenerate(low, high);
+        };
+        let back = |warped: f64, fallback: f64| {
+            let value = warp.inverse(warped);
+            let round_trip = warp
+                .apply(value)
+                .is_some_and(|again| (again - warped).abs() <= 1e-9 * (1.0 + warped.abs()));
+            if round_trip { value } else { fallback }
+        };
+        let (first, second) = if warp.is_decreasing() {
+            (back(warped_high, low), back(warped_low, high))
+        } else {
+            (back(warped_low, low), back(warped_high, high))
+        };
+        let (low, high) = (first.min(second), first.max(second));
+        if high > low {
+            (low, high)
+        } else {
+            widen_degenerate(low, high)
+        }
+    }
+
+    /// `low..high` (scale units) warped and expanded, ordered; `None` when an end
+    /// is outside the warp's domain.
+    fn warped_range_of(&self, low: f64, high: f64) -> Option<(f64, f64)> {
+        let warp = self.coord_transform;
+        let (first, second) = (warp.apply(low)?, warp.apply(high)?);
+        let (low, high) = (first.min(second), first.max(second));
+        let padding = (high - low) * self.multiplicative_expand + self.additive_expand;
+        Some((low - padding, high + padding))
+    }
+
+    /// The panel range in warped units: the expanded warped data range, or the
+    /// warped coord limits.
+    fn warped_range(&self) -> (f64, f64) {
+        let warp = self.coord_transform;
+        let unexpanded = || {
+            let (low, high) = self.expanded_domain();
+            let (first, second) = (warp.apply_unchecked(low), warp.apply_unchecked(high));
+            (first.min(second), first.max(second))
+        };
+        if self.coord_limits != [None, None] {
+            return unexpanded();
+        }
+        let Some((low, high)) = self.raw_domain() else {
+            return unexpanded();
+        };
+        let zero_based = self.include_zero && warp.is_in_domain(0.0);
+        let (low, high) = if zero_based {
+            (low.min(0.0), high.max(0.0))
+        } else {
+            (low, high)
+        };
+        let (low, high) = self.warped_range_of(low, high).unwrap_or_else(unexpanded);
+        if high > low {
+            (low, high)
+        } else {
+            // Constant data: the same widening as the unwarped axis.
+            widen_degenerate(low, high)
+        }
+    }
+
+    /// Why the trained range cannot be warped by `coord_trans`, if it cannot (a
+    /// log of 0 or less, a square root of a negative).
+    pub fn coord_transform_problem(&self) -> Option<String> {
+        let warp = self.coord_transform;
+        if warp == Transform::Identity {
+            return None;
+        }
+        // Coord limits replace their side of the range.
+        let (raw_low, raw_high) = self.raw_domain()?;
+        let [coord_low, coord_high] = self.coord_limits;
+        let (low, high) = (coord_low.unwrap_or(raw_low), coord_high.unwrap_or(raw_high));
+        [low, high]
+            .into_iter()
+            .find(|value| !warp.is_in_domain(*value))
+            .map(|value| {
+                format!(
+                    "the '{}' transform is undefined at {value}, inside the axis range \
+                     {low} to {high}; set limits inside its domain or use another transform",
+                    warp.as_str()
+                )
+            })
     }
 
     /// A data value in transformed units, or `None` when it is outside the
@@ -538,6 +639,12 @@ impl ContinuousPositionScale {
         if !value.is_finite() {
             return f64::NAN;
         }
+        let warp = self.coord_transform;
+        if warp != Transform::Identity {
+            // Across the warped range, so a decreasing warp flips the axis.
+            let (low, high) = self.warped_range();
+            return (warp.apply_unchecked(value) - low) / (high - low);
+        }
         let (low, high) = self.expanded_domain();
         (value / 2.0 - low / 2.0) / (high / 2.0 - low / 2.0)
     }
@@ -570,6 +677,66 @@ mod tests {
     use super::*;
     use crate::data::Column;
     use crate::scale::PositionScale;
+
+    fn warped(warp: Transform, low: f64, high: f64) -> ContinuousPositionScale {
+        let mut scale = ContinuousPositionScale {
+            multiplicative_expand: 0.0,
+            coord_transform: warp,
+            ..ContinuousPositionScale::default()
+        };
+        scale.train_range(low, high);
+        scale
+    }
+
+    #[test]
+    fn coord_transform_maps_through_the_warp() {
+        let scale = warped(Transform::Log10, 1.0, 1000.0);
+        assert!((scale.map(1.0)).abs() < 1e-12);
+        assert!((scale.map(10.0) - 1.0 / 3.0).abs() < 1e-12);
+        assert!((scale.map(1000.0) - 1.0).abs() < 1e-12);
+    }
+
+    #[test]
+    fn coord_transform_reverse_flips_the_axis() {
+        let scale = warped(Transform::Reverse, 0.0, 10.0);
+        assert!((scale.map(0.0) - 1.0).abs() < 1e-12);
+        assert!((scale.map(10.0)).abs() < 1e-12);
+    }
+
+    #[test]
+    fn coord_transform_expands_in_warped_units() {
+        let mut scale = warped(Transform::Log10, 1.0, 100.0);
+        scale.multiplicative_expand = 0.05;
+        // 0.1 decades of padding on each side of 0..2 decades.
+        let (low, high) = scale.expanded_domain();
+        assert!((low - 10f64.powf(-0.1)).abs() < 1e-9, "{low}");
+        assert!((high - 10f64.powf(2.1)).abs() < 1e-9, "{high}");
+        assert!((scale.map(1.0) - 0.1 / 2.2).abs() < 1e-12);
+    }
+
+    #[test]
+    fn coord_transform_sqrt_keeps_zero_when_padding_would_go_negative() {
+        let mut scale = warped(Transform::Sqrt, 0.0, 100.0);
+        scale.multiplicative_expand = 0.05;
+        let (low, _) = scale.expanded_domain();
+        assert_eq!(low, 0.0);
+        // The panel still pads below zero in warped units.
+        assert!(scale.map(0.0) > 0.0);
+    }
+
+    #[test]
+    fn coord_transform_problem_names_the_bad_end() {
+        let scale = warped(Transform::Log10, 0.0, 100.0);
+        let problem = scale.coord_transform_problem().expect("log10 of 0");
+        assert!(problem.contains("'log10'") && problem.contains("undefined at 0"));
+        let mut limited = warped(Transform::Log10, 0.0, 100.0);
+        limited.set_coord_limits([Some(1.0), None]);
+        assert_eq!(limited.coord_transform_problem(), None);
+        assert_eq!(
+            warped(Transform::Identity, -1.0, 1.0).coord_transform_problem(),
+            None
+        );
+    }
 
     fn labelled(labels: &[&str]) -> ContinuousPositionScale {
         let mut scale = ContinuousPositionScale {

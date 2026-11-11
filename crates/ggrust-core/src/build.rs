@@ -41,7 +41,9 @@ use crate::scale::label_pattern::{LabelPattern, PatternValue};
 use crate::scale::number_format::{ExponentFormat, NumberFormat};
 use crate::scale::style::spec::{StyleScaleSpec, style_scale_specs};
 use crate::scale::style::{LegendEntry, ScaleKey, StyleScale, default_mapper};
-use crate::scale::{AxisScaleSpec, AxisSides, PositionScale, PositionScales, position_scales};
+use crate::scale::{
+    AxisScaleSpec, AxisSides, PositionScale, PositionScales, Transform, position_scales,
+};
 use crate::scene::{Color, Group, LAYER_ROLE, Node, PerItem, Raster, Rect, Rects, Scene};
 use crate::spec::side::{BandKey, LayerSide, SideOptions, layer_side};
 use crate::spec::{
@@ -492,6 +494,25 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
             }
             scale.set_coord_limits(limits);
         }
+        if coord_spec.name == "trans" {
+            for (name, scale, key) in [
+                (&coord_spec.x, &mut x_scale, "x"),
+                (&coord_spec.y, &mut y_scale, "y"),
+            ] {
+                let Some(name) = name else { continue };
+                let path = format!("coord.{key}");
+                let warp =
+                    Transform::parse(name, &path).map_err(|error| error.with_notes(&warnings))?;
+                match scale {
+                    PositionScale::Continuous(scale) => scale.coord_transform = warp,
+                    PositionScale::Discrete(_) if warp == Transform::Identity => {}
+                    PositionScale::Discrete(_) => warnings.push(format!(
+                        "at '{path}': coord_trans transforms continuous axes; the discrete \
+                         {key} axis is kept as is"
+                    )),
+                }
+            }
+        }
     }
     let mut aspect = coord.fixes_aspect().then(|| {
         spec.coord
@@ -808,6 +829,13 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     // lets-plot: a single coord limit beyond the other end of the data range is an
     // error ("Incompatible x-limits and the data range").
     for (_, tile_x, tile_y) in &prepared_tiles {
+        for (scale, key) in [(tile_x, "x"), (tile_y, "y")] {
+            if let PositionScale::Continuous(scale) = scale
+                && let Some(problem) = scale.coord_transform_problem()
+            {
+                return Err(Error::spec(format!("coord.{key}"), problem).with_notes(&warnings));
+            }
+        }
         for (scale, key) in [(tile_x, "xlim"), (tile_y, "ylim")] {
             if scale.coord_limit_beyond_data() {
                 return Err(Error::spec(
@@ -1730,7 +1758,15 @@ impl PreparedPlot {
                 interaction.layers.push(layer);
             }
         }
-        if interaction.zoom.is_some() {
+        // The HTML zoom maps axes linearly: a coord_trans plot stays unzoomed.
+        if interaction.zoom.is_some() && self.coord.name() == "trans" {
+            let note = "coord_trans() plots do not zoom in HTML output (the axes are not \
+                        linear); tooltips still work"
+                .to_owned();
+            if !warnings.contains(&note) {
+                warnings.push(note);
+            }
+        } else if interaction.zoom.is_some() {
             let plot = self.zoom_plot(arrangement);
             if let Some(zoom) = interaction.zoom.as_mut() {
                 zoom.plots.push(plot);

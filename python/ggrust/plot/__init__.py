@@ -47,7 +47,15 @@ from ggrust.plot.aliases import (
     stat_function,
 )
 from ggrust.plot.annotate import annotate
-from ggrust.plot.coord import coord_3d, coord_cartesian, coord_fixed, coord_flip, coord_polar
+from ggrust.plot.coord import (
+    coord_3d,
+    coord_cartesian,
+    coord_fixed,
+    coord_flip,
+    coord_polar,
+    coord_trans,
+    coord_transform,
+)
 from ggrust.plot.core import aes, layer
 from ggrust.plot.dendrogram import (
     ClusterTree,
@@ -359,6 +367,8 @@ __all__ = [
     "coord_fixed",
     "coord_flip",
     "coord_polar",
+    "coord_trans",
+    "coord_transform",
     "derive",
     "dup_axis",
     "element_blank",

@@ -124,6 +124,12 @@ pub fn choose_breaks(
     overflow: (f64, f64),
 ) -> AxisBreaks {
     let mut breaks = choose_label_breaks(scale, axis_length, orientation, text, overflow);
+    if let PositionScale::Continuous(continuous) = scale
+        && continuous.coord_transform != crate::scale::Transform::Identity
+        && !scale.has_fixed_breaks()
+    {
+        thin_warped(&mut breaks, scale, axis_length, orientation, text);
+    }
     breaks.nested = scale
         .nested()
         .filter(|nested| nested.side == super::axis_nested::NestedSide::Axis)
@@ -133,6 +139,41 @@ pub fn choose_breaks(
         PositionScale::Discrete(_) => None,
     };
     breaks
+}
+
+/// `coord_trans()`: breaks are even in data units but not on the warped axis, so
+/// drop each label that would sit closer to the last kept one than its own
+/// extent plus the minimum label distance (ggplot2 keeps them all and overlaps).
+pub(super) fn thin_warped(
+    breaks: &mut AxisBreaks,
+    scale: &PositionScale,
+    axis_length: f64,
+    orientation: Orientation,
+    text: Option<TextStyle>,
+) {
+    let size = text.map_or(DEFAULT_LABEL_SIZE, |text| text.size);
+    let face = text.map(|text| text.font.face).unwrap_or_default();
+    let extent = |label: &Label| match orientation {
+        Orientation::Horizontal => estimated_label_width(label, size, face),
+        Orientation::Vertical => size,
+    };
+    let mut kept: Option<(f64, f64)> = None;
+    let mut keep = Vec::with_capacity(breaks.values.len());
+    for (value, label) in breaks.values.iter().zip(&breaks.labels) {
+        let centre = scale.map(*value) * axis_length;
+        let half = extent(label) / 2.0;
+        let fits = kept.is_none_or(|(previous, previous_half)| {
+            (centre - previous).abs() >= previous_half + half + MIN_LABEL_DISTANCE
+        });
+        if fits {
+            kept = Some((centre, half));
+        }
+        keep.push(fits);
+    }
+    let mut flags = keep.iter();
+    breaks.values.retain(|_| *flags.next().unwrap_or(&true));
+    let mut flags = keep.iter();
+    breaks.labels.retain(|_| *flags.next().unwrap_or(&true));
 }
 
 /// [`choose_breaks`] without the nested guide.

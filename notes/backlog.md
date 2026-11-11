@@ -31,7 +31,6 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 ## 1. Coordinates and positions
 
 - `coord_radial` / radar charts [gaps]
-- `coord_trans`: transform the coordinates after stats [gaps] [plotnine]
 - `coord_map` / `coord_sf`: map projections [gaps]
 - `position_stack(reverse=)` and `position_fill(reverse=)` [plotnine]
 
@@ -74,7 +73,7 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   bug hunter on 2026-11-11, older than the new transforms
 - Degenerate transformed bars: `geom_col` with `trans="exp"` labels the zero baseline
   `-733`, with `trans="reciprocal"` the axis has no labels (0 is outside the domain)
-- `drop` and `na_translate` on discrete scales [plotnine]. Not S: `DiscreteColumn`
+- `drop` and `na_translate` on discrete scales [plotnine]. Size L (priorities 3.12 has the plan): `DiscreteColumn`
   drops unused dictionary levels when it reads Arrow (`data/column.rs`), so `drop=False`
   needs the full level list carried to the scales; `na_translate=True` (ggplot2's
   default) needs an NA level with `na_value` on axes and legends, where ggrust and

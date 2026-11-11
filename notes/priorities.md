@@ -1,7 +1,7 @@
 # Backlog priorities
 
-Every item in [backlog.md](backlog.md), ranked. **1.1 is the highest priority**; a lower
-number always comes first, across and within tiers. The backlog keeps the detail and the
+Every item in [backlog.md](backlog.md), ranked. A lower number always comes first,
+across and within tiers. The backlog keeps the detail and the
 sources. When an item is picked up, move it to [plan.md](../plan.md) and delete it from
 both files.
 
@@ -16,12 +16,6 @@ Ranked on 2026-11-11, following the order in AGENTS.md:
 
 Size is a rough guess: **S** is about one file plus tests, **M** is a few files, **L** is
 new engine work or a new subsystem. Items already scheduled keep their `plan.md` step.
-
-## 1. Correctness
-
-| # | Item | Why here | Size |
-|---|---|---|---|
-| 1.3 | Check whether theme flavors change any palette colors | Open parity question, cheap to settle | S |
 
 ## 2. cellestial and lets-plot parity
 

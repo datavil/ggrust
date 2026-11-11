@@ -96,7 +96,6 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   (lets_plot needs `palettable`; `geom_imshow` `cmap` already does) [later]; plotnine
   spells these `scale_*_cmap` and `scale_*_cmap_d` [plotnine]
 - Locale-aware label formatting: decimal marks, currency, percent, month names [gaps]
-- Check whether theme flavors (`flavor_darcula`, ...) change any palette colors [later]
 - Set common scale options once, for example one palette for every color scale
   (ggplot2 #4269) [users]
 - Axis capping (lets-plot #1184), vertical fill gradient (lets-plot #994) [users]

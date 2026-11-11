@@ -509,3 +509,30 @@ fn lablim_zero_means_no_limit_and_does_not_warn() {
     );
     assert!(warnings.is_empty(), "{warnings:?}");
 }
+
+#[test]
+fn flavors_leave_scale_colors_alone() {
+    let fills = |theme: &str| {
+        let built = build(
+            &format!(
+                r#"{{"kind": "plot", "mapping": {{"x": "b", "y": "b", "color": "b"}},
+                    "layers": [{{"geom": "point"}}]{theme}}}"#
+            ),
+            Some(frame(&[("b", vec![1.0, 2.0, 3.0])])),
+            vec![],
+        );
+        let points = points(&built)[0];
+        format!("{:?} {:?}", points.fill, points.stroke)
+    };
+    let standard = fills("");
+    for flavor in [
+        "darcula",
+        "solarized_light",
+        "solarized_dark",
+        "high_contrast_light",
+        "high_contrast_dark",
+    ] {
+        let theme = format!(r#", "theme": {{"flavor": "{flavor}"}}"#);
+        assert_eq!(fills(&theme), standard, "{flavor}");
+    }
+}

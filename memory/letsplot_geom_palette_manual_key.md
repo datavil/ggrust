@@ -8,6 +8,8 @@
   literal `#474747`/white, or dark flavors draw light-theme geoms. Before this, every
   default geom color ignored the flavor. Scale values, `na_value` and `halo_color`
   still use the standard palette (deviations.md).
+  Flavors do not touch scale palettes in lets-plot or ggrust (measured for every flavor
+  and color scale, `tests/test_flavor_palettes.py`).
 - **manual_key / layer_key** (`build.rs` `manual_key_contribution`): port of
   `PlotAssemblerUtil.createLegends` + `LegendAssembler.createLegend`. Legends are
   keyed by title (a group titled like a scale joins it); a layer's manual key comes

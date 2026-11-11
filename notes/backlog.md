@@ -47,9 +47,6 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   all but `stat_summary_2d`, plus `geom_quantile` [plotnine]
 - `stat_hull`: a convex hull as a stat (`geom_mark_hull` only draws an annotation)
   [plotnine]
-- Horizontal error bars (`geom_errorbarh`). `geom_errorbar(orientation="y")` asks for
-  `y`, `xmin`, `xmax`, then reports those mappings as unused and fails, so it looks
-  broken as well as missing [plotnine]
 - `geom_smooth`: methods `rlm`, `glm`, `gls`, `mavg`, `gpr`; options `formula`,
   `method_args`, `fullrange` [plotnine]
 - `stat_summary` and `stat_summary_bin`: `fun_data` shortcuts `mean_cl_boot`,

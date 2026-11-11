@@ -913,7 +913,7 @@ const TOOLTIP_ANCHORS: [&str; 9] = [
 
 /// The tooltip setup of every layer: bound variables (mapped columns, then the
 /// stat's default mappings) and their labels, keyed as the layer's data (x and y
-/// swapped in a y-oriented layer, see [`layer_orientation`]).
+/// swapped in a y-oriented layer, see [`declared_orientation`]).
 fn tooltip_setups(
     spec: &PlotSpec,
     titles: &Titles,
@@ -2367,12 +2367,6 @@ fn map_layer_into<'a>(
     let positions = layer_positions(geom, stat, spec, &path)?;
 
     let options = normalize_options(&spec.parameters, &path, warnings);
-    validate_parameters(geom, stat, &options, &path, warnings);
-    font_option_warnings(&options, &path, warnings);
-    for (position, position_options, position_path) in &positions {
-        validate_position_options(*position, position_options, position_path, warnings);
-    }
-
     let (mut mapping, inherited) = merged_mapping(plot, spec);
     // An aesthetic given as a constant wins over its mapping (lets-plot
     // `DataConfigUtil`). Unlike lets-plot, but as ggplot2, the mapping still
@@ -2386,6 +2380,19 @@ fn map_layer_into<'a>(
     let mut overridden = mapping.clone();
     overridden.retain(|aesthetic, _| has_constant(aesthetic));
     mapping.retain(|aesthetic, _| !has_constant(aesthetic));
+    let declared_y = declared_orientation(
+        geom,
+        &options,
+        |aesthetic| mapping.contains_key(&aesthetic) || has_constant(&aesthetic),
+        &at("orientation"),
+    )?;
+    // Mappings are named as the user sees them; a y-oriented geom reads them swapped.
+    let flipped_mapping = declared_y == Some(true);
+    validate_parameters(geom, stat, &options, &path, flipped_mapping, warnings);
+    font_option_warnings(&options, &path, warnings);
+    for (position, position_options, position_path) in &positions {
+        validate_position_options(*position, position_options, position_path, warnings);
+    }
     // A side tile mapping nothing across its band is one track, labelled by its
     // fill column (the plot's mapping on that axis belongs to the main panel).
     let track = band.and_then(|(_, key)| {
@@ -2433,7 +2440,11 @@ fn map_layer_into<'a>(
         };
         // Checked before the column is fetched: lets-plot ignores an unused
         // aesthetic even when its column does not exist.
-        if !geom_uses(geom, stat, *aesthetic) {
+        let layer_aesthetic = match flipped_mapping {
+            true => aesthetic.flip_orientation(),
+            false => *aesthetic,
+        };
+        if !geom_uses(geom, stat, layer_aesthetic) {
             // Plot-level x/y are meant for the layers that read them (a
             // `geom_hline` over `ggplot(aes(x, y))` is the usual case): no warning.
             if inherited.contains(aesthetic)
@@ -2509,7 +2520,7 @@ fn map_layer_into<'a>(
             .map(|(_, column)| column)
             .collect(),
     };
-    let y_oriented = layer_orientation(geom, stat, &options, &columns, &at("orientation"))?;
+    let y_oriented = declared_y.unwrap_or_else(|| detected_orientation(geom, stat, &columns));
     let unbound = columns.is_empty();
     // A layer without data columns is drawn in every panel.
     let facet_columns = facet_variables
@@ -2581,27 +2592,28 @@ fn map_layer_into<'a>(
     })
 }
 
-/// Whether a layer runs in y orientation (lets-plot `LayerConfig.initYOrientation`):
-/// `orientation="y"`, or, without the option, a counting or distribution layer
-/// (count, summary, boxplot, ydensity, slab, pointinterval, interval stats; bar,
-/// violin, sina, beeswarm, quasirandom, half_*, slab, pointinterval geoms) with a discrete y and a non-discrete x. Such a layer computes and draws with x and y
-/// swapped (see [`Aesthetic::flip_orientation`]): `geom_bar(aes(y="g"))` draws
-/// horizontal bars. Geoms that read `orientation` themselves are left alone.
-fn layer_orientation(
+/// The orientation a layer states before its columns are read: `orientation="y"`
+/// or `"x"`, or, for geoms with [`Geom::horizontal_from_ranges`], `xmin`/`xmax` set
+/// without `ymin`/`ymax` (lets-plot `GeomProviderFactory.isVertical`, ggplot2
+/// `has_flipped_aes`). `None` leaves it to [`detected_orientation`].
+///
+/// A y-oriented layer computes and draws with x and y swapped (see
+/// [`Aesthetic::flip_orientation`]). Geoms that read `orientation` themselves are
+/// left alone.
+fn declared_orientation(
     geom: &dyn Geom,
-    stat: &dyn Stat,
     options: &Options,
-    columns: &[(Aesthetic, Column, String)],
+    is_set: impl Fn(Aesthetic) -> bool,
     path: &str,
-) -> Result<bool> {
+) -> Result<Option<bool>> {
     // A geom that reads the option itself (brackets) handles it.
     if geom.parameters().contains(&"orientation") {
-        return Ok(false);
+        return Ok(Some(false));
     }
     match options.get("orientation") {
         None | Some(Value::Null) => {}
-        Some(Value::String(text)) if text.eq_ignore_ascii_case("x") => return Ok(false),
-        Some(Value::String(text)) if text.eq_ignore_ascii_case("y") => return Ok(true),
+        Some(Value::String(text)) if text.eq_ignore_ascii_case("x") => return Ok(Some(false)),
+        Some(Value::String(text)) if text.eq_ignore_ascii_case("y") => return Ok(Some(true)),
         Some(other) => {
             return Err(Error::spec(
                 path,
@@ -2609,6 +2621,21 @@ fn layer_orientation(
             ));
         }
     }
+    let horizontal = is_set(Aesthetic::Xmin) || is_set(Aesthetic::Xmax);
+    let vertical = is_set(Aesthetic::Ymin) || is_set(Aesthetic::Ymax);
+    Ok((geom.horizontal_from_ranges() && horizontal && !vertical).then_some(true))
+}
+
+/// Whether a layer that states no orientation runs along y (lets-plot
+/// `LayerConfig.initYOrientation`): a counting or distribution layer
+/// (count, summary, boxplot, ydensity, slab, pointinterval, interval stats; bar,
+/// violin, sina, beeswarm, quasirandom, half_*, slab, pointinterval geoms) with a
+/// discrete y and a non-discrete x: `geom_bar(aes(y="g"))` draws horizontal bars.
+fn detected_orientation(
+    geom: &dyn Geom,
+    stat: &dyn Stat,
+    columns: &[(Aesthetic, Column, String)],
+) -> bool {
     let auto = matches!(
         stat.name(),
         "count"
@@ -2644,9 +2671,9 @@ fn layer_orientation(
         && mapped(Aesthetic::X)
         && !mapped(Aesthetic::Y)
     {
-        return Ok(true);
+        return true;
     }
-    Ok(auto && !discrete(Aesthetic::X) && discrete(Aesthetic::Y))
+    auto && !discrete(Aesthetic::X) && discrete(Aesthetic::Y)
 }
 
 /// A layer after [`map_layer`].
@@ -2669,7 +2696,7 @@ struct MappedLayer<'a> {
     /// Position aesthetics mapped to date-time columns (series type `datetime`,
     /// `date` or `time`): their axes get date-time breaks.
     temporal: Vec<(Aesthetic, TemporalKind)>,
-    /// `orientation="y"` (see [`layer_orientation`]).
+    /// `orientation="y"` (see [`declared_orientation`]).
     y_oriented: bool,
     group_index: Option<Vec<u32>>,
     /// A facet panel's groups: each group's rank in the whole layer (see
@@ -2866,6 +2893,7 @@ fn compute_layer(
             &layer_data,
             &path,
             y_oriented,
+            false,
         )?;
         if !spec.na_rm.unwrap_or(false) {
             report_missing_values(
@@ -2995,6 +3023,7 @@ fn compute_layer(
         &layer_data,
         &path,
         y_oriented,
+        geom.horizontal_from_ranges(),
     )?;
     let layer_data = geom.setup(layer_data, &parameters)?;
     let x_span = setup_span(geom, &layer_data, Aesthetic::is_x_position);
@@ -3078,7 +3107,7 @@ struct ComputedLayer {
     x_span: Option<(f64, f64)>,
     /// The same for y (ridge heights).
     y_span: Option<(f64, f64)>,
-    /// The data holds x and y swapped (see [`layer_orientation`]): drawn with the
+    /// The data holds x and y swapped (see [`declared_orientation`]): drawn with the
     /// panel's flip toggled, trained on the other axis.
     y_oriented: bool,
     /// Where each mapped aesthetic was mapped, for error messages.
@@ -3603,7 +3632,7 @@ fn layer_positions(
 
 /// Error unless every aesthetic in `required` has a column (mapped, constant or
 /// computed). `owner` names who needs them, e.g. `geom_bar`.
-/// `y_oriented`: `data` holds x and y swapped (see [`layer_orientation`]); the
+/// `y_oriented`: `data` holds x and y swapped (see [`declared_orientation`]); the
 /// message names the user's aesthetics.
 fn require_aesthetics(
     owner: &str,
@@ -3611,6 +3640,7 @@ fn require_aesthetics(
     data: &LayerData,
     path: &str,
     y_oriented: bool,
+    horizontal_alternative: bool,
 ) -> Result<()> {
     let name = |aesthetic: &Aesthetic| match y_oriented {
         true => aesthetic.flip_orientation().as_str(),
@@ -3629,11 +3659,17 @@ fn require_aesthetics(
     } else {
         ""
     };
+    // The interval family also draws horizontally.
+    let alternative = if horizontal_alternative && !y_oriented {
+        " Map y, xmin and xmax instead for a horizontal interval."
+    } else {
+        ""
+    };
     Err(Error::spec(
         path,
         format!(
             "{owner} requires aesthetics {}{orientation} (mapped to columns or given as \
-         constants); missing: {}",
+         constants); missing: {}.{alternative}",
             required.iter().map(name).collect::<Vec<_>>().join(", "),
             missing.join(", ")
         ),
@@ -3758,6 +3794,7 @@ fn validate_parameters(
     stat: &dyn stat::Stat,
     options: &Options,
     path: &str,
+    y_oriented: bool,
     warnings: &mut Vec<String>,
 ) {
     let accepted: BTreeSet<&str> = geom
@@ -3770,7 +3807,7 @@ fn validate_parameters(
                 .iter()
                 .map(|(aesthetic, _)| aesthetic.as_str()),
         )
-        // Every layer: see `layer_orientation`.
+        // Every layer: see `declared_orientation`.
         .chain(["orientation"])
         // Constant positions: geom_point(x=1.5); swapped under orientation="y"
         // (ggmarginal's sideways boxplots take y=0).
@@ -3788,7 +3825,7 @@ fn validate_parameters(
         .chain(
             geom.required_aesthetics()
                 .iter()
-                .filter(|_| options.get("orientation").and_then(Value::as_str) == Some("y"))
+                .filter(|_| y_oriented)
                 .map(|aesthetic| aesthetic.flip_orientation().as_str()),
         )
         .collect();

@@ -365,3 +365,111 @@ fn unknown_lets_plot_names_say_so() {
     let typo = error(r#"{"geom": "violn"}"#);
     assert!(typo.contains("unknown geom 'violn'"), "{typo}");
 }
+
+/// Lengths of the two-point paths in the panel: (horizontal, vertical).
+fn segment_lengths(built: &BuiltPlot) -> (Vec<f64>, Vec<f64>) {
+    let panel: &Group = built
+        .scene
+        .groups_with_role("panel")
+        .into_iter()
+        .next()
+        .unwrap();
+    let (mut horizontal, mut vertical) = (Vec::new(), Vec::new());
+    for node in panel.flattened() {
+        if let Node::Path(path) = node
+            && let [(x0, y0), (x1, y1)] = path.points[..]
+        {
+            match y0 == y1 {
+                true => horizontal.push((x1 - x0).abs()),
+                false => vertical.push((y1 - y0).abs()),
+            }
+        }
+    }
+    (horizontal, vertical)
+}
+
+fn interval_frame() -> DataFrame {
+    frame(&[
+        ("b", vec![1.0, 2.0, 3.0]),
+        ("lo", vec![1.0, 2.0, 1.5]),
+        ("hi", vec![3.0, 4.0, 3.5]),
+    ])
+}
+
+#[test]
+fn x_ranges_make_error_bars_horizontal() {
+    for orientation in ["", r#""orientation": "y","#] {
+        let built = build(
+            &format!(
+                r#"{{"kind": "plot", "layers": [{{"geom": "errorbar", {orientation}
+                "mapping": {{"y": "b", "xmin": "lo", "xmax": "hi"}}}}]}}"#
+            ),
+            Some(interval_frame()),
+            vec![],
+        );
+        let (horizontal, vertical) = segment_lengths(&built);
+        // One range per row along x, two fences per row across it.
+        assert_eq!((horizontal.len(), vertical.len()), (3, 6), "{orientation}");
+        assert!(built.warnings.is_empty(), "{:?}", built.warnings);
+    }
+}
+
+#[test]
+fn y_ranges_win_over_x_ranges() {
+    let built = build(
+        r#"{"kind": "plot", "layers": [{"geom": "linerange",
+            "mapping": {"x": "b", "ymin": "lo", "ymax": "hi", "xmin": "lo"}}]}"#,
+        Some(interval_frame()),
+        vec![],
+    );
+    let (horizontal, vertical) = segment_lengths(&built);
+    assert_eq!((horizontal.len(), vertical.len()), (0, 3));
+}
+
+#[test]
+fn a_constant_x_range_makes_the_layer_horizontal() {
+    let built = build(
+        r#"{"kind": "plot", "layers": [{"geom": "linerange", "xmin": 0.5,
+            "mapping": {"y": "b", "xmax": "hi"}}]}"#,
+        Some(interval_frame()),
+        vec![],
+    );
+    let (horizontal, vertical) = segment_lengths(&built);
+    assert_eq!((horizontal.len(), vertical.len()), (3, 0));
+    assert!(built.warnings.is_empty(), "{:?}", built.warnings);
+}
+
+#[test]
+fn a_missing_interval_aesthetic_names_both_orientations() {
+    let error = build_plot(
+        &spec(r#"{"kind": "plot", "layers": [{"geom": "errorbar", "mapping": {"x": "b"}}]}"#),
+        &PlotData {
+            plot: Some(interval_frame()),
+            layers: vec![],
+        },
+    )
+    .err()
+    .unwrap()
+    .to_string();
+    assert!(error.contains("missing: ymin, ymax"), "{error}");
+    assert!(error.contains("y, xmin and xmax"), "{error}");
+}
+
+#[test]
+fn orientation_y_with_vertical_mapping_names_what_it_needs() {
+    let error = build_plot(
+        &spec(
+            r#"{"kind": "plot", "layers": [{"geom": "errorbar", "orientation": "y",
+                "mapping": {"x": "b", "ymin": "lo", "ymax": "hi"}}]}"#,
+        ),
+        &PlotData {
+            plot: Some(interval_frame()),
+            layers: vec![],
+        },
+    )
+    .err()
+    .unwrap()
+    .to_string();
+    assert!(error.contains("with orientation='y'"), "{error}");
+    assert!(error.contains("missing: y, xmin, xmax"), "{error}");
+}

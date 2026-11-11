@@ -188,6 +188,12 @@ pub trait Geom: Sync {
         &[]
     }
 
+    /// Whether mapping `xmin`/`xmax` without `ymin`/`ymax` makes the layer horizontal
+    /// (the interval family, see `build::declared_orientation`).
+    fn horizontal_from_ranges(&self) -> bool {
+        false
+    }
+
     /// The setup columns that train the axes before the position adjustment:
     /// lets-plot's width span (bars: `xmin`/`xmax`, so dodged bars keep the
     /// undodged range) or height span (ridges: `ymin`/`ymax`).

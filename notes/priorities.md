@@ -21,7 +21,6 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 
 | # | Item | Why here | Size |
 |---|---|---|---|
-| 1.1 | Fix `geom_errorbar(orientation="y")` and add horizontal error bars (`geom_errorbarh`) | The option is accepted, then fails with a contradictory error | S |
 | 1.2 | Colorbar `lablim` is ignored with no warning. `format` now works on `scale_color_gradient`; re-check the other color scales | Silent loss of a user option | S |
 | 1.3 | Check whether theme flavors change any palette colors | Open parity question, cheap to settle | S |
 

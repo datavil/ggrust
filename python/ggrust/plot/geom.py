@@ -885,7 +885,11 @@ def geom_errorbar(
 ) -> LayerSpec:
     """Error bars from ymin to ymax at x, with fences ``width`` wide (default 0.45).
 
-    ``width`` (a constant or a mapped aesthetic) is a share of the x resolution.
+    Map ``y``, ``xmin`` and ``xmax`` instead for horizontal error bars.
+    ``width`` (a constant or a mapped aesthetic) is a share of the resolution of the
+    axis the bars sit on. ``height`` and ``height_unit`` are deprecated aliases, as
+    in lets_plot: ``height`` becomes ``width`` with a warning, ``height_unit`` is
+    dropped with a warning.
 
     Parameters
     ----------
@@ -930,7 +934,33 @@ def geom_errorbar(
     >>> from ggrust import *
     >>> data = {"x": ["a", "b"], "y": [2.0, 3.0], "low": [1.0, 2.5], "high": [3.0, 4.0]}
     >>> plot = ggplot(data, aes(x="x", y="y", ymin="low", ymax="high")) + geom_errorbar()
+
+    Horizontal error bars:
+
+    >>> plot = ggplot(data, aes(y="x", xmin="low", xmax="high")) + geom_errorbar()
     """
+    if mapping is not None and "height" in mapping.props():
+        warnings.warn(
+            "geom_errorbar: the 'height' aesthetic is deprecated; use 'width' instead",
+            GgrustWarning,
+            stacklevel=2,
+        )
+        mapping.props()["width"] = mapping.props().pop("height")
+    if "height" in other_args:
+        warnings.warn(
+            "geom_errorbar: the 'height' parameter is deprecated; use 'width' instead",
+            GgrustWarning,
+            stacklevel=2,
+        )
+        other_args["width"] = other_args.pop("height")
+    if "height_unit" in other_args:
+        warnings.warn(
+            "geom_errorbar: the 'height_unit' parameter is deprecated and was ignored; "
+            "use 'width_unit' instead",
+            GgrustWarning,
+            stacklevel=2,
+        )
+        other_args.pop("height_unit")
     return _geom(
         "errorbar",
         mapping=mapping,
@@ -969,6 +999,8 @@ def geom_crossbar(
     **other_args: Any,
 ) -> LayerSpec:
     """Boxes from ymin to ymax at x with a midline at y, dodged by group.
+
+    Map ``y``, ``xmin`` and ``xmax`` instead for horizontal boxes (midline at ``x``).
 
     ``width`` (default 0.9) is a share of the x resolution.
 
@@ -1062,6 +1094,8 @@ def geom_pointrange(
 ) -> LayerSpec:
     """Draw a vertical line from ymin to ymax at x with a point at y.
 
+    Map ``y``, ``xmin`` and ``xmax`` instead for a horizontal line (point at ``x``).
+
     ``linewidth`` sets the line, ``size`` the point (times ``fatten``).
 
     Parameters
@@ -1145,6 +1179,8 @@ def geom_linerange(
     **other_args: Any,
 ) -> LayerSpec:
     """Draw a vertical line from ymin to ymax at x.
+
+    Map ``y``, ``xmin`` and ``xmax`` instead for a horizontal line.
 
     Parameters
     ----------

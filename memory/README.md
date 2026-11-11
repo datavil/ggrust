@@ -91,3 +91,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [ggpp centroid stats](ggpp_centroid.md): mean/median by name only, ggrust groups by label (ggplot2 does not: fixture needs group=), other columns follow the per-group rule.
 - [coord_3d](coord_3d.md): project rows and reuse 2D geoms on an identity panel, reorder styles with rows, renumber path groups, z scaled after the stat, layout with axes blanked.
 - [funky_heatmap port](funky_heatmap.md): unit canvas needs `plot_inset=0`, no `alpha=1` on transparent fills, text measured with `text_width` to grow the canvas, levelmatch counts every column_groups column.
+- [Horizontal intervals](letsplot_horizontal_intervals.md): orientation must be settled before the unused-aesthetic check; `xmin`/`xmax` without `ymin`/`ymax` flip the layer, keys stay vertical.

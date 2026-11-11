@@ -56,7 +56,7 @@ pub struct Panel<'a> {
 
 impl<'a> Panel<'a> {
     /// The panel a layer draws on: a y-oriented layer's data has x and y swapped
-    /// (see `build::layer_orientation`), so the flip toggles.
+    /// (see `build::declared_orientation`), so the flip toggles.
     pub fn oriented(&self, y_oriented: bool) -> Panel<'a> {
         Panel {
             rect: self.rect,

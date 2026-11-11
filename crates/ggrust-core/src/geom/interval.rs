@@ -10,8 +10,10 @@
 //! Error bars and lines fade their strokes with `alpha`, crossbars their fill
 //! only, point ranges both line and point.
 //!
-//! What it does not do (yet): horizontal intervals (`xmin`/`xmax` at `y`),
-//! `width_unit` other than `res`, crossbar `labels`, a `linewidth` scale.
+//! Horizontal intervals (`y`, `xmin`, `xmax`, or `orientation="y"`) are the same
+//! code: the layer runs y-oriented, so these geoms see x and y swapped.
+//!
+//! What it does not do (yet): `width_unit` other than `res`, crossbar `labels`, a `linewidth` scale.
 //! Point range legend keys fit the fattened point (lets-plot's are smaller). Point ranges draw every
 //! line, then every point (lets-plot alternates per row).
 
@@ -82,6 +84,10 @@ pub struct CrossBarGeom;
 impl Geom for ErrorBarGeom {
     fn name(&self) -> &'static str {
         "errorbar"
+    }
+
+    fn horizontal_from_ranges(&self) -> bool {
+        true
     }
 
     fn required_aesthetics(&self) -> &'static [Aesthetic] {
@@ -186,6 +192,10 @@ impl Geom for LineRangeGeom {
         "linerange"
     }
 
+    fn horizontal_from_ranges(&self) -> bool {
+        true
+    }
+
     fn required_aesthetics(&self) -> &'static [Aesthetic] {
         &[Aesthetic::X, Aesthetic::Ymin, Aesthetic::Ymax]
     }
@@ -235,6 +245,10 @@ impl Geom for LineRangeGeom {
 impl Geom for PointRangeGeom {
     fn name(&self) -> &'static str {
         "pointrange"
+    }
+
+    fn horizontal_from_ranges(&self) -> bool {
+        true
     }
 
     fn required_aesthetics(&self) -> &'static [Aesthetic] {
@@ -351,6 +365,10 @@ pub(super) fn draw_point_range_key(styles: &Styles, cell: Rect, fatten: f64) -> 
 impl Geom for CrossBarGeom {
     fn name(&self) -> &'static str {
         "crossbar"
+    }
+
+    fn horizontal_from_ranges(&self) -> bool {
+        true
     }
 
     fn default_position(&self) -> DefaultPosition {

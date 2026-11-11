@@ -16,6 +16,7 @@ warnings.filterwarnings("ignore", category=SyntaxWarning)
 
 import ggrust as gg  # noqa: E402
 import lets_plot as lp  # noqa: E402
+from ggrust._render import GgrustWarning  # noqa: E402
 from ggrust.errors import SpecError  # noqa: E402
 
 DATA = {
@@ -175,3 +176,88 @@ def test_errorbar_dodges_by_its_width() -> None:
         return sorted(length / panel for length in _marks(svg)["horizontal"])
 
     assert centers(gg) == pytest.approx(centers(lp), abs=0.004)
+
+
+HORIZONTAL = {"y": "x", "xmin": "low", "xmax": "high"}
+HORIZONTAL_FULL = {**HORIZONTAL, "x": "y"}
+
+HORIZONTAL_CASES: dict[str, Callable[[ModuleType], object]] = {
+    "errorbar": lambda m: m.geom_errorbar(m.aes(**HORIZONTAL)),
+    "errorbar orientation": lambda m: m.geom_errorbar(m.aes(**HORIZONTAL), orientation="y"),
+    "errorbar width": lambda m: m.geom_errorbar(m.aes(**HORIZONTAL), width=0.2, size=1.5),
+    "linerange": lambda m: m.geom_linerange(m.aes(**HORIZONTAL)),
+    "pointrange": lambda m: m.geom_pointrange(m.aes(**HORIZONTAL_FULL)),
+    "crossbar": lambda m: m.geom_crossbar(m.aes(**HORIZONTAL_FULL)),
+    "crossbar dodged": lambda m: m.geom_crossbar(m.aes(**HORIZONTAL_FULL, fill="g")),
+}
+
+
+def _panel_height(svg: str) -> float:
+    """Height of the panel clip rectangle (a rect with geometry and no paint)."""
+    for tag in re.findall(r"<rect\b[^>]*>", svg):
+        attributes = _attributes(tag)
+        unpainted = not {"fill", "stroke"} & attributes.keys()
+        if "x" in attributes and unpainted and float(attributes["width"]) < 600:
+            return float(attributes["height"])
+    raise AssertionError("no panel clip rectangle")
+
+
+def _box_heights(svg: str) -> list[float]:
+    """Heights of the layer's rectangles (not the background or the panel)."""
+    heights = []
+    for tag in re.findall(r"<rect\b[^>]*>", svg):
+        attributes = _attributes(tag)
+        if "x" in attributes and float(attributes.get("height", 0)) < 300:
+            heights.append(float(attributes["height"]))
+    return heights
+
+
+@pytest.mark.parametrize("name", HORIZONTAL_CASES)
+def test_horizontal_marks_match_lets_plot(name: str) -> None:
+    ours, theirs = _svg(gg, HORIZONTAL_CASES[name]), _svg(lp, HORIZONTAL_CASES[name])
+    ours_marks, their_marks = _marks(ours), _marks(theirs)
+    assert sorted(ours_marks["stroke"]) == sorted(their_marks["stroke"])
+    assert sorted(ours_marks["radius"]) == sorted(their_marks["radius"])
+    ours_height, their_height = _panel_height(ours), _panel_height(theirs)
+    ours_share = sorted(length / ours_height for length in ours_marks["vertical"])
+    their_share = sorted(length / their_height for length in their_marks["vertical"])
+    assert ours_share == pytest.approx(their_share, abs=0.004)
+    ours_boxes = sorted(height / ours_height for height in _box_heights(ours))
+    their_boxes = sorted(height / their_height for height in _box_heights(theirs))
+    assert ours_boxes == pytest.approx(their_boxes, abs=0.004)
+
+
+def test_horizontal_errorbar_draws_ranges_along_x() -> None:
+    marks = _marks(_svg(gg, HORIZONTAL_CASES["errorbar"]))
+    assert (len(marks["horizontal"]), len(marks["vertical"])) == (3, 6)
+
+
+def test_orientation_y_with_vertical_mapping_is_an_error() -> None:
+    plot = gg.ggplot(DATA) + gg.geom_errorbar(gg.aes(**RANGE), orientation="y")
+    with pytest.raises(SpecError, match=r"with orientation='y'.*missing: y, xmin, xmax"):
+        plot.to_svg()
+
+
+def test_missing_range_error_offers_the_horizontal_mapping() -> None:
+    plot = gg.ggplot(DATA) + gg.geom_errorbar(gg.aes(x="x"))
+    with pytest.raises(SpecError, match=r"missing: ymin, ymax\. Map y, xmin and xmax"):
+        plot.to_svg()
+
+
+def test_errorbar_height_is_a_deprecated_alias_of_width() -> None:
+    with pytest.warns(GgrustWarning, match="'height' parameter is deprecated"):
+        old = gg.geom_errorbar(gg.aes(**HORIZONTAL), height=0.2)
+    assert old.as_dict()["width"] == 0.2
+    assert "height" not in old.as_dict()
+
+
+def test_errorbar_height_aesthetic_is_a_deprecated_alias_of_width() -> None:
+    with pytest.warns(GgrustWarning, match="'height' aesthetic is deprecated"):
+        old = gg.geom_errorbar(gg.aes(**HORIZONTAL, height="y"))
+    assert old.as_dict()["mapping"]["width"] == "y"
+
+
+def test_errorbar_height_unit_is_dropped_with_a_warning() -> None:
+    with pytest.warns(GgrustWarning, match="'height_unit' parameter is deprecated"):
+        old = gg.geom_errorbar(gg.aes(**HORIZONTAL), height_unit="res")
+    assert "height_unit" not in old.as_dict()

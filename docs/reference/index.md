@@ -106,6 +106,9 @@ Layers named after their stat: each summarises the data, then draws it with a ge
 |---|---|
 | [`stat_summary()`](api/stat_summary.md) | Summarise y at every distinct x (``stat="summary"``), drawn as point ranges. |
 | [`stat_summary_bin()`](api/stat_summary_bin.md) | Summarise y in bins of x (``stat="summarybin"``), drawn as point ranges. |
+| [`stat_summary_2d()`](api/stat_summary_2d.md) | Summarise ``z`` over a grid of rectangles (``stat="summary2d"``), as ggplot2. |
+| [`stat_unique()`](api/stat_unique.md) | Drop duplicate rows before drawing (``stat="unique"``), as ggplot2. |
+| [`stat_hull()`](api/stat_hull.md) | Draw the convex hull of each group (``stat="hull"``), as plotnine. |
 | [`stat_ecdf()`](api/stat_ecdf.md) | Empirical cumulative distribution of x (``stat="ecdf"``), drawn as steps. |
 | [`stat_qq()`](api/stat_qq.md) | Plot theoretical quantiles of a sample (``stat="qq"``), ggplot2's ``stat_qq``. |
 | [`stat_qq_line()`](api/stat_qq_line.md) | Draw the fitting line of a Q-Q plot (``stat="qq_line"``), ggplot2's ``stat_qq_line``. |

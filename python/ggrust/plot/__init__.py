@@ -233,6 +233,7 @@ from ggrust.plot.side import (
     scale_ysidex_discrete,
 )
 from ggrust.plot.stat import stat_ecdf, stat_ellipse, stat_sum, stat_summary, stat_summary_bin
+from ggrust.plot.stat_extra import stat_hull, stat_summary_2d, stat_unique
 from ggrust.plot.stat_ggdist import stat_halfeye, stat_interval, stat_pointinterval, stat_slab
 from ggrust.plot.stat_ggpp import stat_centroid, stat_summary_xy
 from ggrust.plot.stat_pubr import stat_compare_means, stat_cor, stat_poly_eq
@@ -514,6 +515,7 @@ __all__ = [
     "stat_ecdf",
     "stat_ellipse",
     "stat_halfeye",
+    "stat_hull",
     "stat_interval",
     "stat_pointdensity",
     "stat_pointinterval",
@@ -524,8 +526,10 @@ __all__ = [
     "stat_streamline",
     "stat_sum",
     "stat_summary",
+    "stat_summary_2d",
     "stat_summary_bin",
     "stat_summary_xy",
+    "stat_unique",
     "theme",
     "theme_bw",
     "theme_classic",

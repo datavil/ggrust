@@ -167,6 +167,9 @@ nav = [
     { "Statistics" = [
       "reference/api/stat_summary.md",
       "reference/api/stat_summary_bin.md",
+      "reference/api/stat_summary_2d.md",
+      "reference/api/stat_unique.md",
+      "reference/api/stat_hull.md",
       "reference/api/stat_ecdf.md",
       "reference/api/stat_qq.md",
       "reference/api/stat_qq_line.md",

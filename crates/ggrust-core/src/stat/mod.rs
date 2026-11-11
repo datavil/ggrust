@@ -21,6 +21,7 @@ mod ecdf;
 mod ellipse;
 mod ggdist_density;
 pub(crate) mod groups;
+mod hull;
 mod hypothesis;
 mod identity;
 mod pointdensity;
@@ -36,6 +37,8 @@ mod smooth;
 mod streamline;
 mod sum;
 mod summary;
+mod summary_2d;
+mod unique;
 mod ydensity;
 
 pub use beeswarm::BeeswarmStat;
@@ -54,6 +57,7 @@ pub use densityridges::DensityRidgesStat;
 pub use dotplot::{DotplotStat, YDotplotStat};
 pub use ecdf::EcdfStat;
 pub use ellipse::EllipseStat;
+pub use hull::HullStat;
 pub use identity::IdentityStat;
 pub use pointdensity::PointDensityStat;
 pub use pointinterval::{IntervalStat, PointIntervalStat};
@@ -66,6 +70,8 @@ pub use smooth::SmoothStat;
 pub use streamline::StreamlineStat;
 pub use sum::SumStat;
 pub use summary::{SummaryBinStat, SummaryStat};
+pub use summary_2d::Summary2dStat;
+pub use unique::UniqueStat;
 pub use ydensity::{YDensityStat, quantiles as ydensity_quantiles};
 
 use crate::Result;
@@ -149,6 +155,9 @@ pub static STATS: &[&dyn Stat] = &[
     &EcdfStat,
     &EllipseStat,
     &SumStat,
+    &Summary2dStat,
+    &UniqueStat,
+    &HullStat,
     &Bin2dStat,
     &BinHexStat,
     &ContourStat,

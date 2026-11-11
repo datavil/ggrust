@@ -195,7 +195,7 @@ impl Stat for SummaryBinStat {
 
 /// One aggregate over the sorted values of a location.
 #[derive(Debug, Clone, Copy, PartialEq)]
-enum Aggregate {
+pub(super) enum Aggregate {
     Count,
     Sum,
     Mean,
@@ -221,8 +221,25 @@ enum Aggregate {
     QuantileType7(f64),
 }
 
+/// Names `stat_summary_2d`'s `fun` accepts.
+pub(super) const PLAIN_FUNCTION_NAMES: [&str; 6] = ["count", "sum", "mean", "median", "min", "max"];
+
 impl Aggregate {
-    fn apply(self, sorted: &[f64]) -> f64 {
+    /// The aggregate of a plain name (no quantile options), as `stat_summary_2d`.
+    pub(super) fn named(name: &str) -> Option<Aggregate> {
+        Some(match name {
+            "count" => Aggregate::Count,
+            "sum" => Aggregate::Sum,
+            "mean" => Aggregate::Mean,
+            "median" => Aggregate::Quantile(0.5),
+            "min" => Aggregate::Min,
+            "max" => Aggregate::Max,
+            _ => return None,
+        })
+    }
+
+    /// The aggregate of values sorted ascending.
+    pub(super) fn apply(self, sorted: &[f64]) -> f64 {
         let count = sorted.len() as f64;
         let sum = || {
             if sorted.is_empty() {

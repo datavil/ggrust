@@ -59,10 +59,14 @@ pub enum Computed {
     Theoretical,
     /// `..sample..`: sample quantile of a Q-Q point.
     Sample,
+    /// `..value..`: the summary of `z` in a 2D bin (`stat_summary_2d`).
+    Value,
+    /// `..area..`: area of a convex hull (`stat_hull`).
+    Area,
 }
 
 impl Computed {
-    const ALL: [(Computed, &'static str); 24] = [
+    const ALL: [(Computed, &'static str); 26] = [
         (Computed::Count, "count"),
         (Computed::Density, "density"),
         (Computed::NormalizedCount, "ncount"),
@@ -87,6 +91,8 @@ impl Computed {
         (Computed::IntervalWidth, ".width"),
         (Computed::Theoretical, "theoretical"),
         (Computed::Sample, "sample"),
+        (Computed::Value, "value"),
+        (Computed::Area, "area"),
     ];
 
     /// lets-plot name without dots, e.g. `count`.

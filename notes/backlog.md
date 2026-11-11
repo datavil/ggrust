@@ -39,9 +39,7 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 
 ## 2. Geoms and stats
 
-- `stat_function`, `stat_quantile`, `stat_unique`, `stat_summary_2d` [gaps]; plotnine has
-  all but `stat_summary_2d`, plus `geom_quantile` [plotnine]
-- `stat_hull`: a convex hull as a stat (`geom_mark_hull` only draws an annotation)
+- `stat_function`, `stat_quantile` [gaps]; plotnine has both, plus `geom_quantile`
   [plotnine]
 - `geom_smooth`: methods `rlm`, `glm`, `gls`, `mavg`, `gpr` [plotnine]; formula terms
   beyond `y ~ x` and `y ~ poly(x, k)`, `method_args` beyond loess `span`

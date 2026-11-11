@@ -215,7 +215,7 @@ pub(super) struct Axis {
 
 /// lets-plot `Bin2dStat` bins of one axis: the range widened by half a
 /// (preliminary) bin on each side, so no point lies on the outer edges.
-fn rectangle_axis(range: (f64, f64), options: AxisOptions) -> Axis {
+pub(super) fn rectangle_axis(range: (f64, f64), options: AxisOptions) -> Axis {
     let by_count = |span: f64, count: usize| span / count as f64;
     let (low, high) = applicable_range(range);
     let (_, initial_width) = options.count_and_width(high - low, by_count);

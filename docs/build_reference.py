@@ -125,6 +125,9 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
         [
             "stat_summary",
             "stat_summary_bin",
+            "stat_summary_2d",
+            "stat_unique",
+            "stat_hull",
             "stat_ecdf",
             "stat_qq",
             "stat_qq_line",

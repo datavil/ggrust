@@ -45,8 +45,6 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 
 | # | Item | Why here | Size |
 |---|---|---|---|
-| 4.1 | Spelling aliases (`scale_colour_*`, `geom_density_2d`, `coord_equal`, ...), plus the ggplot2 names `stat_function` and `geom_contour_filled`, already covered by `geom_function` and `geom_contourf` | Cheap, eases moving from plotnine or ggplot2 | S |
-| 4.2 | Standalone `stat_*` functions that exist only as `stat=` names | Same | S |
 | 4.3 | Method chaining as sugar for `+` | Additive, already designed | M |
 | 4.4 | Composition operators `\|`, `/`, `-`, `&`, `*`, `plot_spacer`, `Beside`, `Stack` | Nicer than `gggrid` for quick layouts | M |
 | 4.5 | Set common scale options once | Saves repetition | M |
@@ -90,7 +88,7 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 
 | # | Item | Why here | Size |
 |---|---|---|---|
-| 7.1 | `geom_contour_filled` options beyond `geom_contourf`, if any remain after 4.1 | Probably closes with the alias | S |
+| 7.1 | `geom_contour_filled` fills bands by an ordered discrete level, as ggplot2 (today an alias of `geom_contourf`, continuous fill) | Discrete legend of bands | S |
 | 7.2 | `geom_density_ridges` with the full ggridges options | `geom_area_ridges` covers the main use | M |
 | 7.3 | `geom_cooks` (regression diagnostics) | Niche | S |
 | 7.4 | `coord_radial`, radar charts | Follows 2.5 | M |

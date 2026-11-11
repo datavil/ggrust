@@ -43,6 +43,7 @@ __all__ = [
     "scale_x_log2",
     "scale_x_log10",
     "scale_x_reverse",
+    "scale_x_sqrt",
     "scale_x_symlog",
     "scale_x_time",
     "scale_y_continuous",
@@ -52,6 +53,7 @@ __all__ = [
     "scale_y_log2",
     "scale_y_log10",
     "scale_y_reverse",
+    "scale_y_sqrt",
     "scale_y_symlog",
     "scale_y_time",
     "scale_z_continuous",
@@ -535,6 +537,8 @@ scale_x_log2 = _transformed(scale_x_continuous, "log2")
 scale_y_log2 = _transformed(scale_y_continuous, "log2")
 scale_x_symlog = _transformed(scale_x_continuous, "symlog")
 scale_y_symlog = _transformed(scale_y_continuous, "symlog")
+scale_x_sqrt = _transformed(scale_x_continuous, "sqrt")
+scale_y_sqrt = _transformed(scale_y_continuous, "sqrt")
 scale_x_reverse = _transformed(scale_x_continuous, "reverse")
 scale_y_reverse = _transformed(scale_y_continuous, "reverse")
 

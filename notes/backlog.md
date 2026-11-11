@@ -39,8 +39,7 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 
 ## 2. Geoms and stats
 
-- `stat_function`, `stat_quantile` [gaps]; plotnine has both, plus `geom_quantile`
-  [plotnine]
+- `stat_quantile` [gaps]; plotnine has it, plus `geom_quantile` [plotnine]
 - `geom_smooth`: methods `rlm`, `glm`, `gls`, `mavg`, `gpr` [plotnine]; formula terms
   beyond `y ~ x` and `y ~ poly(x, k)`, `method_args` beyond loess `span`
 - `stat_summary` and `stat_summary_bin`: Python callables for `fun` and `fun_data`
@@ -53,7 +52,8 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   - `geom_path`: `lineend`, `linejoin`; `geom_segment`: `lineend`
   - `geom_text`: `parse`
 - GAM smoothing method for `geom_smooth` [gaps]
-- `geom_contour_filled` / `stat_contour_filled` [gaps]
+- `geom_contour_filled` is an alias of `geom_contourf` (continuous `..level..` fill);
+  ggplot2 fills each band with an ordered discrete level and has `stat_contour_filled` [gaps]
 - `geom_cooks` (regression diagnostics) [gaps]
 - `geom_density_ridges` with the full ggridges options (ggrust has `area_ridges`) [gaps]
 
@@ -143,16 +143,9 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 - `qplot` and `frame >> ggplot(...)` [plotnine]
 - Example datasets like `plotnine.data` (`mpg`, `mtcars`, `diamonds`, `penguins`, ...)
   [plotnine]
-- Spelling aliases, cheap if the plotnine crowd matters [plotnine]: `scale_colour_*`,
-  `scale_*_gray`, `guide_colourbar`, `geom_bin_2d`, `geom_density_2d`, `coord_equal`,
-  `scale_*_date`, `scale_*_timedelta`, `scale_*_sqrt`, `scale_alpha_continuous`,
-  `scale_alpha_discrete`, `scale_size_continuous`, `scale_size_discrete`,
-  `scale_stroke_continuous`, `scale_shape_discrete`, `scale_linetype`,
-  `scale_linetype_discrete`, `scale_color_datetime` (also fill, alpha, size),
-  `position_identity`
-- Standalone `stat_*` functions that exist only as `stat=` names: `stat_bin`,
-  `stat_bin_2d`, `stat_boxplot`, `stat_count`, `stat_density`, `stat_density_2d`,
-  `stat_identity`, `stat_sina`, `stat_smooth`, `stat_ydensity` [plotnine]
+- `scale_color_datetime` (also fill, alpha, size) [plotnine]: left out of the 4.1
+  aliases because a datetime column on a non-position scale shows epoch numbers in the
+  legend; needs temporal legend labels in the engine first.
 - Accessors, tier 2 [accessors]: `p.panels()` (pixel boxes and data-to-pixel mapping),
   `p.layers[i].defaults`, `ggrust.theme_defaults("bw")`, a readable `repr` such as
   `<PlotSpec: 2 layers (point, smooth), 3 scales, facet_wrap(~species)>`.

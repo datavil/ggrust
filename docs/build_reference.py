@@ -18,6 +18,7 @@ from pathlib import Path
 
 import build_examples
 import ggrust
+from ggrust.plot.aliases import ALIASES
 
 DOCS = Path(__file__).parent
 REFERENCE = DOCS / "reference"
@@ -123,6 +124,16 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
     "Statistics": (
         "Layers named after their stat: each summarises the data, then draws it with a geom.",
         [
+            "stat_bin",
+            "stat_bin2d",
+            "stat_count",
+            "stat_density",
+            "stat_density2d",
+            "stat_boxplot",
+            "stat_ydensity",
+            "stat_sina",
+            "stat_smooth",
+            "stat_identity",
             "stat_summary",
             "stat_summary_bin",
             "stat_summary_2d",
@@ -155,6 +166,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "position_nudge",
             "position_stack",
             "position_fill",
+            "position_identity",
         ],
     ),
     "Sampling": (
@@ -189,6 +201,8 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "scale_y_log10",
             "scale_x_symlog",
             "scale_y_symlog",
+            "scale_x_sqrt",
+            "scale_y_sqrt",
             "boxcox_trans",
             "scale_x_log2",
             "scale_y_log2",
@@ -360,6 +374,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "scale_shape",
             "scale_shape_manual",
             "scale_shape_identity",
+            "scale_linetype",
             "scale_linetype_manual",
             "scale_linetype_identity",
             "scale_alpha",
@@ -444,6 +459,11 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
         "Register font files (Arial, a brand font, CJK fonts) for `element_text(family=...)`.",
         ["register_font", "register_font_dir", "registered_fonts"],
     ),
+    "Aliases": (
+        "Other spellings of the functions above, as in ggplot2 and plotnine "
+        "(not in lets-plot). Each is the same function as its target.",
+        sorted(ALIASES),
+    ),
     "Errors and warnings": (
         ERRORS_INTRO,
         [
@@ -479,7 +499,13 @@ def resolve(path: str) -> object:
 
 
 def summary(path: str) -> str:
-    """Return the first sentence block of an object's docstring, on one line."""
+    """Return the first sentence block of an object's docstring, on one line.
+
+    An alias gets a link to its target instead.
+    """
+    name = path.rpartition(".")[2]
+    if name in ALIASES:
+        return f"Alias of [`{ALIASES[name]}()`]({ALIASES[name]}.md)."
     docstring = inspect.getdoc(resolve(path)) or ""
     first_paragraph = docstring.split("\n\n", 1)[0]
     return " ".join(first_paragraph.split()).replace("|", "\\|")
@@ -498,6 +524,13 @@ def object_page(path: str) -> str:
     by ``build_examples.py`` into ``docs/examples/figures/reference/<name>.html``.
     """
     name = path.rpartition(".")[2]
+    if name in ALIASES:
+        target = ALIASES[name]
+        return (
+            f"---\ntitle: {name}\n---\n\n# {name}\n\n`{name}` is an alias of "
+            f"[`{target}()`]({target}.md): the same function under the ggplot2 or "
+            "plotnine spelling. It takes the same parameters.\n"
+        )
     page = (
         f"---\ntitle: {name}\n---\n\n::: {full_path(path)}\n    options:\n      heading_level: 1\n"
     )

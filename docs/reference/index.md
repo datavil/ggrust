@@ -104,6 +104,16 @@ Layers named after their stat: each summarises the data, then draws it with a ge
 
 | Name | Description |
 |---|---|
+| [`stat_bin()`](api/stat_bin.md) | Count rows in bins of x (``stat="bin"``); drawn as a histogram by default. |
+| [`stat_bin2d()`](api/stat_bin2d.md) | Count rows in rectangular bins of x and y (``stat="bin2d"``); drawn as tiles by default. |
+| [`stat_count()`](api/stat_count.md) | Count rows per x (``stat="count"``); drawn as bars by default. |
+| [`stat_density()`](api/stat_density.md) | Kernel density estimate of x (``stat="density"``); drawn as a density curve by default. |
+| [`stat_density2d()`](api/stat_density2d.md) | Contours of a 2D kernel density estimate of x and y (``stat="density2d"``). |
+| [`stat_boxplot()`](api/stat_boxplot.md) | Quartiles, whiskers and outliers of y per x (``stat="boxplot"``), drawn as boxplots. |
+| [`stat_ydensity()`](api/stat_ydensity.md) | Kernel density of y per x (``stat="ydensity"``); drawn as violins by default. |
+| [`stat_sina()`](api/stat_sina.md) | Points spread within the density of y per x (``stat="sina"``), as a sina plot. |
+| [`stat_smooth()`](api/stat_smooth.md) | Fitted curve with a confidence band (``stat="smooth"``); drawn as a smooth by default. |
+| [`stat_identity()`](api/stat_identity.md) | Leave the data as it is (``stat="identity"``); drawn as points by default. |
 | [`stat_summary()`](api/stat_summary.md) | Summarise y at every distinct x (``stat="summary"``), drawn as point ranges. |
 | [`stat_summary_bin()`](api/stat_summary_bin.md) | Summarise y in bins of x (``stat="summarybin"``), drawn as point ranges. |
 | [`stat_summary_2d()`](api/stat_summary_2d.md) | Summarise ``z`` over a grid of rectangles (``stat="summary2d"``), as ggplot2. |
@@ -138,6 +148,7 @@ Arrange marks that would overlap.
 | [`position_nudge()`](api/position_nudge.md) | Shift positions by a fixed offset. |
 | [`position_stack()`](api/position_stack.md) | Stack overlapping objects on top of each other. |
 | [`position_fill()`](api/position_fill.md) | Stack overlapping objects and normalise each stack to height 1. |
+| [`position_identity()`](api/position_identity.md) | Leave objects where they are (no position adjustment). |
 
 ## Sampling
 
@@ -176,6 +187,8 @@ Axes: breaks, labels, limits and transforms.
 | [`scale_y_log10()`](api/scale_y_log10.md) | Continuous position scale y with the 'log10' transformation. See ``scale_y_continuous``. |
 | [`scale_x_symlog()`](api/scale_x_symlog.md) | Continuous position scale x with the 'symlog' transformation. See ``scale_x_continuous``. |
 | [`scale_y_symlog()`](api/scale_y_symlog.md) | Continuous position scale y with the 'symlog' transformation. See ``scale_y_continuous``. |
+| [`scale_x_sqrt()`](api/scale_x_sqrt.md) | Continuous position scale x with the 'sqrt' transformation. See ``scale_x_continuous``. |
+| [`scale_y_sqrt()`](api/scale_y_sqrt.md) | Continuous position scale y with the 'sqrt' transformation. See ``scale_y_continuous``. |
 | [`boxcox_trans()`](api/boxcox_trans.md) | Box-Cox power transform, as a value for ``trans``. |
 | [`scale_x_log2()`](api/scale_x_log2.md) | Continuous position scale x with the 'log2' transformation. See ``scale_x_continuous``. |
 | [`scale_y_log2()`](api/scale_y_log2.md) | Continuous position scale y with the 'log2' transformation. See ``scale_y_continuous``. |
@@ -381,6 +394,7 @@ Map data to point size, point shape, transparency and line widths.
 | [`scale_shape()`](api/scale_shape.md) | Point shapes for categories. |
 | [`scale_shape_manual()`](api/scale_shape_manual.md) | Your own point shapes (lets-plot codes 0..25) for ``shape``. |
 | [`scale_shape_identity()`](api/scale_shape_identity.md) | Use the data as shape codes (0..25); no legend by default. |
+| [`scale_linetype()`](api/scale_linetype.md) | Default line types for categories mapped to ``linetype``. |
 | [`scale_linetype_manual()`](api/scale_linetype_manual.md) | Your own line types for ``linetype``. |
 | [`scale_linetype_identity()`](api/scale_linetype_identity.md) | Use the data as line types (codes 0..6 or names such as ``"dashed"``); no legend by default. |
 | [`scale_alpha()`](api/scale_alpha.md) | Transparency for ``alpha``: data mapped linearly onto ``range``. |
@@ -492,6 +506,60 @@ Register font files (Arial, a brand font, CJK fonts) for `element_text(family=..
 | [`register_font()`](api/register_font.md) | Register a font file so plots can draw with it. |
 | [`register_font_dir()`](api/register_font_dir.md) | Register every font file under a directory, searched recursively. |
 | [`registered_fonts()`](api/registered_fonts.md) | Return the registered font families and their faces. |
+
+## Aliases
+
+Other spellings of the functions above, as in ggplot2 and plotnine (not in lets-plot). Each is the same function as its target.
+
+| Name | Description |
+|---|---|
+| [`coord_equal()`](api/coord_equal.md) | Alias of [`coord_fixed()`](coord_fixed.md). |
+| [`geom_bin_2d()`](api/geom_bin_2d.md) | Alias of [`geom_bin2d()`](geom_bin2d.md). |
+| [`geom_contour_filled()`](api/geom_contour_filled.md) | Alias of [`geom_contourf()`](geom_contourf.md). |
+| [`geom_density_2d()`](api/geom_density_2d.md) | Alias of [`geom_density2d()`](geom_density2d.md). |
+| [`geom_density_2d_filled()`](api/geom_density_2d_filled.md) | Alias of [`geom_density2df()`](geom_density2df.md). |
+| [`guide_colourbar()`](api/guide_colourbar.md) | Alias of [`guide_colorbar()`](guide_colorbar.md). |
+| [`scale_alpha_continuous()`](api/scale_alpha_continuous.md) | Alias of [`scale_alpha()`](scale_alpha.md). |
+| [`scale_alpha_discrete()`](api/scale_alpha_discrete.md) | Alias of [`scale_alpha_ordinal()`](scale_alpha_ordinal.md). |
+| [`scale_color_gray()`](api/scale_color_gray.md) | Alias of [`scale_color_grey()`](scale_color_grey.md). |
+| [`scale_colour_aaas()`](api/scale_colour_aaas.md) | Alias of [`scale_color_aaas()`](scale_color_aaas.md). |
+| [`scale_colour_brewer()`](api/scale_colour_brewer.md) | Alias of [`scale_color_brewer()`](scale_color_brewer.md). |
+| [`scale_colour_cmapmpl()`](api/scale_colour_cmapmpl.md) | Alias of [`scale_color_cmapmpl()`](scale_color_cmapmpl.md). |
+| [`scale_colour_continuous()`](api/scale_colour_continuous.md) | Alias of [`scale_color_continuous()`](scale_color_continuous.md). |
+| [`scale_colour_d3()`](api/scale_colour_d3.md) | Alias of [`scale_color_d3()`](scale_color_d3.md). |
+| [`scale_colour_desaturate()`](api/scale_colour_desaturate.md) | Alias of [`scale_color_desaturate()`](scale_color_desaturate.md). |
+| [`scale_colour_discrete()`](api/scale_colour_discrete.md) | Alias of [`scale_color_discrete()`](scale_color_discrete.md). |
+| [`scale_colour_distiller()`](api/scale_colour_distiller.md) | Alias of [`scale_color_distiller()`](scale_color_distiller.md). |
+| [`scale_colour_gradient()`](api/scale_colour_gradient.md) | Alias of [`scale_color_gradient()`](scale_color_gradient.md). |
+| [`scale_colour_gradient2()`](api/scale_colour_gradient2.md) | Alias of [`scale_color_gradient2()`](scale_color_gradient2.md). |
+| [`scale_colour_gradientn()`](api/scale_colour_gradientn.md) | Alias of [`scale_color_gradientn()`](scale_color_gradientn.md). |
+| [`scale_colour_gray()`](api/scale_colour_gray.md) | Alias of [`scale_color_grey()`](scale_color_grey.md). |
+| [`scale_colour_grey()`](api/scale_colour_grey.md) | Alias of [`scale_color_grey()`](scale_color_grey.md). |
+| [`scale_colour_hue()`](api/scale_colour_hue.md) | Alias of [`scale_color_hue()`](scale_color_hue.md). |
+| [`scale_colour_identity()`](api/scale_colour_identity.md) | Alias of [`scale_color_identity()`](scale_color_identity.md). |
+| [`scale_colour_igv()`](api/scale_colour_igv.md) | Alias of [`scale_color_igv()`](scale_color_igv.md). |
+| [`scale_colour_jama()`](api/scale_colour_jama.md) | Alias of [`scale_color_jama()`](scale_color_jama.md). |
+| [`scale_colour_jco()`](api/scale_colour_jco.md) | Alias of [`scale_color_jco()`](scale_color_jco.md). |
+| [`scale_colour_lancet()`](api/scale_colour_lancet.md) | Alias of [`scale_color_lancet()`](scale_color_lancet.md). |
+| [`scale_colour_manual()`](api/scale_colour_manual.md) | Alias of [`scale_color_manual()`](scale_color_manual.md). |
+| [`scale_colour_nejm()`](api/scale_colour_nejm.md) | Alias of [`scale_color_nejm()`](scale_color_nejm.md). |
+| [`scale_colour_npg()`](api/scale_colour_npg.md) | Alias of [`scale_color_npg()`](scale_color_npg.md). |
+| [`scale_colour_ordinal()`](api/scale_colour_ordinal.md) | Alias of [`scale_color_ordinal()`](scale_color_ordinal.md). |
+| [`scale_colour_viridis()`](api/scale_colour_viridis.md) | Alias of [`scale_color_viridis()`](scale_color_viridis.md). |
+| [`scale_fill_gray()`](api/scale_fill_gray.md) | Alias of [`scale_fill_grey()`](scale_fill_grey.md). |
+| [`scale_linetype_discrete()`](api/scale_linetype_discrete.md) | Alias of [`scale_linetype()`](scale_linetype.md). |
+| [`scale_linewidth_continuous()`](api/scale_linewidth_continuous.md) | Alias of [`scale_linewidth()`](scale_linewidth.md). |
+| [`scale_shape_discrete()`](api/scale_shape_discrete.md) | Alias of [`scale_shape()`](scale_shape.md). |
+| [`scale_size_continuous()`](api/scale_size_continuous.md) | Alias of [`scale_size()`](scale_size.md). |
+| [`scale_size_discrete()`](api/scale_size_discrete.md) | Alias of [`scale_size_ordinal()`](scale_size_ordinal.md). |
+| [`scale_stroke_continuous()`](api/scale_stroke_continuous.md) | Alias of [`scale_stroke()`](scale_stroke.md). |
+| [`scale_x_date()`](api/scale_x_date.md) | Alias of [`scale_x_datetime()`](scale_x_datetime.md). |
+| [`scale_x_timedelta()`](api/scale_x_timedelta.md) | Alias of [`scale_x_time()`](scale_x_time.md). |
+| [`scale_y_date()`](api/scale_y_date.md) | Alias of [`scale_y_datetime()`](scale_y_datetime.md). |
+| [`scale_y_timedelta()`](api/scale_y_timedelta.md) | Alias of [`scale_y_time()`](scale_y_time.md). |
+| [`stat_bin_2d()`](api/stat_bin_2d.md) | Alias of [`stat_bin2d()`](stat_bin2d.md). |
+| [`stat_density_2d()`](api/stat_density_2d.md) | Alias of [`stat_density2d()`](stat_density2d.md). |
+| [`stat_function()`](api/stat_function.md) | Alias of [`geom_function()`](geom_function.md). |
 
 ## Errors and warnings
 

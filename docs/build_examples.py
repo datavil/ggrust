@@ -205,7 +205,9 @@ def main() -> None:
     (DOCS / "gallery" / "index.md").write_text(gallery_index(sections))
     for _, paths in build_reference.SECTIONS.values():
         for path in paths:
-            render_reference(path.rpartition(".")[2], build_reference.resolve(path))
+            name = path.rpartition(".")[2]
+            if name not in build_reference.ALIASES:  # alias pages link to the target
+                render_reference(name, build_reference.resolve(path))
 
 
 if __name__ == "__main__":

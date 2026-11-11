@@ -19,6 +19,7 @@ if TYPE_CHECKING:
 __all__ = [
     "position_dodge",
     "position_fill",
+    "position_identity",
     "position_jitter",
     "position_jitterdodge",
     "position_nudge",
@@ -222,6 +223,30 @@ def position_fill(
     ... )
     """
     return _position("fill", vjust=vjust, mode=mode, reverse=reverse)
+
+
+def position_identity() -> FeatureSpec:
+    """Leave objects where they are (no position adjustment).
+
+    The same as ``position="identity"``. Not in lets_plot; ggplot2 and plotnine
+    spell it this way.
+
+    Returns
+    -------
+    FeatureSpec
+        The position adjustment.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"month": ["Jan", "Jan", "Feb", "Feb"],
+    ...         "shop": ["north", "south", "north", "south"],
+    ...         "sales": [12, 9, 15, 11]}
+    >>> plot = ggplot(data, aes("month", "sales", fill="shop")) + geom_bar(
+    ...     stat="identity", position=position_identity(), alpha=0.5
+    ... )
+    """
+    return _position("identity")
 
 
 def _position(name: str, **options: Any) -> FeatureSpec:

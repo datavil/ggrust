@@ -19,7 +19,12 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "docs"))
 import build_examples
 import build_reference
 
-PATHS: list[str] = [path for _, paths in build_reference.SECTIONS.values() for path in paths]
+PATHS: list[str] = [
+    path
+    for _, paths in build_reference.SECTIONS.values()
+    for path in paths
+    if path not in build_reference.ALIASES  # an alias runs its target's example
+]
 
 
 @pytest.mark.parametrize("path", PATHS)

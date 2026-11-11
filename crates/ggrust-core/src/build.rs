@@ -451,6 +451,24 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
             None => y_scale.set_include_zero(),
         }
     }
+    // lets-plot merges every layer's preferred domain, -0.5..0.5 by default, and
+    // ignores them on a free axis.
+    let mut null_y: Option<(f64, f64)> = None;
+    let mut any_preference = false;
+    for layer in &mapped {
+        let parameters = Parameters::new(&layer.options, &layer.path);
+        let preferred = layer
+            .geom
+            .preferable_null_y(&parameters)
+            .map_err(|error| error.with_notes(&warnings))?;
+        any_preference |= preferred.is_some();
+        let (low, high) = preferred.unwrap_or((-0.5, 0.5));
+        null_y = Some(null_y.map_or((low, high), |(a, b)| (a.min(low), b.max(high))));
+    }
+    let free_y_axis = facets.as_ref().is_some_and(|facets| facets.free_y);
+    if let (true, false, Some(domain)) = (any_preference, free_y_axis, null_y) {
+        y_scale.set_null_domain(domain);
+    }
     if let Some(coord_spec) = &spec.coord {
         for (limits, scale, key) in [
             (coord_spec.xlim, &mut x_scale, "xlim"),
@@ -3696,9 +3714,10 @@ fn layer_positions(
     spec: &LayerSpec,
     path: &str,
 ) -> Result<Vec<(&'static dyn Position, Options, String)>> {
-    let preferred = stat
-        .default_position()
-        .unwrap_or_else(|| geom.default_position());
+    let preferred = match stat.default_position() {
+        Some(position) => position,
+        None => geom.default_position_given(&Parameters::new(&spec.parameters, path))?,
+    };
     let preferred_options = preferred.options(&spec.parameters);
     // lets-plot `hasOwnPositionAdjustmentOptions`: geom_jitter's width or height.
     let own = preferred.from_layer.iter().any(|name| {

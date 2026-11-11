@@ -16,6 +16,7 @@ mod density2d;
 mod density_1d;
 mod densityridges;
 mod distribution;
+mod dotplot;
 mod ecdf;
 mod ellipse;
 mod ggdist_density;
@@ -50,6 +51,7 @@ pub use count::CountStat;
 pub use density_1d::DensityStat;
 pub use density2d::{Density2dStat, Density2dfStat};
 pub use densityridges::DensityRidgesStat;
+pub use dotplot::{DotplotStat, YDotplotStat};
 pub use ecdf::EcdfStat;
 pub use ellipse::EllipseStat;
 pub use identity::IdentityStat;
@@ -131,6 +133,8 @@ pub static STATS: &[&dyn Stat] = &[
     &IdentityStat,
     &CountStat,
     &BinStat,
+    &DotplotStat,
+    &YDotplotStat,
     &BoxplotStat,
     &BoxplotOutlierStat,
     &DensityStat,

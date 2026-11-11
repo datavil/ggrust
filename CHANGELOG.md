@@ -8,6 +8,8 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 - `geom_spoke`, as lets-plot, with `arrow` and `pivot`.
 - `geom_lollipop`, as lets-plot, with `dir`, `fatten`, `slope` and `intercept`.
+- `geom_dotplot`, `geom_ydotplot` and `stat_bindot`, as lets-plot, with `stackdir`, `stackratio`,
+  `dotsize`, `stackgroups` and the `dotdensity` and `histodot` methods.
 - `scale_color_cmapmpl` and `scale_fill_cmapmpl`: any matplotlib color map, by name or object (needs matplotlib).
 - Polar axes: theta labels and ticks around the ring, the radius axis on the panel edge.
 - `coord_polar` for pie, donut, rose and radar charts, with lets-plot's `theta`, `start`, `direction` and `transform_bkgr`. HTML output is static for now.

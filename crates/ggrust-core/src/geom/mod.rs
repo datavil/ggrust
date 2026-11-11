@@ -33,6 +33,7 @@ mod pointinterval;
 mod slab;
 
 pub use lines::Arrow;
+mod dotplot;
 mod lollipop;
 mod path;
 mod point;
@@ -68,6 +69,7 @@ pub use boxplot::BoxplotGeom;
 pub use bracket::BracketGeom;
 pub use contour::{ContourGeom, ContourfGeom, Density2dGeom, Density2dfGeom};
 pub use curve::CurveGeom;
+pub use dotplot::{DotplotGeom, YDotplotGeom};
 pub use half_boxplot::HalfBoxplotGeom;
 pub use half_point::HalfPointGeom;
 pub use half_violin::HalfViolinGeom;
@@ -122,6 +124,11 @@ pub trait Geom: Sync {
     /// Position used when the layer names none.
     fn default_position(&self) -> DefaultPosition {
         DefaultPosition::IDENTITY
+    }
+
+    /// [`Self::default_position`] for a geom whose options decide it (`geom_ydotplot`).
+    fn default_position_given(&self, _parameters: &Parameters) -> Result<DefaultPosition> {
+        Ok(self.default_position())
     }
 
     /// Whether every row is its own object, so with `stat="identity"`,
@@ -184,6 +191,12 @@ pub trait Geom: Sync {
     /// [`Self::includes_zero_y`] for a geom whose options decide it (lollipops).
     fn includes_zero_with(&self, _parameters: &Parameters) -> Result<bool> {
         Ok(self.includes_zero_y())
+    }
+
+    /// The y domain this layer prefers when nothing trains the y axis (lets-plot
+    /// `preferableNullDomain`, dot plots). `None` keeps the default -0.5..0.5.
+    fn preferable_null_y(&self, _parameters: &Parameters) -> Result<Option<(f64, f64)>> {
+        Ok(None)
     }
 
     /// Prepare the stat's output for the position adjustment, e.g. turn bars into
@@ -251,6 +264,8 @@ pub static GEOMS: &[&dyn Geom] = &[
     &SegmentGeom,
     &LollipopGeom,
     &SpokeGeom,
+    &DotplotGeom,
+    &YDotplotGeom,
     &RugGeom,
     &CurveGeom,
     &PolygonGeom,

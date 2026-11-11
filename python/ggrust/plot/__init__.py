@@ -60,6 +60,7 @@ from ggrust.plot.geom import (
     geom_vline,
 )
 from ggrust.plot.geom_beeswarm import geom_beeswarm, geom_quasirandom
+from ggrust.plot.geom_dotplot import geom_dotplot, geom_ydotplot, stat_bindot
 from ggrust.plot.geom_extras import arrow
 from ggrust.plot.geom_function import geom_function
 from ggrust.plot.geom_halves import geom_half_boxplot, geom_half_point, geom_half_violin
@@ -307,6 +308,7 @@ __all__ = [
     "geom_density",
     "geom_density2d",
     "geom_density2df",
+    "geom_dotplot",
     "geom_errorbar",
     "geom_freqpoly",
     "geom_function",
@@ -362,6 +364,7 @@ __all__ = [
     "geom_xsidetext",
     "geom_xsidetile",
     "geom_xsideviolin",
+    "geom_ydotplot",
     "geom_ysidebar",
     "geom_ysideboxplot",
     "geom_ysidecol",
@@ -496,6 +499,7 @@ __all__ = [
     "scale_ysidex_discrete",
     "scale_z_continuous",
     "sec_axis",
+    "stat_bindot",
     "stat_centroid",
     "stat_compare_means",
     "stat_cor",

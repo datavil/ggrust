@@ -21,7 +21,6 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 
 | # | Item | Why here | Size |
 |---|---|---|---|
-| 2.10 | `geom_dotplot`, `stat_bindot` | In lets-plot and plotnine, stacking layout is the hard part | M |
 
 ## 3. Core grammar gaps
 

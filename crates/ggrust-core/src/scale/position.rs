@@ -304,6 +304,13 @@ impl PositionScale {
         }
     }
 
+    /// The domain to use when nothing trains the axis. Continuous scales only.
+    pub fn set_null_domain(&mut self, domain: (f64, f64)) {
+        if let PositionScale::Continuous(scale) = self {
+            scale.null_domain = domain;
+        }
+    }
+
     /// Include 0 without padding past it (bars). Continuous scales only.
     pub fn set_include_zero(&mut self) {
         if let PositionScale::Continuous(scale) = self {

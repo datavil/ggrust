@@ -134,7 +134,7 @@ impl BinOptions {
     }
 
     /// lets-plot `binCountAndWidth`.
-    fn count_and_width(&self, span: f64) -> (usize, f64) {
+    pub(super) fn count_and_width(&self, span: f64) -> (usize, f64) {
         match self.width {
             Some(width) => {
                 let count = (span / width).min(MAX_BIN_COUNT as f64).ceil();
@@ -222,10 +222,10 @@ pub(super) fn binning_parameters(
 
 /// Bin centers and the computed variables of one group.
 #[derive(Default)]
-struct Bins {
-    x: Vec<f64>,
-    count: Vec<f64>,
-    density: Vec<f64>,
+pub(super) struct Bins {
+    pub(super) x: Vec<f64>,
+    pub(super) count: Vec<f64>,
+    pub(super) density: Vec<f64>,
     sum_proportion: Vec<f64>,
 }
 
@@ -285,7 +285,7 @@ impl Bins {
 }
 
 /// lets-plot `computeHistogramBins` over equal-width bins.
-fn equal_bins(values: &[(f64, f64)], start: f64, count: usize, width: f64) -> Bins {
+pub(super) fn equal_bins(values: &[(f64, f64)], start: f64, count: usize, width: f64) -> Bins {
     let density_factor = if width > 0.0 { 1.0 / width } else { 1.0 };
     let mut total = 0.0;
     let mut count_by_bin: HashMap<i64, f64> = HashMap::new();

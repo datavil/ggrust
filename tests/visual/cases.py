@@ -762,6 +762,30 @@ def lollipop_horizontal(m):
     return plot + m.geom_lollipop(color="red", fill="gold", shape=21) + m.ggsize(400, 300)
 
 
+def _dotplot_frame():
+    rng = np.random.default_rng(3)
+    return pl.DataFrame(
+        {"value": rng.normal(0, 1, 120).round(3), "kind": rng.choice(["a", "b"], 120).tolist()}
+    )
+
+
+def dotplot_stackgroups(m):
+    plot = m.ggplot(_dotplot_frame(), m.aes("value", fill="kind"))
+    layer = m.geom_dotplot(method="histodot", bins=15, stackgroups=True, color="white")
+    return plot + layer + m.ggsize(400, 300)
+
+
+def dotplot_center(m):
+    plot = m.ggplot(_dotplot_frame(), m.aes("value"))
+    layer = m.geom_dotplot(binwidth=0.25, stackdir="center", dotsize=0.8, stackratio=1.2)
+    return plot + layer + m.ggsize(400, 300)
+
+
+def ydotplot_categories(m):
+    plot = m.ggplot(_dotplot_frame(), m.aes("kind", "value", fill="kind"))
+    return plot + m.geom_ydotplot(binwidth=0.2, stackdir="left") + m.ggsize(400, 300)
+
+
 def spoke_vector_field(m):
     grid = [(x, y) for x in np.linspace(-2, 2, 9) for y in np.linspace(-2, 2, 9)]
     frame = pl.DataFrame(
@@ -810,6 +834,9 @@ CASES = {
     for case in [
         lollipop_baselines,
         lollipop_horizontal,
+        dotplot_stackgroups,
+        dotplot_center,
+        ydotplot_categories,
         spoke_vector_field,
         polar_rose,
         polar_pie,

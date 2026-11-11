@@ -46,6 +46,9 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_step()`](api/geom_step.md) | Connect observations sorted by x with stairs. |
 | [`geom_lollipop()`](api/geom_lollipop.md) | Draw a stick from a baseline to a marker at each (x, y). |
 | [`geom_spoke()`](api/geom_spoke.md) | Draw a segment of length ``radius`` at ``angle`` radians through each point. |
+| [`geom_dotplot()`](api/geom_dotplot.md) | Draw a dot plot: each observation a dot, stacked within its bin. |
+| [`geom_ydotplot()`](api/geom_ydotplot.md) | Draw a dot plot along y, one column of stacks at each x. |
+| [`stat_bindot()`](api/stat_bindot.md) | Draw a layer from the stacks of a dot plot. |
 | [`geom_qq()`](api/geom_qq.md) | Plot a sample against theoretical quantiles, one point per value. |
 | [`geom_qq_line()`](api/geom_qq_line.md) | Draw the line through two quantiles of a sample, to read a Q-Q plot against. |
 | [`geom_qq2()`](api/geom_qq2.md) | Plot one sample against another, one point per quantile. |

@@ -55,6 +55,8 @@ pub struct ContinuousPositionScale {
     /// Include 0 and do not pad past it (lets-plot `rangeIncludesZero`, bars).
     /// Ignored when the limits exclude 0.
     pub include_zero: bool,
+    /// Domain of an axis nothing trained (lets-plot `preferableNullDomain`), unpadded.
+    pub null_domain: (f64, f64),
     /// Date-time or duration axis: calendar breaks and date labels
     /// (`scale_*_datetime()`, `scale_*_time()`, temporal columns).
     pub temporal: Option<TemporalAxis>,
@@ -90,6 +92,7 @@ impl Default for ContinuousPositionScale {
             format: None,
             coord_limits: [None, None],
             include_zero: false,
+            null_domain: (-0.5, 0.5),
             temporal: None,
             exponent_format: ExponentFormat::default(),
             beyond_limits: None,
@@ -204,7 +207,7 @@ impl ContinuousPositionScale {
     /// one-unit range at the limit. See [`widen_degenerate`] for zero-width ranges.
     pub fn limited_domain(&self) -> (f64, f64) {
         self.raw_domain()
-            .map_or((-0.5, 0.5), |(low, high)| widen_degenerate(low, high))
+            .map_or(self.null_domain, |(low, high)| widen_degenerate(low, high))
     }
 
     /// Trained domain with limits applied, ordered; may be zero-width. `None`
@@ -274,7 +277,7 @@ impl ContinuousPositionScale {
     /// The scale's own expanded domain (without coord limits).
     fn scale_domain(&self) -> (f64, f64) {
         let Some((mut low, mut high)) = self.raw_domain() else {
-            return (-0.5, 0.5);
+            return self.null_domain;
         };
         let [low_limit, high_limit] = self
             .limits
@@ -609,6 +612,17 @@ mod tests {
         };
         scale.train_beyond_limits(1.55, 3.45);
         assert_eq!(scale.expanded_domain(), (1.5, 3.45));
+    }
+
+    #[test]
+    fn null_domain_applies_only_to_an_untrained_axis() {
+        let mut scale = ContinuousPositionScale {
+            null_domain: (0.0, 1.0),
+            ..Default::default()
+        };
+        assert_eq!(scale.expanded_domain(), (0.0, 1.0));
+        scale.train_range(2.0, 4.0);
+        assert_ne!(scale.expanded_domain(), (0.0, 1.0));
     }
 
     #[test]

@@ -31,12 +31,14 @@ from ggrust import (
     layer_tooltips,
     new_scale_color,
     scale_color_brewer,
+    scale_color_discrete,
+    scale_color_manual,
     scale_x_continuous,
     scale_x_log10,
     theme,
     theme_bw,
 )
-from ggrust.errors import ColumnNotFoundError, PlotIndexError, SpecError
+from ggrust.errors import ColumnNotFoundError, GuideNotFoundError, PlotIndexError, SpecError
 from ggrust.plot.core import LayerSpec, PlotSpec
 from ggrust.plot.subplots import SupPlotsSpec
 
@@ -543,3 +545,82 @@ def test_member_docstring_examples(cls: type, name: str) -> None:
     report: list[str] = []
     result = doctest.DocTestRunner().run(test, out=report.append)
     assert result.failed == 0, "".join(report)
+
+
+# --- guide_data ---------------------------------------------------------------------
+
+
+GUIDE_DATA = {"x": [1.0, 2.0, 3.0, 4.0], "y": [2.0, 1.0, 4.0, 3.0], "kind": ["a", "b", "a", "c"]}
+
+
+def test_guide_data_returns_discrete_keys_in_legend_order() -> None:
+    plot = ggplot(GUIDE_DATA, aes("x", "y", color="kind")) + geom_point()
+    keys = plot.guide_data("color")
+    assert keys.columns == ["color", "label"]
+    assert keys["label"].to_list() == ["a", "b", "c"]
+    assert all(color.startswith("#") and len(color) == 7 for color in keys["color"])
+    assert plot.guide_data("colour").equals(keys)
+
+
+def test_guide_data_colors_match_the_rendered_points() -> None:
+    manual = {"a": "#ff0000", "b": "#00ff00", "c": "#0000ff"}
+    plot = (
+        ggplot(GUIDE_DATA, aes("x", "y", color="kind"))
+        + geom_point()
+        + scale_color_manual(values=manual)
+    )
+    keys = plot.guide_data()
+    assert dict(zip(keys["label"], keys["color"], strict=True)) == manual
+
+
+def test_guide_data_of_a_colorbar_has_one_row_per_break() -> None:
+    plot = ggplot(GUIDE_DATA, aes("x", "y", color="y")) + geom_point()
+    keys = plot.guide_data("color")
+    assert keys["label"].to_list() == ["1", "1.5", "2", "2.5", "3", "3.5", "4"]
+    assert keys["color"].n_unique() == keys.height
+
+
+def test_guide_data_numbers_and_shapes_keep_their_types() -> None:
+    plot = ggplot(GUIDE_DATA, aes("x", "y", shape="kind", size="y")) + geom_point()
+    assert plot.guide_data("shape")["shape"].dtype == pl.Int64
+    assert plot.guide_data("size")["size"].dtype == pl.Float64
+
+
+def test_guide_data_adds_the_na_key_of_any_layer() -> None:
+    data = {"x": [1.0, 2.0, 3.0], "kind": ["a", None, "b"]}
+    plot = (
+        ggplot(data, aes("x", "x", color="kind"))
+        + geom_point()
+        + scale_color_discrete(na_value="#123456")
+    )
+    keys = plot.guide_data()
+    assert keys.row(-1) == ("#123456", "NA")
+
+
+def test_guide_data_finds_each_new_scale() -> None:
+    plot = (
+        ggplot(GUIDE_DATA, aes("x", "y"))
+        + geom_point(aes(color="kind"))
+        + new_scale_color()
+        + geom_line(aes(color="y"))
+    )
+    assert plot.guide_data("color", scale_group=0)["label"].to_list() == ["a", "b", "c"]
+    assert plot.guide_data("color", scale_group=1).height > 3
+
+
+@pytest.mark.parametrize(
+    ("aesthetic", "fragment"),
+    [("fill", "guides shown: 'color'"), ("colr", "did you mean 'color'")],
+)
+def test_guide_data_names_what_is_missing(aesthetic: str, fragment: str) -> None:
+    plot = ggplot(GUIDE_DATA, aes("x", "y", color="kind")) + geom_point()
+    with pytest.raises(GuideNotFoundError, match=fragment) as caught:
+        plot.guide_data(aesthetic)
+    assert caught.value.aesthetic == aesthetic
+    assert caught.value.available == ["color"]
+
+
+def test_guide_data_of_a_hidden_guide_raises() -> None:
+    plot = ggplot(GUIDE_DATA, aes("x", "y", color="kind")) + geom_point() + guides(color="none")
+    with pytest.raises(GuideNotFoundError, match="guides shown: none"):
+        plot.guide_data("color")

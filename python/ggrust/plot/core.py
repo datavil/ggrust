@@ -524,6 +524,66 @@ class PlotSpec(FeatureSpec):
 
         return build_plot(self)
 
+    def guide_data(self, aesthetic: str = "color", scale_group: int = 0) -> pl.DataFrame:
+        """Return the keys of a legend or colorbar (ggplot2's ``get_guide_data``).
+
+        Runs the engine without drawing. One row per key, in legend order, or per
+        break of a colorbar. With a scale ``na_value`` and missing data, the last key
+        is labelled ``NA``.
+
+        Parameters
+        ----------
+        aesthetic : str, default="color"
+            The style aesthetic the guide shows: ``"color"`` (or ``"colour"``),
+            ``"fill"``, ``"size"``, ``"shape"``, ...
+        scale_group : int, default=0
+            Which scale of the aesthetic after ``new_scale_color()`` and friends:
+            how many ``new_scale_*()`` of the aesthetic came before it.
+
+        Returns
+        -------
+        polars.DataFrame
+            Two columns: one named after the aesthetic with the mapped values (hex
+            colors, sizes, shape codes, dash patterns), and ``label`` with the text
+            drawn next to the key.
+
+        Raises
+        ------
+        GuideNotFoundError
+            If the plot shows no guide for ``aesthetic``: it is not mapped, its guide
+            is hidden, or the scale has more keys than a legend can show.
+        SpecError, DataError
+            If the plot cannot be built, as when rendering it.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> data = {"mpg": [31, 22, 19], "origin": ["EU", "US", "US"]}
+        >>> plot = ggplot(data, aes("mpg", "mpg", color="origin")) + geom_point()
+        >>> plot.guide_data("color")["label"].to_list()
+        ['EU', 'US']
+        """
+        import polars as pl
+
+        from ggrust.errors import GuideNotFoundError, did_you_mean
+
+        name = "color" if aesthetic in ("colour", "col") else aesthetic
+        guides = self.build()["guides"]
+        for guide in guides:
+            if guide["aesthetic"] == name and guide["group"] == scale_group:
+                return pl.DataFrame({name: guide["values"], "label": guide["labels"]})
+        available = sorted({guide["aesthetic"] for guide in guides})
+        shown = ", ".join(repr(known) for known in available) or "none"
+        where = f"aesthetic {aesthetic!r}" + (
+            f" in scale group {scale_group}" if scale_group else ""
+        )
+        message = (
+            f"guide_data: the plot shows no guide for {where}; guides shown: {shown}."
+            f"{did_you_mean(name, available)} "
+            "Map the aesthetic to a column and check it is not hidden with guides(...='none')."
+        )
+        raise GuideNotFoundError(message, aesthetic=aesthetic, available=available)
+
     def has_layers(self) -> bool:
         """Return whether the plot has at least one layer."""
         return bool(self.__layers)

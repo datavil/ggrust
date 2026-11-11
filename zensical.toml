@@ -422,6 +422,7 @@ nav = [
       "reference/api/ExportError.md",
       "reference/api/PlotFileError.md",
       "reference/api/PlotIndexError.md",
+      "reference/api/GuideNotFoundError.md",
       "reference/api/FontNotFoundError.md",
       "reference/api/FontError.md",
     ] },

@@ -422,6 +422,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "ggrust.errors.ExportError",
             "ggrust.errors.PlotFileError",
             "ggrust.errors.PlotIndexError",
+            "ggrust.errors.GuideNotFoundError",
             "ggrust.errors.FontNotFoundError",
             "ggrust.errors.FontError",
         ],

@@ -15,6 +15,7 @@ mod _ggrust {
         to_pdf, to_png_with_dpi, to_svg,
     };
     use ggrust_core::spec::Figure;
+    use pyo3::IntoPyObjectExt;
     use pyo3::exceptions::PyValueError;
     use pyo3::types::{PyBytes, PyDict};
     use pyo3_arrow::input::AnyRecordBatch;
@@ -641,12 +642,18 @@ mod _ggrust {
     }
 
     /// What `inspect` returns: layer tables, panel scale dicts, warnings.
-    type Inspection<'py> = (Vec<Bound<'py, PyAny>>, Vec<Bound<'py, PyDict>>, Vec<String>);
+    type Inspection<'py> = (
+        Vec<Bound<'py, PyAny>>,
+        Vec<Bound<'py, PyDict>>,
+        Vec<Bound<'py, PyDict>>,
+        Vec<String>,
+    );
 
     /// Prepare and lay out a single plot without drawing it (``PlotSpec.build()``).
     /// Arguments as `render`. Returns one Arrow table per spec layer (data after
     /// stat and position), one dict per panel with its `x` and `y` scales
-    /// (`discrete`, `domain`, `breaks`, `labels`) and the build warnings.
+    /// (`discrete`, `domain`, `breaks`, `labels`), one dict per shown style guide
+    /// (`aesthetic`, `group`, `title`, `labels`, `values`) and the build warnings.
     /// The GIL is released while building.
     #[pyfunction]
     #[pyo3(signature = (spec_json, frames, functions=None))]
@@ -658,7 +665,7 @@ mod _ggrust {
     ) -> PyResult<Inspection<'py>> {
         let functions = axis_functions(functions);
         use ggrust_core::build::PlotData;
-        use ggrust_core::build::inspect::{AxisScale, inspect_plot};
+        use ggrust_core::build::inspect::{AxisScale, GuideValue, inspect_plot};
         use pyo3_arrow::PyTable;
 
         let frames = frames
@@ -712,7 +719,29 @@ mod _ggrust {
                 Ok(dict)
             })
             .collect::<PyResult<Vec<_>>>()?;
-        Ok((layers, panels, inspection.warnings))
+        let guides = inspection
+            .guides
+            .iter()
+            .map(|guide| {
+                let dict = PyDict::new(python);
+                dict.set_item("aesthetic", guide.aesthetic.as_str())?;
+                dict.set_item("group", guide.group)?;
+                dict.set_item("title", &guide.title)?;
+                dict.set_item("labels", &guide.labels)?;
+                let values = guide
+                    .values
+                    .iter()
+                    .map(|value| match value {
+                        GuideValue::Text(text) => text.into_bound_py_any(python),
+                        GuideValue::Number(number) => number.into_bound_py_any(python),
+                        GuideValue::Integer(number) => number.into_bound_py_any(python),
+                    })
+                    .collect::<PyResult<Vec<_>>>()?;
+                dict.set_item("values", values)?;
+                Ok(dict)
+            })
+            .collect::<PyResult<Vec<_>>>()?;
+        Ok((layers, panels, guides, inspection.warnings))
     }
 
     fn to_frame(data: AnyRecordBatch) -> PyResult<DataFrame> {

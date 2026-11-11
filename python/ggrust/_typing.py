@@ -113,6 +113,21 @@ class PanelScales(TypedDict):
     y: AxisScale
 
 
+class GuideKeys(TypedDict):
+    """The keys of one legend or colorbar (``PlotSpec.build()``)."""
+
+    aesthetic: str
+    """The style aesthetic the guide shows (``color``, ``fill``, ``size``, ...)."""
+    group: int
+    """The scale group: how many ``new_scale_*()`` came before (0 without any)."""
+    title: str
+    """The guide title."""
+    labels: list[str]
+    """Key labels as drawn (a superscript written as ``10^6``)."""
+    values: list[str] | list[float] | list[int]
+    """The mapped value of each key: a hex color, a size, a shape code, a dash pattern."""
+
+
 class PlotBuild(TypedDict):
     """What ``PlotSpec.build()`` returns."""
 
@@ -120,3 +135,5 @@ class PlotBuild(TypedDict):
     """One frame per layer (as ``PlotSpec.layer_data(i)``)."""
     panels: list[PanelScales]
     """One entry per panel, in panel order (one for an unfaceted plot)."""
+    guides: list[GuideKeys]
+    """The keys of every shown legend and colorbar, one entry per style scale."""

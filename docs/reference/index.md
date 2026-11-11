@@ -494,5 +494,6 @@ except ColumnNotFoundError as error:
 | [`ExportError`](api/ExportError.md) | Raised when export options are invalid (file name, unit, size, dpi, scale). |
 | [`PlotFileError`](api/PlotFileError.md) | Raised when a ``.ggrs`` plot file cannot be opened. |
 | [`PlotIndexError`](api/PlotIndexError.md) | Raised when a layer or grid cell index is out of range or malformed. |
+| [`GuideNotFoundError`](api/GuideNotFoundError.md) | Raised when a plot shows no guide for the asked aesthetic. |
 | [`FontNotFoundError`](api/FontNotFoundError.md) | Raised when a font file or directory to register does not exist. |
 | [`FontError`](api/FontError.md) | Raised when a font cannot be registered or embedded. |

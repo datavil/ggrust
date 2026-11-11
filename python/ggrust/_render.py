@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
     from ggrust._data import ArrowStreamExportable
-    from ggrust._typing import Number, PanelScales, PlotBuild, Target
+    from ggrust._typing import GuideKeys, Number, PanelScales, PlotBuild, Target
     from ggrust.plot.core import PlotSpec
     from ggrust.plot.subplots import SupPlotsSpec
 
@@ -125,11 +125,15 @@ def build_plot(plot: PlotSpec) -> PlotBuild:
     spec_json = to_json(spec)
     columns = set(referenced_columns(spec_json))
     exported = [_export(data, columns, path) for data, path in frames]
-    tables, panels, messages = inspect(spec_json, exported, functions)
+    tables, panels, guides, messages = inspect(spec_json, exported, functions)
     for message in messages:
         warnings.warn(message, GgrustWarning, stacklevel=4)
     layers = [pl.DataFrame(table) for table in tables]
-    return {"layers": layers, "panels": cast("list[PanelScales]", panels)}
+    return {
+        "layers": layers,
+        "panels": cast("list[PanelScales]", panels),
+        "guides": cast("list[GuideKeys]", guides),
+    }
 
 
 def _display_id() -> str:

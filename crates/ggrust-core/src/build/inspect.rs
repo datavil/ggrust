@@ -15,8 +15,10 @@ use super::{Arranged, PANEL_MIN_SIZE, PlotData, PreparedLayer, prepare_plot};
 use crate::data::{Column, Variable};
 use crate::layout::{AxisBreaks, PlotLayout};
 use crate::scale::PositionScale;
-use crate::scene::Rect;
+use crate::scale::format::Label;
+use crate::scene::{Color, Rect};
 use crate::spec::{Aesthetic, PlotSpec};
+use crate::style::{LineType, StyleValues};
 use crate::{Error, Result};
 
 /// The computed data and scales of a plot.
@@ -27,8 +29,36 @@ pub struct PlotInspection {
     pub layers: Vec<RecordBatch>,
     /// One entry per panel, in panel order (one for an unfaceted plot).
     pub panels: Vec<PanelScales>,
+    /// The keys of every shown style guide, in the order the scales were met.
+    pub guides: Vec<GuideKeys>,
     /// Build warnings (as rendering would give).
     pub warnings: Vec<String>,
+}
+
+/// The keys of one legend or colorbar (ggplot2's `get_guide_data()`).
+#[derive(Debug, Clone, PartialEq)]
+pub struct GuideKeys {
+    /// The style aesthetic the guide shows.
+    pub aesthetic: Aesthetic,
+    /// The ggnewscale scale group (0 without `new_scale_*()`).
+    pub group: u32,
+    /// The guide title.
+    pub title: String,
+    /// Key labels as drawn (`10^6` for a superscript).
+    pub labels: Vec<String>,
+    /// The mapped value of each key.
+    pub values: Vec<GuideValue>,
+}
+
+/// One key's mapped value.
+#[derive(Debug, Clone, PartialEq)]
+pub enum GuideValue {
+    /// A color (`#rrggbb`, with `aa` appended when not opaque), line type or text.
+    Text(String),
+    /// A size, width or alpha.
+    Number(f64),
+    /// A shape code.
+    Integer(i64),
 }
 
 /// The data-axis scales of one panel (`x` is the data x, also under `coord_flip`).
@@ -115,11 +145,59 @@ pub fn inspect_plot(spec: &PlotSpec, data: &PlotData) -> Result<PlotInspection> 
             layer_table(&parts, &format!("layers[{index}]"))
         })
         .collect::<Result<_>>()?;
+    let guides = plot.style_guides.iter().map(guide_keys).collect();
     Ok(PlotInspection {
         layers,
         panels,
+        guides,
         warnings: plot.warnings.clone(),
     })
+}
+
+fn guide_keys(guide: &super::StyleGuide) -> GuideKeys {
+    let first = |values: &StyleValues| match values {
+        StyleValues::Colors(colors) => GuideValue::Text(color_text(colors.get(0))),
+        StyleValues::Numbers(numbers) => GuideValue::Number(numbers.get(0)),
+        StyleValues::Shapes(shapes) => GuideValue::Integer(i64::from(shapes.get(0))),
+        StyleValues::Linetypes(linetypes) => GuideValue::Text(dash_text(linetypes.get_ref(0))),
+        StyleValues::Texts(texts) => GuideValue::Text(texts.get_ref(0).clone()),
+    };
+    GuideKeys {
+        aesthetic: guide.key.aesthetic,
+        group: guide.key.group,
+        title: guide.title.clone(),
+        labels: guide
+            .entries
+            .iter()
+            .map(|entry| label_text(&entry.label))
+            .collect(),
+        values: guide
+            .entries
+            .iter()
+            .map(|entry| first(&entry.value))
+            .collect(),
+    }
+}
+
+/// `solid`, or the dash pattern (`4 4`).
+fn dash_text(linetype: &LineType) -> String {
+    match linetype.0.is_empty() {
+        true => "solid".to_owned(),
+        false => linetype
+            .0
+            .iter()
+            .map(f64::to_string)
+            .collect::<Vec<_>>()
+            .join(" "),
+    }
+}
+
+/// `#rrggbb`, with the alpha appended when the color is not opaque.
+fn color_text(color: Color) -> String {
+    match color.alpha {
+        255 => color.to_string(),
+        alpha => format!("{color}{alpha:02x}"),
+    }
 }
 
 /// A screen axis's own breaks and its secondary axis's.
@@ -137,21 +215,20 @@ fn axis_scale(scale: &PositionScale, (breaks, secondary): ScreenAxis) -> AxisSca
 
 /// Labels as drawn (`10^6` for a superscript).
 fn label_texts(breaks: &AxisBreaks) -> Vec<String> {
-    breaks
-        .labels
-        .iter()
-        .map(|label| {
-            let mut text = label.text.clone();
-            if let Some(superscript) = &label.superscript {
-                text.push('^');
-                text.push_str(superscript);
-            }
-            if let Some(suffix) = &label.suffix {
-                text.push_str(suffix);
-            }
-            text
-        })
-        .collect()
+    breaks.labels.iter().map(label_text).collect()
+}
+
+/// A label as drawn (`10^6` for a superscript).
+fn label_text(label: &Label) -> String {
+    let mut text = label.text.clone();
+    if let Some(superscript) = &label.superscript {
+        text.push('^');
+        text.push_str(superscript);
+    }
+    if let Some(suffix) = &label.suffix {
+        text.push_str(suffix);
+    }
+    text
 }
 
 /// One column of the output table, gathered over panels.

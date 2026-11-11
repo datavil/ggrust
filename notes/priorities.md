@@ -21,7 +21,6 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 
 | # | Item | Why here | Size |
 |---|---|---|---|
-| 2.1 | `p.guide_data("color")` | cellestial can reuse a cluster's color in annotations | S |
 | 2.2 | `p.columns`, `p.validate()` | The internals already exist | S |
 | 2.3 | `p.scale_info("x")` | Completes accessors tier 1 | M |
 | 2.4 | `geom_qq`, `geom_qq_line`, `stat_qq` (plan lp5.4) | In lets-plot, already scheduled | M |

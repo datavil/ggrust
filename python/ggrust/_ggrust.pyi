@@ -230,7 +230,7 @@ def inspect(
     spec_json: str,
     frames: list[Any],
     functions: list[Callable[[float], float]] | None = None,
-) -> tuple[list[Any], list[dict[str, Any]], list[str]]:
+) -> tuple[list[Any], list[dict[str, Any]], list[dict[str, Any]], list[str]]:
     """Prepare and lay out a single plot without drawing it (``PlotSpec.build()``).
 
     Parameters

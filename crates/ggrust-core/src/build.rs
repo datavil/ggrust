@@ -811,6 +811,7 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         })
         .collect();
     let mut layer_legends = vec![LayerLegends::new(); spec.layers.len()];
+    let mut style_guides = Vec::new();
     let legends = assemble_legends(
         spec,
         &legend_layers,
@@ -818,6 +819,7 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         &style_specs,
         &palette,
         &mut layer_legends,
+        &mut style_guides,
     )
     .map_err(|error| error.with_notes(&warnings))?;
     // Interactive legend: no keys when there is no legend to click.
@@ -852,6 +854,7 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         aspect,
         flipped,
         legends,
+        style_guides,
         size: (width, height),
         tooltip_setups,
         space,
@@ -879,6 +882,8 @@ pub struct PreparedPlot {
     /// Legend boxes. A grid collecting legends (`guides="collect"`) takes them out,
     /// and the plot then keeps no space for them.
     pub legends: Vec<LegendBox>,
+    /// The keys of every shown style guide, one per scale (`guide_data()`).
+    style_guides: Vec<StyleGuide>,
     /// `ggsize`, or the default size.
     pub size: (f64, f64),
     /// Per layer: what its tooltips read from the spec.
@@ -3970,6 +3975,7 @@ fn assemble_legends(
     specs: &BTreeMap<ScaleKey, StyleScaleSpec>,
     palette: &GeomPalette,
     layer_legends: &mut [LayerLegends],
+    style_guides: &mut Vec<StyleGuide>,
 ) -> Result<Vec<LegendBox>> {
     /// lets-plot `LegendAssembler.MAX_LEGEND_LABELS`: bigger scales get no legend.
     const MAX_LEGEND_LABELS: usize = 200;
@@ -4073,6 +4079,9 @@ fn assemble_legends(
                     label_ends: options.label_ends,
                     na,
                 };
+                if let Some(entries) = scale.legend_entries() {
+                    record_style_guide(style_guides, key, &colorbar.title, entries);
+                }
                 // lets-plot: an equal colorbar under the same title is shown once; a
                 // different one gets "title (aesthetic)", which replaces an earlier
                 // one of that name (a map keyed by title).
@@ -4109,6 +4118,7 @@ fn assemble_legends(
             if entries.len() > MAX_LEGEND_LABELS {
                 continue;
             }
+            record_style_guide(style_guides, key, &title, entries.clone());
             let grid = guides.legend_grid()?;
             let overrides = guides.override_aes(palette)?;
             match by_title
@@ -4198,6 +4208,35 @@ fn assemble_legends(
         .map(|(colorbar, _)| LegendBox::Colorbar(colorbar))
         .chain(legends.into_iter().map(LegendBox::Keys))
         .collect())
+}
+
+/// The keys of one shown style guide (a legend's or a colorbar's), for
+/// `guide_data()`. Override values (`override_aes`) are drawing options, not part
+/// of the scale, and are left out.
+#[derive(Debug, Clone)]
+struct StyleGuide {
+    key: ScaleKey,
+    title: String,
+    entries: Vec<LegendEntry>,
+}
+
+/// Remember the guide of `key`. Every layer sharing the scale reports the same
+/// keys, except that a layer with missing values adds an "NA" key: the longest wins.
+fn record_style_guide(
+    guides: &mut Vec<StyleGuide>,
+    key: ScaleKey,
+    title: &str,
+    entries: Vec<LegendEntry>,
+) {
+    match guides.iter_mut().find(|guide| guide.key == key) {
+        Some(known) if known.entries.len() < entries.len() => known.entries = entries,
+        Some(_) => {}
+        None => guides.push(StyleGuide {
+            key,
+            title: title.to_owned(),
+            entries,
+        }),
+    }
 }
 
 /// The keys one layer adds to a legend, with its `layer_key(index=)`.

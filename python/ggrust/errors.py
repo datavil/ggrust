@@ -21,6 +21,7 @@ __all__ = [
     "FontError",
     "FontNotFoundError",
     "GgrustError",
+    "GuideNotFoundError",
     "PlotFileError",
     "PlotIndexError",
     "RenderError",
@@ -360,6 +361,37 @@ class PlotFileError(GgrustError, ValueError):
 
     def __init__(self, message: str) -> None:
         super().__init__(message)
+
+
+class GuideNotFoundError(GgrustError, LookupError):
+    """Raised when a plot shows no guide for the asked aesthetic.
+
+    Parameters
+    ----------
+    message : str
+        The full message: the aesthetic, the guides the plot shows and a close match.
+    aesthetic : str
+        The aesthetic that was asked for.
+    available : list of str
+        The aesthetics that have a guide.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> from ggrust.errors import GuideNotFoundError
+    >>> data = {"mpg": [31, 22], "origin": ["EU", "US"]}
+    >>> chart = ggplot(data, aes("mpg", "mpg", color="origin")) + geom_point()
+    >>> try:
+    ...     keys = chart.guide_data("fill")
+    ... except GuideNotFoundError as error:
+    ...     print(error.available)
+    ['color']
+    """
+
+    def __init__(self, message: str, *, aesthetic: str, available: list[str]) -> None:
+        super().__init__(message)
+        self.aesthetic = aesthetic
+        self.available = available
 
 
 class PlotIndexError(GgrustError, IndexError):

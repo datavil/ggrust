@@ -158,8 +158,6 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   `stat_bin_2d`, `stat_boxplot`, `stat_count`, `stat_density`, `stat_density_2d`,
   `stat_identity`, `stat_sina`, `stat_smooth`, `stat_ydensity` [plotnine]
 - Accessors, tier 1 [accessors] (the built part is in [plans/accessors.md](plans/accessors.md)):
-  - `p.guide_data("color")`: polars frame of legend keys with color and label (ggplot2
-    `get_guide_data()`). Lets cellestial reuse a cluster's UMAP color in annotations.
   - `p.scale_info("x")`: trained limits, breaks and labels per panel after the build.
   - `p.columns`: every data column the spec uses (`referenced_columns` exists already).
   - `p.validate()`: the warnings without rendering (`validate_spec` exists already).

@@ -743,6 +743,7 @@
   var MIN_EXPONENT = -7, MAX_EXPONENT = 6; // number format: decimal notation range
   var MAX_DECIMAL_PLACES = 12;
   var MIN_POSITIVE = 4.9e-324 * 1e5, MAX_VALUE = Number.MAX_VALUE / 1e5;
+  var LOG_MAX_VALUE = Number.MAX_VALUE; // logs accept every finite value, as ggplot2
 
   function icon(paths) {
     return '<svg xmlns="' + SVG_NS + '" width="16" height="16" viewBox="0 0 16 16"><g stroke="none">' +
@@ -826,7 +827,7 @@
   // -- Transforms (crates/ggrust-core/src/scale/transform.rs) --
 
   function logLimits(base) {
-    return [Math.log(MIN_POSITIVE) / Math.log(base), Math.log(MAX_VALUE) / Math.log(base)];
+    return [Math.log(MIN_POSITIVE) / Math.log(base), Math.log(LOG_MAX_VALUE) / Math.log(base)];
   }
 
   // Whether a transformed position is one the transform produces (`is_in_range`).
@@ -842,7 +843,7 @@
   function inDomain(transform, value) {
     if (!isFinite(value)) return false;
     if (transform === "sqrt") return value >= 0;
-    if (transform === "log10" || transform === "log2" || transform === "log") return value >= MIN_POSITIVE && value <= MAX_VALUE;
+    if (transform === "log10" || transform === "log2" || transform === "log") return value >= MIN_POSITIVE && value <= LOG_MAX_VALUE;
     if (transform === "log1p") return value > -1;
     if (transform === "exp") return Math.exp(value) <= MAX_VALUE;
     if (transform === "logit" || transform === "probit") return value > 0 && value < 1;
@@ -930,7 +931,7 @@
       case "log": {
         var base = transform === "log10" ? 10 : transform === "log2" ? 2 : Math.E;
         var limits = logLimits(base);
-        return Math.pow(base, clamp(value, limits[0], limits[1]));
+        return Math.min(Math.pow(base, clamp(value, limits[0], limits[1])), LOG_MAX_VALUE);
       }
       case "log1p": return Math.expm1(value);
       case "exp": return Math.log(Math.max(value, MIN_POSITIVE));

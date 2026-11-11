@@ -296,6 +296,8 @@ ZOOM_CASES = [
     ("identity", "y", (-0.37, 0.41)),
     ("log10", "x", (2.0, 5000.0)),
     ("log10", "x", (20.0, 90.0)),
+    # Past lets-plot's f64::MAX / 1e5 log bound: every finite value (ggplot2).
+    ("log10", "x", (1e300, 1e308)),
     ("sqrt", "x", (4.0, 400.0)),
     ("reverse", "y", (1.5, 9.5)),
     ("symlog", "x", (2.0, 5000.0)),

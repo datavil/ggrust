@@ -10,6 +10,9 @@ use crate::{Error, Result};
 const MIN_POSITIVE: f64 = 4.9e-324 * 1e5;
 /// lets-plot `Transform.MAX_DOUBLE`.
 const MAX_VALUE: f64 = f64::MAX / 1e5;
+/// The largest value a log accepts: any finite one, as ggplot2. lets-plot stops at
+/// `MAX_VALUE` and drops larger rows (see deviations.md).
+const LOG_MAX_VALUE: f64 = f64::MAX;
 
 /// A continuous transform.
 #[derive(Debug, Clone, Copy, PartialEq, Default)]
@@ -160,7 +163,7 @@ impl Transform {
                 | Transform::Symlog => true,
                 Transform::Sqrt => value >= 0.0,
                 Transform::Log10 | Transform::Log2 | Transform::Log => {
-                    (MIN_POSITIVE..=MAX_VALUE).contains(&value)
+                    (MIN_POSITIVE..=LOG_MAX_VALUE).contains(&value)
                 }
                 Transform::Log1p => value > -1.0,
                 Transform::Exp => value.exp() <= MAX_VALUE,
@@ -204,7 +207,7 @@ impl Transform {
                 return transformed;
             }
             let low = MIN_POSITIVE.ln() / base.ln();
-            let high = MAX_VALUE.ln() / base.ln();
+            let high = LOG_MAX_VALUE.ln() / base.ln();
             transformed.clamp(low, high)
         };
         match self {
@@ -254,8 +257,9 @@ impl Transform {
     pub fn inverse(self, value: f64) -> f64 {
         let log_limits = |base: f64| {
             let low = MIN_POSITIVE.ln() / base.ln();
-            let high = MAX_VALUE.ln() / base.ln();
-            base.powf(value.clamp(low, high))
+            let high = LOG_MAX_VALUE.ln() / base.ln();
+            // The top end can round past f64::MAX; keep it finite.
+            base.powf(value.clamp(low, high)).min(LOG_MAX_VALUE)
         };
         match self {
             Transform::Identity => value,
@@ -321,6 +325,26 @@ mod tests {
             }
         }
         assert!(Transform::Log10.inverse(1e9).is_finite());
+    }
+
+    #[test]
+    fn logs_accept_every_finite_positive_value() {
+        // lets-plot stops at f64::MAX / 1e5 and drops 1e304; ggplot2 keeps it.
+        for transform in [Transform::Log10, Transform::Log2, Transform::Log] {
+            for value in [1e304, 1e308, f64::MAX] {
+                let transformed = transform.apply(value).unwrap();
+                let back = transform.inverse(transformed);
+                assert!(
+                    (back - value).abs() <= value * 1e-12,
+                    "{transform:?} {value}: {back}"
+                );
+            }
+            assert_eq!(transform.apply(f64::INFINITY), None);
+            // Padding past the top end stays finite.
+            let top = transform.inverse(1e9);
+            assert!(top.is_finite() && top > 1e308, "{transform:?} {top}");
+        }
+        assert_eq!(Transform::Log10.apply(1e308), Some(308.0));
     }
 
     #[test]

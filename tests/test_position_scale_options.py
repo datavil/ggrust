@@ -131,6 +131,17 @@ def test_na_value_on_a_log_axis_must_be_in_its_domain() -> None:
     assert len(circle_centres(point_svg(frame, gg.scale_x_log10(na_value=10)))) == 3
 
 
+def test_a_log_axis_keeps_values_up_to_the_largest_double() -> None:
+    # lets-plot drops values above f64::MAX / 1e5 (about 1.8e303); ggplot2 keeps them.
+    frame = {"x": [1e300, 1e304, 1e308], "y": [1, 2, 3]}
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert len(circle_centres(point_svg(frame, gg.scale_x_log10()))) == 3
+    plot = gg.ggplot(frame, gg.aes("x", "y")) + gg.geom_point() + gg.scale_x_log10()
+    # ggplot2 4.0.1 x.range: 299.6, 308.4.
+    assert plot.scale_info("x")[0]["domain"] == pytest.approx((299.6, 308.4))
+
+
 def test_na_value_on_a_discrete_axis_is_reported() -> None:
     frame = {"x": ["a", None, "b"], "y": [1, 2, 3]}
     plot = gg.ggplot(frame, gg.aes("x", "y")) + gg.geom_point()

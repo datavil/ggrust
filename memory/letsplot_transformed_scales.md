@@ -9,6 +9,9 @@ transformed axes differ).
   lets-plot's rule: **expansion is computed in data units** (`PlotUtil.rangeWithExpand`): inverse the ends,
   pad by 5% of the *data* span, transform back; an end that becomes NaN (log/sqrt below
   0) stays unexpanded. Expanding in transformed units gives wrong breaks (log10 3..30).
+- **Log axes accept every finite positive value** (ggplot2): lets-plot's domain stops at
+  `MAX_VALUE = f64::MAX / 1e5` and drops 1e304. `LOG_MAX_VALUE` is `f64::MAX`; the inverse
+  is capped there because `powf` at the clamped top can round past it.
 - **Zero-width ranges are widened after expansion**, unpadded (`ensureApplicableRange`):
   a single value v spans exactly v +/- 0.5.
 - **Breaks**: identity/reverse linear in data units; sqrt/log linear in transformed units,

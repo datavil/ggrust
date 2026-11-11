@@ -585,7 +585,7 @@ fn finite(column: &ContinuousColumn, row: usize) -> Option<f64> {
 }
 
 /// Point range line: `linewidth` (not `size`) wide, faded by `alpha`.
-fn range_stroke(styles: &Styles, row: usize) -> Result<Option<Stroke>> {
+pub(super) fn range_stroke(styles: &Styles, row: usize) -> Result<Option<Stroke>> {
     let color = styles.colors(Aesthetic::Color)?.get(row);
     let alpha = styles.numbers(Aesthetic::Alpha)?.get(row);
     let width = styles.numbers(Aesthetic::Linewidth)?.get(row) * POINT_UNIT_SIZE;

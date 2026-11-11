@@ -747,6 +747,21 @@ def marginal_densities(m):
     )
 
 
+def lollipop_baselines(m):
+    frame = pl.DataFrame(
+        {"x": [1.0, 2.0, 3.0, 4.0, 5.0], "y": [2.0, 5.0, 1.0, 4.0, 3.0], "kind": list("ppqqp")}
+    )
+    plot = m.ggplot(frame, m.aes("x", "y", color="kind"))
+    plot = plot + m.geom_lollipop(dir="s", slope=0.5, intercept=1)
+    return plot + m.geom_abline(slope=0.5, intercept=1) + m.ggsize(400, 300)
+
+
+def lollipop_horizontal(m):
+    frame = pl.DataFrame({"city": list("abcde"), "change": [3, -5, 2, 7, 1]})
+    plot = m.ggplot(frame, m.aes("change", "city"))
+    return plot + m.geom_lollipop(color="red", fill="gold", shape=21) + m.ggsize(400, 300)
+
+
 def _polar_bars(m):
     frame = pl.DataFrame({"wind": list("abcdefgh"), "days": [3, 5, 8, 6, 4, 7, 2, 9]})
     return m.ggplot(frame, m.aes("wind", "days", fill="wind")) + m.geom_bar(stat="identity")
@@ -779,6 +794,8 @@ def polar_rectangular_background(m):
 CASES = {
     case.__name__: case
     for case in [
+        lollipop_baselines,
+        lollipop_horizontal,
         polar_rose,
         polar_pie,
         polar_radar_counter_clockwise,

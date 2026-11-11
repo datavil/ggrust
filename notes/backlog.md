@@ -62,7 +62,7 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 - `geom_ribbon` `where` aesthetic: fill only where a condition holds [plotnine]
 - GAM smoothing method for `geom_smooth` [gaps]
 - `geom_contour_filled` / `stat_contour_filled` [gaps]
-- `geom_spoke` (vector field glyphs; plotnine has this one [plotnine]), `geom_lollipop`,
+- `geom_spoke` (vector field glyphs; plotnine has this one [plotnine]),
   `geom_cooks` (regression diagnostics) [gaps]
 - `geom_density_ridges` with the full ggridges options (ggrust has `area_ridges`) [gaps]
 

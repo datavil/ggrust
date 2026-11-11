@@ -64,6 +64,7 @@ from ggrust.plot.geom_extras import arrow
 from ggrust.plot.geom_function import geom_function
 from ggrust.plot.geom_halves import geom_half_boxplot, geom_half_point, geom_half_violin
 from ggrust.plot.geom_imshow import geom_imshow
+from ggrust.plot.geom_lollipop import geom_lollipop
 from ggrust.plot.geom_mark import geom_mark_ellipse, geom_mark_hull, geom_mark_rect
 from ggrust.plot.geom_pointdensity import geom_pointdensity, stat_pointdensity
 from ggrust.plot.geom_qq import (
@@ -320,6 +321,7 @@ __all__ = [
     "geom_label_repel",
     "geom_line",
     "geom_linerange",
+    "geom_lollipop",
     "geom_mark_ellipse",
     "geom_mark_hull",
     "geom_mark_rect",

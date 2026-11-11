@@ -33,6 +33,7 @@ mod pointinterval;
 mod slab;
 
 pub use lines::Arrow;
+mod lollipop;
 mod path;
 mod point;
 mod polygon;
@@ -73,6 +74,7 @@ pub use hex::HexGeom;
 pub use image::ImageGeom;
 pub use interval::{CrossBarGeom, ErrorBarGeom, LineRangeGeom, PointRangeGeom};
 pub use jitter::JitterGeom;
+pub use lollipop::LollipopGeom;
 pub use mark::{MARK_ELLIPSE_GEOM, MARK_HULL_GEOM, MARK_RECT_GEOM, MarkGeom, MarkKind};
 pub use path::{FreqpolyGeom, LineGeom, PathGeom};
 pub use point::PointGeom;
@@ -177,6 +179,11 @@ pub trait Geom: Sync {
         false
     }
 
+    /// [`Self::includes_zero_y`] for a geom whose options decide it (lollipops).
+    fn includes_zero_with(&self, _parameters: &Parameters) -> Result<bool> {
+        Ok(self.includes_zero_y())
+    }
+
     /// Prepare the stat's output for the position adjustment, e.g. turn bars into
     /// `xmin`/`xmax`/`ymin`/`ymax` (axis units).
     fn setup(&self, data: LayerData, _parameters: &Parameters) -> Result<LayerData> {
@@ -240,6 +247,7 @@ pub static GEOMS: &[&dyn Geom] = &[
     &StepGeom,
     &FreqpolyGeom,
     &SegmentGeom,
+    &LollipopGeom,
     &RugGeom,
     &CurveGeom,
     &PolygonGeom,

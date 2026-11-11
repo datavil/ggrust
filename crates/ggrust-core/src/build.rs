@@ -434,7 +434,15 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     // Geom default colors and the names "pen", "brush", "paper" follow the theme.
     let palette = crate::theme::geom_palette(spec.theme.as_ref())
         .map_err(|error| error.with_notes(&warnings))?;
-    for layer in mapped.iter().filter(|layer| layer.geom.includes_zero_y()) {
+    for layer in &mapped {
+        let parameters = Parameters::new(&layer.options, &layer.path);
+        let includes_zero = layer
+            .geom
+            .includes_zero_with(&parameters)
+            .map_err(|error| error.with_notes(&warnings))?;
+        if !includes_zero {
+            continue;
+        }
         // The value axis: data x for a y-oriented layer, else y.
         let value_on_x = layer.y_oriented;
         match side::band_on_cross(layer.band, value_on_x, &band_setups) {
@@ -2763,6 +2771,7 @@ fn detected_orientation(
             | "half_point"
             | "slab"
             | "pointinterval"
+            | "lollipop"
     );
     let discrete = |wanted: Aesthetic| {
         columns.iter().any(|(aesthetic, column, _)| {

@@ -44,6 +44,7 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_half_boxplot()`](api/geom_half_boxplot.md) | Half of a box-and-whisker plot, on one side of each x. |
 | [`geom_line()`](api/geom_line.md) | Connect observations sorted by x. |
 | [`geom_step()`](api/geom_step.md) | Connect observations sorted by x with stairs. |
+| [`geom_lollipop()`](api/geom_lollipop.md) | Draw a stick from a baseline to a marker at each (x, y). |
 | [`geom_qq()`](api/geom_qq.md) | Plot a sample against theoretical quantiles, one point per value. |
 | [`geom_qq_line()`](api/geom_qq_line.md) | Draw the line through two quantiles of a sample, to read a Q-Q plot against. |
 | [`geom_qq2()`](api/geom_qq2.md) | Plot one sample against another, one point per quantile. |

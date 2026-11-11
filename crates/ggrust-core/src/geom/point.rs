@@ -137,6 +137,17 @@ pub(super) fn marker_extent(styles: &Styles, row: usize, fatten: f64) -> f64 {
         .unwrap_or(0.0)
 }
 
+/// Radius a stick stops short of a marker by (lets-plot `LollipopGeom.candyRadius`):
+/// the outline does not count for `+`, `x` and stars, which are drawn by it.
+pub(super) fn stick_radius(styles: &Styles, row: usize, fatten: f64) -> Result<f64> {
+    let marker = Marker::fattened(styles, row, fatten)?;
+    let outline = match marker.shape {
+        MarkerShape::Plus | MarkerShape::Cross | MarkerShape::Star => 0.0,
+        _ => marker.stroke_width,
+    };
+    Ok((marker.size + outline) / 2.0)
+}
+
 /// lets-plot `NamedShape.size` and `strokeWidth`: the diameter (grown by the
 /// outline) and the outline width, in pixels.
 fn shape_size(code: u8, style: MarkerStyle, size: f64, stroke: f64) -> (f64, f64) {

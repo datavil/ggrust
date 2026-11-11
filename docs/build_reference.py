@@ -65,6 +65,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "geom_half_boxplot",
             "geom_line",
             "geom_step",
+            "geom_lollipop",
             "geom_qq",
             "geom_qq_line",
             "geom_qq2",

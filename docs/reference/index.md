@@ -213,7 +213,6 @@ Map data to `color` (lines, points, text) and `fill` (areas).
 | [`scale_color_discrete()`](api/scale_color_discrete.md) | Map ``color`` as categories with the default discrete palette. |
 | [`scale_color_grey()`](api/scale_color_grey.md) | Map ``color`` to greys, from lightness ``start`` to ``end``. |
 | [`scale_color_distiller()`](api/scale_color_distiller.md) | Map continuous ``color`` with a ColorBrewer palette as a smooth gradient. |
-| [`scale_color_desaturate()`](api/scale_color_desaturate.md) | Map continuous ``color`` from a color to a desaturated version of it. |
 | [`scale_color_ordinal()`](api/scale_color_ordinal.md) | Map ordered categories of ``color`` to evenly spaced viridis colors. |
 | [`scale_color_gradient()`](api/scale_color_gradient.md) | Map ``color`` to a two-color gradient (in LAB space). |
 | [`scale_color_gradient2()`](api/scale_color_gradient2.md) | Map ``color`` to a diverging gradient around ``midpoint`` (continuous data only). |
@@ -228,7 +227,6 @@ Map data to `color` (lines, points, text) and `fill` (areas).
 | [`scale_fill_discrete()`](api/scale_fill_discrete.md) | Map ``fill`` as categories with the default discrete palette. |
 | [`scale_fill_grey()`](api/scale_fill_grey.md) | Map ``fill`` to greys, from lightness ``start`` to ``end``. |
 | [`scale_fill_distiller()`](api/scale_fill_distiller.md) | Map continuous ``fill`` with a ColorBrewer palette as a smooth gradient. |
-| [`scale_fill_desaturate()`](api/scale_fill_desaturate.md) | Map continuous ``fill`` from a color to a desaturated version of it. |
 | [`scale_fill_ordinal()`](api/scale_fill_ordinal.md) | Map ordered categories of ``fill`` to evenly spaced viridis colors. |
 | [`scale_fill_gradient()`](api/scale_fill_gradient.md) | Map ``fill`` to a two-color gradient. See ``scale_color_gradient``. |
 | [`scale_fill_gradient2()`](api/scale_fill_gradient2.md) | Map ``fill`` to a diverging gradient. See ``scale_color_gradient2``. |
@@ -535,7 +533,6 @@ Other spellings of the functions above, as in ggplot2 and plotnine (not in lets-
 | [`scale_colour_cmapmpl()`](api/scale_colour_cmapmpl.md) | Alias of [`scale_color_cmapmpl()`](scale_color_cmapmpl.md). |
 | [`scale_colour_continuous()`](api/scale_colour_continuous.md) | Alias of [`scale_color_continuous()`](scale_color_continuous.md). |
 | [`scale_colour_d3()`](api/scale_colour_d3.md) | Alias of [`scale_color_d3()`](scale_color_d3.md). |
-| [`scale_colour_desaturate()`](api/scale_colour_desaturate.md) | Alias of [`scale_color_desaturate()`](scale_color_desaturate.md). |
 | [`scale_colour_discrete()`](api/scale_colour_discrete.md) | Alias of [`scale_color_discrete()`](scale_color_discrete.md). |
 | [`scale_colour_distiller()`](api/scale_colour_distiller.md) | Alias of [`scale_color_distiller()`](scale_color_distiller.md). |
 | [`scale_colour_gradient()`](api/scale_colour_gradient.md) | Alias of [`scale_color_gradient()`](scale_color_gradient.md). |
@@ -562,9 +559,7 @@ Other spellings of the functions above, as in ggplot2 and plotnine (not in lets-
 | [`scale_size_discrete()`](api/scale_size_discrete.md) | Alias of [`scale_size_ordinal()`](scale_size_ordinal.md). |
 | [`scale_stroke_continuous()`](api/scale_stroke_continuous.md) | Alias of [`scale_stroke()`](scale_stroke.md). |
 | [`scale_x_date()`](api/scale_x_date.md) | Alias of [`scale_x_datetime()`](scale_x_datetime.md). |
-| [`scale_x_timedelta()`](api/scale_x_timedelta.md) | Alias of [`scale_x_time()`](scale_x_time.md). |
 | [`scale_y_date()`](api/scale_y_date.md) | Alias of [`scale_y_datetime()`](scale_y_datetime.md). |
-| [`scale_y_timedelta()`](api/scale_y_timedelta.md) | Alias of [`scale_y_time()`](scale_y_time.md). |
 | [`stat_bin_2d()`](api/stat_bin_2d.md) | Alias of [`stat_bin2d()`](stat_bin2d.md). |
 | [`stat_density_2d()`](api/stat_density_2d.md) | Alias of [`stat_density2d()`](stat_density2d.md). |
 | [`stat_function()`](api/stat_function.md) | Alias of [`geom_function()`](geom_function.md). |

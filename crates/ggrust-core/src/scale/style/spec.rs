@@ -616,31 +616,6 @@ impl StyleScaleSpec {
                 Arc::new(mapper)
             }
             "color_brewer" => Arc::new(self.brewer(na)?),
-            "color_desaturate" => {
-                let full = color_option("color", Color::rgb(255, 0, 0))?;
-                let prop = self.number("prop")?.unwrap_or(0.0);
-                if !(0.0..=1.0).contains(&prop) {
-                    return Err(Error::spec(
-                        self.options
-                            .get("prop")
-                            .map_or(path, |(_, path)| path.as_str()),
-                        format!("'prop' should be in range [0..1], got {prop}"),
-                    ));
-                }
-                let mut colors = vec![full, desaturate(full, prop)];
-                if self
-                    .number("direction")?
-                    .is_some_and(|direction| direction < 0.0)
-                {
-                    colors.reverse();
-                }
-                Arc::new(GradientMapper {
-                    name: "color_desaturate",
-                    colors,
-                    na,
-                    opacity: 1.0,
-                })
-            }
             "color_distiller" => Arc::new(GradientMapper {
                 name: "color_distiller",
                 colors: self.brewer(na)?.distiller_colors(),
@@ -1041,21 +1016,6 @@ fn color(value: &Value, path: &str) -> Result<Color> {
 }
 
 /// A positive finite number option.
-/// mizani `desaturate_pal`: the HLS saturation times `prop`, hue and lightness
-/// kept. With both fixed, each RGB channel moves linearly towards the lightness.
-fn desaturate(color: Color, prop: f64) -> Color {
-    let channels = [color.red, color.green, color.blue].map(|value| f64::from(value) / 255.0);
-    let lightness = (channels.iter().copied().fold(f64::INFINITY, f64::min)
-        + channels.iter().copied().fold(f64::NEG_INFINITY, f64::max))
-        / 2.0;
-    let [red, green, blue] = channels.map(|value| {
-        ((lightness + prop * (value - lightness)) * 255.0)
-            .round()
-            .clamp(0.0, 255.0) as u8
-    });
-    Color::rgba(red, green, blue, color.alpha)
-}
-
 fn positive_number(value: &Value, path: &str) -> Result<f64> {
     value
         .as_f64()
@@ -1126,30 +1086,6 @@ mod tests {
         assert_eq!(colors[0], Color::rgba(0x57, 0x73, 0xCC, 128));
         assert_eq!(colors[1], colors[0]);
         assert_eq!(colors[2], NA_COLOR);
-    }
-
-    #[test]
-    fn desaturate_moves_channels_towards_the_lightness() {
-        // mizani: desaturate_pal('red', .1)(1) == '#8c7373'.
-        assert_eq!(
-            desaturate(Color::rgb(255, 0, 0), 0.1),
-            Color::rgb(0x8c, 0x73, 0x73)
-        );
-        assert_eq!(
-            desaturate(Color::rgb(255, 0, 0), 0.0),
-            Color::rgb(128, 128, 128)
-        );
-        let (spec, _) =
-            fill(r#"{"aesthetic": "fill", "scale_mapper_kind": "color_desaturate", "prop": 2}"#);
-        let message = spec
-            .mapper(Aesthetic::Fill, &mut Vec::new())
-            .err()
-            .unwrap()
-            .to_string();
-        assert!(
-            message.contains("'prop' should be in range [0..1], got 2"),
-            "{message}"
-        );
     }
 
     #[test]

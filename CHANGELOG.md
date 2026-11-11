@@ -8,9 +8,8 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 - `ggrust.data`: example datasets `penguins`, `mpg`, `economics` and `iris` as polars DataFrames (`from ggrust.data import penguins`), with `DatasetNotFoundError` for unknown names.
 - Standalone `stat_bin`, `stat_bin2d`, `stat_boxplot`, `stat_count`, `stat_density`, `stat_density2d`, `stat_identity`, `stat_sina`, `stat_smooth` and `stat_ydensity`, as ggplot2: the stat's geom, or any `geom=`.
-- ggplot2 and plotnine spellings as aliases: `scale_colour_*` for every color scale, `scale_*_gray`, `guide_colourbar`, `geom_bin_2d`, `geom_density_2d`, `geom_density_2d_filled`, `geom_contour_filled`, `stat_function`, `stat_bin_2d`, `stat_density_2d`, `coord_equal`, `scale_*_date`, `scale_*_timedelta`, and `scale_*_continuous` / `scale_*_discrete` for alpha, size, linewidth, stroke, shape and linetype. Plus `position_identity`, `scale_linetype`, `scale_x_sqrt` and `scale_y_sqrt`.
-- `geom_ribbon` `where` aesthetic (plotnine): fill only where a boolean column is True.
-- `scale_color_distiller`, `scale_fill_distiller`, `scale_color_desaturate`, `scale_fill_desaturate`, `scale_color_ordinal`, `scale_fill_ordinal`, `scale_alpha_ordinal`, `scale_size_ordinal` and `scale_size_radius`.
+- ggplot2 and plotnine spellings as aliases: `scale_colour_*` for every color scale, `scale_*_gray`, `guide_colourbar`, `geom_bin_2d`, `geom_density_2d`, `geom_density_2d_filled`, `geom_contour_filled`, `stat_function`, `stat_bin_2d`, `stat_density_2d`, `coord_equal`, `scale_*_date`, and `scale_*_continuous` / `scale_*_discrete` for alpha, size, linewidth, stroke, shape and linetype. Plus `position_identity`, `scale_linetype`, `scale_x_sqrt` and `scale_y_sqrt`.
+- `scale_color_distiller`, `scale_fill_distiller`, `scale_color_ordinal`, `scale_fill_ordinal`, `scale_alpha_ordinal`, `scale_size_ordinal` and `scale_size_radius`.
 - `stat_unique`, `stat_hull` (plotnine) and `stat_summary_2d`.
 - `coord_cartesian(expand=)` and `coord_fixed(expand=)`, as ggplot2.
 - `position_stack(reverse=)` and `position_fill(reverse=)`.

@@ -1,4 +1,4 @@
-"""Distiller, desaturate, ordinal and radius scales against ggplot2 and plotnine values."""
+"""Distiller, ordinal and radius scales against ggplot2 and plotnine values."""
 
 from __future__ import annotations
 
@@ -6,7 +6,6 @@ import re
 
 import ggrust as gg
 import pytest
-from ggrust.errors import SpecError
 
 DATA = {"x": [1, 2, 3], "y": [1, 2, 3], "v": [0, 0.5, 1], "s": ["a", "b", "c"]}
 
@@ -37,19 +36,6 @@ def test_fill_distiller_named_palette() -> None:
     # R: scale_fill_distiller(palette = "RdBu"): 7-color RdBu, reversed.
     fills = _fills(gg.scale_fill_distiller(palette="RdBu"), fill="v")
     assert fills[0] == "#2166ac" and fills[-1] == "#b2182b"
-
-
-def test_desaturate_ends_match_plotnine() -> None:
-    # mizani desaturate_pal('red', .1): '#ff0000' ... '#8c7373'.
-    fills = _fills(gg.scale_color_desaturate(prop=0.1), color="v")
-    assert (fills[0], fills[-1]) == ("#ff0000", "#8c7373")
-    fills = _fills(gg.scale_fill_desaturate(prop=0.1, reverse=True), fill="v")
-    assert (fills[0], fills[-1]) == ("#8c7373", "#ff0000")
-
-
-def test_desaturate_rejects_prop_outside_unit_range() -> None:
-    with pytest.raises(SpecError, match=r"'prop' should be in range \[0..1\], got 1.5"):
-        _circles(gg.scale_color_desaturate(prop=1.5), color="v")
 
 
 def test_ordinal_colors_are_viridis_d() -> None:

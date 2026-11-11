@@ -12,7 +12,7 @@ from ggrust.plot.coord import coord_fixed
 from ggrust.plot.geom import geom_bin2d, geom_contourf, geom_density2d, geom_density2df
 from ggrust.plot.geom_function import geom_function
 from ggrust.plot.guide import guide_colorbar
-from ggrust.plot.scale import scale_x_datetime, scale_x_time, scale_y_datetime, scale_y_time
+from ggrust.plot.scale import scale_x_datetime, scale_y_datetime
 from ggrust.plot.scale_color import (
     scale_color_brewer,
     scale_color_continuous,
@@ -29,7 +29,6 @@ from ggrust.plot.scale_color import (
 from ggrust.plot.scale_colormap_mpl import scale_color_cmapmpl
 from ggrust.plot.scale_extra import (
     scale_alpha_ordinal,
-    scale_color_desaturate,
     scale_color_distiller,
     scale_color_ordinal,
     scale_size_ordinal,
@@ -64,7 +63,6 @@ __all__ = [
     "scale_colour_cmapmpl",
     "scale_colour_continuous",
     "scale_colour_d3",
-    "scale_colour_desaturate",
     "scale_colour_discrete",
     "scale_colour_distiller",
     "scale_colour_gradient",
@@ -91,9 +89,7 @@ __all__ = [
     "scale_size_discrete",
     "scale_stroke_continuous",
     "scale_x_date",
-    "scale_x_timedelta",
     "scale_y_date",
-    "scale_y_timedelta",
     "stat_bin_2d",
     "stat_density_2d",
     "stat_function",
@@ -104,7 +100,6 @@ scale_colour_brewer = scale_color_brewer
 scale_colour_cmapmpl = scale_color_cmapmpl
 scale_colour_continuous = scale_color_continuous
 scale_colour_d3 = scale_color_d3
-scale_colour_desaturate = scale_color_desaturate
 scale_colour_discrete = scale_color_discrete
 scale_colour_distiller = scale_color_distiller
 scale_colour_gradient = scale_color_gradient
@@ -136,8 +131,6 @@ stat_density_2d = stat_density2d
 coord_equal = coord_fixed
 scale_x_date = scale_x_datetime
 scale_y_date = scale_y_datetime
-scale_x_timedelta = scale_x_time
-scale_y_timedelta = scale_y_time
 scale_alpha_continuous = scale_alpha
 scale_alpha_discrete = scale_alpha_ordinal
 scale_size_continuous = scale_size

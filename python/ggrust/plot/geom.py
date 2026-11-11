@@ -2984,9 +2984,7 @@ def geom_ribbon(
     Parameters
     ----------
     mapping : FeatureSpec, optional
-        Aesthetic mapping from ``aes()``. ``where`` (plotnine) maps a boolean
-        column: only runs of True rows are filled, each closed where ``ymax``
-        meets ``ymin``; it does not split groups, and the edge lines stay whole.
+        Aesthetic mapping from ``aes()``.
     data : DataFrame or dict, optional
         Layer data; inherits the plot data when None.
     stat : str, optional

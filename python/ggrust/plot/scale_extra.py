@@ -1,7 +1,7 @@
 """Scales from ggplot2 and plotnine that lets_plot does not have.
 
-``scale_*_distiller`` (a brewer palette as a gradient), ``scale_*_desaturate``,
-the ``scale_*_ordinal`` scales and ``scale_size_radius``.
+``scale_*_distiller`` (a brewer palette as a gradient), the ``scale_*_ordinal``
+scales and ``scale_size_radius``.
 """
 
 from __future__ import annotations
@@ -18,10 +18,8 @@ if TYPE_CHECKING:
 
 __all__ = [
     "scale_alpha_ordinal",
-    "scale_color_desaturate",
     "scale_color_distiller",
     "scale_color_ordinal",
-    "scale_fill_desaturate",
     "scale_fill_distiller",
     "scale_fill_ordinal",
     "scale_size_ordinal",
@@ -45,24 +43,6 @@ def _distiller(
         palette=palette,
         direction=direction,
         scale_mapper_kind="color_distiller",
-        **scale,  # ty: ignore[invalid-argument-type]
-    )
-
-
-def _desaturate(
-    aesthetic: _ColorAesthetic,
-    color: Color,
-    prop: Number,
-    reverse: bool,
-    **scale: object,
-) -> FeatureSpec:
-    """Build a ``color_desaturate`` scale; ``reverse`` becomes a direction."""
-    return _scale(
-        aesthetic,
-        color=color,
-        prop=prop,
-        direction=-1 if reverse else None,
-        scale_mapper_kind="color_desaturate",
         **scale,  # ty: ignore[invalid-argument-type]
     )
 
@@ -205,163 +185,6 @@ def scale_fill_distiller(
         type,
         palette,
         direction,
-        name=name,
-        breaks=breaks,
-        labels=labels,
-        limits=limits,
-        oob=oob,
-        na_value=na_value,
-        guide=guide,
-        trans=trans,
-        format=format,
-    )
-
-
-def scale_color_desaturate(
-    color: Color = "red",
-    prop: Number = 0,
-    reverse: bool = False,
-    name: str | None = None,
-    breaks: Breaks | None = None,
-    labels: Labels | None = None,
-    limits: Limits | None = None,
-    oob: Oob | None = None,
-    na_value: Color | None = None,
-    guide: Guide | None = None,
-    trans: Transform | None = None,
-    format: str | None = None,
-) -> FeatureSpec:
-    """Map continuous ``color`` from a color to a desaturated version of it.
-
-    As plotnine ``scale_color_desaturate``: the low end is ``color``, the high
-    end the same hue and lightness with its saturation times ``prop``.
-
-    Parameters
-    ----------
-    color : str, default="red"
-        Color to desaturate.
-    prop : float, default=0
-        Saturation kept at the high end, in ``[0, 1]`` (0 gives a grey).
-    reverse : bool, default=False
-        True puts the desaturated color at the low end.
-    name : str, optional
-        Legend title.
-    breaks : list, optional
-        Values that get a colorbar tick.
-    labels : list of str or dict, optional
-        One label per break.
-    limits : list, optional
-        ``[low, high]`` data range.
-    oob : {"censor", "squish"}, optional
-        What data outside ``limits`` maps to.
-    na_value : str, optional
-        Color of missing data and data outside ``limits``.
-    guide : str or FeatureSpec, optional
-        ``"colorbar"``, ``"legend"``, ``"none"``, or a guide spec.
-    trans : str, optional
-        Transformation of the data.
-    format : str, optional
-        Label format.
-
-    Returns
-    -------
-    FeatureSpec
-        The scale.
-
-    Raises
-    ------
-    ggrust.SpecError
-        When the plot is built, if ``prop`` is outside ``[0, 1]``.
-
-    Examples
-    --------
-    >>> from ggrust import *
-    >>> data = {"x": [1, 2, 3, 4], "y": [3, 1, 4, 2], "age": [1, 5, 9, 14]}
-    >>> plot = ggplot(data, aes("x", "y", color="age")) + geom_point(size=6)
-    >>> plot = plot + scale_color_desaturate(color="steelblue", reverse=True)
-    """
-    return _desaturate(
-        "color",
-        color,
-        prop,
-        reverse,
-        name=name,
-        breaks=breaks,
-        labels=labels,
-        limits=limits,
-        oob=oob,
-        na_value=na_value,
-        guide=guide,
-        trans=trans,
-        format=format,
-    )
-
-
-def scale_fill_desaturate(
-    color: Color = "red",
-    prop: Number = 0,
-    reverse: bool = False,
-    name: str | None = None,
-    breaks: Breaks | None = None,
-    labels: Labels | None = None,
-    limits: Limits | None = None,
-    oob: Oob | None = None,
-    na_value: Color | None = None,
-    guide: Guide | None = None,
-    trans: Transform | None = None,
-    format: str | None = None,
-) -> FeatureSpec:
-    """Map continuous ``fill`` from a color to a desaturated version of it.
-
-    Parameters
-    ----------
-    color : str, default="red"
-        Color to desaturate.
-    prop : float, default=0
-        Saturation kept at the high end, in ``[0, 1]``.
-    reverse : bool, default=False
-        True puts the desaturated color at the low end.
-    name : str, optional
-        Legend title.
-    breaks : list, optional
-        Values that get a colorbar tick.
-    labels : list of str or dict, optional
-        One label per break.
-    limits : list, optional
-        ``[low, high]`` data range.
-    oob : {"censor", "squish"}, optional
-        What data outside ``limits`` maps to.
-    na_value : str, optional
-        Color of missing data and data outside ``limits``.
-    guide : str or FeatureSpec, optional
-        ``"colorbar"``, ``"legend"``, ``"none"``, or a guide spec.
-    trans : str, optional
-        Transformation of the data.
-    format : str, optional
-        Label format.
-
-    Returns
-    -------
-    FeatureSpec
-        The scale.
-
-    Raises
-    ------
-    ggrust.SpecError
-        When the plot is built, if ``prop`` is outside ``[0, 1]``.
-
-    Examples
-    --------
-    >>> from ggrust import *
-    >>> data = {"x": [1, 2, 1, 2], "y": [1, 1, 2, 2], "load": [3, 8, 12, 20]}
-    >>> plot = ggplot(data, aes("x", "y", fill="load")) + geom_tile()
-    >>> plot = plot + scale_fill_desaturate(color="darkorange", prop=0.2)
-    """
-    return _desaturate(
-        "fill",
-        color,
-        prop,
-        reverse,
         name=name,
         breaks=breaks,
         labels=labels,

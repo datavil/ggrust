@@ -94,7 +94,7 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   (ggplot2 #4269) [users]
 - Axis capping (lets-plot #1184), vertical fill gradient (lets-plot #994) [users]
 
-- `scale_*_distiller` and `scale_*_desaturate` accept discrete data and any
+- `scale_*_distiller` accepts discrete data and any
   `direction` without an error (ggplot2 errors on discrete data) [bug hunt]
 
 ## 4. Layout, guides and annotation
@@ -143,7 +143,8 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   (`with_data` plus `+` cover it).
 - Ruled out by the user on 2026-11-11 as too far from ggrust's identity (a
   lets_plot-compatible ggplot2 grammar, used from Python): the `frame >> ggplot()` pipe,
-  `qplot()`, method chaining as sugar for `+`, patchwork-style composition operators
+  `qplot()`, the plotnine-only `geom_ribbon` `where` aesthetic, `scale_*_desaturate` and
+  `scale_*_timedelta`, method chaining as sugar for `+`, patchwork-style composition operators
   (`|`, `/`, `-`, `&`, `*`, `Beside`, `Stack`; `gggrid` is the way), string expressions
   in `aes` (`aes("np.log(x)")`), `geom_density` options kept only for plotnine code (`cut`,
   `clip`, `gridsize`), the plotnine-only themes `theme_matplotlib`, `theme_seaborn` and

@@ -93,7 +93,12 @@ impl Stat for BinStat {
                 bins_between_breaks(&values, &breaks, closed.unwrap_or(Closed::Right))
             } else if let Some(range) = range {
                 let (count, width, start) = binning_parameters(range, &options);
-                equal_bins_closed(&values, start, count, width, closed.unwrap_or(Closed::Left))
+                let closed = match closed {
+                    // ggplot2: the first bin holds its lower edge, the data minimum.
+                    Some(Closed::Right) => Closed::RightFrom(range.0),
+                    _ => Closed::Left,
+                };
+                equal_bins_closed(&values, start, count, width, closed)
             } else {
                 Bins::default()
             };
@@ -109,12 +114,15 @@ impl Stat for BinStat {
 }
 
 /// ggplot2 `closed`: the side of a bin that holds values on its edge.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(super) enum Closed {
     /// `[low, high)`, the last bin closed on both sides.
     Left,
     /// `(low, high]`, the first bin closed on both sides.
     Right,
+    /// `(low, high]` for equal bins, values at or below the data minimum (on the
+    /// first data bin's lower edge) in the bin above that edge.
+    RightFrom(f64),
 }
 
 impl Closed {
@@ -308,9 +316,16 @@ impl Bins {
         let (Some(&first), Some(&last)) = (finite.first(), finite.last()) else {
             return;
         };
-        let (before, after) = match finite.len() {
-            1 => (1.0, 1.0),
-            count => (finite[1] - first, last - finite[count - 2]),
+        // Neighbour widths from adjacent bins only (`threshold` may blank some).
+        let steps: Vec<f64> = self
+            .x
+            .windows(2)
+            .map(|pair| pair[1] - pair[0])
+            .filter(|step| step.is_finite())
+            .collect();
+        let (before, after) = match (steps.first(), steps.last()) {
+            (Some(&before), Some(&after)) => (before, after),
+            _ => (1.0, 1.0),
         };
         self.x.insert(0, first - before);
         self.x.push(last + after);
@@ -361,7 +376,10 @@ pub(super) fn equal_bins_closed(
         // Kotlin `toInt()`: NaN is 0, out of range saturates (as Rust `as`).
         let bin = match closed {
             Closed::Left => ((value - start) / width).floor() as i64,
-            Closed::Right => (((value - start) / width).ceil() as i64 - 1).max(0),
+            Closed::RightFrom(low) if value <= low => ((value - start) / width).floor() as i64,
+            Closed::Right | Closed::RightFrom(_) => {
+                (((value - start) / width).ceil() as i64 - 1).max(0)
+            }
         };
         *count_by_bin.entry(bin).or_insert(0.0) += weight;
     }
@@ -407,7 +425,7 @@ fn bins_between_breaks(values: &[(f64, f64)], breaks: &[f64], closed: Closed) ->
         }
         total += weight;
         let index = match closed {
-            Closed::Right => bracketing_index(breaks, value),
+            Closed::Right | Closed::RightFrom(_) => bracketing_index(breaks, value),
             Closed::Left => {
                 let above = breaks.partition_point(|edge| *edge <= value);
                 Some(above.clamp(1, breaks.len() - 1) - 1)
@@ -484,7 +502,8 @@ mod tests {
             values(data, Computed::Count)[index]
         };
         assert_eq!(count_at(&left, 2.5), 2.0);
-        assert_eq!(count_at(&right, 1.5), 2.0);
+        // ggplot2: the minimum (1) sits in the first bin, closed on both sides.
+        assert_eq!(count_at(&right, 1.5), 3.0);
         let padded = compute(&[0.5, 1.5], &format!(r#"{{{breaks}, "pad": true}}"#));
         assert_eq!(values(&padded, Aesthetic::X), [-0.5, 0.5, 1.5, 2.5, 3.5]);
         assert_eq!(values(&padded, Computed::Count), [0.0, 1.0, 1.0, 0.0, 0.0]);

@@ -339,6 +339,9 @@ impl Writer {
     }
 
     fn points(&mut self, points: &Points) {
+        // Marker outlines (and their forms, which inherit the state) keep the
+        // SVG defaults whatever line style a path set before.
+        self.set_line_style(LineEnd::Butt, LineJoin::Miter);
         if points.is_empty() || !points.is_consistent() {
             return;
         }

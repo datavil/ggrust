@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import warnings
+from pathlib import Path
 
 import pytest
 from ggrust import (
@@ -13,6 +14,7 @@ from ggrust import (
     geom_histogram,
     geom_line,
     geom_path,
+    geom_point,
     geom_ribbon,
     geom_segment,
     ggplot,
@@ -90,3 +92,36 @@ def test_bar_just_moves_bars() -> None:
     centred = (ggplot(data, aes("c")) + geom_bar()).layer_data()
     left = (ggplot(data, aes("c")) + geom_bar(just=0)).layer_data()
     assert (left["xmin"] - centred["xmin"]).to_list() == pytest.approx([0.45, 0.45])
+
+
+def test_closed_right_keeps_the_minimum_in_the_first_bin_as_ggplot2() -> None:
+    data = {"x": [0, 0.5, 1, 1.5, 2, 2.5, 3, 3, 3.5, 4]}
+    frame = (
+        ggplot(data, aes("x")) + geom_histogram(closed="right", binwidth=1, boundary=0)
+    ).layer_data()
+    counts = frame.filter(frame["count"] > 0)["count"].to_list()
+    assert counts == [3.0, 2.0, 3.0, 2.0]  # ggplot2 4.0.1
+
+
+def test_pdf_markers_keep_butt_caps_after_round_lines(tmp_path: Path) -> None:
+    import zlib
+
+    plot = (
+        ggplot(LINE, aes("x", "y"))
+        + geom_line(lineend="round", linejoin="round", size=3)
+        + geom_point(shape=3, size=5)
+    )
+    plot.to_pdf(tmp_path / "lines.pdf")
+    pdf = (tmp_path / "lines.pdf").read_bytes()
+    streams = []
+    for chunk in pdf.split(b"stream")[1:]:
+        body = chunk.split(b"endstream")[0].strip(b"\r\n")
+        try:
+            streams.append(zlib.decompress(body))
+        except zlib.error:
+            continue
+    content = b"\n".join(streams)
+    assert b"1 J" in content
+    assert content.index(b"0 J", content.index(b"1 J")) < content.index(
+        b"Do", content.index(b"1 J")
+    )

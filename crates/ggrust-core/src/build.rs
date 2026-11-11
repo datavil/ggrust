@@ -3926,6 +3926,16 @@ fn train_style_scales(
     }
     for (key, scale) in &scales {
         let aesthetic = key.aesthetic;
+        // lets-plot documents `lablim` on continuous scales and ignores it there.
+        if !scale.is_discrete()
+            && let Some(path) = specs.get(key).and_then(StyleScaleSpec::label_limit_path)
+        {
+            warnings.push(format!(
+                "at '{path}': lablim only cuts discrete labels; the continuous \
+                 '{aesthetic}' scale ignores it, as lets-plot does. Use format= to \
+                 shorten numeric labels"
+            ));
+        }
         if let Some((size, count)) = scale.palette_overflow() {
             let path = specs
                 .get(key)

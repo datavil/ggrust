@@ -10,6 +10,7 @@ warnings.filterwarnings("ignore", category=SyntaxWarning)
 
 import ggrust as gg  # noqa: E402
 import lets_plot as lp  # noqa: E402
+from ggrust._render import GgrustWarning  # noqa: E402
 from test_bar_parity import _texts  # noqa: E402
 
 FRAME = {
@@ -93,3 +94,48 @@ def test_bad_lablim_and_format_are_reported():
     messages = " ".join(str(record.message) for record in records)
     assert "lablim" in messages and "number of characters" in messages
     assert "datetime formats" in messages
+
+
+CONTINUOUS_SCALES = {
+    "gradient": lambda m, a, **k: getattr(m, f"scale_{a}_gradient")(**k),
+    "gradient2": lambda m, a, **k: getattr(m, f"scale_{a}_gradient2")(**k),
+    "gradientn": lambda m, a, **k: getattr(m, f"scale_{a}_gradientn")(colors=["red", "blue"], **k),
+    "viridis": lambda m, a, **k: getattr(m, f"scale_{a}_viridis")(**k),
+    "brewer": lambda m, a, **k: getattr(m, f"scale_{a}_brewer")(palette="Blues", **k),
+    "continuous": lambda m, a, **k: getattr(m, f"scale_{a}_continuous")(**k),
+}
+
+
+def _scaled(module, aesthetic, scale, **options):
+    return (
+        module.ggplot(FRAME, module.aes("x", "y", **{aesthetic: "value"}))
+        + module.geom_point(shape=21)
+        + CONTINUOUS_SCALES[scale](module, aesthetic, **options)
+    )
+
+
+@pytest.mark.parametrize("aesthetic", ["color", "fill"])
+@pytest.mark.parametrize("scale", CONTINUOUS_SCALES)
+def test_format_changes_every_colorbar_like_lets_plot(scale, aesthetic):
+    expected, actual = (
+        _scaled(module, aesthetic, scale, format="{.1f} u").to_svg() for module in (lp, gg)
+    )
+    assert sorted(_texts(actual)) == sorted(_texts(expected))
+    assert any(text.endswith(" u") for text in _texts(actual))
+
+
+@pytest.mark.parametrize("aesthetic", ["color", "fill"])
+@pytest.mark.parametrize("scale", CONTINUOUS_SCALES)
+def test_lablim_on_colorbars_matches_lets_plot_and_warns(scale, aesthetic):
+    expected = _scaled(lp, aesthetic, scale, lablim=2).to_svg()
+    with pytest.warns(GgrustWarning, match="lablim only cuts discrete labels") as records:
+        actual = _scaled(gg, aesthetic, scale, lablim=2).to_svg()
+    assert sorted(_texts(actual)) == sorted(_texts(expected))
+    assert f"continuous '{aesthetic}' scale" in str(records[0].message)
+
+
+def test_lablim_on_a_discrete_scale_does_not_warn():
+    plot = _points(gg, color="name") + gg.scale_color_hue(lablim=4)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", GgrustWarning)
+        plot.to_svg()

@@ -473,3 +473,39 @@ fn orientation_y_with_vertical_mapping_names_what_it_needs() {
     assert!(error.contains("with orientation='y'"), "{error}");
     assert!(error.contains("missing: y, xmin, xmax"), "{error}");
 }
+
+fn colorbar_warnings(scale: &str, value: &[f64]) -> Vec<String> {
+    let json = format!(
+        r#"{{"kind": "plot", "mapping": {{"x": "b", "y": "b", "color": "v"}},
+            "layers": [{{"geom": "point"}}], "scales": [{scale}]}}"#
+    );
+    let built = build(
+        &json,
+        Some(frame(&[("b", vec![1.0, 2.0, 3.0]), ("v", value.to_vec())])),
+        vec![],
+    );
+    built.warnings
+}
+
+#[test]
+fn lablim_on_a_continuous_color_scale_warns_with_its_path() {
+    let warnings = colorbar_warnings(
+        r#"{"aesthetic": "color", "lablim": 2}"#,
+        &[1000.0, 2000.0, 3000.0],
+    );
+    let [warning] = &warnings[..] else {
+        panic!("{warnings:?}");
+    };
+    assert!(warning.contains("at 'scales[0].lablim'"), "{warning}");
+    assert!(warning.contains("only cuts discrete labels"), "{warning}");
+    assert!(warning.contains("format="), "{warning}");
+}
+
+#[test]
+fn lablim_zero_means_no_limit_and_does_not_warn() {
+    let warnings = colorbar_warnings(
+        r#"{"aesthetic": "color", "lablim": 0}"#,
+        &[1000.0, 2000.0, 3000.0],
+    );
+    assert!(warnings.is_empty(), "{warnings:?}");
+}

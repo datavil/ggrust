@@ -22,6 +22,7 @@ Parity tests: `tests/test_imshow_parity.py`, `tests/test_export_parity.py`.
   discrete legends (numeric categories as numbers); given `labels` win. `lablim` cuts
   discrete legend labels only, after `format`; fractions truncate, <= 0 means none;
   a later scale call's value wins, even an unsupported format.
+  On a continuous style scale ggrust draws the same as lets-plot and warns (deviations.md).
 - **Export sizing** (lets-plot `PlotImageExport`, measured, not documented right):
   `scale` defaults to 2 only when none of w/h, dpi, unit is given; it still multiplies
   when w/h are given; physical units default to 300 dpi; unitless w/h are inches and

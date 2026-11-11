@@ -55,7 +55,8 @@ def scale_size(
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels).
     lablim : int, optional
-        Maximum label length in characters; longer labels are cut.
+        Maximum label length in characters for discrete data; longer labels are cut.
+        Ignored for continuous data, with a warning, as in lets-plot.
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
@@ -112,7 +113,8 @@ def scale_linewidth(
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels).
     lablim : int, optional
-        Maximum label length in characters; longer labels are cut.
+        Maximum label length in characters for discrete data; longer labels are cut.
+        Ignored for continuous data, with a warning, as in lets-plot.
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
@@ -172,7 +174,8 @@ def scale_stroke(
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels).
     lablim : int, optional
-        Maximum label length in characters; longer labels are cut.
+        Maximum label length in characters for discrete data; longer labels are cut.
+        Ignored for continuous data, with a warning, as in lets-plot.
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
@@ -230,7 +233,8 @@ def scale_size_area(
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels).
     lablim : int, optional
-        Maximum label length in characters; longer labels are cut.
+        Maximum label length in characters for discrete data; longer labels are cut.
+        Ignored for continuous data, with a warning, as in lets-plot.
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
@@ -286,7 +290,8 @@ def scale_alpha(
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels).
     lablim : int, optional
-        Maximum label length in characters; longer labels are cut.
+        Maximum label length in characters for discrete data; longer labels are cut.
+        Ignored for continuous data, with a warning, as in lets-plot.
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.

@@ -77,7 +77,8 @@ def scale_color_hue(
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels).
     lablim : int, optional
-        Maximum label length in characters; longer labels are cut.
+        Maximum label length in characters for discrete data; longer labels are cut.
+        Ignored for continuous data, with a warning, as in lets-plot.
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
@@ -148,7 +149,8 @@ def scale_fill_hue(
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels).
     lablim : int, optional
-        Maximum label length in characters; longer labels are cut.
+        Maximum label length in characters for discrete data; longer labels are cut.
+        Ignored for continuous data, with a warning, as in lets-plot.
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
@@ -205,7 +207,8 @@ def scale_color_manual(
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels).
     lablim : int, optional
-        Maximum label length in characters; longer labels are cut.
+        Maximum label length in characters for discrete data; longer labels are cut.
+        Ignored for continuous data, with a warning, as in lets-plot.
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
@@ -264,7 +267,8 @@ def scale_fill_manual(
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels).
     lablim : int, optional
-        Maximum label length in characters; longer labels are cut.
+        Maximum label length in characters for discrete data; longer labels are cut.
+        Ignored for continuous data, with a warning, as in lets-plot.
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
@@ -376,7 +380,8 @@ def scale_color_gradient(
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels).
     lablim : int, optional
-        Maximum label length in characters; longer labels are cut.
+        Ignored on continuous scales, with a warning, as in lets-plot. Use ``format``
+        to shorten numeric labels.
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
@@ -439,7 +444,8 @@ def scale_fill_gradient(
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels).
     lablim : int, optional
-        Maximum label length in characters; longer labels are cut.
+        Ignored on continuous scales, with a warning, as in lets-plot. Use ``format``
+        to shorten numeric labels.
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
@@ -506,7 +512,8 @@ def scale_color_gradient2(
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels).
     lablim : int, optional
-        Maximum label length in characters; longer labels are cut.
+        Ignored on continuous scales, with a warning, as in lets-plot. Use ``format``
+        to shorten numeric labels.
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
@@ -573,7 +580,8 @@ def scale_fill_gradient2(
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels).
     lablim : int, optional
-        Maximum label length in characters; longer labels are cut.
+        Ignored on continuous scales, with a warning, as in lets-plot. Use ``format``
+        to shorten numeric labels.
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
@@ -635,7 +643,8 @@ def scale_color_gradientn(
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels).
     lablim : int, optional
-        Maximum label length in characters; longer labels are cut.
+        Ignored on continuous scales, with a warning, as in lets-plot. Use ``format``
+        to shorten numeric labels.
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
@@ -697,7 +706,8 @@ def scale_fill_gradientn(
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels).
     lablim : int, optional
-        Maximum label length in characters; longer labels are cut.
+        Ignored on continuous scales, with a warning, as in lets-plot. Use ``format``
+        to shorten numeric labels.
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
@@ -770,7 +780,8 @@ def scale_color_viridis(
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels).
     lablim : int, optional
-        Maximum label length in characters; longer labels are cut.
+        Maximum label length in characters for discrete data; longer labels are cut.
+        Ignored for continuous data, with a warning, as in lets-plot.
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
@@ -843,7 +854,8 @@ def scale_fill_viridis(
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels).
     lablim : int, optional
-        Maximum label length in characters; longer labels are cut.
+        Maximum label length in characters for discrete data; longer labels are cut.
+        Ignored for continuous data, with a warning, as in lets-plot.
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
@@ -904,7 +916,8 @@ def scale_color_continuous(
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels).
     lablim : int, optional
-        Maximum label length in characters; longer labels are cut.
+        Ignored on continuous scales, with a warning, as in lets-plot. Use ``format``
+        to shorten numeric labels.
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
@@ -969,7 +982,8 @@ def scale_fill_continuous(
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels).
     lablim : int, optional
-        Maximum label length in characters; longer labels are cut.
+        Ignored on continuous scales, with a warning, as in lets-plot. Use ``format``
+        to shorten numeric labels.
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
@@ -1054,7 +1068,8 @@ def scale_color_brewer(
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels).
     lablim : int, optional
-        Maximum label length in characters; longer labels are cut.
+        Maximum label length in characters for discrete data; longer labels are cut.
+        Ignored for continuous data, with a warning, as in lets-plot.
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
@@ -1127,7 +1142,8 @@ def scale_fill_brewer(
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels).
     lablim : int, optional
-        Maximum label length in characters; longer labels are cut.
+        Maximum label length in characters for discrete data; longer labels are cut.
+        Ignored for continuous data, with a warning, as in lets-plot.
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
@@ -1307,7 +1323,8 @@ def scale_color_grey(
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels).
     lablim : int, optional
-        Maximum label length in characters; longer labels are cut.
+        Maximum label length in characters for discrete data; longer labels are cut.
+        Ignored for continuous data, with a warning, as in lets-plot.
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.
@@ -1379,7 +1396,8 @@ def scale_fill_grey(
     labels : list of str or dict, optional
         One label per break (a dict maps breaks to labels).
     lablim : int, optional
-        Maximum label length in characters; longer labels are cut.
+        Maximum label length in characters for discrete data; longer labels are cut.
+        Ignored for continuous data, with a warning, as in lets-plot.
     limits : list, optional
         ``[low, high]`` data range of a continuous scale, or the levels (and their
         order) of a discrete one. Data outside the limits gets ``na_value``.

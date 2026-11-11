@@ -79,6 +79,8 @@ pub struct StyleScaleSpec {
     format: Option<LabelPattern>,
     /// `lablim=...`: discrete labels longer than this are cut (0: no limit).
     label_limit: Option<usize>,
+    /// Where the `lablim` in effect was set, for the continuous-scale warning.
+    label_limit_path: Option<String>,
     /// `oob=...`, checked by [`StyleScaleSpec::oob`]. Merges like `limits`.
     oob: Set<Value>,
     options: BTreeMap<String, (Value, String)>,
@@ -137,6 +139,7 @@ fn merge(target: &mut StyleScaleSpec, scale: &ScaleSpec, path: &str, warnings: &
         Some(Value::Number(number)) if number.as_f64().is_some_and(f64::is_finite) => {
             let limit = number.as_f64().unwrap_or_default().trunc();
             target.label_limit = (limit >= 1.0).then_some(limit as usize);
+            target.label_limit_path = Some(at(LABEL_LIMIT));
         }
         Some(other) => warnings.push(format!(
             "at '{}': expected a number of characters (e.g. lablim=10), got {other}; ignored",
@@ -364,6 +367,11 @@ impl StyleScaleSpec {
     /// Path of the `scale_mapper_kind` that picked the mapper, if any.
     pub fn mapper_path(&self) -> Option<&str> {
         self.kind.as_ref().map(|(_, path)| path.as_str())
+    }
+
+    /// Where a `lablim` with an effect on discrete labels was set, if any.
+    pub fn label_limit_path(&self) -> Option<&str> {
+        self.label_limit.and(self.label_limit_path.as_deref())
     }
 
     /// The scale's own `guide` and its path, if given.

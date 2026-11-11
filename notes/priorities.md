@@ -21,7 +21,6 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 
 | # | Item | Why here | Size |
 |---|---|---|---|
-| 1.2 | Colorbar `lablim` is ignored with no warning. `format` now works on `scale_color_gradient`; re-check the other color scales | Silent loss of a user option | S |
 | 1.3 | Check whether theme flavors change any palette colors | Open parity question, cheap to settle | S |
 
 ## 2. cellestial and lets-plot parity

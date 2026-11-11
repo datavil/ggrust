@@ -74,6 +74,38 @@ pub struct ContinuousPositionScale {
     pub nested: Option<std::sync::Arc<crate::layout::axis_nested::AxisNested>>,
     /// `sec_axis=...`: a secondary axis on the other side.
     pub secondary: Option<super::secondary::SecondaryAxis>,
+    /// `oob=...`: what values outside the limits become.
+    pub oob: PositionOob,
+    /// `minor_breaks=[...]` in transformed units; `None`: halfway between breaks.
+    pub minor_breaks: Option<Vec<f64>>,
+}
+
+/// `oob=` of a continuous position scale (ggplot2 `scales::censor`, `squish`,
+/// `oob_keep`).
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum PositionOob {
+    /// Outside the limits is missing (lets-plot, ggplot2 default).
+    #[default]
+    Censor,
+    /// Clamped onto the nearest limit.
+    Squish,
+    /// Kept as is: stats see it, the panel clips its drawing.
+    Keep,
+}
+
+impl PositionOob {
+    /// The accepted names, for messages.
+    pub const NAMES: [&'static str; 3] = ["censor", "squish", "keep"];
+
+    /// `censor`, `squish` or `keep`.
+    pub fn parse(name: &str) -> Option<Self> {
+        match name {
+            "censor" => Some(PositionOob::Censor),
+            "squish" => Some(PositionOob::Squish),
+            "keep" => Some(PositionOob::Keep),
+            _ => None,
+        }
+    }
 }
 
 impl Default for ContinuousPositionScale {
@@ -100,6 +132,8 @@ impl Default for ContinuousPositionScale {
             mark: None,
             nested: None,
             secondary: None,
+            oob: PositionOob::Censor,
+            minor_breaks: None,
         }
     }
 }
@@ -305,8 +339,29 @@ impl ContinuousPositionScale {
     /// A data value in transformed units, or `None` when it is outside the
     /// transform's domain or the scale limits (lets-plot drops those rows).
     pub fn transform_value(&self, value: f64) -> Option<f64> {
-        let transformed = self.transform.apply(value)?;
-        self.within_limits(transformed).then_some(transformed)
+        self.limit(self.transform.apply(value)?)
+    }
+
+    /// A value in transformed units after `oob`: kept inside the limits; outside
+    /// them missing (censor), on the nearest limit (squish), or kept (keep).
+    pub fn limit(&self, transformed: f64) -> Option<f64> {
+        if self.within_limits(transformed) {
+            return Some(transformed);
+        }
+        match self.oob {
+            PositionOob::Censor => None,
+            PositionOob::Keep => Some(transformed),
+            PositionOob::Squish => {
+                let [low, high] = self.limits;
+                let value = low
+                    .filter(|low| low.is_finite())
+                    .map_or(transformed, |low| transformed.max(low));
+                Some(
+                    high.filter(|high| high.is_finite())
+                        .map_or(value, |high| value.min(high)),
+                )
+            }
+        }
     }
 
     /// Whether a value in transformed units lies within the scale limits.

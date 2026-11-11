@@ -8,7 +8,8 @@ later phase.
 from __future__ import annotations
 
 import math
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
+from numbers import Real
 from types import FunctionType
 from typing import TYPE_CHECKING, Any, cast
 
@@ -29,6 +30,7 @@ if TYPE_CHECKING:
         Limits,
         Number,
         Oob,
+        PositionOob,
         Transform,
     )
 
@@ -63,6 +65,7 @@ __all__ = [
 
 
 _OOB_NAMES = ("censor", "squish")
+_POSITION_OOB_NAMES = ("censor", "squish", "keep")
 _AXIS_POSITIONS: dict[str, tuple[str, ...]] = {
     "x": ("bottom", "top", "both"),
     "y": ("left", "right", "both"),
@@ -124,6 +127,45 @@ def _checked_sec_axis(sec_axis: object) -> SecondaryAxisSpec | None:
     )
 
 
+def _checked_minor_breaks(minor_breaks: object) -> list[float] | None:
+    """Check ``minor_breaks=`` of a continuous position scale.
+
+    Parameters
+    ----------
+    minor_breaks : object
+        The value given.
+
+    Returns
+    -------
+    list of float or None
+        The minor break positions, or None for the default.
+
+    Raises
+    ------
+    SpecError
+        If ``minor_breaks`` is not a list of finite numbers.
+    """
+    if minor_breaks is None:
+        return None
+    if isinstance(minor_breaks, (str, bytes)) or not isinstance(minor_breaks, Iterable):
+        reason = f"expected a list of numbers, got {type(minor_breaks).__name__}"
+        raise SpecError(
+            f"scale_*_continuous(minor_breaks={minor_breaks!r}): {reason}",
+            path="minor_breaks",
+            reason=reason,
+        )
+    values = list(minor_breaks)
+    for value in values:
+        if isinstance(value, bool) or not isinstance(value, Real) or not math.isfinite(value):
+            reason = f"expected finite numbers, got {value!r}"
+            raise SpecError(
+                f"scale_*_continuous(minor_breaks=...): {reason}",
+                path="minor_breaks",
+                reason=reason,
+            )
+    return [float(value) for value in values]
+
+
 def _scale(
     aesthetic: str | Sequence[str],
     *,
@@ -138,7 +180,7 @@ def _scale(
     guide: Guide | None = None,
     format: str | None = None,
     position: AxisPosition | None = None,
-    oob: Oob | None = None,
+    oob: Oob | PositionOob | None = None,
     **kwargs: Any,
 ) -> FeatureSpec:
     """Create a scale spec for one aesthetic, or an array of specs for a list of them.
@@ -163,8 +205,10 @@ def _scale(
     if oob is not None and not isinstance(oob, str):
         reason = f"expected an oob name, got {type(oob).__name__}; use 'censor' or 'squish'"
         raise UnsupportedValueError(f"scale_*(oob={oob!r}): {reason}", path="oob", reason=reason)
-    if oob is not None and oob not in _OOB_NAMES:
-        reason = f"unknown oob; use one of 'censor', 'squish'{did_you_mean(str(oob), _OOB_NAMES)}"
+    oob_names = _POSITION_OOB_NAMES if aesthetic in ("x", "y") else _OOB_NAMES
+    if oob is not None and oob not in oob_names:
+        accepted = ", ".join(repr(name) for name in oob_names)
+        reason = f"unknown oob; use one of {accepted}{did_you_mean(str(oob), oob_names)}"
         raise SpecError(f"scale_*(oob={oob!r}): {reason}", path="oob", reason=reason)
     args: dict[str, Any] = {
         "aesthetic": aesthetic,
@@ -206,6 +250,7 @@ def scale_x_continuous(
     name: str | None = None,
     *,
     breaks: Breaks | None = None,
+    minor_breaks: Sequence[Number] | None = None,
     break_width: Number | None = None,
     labels: Labels | None = None,
     lablim: int | None = None,
@@ -216,6 +261,7 @@ def scale_x_continuous(
     format: str | None = None,
     position: AxisPosition | None = None,
     sec_axis: SecondaryAxisSpec | None = None,
+    oob: PositionOob | None = None,
 ) -> FeatureSpec:
     """Continuous position scale x.
 
@@ -255,6 +301,13 @@ def scale_x_continuous(
     sec_axis : SecondaryAxisSpec, optional
         A secondary axis on the other side: ``sec_axis(...)`` or ``dup_axis()``
         (ggplot2; lets-plot has none).
+    minor_breaks : list of float, optional
+        Minor grid line positions in data units (ggplot2); ``[]`` draws none. By
+        default they sit halfway between the breaks (lets-plot).
+    oob : {"censor", "squish", "keep"}, optional
+        Values outside ``limits``: ``"censor"`` (default) drops them (or draws them
+        at ``na_value``), ``"squish"`` moves them onto the nearest limit, ``"keep"``
+        keeps them, so stats see them and the panel clips the drawing (ggplot2).
 
     Returns
     -------
@@ -282,6 +335,8 @@ def scale_x_continuous(
         format=format,
         position=position,
         sec_axis=_checked_sec_axis(sec_axis),
+        minor_breaks=_checked_minor_breaks(minor_breaks),
+        oob=oob,
     )
 
 
@@ -289,6 +344,7 @@ def scale_y_continuous(
     name: str | None = None,
     *,
     breaks: Breaks | None = None,
+    minor_breaks: Sequence[Number] | None = None,
     break_width: Number | None = None,
     labels: Labels | None = None,
     lablim: int | None = None,
@@ -299,6 +355,7 @@ def scale_y_continuous(
     format: str | None = None,
     position: AxisPosition | None = None,
     sec_axis: SecondaryAxisSpec | None = None,
+    oob: PositionOob | None = None,
 ) -> FeatureSpec:
     """Continuous position scale y. See ``scale_x_continuous``.
 
@@ -338,6 +395,13 @@ def scale_y_continuous(
     format : str, optional
         Label format: a number format (``".2f"``, ``","``, ``"e"``, ``"%"``) or a
         template (``"{.1f} %"``, ``"{d} cells"``). ``labels`` take precedence.
+    minor_breaks : list of float, optional
+        Minor grid line positions in data units (ggplot2); ``[]`` draws none. By
+        default they sit halfway between the breaks (lets-plot).
+    oob : {"censor", "squish", "keep"}, optional
+        Values outside ``limits``: ``"censor"`` (default) drops them (or draws them
+        at ``na_value``), ``"squish"`` moves them onto the nearest limit, ``"keep"``
+        keeps them, so stats see them and the panel clips the drawing (ggplot2).
 
     Returns
     -------
@@ -365,6 +429,8 @@ def scale_y_continuous(
         format=format,
         position=position,
         sec_axis=_checked_sec_axis(sec_axis),
+        minor_breaks=_checked_minor_breaks(minor_breaks),
+        oob=oob,
     )
 
 
@@ -498,10 +564,14 @@ def _transformed(scale: FunctionType, trans: Transform) -> Callable[..., Feature
         format: str | None = None,
         position: AxisPosition | None = None,
         sec_axis: SecondaryAxisSpec | None = None,
+        minor_breaks: Sequence[Number] | None = None,
+        oob: PositionOob | None = None,
     ) -> FeatureSpec:
         return scale(
             name,
             breaks=breaks,
+            minor_breaks=minor_breaks,
+            oob=oob,
             break_width=break_width,
             labels=labels,
             lablim=lablim,

@@ -67,6 +67,9 @@ Transform: TypeAlias = (
 Oob: TypeAlias = Literal["censor", "squish"]
 """What a continuous color scale does with values outside its limits."""
 
+PositionOob: TypeAlias = Literal["censor", "squish", "keep"]
+"""What a continuous position scale does with values outside its limits."""
+
 AxisPosition: TypeAlias = Literal["left", "right", "top", "bottom", "both"]
 """The side(s) of the panel a position scale draws its axis on: ``"bottom"``,
 ``"top"`` or ``"both"`` for x, ``"left"``, ``"right"`` or ``"both"`` for y."""

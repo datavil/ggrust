@@ -31,7 +31,7 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 | # | Item | Why here | Size | Found in |
 |---|---|---|---|---|
 | 3.10 | Per-guide `position` (`guide_legend(position=)`, `guide_colorbar(position=)`); the other per-guide options landed | Legends on several sides need a legend band per side in the layout | L | ggplot2 |
-| 3.11 | `minor_breaks`, `oob` on position scales, `rescaler` | Standard scale controls | M | ggplot2, plotnine |
+| 3.11 | `rescaler` on continuous color scales (`minor_breaks` and `oob` on position scales landed) | Needs a numeric Python callback in style-scale mapping and guides, and a call signature (ggplot2: `function(x, to, from)`) | M | ggplot2, plotnine |
 | 3.12 | `drop`, `na_translate` on discrete scales | Keeps empty levels in legends and axes. Larger than first thought: unused levels are dropped when the Arrow column is read, before any scale exists, and `na_translate` means a new NA level on axes and legends | M | ggplot2, plotnine |
 | 3.14 | `geom_smooth` methods: `glm`, `rlm`, `gls`, GAM | Each method is real statistics work | L | ggplot2 (any R model function), plotnine (`glm`, `rlm`, `gls`; no GAM); lets-plot has `lm` and `loess` only |
 | 3.15 | `after_stat`, `after_scale`, `stage` | ggplot2 and plotnine syntax, `..count..` covers the main case | M | ggplot2, plotnine |

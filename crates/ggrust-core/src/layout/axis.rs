@@ -64,6 +64,9 @@ pub struct AxisBreaks {
     /// `guide_axis_nested()` beside the labels, resolved on the scale (the
     /// layout measures it with the labels; `side="opposite"` guides are not here).
     pub nested: Option<super::axis_nested::ResolvedNested>,
+    /// `minor_breaks=[...]` of the scale (transformed units); `None`: halfway
+    /// between the breaks.
+    pub minor: Option<Vec<f64>>,
 }
 
 impl AxisBreaks {
@@ -74,7 +77,25 @@ impl AxisBreaks {
             arrangement: LabelArrangement::Simple,
             target_count: 0,
             nested: None,
+            minor: None,
         }
+    }
+
+    /// Minor grid positions: the scale's `minor_breaks`, else halfway between
+    /// the breaks (lets-plot `AxisUtil.minorDomainBreaks`).
+    /// Given minor breaks skip repeats and the major breaks (ggplot2 `guide_grid`
+    /// `setdiff`).
+    pub fn minor_values(&self) -> Vec<f64> {
+        let Some(given) = &self.minor else {
+            return super::minor_breaks(&self.values);
+        };
+        let mut kept: Vec<f64> = Vec::with_capacity(given.len());
+        for &value in given {
+            if !self.values.contains(&value) && !kept.contains(&value) {
+                kept.push(value);
+            }
+        }
+        kept
     }
 
     fn first_only(mut self) -> Self {
@@ -107,6 +128,10 @@ pub fn choose_breaks(
         .nested()
         .filter(|nested| nested.side == super::axis_nested::NestedSide::Axis)
         .map(|nested| nested.resolve(scale));
+    breaks.minor = match scale {
+        PositionScale::Continuous(scale) => scale.minor_breaks.clone(),
+        PositionScale::Discrete(_) => None,
+    };
     breaks
 }
 

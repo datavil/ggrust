@@ -213,7 +213,7 @@ impl PositionScale {
     pub fn within_limits(&self, column: ContinuousColumn) -> ContinuousColumn {
         match self {
             PositionScale::Continuous(scale) if scale.limits != [None, None] => {
-                column.map_values(|value| scale.within_limits(value).then_some(value))
+                column.map_values(|value| scale.limit(value))
             }
             _ => column,
         }

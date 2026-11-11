@@ -472,7 +472,7 @@ pub fn draw_band_background(
     if band.side.is_horizontal() {
         // Horizontal lines at the band's own (vertical) breaks.
         let lines = [
-            (theme.panel_grid_minor_y, minor_breaks(&breaks.values)),
+            (theme.panel_grid_minor_y, breaks.minor_values()),
             (theme.panel_grid_major_y, breaks.values.clone()),
         ];
         for (line, values) in lines {
@@ -486,7 +486,7 @@ pub fn draw_band_background(
         }
     } else {
         let lines = [
-            (theme.panel_grid_minor_x, minor_breaks(&breaks.values)),
+            (theme.panel_grid_minor_x, breaks.minor_values()),
             (theme.panel_grid_major_x, breaks.values.clone()),
         ];
         for (line, values) in lines {

@@ -1213,7 +1213,7 @@ pub fn draw_panel_background(layout: &PlotLayout, theme: &Theme, mapper: &Panel)
     let mut grid = Vec::new();
     // Minor lines first (lets-plot `AxisUtil.minorDomainBreaks`), inside the panel.
     if let Some(line) = theme.panel_grid_minor_x {
-        for value in minor_breaks(&layout.x_breaks.values) {
+        for value in layout.x_breaks.minor_values() {
             let x = mapper.x_pixel(value);
             if x >= panel.x && x <= panel.x + panel.width {
                 grid.push(segment((x, panel.y), (x, panel.y + panel.height), line));
@@ -1221,7 +1221,7 @@ pub fn draw_panel_background(layout: &PlotLayout, theme: &Theme, mapper: &Panel)
         }
     }
     if let Some(line) = theme.panel_grid_minor_y {
-        for value in minor_breaks(&layout.y_breaks.values) {
+        for value in layout.y_breaks.minor_values() {
             let y = mapper.y_pixel(value);
             if y >= panel.y && y <= panel.y + panel.height {
                 grid.push(segment((panel.x, y), (panel.x + panel.width, y), line));
@@ -1525,7 +1525,7 @@ pub(crate) fn axis_side_nodes(
         }
     }
     if let Some((line, length)) = edge.minor_tick(theme) {
-        for value in minor_breaks(&breaks.values) {
+        for value in breaks.minor_values() {
             let along = pixel(value);
             if along >= span.0 && along <= span.1 {
                 nodes.push(edge.tick(along, length, line));

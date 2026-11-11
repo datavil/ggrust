@@ -6,7 +6,10 @@
 use super::datetime::{DatePattern, TemporalAxis, TemporalKind, TimeInterval};
 use super::label_pattern::LabelPattern;
 use super::secondary::SecondaryAxis;
-use super::{AxisSides, ContinuousPositionScale, DiscretePositionScale, PositionScale, Transform};
+use super::{
+    AxisSides, ContinuousPositionScale, DiscretePositionScale, PositionOob, PositionScale,
+    Transform,
+};
 use crate::cluster::{DendrogramType, Tree};
 use crate::layout::axis_mark::AxisMark;
 use crate::layout::dendrogram::{AxisDendrogram, DEFAULT_SPACE, DendrogramSide};
@@ -109,6 +112,10 @@ pub struct AxisScaleSpec {
     break_width: Set<Value>,
     /// `na_value=...`: where missing positions are drawn (continuous axes).
     na_value: Set<Value>,
+    /// `oob=...`: values outside the limits (continuous axes).
+    oob: Set<Value>,
+    /// `minor_breaks=[...]` in data units (continuous axes).
+    minor_breaks: Set<Value>,
     /// `lablim=...`: most characters of a category label (discrete axes).
     label_limit: Set<Value>,
     /// `scale_*_dendro(tree)`: the tree as given in the spec.
@@ -296,6 +303,37 @@ impl AxisScaleSpec {
                     })?,
             );
         }
+        if let Some((value, path)) = &self.oob {
+            scale.oob = value.as_str().and_then(PositionOob::parse).ok_or_else(|| {
+                let given = value.as_str().unwrap_or_default();
+                Error::spec(
+                    path,
+                    format!(
+                        "unknown oob {value}; expected 'censor', 'squish' or 'keep'{}",
+                        crate::suggest::did_you_mean(given, PositionOob::NAMES)
+                    ),
+                )
+            })?;
+        }
+        if let Some((value, path)) = &self.minor_breaks {
+            let items = value.as_array().ok_or_else(|| {
+                Error::spec(path, format!("expected a list of numbers, got {value}"))
+            })?;
+            let mut minor = Vec::with_capacity(items.len());
+            for item in items {
+                let number = item
+                    .as_f64()
+                    .filter(|number| number.is_finite())
+                    .ok_or_else(|| {
+                        Error::spec(path, format!("expected finite numbers, got {item}"))
+                    })?;
+                // Values outside the transform's domain have no place on the axis.
+                if let Some(transformed) = scale.transform.apply(number) {
+                    minor.push(transformed);
+                }
+            }
+            scale.minor_breaks = Some(minor);
+        }
         Ok(scale)
     }
 
@@ -304,6 +342,13 @@ impl AxisScaleSpec {
         scale.sides = self.sides();
         scale.mark = self.axis_mark()?;
         scale.nested = self.axis_nested(true)?;
+        for (key, set) in [("oob", &self.oob), ("minor_breaks", &self.minor_breaks)] {
+            if let Some((_, path)) = set {
+                warnings.push(format!(
+                    "at '{path}': {key} applies to continuous axes; ignored on a discrete one"
+                ));
+            }
+        }
         if let Some((_, path)) = &self.na_value {
             // ggplot2 ignores it too (missing categories get their own level there).
             warnings.push(format!(
@@ -826,6 +871,14 @@ fn merge(target: &mut AxisScaleSpec, scale: &ScaleSpec, path: &str) {
     {
         target.label_limit = Some((limit.clone(), at("lablim")));
     }
+    for (key, target) in [
+        ("oob", &mut target.oob),
+        ("minor_breaks", &mut target.minor_breaks),
+    ] {
+        if let Some(value) = scale.parameters.get(key).filter(|value| !value.is_null()) {
+            *target = Some((value.clone(), at(key)));
+        }
+    }
     if let Some(width) = scale.parameters.get("break_width")
         && !width.is_null()
     {
@@ -1117,6 +1170,8 @@ fn report_unbuilt(scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
         "dendrogram",
         "leaf_levels",
         "sec_axis",
+        "oob",
+        "minor_breaks",
     ];
     for key in scale
         .parameters

@@ -65,8 +65,10 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 
 ## 3. Scales and color
 
-- `minor_breaks` and `oob` on position scales (color scales have `oob`), `rescaler` on
-  continuous scales [plotnine]
+- `rescaler` on continuous color scales (ggplot2 `function(x, to, from)`): needs a
+  numeric Python callback through `StyleScale::map` and `map_numbers` (guides), and a
+  decision on the Python signature. `minor_breaks` and `oob` on position scales landed
+  (3.11); side panels and polar coords still draw halfway minor lines [plotnine]
 - `scale_*_gradient2(midpoint=)` with a non-identity `trans`: the midpoint is compared
   with transformed values without being transformed (ggplot2 transforms it); found by a
   bug hunter on 2026-11-11, older than the new transforms

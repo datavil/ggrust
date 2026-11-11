@@ -276,6 +276,13 @@ def transformed(scale: str, value: float) -> float:
         "log10": math.log10,
         "sqrt": math.sqrt,
         "reverse": lambda v: -v,
+        "symlog": lambda v: 1 + math.log10(v),
+        "log": math.log,
+        "log1p": math.log1p,
+        "exp": math.exp,
+        "reciprocal": lambda v: 1 / v,
+        "pseudo_log": lambda v: math.asinh(v / 2),
+        "boxcox(0.5,1)": lambda v: ((v + 1) ** 0.5 - 1) / 0.5,
     }
     return functions[scale](value)
 
@@ -291,6 +298,13 @@ ZOOM_CASES = [
     ("log10", "x", (20.0, 90.0)),
     ("sqrt", "x", (4.0, 400.0)),
     ("reverse", "y", (1.5, 9.5)),
+    ("symlog", "x", (2.0, 5000.0)),
+    ("log", "x", (2.0, 5000.0)),
+    ("log1p", "x", (2.0, 500.0)),
+    ("exp", "y", (1.5, 9.5)),
+    ("reciprocal", "x", (2.0, 500.0)),
+    ("pseudo_log", "x", (2.0, 500.0)),
+    ("boxcox(0.5,1)", "x", (2.0, 500.0)),
 ]
 
 
@@ -304,9 +318,9 @@ def test_runtime_breaks_equal_the_engine_at_the_same_limits(scale, column, limit
         "log10": [gg.scale_y_log10()],
         "sqrt": [gg.scale_y_continuous(trans="sqrt")],
         "reverse": [gg.scale_y_reverse()],
-    }
+    }.get(scale, [gg.scale_y_continuous(trans=scale)])
     plot = gg.ggplot(FRAME, gg.aes("g", column)) + gg.geom_point() + gg.ggtb()
-    for layer in scale_y[scale]:
+    for layer in scale_y:
         plot += layer
     vertical = zoom_payload(plot)["plots"][0]["tiles"][0]["vertical"]
     low, high = sorted(transformed(scale, value) for value in limits)

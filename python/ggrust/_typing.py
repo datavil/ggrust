@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from typing import IO, Any, Literal, NotRequired, TypeAlias, TypedDict
+from typing import IO, Any, Literal, NewType, NotRequired, TypeAlias, TypedDict
 
 import pandas
 import polars as pl
@@ -41,7 +41,27 @@ Color: TypeAlias = str
 Shape: TypeAlias = int | str
 """A point shape code or name."""
 
-Transform: TypeAlias = Literal["identity", "log10", "log2", "symlog", "sqrt", "reverse"]
+BoxCoxTransform = NewType("BoxCoxTransform", str)
+"""A Box-Cox transform name with its parameters, made by ``boxcox_trans``."""
+
+Transform: TypeAlias = (
+    Literal[
+        "identity",
+        "log10",
+        "log2",
+        "log",
+        "log1p",
+        "exp",
+        "logit",
+        "probit",
+        "reciprocal",
+        "pseudo_log",
+        "symlog",
+        "sqrt",
+        "reverse",
+    ]
+    | BoxCoxTransform
+)
 """A continuous scale transform."""
 
 Oob: TypeAlias = Literal["censor", "squish"]

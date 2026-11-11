@@ -101,8 +101,10 @@ def scale_color_cmapmpl(
         Color of missing values.
     guide : str or FeatureSpec, optional
         ``guide_legend()`` / ``guide_colorbar()`` spec.
-    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
-        Transformation of the data.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     format : str, optional
         Label format.
 
@@ -170,8 +172,10 @@ def scale_fill_cmapmpl(
         Color of missing values.
     guide : str or FeatureSpec, optional
         ``guide_legend()`` / ``guide_colorbar()`` spec.
-    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
-        Transformation of the data.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     format : str, optional
         Label format.
 

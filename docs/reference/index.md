@@ -170,6 +170,9 @@ Axes: breaks, labels, limits and transforms.
 | [`scale_y_discrete_reversed()`](api/scale_y_discrete_reversed.md) | ``scale_y_discrete(reverse=True)``. |
 | [`scale_x_log10()`](api/scale_x_log10.md) | Continuous position scale x with the 'log10' transformation. See ``scale_x_continuous``. |
 | [`scale_y_log10()`](api/scale_y_log10.md) | Continuous position scale y with the 'log10' transformation. See ``scale_y_continuous``. |
+| [`scale_x_symlog()`](api/scale_x_symlog.md) | Continuous position scale x with the 'symlog' transformation. See ``scale_x_continuous``. |
+| [`scale_y_symlog()`](api/scale_y_symlog.md) | Continuous position scale y with the 'symlog' transformation. See ``scale_y_continuous``. |
+| [`boxcox_trans()`](api/boxcox_trans.md) | Box-Cox power transform, as a value for ``trans``. |
 | [`scale_x_log2()`](api/scale_x_log2.md) | Continuous position scale x with the 'log2' transformation. See ``scale_x_continuous``. |
 | [`scale_y_log2()`](api/scale_y_log2.md) | Continuous position scale y with the 'log2' transformation. See ``scale_y_continuous``. |
 | [`scale_x_reverse()`](api/scale_x_reverse.md) | Continuous position scale x with the 'reverse' transformation. See ``scale_x_continuous``. |

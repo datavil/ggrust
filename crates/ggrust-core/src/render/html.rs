@@ -198,7 +198,7 @@ fn zoom_json(zoom: &Zoom, scene: &Scene) -> Value {
         json!({
             "domain": [axis.domain.0, axis.domain.1],
             "pixels": [axis.pixels.0, axis.pixels.1],
-            "transform": axis.transform.as_str(),
+            "transform": axis.transform.spec_name(),
             "exponent": {
                 "style": axis.exponent.style.name(),
                 "min": axis.exponent.min,

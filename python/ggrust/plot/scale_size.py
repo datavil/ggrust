@@ -46,8 +46,10 @@ def scale_size(
     ----------
     range : list of float, optional
         ``[smallest, largest]`` size (default about 1.4..9.5, 3..21 px circles).
-    trans : {'identity', 'log10', 'log2', 'sqrt', 'reverse'}, optional
-        Map (and pick legend breaks) in transformed units.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     name : str, optional
         Legend title.
     breaks : list, optional
@@ -122,8 +124,10 @@ def scale_linewidth(
         Width of missing data and data outside ``limits`` (default 1).
     guide : str or FeatureSpec, optional
         ``"legend"``, ``"none"``, or a ``guide_legend()`` spec.
-    trans : {'identity', 'log10', 'log2', 'sqrt', 'reverse'}, optional
-        Map (and pick legend breaks) in transformed units.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     format : str, optional
         Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
         (``"{.1f} %"``). ``labels`` take precedence.
@@ -183,8 +187,10 @@ def scale_stroke(
         Outline of missing data and data outside ``limits`` (default 1).
     guide : str or FeatureSpec, optional
         ``"legend"``, ``"none"``, or a ``guide_legend()`` spec.
-    trans : {'identity', 'log10', 'log2', 'sqrt', 'reverse'}, optional
-        Map (and pick legend breaks) in transformed units.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     format : str, optional
         Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
         (``"{.1f} %"``). ``labels`` take precedence.
@@ -243,8 +249,10 @@ def scale_size_area(
     guide : str or FeatureSpec, optional
         ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
         ``guide_legend()`` / ``guide_colorbar()`` spec.
-    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
-        Transformation of the data.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     format : str, optional
         Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
         (``"{.1f} %"``). ``labels`` take precedence.
@@ -300,8 +308,10 @@ def scale_alpha(
     guide : str or FeatureSpec, optional
         ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
         ``guide_legend()`` / ``guide_colorbar()`` spec.
-    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
-        Transformation of the data.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     format : str, optional
         Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
         (``"{.1f} %"``). ``labels`` take precedence.

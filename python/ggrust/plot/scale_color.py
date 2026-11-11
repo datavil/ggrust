@@ -87,8 +87,10 @@ def scale_color_hue(
     guide : str or FeatureSpec, optional
         ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
         ``guide_legend()`` / ``guide_colorbar()`` spec.
-    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
-        Transformation of the data.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     format : str, optional
         Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
         (``"{.1f} %"``). ``labels`` take precedence.
@@ -159,8 +161,10 @@ def scale_fill_hue(
     guide : str or FeatureSpec, optional
         ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
         ``guide_legend()`` / ``guide_colorbar()`` spec.
-    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
-        Transformation of the data.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     format : str, optional
         Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
         (``"{.1f} %"``). ``labels`` take precedence.
@@ -395,8 +399,10 @@ def scale_color_gradient(
     guide : str or FeatureSpec, optional
         ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
         ``guide_legend()`` / ``guide_colorbar()`` spec.
-    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
-        Transformation of the data.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     format : str, optional
         Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
         (``"{.1f} %"``). ``labels`` take precedence.
@@ -459,8 +465,10 @@ def scale_fill_gradient(
     guide : str or FeatureSpec, optional
         ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
         ``guide_legend()`` / ``guide_colorbar()`` spec.
-    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
-        Transformation of the data.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     format : str, optional
         Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
         (``"{.1f} %"``). ``labels`` take precedence.
@@ -527,8 +535,10 @@ def scale_color_gradient2(
     guide : str or FeatureSpec, optional
         ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
         ``guide_legend()`` / ``guide_colorbar()`` spec.
-    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
-        Transformation of the data.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     format : str, optional
         Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
         (``"{.1f} %"``). ``labels`` take precedence.
@@ -595,8 +605,10 @@ def scale_fill_gradient2(
     guide : str or FeatureSpec, optional
         ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
         ``guide_legend()`` / ``guide_colorbar()`` spec.
-    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
-        Transformation of the data.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     format : str, optional
         Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
         (``"{.1f} %"``). ``labels`` take precedence.
@@ -658,8 +670,10 @@ def scale_color_gradientn(
     guide : str or FeatureSpec, optional
         ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
         ``guide_legend()`` / ``guide_colorbar()`` spec.
-    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
-        Transformation of the data.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     format : str, optional
         Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
         (``"{.1f} %"``). ``labels`` take precedence.
@@ -721,8 +735,10 @@ def scale_fill_gradientn(
     guide : str or FeatureSpec, optional
         ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
         ``guide_legend()`` / ``guide_colorbar()`` spec.
-    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
-        Transformation of the data.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     format : str, optional
         Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
         (``"{.1f} %"``). ``labels`` take precedence.
@@ -795,8 +811,10 @@ def scale_color_viridis(
     guide : str or FeatureSpec, optional
         ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
         ``guide_legend()`` / ``guide_colorbar()`` spec.
-    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
-        Transformation of the data.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     format : str, optional
         Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
         (``"{.1f} %"``). ``labels`` take precedence.
@@ -869,8 +887,10 @@ def scale_fill_viridis(
     guide : str or FeatureSpec, optional
         ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
         ``guide_legend()`` / ``guide_colorbar()`` spec.
-    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
-        Transformation of the data.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     format : str, optional
         Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
         (``"{.1f} %"``). ``labels`` take precedence.
@@ -931,8 +951,10 @@ def scale_color_continuous(
     guide : str or FeatureSpec, optional
         ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
         ``guide_legend()`` / ``guide_colorbar()`` spec.
-    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
-        Transformation of the data.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     format : str, optional
         Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
         (``"{.1f} %"``). ``labels`` take precedence.
@@ -997,8 +1019,10 @@ def scale_fill_continuous(
     guide : str or FeatureSpec, optional
         ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
         ``guide_legend()`` / ``guide_colorbar()`` spec.
-    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
-        Transformation of the data.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     format : str, optional
         Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
         (``"{.1f} %"``). ``labels`` take precedence.
@@ -1083,8 +1107,10 @@ def scale_color_brewer(
     guide : str or FeatureSpec, optional
         ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
         ``guide_legend()`` / ``guide_colorbar()`` spec.
-    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
-        Transformation of the data.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     format : str, optional
         Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
         (``"{.1f} %"``). ``labels`` take precedence.
@@ -1157,8 +1183,10 @@ def scale_fill_brewer(
     guide : str or FeatureSpec, optional
         ``"legend"``, ``"colorbar"`` (continuous color), ``"none"``, or a
         ``guide_legend()`` / ``guide_colorbar()`` spec.
-    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
-        Transformation of the data.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     format : str, optional
         Label format: a number format (``".2f"``, ``","``, ``"%"``) or a template
         (``"{.1f} %"``). ``labels`` take precedence.
@@ -1337,8 +1365,10 @@ def scale_color_grey(
         Color drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
         ``"legend"``, ``"colorbar"``, ``"none"``, or a guide spec.
-    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
-        Transformation of the data.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     format : str, optional
         Label format, e.g. ``".1f"``. ``labels`` take precedence.
 
@@ -1410,8 +1440,10 @@ def scale_fill_grey(
         Color drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
         ``"legend"``, ``"colorbar"``, ``"none"``, or a guide spec.
-    trans : {"identity", "log10", "log2", "sqrt", "reverse"}, optional
-        Transformation of the data.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     format : str, optional
         Label format, e.g. ``".1f"``. ``labels`` take precedence.
 

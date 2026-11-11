@@ -60,6 +60,8 @@ impl AxisSides {
 
 /// The scale of one position axis.
 #[derive(Debug, Clone, PartialEq)]
+// A handful per plot, and matched everywhere: boxing would only add noise.
+#[allow(clippy::large_enum_variant)]
 pub enum PositionScale {
     /// Numbers, optionally transformed (`scale_x_continuous`, `scale_x_log10`, ...).
     Continuous(ContinuousPositionScale),

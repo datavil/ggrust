@@ -15,7 +15,7 @@ mod density;
 mod density2d;
 mod density_1d;
 mod densityridges;
-mod distribution;
+pub(crate) mod distribution;
 mod dotplot;
 mod ecdf;
 mod ellipse;

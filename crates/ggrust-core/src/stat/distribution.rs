@@ -28,7 +28,7 @@ pub(super) fn normal_upper(z: f64) -> f64 {
 }
 
 /// `P(Z < z)` for a standard normal `Z`.
-pub(super) fn normal_lower(z: f64) -> f64 {
+pub(crate) fn normal_lower(z: f64) -> f64 {
     normal_upper(-z)
 }
 
@@ -92,7 +92,7 @@ pub(super) fn chi_squared_upper(x: f64, freedom: f64) -> f64 {
 }
 
 /// The standard normal quantile (Wichura's AS 241, R's `qnorm`), `0 < p < 1`.
-pub(super) fn normal_quantile(p: f64) -> f64 {
+pub(crate) fn normal_quantile(p: f64) -> f64 {
     let q = p - 0.5;
     if q.abs() <= 0.425 {
         let r = 0.180625 - q * q;

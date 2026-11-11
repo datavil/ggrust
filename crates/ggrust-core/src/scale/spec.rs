@@ -1083,9 +1083,10 @@ fn transformed_limits(
     let transformed = |limit: Option<f64>| limit.and_then(|value| transform.apply(value));
     let (low, high) = (transformed(low), transformed(high));
     // Reverse runs the other way: the lower data limit becomes the upper one.
-    Ok(match transform {
-        Transform::Reverse => [high, low],
-        _ => [low, high],
+    Ok(if transform.is_decreasing() {
+        [high, low]
+    } else {
+        [low, high]
     })
 }
 
@@ -1363,7 +1364,7 @@ mod tests {
     fn errors_name_the_path() {
         for (json, discrete, expected) in [
             (
-                r#"{"aesthetic": "x", "trans": "log"}"#,
+                r#"{"aesthetic": "x", "trans": "lg"}"#,
                 false,
                 "at 'scales[0].trans': unknown transform",
             ),

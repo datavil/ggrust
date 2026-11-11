@@ -78,9 +78,6 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 
 ## 3. Scales and color
 
-- More `trans` names. ggrust has `identity`, `reverse`, `sqrt`, `log10`, `log2`. Missing:
-  `log`, `log1p`, `exp`, `logit`, `probit`, `reciprocal`, `pseudo_log`, `symlog`,
-  `boxcox`, and the `scale_x_symlog` / `scale_y_symlog` shorthands [plotnine]
 - `minor_breaks` and `oob` on position scales (color scales have `oob`), `rescaler` on
   continuous scales [plotnine]
 - `drop` and `na_translate` on discrete scales [plotnine]

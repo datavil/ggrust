@@ -832,8 +832,53 @@
   function inDomain(transform, value) {
     if (!isFinite(value)) return false;
     if (transform === "sqrt") return value >= 0;
-    if (transform === "log10" || transform === "log2") return value >= MIN_POSITIVE && value <= MAX_VALUE;
+    if (transform === "log10" || transform === "log2" || transform === "log") return value >= MIN_POSITIVE && value <= MAX_VALUE;
+    if (transform === "log1p") return value > -1;
+    if (transform === "exp") return Math.exp(value) <= MAX_VALUE;
+    if (transform === "logit" || transform === "probit") return value > 0 && value < 1;
+    if (transform === "reciprocal") return value > 0;
+    var box = boxCox(transform);
+    if (box) {
+      var shifted = value + box[1];
+      return shifted > 0 || (shifted === 0 && box[0] >= BOX_COX_LOG_POWER);
+    }
     return true;
+  }
+
+  var BOX_COX_LOG_POWER = 1e-7;
+
+  // [power, offset] of a "boxcox(p,offset)" transform name, otherwise null.
+  function boxCox(transform) {
+    var match = /^boxcox\((.*),(.*)\)$/.exec(transform);
+    return match ? [parseFloat(match[1]), parseFloat(match[2])] : null;
+  }
+
+  // Standard normal CDF: Taylor series near 0, continued fraction in the tails.
+  function normalLower(z) {
+    if (z < 0) return 1 - normalLower(-z);
+    var density = Math.exp(-z * z / 2) / Math.sqrt(2 * Math.PI);
+    if (z < 3) {
+      var term = z, sum = z;
+      for (var i = 3; i < 200 && Math.abs(term) > 1e-17; i += 2) {
+        term *= z * z / i;
+        sum += term;
+      }
+      return 0.5 + density * sum;
+    }
+    var fraction = 0;
+    for (var k = 200; k >= 1; k--) fraction = k / (z + fraction);
+    return 1 - density / (z + fraction);
+  }
+
+  // Normal quantile by bisection: only a few breaks per zoom step need it.
+  function normalQuantile(p) {
+    var low = -40, high = 40;
+    for (var i = 0; i < 100; i++) {
+      var middle = (low + high) / 2;
+      if (normalLower(middle) < p) low = middle;
+      else high = middle;
+    }
+    return (low + high) / 2;
   }
 
   function applyTransform(transform, value) {
@@ -842,13 +887,27 @@
       case "reverse": return -value;
       case "sqrt": return Math.sqrt(value);
       case "log10":
-      case "log2": {
-        var base = transform === "log10" ? 10 : 2;
+      case "log2":
+      case "log": {
+        var base = transform === "log10" ? 10 : transform === "log2" ? 2 : Math.E;
         var limits = logLimits(base);
         var log = Math.log(value) / Math.log(base);
         return isNaN(log) ? log : clamp(log, limits[0], limits[1]);
       }
-      default: return value;
+      case "log1p": return Math.log1p(value);
+      case "exp": return Math.exp(value);
+      case "logit": return Math.log(value / (1 - value));
+      case "probit": return normalQuantile(value);
+      case "reciprocal": return 1 / value;
+      case "pseudo_log": return Math.asinh(value / 2);
+      case "symlog":
+        return Math.abs(value) < 1 ? value : Math.sign(value) * (1 + Math.log(Math.abs(value)) / Math.log(10));
+      default: {
+        var box = boxCox(transform);
+        if (!box) return value;
+        if (Math.abs(box[0]) < BOX_COX_LOG_POWER) return Math.log(value + box[1]);
+        return (Math.pow(value + box[1], box[0]) - 1) / box[0];
+      }
     }
   }
 
@@ -857,12 +916,26 @@
       case "reverse": return -value;
       case "sqrt": return value * value;
       case "log10":
-      case "log2": {
-        var base = transform === "log10" ? 10 : 2;
+      case "log2":
+      case "log": {
+        var base = transform === "log10" ? 10 : transform === "log2" ? 2 : Math.E;
         var limits = logLimits(base);
         return Math.pow(base, clamp(value, limits[0], limits[1]));
       }
-      default: return value;
+      case "log1p": return Math.expm1(value);
+      case "exp": return Math.log(Math.max(value, MIN_POSITIVE));
+      case "logit": return 1 / (1 + Math.exp(-value));
+      case "probit": return normalLower(value);
+      case "reciprocal": return 1 / value;
+      case "pseudo_log": return 2 * Math.sinh(value);
+      case "symlog":
+        return Math.abs(value) < 1 ? value : Math.sign(value) * Math.pow(10, Math.abs(value) - 1);
+      default: {
+        var box = boxCox(transform);
+        if (!box) return value;
+        if (Math.abs(box[0]) < BOX_COX_LOG_POWER) return Math.exp(value) - box[1];
+        return Math.pow(value * box[0] + 1, 1 / box[0]) - box[1];
+      }
     }
   }
 
@@ -1013,7 +1086,7 @@
       return { positions: [], labels: [] };
     }
     var lowT = Math.min(tLow, tHigh), highT = Math.max(tLow, tHigh);
-    if (transform === "log10") {
+    if (transform === "log10" || transform === "symlog") {
       var powers = Math.round(Math.floor(highT) - Math.ceil(lowT)) + 1;
       if (powers >= 3 && powers <= count) {
         count = powers;

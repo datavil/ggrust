@@ -26,7 +26,6 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 
 | # | Item | Why here | Size |
 |---|---|---|---|
-| 3.1 | More `trans` names: `log`, `log1p`, `exp`, `logit`, `probit`, `reciprocal`, `pseudo_log`, `symlog`, `boxcox`, plus `scale_*_symlog` | Common in science, contained in one file | S |
 | 3.2 | `stat_summary` shortcuts: `mean_cl_normal`, `mean_cl_boot`, `median_hilow` | Standard error bars for grouped data | S |
 | 3.3 | `annotate()` | Very common ggplot idiom | S |
 | 3.4 | Facet labellers: `labeller=`, `label_value`, `label_both`, `label_context`, `as_labeller` | Common, and facets are central to cellestial's plot types | M |

@@ -6,6 +6,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Added
 
+- More `trans` names: `log`, `log1p`, `exp`, `logit`, `probit`, `reciprocal`, `pseudo_log`, `symlog` and `boxcox_trans(p, offset)`, plus `scale_x_symlog` and `scale_y_symlog`.
 - `geom_spoke`, as lets-plot, with `arrow` and `pivot`.
 - `geom_lollipop`, as lets-plot, with `dir`, `fatten`, `slope` and `intercept`.
 - `geom_dotplot`, `geom_ydotplot` and `stat_bindot`, as lets-plot, with `stackdir`, `stackratio`,

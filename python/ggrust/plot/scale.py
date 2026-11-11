@@ -21,6 +21,7 @@ if TYPE_CHECKING:
 
     from ggrust._typing import (
         AxisPosition,
+        BoxCoxTransform,
         Breaks,
         Color,
         Guide,
@@ -33,6 +34,7 @@ if TYPE_CHECKING:
 
 
 __all__ = [
+    "boxcox_trans",
     "lims",
     "scale_x_continuous",
     "scale_x_datetime",
@@ -41,6 +43,7 @@ __all__ = [
     "scale_x_log2",
     "scale_x_log10",
     "scale_x_reverse",
+    "scale_x_symlog",
     "scale_x_time",
     "scale_y_continuous",
     "scale_y_datetime",
@@ -49,6 +52,7 @@ __all__ = [
     "scale_y_log2",
     "scale_y_log10",
     "scale_y_reverse",
+    "scale_y_symlog",
     "scale_y_time",
     "scale_z_continuous",
     "xlim",
@@ -242,8 +246,10 @@ def scale_x_continuous(
         ``[low, high]`` in data units; ``None`` leaves a side free.
     expand : list, optional
         ``[multiplicative]`` or ``[multiplicative, additive]`` expansion.
-    trans : {'identity', 'log10', 'log2', 'sqrt', 'reverse'}, optional
-        Transformation of the data.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     sec_axis : SecondaryAxisSpec, optional
         A secondary axis on the other side: ``sec_axis(...)`` or ``dup_axis()``
         (ggplot2; lets-plot has none).
@@ -320,8 +326,10 @@ def scale_y_continuous(
         ``[low, high]`` in data units; ``None`` leaves a side free.
     expand : list, optional
         ``[multiplicative]`` or ``[multiplicative, additive]`` expansion.
-    trans : {'identity', 'log10', 'log2', 'sqrt', 'reverse'}, optional
-        Transformation of the data.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     sec_axis : SecondaryAxisSpec, optional
         A secondary axis on the other side: ``sec_axis(...)`` or ``dup_axis()``
         (ggplot2; lets-plot has none).
@@ -392,8 +400,10 @@ def scale_z_continuous(
     na_value : float, optional
         Height where missing values, and values outside ``limits``, are drawn;
         by default they are dropped.
-    trans : {'identity', 'log10', 'log2', 'sqrt', 'reverse'}, optional
-        Transformation of the data.
+    trans : str, optional
+        Transformation of the data: ``identity``, ``log10``, ``log2``, ``log``,
+        ``log1p``, ``exp``, ``logit``, ``probit``, ``reciprocal``, ``pseudo_log``,
+        ``symlog``, ``sqrt``, ``reverse``, or ``boxcox_trans(p)``.
     format : str, optional
         Label format, as in ``scale_x_continuous``.
 
@@ -421,6 +431,50 @@ def scale_z_continuous(
         trans=trans,
         format=format,
     )
+
+
+def boxcox_trans(p: Number, offset: Number = 0) -> BoxCoxTransform:
+    """
+    Box-Cox power transform, as a value for ``trans``.
+
+    Maps ``x`` to ``((x + offset) ** p - 1) / p``, and to ``log(x + offset)`` when
+    ``p`` is 0. Follows ``scales::boxcox_trans`` in ggplot2.
+
+    Parameters
+    ----------
+    p : int or float
+        The power.
+    offset : int or float, default=0
+        Added to the data before the power.
+
+    Returns
+    -------
+    BoxCoxTransform
+        The transform name, to pass as ``trans``.
+
+    Raises
+    ------
+    SpecError
+        If ``p`` or ``offset`` is not a finite number.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"income": [12, 30, 45, 80, 240], "spending": [10, 22, 30, 41, 90]}
+    >>> plot = ggplot(data, aes("income", "spending")) + geom_point()
+    >>> plot = plot + scale_x_continuous(trans=boxcox_trans(0.5))
+    """
+    for name, value in (("p", p), ("offset", offset)):
+        if (
+            isinstance(value, bool)
+            or not isinstance(value, int | float)
+            or not math.isfinite(value)
+        ):
+            raise SpecError(
+                f"boxcox_trans: {name} expected a finite number, got {value!r}; "
+                "use for example boxcox_trans(0.5) or boxcox_trans(0.5, offset=1)"
+            )
+    return cast("BoxCoxTransform", f"boxcox({float(p)!r},{float(offset)!r})")
 
 
 def _transformed(scale: FunctionType, trans: Transform) -> Callable[..., FeatureSpec]:
@@ -474,6 +528,8 @@ scale_x_log10 = _transformed(scale_x_continuous, "log10")
 scale_y_log10 = _transformed(scale_y_continuous, "log10")
 scale_x_log2 = _transformed(scale_x_continuous, "log2")
 scale_y_log2 = _transformed(scale_y_continuous, "log2")
+scale_x_symlog = _transformed(scale_x_continuous, "symlog")
+scale_y_symlog = _transformed(scale_y_continuous, "symlog")
 scale_x_reverse = _transformed(scale_x_continuous, "reverse")
 scale_y_reverse = _transformed(scale_y_continuous, "reverse")
 

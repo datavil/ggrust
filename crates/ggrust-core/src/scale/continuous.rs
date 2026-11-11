@@ -264,7 +264,7 @@ impl ContinuousPositionScale {
         self.coord_limits = match (low, high) {
             (Some(low), Some(high)) => [Some(low.min(high)), Some(low.max(high))],
             // Reverse runs the other way: a lower data limit is an upper position.
-            _ if self.transform == Transform::Reverse => [high, low],
+            _ if self.transform.is_decreasing() => [high, low],
             _ => [low, high],
         };
     }
@@ -314,9 +314,15 @@ impl ContinuousPositionScale {
                     transformed
                 }
             };
+            // A decreasing transform maps the low data end to the high position.
+            let (low_fallback, high_fallback) = if transform.is_decreasing() {
+                (high, low)
+            } else {
+                (low, high)
+            };
             let (first, second) = (
-                end(data_low - pad_low, low),
-                end(data_high + pad_high, high),
+                end(data_low - pad_low, low_fallback),
+                end(data_high + pad_high, high_fallback),
             );
             (first.min(second), first.max(second))
         };
@@ -481,7 +487,7 @@ impl ContinuousPositionScale {
         };
         let (low, high) = ordered(low, high);
         let mut count = target_count;
-        if transform == Transform::Log10 {
+        if matches!(transform, Transform::Log10 | Transform::Symlog) {
             let whole_powers = (high.floor() - low.ceil()).round() + 1.0;
             if (3.0..=target_count as f64).contains(&whole_powers) {
                 count = whole_powers as usize;

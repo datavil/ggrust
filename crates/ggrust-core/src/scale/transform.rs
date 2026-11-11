@@ -173,6 +173,21 @@ impl Transform {
             }
     }
 
+    /// Whether `position` (transformed units) is a value the transform produces.
+    /// A padded axis can reach past that range (sqrt below 0), where
+    /// [`Self::inverse`] would fold or clamp it onto some other data value.
+    pub fn is_in_range(self, position: f64) -> bool {
+        position.is_finite()
+            && match self {
+                Transform::Sqrt => position >= 0.0,
+                Transform::Exp | Transform::Reciprocal => position > 0.0,
+                Transform::BoxCox { power, .. } if power.abs() >= BOX_COX_LOG_POWER => {
+                    position * power + 1.0 >= 0.0
+                }
+                _ => true,
+            }
+    }
+
     /// Transform a value; `None` outside the domain (lets-plot drops those values).
     pub fn apply(self, value: f64) -> Option<f64> {
         self.is_in_domain(value)

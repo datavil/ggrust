@@ -240,9 +240,7 @@ impl ContinuousPositionScale {
     ///
     /// As lets-plot (`PositionalScalesUtil.finalizeDomains`): expand, then widen a
     /// zero-width result (unexpanded); no data gives -0.5..0.5. With a transform the
-    /// expansion is computed in data units (`PlotUtil.rangeWithExpand`): ends that
-    /// cannot be transformed back (e.g. a padded log axis reaching below 0) stay
-    /// unexpanded.
+    /// expansion is in transformed units, as ggplot2 (lets-plot pads in data units).
     ///
     /// Coord limits then replace their sides exactly (lets-plot zooms the panel
     /// to them without expansion).
@@ -289,43 +287,18 @@ impl ContinuousPositionScale {
             low = low.min(0.0);
             high = high.max(0.0);
         }
-        let transform = self.transform;
-        let (low, high) = if transform == Transform::Identity {
-            // Halves keep the arithmetic finite near f64::MAX; a span that overflows
-            // f64 (e.g. -1e308..1e308) is fine.
-            let padding =
-                (high / 2.0 - low / 2.0) * 2.0 * self.multiplicative_expand + self.additive_expand;
-            let (pad_low, pad_high) = zero_end_padding(zero_based, low, high, padding);
-            (
-                (low - pad_low).max(-f64::MAX),
-                (high + pad_high).min(f64::MAX),
-            )
-        } else {
-            let (first, second) = (transform.inverse(low), transform.inverse(high));
-            let (data_low, data_high) = (first.min(second), first.max(second));
-            let padding =
-                self.additive_expand + (data_high - data_low) * self.multiplicative_expand;
-            let (pad_low, pad_high) = zero_end_padding(zero_based, data_low, data_high, padding);
-            let end = |value: f64, fallback: f64| {
-                let transformed = transform.apply_unchecked(value);
-                if transformed.is_nan() {
-                    fallback
-                } else {
-                    transformed
-                }
-            };
-            // A decreasing transform maps the low data end to the high position.
-            let (low_fallback, high_fallback) = if transform.is_decreasing() {
-                (high, low)
-            } else {
-                (low, high)
-            };
-            let (first, second) = (
-                end(data_low - pad_low, low_fallback),
-                end(data_high + pad_high, high_fallback),
-            );
-            (first.min(second), first.max(second))
-        };
+        // Padding is in transformed units for every transform, as ggplot2
+        // (`expand_range4` on the transformed limits). lets-plot pads in data units,
+        // which leaves a log axis's ends on the panel edge (deviations.md).
+        // Halves keep the arithmetic finite near f64::MAX; a span that overflows
+        // f64 (e.g. -1e308..1e308) is fine.
+        let padding =
+            (high / 2.0 - low / 2.0) * 2.0 * self.multiplicative_expand + self.additive_expand;
+        let (pad_low, pad_high) = zero_end_padding(zero_based, low, high, padding);
+        let (low, high) = (
+            (low - pad_low).max(-f64::MAX),
+            (high + pad_high).min(f64::MAX),
+        );
         widen_degenerate(low, high)
     }
 
@@ -403,7 +376,9 @@ impl ContinuousPositionScale {
             return Vec::new();
         }
         let mut values: Vec<f64> = (0..=(last - first) as u64)
-            .map(|step| self.transform.inverse((first + step as f64) * width))
+            .map(|step| (first + step as f64) * width)
+            .filter(|&position| self.transform.is_in_range(position))
+            .map(|position| self.transform.inverse(position))
             .collect();
         // Ascending data values, as lets-plot lists them (reverse axes too).
         values.sort_by(f64::total_cmp);
@@ -477,14 +452,9 @@ impl ContinuousPositionScale {
                 .collect();
             return (values, ScaleBreaks { positions, labels });
         }
-        let (Some(low), Some(high)) = (transform.apply(data_low), transform.apply(data_high))
-        else {
-            let empty = ScaleBreaks {
-                positions: Vec::new(),
-                labels: Vec::new(),
-            };
-            return (Vec::new(), empty);
-        };
+        // Straight from the expanded domain: a padded end can lie outside the
+        // transform's range (sqrt below 0), where a round trip through data units
+        // would fold it back.
         let (low, high) = ordered(low, high);
         let mut count = target_count;
         if matches!(transform, Transform::Log10 | Transform::Symlog) {
@@ -495,6 +465,7 @@ impl ContinuousPositionScale {
         }
         let values: Vec<f64> = linear_breaks(low, high, count)
             .into_iter()
+            .filter(|&position| transform.is_in_range(position))
             .map(|position| transform.inverse(position))
             .filter(|value| transform.is_in_domain(*value))
             .collect();

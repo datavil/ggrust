@@ -35,6 +35,8 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Changed
 
+- Log, sqrt, symlog and other transformed position axes pad by 5% of the transformed range, as ggplot2, so the outermost points are no longer cut in half on the panel edge. lets-plot pads in data units.
+- Interactive zoom asks for the same number of axis breaks as a static plot of the zoomed range.
 - `lablim` on a continuous color, fill, size or alpha scale now warns. It still has no effect, as in lets-plot; use `format=` to shorten numeric labels.
 
 ## [0.8.1] - 2026-11-09

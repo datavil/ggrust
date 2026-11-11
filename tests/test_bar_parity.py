@@ -188,16 +188,21 @@ CASES = {
     "histogram_dodge": lambda m: (
         m.ggplot(DATA, m.aes("v", fill="h")) + m.geom_histogram(bins=4, position="dodge")
     ),
-    "count_log10": lambda m: m.ggplot(DATA, m.aes("g")) + m.geom_bar() + m.scale_y_log10(),
+    # Transformed cases are unpadded: lets-plot pads them in data units, ggrust as ggplot2.
+    "count_log10": lambda m: (
+        m.ggplot(DATA, m.aes("g")) + m.geom_bar() + m.scale_y_log10(expand=[0, 0])
+    ),
     "count_sqrt": lambda m: (
-        m.ggplot(DATA, m.aes("g")) + m.geom_bar() + m.scale_y_continuous(trans="sqrt")
+        m.ggplot(DATA, m.aes("g"))
+        + m.geom_bar()
+        + m.scale_y_continuous(trans="sqrt", expand=[0, 0])
     ),
     "count_reverse": lambda m: m.ggplot(DATA, m.aes("g")) + m.geom_bar() + m.scale_y_reverse(),
     "count_y_limits": lambda m: (
         m.ggplot(DATA, m.aes("g")) + m.geom_bar() + m.scale_y_continuous(limits=[2, 5])
     ),
     "histogram_log10": lambda m: (
-        m.ggplot(DATA, m.aes("v")) + m.geom_histogram(bins=3) + m.scale_y_log10()
+        m.ggplot(DATA, m.aes("v")) + m.geom_histogram(bins=3) + m.scale_y_log10(expand=[0, 0])
     ),
     "histogram_x_limits": lambda m: (
         m.ggplot(DATA, m.aes("v")) + m.geom_histogram(bins=4) + m.xlim(0, 10)

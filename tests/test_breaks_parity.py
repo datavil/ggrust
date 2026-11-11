@@ -37,7 +37,12 @@ def labels_of(module, low, high, size, trans=None):
     if size is not None:
         plot += module.ggsize(*size)
     if trans is not None:
-        plot += module.scale_x_continuous(trans=trans) + module.scale_y_continuous(trans=trans)
+        # Unpadded: ggrust pads transformed axes in transformed units (ggplot2),
+        # lets-plot in data units, so only the break rule itself can match.
+        options = {"trans": trans}
+        if trans != "reverse":
+            options["expand"] = [0, 0]
+        plot += module.scale_x_continuous(**options) + module.scale_y_continuous(**options)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         svg = plot.to_svg()
@@ -108,6 +113,12 @@ TRANSFORMED_RANGES = {
 def test_transformed_labels_match_lets_plot(trans, low, high):
     theirs = labels_of(lp, low, high, None, trans)
     ours = labels_of(gg, low, high, None, trans)
+    # Unpadded, a break exactly on the axis end is kept by ggrust (as ggplot2);
+    # lets-plot's round trip through data units can lose it (sqrt 10..1e4).
+    ours = tuple(
+        labels[:-1] if len(labels) == len(other) + 1 and labels[:-1] == other else labels
+        for labels, other in zip(ours, theirs, strict=True)
+    )
     assert ours == theirs, f"{trans} labels for [{low}, {high}]"
 
 
@@ -131,3 +142,41 @@ def test_transformed_labels_agree_on_random_ranges():
             )
     mismatches = [axis for axis in axes if axis[4] != axis[5]]
     assert len(mismatches) <= 0.05 * len(axes), "\n".join(map(str, mismatches))
+
+
+@pytest.mark.parametrize(
+    "trans, low, high, expected",
+    [
+        # R: ggplot_build(...)$layout$panel_params[[1]]$x.range, ggplot2 4.0.1.
+        ("log10", 1, 1e4, (-0.2, 4.2)),
+        ("log2", 0.001, 1, (-10.464, 0.498)),
+        ("sqrt", 0, 1, (-0.05, 1.05)),
+        ("sqrt", 0, 100, (-0.5, 10.5)),
+    ],
+)
+def test_transformed_axes_pad_in_transformed_units_as_ggplot2(trans, low, high, expected):
+    plot = gg.ggplot({"x": [low, high]}, gg.aes("x", "x")) + gg.geom_point()
+    plot += gg.scale_x_continuous(trans=trans)
+    domain = plot.scale_info("x")[0]["domain"]
+    assert domain == pytest.approx(expected, abs=1e-3)
+
+
+def test_padded_sqrt_axis_keeps_its_zero_break():
+    plot = gg.ggplot({"x": [0, 100]}, gg.aes("x", "x")) + gg.geom_point()
+    breaks = (plot + gg.scale_x_continuous(trans="sqrt")).scale_info("x")[0]["breaks"]
+    assert breaks[0] == 0
+
+
+def test_break_width_skips_positions_below_a_sqrt_range():
+    # The padded axis reaches below 0, where sqrt's inverse would fold -0.1 onto 0.01.
+    plot = gg.ggplot({"x": [0, 1, 4, 9, 16]}, gg.aes("x", "x")) + gg.geom_point()
+    plot += gg.scale_x_continuous(trans="sqrt", break_width=0.1)
+    breaks = plot.scale_info("x")[0]["breaks"]
+    assert breaks[0] == 0
+    assert len(breaks) == len(set(breaks))
+
+
+def test_exp_axis_has_no_break_where_exp_cannot_reach():
+    plot = gg.ggplot({"x": [0, 1, 4, 9, 16]}, gg.aes("x", "x")) + gg.geom_point()
+    breaks = (plot + gg.scale_x_continuous(trans="exp")).scale_info("x")[0]["breaks"]
+    assert all(position > 1 for position in breaks)

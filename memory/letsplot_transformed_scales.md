@@ -4,7 +4,9 @@ Verified against lets-plot 4.11 `to_svg()` (`tests/test_breaks_parity.py`, 0/96 
 transformed axes differ).
 
 - **Data is transformed at mapping time**; domain, limits and stats are in transformed units.
-- **Expansion is computed in data units** (`PlotUtil.rangeWithExpand`): inverse the ends,
+- **ggrust no longer follows this (user, 2026-11-11):** it pads in transformed units, as
+  ggplot2; parity tests against lets-plot use `expand=[0, 0]` on transformed axes.
+  lets-plot's rule: **expansion is computed in data units** (`PlotUtil.rangeWithExpand`): inverse the ends,
   pad by 5% of the *data* span, transform back; an end that becomes NaN (log/sqrt below
   0) stays unexpanded. Expanding in transformed units gives wrong breaks (log10 3..30).
 - **Zero-width ranges are widened after expansion**, unpadded (`ensureApplicableRange`):

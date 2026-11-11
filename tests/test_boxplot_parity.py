@@ -152,7 +152,8 @@ CASES = {
     "log_y": lambda m: (
         m.ggplot({"g": ["a"] * 5, "y": [1.0, 10, 100, 1000, 1e5]}, m.aes("g", "y"))
         + m.geom_boxplot()
-        + m.scale_y_log10()
+        # Unpadded: lets-plot pads transformed axes in data units, ggrust as ggplot2.
+        + m.scale_y_log10(expand=[0, 0])
     ),
     "dodge_position": lambda m: (
         m.ggplot(DODGE, m.aes("g", "y", color="h"))

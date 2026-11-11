@@ -14,7 +14,7 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Calibrate against real lets-plot SVG](letsplot_reference_svg.md): `to_svg()` works offline; measured defaults (point r 3.3 #474747, text 13px, grid #E9E9E9).
 - [lets-plot semantics traps](lets_plot_semantics_traps.md): alpha replaces (not multiplies), layer/plot data merge, constant positions, colour alias, precision test, write SVG attributes once.
 - [Never let a failing check reach a commit](check_before_commit.md): don't pipe `make check` into grep and then `;` commit; gate on its exit status.
-- [Transformed scales follow lets-plot exactly](letsplot_transformed_scales.md): log/sqrt/reverse scales, data-space expansion, half-up label rounding, limits drop rows.
+- [Transformed scales follow lets-plot, except padding](letsplot_transformed_scales.md): log/sqrt/reverse scales, padding in transformed units (ggplot2, not lets-plot's data space), half-up label rounding, limits drop rows.
 - [Discrete axes follow lets-plot](letsplot_discrete_axes.md): 0.2 expansion, levels joined over layers, label fallbacks and the one-reflow layout order.
 - [Visual cases need their own seeded generator](visual_case_determinism.md): shared `RANDOM` at call time made goldens depend on test order.
 - [Default style scales follow lets-plot](letsplot_style_scales.md): Set1 + generated colors, LAB gradient, size/alpha ranges, NA values; benchmark machine changed.

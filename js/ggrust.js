@@ -829,6 +829,16 @@
     return [Math.log(MIN_POSITIVE) / Math.log(base), Math.log(MAX_VALUE) / Math.log(base)];
   }
 
+  // Whether a transformed position is one the transform produces (`is_in_range`).
+  function inRange(transform, position) {
+    if (!isFinite(position)) return false;
+    if (transform === "sqrt") return position >= 0;
+    if (transform === "exp" || transform === "reciprocal") return position > 0;
+    var box = boxCox(transform);
+    if (box && Math.abs(box[0]) >= BOX_COX_LOG_POWER) return position * box[0] + 1 >= 0;
+    return true;
+  }
+
   function inDomain(transform, value) {
     if (!isFinite(value)) return false;
     if (transform === "sqrt") return value >= 0;
@@ -1081,11 +1091,9 @@
         labels: formatBreaks(values, exponent),
       };
     }
-    var tLow = applyTransform(transform, dataLow), tHigh = applyTransform(transform, dataHigh);
-    if (tLow === null || tHigh === null) {
-      return { positions: [], labels: [] };
-    }
-    var lowT = Math.min(tLow, tHigh), highT = Math.max(tLow, tHigh);
+    // Straight from the domain, as the engine: a padded end can lie outside the
+    // transform's range (sqrt below 0), where a round trip would fold it back.
+    var lowT = Math.min(low, high), highT = Math.max(low, high);
     if (transform === "log10" || transform === "symlog") {
       var powers = Math.round(Math.floor(highT) - Math.ceil(lowT)) + 1;
       if (powers >= 3 && powers <= count) {
@@ -1093,6 +1101,7 @@
       }
     }
     values = linearBreaks(lowT, highT, count)
+      .filter(function (p) { return inRange(transform, p); })
       .map(function (p) { return inverseTransform(transform, p); })
       .filter(function (v) { return inDomain(transform, v); });
     return {

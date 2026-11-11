@@ -54,6 +54,7 @@ All other docs (backlog, audits, cellestial notes): index in [notes/README.md](n
 | HTML canvas threshold | Point batches with more than 5,000 drawable markers (2,000 for `ggtb()` plots) go to the HTML canvas, down from 50,000 (2026-11-06): mid-sized SVG scatters made HTML ~3x larger than lets-plot. See `memory/html_canvas_points.md` |
 | Sampling (2026-11-09) | No default sampling. `sampling=` works with `sampling_random`, `sampling_systematic`, ggrust's `sampling_fraction` and an int shortcut; picks are ggrust's own, not lets-plot's. lets_plot's other six samplers warn and are deferred until requested (step 11.1) |
 | `coord_polar` drawing | Agreed with the user (2026-11-11): layers draw unchanged on a flat panel and the finished scene is bent once in `coord/polar.rs` (no geom file changes, arrowheads bend slightly); HTML is static at first, with a warning. |
+| Transformed axis padding | Log, sqrt, symlog and other transformed position axes pad in transformed units, as ggplot2, not in data units as lets-plot (which leaves end points half cut on the panel edge). Decided by the user 2026-11-11 |
 
 ## Scope: what cellestial actually uses
 

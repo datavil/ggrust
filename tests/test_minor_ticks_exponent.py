@@ -122,7 +122,9 @@ TICK_CASES: dict[str, Build] = {
         + m.geom_point()
         + m.theme(axis_minor_ticks=m.element_line())
     ),
-    "log": lambda m: _points(m) + m.scale_y_log10() + m.theme(axis_minor_ticks=m.element_line()),
+    "log": lambda m: (
+        _points(m) + m.scale_y_log10(expand=[0, 0]) + m.theme(axis_minor_ticks=m.element_line())
+    ),
     "facets": lambda m: (
         _points(m) + m.facet_wrap("x", ncol=3) + m.theme(axis_minor_ticks=m.element_line())
     ),

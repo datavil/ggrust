@@ -58,8 +58,8 @@ pub struct AxisBreaks {
     pub labels: Vec<Label>,
     /// Label placement (horizontal axes; vertical axes are simple or [`LabelArrangement::Mark`]).
     pub arrangement: LabelArrangement,
-    /// The break count asked of the scale (0 for fixed breaks): the HTML
-    /// runtime asks the same of a zoomed domain.
+    /// The break count the axis started from (0 for fixed breaks), before flex
+    /// reduction: the HTML runtime reduces from the same count on a zoomed domain.
     pub target_count: usize,
     /// `guide_axis_nested()` beside the labels, resolved on the scale (the
     /// layout measures it with the labels; `side="opposite"` guides are not here).
@@ -278,6 +278,14 @@ fn arrange_fixed_labels(
 /// lets-plot `getFlexBreaks`: shrink the requested count until at most
 /// `max_count` breaks come back; a single allowed break keeps only the first.
 fn flex_breaks(breaks_for: &dyn Fn(usize) -> AxisBreaks, max_count: usize) -> AxisBreaks {
+    let mut breaks = flex_reduced(breaks_for, max_count);
+    // The HTML runtime runs the same reduction from the same start on a zoomed
+    // domain, so it gets the count before reduction.
+    breaks.target_count = max_count;
+    breaks
+}
+
+fn flex_reduced(breaks_for: &dyn Fn(usize) -> AxisBreaks, max_count: usize) -> AxisBreaks {
     let mut breaks = breaks_for(max_count);
     if max_count == 1 && !breaks.values.is_empty() {
         return breaks.first_only();

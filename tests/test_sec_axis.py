@@ -111,8 +111,9 @@ def test_log_primary_takes_log_breaks() -> None:
     plot, _ = reference_plot("log_given")
     unset = plot + gg.scale_x_log10(sec_axis=gg.sec_axis(lambda a: a * 1000 / 2.59))
     secondary = scales(unset)["x"]["secondary"]
-    assert secondary["labels"] == ["1,000", "10,000", "100,000", "10^6"]
-    assert secondary["breaks"][0] == pytest.approx(math.log10(2.59), abs=1e-6)
+    # The primary axis pads in log units (ggplot2), so it reaches below 1 (100 here).
+    assert secondary["labels"] == ["100", "1,000", "10,000", "100,000", "10^6"]
+    assert secondary["breaks"][0] == pytest.approx(math.log10(2.59) - 1, abs=1e-6)
 
 
 def test_dup_axis_mirrors_the_primary_axis() -> None:

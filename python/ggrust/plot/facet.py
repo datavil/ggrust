@@ -9,10 +9,13 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from ggrust.plot.core import FeatureSpec
+from ggrust.plot.labeller import resolve_labeller
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from typing import Literal
+
+    from ggrust.plot.labeller import Labeller, LabellerName
 
 
 __all__ = ["facet_grid", "facet_wrap"]
@@ -29,6 +32,7 @@ def facet_grid(
     y_format: str | None = None,
     x_labwidth: int | None = None,
     y_labwidth: int | None = None,
+    labeller: Labeller | LabellerName | None = None,
 ) -> FeatureSpec:
     """Lay panels out in a grid: columns by ``x``, rows by ``y``.
 
@@ -51,6 +55,10 @@ def facet_grid(
     x_labwidth, y_labwidth : int, optional
         Strip label wrap width in characters. Labels split at newlines first, then
         each part wraps at this width.
+    labeller : Labeller or str, optional
+        Strip labeller (ggplot2): ``label_value`` (the default), ``label_both``,
+        ``label_context``, ``as_labeller({...})``, or a name such as
+        ``"label_both"``. Applied after the format, before wrapping.
 
     Returns
     -------
@@ -77,6 +85,7 @@ def facet_grid(
         y_format=y_format,
         x_labwidth=x_labwidth,
         y_labwidth=y_labwidth,
+        labeller=resolve_labeller(labeller),
     )
 
 
@@ -91,6 +100,7 @@ def facet_wrap(
     drop: bool | None = None,
     dir: Literal["h", "v"] = "h",
     labwidth: int | Sequence[int] | None = None,
+    labeller: Labeller | LabellerName | None = None,
 ) -> FeatureSpec:
     """Wrap one panel per level of ``facets`` into rows.
 
@@ -114,6 +124,10 @@ def facet_wrap(
         Strip label wrap width in characters, matched to ``facets`` by position (a
         single value applies to the first column). Labels split at newlines first,
         then each part wraps at this width.
+    labeller : Labeller or str, optional
+        Strip labeller (ggplot2): ``label_value`` (the default), ``label_both``,
+        ``label_context``, ``as_labeller({...})``, or a name such as
+        ``"label_both"``. Applied after the format, before wrapping.
 
     Returns
     -------
@@ -141,4 +155,5 @@ def facet_wrap(
         drop=drop,
         dir=dir,
         labwidth=labwidth,
+        labeller=resolve_labeller(labeller),
     )

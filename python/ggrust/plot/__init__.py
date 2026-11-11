@@ -140,6 +140,7 @@ from ggrust.plot.guide import (
 )
 from ggrust.plot.inset import inset_element
 from ggrust.plot.label import ggtitle, labs, xlab, ylab
+from ggrust.plot.labeller import Labeller, as_labeller, label_both, label_context, label_value
 from ggrust.plot.new_scale import new_scale, new_scale_color, new_scale_colour, new_scale_fill
 from ggrust.plot.plot import GGBunch, ggplot, ggsize
 from ggrust.plot.position import (
@@ -343,11 +344,13 @@ from ggrust.plot.tooltip import layer_tooltips
 __all__ = [
     "ClusterTree",
     "GGBunch",
+    "Labeller",
     "RangeKey",
     "SupPlotsSpec",
     "aes",
     "annotate",
     "arrow",
+    "as_labeller",
     "boxcox_trans",
     "coord_3d",
     "coord_cartesian",
@@ -480,6 +483,9 @@ __all__ = [
     "hclust",
     "inset_element",
     "key_range_manual",
+    "label_both",
+    "label_context",
+    "label_value",
     "labs",
     "layer",
     "layer_key",

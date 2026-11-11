@@ -102,8 +102,8 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 - `annotation_logticks`, `annotation_stripes` [plotnine]
 - Facets: `facet_grid(space=, margins=, drop=)`, `as_table` and `shrink` on both facets,
   `facet_null` [plotnine]
-- Facet labellers: `labeller=`, `label_value`, `label_both`, `label_context`,
-  `as_labeller` (`format` and `labwidth` exist) [plotnine]
+- Per-variable facet labellers, ggplot2 `labeller(cyl = label_both, .default = ...)`
+  (the `labeller=` option and `label_*` / `as_labeller` exist)
 - Per-guide options: `reverse`, `position`, `direction`, `order`, `theme` on `guide_legend`
   and `guide_colorbar`; `display`, `alpha`, `draw_ulim`, `draw_llim` on `guide_colorbar`
   [plotnine]

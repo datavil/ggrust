@@ -29,6 +29,14 @@ pub trait AxisFunction: Send + Sync {
     /// The secondary value of every primary value, in order. `Err` carries the
     /// reason (for example the Python exception), shown in the plot's error.
     fn call(&self, values: &[f64]) -> std::result::Result<Vec<f64>, String>;
+
+    /// The new text of every text, in order: the same table also carries facet
+    /// labeller functions (`as_labeller(function)`), which map strip labels.
+    /// Numeric transforms keep the default, which refuses.
+    fn call_text(&self, values: &[String]) -> std::result::Result<Vec<String>, String> {
+        let _ = values;
+        Err("this function maps numbers, not labels".to_owned())
+    }
 }
 
 /// The transform functions of a figure, indexed by `sec_axis.transform` in the

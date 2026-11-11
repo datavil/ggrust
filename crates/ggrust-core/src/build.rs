@@ -319,8 +319,8 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
                 .map(|layer| (&layer.facet_columns, layer.row_count))
                 .collect();
             let facets = match facet.name.as_str() {
-                "grid" => Facets::grid(facet, &layers),
-                _ => Facets::wrap(facet, &layers),
+                "grid" => Facets::grid_with_functions(facet, &layers, &spec.functions),
+                _ => Facets::wrap_with_functions(facet, &layers, &spec.functions),
             }
             .map_err(|error| error.with_notes(&warnings))?;
             if facets.tiles.is_empty() {

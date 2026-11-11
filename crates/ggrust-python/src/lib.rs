@@ -23,8 +23,9 @@ mod _ggrust {
     use ggrust_core::scale::secondary::{AxisFunction, AxisFunctions};
     use std::sync::Arc;
 
-    /// A Python callable used as a secondary axis transform: called once per value
-    /// (with the GIL taken again while the engine runs detached).
+    /// A Python callable used as a secondary axis transform or a facet labeller
+    /// function: called once per value (with the GIL taken again while the engine
+    /// runs detached).
     struct PythonFunction(Py<PyAny>);
 
     impl AxisFunction for PythonFunction {
@@ -42,6 +43,29 @@ mod _ggrust {
                                 "it returned {} for {value}; return a number",
                                 result.repr().map_or_else(
                                     |_| "a non-number".to_owned(),
+                                    |repr| repr.to_string()
+                                )
+                            )
+                        })
+                    })
+                    .collect()
+            })
+        }
+
+        fn call_text(&self, values: &[String]) -> Result<Vec<String>, String> {
+            Python::attach(|python| {
+                let function = self.0.bind(python);
+                values
+                    .iter()
+                    .map(|value| {
+                        let result = function
+                            .call1((value.as_str(),))
+                            .map_err(|error| error.to_string())?;
+                        result.extract::<String>().map_err(|_| {
+                            format!(
+                                "it returned {} for '{value}'; return a string",
+                                result.repr().map_or_else(
+                                    |_| "a non-string".to_owned(),
                                     |repr| repr.to_string()
                                 )
                             )

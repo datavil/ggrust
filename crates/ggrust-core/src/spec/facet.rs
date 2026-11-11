@@ -63,6 +63,10 @@ pub struct FacetSpec {
     /// faceting columns; null or not positive: no wrap.
     #[serde(default)]
     pub labwidth: Option<OneOrMany<Option<i64>>>,
+    /// Strip labeller (ggplot2 `labeller=`): a name such as `label_both` or an
+    /// object, see [`crate::facet::labeller::Labeller::parse`].
+    #[serde(default)]
+    pub labeller: Option<super::Value>,
     /// Keys no component consumes.
     #[serde(flatten)]
     pub unsupported: Options,

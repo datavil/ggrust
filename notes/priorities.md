@@ -26,7 +26,6 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 
 | # | Item | Why here | Size |
 |---|---|---|---|
-| 3.4 | Facet labellers: `labeller=`, `label_value`, `label_both`, `label_context`, `as_labeller` | Common, and facets are central to cellestial's plot types | M |
 | 3.5 | `facet_grid(space=, margins=, drop=)`, `as_table`, `shrink`, `facet_null` | Finishes the facet API | M |
 | 3.6 | Layer options warned about and ignored: `notch`, `notchwidth`, `closed`, `pad`, `just` on `geom_bar`, `lineend`, `linejoin`, `outline_type` | Each is small, and users see the warning | M |
 | 3.8 | `position_dodge2`, `position_dodge(preserve=)` | ggplot2's boxplot default | M |

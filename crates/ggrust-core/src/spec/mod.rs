@@ -368,7 +368,7 @@ mod tests {
                     "theme": {"axis_text": {"size": 3, "glow": 1}},
                     "guides": {"color": {"name": "legend", "shimmer": 2}},
                     "coord": {"name": "cartesian", "clip": "off"},
-                    "facet": {"name": "wrap", "facets": "a", "labeller": "x"},
+                    "facet": {"name": "wrap", "facets": "a", "sparkle": "x"},
                     "ggtoolbar": {"size_zoomin": 1, "extra": 0}
                 }]
             }"#,
@@ -384,7 +384,7 @@ mod tests {
                 "figures[0].theme.axis_text.glow",
                 "figures[0].guides.color.shimmer",
                 "figures[0].coord.clip",
-                "figures[0].facet.labeller",
+                "figures[0].facet.sparkle",
                 "figures[0].ggtoolbar.extra",
             ]
         );

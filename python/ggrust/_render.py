@@ -242,12 +242,15 @@ def split_data(spec: dict[str, Any]) -> tuple[dict, list[tuple[Any, str]]]:
     return split(spec, ""), frames
 
 
-def split_functions(spec: dict[str, Any]) -> tuple[dict[str, Any], list[Callable[[float], float]]]:
-    """Replace secondary axis transforms (callables) with indexes into a list.
+def split_functions(
+    spec: dict[str, Any],
+) -> tuple[dict[str, Any], list[Callable[[float], float] | Callable[[str], str]]]:
+    """Replace secondary axis transforms and labeller functions with list indexes.
 
     Every ``sec_axis`` of the figure (any scale, nested figures and insets) whose
-    ``transform`` is a callable gets the callable's index instead; the callables go
-    to the engine beside the JSON, which calls them once per value.
+    ``transform`` is a callable, and every facet ``labeller`` whose ``function`` is
+    one, gets the callable's index instead; the callables go to the engine beside
+    the JSON, which calls them once per value.
 
     Parameters
     ----------
@@ -259,7 +262,7 @@ def split_functions(spec: dict[str, Any]) -> tuple[dict[str, Any], list[Callable
     tuple
         ``(spec with indexes, [callable, ...])``. The spec is copied where changed.
     """
-    functions: list[Callable[[float], float]] = []
+    functions: list[Callable[[float], float] | Callable[[str], str]] = []
 
     def scale(item: object) -> object:
         if not isinstance(item, dict):
@@ -270,10 +273,21 @@ def split_functions(spec: dict[str, Any]) -> tuple[dict[str, Any], list[Callable
         functions.append(axis["transform"])
         return {**item, "sec_axis": {**axis, "transform": len(functions) - 1}}
 
+    def facet(item: object) -> object:
+        if not isinstance(item, dict):
+            return item
+        labeller = item.get("labeller")
+        if not isinstance(labeller, dict) or not callable(labeller.get("function")):
+            return item
+        functions.append(labeller["function"])
+        return {**item, "labeller": {**labeller, "function": len(functions) - 1}}
+
     def walk(figure: object) -> object:
         if not isinstance(figure, dict):
             return figure
         figure = dict(figure)
+        if "facet" in figure:
+            figure["facet"] = facet(figure["facet"])
         if isinstance(figure.get("scales"), list):
             figure["scales"] = [scale(item) for item in figure["scales"]]
         if isinstance(figure.get("figures"), list):

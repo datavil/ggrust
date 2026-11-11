@@ -416,6 +416,11 @@ Coordinate systems, and small multiples.
 | [`coord_3d()`](api/coord_3d.md) | Show x, y and z in a static 3D view (ggrust only: lets-plot and ggplot2 have no 3D). |
 | [`facet_wrap()`](api/facet_wrap.md) | Wrap one panel per level of ``facets`` into rows. |
 | [`facet_grid()`](api/facet_grid.md) | Lay panels out in a grid: columns by ``x``, rows by ``y``. |
+| [`label_value`](api/label_value.md) | Label facet strips with the value alone (the default). |
+| [`label_both`](api/label_both.md) | Label facet strips with ``variable: value``. |
+| [`label_context`](api/label_context.md) | Label facet strips with the value, or ``variable: value`` for several variables. |
+| [`as_labeller()`](api/as_labeller.md) | Build a labeller from a lookup table or a function (ggplot2 ``as_labeller``). |
+| [`Labeller`](api/Labeller.md) | A facet strip labeller. |
 
 ## Labels and guides
 

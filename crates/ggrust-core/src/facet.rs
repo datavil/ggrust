@@ -4,7 +4,8 @@
 //!
 //! What it does: levels of every faceting column joined over the layers' data
 //! (first appearance, then `order`), strip labels (`format`, else lets-plot's
-//! `{,~g}` for numbers; split at newlines and wrapped at `labwidth` characters)
+//! `{,~g}` for numbers; then the `labeller`, see [`labeller`]; split at newlines and
+//! wrapped at `labwidth` characters)
 //! and which panels draw axes. `facet_wrap`: one panel per
 //! level combination that has data (`drop`), the grid shape from `ncol`, `nrow`,
 //! `dir`. `facet_grid`: one panel per (`x` level, `y` level), empty ones too, column
@@ -16,14 +17,18 @@
 //! What it does not do: datetime labels. Building and drawing the panels is
 //! `build` and `layout::facet`.
 
+pub mod labeller;
+
 use std::collections::HashMap;
 
 use crate::data::Column;
 use crate::layout::{LINE_BREAK, wrap_words};
 use crate::scale::format::Label;
 use crate::scale::label_pattern::{LabelPattern, PatternValue};
+use crate::scale::secondary::AxisFunctions;
 use crate::spec::FacetSpec;
 use crate::{Error, Result};
+use labeller::Labeller;
 
 /// One faceting column's value.
 #[derive(Debug, Clone, PartialEq)]
@@ -114,6 +119,16 @@ impl Facets {
     /// `facet_wrap` from its spec and each layer's faceting columns (`layers[i][v]`
     /// is layer `i`'s column of variable `v`) with each layer's row count.
     pub fn wrap(spec: &FacetSpec, layers: &[(&LayerFacetColumns, usize)]) -> Result<Facets> {
+        Facets::wrap_with_functions(spec, layers, &AxisFunctions::default())
+    }
+
+    /// [`Facets::wrap`], with the functions a `labeller` may refer to.
+    pub fn wrap_with_functions(
+        spec: &FacetSpec,
+        layers: &[(&LayerFacetColumns, usize)],
+        functions: &AxisFunctions,
+    ) -> Result<Facets> {
+        let labeller = Labeller::parse(spec.labeller.as_ref(), functions, "facet.labeller")?;
         let invalid = |key: &str, message: String| Error::spec(format!("facet.{key}"), message);
         let variables: Vec<String> = spec
             .facets
@@ -204,6 +219,20 @@ impl Facets {
                 parse_format(format.clone().flatten().as_deref(), &key)
             })
             .collect::<Result<Vec<_>>>()?;
+        let level_labels = levels
+            .iter()
+            .zip(&patterns)
+            .map(|(values, pattern)| {
+                labeller.transform_levels(
+                    values
+                        .iter()
+                        .map(|value| format_level(value, pattern.as_ref()))
+                        .collect(),
+                    &raw_texts(values),
+                )
+            })
+            .collect::<Result<Vec<_>>>()?;
+        let names: Vec<&str> = variables.iter().map(String::as_str).collect();
         let count = combinations.len();
         let (columns, rows) = shape(count, spec.ncol, spec.nrow, vertical);
         let mut tiles: Vec<Tile> = combinations
@@ -227,16 +256,16 @@ impl Facets {
                     index + 1
                 };
                 let is_row_end = column + 1 == columns || next_in_row >= count;
-                let labels = combination
+                let values = combination
                     .iter()
                     .enumerate()
-                    .map(|(variable, level)| {
-                        strip_label(
-                            &levels[variable][*level],
-                            patterns[variable].as_ref(),
-                            widths[variable].flatten(),
-                        )
-                    })
+                    .map(|(variable, level)| level_labels[variable][*level].clone())
+                    .collect();
+                let labels = labeller
+                    .strips(&names, values)
+                    .into_iter()
+                    .enumerate()
+                    .map(|(strip, label)| wrap_label(label, widths[strip].flatten()))
                     .collect();
                 let tile_index = row * columns + column;
                 Tile {
@@ -272,6 +301,16 @@ impl Facets {
     /// [`Facets::variables`] order: `x` first when given, then `y`). Levels sort
     /// by `x_order`/`y_order`, ascending by default (lets-plot's `1`).
     pub fn grid(spec: &FacetSpec, layers: &[(&LayerFacetColumns, usize)]) -> Result<Facets> {
+        Facets::grid_with_functions(spec, layers, &AxisFunctions::default())
+    }
+
+    /// [`Facets::grid`], with the functions a `labeller` may refer to.
+    pub fn grid_with_functions(
+        spec: &FacetSpec,
+        layers: &[(&LayerFacetColumns, usize)],
+        functions: &AxisFunctions,
+    ) -> Result<Facets> {
+        let labeller = Labeller::parse(spec.labeller.as_ref(), functions, "facet.labeller")?;
         let variables = grid_variables(spec)?;
         let free = free_scales(spec)?;
         let x_defined = spec.x.is_some();
@@ -287,11 +326,17 @@ impl Facets {
             } else {
                 (spec.y_order, &spec.y_format, spec.y_labwidth)
             };
-            strips.push((
-                parse_format(format.as_deref(), &format!("{key}_format"))?,
-                width,
-            ));
             let values = collect_levels(name, key, index, layers, order.unwrap_or(1))?;
+            let pattern = parse_format(format.as_deref(), &format!("{key}_format"))?;
+            // Each margin is its own strip group of one variable (ggplot2).
+            let level_labels = labeller.transform_levels(
+                values
+                    .iter()
+                    .map(|value| format_level(value, pattern.as_ref()))
+                    .collect(),
+                &raw_texts(&values),
+            )?;
+            strips.push((level_labels, width));
             if values.is_empty() {
                 return Err(Error::spec(
                     format!("facet.{key}"),
@@ -320,8 +365,16 @@ impl Facets {
                     combination.push(row);
                 }
                 let label = |variable: usize, level: usize| {
-                    let (pattern, width) = &strips[variable];
-                    strip_label(&levels[variable][level], pattern.as_ref(), *width)
+                    let (level_labels, width) = &strips[variable];
+                    let strip = labeller
+                        .strips(
+                            &[variables[variable].as_str()],
+                            vec![level_labels[level].clone()],
+                        )
+                        .into_iter()
+                        .next()
+                        .unwrap_or_else(|| Label::plain(String::new()));
+                    wrap_label(strip, *width)
                 };
                 let labels = if x_defined && row == 0 {
                     vec![label(0, column)]
@@ -451,12 +504,10 @@ fn parse_format(format: Option<&str>, key: &str) -> Result<Option<LabelPattern>>
         .transpose()
 }
 
-/// A strip label: `pattern` applied to the level, else the text itself or a number
-/// in lets-plot's `{,~g}`; then split at newlines and, for a positive `width`,
-/// wrapped at `width` characters (lets-plot `labwidth`), the lines joined by
-/// [`LINE_BREAK`]. A label with a superscript stays on one line.
-fn strip_label(value: &FacetValue, pattern: Option<&LabelPattern>, width: Option<i64>) -> Label {
-    let mut label = format_level(value, pattern);
+/// A strip label split at newlines and, for a positive `width`, wrapped at `width`
+/// characters, the lines joined by [`LINE_BREAK`]. A label with a superscript stays
+/// on one line.
+fn wrap_label(mut label: Label, width: Option<i64>) -> Label {
     if label.superscript.is_none() {
         let lines: Vec<String> = match width.and_then(|width| usize::try_from(width).ok()) {
             Some(width) if width > 0 => wrap_words(&label.text, width),
@@ -465,6 +516,18 @@ fn strip_label(value: &FacetValue, pattern: Option<&LabelPattern>, width: Option
         label.text = lines.join(&LINE_BREAK.to_string());
     }
     label
+}
+
+/// Plain decimal text of every numeric level (`4`, `4.5`), `None` for texts: the
+/// keys an `as_labeller` lookup may use besides the label.
+fn raw_texts(values: &[FacetValue]) -> Vec<Option<String>> {
+    values
+        .iter()
+        .map(|value| match value {
+            FacetValue::Text(_) => None,
+            FacetValue::Number(number) => Some(number.to_string()),
+        })
+        .collect()
 }
 
 /// A level's label before line breaking: `pattern`, else the text itself or a

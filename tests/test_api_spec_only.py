@@ -68,6 +68,8 @@ EXTENSIONS = {
     "position_fill": ("reverse",),
     "coord_cartesian": ("expand",),
     "coord_fixed": ("expand",),
+    "facet_grid": ("labeller",),
+    "facet_wrap": ("labeller",),
 }
 # Extras that sit among keyword-only parameters, before `**other_args`.
 KEYWORD_EXTENSIONS = {

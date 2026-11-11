@@ -57,6 +57,16 @@ be byte-identical to lets-plot. When a faster implementation gives the same pict
 (same pixels after decoding, same layout), prefer the faster one, and test the
 decoded result rather than the bytes. Never trade speed for byte-identical output.
 
+## Fit ggrust's identity and style
+
+Every change must fit ggrust's identity and style: a lets_plot-compatible ggplot2
+grammar used from Python, composed with `+`. Other libraries (plotnine, patchwork,
+matplotlib) are sources of ideas, not of syntax. Do not add an API only because another
+library has it. If a feature is in neither lets-plot nor ggplot2, or needs new syntax,
+ask the user first. The backlog's "Not worth it" list (`notes/backlog.md`) has what the
+user has ruled out, such as the `frame >> ggplot()` pipe, `qplot()`, method chaining and
+patchwork-style operators.
+
 ## Golden rules
 
 1. **Test everything before handing over. Not just smoke tests.** You have computer

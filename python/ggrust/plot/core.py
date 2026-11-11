@@ -9,7 +9,6 @@ with identical ``as_dict()`` output and ``+`` semantics, so code written for let
 from __future__ import annotations
 
 import copy
-import numbers
 from collections.abc import Iterable, Iterator
 from types import NotImplementedType
 from typing import TYPE_CHECKING, Any, Literal, cast
@@ -689,51 +688,6 @@ class PlotSpec(FeatureSpec):
     def has_layers(self) -> bool:
         """Return whether the plot has at least one layer."""
         return bool(self.__layers)
-
-    # numpy defers binary operators to the plot instead of applying them per element,
-    # so `array >> plot` raises one clear TypeError naming ndarray.
-    __array_ufunc__ = None
-
-    def __rrshift__(self, data: object) -> PlotSpec:
-        """Return a copy of the plot with ``data`` as its data: ``frame >> ggplot(...)``.
-
-        plotnine's way to pipe data into a plot; ``frame >> ggplot(mapping=aes(...))``
-        is ``ggplot(frame, aes(...))``. Pass the mapping by name. Not in lets_plot.
-
-        Parameters
-        ----------
-        data : DataFrame or dict
-            The plot data.
-
-        Returns
-        -------
-        PlotSpec
-            The new plot; this plot is not changed.
-
-        Raises
-        ------
-        SpecError
-            If the plot already has data.
-
-        Examples
-        --------
-        >>> from ggrust import *
-        >>> data = {"weight": [2.6, 2.9, 3.2], "mpg": [31, 28, 24]}
-        >>> plot = data >> ggplot(mapping=aes("weight", "mpg")) + geom_point()
-        >>> plot.data is data
-        True
-        """
-        from ggrust.errors import SpecError
-
-        if isinstance(data, numbers.Number | str | bytes) or type(data).__module__ == "numpy":
-            return NotImplemented
-        if self.data is not None:
-            message = (
-                "frame >> plot sets the plot's data, but this plot already has data; "
-                "use plot.with_data(frame) to replace it"
-            )
-            raise SpecError(message, path="data", reason=message)
-        return self.with_data(cast("PlotData", data))
 
     def __add__(self, other: object) -> PlotSpec:
         """Return a new plot with ``other`` added, or ``NotImplemented`` for other operands.

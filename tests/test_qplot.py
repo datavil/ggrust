@@ -1,4 +1,4 @@
-"""``qplot()`` and ``frame >> ggplot(...)``."""
+"""``qplot()``."""
 
 from __future__ import annotations
 
@@ -96,26 +96,8 @@ def test_y_without_x() -> None:
         gg.qplot(y="mpg", data=DATA)
 
 
-def test_frame_pipes_into_ggplot() -> None:
-    frame = pl.DataFrame(DATA)
-    plot = frame >> gg.ggplot(mapping=gg.aes("weight", "mpg")) + gg.geom_point()
-    assert plot.data is frame
-    assert plot.as_dict() == (gg.ggplot(frame, gg.aes("weight", "mpg")) + gg.geom_point()).as_dict()
-    assert (DATA >> gg.ggplot()).data is not None
-
-
-def test_pipe_into_a_plot_with_data_fails() -> None:
-    with pytest.raises(SpecError, match="already has data"):
-        DATA >> gg.ggplot(DATA)
-
-
-def test_pipe_of_a_number_is_a_type_error() -> None:
-    with pytest.raises(TypeError):
-        5 >> gg.ggplot()  # ty: ignore[unsupported-operator]
-
-
-def test_ggplot_with_a_positional_mapping_points_to_the_pipe_form() -> None:
-    with pytest.raises(SpecError, match=r"frame >> ggplot\(mapping=aes"):
+def test_ggplot_with_a_positional_mapping_points_to_the_data_form() -> None:
+    with pytest.raises(SpecError, match=r"ggplot\(frame, aes"):
         gg.ggplot(gg.aes("weight", "mpg"))  # ty: ignore[invalid-argument-type]
 
 
@@ -133,10 +115,3 @@ def test_array_like_aesthetics_are_mapped() -> None:
 def test_bad_geom_argument(geom: object) -> None:
     with pytest.raises(SpecError, match="geom must be a geom name"):
         gg.qplot("weight", "mpg", DATA, geom=geom)  # ty: ignore[invalid-argument-type]
-
-
-def test_numpy_array_pipe_is_a_clear_type_error() -> None:
-    import numpy as np
-
-    with pytest.raises(TypeError, match="ndarray"):
-        np.array([1, 2]) >> gg.ggplot()  # ty: ignore[unsupported-operator]

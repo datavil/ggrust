@@ -33,8 +33,8 @@ pub use axis::{AxisBreaks, LabelArrangement, Orientation, choose_breaks};
 pub use colorbar::{Colorbar, DEFAULT_BINS};
 pub(crate) use legend::wrap_words;
 pub use legend::{
-    KeyGrid, KeyLayer, Legend, LegendBlock, LegendBox, LegendBudget, LegendKey, draw_legends,
-    measure_legends, measure_themed_legends,
+    GuideStyle, KeyGrid, KeyLayer, Legend, LegendBlock, LegendBox, LegendBudget, LegendKey,
+    draw_legends, measure_legends, measure_themed_legends,
 };
 
 use axis::{LABELS_OVERFLOW, TILT_DEGREES};

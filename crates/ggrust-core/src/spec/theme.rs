@@ -46,6 +46,22 @@ impl TryFrom<Value> for ThemeSpec {
 }
 
 impl ThemeSpec {
+    /// This theme with `over`'s elements on top: element options merge one by one
+    /// (`over` wins), other values are replaced. `over`'s name is ignored.
+    pub fn with_overrides(&self, over: &ThemeSpec) -> ThemeSpec {
+        let mut merged = self.clone();
+        for (key, value) in &over.elements {
+            let value = match (merged.elements.get(key), value) {
+                (Some(ThemeValue::Element(base)), ThemeValue::Element(top)) => {
+                    ThemeValue::Element(Box::new(top.over(base)))
+                }
+                _ => value.clone(),
+            };
+            merged.elements.insert(key.clone(), value);
+        }
+        merged
+    }
+
     pub(super) fn collect_unsupported(&self, parent: &str, found: &mut Vec<String>) {
         for (name, value) in &self.elements {
             if let ThemeValue::Element(element) = value {
@@ -128,4 +144,32 @@ pub struct ElementSpec {
     /// Keys no component consumes.
     #[serde(flatten)]
     pub unsupported: Options,
+}
+
+impl ElementSpec {
+    /// These options, with `base`'s where these leave one unset.
+    fn over(&self, base: &ElementSpec) -> ElementSpec {
+        let mut unsupported = base.unsupported.clone();
+        unsupported.extend(self.unsupported.clone());
+        ElementSpec {
+            blank: self.blank,
+            color: self.color.clone().or_else(|| base.color.clone()),
+            fill: self.fill.clone().or_else(|| base.fill.clone()),
+            size: self.size.or(base.size),
+            linetype: self.linetype.clone().or_else(|| base.linetype.clone()),
+            angle: self.angle.or(base.angle),
+            hjust: self.hjust.or(base.hjust),
+            vjust: self.vjust.or(base.vjust),
+            face: self.face.clone().or_else(|| base.face.clone()),
+            family: self.family.clone().or_else(|| base.family.clone()),
+            margin: self.margin.clone().or_else(|| base.margin.clone()),
+            lineheight: self.lineheight.or(base.lineheight),
+            arrow: self.arrow.clone().or_else(|| base.arrow.clone()),
+            extent: self.extent.clone().or_else(|| base.extent.clone()),
+            pen: self.pen.clone().or_else(|| base.pen.clone()),
+            brush: self.brush.clone().or_else(|| base.brush.clone()),
+            paper: self.paper.clone().or_else(|| base.paper.clone()),
+            unsupported,
+        }
+    }
 }

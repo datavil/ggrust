@@ -134,8 +134,16 @@ def test_colorbars_match_lets_plot(name):
         warnings.simplefilter("ignore")
         theirs = _theirs(CASES[name](lp).to_svg())
         ours = _ours(CASES[name](gg).to_svg())
-    assert [(title, segments, labels) for title, segments, _, labels in ours] == [
-        (title, segments, labels) for title, segments, _, labels in theirs
+    # Colors and labels match exactly; segment starts within half a unit (translucent
+    # bars snap their segments to whole units, deviations.md).
+    assert [
+        (title, [color for color, _ in segments], labels) for title, segments, _, labels in ours
+    ] == [
+        (title, [color for color, _ in segments], labels) for title, segments, _, labels in theirs
     ]
+    for (_, our_segments, *_), (_, their_segments, *_) in zip(ours, theirs, strict=True):
+        assert [start for _, start in our_segments] == pytest.approx(
+            [start for _, start in their_segments], abs=0.5
+        )
     for (*_, our_ticks, _), (*_, their_ticks, _) in zip(ours, theirs, strict=True):
         assert our_ticks == pytest.approx(their_ticks, abs=0.02)

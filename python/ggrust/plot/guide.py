@@ -450,6 +450,10 @@ def guide_legend(
     ncol: int | None = None,
     byrow: bool | None = None,
     override_aes: Mapping[str, Any] | None = None,
+    reverse: bool | None = None,
+    direction: Literal["horizontal", "vertical"] | None = None,
+    order: int | None = None,
+    theme: FeatureSpec | None = None,
 ) -> FeatureSpec:
     """Show a key legend for an aesthetic.
 
@@ -463,11 +467,27 @@ def guide_legend(
         True fills the keys row by row instead of column by column.
     override_aes : dict, optional
         Constant aesthetics for the legend keys only, e.g. ``{"size": 5}``.
+    reverse : bool, optional
+        True lists the keys in reverse order (ggplot2).
+    direction : {"horizontal", "vertical"}, optional
+        Key layout of this legend; None follows ``theme(legend_direction=...)``
+        (ggplot2).
+    order : int, optional
+        Place among the legends, 1 to 99: legends with a lower order come first,
+        legends without one (or 0) last, in their usual order (ggplot2).
+    theme : FeatureSpec, optional
+        ``theme(legend_*=...)`` options for this legend only, e.g.
+        ``theme(legend_text=element_text(color="red"))`` (ggplot2).
 
     Returns
     -------
     FeatureSpec
         The guide.
+
+    Raises
+    ------
+    SpecError
+        If ``direction``, ``order`` or ``theme`` is not accepted.
 
     Examples
     --------
@@ -477,8 +497,10 @@ def guide_legend(
     ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
     >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
     >>> plot = plot + guides(color=guide_legend(nrow=1, override_aes={"size": 8}))
+    >>> plot = plot + guides(color=guide_legend(reverse=True, order=1))
     """
-    return _guide("legend", **locals())
+    _check_common("guide_legend", reverse, direction, order)
+    return _guide("legend", **_with_theme(locals(), "guide_legend"))
 
 
 def guide_colorbar(
@@ -488,6 +510,14 @@ def guide_colorbar(
     barheight: Number | None = None,
     nbin: int | None = None,
     label_position: Literal["ends"] | None = None,
+    reverse: bool | None = None,
+    direction: Literal["horizontal", "vertical"] | None = None,
+    order: int | None = None,
+    theme: FeatureSpec | None = None,
+    display: Literal["gradient", "rectangles", "raster"] | None = None,
+    alpha: Number | None = None,
+    draw_ulim: bool | None = None,
+    draw_llim: bool | None = None,
 ) -> FeatureSpec:
     """Show a colorbar for a continuous color or fill scale.
 
@@ -505,6 +535,24 @@ def guide_colorbar(
         below and above a vertical one. Other breaks keep their ticks. The default
         (None) puts every label below a horizontal bar or right of a vertical one.
         A ggrust option; lets-plot and ggplot2 have no equivalent.
+    reverse : bool, optional
+        True puts the high values at the bottom (or left) of the bar (ggplot2).
+    direction : {"horizontal", "vertical"}, optional
+        Bar orientation of this colorbar; None follows
+        ``theme(legend_direction=...)`` (ggplot2).
+    order : int, optional
+        Place among the legends, 1 to 99, as in ``guide_legend()``.
+    theme : FeatureSpec, optional
+        ``theme(legend_*=...)`` options for this colorbar only (ggplot2).
+    display : {"gradient", "rectangles", "raster"}, optional
+        ``"rectangles"`` (the default, as lets-plot) draws ``nbin`` flat color
+        segments; ``"gradient"`` and ``"raster"`` blend smoothly between them
+        (ggplot2).
+    alpha : float, optional
+        Opacity of the bar, between 0 and 1 (ggplot2).
+    draw_ulim, draw_llim : bool, optional
+        False hides the ticks of a break at the upper (lower) end of the bar
+        (ggplot2).
 
     Returns
     -------
@@ -514,20 +562,139 @@ def guide_colorbar(
     Raises
     ------
     SpecError
-        If ``label_position`` is not ``"ends"`` or None.
+        If ``label_position``, ``direction``, ``order``, ``theme``, ``display`` or
+        ``alpha`` is not accepted.
 
     Examples
     --------
     >>> from ggrust import *
     >>> spec = guides(fill=guide_colorbar(label_position="ends"))
+    >>> spec = guides(fill=guide_colorbar(reverse=True, display="gradient", alpha=0.8))
     """
+    arguments = dict(locals())
     if label_position is not None and label_position != "ends":
         message = (
             f"guide_colorbar(label_position={label_position!r}) is not supported; "
             f"expected 'ends' or None{did_you_mean(str(label_position), ['ends'])}"
         )
         raise SpecError(message)
-    return _guide("colorbar", **locals())
+    _check_common("guide_colorbar", reverse, direction, order)
+    if display is not None and display not in _DISPLAYS:
+        message = (
+            f"guide_colorbar(display={display!r}) is not supported; expected one of "
+            f"{', '.join(repr(name) for name in _DISPLAYS)}"
+            f"{did_you_mean(str(display), list(_DISPLAYS))}"
+        )
+        raise SpecError(message)
+    if alpha is not None and (
+        isinstance(alpha, bool) or not isinstance(alpha, Real) or not 0 <= alpha <= 1
+    ):
+        raise SpecError(f"guide_colorbar(alpha={alpha!r}): expected a number between 0 and 1")
+    for name, flag in (("draw_ulim", draw_ulim), ("draw_llim", draw_llim)):
+        if flag is not None and not isinstance(flag, bool):
+            raise SpecError(f"guide_colorbar({name}={flag!r}): expected True or False")
+    return _guide("colorbar", **_with_theme(arguments, "guide_colorbar"))
+
+
+_DIRECTIONS: tuple[str, ...] = ("horizontal", "vertical")
+_DISPLAYS: tuple[str, ...] = ("gradient", "rectangles", "raster")
+# Elements that place or arrange the whole legend block, not one guide.
+_BLOCK_ELEMENTS: frozenset[str] = frozenset(
+    {
+        "legend_position",
+        "legend_justification",
+        "legend_box",
+        "legend_box_just",
+        "legend_box_spacing",
+        "legend_spacing",
+        "legend_spacing_x",
+        "legend_spacing_y",
+        "legend_interactive",
+    }
+)
+
+
+def _check_common(
+    function: str, reverse: bool | None, direction: str | None, order: int | None
+) -> None:
+    """Validate the options every legend guide takes.
+
+    Parameters
+    ----------
+    function : str
+        Name of the guide function, for the message.
+    reverse : bool, optional
+        The ``reverse`` option.
+    direction : str, optional
+        The ``direction`` option.
+    order : int, optional
+        The ``order`` option.
+
+    Raises
+    ------
+    SpecError
+        If an option has the wrong type or value.
+    """
+    if reverse is not None and not isinstance(reverse, bool):
+        raise SpecError(f"{function}(reverse={reverse!r}): expected True or False")
+    if direction is not None and direction not in _DIRECTIONS:
+        message = (
+            f"{function}(direction={direction!r}) is not supported; expected 'horizontal' "
+            f"or 'vertical'{did_you_mean(str(direction), list(_DIRECTIONS))}"
+        )
+        raise SpecError(message)
+    if order is not None and (
+        isinstance(order, bool) or not isinstance(order, int) or not 0 <= order <= 99
+    ):
+        raise SpecError(f"{function}(order={order!r}): expected an integer from 0 to 99")
+
+
+def _with_theme(options: dict[str, Any], function: str) -> dict[str, Any]:
+    """Return guide options with ``theme`` as its dict of ``legend_*`` elements.
+
+    Parameters
+    ----------
+    options : dict
+        The guide function's arguments.
+    function : str
+        Name of the guide function, for the message.
+
+    Returns
+    -------
+    dict
+        ``options`` with ``theme`` replaced by its elements (or dropped).
+
+    Raises
+    ------
+    SpecError
+        If ``theme`` is not a ``theme(...)`` spec, is a complete theme, or sets
+        elements other than ``legend_*`` ones.
+    """
+    options = dict(options)
+    theme = options.pop("theme", None)
+    if theme is None:
+        return options
+    if not isinstance(theme, FeatureSpec) or theme.kind != "theme":
+        raise SpecError(
+            f"{function}(theme=...): expected theme(legend_*=...), got {type(theme).__name__}"
+        )
+    elements = theme.as_dict()
+    if "name" in elements:
+        raise SpecError(
+            f"{function}(theme=...): a complete theme ({elements['name']!r}) is not "
+            "supported here; pass theme(legend_*=...) options"
+        )
+    others = sorted(
+        key for key in elements if not key.startswith("legend_") or key in _BLOCK_ELEMENTS
+    )
+    if others:
+        raise SpecError(
+            f"{function}(theme=...): a guide theme styles its own legend only; got "
+            f"{', '.join(others)}. Set those in the plot's theme(), and give this guide "
+            "legend_* options such as legend_text or legend_key_size"
+        )
+    options["theme"] = elements
+    return options
 
 
 def layer_key(

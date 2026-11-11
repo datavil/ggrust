@@ -2,7 +2,7 @@
 
 use serde::Deserialize;
 
-use super::{Options, Value, from_value_tracked, optional_count, report_unsupported};
+use super::{Options, ThemeSpec, Value, from_value_tracked, optional_count, report_unsupported};
 
 /// A guide, given as a name (`"none"`, `"legend"`) or with options.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -16,9 +16,10 @@ pub enum GuideSpec {
 
 impl GuideSpec {
     /// Whether a style aesthetic's guide uses only options ggrust draws: `"none"`,
-    /// `"legend"`, `"colorbar"`, a title, `guide_legend(ncol, nrow, byrow)` and
-    /// `guide_colorbar(barwidth, barheight, nbin, label_position)`. Anything else (`override_aes`,
-    /// ...) is not built yet.
+    /// `"legend"`, `"colorbar"`, a title, `guide_legend(ncol, nrow, byrow, reverse,
+    /// direction, order, theme)` and `guide_colorbar(barwidth, barheight, nbin,
+    /// label_position, display, alpha, draw_ulim, draw_llim)` plus those four.
+    /// Anything else (`override_aes`, ...) is not built yet.
     pub fn is_built_style_guide(&self) -> bool {
         match self {
             GuideSpec::Name(name) => matches!(name.as_str(), "none" | "legend" | "colorbar"),
@@ -38,6 +39,14 @@ impl GuideSpec {
                     barheight: options.barheight.filter(|_| !colorbar),
                     nbin: options.nbin.filter(|_| !colorbar),
                     label_position: options.label_position.clone().filter(|_| !colorbar),
+                    display: options.display.clone().filter(|_| !colorbar),
+                    alpha: options.alpha.filter(|_| !colorbar),
+                    draw_ulim: options.draw_ulim.filter(|_| !colorbar),
+                    draw_llim: options.draw_llim.filter(|_| !colorbar),
+                    reverse: None,
+                    direction: None,
+                    order: None,
+                    theme: None,
                     unsupported: Default::default(),
                     ..(**options).clone()
                 };
@@ -75,8 +84,22 @@ pub struct GuideOptions {
     /// Colorbar label placement: `"ends"` puts the lowest and highest break labels
     /// beside the bar's ends (a ggrust option).
     pub label_position: Option<String>,
-    /// Legend order among guides.
+    /// Legend order among guides: 1 to 99 first, in order; 0 (or none) last.
     pub order: Option<i64>,
+    /// List the keys backwards; a colorbar puts high values at the bottom (left).
+    pub reverse: Option<bool>,
+    /// `"horizontal"` or `"vertical"`: this guide's layout over `legend_direction`.
+    pub direction: Option<String>,
+    /// `theme(legend_*=...)` elements for this guide only.
+    pub theme: Option<ThemeSpec>,
+    /// Colorbar `display`: `"rectangles"` (flat segments), `"gradient"`, `"raster"`.
+    pub display: Option<String>,
+    /// Colorbar opacity, 0 to 1.
+    pub alpha: Option<f64>,
+    /// Colorbar: draw the ticks of a break at the upper end.
+    pub draw_ulim: Option<bool>,
+    /// Colorbar: draw the ticks of a break at the lower end.
+    pub draw_llim: Option<bool>,
     /// Manual legend entries.
     pub manual_key: Option<Value>,
     /// Keys no component consumes.

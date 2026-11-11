@@ -56,10 +56,17 @@ def test_built_guide_options_do_not_warn_and_others_do():
         base + gg.scale_color_gradient(guide=gg.guide_legend(title="X")),
         base + gg.guides(color=gg.guide_legend(ncol=2, nrow=3, byrow=True)),
         base + gg.guides(color=gg.guide_legend(override_aes={"size": 3})),
+        base + gg.guides(color=gg.guide_legend(reverse=True, order=1, direction="horizontal")),
+        base
+        + gg.guides(
+            color=gg.guide_colorbar(
+                display="gradient", alpha=0.5, draw_ulim=False, draw_llim=False, reverse=True
+            )
+        ),
     ]
     for plot in built:
         assert not [message for message in build_warnings(plot) if "guide" in message]
-    unbuilt = base + gg.guides(color={"name": "legend", "order": 1})
+    unbuilt = base + gg.guides(color={"name": "legend", "manual_key": "x"})
     assert any("not supported yet" in message for message in build_warnings(unbuilt))
 
 

@@ -58,6 +58,34 @@ pub struct Legend {
     pub keys: Vec<LegendKey>,
     /// `guide_legend(ncol, nrow, byrow)`.
     pub grid: KeyGrid,
+    /// `guide_legend(direction, theme)`.
+    pub style: GuideStyle,
+}
+
+/// Options of one guide box over the block's (ggplot2 `guide_*(direction=, theme=)`).
+#[derive(Debug, Clone, Default)]
+pub struct GuideStyle {
+    /// `direction`: keys in rows (`Some(true)`) or columns; `None` follows the block.
+    pub horizontal: Option<bool>,
+    /// The plot theme with the guide's `theme(legend_*=...)` on top.
+    pub theme: Option<Box<Theme>>,
+    /// `reverse`: keys listed backwards, a colorbar's high values at its start
+    /// (applied by the plot builder).
+    pub reverse: Option<bool>,
+    /// `order`, 0 to 99 (0 or unset: last); the plot builder sorts boxes by it.
+    pub order: Option<u32>,
+}
+
+impl GuideStyle {
+    /// `self`, with `other`'s options where `self` leaves one unset.
+    pub fn or(self, other: GuideStyle) -> GuideStyle {
+        GuideStyle {
+            horizontal: self.horizontal.or(other.horizontal),
+            theme: self.theme.or(other.theme),
+            reverse: self.reverse.or(other.reverse),
+            order: self.order.or(other.order),
+        }
+    }
 }
 
 /// How keys fill their grid (`guide_legend(ncol, nrow, byrow)`).
@@ -130,6 +158,14 @@ pub enum LegendBox {
 }
 
 impl LegendBox {
+    /// The guide's own direction and theme.
+    pub fn style(&self) -> &GuideStyle {
+        match self {
+            LegendBox::Keys(legend) => &legend.style,
+            LegendBox::Colorbar(colorbar) => &colorbar.style,
+        }
+    }
+
     /// The title.
     pub fn title(&self) -> &str {
         match self {
@@ -143,7 +179,10 @@ impl LegendBox {
     pub fn same_content(&self, other: &LegendBox) -> bool {
         match (self, other) {
             (LegendBox::Keys(left), LegendBox::Keys(right)) => {
-                left.title == right.title
+                left.style.horizontal == right.style.horizontal
+                    && left.style.theme.is_none()
+                    && right.style.theme.is_none()
+                    && left.title == right.title
                     && left.grid == right.grid
                     && left.keys.len() == right.keys.len()
                     && left.keys.iter().zip(&right.keys).all(|(left, right)| {
@@ -156,7 +195,12 @@ impl LegendBox {
                     })
             }
             (LegendBox::Colorbar(left), LegendBox::Colorbar(right)) => {
-                left.title == right.title
+                left.style.horizontal == right.style.horizontal
+                    && left.style.theme.is_none()
+                    && right.style.theme.is_none()
+                    && left.reverse == right.reverse
+                    && left.limit_ticks == right.limit_ticks
+                    && left.title == right.title
                     && left.domain == right.domain
                     && left.breaks == right.breaks
                     && left.colors == right.colors
@@ -337,8 +381,11 @@ pub fn measure_themed_legends<'a>(
         .map(|(index, legend_box)| (legend_box, box_themes.map(|themes| &themes[index])))
         .unzip();
     let measure_one = |index: usize, budget: Option<LegendBudget>| {
-        let own = shown_themes[index];
+        // The guide's own theme, else the box's figure theme, else the block's.
+        let style = shown[index].style();
+        let own = style.theme.as_deref().or(shown_themes[index]);
         let box_theme = own.unwrap_or(theme);
+        let horizontal = style.horizontal.unwrap_or(horizontal);
         let mut measured = match shown[index] {
             LegendBox::Keys(legend) => fit_legend(legend, horizontal, box_theme, budget)?,
             LegendBox::Colorbar(colorbar) => measure_colorbar(colorbar, horizontal, box_theme),

@@ -51,6 +51,14 @@ pub struct Colorbar {
     /// values: drawn as an "NA" swatch after the bar (ggplot2 issue 4567; neither
     /// lets-plot nor ggplot2 shows one).
     pub na: Option<Color>,
+    /// `guide_colorbar(reverse=True)`: high values at the bottom (left); `colors`
+    /// are then low values first.
+    pub reverse: bool,
+    /// `guide_colorbar(draw_llim, draw_ulim)`: whether a break at the lower (upper)
+    /// end of the domain gets its ticks.
+    pub limit_ticks: (bool, bool),
+    /// `guide_colorbar(direction, theme)`.
+    pub style: super::legend::GuideStyle,
 }
 
 impl Colorbar {
@@ -243,12 +251,14 @@ fn layout_bar(
         height,
     };
     let (low, high) = colorbar.domain;
+    let reverse = colorbar.reverse;
     let fraction = |value: f64| {
-        if high > low {
+        let at = if high > low {
             (value - low) / (high - low)
         } else {
             0.5
-        }
+        };
+        if reverse { 1.0 - at } else { at }
     };
     let Some(style) = theme.legend_text else {
         // No labels: ticks only.
@@ -388,13 +398,14 @@ fn layout_end_labels(
             .iter()
             .enumerate()
             .filter(|(_, (value, _))| inside(*value))
-            .fold(
-                None,
-                |best: Option<(usize, f64)>, (index, (value, _))| match best {
-                    Some((_, kept)) if !better(*value, kept) => best,
-                    _ => Some((index, *value)),
-                },
-            )
+            .fold(None, |best: Option<(usize, f64)>, (index, (value, _))| {
+                // By place on the bar, so a reversed bar keeps low at the start.
+                let at = fraction(*value);
+                match best {
+                    Some((_, kept)) if !better(at, kept) => best,
+                    _ => Some((index, at)),
+                }
+            })
             .map(|(index, _)| index)
     };
     let low = pick(|value, kept| value < kept);
@@ -546,13 +557,18 @@ pub(super) fn draw_colorbar(
             BAR_END_PADDING + step * index as f64
         }
     };
+    // Translucent segments (`alpha`) would darken where they overlap: they abut.
+    // Their edges sit on whole units, so no anti-aliased seam shows between them.
+    let opaque = colorbar.colors.iter().all(|color| color.alpha == u8::MAX);
+    let overlap = if opaque { 2 } else { 1 };
+    let edge = |at: f64| if opaque { at } else { at.round() };
     let mut rects = Vec::with_capacity(count);
     for index in 0..colors.len() {
-        let start = start_of(index);
-        let end = if index + 2 >= colors.len() {
+        let start = edge(start_of(index));
+        let end = if index + overlap >= colors.len() {
             length
         } else {
-            start_of(index + 2)
+            edge(start_of(index + overlap))
         };
         rects.push(if horizontal {
             Rect {
@@ -598,7 +614,16 @@ pub(super) fn draw_colorbar(
     }
     if let Some(line) = theme.legend_ticks {
         let length = theme.legend_ticks_length;
-        for (tick, _) in &layout.ticks {
+        let (low, high) = colorbar.domain;
+        let tolerance = (high - low).abs() * 1e-9;
+        let hidden = |value: f64| {
+            (!colorbar.limit_ticks.0 && (value - low).abs() <= tolerance)
+                || (!colorbar.limit_ticks.1 && (value - high).abs() <= tolerance)
+        };
+        for ((tick, _), (value, _)) in layout.ticks.iter().zip(&colorbar.breaks) {
+            if hidden(*value) {
+                continue;
+            }
             let marks = if horizontal {
                 [
                     ((*tick, bar.y), (*tick, bar.y + length)),
@@ -716,6 +741,9 @@ mod tests {
             bar_height: Some(44.0),
             label_ends: false,
             na: None,
+            reverse: false,
+            limit_ticks: (true, true),
+            style: Default::default(),
         };
         let theme = Theme::default();
         let layout = layout_colorbar(&colorbar, (0.0, 0.0), false, &theme).translated((3.4, 5.6));
@@ -752,6 +780,9 @@ mod tests {
             bar_height: None,
             label_ends: false,
             na: None,
+            reverse: false,
+            limit_ticks: (true, true),
+            style: Default::default(),
         };
         let theme = Theme::default();
         let plain = |horizontal| layout_colorbar(&colorbar, (0.0, 0.0), horizontal, &theme);
@@ -793,6 +824,9 @@ mod tests {
             bar_height: None,
             label_ends: false,
             na: None,
+            reverse: false,
+            limit_ticks: (true, true),
+            style: Default::default(),
         };
         let theme = Theme::default();
         let layout = layout_colorbar(&colorbar, (0.0, 0.0), true, &theme);
@@ -825,6 +859,9 @@ mod tests {
             bar_height: Some(8.0),
             label_ends: false,
             na: None,
+            reverse: false,
+            limit_ticks: (true, true),
+            style: Default::default(),
         };
         let theme = Theme::default();
         let layout = layout_colorbar(&colorbar, (0.0, 0.0), true, &theme);
@@ -846,6 +883,9 @@ mod tests {
             bar_height: Some(8.0),
             label_ends: false,
             na: None,
+            reverse: false,
+            limit_ticks: (true, true),
+            style: Default::default(),
         };
         let kept = layout_colorbar(&outside, (0.0, 0.0), true, &theme);
         assert_eq!((kept.bar.x, kept.size.0), (0.0, 80.0));
@@ -873,6 +913,9 @@ mod tests {
             bar_height: Some(8.0),
             label_ends: true,
             na: None,
+            reverse: false,
+            limit_ticks: (true, true),
+            style: Default::default(),
         };
         let theme = Theme::default();
         let style = theme.legend_text.expect("default theme has legend text");

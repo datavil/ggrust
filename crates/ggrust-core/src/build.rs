@@ -26,10 +26,10 @@ use crate::layout::side_panel::{
 };
 use crate::layout::zoom::{Zoom, ZoomPlot, zoom_tile};
 use crate::layout::{
-    Colorbar, DEFAULT_BINS, KeyGrid, KeyLayer, Legend, LegendBox, LegendKey, PANEL_MIN_SIZE,
-    PlotLayout, Titles, draw_axes, draw_legends, draw_panel_background, draw_panel_border,
-    draw_titles, headings_band, layout_plot, legend_budget, legend_origin, legend_space,
-    measure_legends, wrap_headings,
+    Colorbar, DEFAULT_BINS, GuideStyle, KeyGrid, KeyLayer, Legend, LegendBox, LegendKey,
+    PANEL_MIN_SIZE, PlotLayout, Titles, draw_axes, draw_legends, draw_panel_background,
+    draw_panel_border, draw_titles, headings_band, layout_plot, legend_budget, legend_origin,
+    legend_space, measure_legends, wrap_headings,
 };
 use crate::parallel;
 use crate::parameters::Parameters;
@@ -42,7 +42,7 @@ use crate::scale::number_format::{ExponentFormat, NumberFormat};
 use crate::scale::style::spec::{StyleScaleSpec, style_scale_specs};
 use crate::scale::style::{LegendEntry, ScaleKey, StyleScale, default_mapper};
 use crate::scale::{AxisScaleSpec, AxisSides, PositionScale, PositionScales, position_scales};
-use crate::scene::{Group, LAYER_ROLE, Node, PerItem, Raster, Rect, Rects, Scene};
+use crate::scene::{Color, Group, LAYER_ROLE, Node, PerItem, Raster, Rect, Rects, Scene};
 use crate::spec::side::{BandKey, LayerSide, SideOptions, layer_side};
 use crate::spec::{
     Aesthetic, DataSource, GuideOptions, GuideSpec, LayerSpec, Mapping, MappingAnnotation,
@@ -886,6 +886,7 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         &style_scales,
         &style_specs,
         &palette,
+        &theme,
         &mut layer_legends,
         &mut style_guides,
     )
@@ -4141,12 +4142,14 @@ type AestheticEntries = (Aesthetic, Vec<LegendEntry>);
 ///
 /// ggnewscale: a legend is keyed by its title and scale group, so the legends of
 /// scales from different `new_scale_*()` groups never merge (deviations.md).
+#[allow(clippy::too_many_arguments)]
 fn assemble_legends(
     spec: &PlotSpec,
     layers: &[&PreparedLayer],
     scales: &BTreeMap<ScaleKey, StyleScale>,
     specs: &BTreeMap<ScaleKey, StyleScaleSpec>,
     palette: &GeomPalette,
+    theme: &Theme,
     layer_legends: &mut [LayerLegends],
     style_guides: &mut Vec<StyleGuide>,
 ) -> Result<Vec<LegendBox>> {
@@ -4180,6 +4183,7 @@ fn assemble_legends(
                     title,
                     0,
                     grid,
+                    GuideStyle::default(),
                 );
                 contributions[index].push(key);
             }
@@ -4187,8 +4191,7 @@ fn assemble_legends(
         }
         // (Scale name, scale group) -> (aesthetic, its legend entries), in the geom's
         // rendered order.
-        let mut by_title: Vec<(String, u32, Vec<AestheticEntries>, KeyGrid, Overrides)> =
-            Vec::new();
+        let mut by_title: Vec<TitledEntries> = Vec::new();
         let mapped: Vec<Aesthetic> = layer.data.aesthetics().collect();
         let rendered = layer
             .geom
@@ -4231,13 +4234,32 @@ fn assemble_legends(
                 && !guides.named("legend")
             {
                 let options = guides.colorbar_options(aesthetic)?;
+                let style = guides.style(spec, theme)?;
                 let bins = options.bins;
-                let StyleValues::Colors(colors) =
-                    scale.map_numbers(&Colorbar::bin_values(guide.domain, bins))
-                else {
+                // Gradient: the scale's colors at `bins` points from low to high,
+                // blended; rectangles: one flat color per bin centre.
+                let values = if options.gradient {
+                    gradient_values(guide.domain, bins)
+                } else {
+                    Colorbar::bin_values(guide.domain, bins)
+                };
+                let StyleValues::Colors(colors) = scale.map_numbers(&values) else {
                     continue;
                 };
-                let colors = (0..bins.max(2)).map(|index| colors.get(index)).collect();
+                let mut colors: Vec<Color> =
+                    (0..values.len()).map(|index| colors.get(index)).collect();
+                if options.gradient {
+                    colors = blend_gradient(&colors);
+                }
+                if let Some(alpha) = options.alpha {
+                    for color in &mut colors {
+                        color.alpha = (f64::from(color.alpha) * alpha).round() as u8;
+                    }
+                }
+                let reverse = style.reverse.unwrap_or(false);
+                if reverse {
+                    colors.reverse();
+                }
                 let na = match missing_value(layer, aesthetic, scale, specs.get(&key)) {
                     Some(StyleValues::Colors(colors)) => Some(colors.get(0)),
                     _ => None,
@@ -4251,6 +4273,9 @@ fn assemble_legends(
                     bar_height: options.bar_height,
                     label_ends: options.label_ends,
                     na,
+                    reverse,
+                    limit_ticks: options.limit_ticks,
+                    style,
                 };
                 if let Some(entries) = scale.legend_entries() {
                     record_style_guide(style_guides, key, &colorbar.title, entries);
@@ -4294,13 +4319,16 @@ fn assemble_legends(
             record_style_guide(style_guides, key, &title, entries.clone());
             let grid = guides.legend_grid()?;
             let overrides = guides.override_aes(palette)?;
+            let style = guides.style(spec, theme)?;
             match by_title
                 .iter_mut()
-                .find(|(known, known_group, _, _, _)| *known == title && *known_group == key.group)
-            {
-                Some((_, _, group, known, known_overrides)) => {
+                .find(|(known, known_group, _, _, _, _)| {
+                    *known == title && *known_group == key.group
+                }) {
+                Some((_, _, group, known, known_overrides, known_style)) => {
                     group.push((aesthetic, entries));
                     *known = known.combine(grid);
+                    *known_style = std::mem::take(known_style).or(style);
                     // lets-plot: the legend's maps merge; a later aesthetic's value wins.
                     for (key, values) in overrides {
                         known_overrides.retain(|(known, _)| *known != key);
@@ -4313,10 +4341,11 @@ fn assemble_legends(
                     vec![(aesthetic, entries)],
                     grid,
                     overrides,
+                    style,
                 )),
             }
         }
-        for (title, scale_group, mut group, grid, overrides) in by_title {
+        for (title, scale_group, mut group, grid, overrides, style) in by_title {
             if let Some(shown) = layer_legends.get_mut(layer_index) {
                 shown.push((title.clone(), group.clone()));
             }
@@ -4326,6 +4355,7 @@ fn assemble_legends(
                 title,
                 scale_group,
                 grid,
+                style,
             );
             let mut keys = Vec::new();
             // lets-plot `applyOverrideAesLists`: labels of every aesthetic, distinct;
@@ -4360,6 +4390,7 @@ fn assemble_legends(
                 title,
                 0,
                 grid,
+                GuideStyle::default(),
             );
             contributions[index].push(key);
         }
@@ -4376,11 +4407,73 @@ fn assemble_legends(
             }
         }
     }
-    Ok(colorbars
+    for legend in &mut legends {
+        if legend.style.reverse == Some(true) {
+            legend.keys.reverse();
+        }
+    }
+    let mut boxes: Vec<LegendBox> = colorbars
         .into_iter()
         .map(|(colorbar, _)| LegendBox::Colorbar(colorbar))
         .chain(legends.into_iter().map(LegendBox::Keys))
-        .collect())
+        .collect();
+    // ggplot2 `guides$package_box`: by `order`, unset (0) as 99; ties keep their place.
+    boxes.sort_by_key(|legend_box| match legend_box.style().order {
+        None | Some(0) => 99,
+        Some(order) => order,
+    });
+    Ok(boxes)
+}
+
+/// A layer's legend entries under one title: (title, scale group, entries per
+/// aesthetic, grid, key overrides, guide style).
+type TitledEntries = (
+    String,
+    u32,
+    Vec<AestheticEntries>,
+    KeyGrid,
+    Overrides,
+    GuideStyle,
+);
+
+/// Colorbar segments drawn for `display="gradient"` / `"raster"`.
+const GRADIENT_SEGMENTS: usize = 256;
+
+/// `bins` values evenly from the domain's low end to its high end (ggplot2
+/// `guide_colourbar` gradient stops), at least 2.
+fn gradient_values(domain: (f64, f64), bins: usize) -> Vec<f64> {
+    let count = bins.max(2);
+    let step = (domain.1 - domain.0) / (count - 1) as f64;
+    (0..count)
+        .map(|index| domain.0 + step * index as f64)
+        .collect()
+}
+
+/// Colors of [`GRADIENT_SEGMENTS`] segments, top (high) first, blended linearly
+/// between `stops` (low first, evenly spaced).
+fn blend_gradient(stops: &[Color]) -> Vec<Color> {
+    let last = stops.len().saturating_sub(1);
+    if last == 0 {
+        return stops.to_vec();
+    }
+    let mix = |from: u8, to: u8, share: f64| {
+        (f64::from(from) + (f64::from(to) - f64::from(from)) * share).round() as u8
+    };
+    (0..GRADIENT_SEGMENTS)
+        .rev()
+        .map(|segment| {
+            let at = (segment as f64 + 0.5) / GRADIENT_SEGMENTS as f64 * last as f64;
+            let index = (at.floor() as usize).min(last - 1);
+            let share = at - index as f64;
+            let (from, to) = (stops[index], stops[index + 1]);
+            Color {
+                red: mix(from.red, to.red, share),
+                green: mix(from.green, to.green, share),
+                blue: mix(from.blue, to.blue, share),
+                alpha: mix(from.alpha, to.alpha, share),
+            }
+        })
+        .collect()
 }
 
 /// The keys of one shown style guide (a legend's or a colorbar's), for
@@ -4431,6 +4524,7 @@ fn legend_index(
     title: String,
     group: u32,
     grid: KeyGrid,
+    style: GuideStyle,
 ) -> usize {
     match legends
         .iter()
@@ -4439,6 +4533,7 @@ fn legend_index(
     {
         Some(index) => {
             legends[index].grid = legends[index].grid.combine(grid);
+            legends[index].style = std::mem::take(&mut legends[index].style).or(style);
             index
         }
         None => {
@@ -4446,6 +4541,7 @@ fn legend_index(
                 title,
                 keys: Vec::new(),
                 grid,
+                style,
             });
             contributions.push(Vec::new());
             groups.push(group);
@@ -4646,6 +4742,12 @@ struct ColorbarOptions {
     bar_height: Option<f64>,
     /// `label_position="ends"`.
     label_ends: bool,
+    /// `display="gradient"` or `"raster"`: blended, not flat, segments.
+    gradient: bool,
+    /// `alpha`: bar opacity.
+    alpha: Option<f64>,
+    /// `(draw_llim, draw_ulim)`.
+    limit_ticks: (bool, bool),
 }
 
 /// The guides of one aesthetic: `guides(...)` first, then the scale's own `guide`.
@@ -4791,6 +4893,9 @@ impl<'a> Guides<'a> {
                 bar_width: None,
                 bar_height: None,
                 label_ends: false,
+                gradient: false,
+                alpha: None,
+                limit_ticks: (true, true),
             });
         };
         let size = |value: Option<f64>, key: &str| -> Result<Option<f64>> {
@@ -4805,6 +4910,12 @@ impl<'a> Guides<'a> {
         };
         let bins = match options.nbin {
             None => DEFAULT_BINS,
+            Some(0) => {
+                return Err(Error::spec(
+                    format!("{path}.nbin"),
+                    format!("expected at least 1 bin, got 0 ('{aesthetic}' colorbar)"),
+                ));
+            }
             Some(bins) if bins <= MAX_COLORBAR_BINS => bins as usize,
             Some(bins) => {
                 return Err(Error::spec(
@@ -4830,12 +4941,98 @@ impl<'a> Guides<'a> {
                 ));
             }
         };
+        let gradient = match options.display.as_deref() {
+            None | Some("rectangles") => false,
+            Some("gradient" | "raster") => true,
+            Some(other) => {
+                return Err(Error::spec(
+                    format!("{path}.display"),
+                    format!(
+                        "unknown colorbar display '{other}'; expected 'rectangles', \
+                         'gradient' or 'raster'{}",
+                        crate::suggest::did_you_mean(other, ["rectangles", "gradient", "raster"])
+                    ),
+                ));
+            }
+        };
+        let alpha = match options.alpha {
+            None => None,
+            Some(alpha) if (0.0..=1.0).contains(&alpha) => Some(alpha),
+            Some(alpha) => {
+                return Err(Error::spec(
+                    format!("{path}.alpha"),
+                    format!("expected an opacity between 0 and 1, got {alpha}"),
+                ));
+            }
+        };
         Ok(ColorbarOptions {
             bins,
             bar_width: size(options.barwidth, "barwidth")?,
             bar_height: size(options.barheight, "barheight")?,
             label_ends,
+            gradient,
+            alpha,
+            limit_ticks: (
+                options.draw_llim.unwrap_or(true),
+                options.draw_ulim.unwrap_or(true),
+            ),
         })
+    }
+
+    /// `reverse`, `direction`, `order` and `theme` of any of the guides (the
+    /// first one given wins). The theme is the plot's with the guide's elements on
+    /// top; `plot_theme` lends it the block-wide settings.
+    fn style(&self, spec: &PlotSpec, plot_theme: &Theme) -> Result<GuideStyle> {
+        let mut style = GuideStyle::default();
+        for (options, path) in self.options() {
+            let horizontal = match options.direction.as_deref() {
+                None => None,
+                Some("horizontal") => Some(true),
+                Some("vertical") => Some(false),
+                Some(other) => {
+                    return Err(Error::spec(
+                        format!("{path}.direction"),
+                        format!(
+                            "unknown guide direction '{other}'; expected 'horizontal' or \
+                             'vertical'{}",
+                            crate::suggest::did_you_mean(other, ["horizontal", "vertical"])
+                        ),
+                    ));
+                }
+            };
+            let order = match options.order {
+                None => None,
+                Some(order @ 0..=99) => Some(order as u32),
+                Some(order) => {
+                    return Err(Error::spec(
+                        format!("{path}.order"),
+                        format!("expected an order from 0 to 99, got {order}"),
+                    ));
+                }
+            };
+            let theme = match &options.theme {
+                None => None,
+                Some(own) => {
+                    let merged = spec
+                        .theme
+                        .as_ref()
+                        .map_or_else(|| own.clone(), |base| base.with_overrides(own));
+                    let mut ignored = Vec::new();
+                    let mut theme = Theme::from_spec(Some(&merged), &mut ignored)
+                        .map_err(|error| Error::spec(format!("{path}.theme"), error.to_string()))?;
+                    theme.legend_interactive = plot_theme.legend_interactive;
+                    theme.legend_position = plot_theme.legend_position;
+                    Some(Box::new(theme))
+                }
+            };
+            style = style.or(GuideStyle {
+                horizontal,
+                theme,
+                reverse: options.reverse,
+                order,
+            });
+        }
+        Ok(style)
     }
 }
 

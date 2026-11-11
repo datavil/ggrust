@@ -6,6 +6,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Added
 
+- `scale_color_cmapmpl` and `scale_fill_cmapmpl`: any matplotlib color map, by name or object (needs matplotlib).
 - Polar axes: theta labels and ticks around the ring, the radius axis on the panel edge.
 - `coord_polar` for pie, donut, rose and radar charts, with lets-plot's `theta`, `start`, `direction` and `transform_bkgr`. HTML output is static for now.
 - `geom_qq`, `geom_qq_line`, `geom_qq2`, `geom_qq2_line`, as lets-plot, with `distribution` (`norm`, `uniform`, `t`, `gamma`, `exp`, `chi2`), `dparams` and `quantiles`; `stat_qq` and `stat_qq_line`, as ggplot2's names.

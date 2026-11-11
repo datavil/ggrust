@@ -90,7 +90,6 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   `scale_size_radius` [plotnine]
 - Binned scales: `scale_*_binned`, `scale_color_steps`, `steps2`, `stepsn` [gaps]
 - Bivariate color scale with a bivariate legend [gaps]
-- `scale_color_cmapmpl` / `scale_fill_cmapmpl`: any matplotlib colormap by name
   (lets_plot needs `palettable`; `geom_imshow` `cmap` already does) [later]; plotnine
   spells these `scale_*_cmap` and `scale_*_cmap_d` [plotnine]
 - Locale-aware label formatting: decimal marks, currency, percent, month names [gaps]

@@ -157,6 +157,7 @@ from ggrust.plot.scale_color import (
     scale_fill_manual,
     scale_fill_viridis,
 )
+from ggrust.plot.scale_colormap_mpl import scale_color_cmapmpl, scale_fill_cmapmpl
 from ggrust.plot.scale_ggsci import (
     scale_color_aaas,
     scale_color_d3,
@@ -416,6 +417,7 @@ __all__ = [
     "scale_alpha_manual",
     "scale_color_aaas",
     "scale_color_brewer",
+    "scale_color_cmapmpl",
     "scale_color_continuous",
     "scale_color_d3",
     "scale_color_discrete",
@@ -435,6 +437,7 @@ __all__ = [
     "scale_color_viridis",
     "scale_fill_aaas",
     "scale_fill_brewer",
+    "scale_fill_cmapmpl",
     "scale_fill_continuous",
     "scale_fill_d3",
     "scale_fill_discrete",

@@ -190,6 +190,7 @@ Map data to `color` (lines, points, text) and `fill` (areas).
 | [`scale_color_gradient()`](api/scale_color_gradient.md) | Map ``color`` to a two-color gradient (in LAB space). |
 | [`scale_color_gradient2()`](api/scale_color_gradient2.md) | Map ``color`` to a diverging gradient around ``midpoint`` (continuous data only). |
 | [`scale_color_gradientn()`](api/scale_color_gradientn.md) | Map ``color`` to a gradient through several colors, evenly spaced over the data. |
+| [`scale_color_cmapmpl()`](api/scale_color_cmapmpl.md) | Map ``color`` through a matplotlib color map. |
 | [`scale_color_viridis()`](api/scale_color_viridis.md) | Map ``color`` with a viridis-family color map. |
 | [`scale_color_brewer()`](api/scale_color_brewer.md) | Map ``color`` with a ColorBrewer palette. |
 | [`scale_color_hue()`](api/scale_color_hue.md) | Qualitative colors evenly spaced around the HCL color wheel, for ``color``. |
@@ -201,6 +202,7 @@ Map data to `color` (lines, points, text) and `fill` (areas).
 | [`scale_fill_gradient()`](api/scale_fill_gradient.md) | Map ``fill`` to a two-color gradient. See ``scale_color_gradient``. |
 | [`scale_fill_gradient2()`](api/scale_fill_gradient2.md) | Map ``fill`` to a diverging gradient. See ``scale_color_gradient2``. |
 | [`scale_fill_gradientn()`](api/scale_fill_gradientn.md) | Map ``fill`` to a gradient through several colors. See ``scale_color_gradientn``. |
+| [`scale_fill_cmapmpl()`](api/scale_fill_cmapmpl.md) | Map ``fill`` through a matplotlib color map. |
 | [`scale_fill_viridis()`](api/scale_fill_viridis.md) | Map ``fill`` with a viridis-family color map. See ``scale_color_viridis``. |
 | [`scale_fill_brewer()`](api/scale_fill_brewer.md) | Map ``fill`` with a ColorBrewer palette. See ``scale_color_brewer``. |
 | [`scale_fill_hue()`](api/scale_fill_hue.md) | Qualitative colors evenly spaced around the HCL color wheel, for ``fill``. |

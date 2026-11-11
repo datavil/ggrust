@@ -117,3 +117,26 @@ def test_pipe_of_a_number_is_a_type_error() -> None:
 def test_ggplot_with_a_positional_mapping_points_to_the_pipe_form() -> None:
     with pytest.raises(SpecError, match=r"frame >> ggplot\(mapping=aes"):
         gg.ggplot(gg.aes("weight", "mpg"))  # ty: ignore[invalid-argument-type]
+
+
+def test_array_like_aesthetics_are_mapped() -> None:
+    import numpy as np
+
+    data = {"a": [1, 2, 3], "b": [3, 2, 1]}
+    for values in (np.array(["x", "y", "z"]), ("x", "y", "z")):
+        plot = gg.qplot("a", "b", data, color=values)
+        assert "color" not in plot.as_dict()["layers"][0]
+        assert plot.to_svg().startswith("<svg")
+
+
+@pytest.mark.parametrize("geom", [None, [], 3])
+def test_bad_geom_argument(geom: object) -> None:
+    with pytest.raises(SpecError, match="geom must be a geom name"):
+        gg.qplot("weight", "mpg", DATA, geom=geom)  # ty: ignore[invalid-argument-type]
+
+
+def test_numpy_array_pipe_is_a_clear_type_error() -> None:
+    import numpy as np
+
+    with pytest.raises(TypeError, match="ndarray"):
+        np.array([1, 2]) >> gg.ggplot()  # ty: ignore[unsupported-operator]

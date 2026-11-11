@@ -690,6 +690,10 @@ class PlotSpec(FeatureSpec):
         """Return whether the plot has at least one layer."""
         return bool(self.__layers)
 
+    # numpy defers binary operators to the plot instead of applying them per element,
+    # so `array >> plot` raises one clear TypeError naming ndarray.
+    __array_ufunc__ = None
+
     def __rrshift__(self, data: object) -> PlotSpec:
         """Return a copy of the plot with ``data`` as its data: ``frame >> ggplot(...)``.
 
@@ -721,7 +725,7 @@ class PlotSpec(FeatureSpec):
         """
         from ggrust.errors import SpecError
 
-        if isinstance(data, numbers.Number | str | bytes):
+        if isinstance(data, numbers.Number | str | bytes) or type(data).__module__ == "numpy":
             return NotImplemented
         if self.data is not None:
             message = (

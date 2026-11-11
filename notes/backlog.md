@@ -143,6 +143,8 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 - `ggplot(aes(...))` (a mapping as the first argument, as plotnine) so that
   `frame >> ggplot(aes(...))` works without `mapping=`; today `ggplot()` rejects it on
   purpose. Needs the user's decision [plotnine]
+- `aes(color=pl.Series([...]))` (and pandas Series) is rejected ("cannot send a value of
+  type Series"); lists and numpy arrays work. `qplot` maps such values through `aes`
 - Errors with required keyword-only `__init__` arguments (`GuideNotFoundError`,
   `DatasetNotFoundError`, ...) fail to pickle or copy (multiprocessing, joblib)
 - Short facet panels in a `gggrid` cell get a degenerate y axis (one break such as

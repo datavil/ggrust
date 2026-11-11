@@ -106,8 +106,9 @@ def qplot(
     Raises
     ------
     SpecError
-        If ``geom`` names no geom, ``y`` is given without ``x``, ``log`` is not
-        ``"x"``, ``"y"`` or ``"xy"``, or ``facets`` is not a formula.
+        If ``geom`` is not a name or list of names or names no geom, ``y`` is
+        given without ``x``, ``log`` is not ``"x"``, ``"y"`` or ``"xy"``, or
+        ``facets`` is not a formula.
 
     Examples
     --------
@@ -124,7 +125,7 @@ def qplot(
     mapping_arguments = {
         key: kwargs.pop(key)
         for key in list(kwargs)
-        if key in MAPPED_AESTHETICS and isinstance(kwargs[key], str | Sequence)
+        if key in MAPPED_AESTHETICS and _is_mappable(kwargs[key])
     }
     plot = plot_api.ggplot(data, plot_api.aes(x, y, **mapping_arguments))
     for name in _geom_names(geom, x, y, data):
@@ -141,6 +142,25 @@ def qplot(
     if ylab is not None:
         plot += plot_api.ylab(ylab)
     return plot
+
+
+def _is_mappable(value: object) -> bool:
+    """Return whether an aesthetic keyword value is mapped rather than a constant.
+
+    Parameters
+    ----------
+    value : object
+        The keyword value.
+
+    Returns
+    -------
+    bool
+        True for a column name and for values with a length (list, tuple, numpy
+        array, pandas or polars Series); False for scalars.
+    """
+    return isinstance(value, str) or (
+        hasattr(value, "__len__") and not isinstance(value, bytes | dict)
+    )
 
 
 def _geom_names(
@@ -165,6 +185,12 @@ def _geom_names(
     list of str
         Geom names without ``geom_``.
     """
+    if not isinstance(geom, str | Sequence) or not geom:
+        message = (
+            f"qplot(): geom must be a geom name or a list of them, got {geom!r}; "
+            "pass e.g. 'point', ['point', 'smooth'] or 'auto'"
+        )
+        raise SpecError(message, path="geom", reason=message)
     names = [geom] if isinstance(geom, str) else list(geom)
     resolved = []
     for name in names:

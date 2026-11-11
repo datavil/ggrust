@@ -33,9 +33,7 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 - `coord_radial` / radar charts [gaps]
 - `coord_trans`: transform the coordinates after stats [gaps] [plotnine]
 - `coord_map` / `coord_sf`: map projections [gaps]
-- `position_dodge2`: variable-width dodging, the boxplot default in ggplot2 [gaps] [plotnine]
-- `position_dodge(preserve=)`; `position_stack(reverse=)` and `position_fill(reverse=)`
-  [plotnine]
+- `position_stack(reverse=)` and `position_fill(reverse=)` [plotnine]
 
 ## 2. Geoms and stats
 
@@ -147,14 +145,13 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   `clip`, `gridsize`), the plotnine-only themes `theme_matplotlib`, `theme_seaborn` and
   `theme_xkcd`, the `mavg` and `gpr` smoothing methods, a spec-rendering CLI, and Renko
   charts and technical indicators.
+- Dropped by the user on 2026-11-11: a conda-forge package and Pyodide / WASM builds.
 
 ## 6. Output, interactivity and integrations
 
 - Selection tool that returns the selected rows (lets-plot #998) [users]
 - Notebook integrations: Panel (lets-plot #870), marimo, anywidget. `_repr_html_` is
   one-way today; anywidget would let selection and zoom flow back to Python [users]
-- Distribution: conda-forge (lets-plot #785, #982), Pyodide / WASM wheel
-  (lets-plot #1196; also a standalone WASM build) [users] [gaps]
 - Export: multi-page PDF (`save_as_pdf_pages`); JPEG, TIFF and other raster formats in
   `ggsave` (today `svg`, `png`, `pdf`, `html`, `ggrs`) [plotnine]
 - ggpubr helpers beyond `compare_means` (themes, `ggarrange` style) [gaps]

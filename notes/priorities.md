@@ -30,7 +30,6 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 
 | # | Item | Why here | Size | Found in |
 |---|---|---|---|---|
-| 3.8 | `position_dodge2`, `position_dodge(preserve=)` | ggplot2's boxplot default | M | ggplot2, plotnine |
 | 3.10 | Per-guide options: `reverse`, `position`, `direction`, `order`, `theme`; `display`, `alpha`, `draw_ulim`, `draw_llim` on colorbars | Legend control is a frequent request | M | ggplot2, plotnine |
 | 3.11 | `minor_breaks`, `oob` on position scales, `rescaler` | Standard scale controls | M | ggplot2, plotnine |
 | 3.12 | `drop`, `na_translate` on discrete scales | Keeps empty levels in legends and axes. Larger than first thought: unused levels are dropped when the Arrow column is read, before any scale exists, and `na_translate` means a new NA level on axes and legends | M | ggplot2, plotnine |
@@ -56,10 +55,8 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 | 5.1 | Validation suite against R `ggplot_build()` output | Guards every stat, so it pays back on later work | M | n/a (ggrust tooling) |
 | 5.2 | Notebook integrations: marimo, anywidget, Panel | Two-way selection and zoom | L | none |
 | 5.3 | Selection tool that returns the selected rows | Depends on 5.2 | M | none |
-| 5.4 | conda-forge package | Common install route for scientists | M | n/a (lets-plot and plotnine are on conda-forge) |
 | 5.6 | JPEG, TIFF and other raster formats in `ggsave` | Some journals ask for TIFF | S | ggplot2, plotnine; lets-plot saves SVG, HTML, PNG, PDF only |
 | 5.7 | ggpubr helpers beyond `compare_means` | Publication plots | M | ggplot2 extension (ggpubr) |
-| 5.8 | Pyodide and WASM builds | Reach, but a large build effort | L | n/a (build target) |
 
 ## 6. Theming and polish
 

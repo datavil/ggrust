@@ -19,6 +19,7 @@ use crate::scale::format::Label;
 use crate::scene::{Color, Rect};
 use crate::spec::{Aesthetic, PlotSpec};
 use crate::style::{LineType, StyleValues};
+use crate::theme::LegendPosition;
 use crate::{Error, Result};
 
 /// The computed data and scales of a plot.
@@ -149,7 +150,11 @@ pub fn inspect_plot(spec: &PlotSpec, data: &PlotData) -> Result<PlotInspection> 
             layer_table(&parts, &format!("layers[{index}]"))
         })
         .collect::<Result<_>>()?;
-    let guides = plot.style_guides.iter().map(guide_keys).collect();
+    // `legend_position="none"` draws no guide at all.
+    let guides = match plot.theme.legend_position {
+        LegendPosition::None => Vec::new(),
+        _ => plot.style_guides.iter().map(guide_keys).collect(),
+    };
     Ok(PlotInspection {
         layers,
         panels,

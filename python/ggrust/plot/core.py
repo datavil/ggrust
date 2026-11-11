@@ -631,8 +631,8 @@ class PlotSpec(FeatureSpec):
             f" in scale group {scale_group}" if scale_group else ""
         )
         message = (
-            f"guide_data: the plot shows no guide for {where}; guides shown: {shown}."
-            f"{did_you_mean(name, available)} "
+            f"guide_data: the plot shows no guide for {where}{did_you_mean(name, available)}; "
+            f"guides shown: {shown}. "
             "Map the aesthetic to a column and check it is not hidden with guides(...='none')."
         )
         raise GuideNotFoundError(message, aesthetic=aesthetic, available=available)

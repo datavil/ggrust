@@ -621,6 +621,16 @@ def test_guide_data_names_what_is_missing(aesthetic: str, fragment: str) -> None
     assert caught.value.available == ["color"]
 
 
+def test_guide_data_raises_when_legends_are_off() -> None:
+    plot = (
+        ggplot(GUIDE_DATA, aes("x", "y", color="kind"))
+        + geom_point()
+        + theme(legend_position="none")
+    )
+    with pytest.raises(GuideNotFoundError, match="guides shown: none"):
+        plot.guide_data("color")
+
+
 def test_guide_data_of_a_hidden_guide_raises() -> None:
     plot = ggplot(GUIDE_DATA, aes("x", "y", color="kind")) + geom_point() + guides(color="none")
     with pytest.raises(GuideNotFoundError, match="guides shown: none"):

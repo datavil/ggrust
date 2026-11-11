@@ -78,7 +78,12 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   needs the full level list carried to the scales; `na_translate=True` (ggplot2's
   default) needs an NA level with `na_value` on axes and legends, where ggrust and
   lets-plot drop the rows today (`na_translate=False` behavior).
-- Binned scales: `scale_*_binned`, `scale_color_steps`, `steps2`, `stepsn` [gaps]
+- `scale_*_gradient2(trans=..., midpoint=...)` (and `steps2`) use `midpoint` in
+  transformed units as given: `trans="log10", midpoint=100` colors everything near the
+  low end; ggplot2 transforms the midpoint first (found by the 3.18 bug hunter)
+- Binned non-color scales: `scale_x_binned`, `scale_y_binned`, `scale_size_binned`,
+  `scale_alpha_binned` (with `guide_bins()`), and `guide_coloursteps()` as a guide name
+  with `even_steps=False`. The color and fill steps scales landed [gaps]
 - Bivariate color scale with a bivariate legend [gaps]
   (lets_plot needs `palettable`; `geom_imshow` `cmap` already does) [later]; plotnine
   spells these `scale_*_cmap` and `scale_*_cmap_d` [plotnine]

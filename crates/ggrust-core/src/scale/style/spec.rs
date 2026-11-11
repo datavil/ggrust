@@ -11,7 +11,7 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use super::{
-    ALPHA, BrewerMapper, COLORMAP_NAMES, ColormapMapper, ContinuousDomain, DiscreteDomain,
+    ALPHA, Binning, BrewerMapper, COLORMAP_NAMES, ColormapMapper, ContinuousDomain, DiscreteDomain,
     GRADIENT_HIGH, GRADIENT_LOW, GRADIENT2_HIGH, GRADIENT2_LOW, GRADIENT2_MID, Gradient2Mapper,
     GradientMapper, GreyMapper, HOLLOW_SHAPES, HueMapper, IdentityMapper, LINEWIDTH, Level,
     ManualColorMapper, ManualNumberMapper, NA_COLOR, NA_SHAPE, Oob, Overflow, PaletteChoice,
@@ -55,6 +55,11 @@ const MAPPER_OPTIONS: &[&str] = &[
     "max_size",
     "color",
     "prop",
+    "binned",
+    "n_breaks",
+    "nice_breaks",
+    "right",
+    "show_limits",
 ];
 
 /// The `parameters` key of `lablim=...`.
@@ -473,7 +478,42 @@ impl StyleScaleSpec {
         if let Some((name, path)) = &self.trans {
             domain.transform = Transform::parse(name, path).map_err(|error| error.to_string())?;
         }
+        domain.binning = self.binning()?;
         Ok(domain)
+    }
+
+    /// `scale_*_steps()` / `scale_*_binned()` options; `None` for other scales.
+    fn binning(&self) -> std::result::Result<Option<Binning>, String> {
+        if !matches!(self.options.get("binned"), Some((Value::Bool(true), _))) {
+            return Ok(None);
+        }
+        let flag = |key: &str, default: bool| match self.options.get(key) {
+            None => Ok(default),
+            Some((Value::Bool(value), _)) => Ok(*value),
+            Some((other, path)) => Err(format!("at '{path}': expected True or False, got {other}")),
+        };
+        let n_breaks = match self.options.get("n_breaks") {
+            None => None,
+            Some((Value::Number(number), path)) => match number.as_u64() {
+                Some(count) if count >= 1 => Some(count as usize),
+                _ => {
+                    return Err(format!(
+                        "at '{path}': expected a whole number of breaks of at least 1, got {number}"
+                    ));
+                }
+            },
+            Some((other, path)) => {
+                return Err(format!(
+                    "at '{path}': expected a whole number of breaks, got {other}"
+                ));
+            }
+        };
+        Ok(Some(Binning {
+            n_breaks,
+            nice: flag("nice_breaks", true)?,
+            right: flag("right", true)?,
+            show_limits: flag("show_limits", false)?,
+        }))
     }
 
     /// `oob=...`: `censor` (the default) or `squish`.

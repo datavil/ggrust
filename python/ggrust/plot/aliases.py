@@ -46,6 +46,12 @@ from ggrust.plot.scale_ggsci import (
 from ggrust.plot.scale_identity import scale_color_identity
 from ggrust.plot.scale_shape import scale_linetype, scale_shape
 from ggrust.plot.scale_size import scale_alpha, scale_linewidth, scale_size, scale_stroke
+from ggrust.plot.scale_steps import (
+    scale_color_binned,
+    scale_color_steps,
+    scale_color_steps2,
+    scale_color_stepsn,
+)
 from ggrust.plot.stat_layer import stat_bin2d, stat_density2d
 
 __all__ = [
@@ -59,6 +65,7 @@ __all__ = [
     "scale_alpha_discrete",
     "scale_color_gray",
     "scale_colour_aaas",
+    "scale_colour_binned",
     "scale_colour_brewer",
     "scale_colour_cmapmpl",
     "scale_colour_continuous",
@@ -80,6 +87,9 @@ __all__ = [
     "scale_colour_nejm",
     "scale_colour_npg",
     "scale_colour_ordinal",
+    "scale_colour_steps",
+    "scale_colour_steps2",
+    "scale_colour_stepsn",
     "scale_colour_viridis",
     "scale_fill_gray",
     "scale_linetype_discrete",
@@ -117,6 +127,10 @@ scale_colour_nejm = scale_color_nejm
 scale_colour_npg = scale_color_npg
 scale_colour_ordinal = scale_color_ordinal
 scale_colour_viridis = scale_color_viridis
+scale_colour_steps = scale_color_steps
+scale_colour_steps2 = scale_color_steps2
+scale_colour_stepsn = scale_color_stepsn
+scale_colour_binned = scale_color_binned
 scale_colour_gray = scale_color_grey
 scale_color_gray = scale_color_grey
 scale_fill_gray = scale_fill_grey

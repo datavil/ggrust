@@ -4271,20 +4271,30 @@ fn assemble_legends(
             {
                 let options = guides.colorbar_options(aesthetic)?;
                 let style = guides.style(spec, theme)?;
+                // Binned scales (`scale_*_steps()`): one flat, equally long step per
+                // bin, the guide in bin index space.
+                let steps = scale.steps_guide();
+                let gradient = steps.is_none() && options.gradient;
                 let bins = options.bins;
                 // Gradient: the scale's colors at `bins` points from low to high,
                 // blended; rectangles: one flat color per bin centre.
-                let values = if options.gradient {
-                    gradient_values(guide.domain, bins)
-                } else {
-                    Colorbar::bin_values(guide.domain, bins)
+                let (guide, values) = match steps {
+                    Some(steps) => steps,
+                    None if gradient => {
+                        let values = gradient_values(guide.domain, bins);
+                        (guide, values)
+                    }
+                    None => {
+                        let values = Colorbar::bin_values(guide.domain, bins);
+                        (guide, values)
+                    }
                 };
                 let StyleValues::Colors(colors) = scale.map_numbers(&values) else {
                     continue;
                 };
                 let mut colors: Vec<Color> =
                     (0..values.len()).map(|index| colors.get(index)).collect();
-                if options.gradient {
+                if gradient {
                     colors = blend_gradient(&colors);
                 }
                 if let Some(alpha) = options.alpha {

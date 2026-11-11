@@ -219,6 +219,10 @@ Map data to `color` (lines, points, text) and `fill` (areas).
 | [`scale_color_gradient()`](api/scale_color_gradient.md) | Map ``color`` to a two-color gradient (in LAB space). |
 | [`scale_color_gradient2()`](api/scale_color_gradient2.md) | Map ``color`` to a diverging gradient around ``midpoint`` (continuous data only). |
 | [`scale_color_gradientn()`](api/scale_color_gradientn.md) | Map ``color`` to a gradient through several colors, evenly spaced over the data. |
+| [`scale_color_steps()`](api/scale_color_steps.md) | Map ``color`` to binned colors of a two-color gradient (ggplot2). |
+| [`scale_color_steps2()`](api/scale_color_steps2.md) | Map ``color`` to binned colors of a diverging gradient (ggplot2). |
+| [`scale_color_stepsn()`](api/scale_color_stepsn.md) | Map ``color`` to binned colors of an n-color gradient (ggplot2). |
+| [`scale_color_binned()`](api/scale_color_binned.md) | Map ``color`` to binned colors: ``scale_color_steps`` (ggplot2). |
 | [`scale_color_cmapmpl()`](api/scale_color_cmapmpl.md) | Map ``color`` through a matplotlib color map. |
 | [`scale_color_viridis()`](api/scale_color_viridis.md) | Map ``color`` with a viridis-family color map. |
 | [`scale_color_brewer()`](api/scale_color_brewer.md) | Map ``color`` with a ColorBrewer palette. |
@@ -233,6 +237,10 @@ Map data to `color` (lines, points, text) and `fill` (areas).
 | [`scale_fill_gradient()`](api/scale_fill_gradient.md) | Map ``fill`` to a two-color gradient. See ``scale_color_gradient``. |
 | [`scale_fill_gradient2()`](api/scale_fill_gradient2.md) | Map ``fill`` to a diverging gradient. See ``scale_color_gradient2``. |
 | [`scale_fill_gradientn()`](api/scale_fill_gradientn.md) | Map ``fill`` to a gradient through several colors. See ``scale_color_gradientn``. |
+| [`scale_fill_steps()`](api/scale_fill_steps.md) | Map ``fill`` to binned colors of a two-color gradient (ggplot2). |
+| [`scale_fill_steps2()`](api/scale_fill_steps2.md) | Map ``fill`` to binned colors of a diverging gradient (ggplot2). |
+| [`scale_fill_stepsn()`](api/scale_fill_stepsn.md) | Map ``fill`` to binned colors of an n-color gradient (ggplot2). |
+| [`scale_fill_binned()`](api/scale_fill_binned.md) | Map ``fill`` to binned colors: ``scale_fill_steps`` (ggplot2). |
 | [`scale_fill_cmapmpl()`](api/scale_fill_cmapmpl.md) | Map ``fill`` through a matplotlib color map. |
 | [`scale_fill_viridis()`](api/scale_fill_viridis.md) | Map ``fill`` with a viridis-family color map. See ``scale_color_viridis``. |
 | [`scale_fill_brewer()`](api/scale_fill_brewer.md) | Map ``fill`` with a ColorBrewer palette. See ``scale_color_brewer``. |
@@ -539,6 +547,7 @@ Other spellings of the functions above, as in ggplot2 and plotnine (not in lets-
 | [`scale_alpha_discrete()`](api/scale_alpha_discrete.md) | Alias of [`scale_alpha_ordinal()`](scale_alpha_ordinal.md). |
 | [`scale_color_gray()`](api/scale_color_gray.md) | Alias of [`scale_color_grey()`](scale_color_grey.md). |
 | [`scale_colour_aaas()`](api/scale_colour_aaas.md) | Alias of [`scale_color_aaas()`](scale_color_aaas.md). |
+| [`scale_colour_binned()`](api/scale_colour_binned.md) | Alias of [`scale_color_binned()`](scale_color_binned.md). |
 | [`scale_colour_brewer()`](api/scale_colour_brewer.md) | Alias of [`scale_color_brewer()`](scale_color_brewer.md). |
 | [`scale_colour_cmapmpl()`](api/scale_colour_cmapmpl.md) | Alias of [`scale_color_cmapmpl()`](scale_color_cmapmpl.md). |
 | [`scale_colour_continuous()`](api/scale_colour_continuous.md) | Alias of [`scale_color_continuous()`](scale_color_continuous.md). |
@@ -560,6 +569,9 @@ Other spellings of the functions above, as in ggplot2 and plotnine (not in lets-
 | [`scale_colour_nejm()`](api/scale_colour_nejm.md) | Alias of [`scale_color_nejm()`](scale_color_nejm.md). |
 | [`scale_colour_npg()`](api/scale_colour_npg.md) | Alias of [`scale_color_npg()`](scale_color_npg.md). |
 | [`scale_colour_ordinal()`](api/scale_colour_ordinal.md) | Alias of [`scale_color_ordinal()`](scale_color_ordinal.md). |
+| [`scale_colour_steps()`](api/scale_colour_steps.md) | Alias of [`scale_color_steps()`](scale_color_steps.md). |
+| [`scale_colour_steps2()`](api/scale_colour_steps2.md) | Alias of [`scale_color_steps2()`](scale_color_steps2.md). |
+| [`scale_colour_stepsn()`](api/scale_colour_stepsn.md) | Alias of [`scale_color_stepsn()`](scale_color_stepsn.md). |
 | [`scale_colour_viridis()`](api/scale_colour_viridis.md) | Alias of [`scale_color_viridis()`](scale_color_viridis.md). |
 | [`scale_fill_gray()`](api/scale_fill_gray.md) | Alias of [`scale_fill_grey()`](scale_fill_grey.md). |
 | [`scale_linetype_discrete()`](api/scale_linetype_discrete.md) | Alias of [`scale_linetype()`](scale_linetype.md). |

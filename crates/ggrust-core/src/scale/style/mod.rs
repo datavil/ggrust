@@ -263,6 +263,63 @@ pub struct ContinuousDomain {
     pub transform: Transform,
     /// `format=...` for break labels not given in `labels`.
     pub format: Option<LabelPattern>,
+    /// `scale_*_steps()` / `scale_*_binned()`: values map to the color of their bin.
+    pub binning: Option<Binning>,
+}
+
+/// Options of a binned style scale (ggplot2 `binned_scale`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Binning {
+    /// `n_breaks=...`: how many breaks to aim for (default 5).
+    pub n_breaks: Option<usize>,
+    /// `nice_breaks=...`: round break values (else evenly spaced over the range).
+    pub nice: bool,
+    /// `right=...`: bins are closed on the right, so a value on a break joins the
+    /// bin below it.
+    pub right: bool,
+    /// `show_limits=...`: the guide also labels the scale's ends.
+    pub show_limits: bool,
+}
+
+/// The bins of a binned scale: the outer ends and the inner breaks, ascending
+/// (transformed units).
+#[derive(Debug, Clone, PartialEq)]
+struct Bins {
+    domain: (f64, f64),
+    inner: Vec<f64>,
+    right: bool,
+}
+
+impl Bins {
+    /// All edges, low end first.
+    fn edges(&self) -> Vec<f64> {
+        let mut edges = Vec::with_capacity(self.inner.len() + 2);
+        edges.push(self.domain.0);
+        edges.extend(&self.inner);
+        edges.push(self.domain.1);
+        edges
+    }
+
+    /// The middle of the bin holding `value` (ggplot2 `cut(include.lowest = TRUE)`);
+    /// `None` outside the ends.
+    fn midpoint(&self, value: f64) -> Option<f64> {
+        let (low, high) = self.domain;
+        if !value.is_finite() || value < low || value > high {
+            return None;
+        }
+        let edge = |index: usize| match index {
+            0 => low,
+            index if index > self.inner.len() => high,
+            index => self.inner[index - 1],
+        };
+        // Bin k runs from edge k to edge k + 1; inner edge k + 1 is inner[k].
+        let index = if self.right {
+            self.inner.partition_point(|edge| *edge < value)
+        } else {
+            self.inner.partition_point(|edge| *edge <= value)
+        };
+        Some((edge(index) + edge(index + 1)) / 2.0)
+    }
 }
 
 /// What a continuous style scale does with values outside its `limits`
@@ -584,7 +641,8 @@ impl StyleScale {
                         (domain.limits, domain.oob)
                     });
                 let transform = self.transform();
-                if limits == [None, None] && transform == Transform::Identity {
+                let bins = self.bins();
+                if limits == [None, None] && transform == Transform::Identity && bins.is_none() {
                     return Ok(self.mapper.map_continuous(column, domain));
                 }
                 // lets-plot: values outside the limits (or the transform's domain)
@@ -605,6 +663,10 @@ impl StyleScale {
                                 && limits[1].is_none_or(|high| value <= high))
                             .then_some(value)
                             .and_then(|value| transform.apply(value))
+                            .and_then(|value| match &bins {
+                                Some(bins) => bins.midpoint(value),
+                                None => Some(value),
+                            })
                         })
                         .collect(),
                 );
@@ -649,10 +711,109 @@ impl StyleScale {
         }
     }
 
-    /// The domain continuous data is mapped over: the data range within the
+    /// The domain continuous data is mapped over: [`Self::trained_domain`], or
+    /// the ends of a binned scale's bins.
+    fn continuous_domain(&self) -> (f64, f64) {
+        self.bins()
+            .map_or_else(|| self.trained_domain(), |bins| bins.domain)
+    }
+
+    /// The bins of a binned scale (ggplot2 `ScaleBinned$get_breaks`): the given
+    /// breaks, or about `n_breaks` generated ones; without given breaks or
+    /// limits, the ends move out so the end bins are as wide as their
+    /// neighbours.
+    fn bins(&self) -> Option<Bins> {
+        let options = self.continuous.as_ref().ok()?;
+        let binning = options.binning?;
+        let (mut low, mut high) = self.trained_domain();
+        let transform = self.transform();
+        let generated = options.breaks.is_none();
+        let mut breaks: Vec<f64> = match &options.breaks {
+            Some(given) => given
+                .iter()
+                .filter_map(|value| transform.apply(*value))
+                .collect(),
+            None if binning.nice => linear_breaks(low, high, binning.n_breaks.unwrap_or(5)),
+            None => {
+                let count = binning.n_breaks.unwrap_or(5);
+                (1..=count)
+                    .map(|index| low + (high - low) * index as f64 / (count + 1) as f64)
+                    .collect()
+            }
+        };
+        breaks.retain(|value| value.is_finite() && *value >= low && *value <= high);
+        breaks.sort_by(f64::total_cmp);
+        breaks.dedup();
+        if generated && options.limits == [None, None] {
+            breaks.retain(|value| *value != low && *value != high);
+            let count = breaks.len();
+            if count >= 2 {
+                let (first, last) = (breaks[0], breaks[count - 1]);
+                low = first - (breaks[1] - first);
+                high = last + (last - breaks[count - 2]);
+            } else if let [single] = breaks.as_slice() {
+                let half = (single - low).max(high - single);
+                (low, high) = (single - half, single + half);
+            }
+            // An end the transform cannot invert keeps the data end.
+            let (data_low, data_high) = self.trained_domain();
+            if !transform.inverse(low).is_finite() {
+                low = data_low;
+            }
+            if !transform.inverse(high).is_finite() {
+                high = data_high;
+            }
+        }
+        let inner = breaks
+            .into_iter()
+            .filter(|value| *value > low && *value < high)
+            .collect();
+        Some(Bins {
+            domain: (low, high),
+            inner,
+            right: binning.right,
+        })
+    }
+
+    /// The colorbar of a binned scale (ggplot2 `guide_coloursteps(even.steps =
+    /// TRUE)`): every bin the same length, so the guide's domain is bin index
+    /// space (0 to the bin count) with the breaks on their edge indices; plus the
+    /// bin midpoints (top bin first) whose colors fill the steps. `None` when the
+    /// scale is not binned.
+    pub fn steps_guide(&self) -> Option<(ContinuousGuide, Vec<f64>)> {
+        let bins = self.bins()?;
+        let guide = self.continuous_guide()?;
+        let edges = bins.edges();
+        let count = edges.len() - 1;
+        let tolerance = 1e-9 * (bins.domain.1 - bins.domain.0).abs().max(f64::MIN_POSITIVE);
+        let breaks = guide
+            .breaks
+            .into_iter()
+            .filter_map(|(value, label)| {
+                let next = edges.partition_point(|edge| *edge < value - tolerance);
+                let index = (next < edges.len() && (edges[next] - value).abs() <= tolerance)
+                    .then_some(next)?;
+                Some((index as f64, label))
+            })
+            .collect();
+        let midpoints = edges
+            .windows(2)
+            .rev()
+            .map(|pair| (pair[0] + pair[1]) / 2.0)
+            .collect();
+        Some((
+            ContinuousGuide {
+                domain: (0.0, count as f64),
+                breaks,
+            },
+            midpoints,
+        ))
+    }
+
+    /// The domain of continuous data before binning: the data range within the
     /// limits, widened to the limits (lets-plot `rangeWithLimitsAfterTransform`),
     /// then made applicable (never zero-width).
-    fn continuous_domain(&self) -> (f64, f64) {
+    fn trained_domain(&self) -> (f64, f64) {
         let Trained::Continuous(range) = self.trained else {
             return (-0.5, 0.5);
         };
@@ -695,7 +856,38 @@ impl StyleScale {
                 .collect(),
             None => default,
         };
-        let (positions, mut labels): (Vec<f64>, Vec<Label>) =
+        let bins = self.bins();
+        let (positions, mut labels): (Vec<f64>, Vec<Label>) = if let Some(bins) = &bins {
+            // ggplot2 `guide_coloursteps`: the inner breaks, plus the ends with
+            // `show_limits`.
+            let show_limits = options
+                .and_then(|options| options.binning)
+                .is_some_and(|binning| binning.show_limits);
+            let positions = if show_limits {
+                bins.edges()
+            } else {
+                bins.inner.clone()
+            };
+            let values: Vec<f64> = positions
+                .iter()
+                .map(|value| transform.inverse(*value))
+                .collect();
+            let mut labels = labelled(&values, format_breaks(&values, self.exponent_format));
+            // Given labels belong to the breaks; the ends keep their own.
+            if let Some(given) = options.and_then(|options| options.labels.as_ref()) {
+                let offset = usize::from(show_limits);
+                for (label, given) in labels[offset..offset + bins.inner.len()]
+                    .iter_mut()
+                    .zip(align_labels(bins.inner.len(), given))
+                {
+                    *label = Label::plain(given.clone());
+                }
+            }
+            return Some(ContinuousGuide {
+                domain,
+                breaks: positions.into_iter().zip(labels).collect(),
+            });
+        } else {
             match options.and_then(|options| options.breaks.as_ref()) {
                 Some(breaks) => {
                     let kept: Vec<f64> = breaks
@@ -725,7 +917,8 @@ impl StyleScale {
                     let breaks = axis.breaks(5);
                     (breaks.positions, breaks.labels)
                 }
-            };
+            }
+        };
         if let Some(given) = options.and_then(|options| options.labels.as_ref()) {
             labels = align_labels(positions.len(), given)
                 .map(|label| Label::plain(label.clone()))
@@ -746,7 +939,12 @@ impl StyleScale {
 
     /// Mapped values of transformed numbers on a continuous scale (for guides).
     pub fn map_numbers(&self, values: &[f64]) -> StyleValues {
-        let column = ContinuousColumn::from_values(values.to_vec());
+        let column = match self.bins() {
+            Some(bins) => ContinuousColumn::from_options(
+                values.iter().map(|value| bins.midpoint(*value)).collect(),
+            ),
+            None => ContinuousColumn::from_values(values.to_vec()),
+        };
         self.mapper
             .map_continuous(&column, self.continuous_domain())
     }
@@ -755,6 +953,9 @@ impl StyleScale {
     /// continuous scale's breaks (lets-plot shows those in a legend, not a colorbar,
     /// for sizes and alphas, and for colors when a legend is asked for).
     pub fn legend_entries(&self) -> Option<Vec<LegendEntry>> {
+        if let Some(bins) = self.bins() {
+            return Some(self.bin_legend_entries(&bins));
+        }
         if let Some(guide) = self.continuous_guide() {
             let values: Vec<f64> = guide.breaks.iter().map(|(value, _)| *value).collect();
             let mapped = self.map_numbers(&values);
@@ -771,6 +972,42 @@ impl StyleScale {
             );
         }
         self.discrete_legend_entries()
+    }
+
+    /// One legend entry per bin of a binned scale, low bin first, labelled with
+    /// its ends ("20 - 40"; ggplot2 `guide_bins` labels the edges instead).
+    fn bin_legend_entries(&self, bins: &Bins) -> Vec<LegendEntry> {
+        let transform = self.transform();
+        let edges = bins.edges();
+        let values: Vec<f64> = edges.iter().map(|edge| transform.inverse(*edge)).collect();
+        let format = self
+            .continuous
+            .as_ref()
+            .ok()
+            .and_then(|options| options.format.as_ref());
+        let labels: Vec<Label> = match format {
+            Some(format) => values
+                .iter()
+                .map(|&value| format.format(PatternValue::Number(value)))
+                .collect(),
+            None => format_breaks(&values, self.exponent_format),
+        };
+        let midpoints: Vec<f64> = edges
+            .windows(2)
+            .map(|pair| (pair[0] + pair[1]) / 2.0)
+            .collect();
+        let column = ContinuousColumn::from_values(midpoints);
+        let mapped = self
+            .mapper
+            .map_continuous(&column, self.continuous_domain());
+        labels
+            .windows(2)
+            .enumerate()
+            .map(|(index, pair)| LegendEntry {
+                label: Label::plain(format!("{} - {}", pair[0].text, pair[1].text)),
+                value: single(&mapped, index),
+            })
+            .collect()
     }
 
     /// A category's label without a given one: `format` (numbers formatted as
@@ -1137,6 +1374,97 @@ mod tests {
             panic!("expected sizes");
         };
         assert!((sizes[0] * 2.2 - 12.0).abs() < 1e-12, "{sizes:?}");
+    }
+
+    /// A binned default color scale trained on `values`.
+    fn binned(values: Vec<f64>, binning: Binning, breaks: Option<Vec<f64>>) -> StyleScale {
+        let mut scale = StyleScale::new(
+            default_mapper(Aesthetic::Color).unwrap(),
+            DiscreteDomain::default(),
+        );
+        scale.continuous = Ok(ContinuousDomain {
+            binning: Some(binning),
+            breaks,
+            ..ContinuousDomain::default()
+        });
+        scale
+            .train(&Column::Continuous(ContinuousColumn::from_values(values)))
+            .unwrap();
+        scale
+    }
+
+    const BINNING: Binning = Binning {
+        n_breaks: None,
+        nice: true,
+        right: true,
+        show_limits: false,
+    };
+
+    #[test]
+    fn binned_ends_move_out_to_full_bins() {
+        // ggplot2 `ScaleBinned$get_breaks`: 3..99 with breaks 20..80 bins 0..100.
+        let scale = binned(vec![3.0, 50.0, 99.0], BINNING, None);
+        let bins = scale.bins().unwrap();
+        assert_eq!(bins.domain, (0.0, 100.0));
+        assert_eq!(bins.inner, [20.0, 40.0, 60.0, 80.0]);
+    }
+
+    #[test]
+    fn binned_values_take_their_bin_midpoint_closed_on_the_right() {
+        let bins = Bins {
+            domain: (0.0, 30.0),
+            inner: vec![10.0, 20.0],
+            right: true,
+        };
+        assert_eq!(bins.midpoint(0.0), Some(5.0));
+        assert_eq!(bins.midpoint(10.0), Some(5.0));
+        assert_eq!(bins.midpoint(10.5), Some(15.0));
+        assert_eq!(bins.midpoint(30.0), Some(25.0));
+        assert_eq!(bins.midpoint(31.0), None);
+        let left = Bins {
+            right: false,
+            ..bins
+        };
+        assert_eq!(left.midpoint(10.0), Some(15.0));
+        assert_eq!(left.midpoint(30.0), Some(25.0));
+    }
+
+    #[test]
+    fn binned_values_share_their_bin_color() {
+        let scale = binned(vec![3.0, 17.0, 22.0, 99.0], BINNING, None);
+        let column = Column::Continuous(ContinuousColumn::from_values(vec![3.0, 17.0, 22.0]));
+        let StyleValues::Colors(colors) = scale.map(&column).unwrap() else {
+            panic!("colors expected");
+        };
+        assert_eq!(colors.get(0), colors.get(1));
+        assert_ne!(colors.get(1), colors.get(2));
+    }
+
+    #[test]
+    fn steps_guide_is_in_bin_index_space() {
+        let scale = binned(vec![0.0, 100.0], BINNING, Some(vec![20.0, 30.0, 70.0]));
+        let (guide, midpoints) = scale.steps_guide().unwrap();
+        assert_eq!(guide.domain, (0.0, 4.0));
+        let positions: Vec<f64> = guide.breaks.iter().map(|(value, _)| *value).collect();
+        assert_eq!(positions, [1.0, 2.0, 3.0]);
+        assert_eq!(midpoints, [85.0, 50.0, 25.0, 10.0]);
+        let limits = binned(
+            vec![0.0, 100.0],
+            Binning {
+                show_limits: true,
+                ..BINNING
+            },
+            Some(vec![50.0]),
+        );
+        let labels: Vec<String> = limits
+            .steps_guide()
+            .unwrap()
+            .0
+            .breaks
+            .iter()
+            .map(|(_, label)| label.text.clone())
+            .collect();
+        assert_eq!(labels, ["0", "50", "100"]);
     }
 
     /// Colors of `values` on a gradient scale with `limits` and `oob`, trained on

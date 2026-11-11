@@ -120,12 +120,7 @@ def build_plot(plot: PlotSpec) -> PlotBuild:
     """
     import polars as pl
 
-    spec, frames = split_data(plot.as_dict())
-    spec, functions = split_functions(spec)
-    spec_json = to_json(spec)
-    columns = set(referenced_columns(spec_json))
-    exported = [_export(data, columns, path) for data, path in frames]
-    tables, panels, guides, messages = inspect(spec_json, exported, functions)
+    tables, panels, guides, messages = _inspect(plot)
     for message in messages:
         warnings.warn(message, GgrustWarning, stacklevel=4)
     layers = [pl.DataFrame(table) for table in tables]
@@ -134,6 +129,56 @@ def build_plot(plot: PlotSpec) -> PlotBuild:
         "panels": cast("list[PanelScales]", panels),
         "guides": cast("list[GuideKeys]", guides),
     }
+
+
+def plot_warnings(plot: PlotSpec) -> list[str]:
+    """Return the warnings building ``plot`` gives, without emitting them or drawing.
+
+    Parameters
+    ----------
+    plot : PlotSpec
+        A single plot.
+
+    Returns
+    -------
+    list of str
+        The messages rendering would emit as ``GgrustWarning``.
+    """
+    return _inspect(plot)[3]
+
+
+def plot_columns(plot: PlotSpec) -> tuple[str, ...]:
+    """Return the sorted names of every column ``plot`` reads, tooltips included.
+
+    Parameters
+    ----------
+    plot : PlotSpec
+        A single plot.
+
+    Returns
+    -------
+    tuple of str
+        Column names, sorted.
+    """
+    spec, _ = split_data(plot.as_dict())
+    spec, _ = split_functions(spec)
+    spec_json = to_json(spec)
+    names = {*referenced_columns(spec_json), *tooltip_columns(spec_json)}
+    return tuple(
+        sorted(name for name in names if not (name.startswith("..") and name.endswith("..")))
+    )
+
+
+def _inspect(
+    plot: PlotSpec,
+) -> tuple[list[Any], list[dict[str, Any]], list[dict[str, Any]], list[str]]:
+    """Run the engine on ``plot`` and return its tables, panels, guides and warnings."""
+    spec, frames = split_data(plot.as_dict())
+    spec, functions = split_functions(spec)
+    spec_json = to_json(spec)
+    columns = set(referenced_columns(spec_json))
+    exported = [_export(data, columns, path) for data, path in frames]
+    return inspect(spec_json, exported, functions)
 
 
 def _display_id() -> str:

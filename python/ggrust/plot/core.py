@@ -450,6 +450,59 @@ class PlotSpec(FeatureSpec):
         plot.props().update(data_meta)
         return plot
 
+    @property
+    def columns(self) -> tuple[str, ...]:
+        """Every data column the plot reads, sorted, tooltip variables included.
+
+        Columns named by mappings (plot and layers), facets, ``as_discrete(order_by=)``
+        and ``layer_tooltips()``. Reads the spec only: a name missing from the data is
+        listed too, and is reported when the plot is built.
+
+        Raises
+        ------
+        SpecError
+            If the spec is invalid.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> data = {"mpg": [31, 22], "hp": [65, 110], "origin": ["EU", "US"], "year": [1, 2]}
+        >>> plot = ggplot(data, aes("mpg", "hp")) + geom_point(aes(color="origin"))
+        >>> plot.columns
+        ('hp', 'mpg', 'origin')
+        """
+        from ggrust._render import plot_columns
+
+        return plot_columns(self)
+
+    def validate(self) -> list[str]:
+        """Build the plot without drawing it and return its warnings.
+
+        Runs the engine as rendering does: everything that would stop the plot raises
+        here, and every message rendering would emit as ``GgrustWarning`` (ignored
+        options, removed rows, ...) is returned instead of emitted.
+
+        Returns
+        -------
+        list of str
+            The warnings, empty for a plot with nothing to report.
+
+        Raises
+        ------
+        SpecError, DataError
+            If the plot cannot be built, as when rendering it.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> data = {"mpg": [31, 22], "hp": [65, 110]}
+        >>> (ggplot(data, aes("mpg", "hp")) + geom_point()).validate()
+        []
+        """
+        from ggrust._render import plot_warnings
+
+        return plot_warnings(self)
+
     def layer_data(self, index: int = 0) -> pl.DataFrame:
         """Return a layer's data after its stat and position (ggplot2's ``layer_data``).
 

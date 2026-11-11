@@ -31,6 +31,7 @@ from ggrust import (
     layer_tooltips,
     new_scale_color,
     scale_color_brewer,
+    scale_color_continuous,
     scale_color_discrete,
     scale_color_manual,
     scale_x_continuous,
@@ -624,3 +625,50 @@ def test_guide_data_of_a_hidden_guide_raises() -> None:
     plot = ggplot(GUIDE_DATA, aes("x", "y", color="kind")) + geom_point() + guides(color="none")
     with pytest.raises(GuideNotFoundError, match="guides shown: none"):
         plot.guide_data("color")
+
+
+# --- columns and validate -----------------------------------------------------------
+
+
+def test_columns_lists_mappings_facets_and_tooltips() -> None:
+    data = {
+        "x": [1.0, 2.0],
+        "y": [1.0, 2.0],
+        "kind": ["a", "b"],
+        "note": ["n", "m"],
+        "unused": [0, 0],
+    }
+    plot = (
+        ggplot(data, aes("x", "y"))
+        + geom_point(aes(color="kind"), tooltips=layer_tooltips().line("@note"))
+        + facet_wrap("kind")
+    )
+    assert plot.columns == ("kind", "note", "x", "y")
+
+
+def test_columns_leaves_out_stat_variables() -> None:
+    plot = ggplot({"a": [1.0, 2.0]}, aes("a")) + geom_histogram(aes(y="..density.."))
+    assert plot.columns == ("a",)
+
+
+def test_columns_lists_a_name_missing_from_the_data() -> None:
+    plot = ggplot({"x": [1.0]}, aes("x", "wrong")) + geom_point()
+    assert plot.columns == ("wrong", "x")
+
+
+def test_validate_returns_warnings_instead_of_emitting(recwarn: pytest.WarningsRecorder) -> None:
+    data = {"x": [1.0, 2.0, 3.0], "y": [1.0, 2.0, 3.0]}
+    plot = ggplot(data, aes("x", "y", color="y")) + geom_point() + scale_color_continuous(lablim=2)
+    messages = plot.validate()
+    assert not recwarn.list
+    assert any("lablim" in message for message in messages)
+
+
+def test_validate_is_empty_for_a_clean_plot() -> None:
+    assert (ggplot(GUIDE_DATA, aes("x", "y")) + geom_point()).validate() == []
+
+
+def test_validate_raises_what_rendering_raises() -> None:
+    plot = ggplot({"x": [1.0]}, aes("x", "wrong")) + geom_point()
+    with pytest.raises(ColumnNotFoundError, match="wrong"):
+        plot.validate()

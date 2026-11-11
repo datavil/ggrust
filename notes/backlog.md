@@ -40,7 +40,7 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 ## 2. Geoms and stats
 
 - `stat_quantile` [gaps]; plotnine has it, plus `geom_quantile` [plotnine]
-- `geom_smooth`: methods `rlm`, `glm`, `gls`, `mavg`, `gpr` [plotnine]; formula terms
+- `geom_smooth`: methods `rlm`, `glm`, `gls` [plotnine]; formula terms
   beyond `y ~ x` and `y ~ poly(x, k)`, `method_args` beyond loess `span`
 - `stat_summary` and `stat_summary_bin`: Python callables for `fun` and `fun_data`
   (rejected today because the engine only receives data values) [plotnine]
@@ -63,8 +63,7 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   packing, sunburst, waffle (lets-plot #1336), waterfall, funnel, Pareto, Marimekko,
   Venn, word cloud, bullet, variable-radius pie, timeline, tile map, wind barbs
   [gaps] [users]
-- Finance and time series: candlestick / OHLC, Renko, technical indicators, calendar
-  heatmap [gaps]
+- Finance and time series: candlestick / OHLC, calendar heatmap [gaps]
 - Networks and trees: `geom_network`, arc diagram, tree geom [gaps]
 - Spatial: `geom_sf` / `geom_sf_text` (GeoJSON), map tiles, polygon label placement
   (polylabel), `annotation_scale` [gaps]; `geom_map` (geopandas geometries) [plotnine]
@@ -105,13 +104,11 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   `facet_null` [plotnine]
 - Facet labellers: `labeller=`, `label_value`, `label_both`, `label_context`,
   `as_labeller` (`format` and `labwidth` exist) [plotnine]
-- Composition operators `|`, `/`, `-`, `&`, `*` and `plot_spacer`, `Beside`, `Stack`, next
-  to `gggrid` [plotnine]
 - Per-guide options: `reverse`, `position`, `direction`, `order`, `theme` on `guide_legend`
   and `guide_colorbar`; `display`, `alpha`, `draw_ulim`, `draw_llim` on `guide_colorbar`
   [plotnine]
-- Built-in themes: `theme_538`, `theme_dark`, `theme_linedraw`, `theme_matplotlib`,
-  `theme_seaborn`, `theme_tufte`, `theme_xkcd` [plotnine]
+- Built-in themes: `theme_538`, `theme_dark`, `theme_linedraw`, `theme_tufte`
+  [plotnine]
 - Theme options: `axis_ticks_direction` (and `_x`, `_y`), `legend_justification_top` (and
   bottom, left, right, inside), `legend_text_position`, `legend_title_position`,
   `legend_box_background`, `legend_box_margin`, `legend_frame` [plotnine]
@@ -124,24 +121,10 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 
 ## 5. Python API
 
-- **Method chaining as sugar for `+`** [later]. `ggplot(frame).add(geom_point(), ...)`
-  and `ggplot(frame).geom_point().theme_classic()` next to `ggplot(frame) + geom_point()`.
-  Additive only: `+` stays canonical, so the cellestial port stays an import swap.
-  `PlotSpec.__add__` (`python/ggrust/plot/core.py`) already duplicates the plot, so each
-  chained call returns `self + spec` and stays immutable.
-  1. Generic `.add(*specs)` on `PlotSpec`: a few lines, typed, no name clashes.
-  2. One method per function through `__getattr__` over an allowlist of public `geom_*`,
-     `scale_*`, `theme*`, `coord_*`, `facet_*`, `labs`, `ggsize`, plus a generated `.pyi`
-     stub (so `ty` and IDEs see signatures) and a test that fails when the stub drifts.
-     No hand-written wrappers: they double the API surface.
-  Only on `PlotSpec`, not layers or `gggrid`. Docs show `+` first. When done, record it
-  in the `plan.md` decisions table as an extension (plotnine #1047 asks for it too).
 - `after_stat`, `after_scale`, `stage` in `aes` (ggrust has `..count..` for computed
   variables; nothing reaches values after scaling) [plotnine]
-- Expressions in `aes`: `aes("np.log(x)")`, `factor(x)`, `reorder(x, y)`. Today a string
-  must name a column (`as_discrete` covers `factor` and ordering) [plotnine]
 - `aes(color=pl.Series([...]))` (and pandas Series) is rejected ("cannot send a value of
-  type Series"); lists and numpy arrays work. `qplot` maps such values through `aes`
+  type Series"); lists and numpy arrays work
 - Errors with required keyword-only `__init__` arguments (`GuideNotFoundError`,
   `DatasetNotFoundError`, ...) fail to pickle or copy (multiprocessing, joblib)
 - Short facet panels in a `gggrid` cell get a degenerate y axis (one break such as
@@ -158,6 +141,14 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 - Not worth it: `last_plot()`, plotnine's `theme_set` / `theme_update` / `theme_get` and
   `plotnine.options` (global state, ruled out by AGENTS.md), and setters on everything
   (`with_data` plus `+` cover it).
+- Ruled out by the user on 2026-11-11 as too far from ggrust's identity (a
+  lets_plot-compatible ggplot2 grammar, used from Python): the `frame >> ggplot()` pipe,
+  `qplot()`, method chaining as sugar for `+`, patchwork-style composition operators
+  (`|`, `/`, `-`, `&`, `*`, `Beside`, `Stack`; `gggrid` is the way), string expressions
+  in `aes` (`aes("np.log(x)")`), `geom_density` options kept only for plotnine code (`cut`,
+  `clip`, `gridsize`), the plotnine-only themes `theme_matplotlib`, `theme_seaborn` and
+  `theme_xkcd`, the `mavg` and `gpr` smoothing methods, a spec-rendering CLI, and Renko
+  charts and technical indicators.
 
 ## 6. Output, interactivity and integrations
 
@@ -168,7 +159,6 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   (lets-plot #1196; also a standalone WASM build) [users] [gaps]
 - Export: multi-page PDF (`save_as_pdf_pages`); JPEG, TIFF and other raster formats in
   `ggsave` (today `svg`, `png`, `pdf`, `html`, `ggrs`) [plotnine]
-- CLI that renders a spec file (TOML or JSON) to SVG, PNG or PDF [gaps]
 - ggpubr helpers beyond `compare_means` (themes, `ggarrange` style) [gaps]
 - Validation suite against R `ggplot_build()` output, reused as a stat-correctness
   check [gaps]

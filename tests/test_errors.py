@@ -203,3 +203,8 @@ def test_missing_column_on_wide_data_stays_readable() -> None:
 def test_ggsave_accepts_paths(tmp_path) -> None:
     written = gg.ggsave(scatter(), tmp_path / "plot.svg", path=tmp_path)
     assert written == str(tmp_path / "plot.svg")
+
+
+def test_ggplot_with_a_positional_mapping_names_the_data_form() -> None:
+    with pytest.raises(SpecError, match=r"ggplot\(frame, aes"):
+        gg.ggplot(gg.aes("weight", "mpg"))  # ty: ignore[invalid-argument-type]

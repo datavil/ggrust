@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import io
 import re
-import warnings
 
 import ggrust as gg
 import pytest
@@ -33,15 +32,6 @@ def test_bad_bounds_name_the_option():
     plot = gg.ggplot({"x": VALUES}, gg.aes("x")) + gg.geom_density(bounds=[2, 1])
     with pytest.raises(SpecError, match=r"layers\[0\]\.bounds.*expected \[low, high\]"):
         plot.to_svg()
-
-
-def test_plotnine_options_are_accepted_without_effect():
-    plain = gg.ggplot({"x": VALUES}, gg.aes("x")) + gg.geom_density()
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-        tuned = gg.ggplot({"x": VALUES}, gg.aes("x"))
-        tuned += gg.geom_density(cut=1, clip=[-1, 5], gridsize=20)
-        assert tuned.layer_data(0).equals(plain.layer_data(0))
 
 
 GRID = {"x": [1, 2, 1, 2], "y": [1, 1, 2, 2], "v": [1.0, 2.0, 3.0, 4.0]}

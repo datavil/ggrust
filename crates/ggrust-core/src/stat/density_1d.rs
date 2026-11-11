@@ -7,8 +7,7 @@
 //! Bandwidths follow R, see [`super::density`].
 //!
 //! `bounds=[low, high]` drops values outside and reflects the kernels at the
-//! bounds (ggplot2). `cut`, `clip` and `gridsize` are accepted for plotnine and
-//! change nothing, as in plotnine 0.15.
+//! bounds (ggplot2).
 //!
 //! What it does not do: `orientation="y"`.
 
@@ -39,10 +38,6 @@ impl Stat for DensityStat {
             "fs_max",
             "quantiles",
             "bounds",
-            // plotnine passes these to statsmodels, where they leave the plot unchanged.
-            "cut",
-            "clip",
-            "gridsize",
         ]
     }
 
@@ -141,17 +136,6 @@ mod tests {
         // from = 0, to = 1); 2 * approx(d$x, d$y, 0)$y = 0.630156 (6 values, not 7);
         // ggplot2's geom_density(bounds = c(0, Inf)) gives 0.6301268.
         assert!((density[0] - 0.630156).abs() < 1e-5, "{}", density[0]);
-    }
-
-    #[test]
-    fn plotnine_statsmodels_options_change_nothing() {
-        let values = vec![0.0, 1.0, 2.0, 3.0, 10.0];
-        let plain = density_with(values.clone(), r#"{"n": 50}"#);
-        let with = density_with(
-            values,
-            r#"{"n": 50, "cut": 0.5, "clip": [-1, 5], "gridsize": 20}"#,
-        );
-        assert_eq!(plain, with);
     }
 
     #[test]

@@ -33,7 +33,7 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 | 3.10 | Per-guide options: `reverse`, `position`, `direction`, `order`, `theme`; `display`, `alpha`, `draw_ulim`, `draw_llim` on colorbars | Legend control is a frequent request | M |
 | 3.11 | `minor_breaks`, `oob` on position scales, `rescaler` | Standard scale controls | M |
 | 3.12 | `drop`, `na_translate` on discrete scales | Keeps empty levels in legends and axes. Larger than first thought: unused levels are dropped when the Arrow column is read, before any scale exists, and `na_translate` means a new NA level on axes and legends | M |
-| 3.14 | `geom_smooth` methods: `glm`, `rlm`, `gls`, `mavg`, `gpr`, GAM | Each method is real statistics work | L |
+| 3.14 | `geom_smooth` methods: `glm`, `rlm`, `gls`, GAM | Each method is real statistics work | L |
 | 3.15 | `after_stat`, `after_scale`, `stage` | ggplot2 and plotnine syntax, `..count..` covers the main case | M |
 | 3.17 | `coord_trans` | Transform after stats | M |
 | 3.18 | Binned scales: `scale_*_binned`, `scale_color_steps`, `steps2`, `stepsn` | Useful for choropleths and heatmaps | M |
@@ -45,11 +45,8 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 
 | # | Item | Why here | Size |
 |---|---|---|---|
-| 4.3 | Method chaining as sugar for `+` | Additive, already designed | M |
-| 4.4 | Composition operators `\|`, `/`, `-`, `&`, `*`, `plot_spacer`, `Beside`, `Stack` | Nicer than `gggrid` for quick layouts | M |
 | 4.5 | Set common scale options once | Saves repetition | M |
 | 4.6 | Accessors tier 2: `p.panels()`, `p.layers[i].defaults`, `theme_defaults`, readable `repr` | Handy, nothing is blocked on it | M |
-| 4.8 | Expressions in `aes` (`np.log(x)`, `factor(x)`, `reorder(x, y)`) | Needs evaluation in Python; polars and `as_discrete` cover it | M |
 
 ## 5. Output and integrations
 
@@ -63,7 +60,6 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 | 5.6 | JPEG, TIFF and other raster formats in `ggsave` | Some journals ask for TIFF | S |
 | 5.7 | ggpubr helpers beyond `compare_means` | Publication plots | M |
 | 5.8 | Pyodide and WASM builds | Reach, but a large build effort | L |
-| 5.9 | CLI that renders a spec file | Not a Python-first need | S |
 
 ## 6. Theming and polish
 
@@ -72,7 +68,7 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 | 6.1 | Locale-aware label formatting | Correct labels outside English | M |
 | 6.2 | Theme options: `axis_ticks_direction`, `legend_justification_*`, `legend_text_position`, `legend_title_position`, `legend_box_background`, `legend_box_margin`, `legend_frame` | Fine layout control | M |
 | 6.3 | Dark theme | User request | S |
-| 6.4 | Built-in themes: `theme_538`, `theme_dark`, `theme_linedraw`, `theme_matplotlib`, `theme_seaborn`, `theme_tufte`, `theme_xkcd` | Data only, except the hand-drawn look of xkcd | M |
+| 6.4 | Built-in themes: `theme_538`, `theme_dark`, `theme_linedraw`, `theme_tufte` | Data only | M |
 | 6.5 | Rich text in labels (ggtext style) | Wanted, but touches text layout | L |
 | 6.6 | `gggrid` `sharex` / `sharey` with discrete scales | Narrow case | M |
 | 6.7 | Corner-aware legend and tag layout | Narrow case | M |
@@ -92,5 +88,5 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 | 7.4 | `coord_radial`, radar charts | Follows 2.5 | M |
 | 7.5 | Networks and trees: `geom_network`, arc diagram, tree geom | Trees are partly served by the dendrogram work | L |
 | 7.6 | Business and infographic: Sankey / alluvial (plan ex2.6), treemap, waffle, waterfall, chord, circle packing, sunburst, funnel, Pareto, Marimekko, Venn, word cloud, bullet, variable-radius pie, timeline, tile map, wind barbs | Outside the scientific core; Sankey first, as it is scheduled | L |
-| 7.7 | Finance and time series: candlestick / OHLC, Renko, technical indicators, calendar heatmap | Outside the scientific core | L |
+| 7.7 | Finance and time series: candlestick / OHLC, calendar heatmap | Outside the scientific core | L |
 | 7.8 | Spatial: `coord_map`, `coord_sf`, `geom_sf`, `geom_sf_text`, `geom_map`, map tiles, polylabel placement, `annotation_scale` | A subsystem of its own | L |

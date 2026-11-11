@@ -47,7 +47,7 @@ except ColumnNotFoundError as error:
 SECTIONS: dict[str, tuple[str, list[str]]] = {
     "Plotting": (
         "Start a plot, map columns to aesthetics, and work with the plot object.",
-        ["ggplot", "aes", "layer", "qplot", "ggsize", "as_discrete", "ggrust.plot.core.PlotSpec"],
+        ["ggplot", "aes", "layer", "ggsize", "as_discrete", "ggrust.plot.core.PlotSpec"],
     ),
     "Geometries": (
         "Layers that draw data. Each one sets a geom, a default stat and a position.",

@@ -6,7 +6,6 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Added
 
-- `qplot()` (ggplot2 / plotnine quick plot).
 - `ggrust.data`: example datasets `penguins`, `mpg`, `economics` and `iris` as polars DataFrames (`from ggrust.data import penguins`), with `DatasetNotFoundError` for unknown names.
 - Standalone `stat_bin`, `stat_bin2d`, `stat_boxplot`, `stat_count`, `stat_density`, `stat_density2d`, `stat_identity`, `stat_sina`, `stat_smooth` and `stat_ydensity`, as ggplot2: the stat's geom, or any `geom=`.
 - ggplot2 and plotnine spellings as aliases: `scale_colour_*` for every color scale, `scale_*_gray`, `guide_colourbar`, `geom_bin_2d`, `geom_density_2d`, `geom_density_2d_filled`, `geom_contour_filled`, `stat_function`, `stat_bin_2d`, `stat_density_2d`, `coord_equal`, `scale_*_date`, `scale_*_timedelta`, and `scale_*_continuous` / `scale_*_discrete` for alpha, size, linewidth, stroke, shape and linetype. Plus `position_identity`, `scale_linetype`, `scale_x_sqrt` and `scale_y_sqrt`.
@@ -16,7 +15,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 - `coord_cartesian(expand=)` and `coord_fixed(expand=)`, as ggplot2.
 - `position_stack(reverse=)` and `position_fill(reverse=)`.
 - `geom_smooth(fullrange=, formula=, method_args=)`, as ggplot2 (`formula` is `y ~ x` or `y ~ poly(x, k)`).
-- `geom_density(bounds=)` (boundary reflection, as ggplot2); `cut`, `clip` and `gridsize` are accepted for plotnine code.
+- `geom_density(bounds=)` (boundary reflection, as ggplot2).
 - `geom_raster(hjust=, vjust=, interpolate=)`, as ggplot2.
 - `annotate()`: a one-off layer from constants, as ggplot2.
 - `stat_summary` and `stat_summary_bin`: `fun_data` shortcuts `mean_cl_normal`, `mean_cl_boot` and `median_hilow`, with `fun_args` `conf_int`, `B` and `seed`.

@@ -154,7 +154,6 @@ from ggrust.plot.position import (
     position_nudge,
     position_stack,
 )
-from ggrust.plot.qplot import qplot
 from ggrust.plot.rasterize import rasterize
 from ggrust.plot.sampling import (
     sampling_fraction,
@@ -503,7 +502,6 @@ __all__ = [
     "position_jitterdodge",
     "position_nudge",
     "position_stack",
-    "qplot",
     "rasterize",
     "sampling_fraction",
     "sampling_group_random",

@@ -90,7 +90,6 @@ nav = [
       "reference/api/ggplot.md",
       "reference/api/aes.md",
       "reference/api/layer.md",
-      "reference/api/qplot.md",
       "reference/api/ggsize.md",
       "reference/api/as_discrete.md",
       "reference/api/PlotSpec.md",

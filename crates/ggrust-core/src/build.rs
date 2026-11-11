@@ -470,6 +470,11 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         y_scale.set_null_domain(domain);
     }
     if let Some(coord_spec) = &spec.coord {
+        // ggplot2 `expand=FALSE`: the coord overrides every scale's expansion.
+        if coord_spec.expand == Some(false) {
+            x_scale.remove_expansion();
+            y_scale.remove_expansion();
+        }
         for (limits, scale, key) in [
             (coord_spec.xlim, &mut x_scale, "xlim"),
             (coord_spec.ylim, &mut y_scale, "ylim"),

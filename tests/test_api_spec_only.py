@@ -66,6 +66,8 @@ EXTENSIONS = {
     "gggrid": ("design", "tag_levels", "tag_level", "axes", "axis_titles"),
     "position_stack": ("reverse",),
     "position_fill": ("reverse",),
+    "coord_cartesian": ("expand",),
+    "coord_fixed": ("expand",),
 }
 # Extras that sit among keyword-only parameters, before `**other_args`.
 KEYWORD_EXTENSIONS = {

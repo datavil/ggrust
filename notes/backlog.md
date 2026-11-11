@@ -34,7 +34,6 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 - `coord_trans`: transform the coordinates after stats [gaps] [plotnine]
 - `coord_map` / `coord_sf`: map projections [gaps]
 - `position_dodge2`: variable-width dodging, the boxplot default in ggplot2 [gaps] [plotnine]
-- `expand=` on `coord_cartesian` and `coord_fixed` [plotnine]
 - `position_dodge(preserve=)`; `position_stack(reverse=)` and `position_fill(reverse=)`
   [plotnine]
 

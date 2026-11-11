@@ -70,6 +70,20 @@ pub enum PositionScale {
 }
 
 impl PositionScale {
+    /// No padding around the domain (`coord_cartesian(expand=False)`).
+    pub fn remove_expansion(&mut self) {
+        match self {
+            PositionScale::Continuous(scale) => {
+                scale.multiplicative_expand = 0.0;
+                scale.additive_expand = 0.0;
+            }
+            PositionScale::Discrete(scale) => {
+                scale.multiplicative_expand = 0.0;
+                scale.additive_expand = 0.0;
+            }
+        }
+    }
+
     /// The sides of the panel this axis is drawn on (`position=`); both with a
     /// secondary axis.
     pub fn sides(&self) -> AxisSides {

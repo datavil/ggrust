@@ -357,6 +357,7 @@ mod tests {
             ylim: None,
             ratio: None,
             flip: false,
+            expand: None,
             azimuth: Some(f64::NAN),
             elevation: None,
             perspective: None,

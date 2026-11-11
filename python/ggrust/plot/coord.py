@@ -23,6 +23,7 @@ def coord_cartesian(
     xlim: Sequence[Number | None] | None = None,
     ylim: Sequence[Number | None] | None = None,
     flip: bool = False,
+    expand: bool | None = None,
 ) -> FeatureSpec:
     """Cartesian coordinates; limits zoom without dropping data.
 
@@ -33,6 +34,9 @@ def coord_cartesian(
         exactly this range, data outside is clipped, not removed.
     flip : bool, default False
         Swap x and y.
+    expand : bool, default=True
+        False drops the padding around the data on both axes, whatever the scales
+        say, as ggplot2. Not in lets_plot.
 
     Returns
     -------
@@ -46,7 +50,7 @@ def coord_cartesian(
     >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
     >>> plot = plot + coord_cartesian(xlim=[3, 4], ylim=[15, 25])
     """
-    return FeatureSpec("coord", name="cartesian", xlim=xlim, ylim=ylim, flip=flip)
+    return FeatureSpec("coord", name="cartesian", xlim=xlim, ylim=ylim, flip=flip, expand=expand)
 
 
 def coord_fixed(
@@ -54,6 +58,7 @@ def coord_fixed(
     xlim: Sequence[Number | None] | None = None,
     ylim: Sequence[Number | None] | None = None,
     flip: bool = False,
+    expand: bool | None = None,
 ) -> FeatureSpec:
     """Cartesian coordinates with a fixed aspect ratio.
 
@@ -66,6 +71,8 @@ def coord_fixed(
         As in ``coord_cartesian``.
     flip : bool, default False
         Swap x and y.
+    expand : bool, default=True
+        As in ``coord_cartesian``. Not in lets_plot.
 
     Returns
     -------
@@ -78,7 +85,9 @@ def coord_fixed(
     >>> data = {"x": [0, 1, 2, 3, 4], "y": [0, 1, 4, 9, 16]}
     >>> plot = ggplot(data, aes("x", "y")) + geom_line() + coord_fixed(ratio=0.25)
     """
-    return FeatureSpec("coord", name="fixed", ratio=ratio, xlim=xlim, ylim=ylim, flip=flip)
+    return FeatureSpec(
+        "coord", name="fixed", ratio=ratio, xlim=xlim, ylim=ylim, flip=flip, expand=expand
+    )
 
 
 def coord_flip(

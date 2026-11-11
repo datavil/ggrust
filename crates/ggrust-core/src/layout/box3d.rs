@@ -383,6 +383,7 @@ mod tests {
             ylim: None,
             ratio: None,
             flip: false,
+            expand: None,
             azimuth: Some(azimuth),
             elevation: Some(elevation),
             perspective: None,

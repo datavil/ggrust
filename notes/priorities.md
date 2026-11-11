@@ -35,7 +35,6 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 | 3.12 | `drop`, `na_translate` on discrete scales | Keeps empty levels in legends and axes. Larger than first thought: unused levels are dropped when the Arrow column is read, before any scale exists, and `na_translate` means a new NA level on axes and legends | M |
 | 3.14 | `geom_smooth` methods: `glm`, `rlm`, `gls`, `mavg`, `gpr`, GAM | Each method is real statistics work | L |
 | 3.15 | `after_stat`, `after_scale`, `stage` | ggplot2 and plotnine syntax, `..count..` covers the main case | M |
-| 3.16 | `expand=` on `coord_cartesian`, `coord_fixed` | Small | S |
 | 3.17 | `coord_trans` | Transform after stats | M |
 | 3.18 | Binned scales: `scale_*_binned`, `scale_color_steps`, `steps2`, `stepsn` | Useful for choropleths and heatmaps | M |
 | 3.19 | `stat_quantile`, `geom_quantile` | Needs quantile regression | M |

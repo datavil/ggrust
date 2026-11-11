@@ -21,6 +21,9 @@ pub struct CoordSpec {
     /// Swap x and y.
     #[serde(default)]
     pub flip: bool,
+    /// `false` drops the scales' expansion on both axes (ggplot2 `expand=FALSE`).
+    #[serde(default)]
+    pub expand: Option<bool>,
     /// `coord_3d`: view angle around the z axis, degrees.
     #[serde(default)]
     pub azimuth: Option<f64>,

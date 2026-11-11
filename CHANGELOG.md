@@ -6,6 +6,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Added
 
+- `coord_cartesian(expand=)` and `coord_fixed(expand=)`, as ggplot2.
 - `position_stack(reverse=)` and `position_fill(reverse=)`.
 - `geom_smooth(fullrange=, formula=, method_args=)`, as ggplot2 (`formula` is `y ~ x` or `y ~ poly(x, k)`).
 - `geom_density(bounds=)` (boundary reflection, as ggplot2); `cut`, `clip` and `gridsize` are accepted for plotnine code.

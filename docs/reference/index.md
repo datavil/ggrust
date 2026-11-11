@@ -19,6 +19,7 @@ Start a plot, map columns to aesthetics, and work with the plot object.
 | [`ggplot()`](api/ggplot.md) | Create a new plot. |
 | [`aes()`](api/aes.md) | Define aesthetic mappings. |
 | [`layer()`](api/layer.md) | Create a layer from a geom name, stat, data, mapping and position. |
+| [`qplot()`](api/qplot.md) | Make a quick plot in one call, as ggplot2's and plotnine's ``qplot``. |
 | [`ggsize()`](api/ggsize.md) | Set the plot size in pixels. |
 | [`as_discrete()`](api/as_discrete.md) | Use a discrete scale for a mapped column, optionally ordering its values. |
 | [`PlotSpec`](api/PlotSpec.md) | A plot: data, mapping, layers, scales and features. Build it with ``ggplot()``. |

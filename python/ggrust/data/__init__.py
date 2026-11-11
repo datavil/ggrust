@@ -11,6 +11,10 @@ levels as ggplot2 does.
 - ``economics``: monthly US economic series, 1967 to 2015 (ggplot2's ``economics``, MIT).
 - ``iris``: Fisher's 150 iris flowers, 3 species (public domain).
 
+An unknown name raises ``DatasetNotFoundError`` with a close match
+(``ggrust.data.pengiuns``); ``from ggrust.data import pengiuns`` raises Python's own
+``ImportError``, which drops that message.
+
 What it does not do: download anything, or cache frames (each access reads the file,
 a millisecond or two, so callers never share a frame).
 

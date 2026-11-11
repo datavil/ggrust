@@ -38,6 +38,12 @@ def ggplot(data: PlotData | None = None, mapping: FeatureSpec | None = None) -> 
     PlotSpec
         The plot. Add layers, scales and features with ``+``.
 
+    Notes
+    -----
+    ``frame >> ggplot(mapping=mapping)`` is the same as ``ggplot(frame, mapping)``,
+    as plotnine's ``frame >> ggplot(mapping)`` (not in lets_plot). The mapping must be
+    passed by name: a mapping as the first argument is rejected.
+
     Examples
     --------
     >>> from ggrust import *
@@ -47,7 +53,8 @@ def ggplot(data: PlotData | None = None, mapping: FeatureSpec | None = None) -> 
     if isinstance(data, FeatureSpec):
         message = (
             f"ggplot(): 'data' got a {data.kind!r} spec; pass a DataFrame or dict as data and "
-            "add specs with + (e.g. ggplot(frame, aes('x', 'y')) + geom_point())"
+            "add specs with + (e.g. ggplot(frame, aes('x', 'y')) + geom_point()); to pipe data "
+            "with >>, name the mapping: frame >> ggplot(mapping=aes('x', 'y'))"
         )
         raise SpecError(message, path="data", reason=message)
     data = key_int2str(data)

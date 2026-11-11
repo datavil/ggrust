@@ -140,7 +140,14 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   variables; nothing reaches values after scaling) [plotnine]
 - Expressions in `aes`: `aes("np.log(x)")`, `factor(x)`, `reorder(x, y)`. Today a string
   must name a column (`as_discrete` covers `factor` and ordering) [plotnine]
-- `qplot` and `frame >> ggplot(...)` [plotnine]
+- `ggplot(aes(...))` (a mapping as the first argument, as plotnine) so that
+  `frame >> ggplot(aes(...))` works without `mapping=`; today `ggplot()` rejects it on
+  purpose. Needs the user's decision [plotnine]
+- Errors with required keyword-only `__init__` arguments (`GuideNotFoundError`,
+  `DatasetNotFoundError`, ...) fail to pickle or copy (multiprocessing, joblib)
+- Short facet panels in a `gggrid` cell get a degenerate y axis (one break such as
+  `9.2`): `gggrid([ggplot(mpg, aes('displ', 'hwy')) + geom_point() + geom_smooth()
+  + facet_wrap('drv')] * 6, ncol=3) + ggsize(1300, 700)`
 - More example datasets beyond `ggrust.data` (`penguins`, `mpg`, `economics`, `iris`):
   `diamonds` (2.7 MB CSV, would need a compact format), `mtcars` (license unclear) [plotnine]
 - `scale_color_datetime` (also fill, alpha, size) [plotnine]: left out of the 4.1

@@ -50,7 +50,6 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 | 4.5 | Set common scale options once | Saves repetition | M |
 | 4.6 | Accessors tier 2: `p.panels()`, `p.layers[i].defaults`, `theme_defaults`, readable `repr` | Handy, nothing is blocked on it | M |
 | 4.8 | Expressions in `aes` (`np.log(x)`, `factor(x)`, `reorder(x, y)`) | Needs evaluation in Python; polars and `as_discrete` cover it | M |
-| 4.9 | `qplot`, `frame >> ggplot(...)` | Little value | S |
 
 ## 5. Output and integrations
 

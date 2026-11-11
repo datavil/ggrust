@@ -36,7 +36,8 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 
 ## 2. Geoms and stats
 
-- `stat_quantile` [gaps]; plotnine has it, plus `geom_quantile` [plotnine]
+- `stat_quantile` / `geom_quantile` beyond linear `y ~ x`: other formulas (splines),
+  `method="rqss"`, the `weight` aesthetic [gaps] [plotnine]
 - `geom_smooth`: methods `rlm`, `glm`, `gls` [plotnine]; formula terms
   beyond `y ~ x` and `y ~ poly(x, k)`, `method_args` beyond loess `span`
 - `stat_summary` and `stat_summary_bin`: Python callables for `fun` and `fun_data`
@@ -126,6 +127,9 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 - `after_scale`, `stage`, and expressions in `after_stat` (`after_stat(count / max(count))`)
   in `aes` [plotnine]. `after_stat("name")` landed; the rest needs an expression language
   evaluated on stat output and on scaled values, which ggrust does not have
+- `as_discrete()` on a computed variable (`aes(linetype=as_discrete("..quantile.."))`,
+  `"..level.."`) is ignored: the scale stays continuous and the legend shows generated
+  breaks (0.3, 0.4, ...) instead of the computed values
 - `aes(color=pl.Series([...]))` (and pandas Series) is rejected ("cannot send a value of
   type Series"); lists and numpy arrays work
 - Errors with required keyword-only `__init__` arguments (`GuideNotFoundError`,

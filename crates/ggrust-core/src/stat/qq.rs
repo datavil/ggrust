@@ -122,7 +122,7 @@ impl Distribution {
 }
 
 /// A list of numbers. Null counts as absent.
-fn numbers(parameters: &Parameters, name: &str) -> Result<Option<Vec<f64>>> {
+pub(super) fn numbers(parameters: &Parameters, name: &str) -> Result<Option<Vec<f64>>> {
     let invalid = |value: &Value| {
         Error::spec(
             parameters.path_of(name),

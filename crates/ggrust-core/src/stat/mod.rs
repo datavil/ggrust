@@ -29,6 +29,7 @@ mod pointinterval;
 mod poly_eq;
 mod pubr_labels;
 mod qq;
+mod quantile;
 mod quasirandom;
 mod r_density;
 mod sina;
@@ -63,6 +64,7 @@ pub use pointdensity::PointDensityStat;
 pub use pointinterval::{IntervalStat, PointIntervalStat};
 pub use poly_eq::PolyEqStat;
 pub use qq::{Qq2LineStat, Qq2Stat, QqLineStat, QqStat};
+pub use quantile::QuantileStat;
 pub use quasirandom::QuasirandomStat;
 pub use sina::SinaStat;
 pub use slab::SlabStat;
@@ -153,6 +155,7 @@ pub static STATS: &[&dyn Stat] = &[
     &SummaryStat,
     &SummaryBinStat,
     &EcdfStat,
+    &QuantileStat,
     &EllipseStat,
     &SumStat,
     &Summary2dStat,

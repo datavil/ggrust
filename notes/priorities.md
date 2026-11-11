@@ -36,7 +36,6 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 | 3.14 | `geom_smooth` methods: `glm`, `rlm`, `gls`, GAM | Each method is real statistics work | L | ggplot2 (any R model function), plotnine (`glm`, `rlm`, `gls`; no GAM); lets-plot has `lm` and `loess` only |
 | 3.15 | `after_scale`, `stage`, expressions in `after_stat` (`after_stat("name")` landed) | Need an expression language over stat output and scaled values; `..count..` and `after_stat("count")` cover the main case | L | ggplot2, plotnine |
 | 3.18 | Binned position, size and alpha scales (`scale_x_binned`, `scale_size_binned`, `guide_bins()`); the color and fill steps scales landed | Binned axes and size legends need their own guide | M | ggplot2 only |
-| 3.19 | `stat_quantile`, `geom_quantile` | Needs quantile regression | M | ggplot2, plotnine |
 | 3.22 | `annotation_logticks` | Pairs with log scales | M | ggplot2, plotnine |
 | 3.24 | `geom_text(parse=)` | Needs math text | L | ggplot2, plotnine |
 

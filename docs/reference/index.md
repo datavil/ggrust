@@ -87,6 +87,7 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_contour()`](api/geom_contour.md) | Draw contour lines of z over a grid of x and y (``stat="contour"``). |
 | [`geom_contourf()`](api/geom_contourf.md) | Fill the bands between the contour lines of z (``stat="contourf"``). |
 | [`geom_density2d()`](api/geom_density2d.md) | Draw contour lines of a 2D kernel density estimate (``stat="density2d"``). |
+| [`geom_quantile()`](api/geom_quantile.md) | Draw quantile regression lines (``stat="quantile"``, ggplot2). |
 | [`geom_density2df()`](api/geom_density2df.md) | Fill the bands of a 2D kernel density estimate (``stat="density2df"``). |
 | [`geom_raster()`](api/geom_raster.md) | Equal-sized tiles on a regular grid. |
 | [`geom_imshow()`](api/geom_imshow.md) | Display an image array, as lets_plot ``geom_imshow``. |
@@ -110,6 +111,7 @@ Layers named after their stat: each summarises the data, then draws it with a ge
 | [`stat_count()`](api/stat_count.md) | Count rows per x (``stat="count"``); drawn as bars by default. |
 | [`stat_density()`](api/stat_density.md) | Kernel density estimate of x (``stat="density"``); drawn as a density curve by default. |
 | [`stat_density2d()`](api/stat_density2d.md) | Contours of a 2D kernel density estimate of x and y (``stat="density2d"``). |
+| [`stat_quantile()`](api/stat_quantile.md) | Quantile regression lines of y on x (``stat="quantile"``, ggplot2). |
 | [`stat_boxplot()`](api/stat_boxplot.md) | Quartiles, whiskers and outliers of y per x (``stat="boxplot"``), drawn as boxplots. |
 | [`stat_ydensity()`](api/stat_ydensity.md) | Kernel density of y per x (``stat="ydensity"``); drawn as violins by default. |
 | [`stat_sina()`](api/stat_sina.md) | Points spread within the density of y per x (``stat="sina"``), as a sina plot. |

@@ -135,6 +135,7 @@ from ggrust.plot.geom_qq import (
     stat_qq,
     stat_qq_line,
 )
+from ggrust.plot.geom_quantile import geom_quantile, stat_quantile
 from ggrust.plot.geom_spoke import geom_spoke
 from ggrust.plot.geom_streamline import geom_streamline, stat_streamline
 from ggrust.plot.gggrid import gggrid
@@ -453,6 +454,7 @@ __all__ = [
     "geom_qq2",
     "geom_qq2_line",
     "geom_qq_line",
+    "geom_quantile",
     "geom_quasirandom",
     "geom_raster",
     "geom_rect",
@@ -704,6 +706,7 @@ __all__ = [
     "stat_poly_eq",
     "stat_qq",
     "stat_qq_line",
+    "stat_quantile",
     "stat_sina",
     "stat_slab",
     "stat_smooth",

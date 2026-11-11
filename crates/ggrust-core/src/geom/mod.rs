@@ -30,6 +30,7 @@ mod mark;
 mod mark_label;
 mod mark_shape;
 mod pointinterval;
+mod quantile;
 mod slab;
 
 pub use lines::Arrow;
@@ -84,6 +85,7 @@ pub use point::PointGeom;
 pub use pointinterval::PointIntervalGeom;
 pub use polygon::PolygonGeom;
 pub use qq::{QQ_GEOM, QQ_LINE_GEOM, QQ2_GEOM, QQ2_LINE_GEOM, QqLineGeom, QqPointGeom};
+pub use quantile::QuantileGeom;
 pub use raster::RasterGeom;
 pub use rect::RectGeom;
 pub use reference_line::{HorizontalLineGeom, VerticalLineGeom};
@@ -304,6 +306,7 @@ pub static GEOMS: &[&dyn Geom] = &[
     &ContourfGeom,
     &Density2dGeom,
     &Density2dfGeom,
+    &QuantileGeom,
     &RectGeom,
     &RasterGeom,
     &ImageGeom,

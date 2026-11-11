@@ -21,7 +21,6 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 
 | # | Item | Why here | Size |
 |---|---|---|---|
-| 2.3 | `p.scale_info("x")` | Completes accessors tier 1 | M |
 | 2.4 | `geom_qq`, `geom_qq_line`, `stat_qq` (plan lp5.4) | In lets-plot, already scheduled | M |
 | 2.5 | `coord_polar` (plan lp5.5) | In lets-plot, unlocks pie, donut and rose charts | L |
 | 2.6 | Polar axis guides | Needed as soon as 2.5 lands | M |

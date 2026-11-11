@@ -698,6 +698,8 @@ mod _ggrust {
         let axis = |scale: &AxisScale| -> PyResult<Bound<'py, PyDict>> {
             let dict = PyDict::new(python);
             dict.set_item("discrete", scale.discrete)?;
+            dict.set_item("limits", scale.limits)?;
+            dict.set_item("levels", &scale.levels)?;
             dict.set_item("domain", scale.domain)?;
             dict.set_item("breaks", &scale.breaks)?;
             dict.set_item("labels", &scale.labels)?;

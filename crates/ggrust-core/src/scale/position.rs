@@ -250,6 +250,28 @@ impl PositionScale {
         }
     }
 
+    /// Domain after limits, before expansion (`scale_info()`).
+    pub fn limited_domain(&self) -> (f64, f64) {
+        match self {
+            PositionScale::Continuous(scale) => scale.limited_domain(),
+            PositionScale::Discrete(scale) => {
+                (0.0, scale.effective_levels().len().saturating_sub(1) as f64)
+            }
+        }
+    }
+
+    /// The categories on the axis, in axis order; empty for a continuous scale.
+    pub fn levels(&self) -> Vec<String> {
+        match self {
+            PositionScale::Continuous(_) => Vec::new(),
+            PositionScale::Discrete(scale) => scale
+                .effective_levels()
+                .into_iter()
+                .map(str::to_owned)
+                .collect(),
+        }
+    }
+
     /// Map a position to 0..1 across the panel. Non-finite input gives NaN.
     pub fn map(&self, value: f64) -> f64 {
         match self {

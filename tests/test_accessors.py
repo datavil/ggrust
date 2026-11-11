@@ -672,3 +672,50 @@ def test_validate_raises_what_rendering_raises() -> None:
     plot = ggplot({"x": [1.0]}, aes("x", "wrong")) + geom_point()
     with pytest.raises(ColumnNotFoundError, match="wrong"):
         plot.validate()
+
+
+# --- scale_info ---------------------------------------------------------------------
+
+
+def test_scale_info_reports_limits_before_expansion() -> None:
+    info = (ggplot(GUIDE_DATA, aes("x", "y")) + geom_point()).scale_info("x")
+    assert len(info) == 1
+    assert info[0]["limits"] == (1.0, 4.0)
+    low, high = info[0]["domain"]
+    assert low < 1.0 and high > 4.0
+    assert not info[0]["discrete"]
+    assert info[0]["levels"] == []
+    assert len(info[0]["breaks"]) == len(info[0]["labels"]) > 0
+
+
+def test_scale_info_reports_levels_of_a_discrete_axis() -> None:
+    info = (ggplot(GUIDE_DATA, aes("kind", "y")) + geom_point()).scale_info("x")
+    assert info[0]["discrete"]
+    assert info[0]["levels"] == ["a", "b", "c"]
+    assert info[0]["limits"] == (0.0, 2.0)
+
+
+def test_scale_info_applies_given_limits_in_transformed_units() -> None:
+    data = {"x": [10.0, 1000.0], "y": [1.0, 2.0]}
+    plot = ggplot(data, aes("x", "y")) + geom_point() + scale_x_log10(limits=[1, 10000])
+    assert plot.scale_info("x")[0]["limits"] == pytest.approx((0.0, 4.0))
+
+
+def test_scale_info_has_one_entry_per_panel_and_follows_free_scales() -> None:
+    plot = ggplot(GUIDE_DATA, aes("x", "y")) + geom_point() + facet_wrap("kind", scales="free_y")
+    info = plot.scale_info("y")
+    assert len(info) == 3
+    assert info[0]["limits"] == (2.0, 4.0)
+    assert info[1]["limits"] != info[0]["limits"]
+
+
+def test_scale_info_uses_the_data_axes_under_coord_flip() -> None:
+    plot = ggplot(GUIDE_DATA, aes("kind", "y")) + geom_point() + coord_flip()
+    assert plot.scale_info("x")[0]["levels"] == ["a", "b", "c"]
+    assert plot.scale_info("y")[0]["limits"] == (1.0, 4.0)
+
+
+def test_scale_info_rejects_a_style_aesthetic() -> None:
+    plot = ggplot(GUIDE_DATA, aes("x", "y", color="kind")) + geom_point()
+    with pytest.raises(SpecError, match="guide_data"):
+        plot.scale_info("color")  # ty: ignore[invalid-argument-type]

@@ -6,6 +6,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Added
 
+- `PlotSpec.scale_info("x")`: a position scale after the build, one entry per panel, with limits, levels, domain, breaks and labels.
 - `PlotSpec.columns`, every data column the plot reads, and `PlotSpec.validate()`, which builds without drawing and returns the warnings.
 - `PlotSpec.guide_data(aesthetic)`: a polars frame with the keys of a legend or colorbar (mapped value and label), as ggplot2's `get_guide_data()`. `build()` also returns them under `guides`.
 - Horizontal `geom_errorbar`, `geom_linerange`, `geom_pointrange` and `geom_crossbar`: map `y`, `xmin` and `xmax`, or pass `orientation="y"`, as in lets-plot. `height` on `geom_errorbar` is a deprecated alias of `width`.

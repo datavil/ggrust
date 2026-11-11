@@ -96,6 +96,10 @@ class AxisScale(TypedDict):
 
     discrete: bool
     """Whether the axis shows categories; their positions are then 0, 1, 2, ..."""
+    limits: tuple[float, float]
+    """The trained range after ``limits=``, before expansion, in transformed units."""
+    levels: list[str]
+    """The categories in axis order; empty for a continuous axis."""
     domain: tuple[float, float]
     """The range the panel spans, after limits and expansion, in transformed units."""
     breaks: list[float]

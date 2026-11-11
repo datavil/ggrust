@@ -11,14 +11,14 @@ from __future__ import annotations
 import copy
 from collections.abc import Iterable, Iterator
 from types import NotImplementedType
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
     import polars as pl
 
-    from ggrust._typing import Number, PlotBuild, PlotData, Position, Target
+    from ggrust._typing import AxisScale, Number, PlotBuild, PlotData, Position, Target
 
 
 __all__ = ["aes", "layer"]
@@ -636,6 +636,54 @@ class PlotSpec(FeatureSpec):
             "Map the aesthetic to a column and check it is not hidden with guides(...='none')."
         )
         raise GuideNotFoundError(message, aesthetic=aesthetic, available=available)
+
+    def scale_info(self, aesthetic: Literal["x", "y"] = "x") -> list[AxisScale]:
+        """Return a position scale after the build, one entry per panel.
+
+        As ggplot2's ``layer_scales``. Runs the engine without drawing. Units are the
+        scale's transformed units (``log10`` of the data on a log axis; 0, 1, 2, ...
+        on a discrete axis). ``x`` is the data x, also under ``coord_flip()``.
+
+        Parameters
+        ----------
+        aesthetic : {"x", "y"}, default="x"
+            The position scale.
+
+        Returns
+        -------
+        list of AxisScale
+            Per panel, in panel order (one without facets): ``discrete``, ``limits``
+            (trained range after ``limits=``, before expansion), ``levels`` (the
+            categories, empty on a continuous axis), ``domain`` (the range the panel
+            spans), and the ``breaks`` and ``labels`` drawn at the plot's size.
+
+        Raises
+        ------
+        SpecError
+            If ``aesthetic`` is not ``"x"`` or ``"y"``.
+        SpecError, DataError
+            If the plot cannot be built, as when rendering it.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> data = {"mpg": [20.0, 30.0], "origin": ["EU", "US"]}
+        >>> plot = ggplot(data, aes("origin", "mpg")) + geom_point()
+        >>> plot.scale_info("x")[0]["levels"]
+        ['EU', 'US']
+        >>> plot.scale_info("y")[0]["limits"]
+        (20.0, 30.0)
+        """
+        from ggrust.errors import SpecError, did_you_mean
+
+        if aesthetic not in ("x", "y"):
+            hint = did_you_mean(str(aesthetic), ("x", "y"))
+            message = (
+                f"scale_info: unsupported aesthetic {aesthetic!r}{hint}; "
+                "expected 'x' or 'y'. For a legend or colorbar use guide_data()"
+            )
+            raise SpecError(message, path="scale_info.aesthetic")
+        return [panel[aesthetic] for panel in self.build()["panels"]]
 
     def has_layers(self) -> bool:
         """Return whether the plot has at least one layer."""

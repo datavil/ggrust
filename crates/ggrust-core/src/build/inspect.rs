@@ -75,6 +75,10 @@ pub struct PanelScales {
 pub struct AxisScale {
     /// Whether the axis shows categories (positions are then 0, 1, 2, ...).
     pub discrete: bool,
+    /// The trained range after limits, before expansion, in transformed units.
+    pub limits: (f64, f64),
+    /// The categories in axis order; empty for a continuous scale.
+    pub levels: Vec<String>,
     /// The range the panel spans, after limits and expansion, in transformed units.
     pub domain: (f64, f64),
     /// Break positions in transformed units.
@@ -206,6 +210,8 @@ type ScreenAxis<'a> = (&'a AxisBreaks, Option<&'a AxisBreaks>);
 fn axis_scale(scale: &PositionScale, (breaks, secondary): ScreenAxis) -> AxisScale {
     AxisScale {
         discrete: scale.is_discrete(),
+        limits: scale.limited_domain(),
+        levels: scale.levels(),
         domain: scale.expanded_domain(),
         breaks: breaks.values.clone(),
         labels: label_texts(breaks),
@@ -450,6 +456,24 @@ mod tests {
         assert!(!x.discrete);
         assert_eq!(x.breaks.len(), x.labels.len());
         assert!(!x.breaks.is_empty());
+    }
+
+    #[test]
+    fn guides_and_scale_limits() {
+        let inspection = inspect(
+            r#"{"kind": "plot", "data": {"frame": 0},
+                "mapping": {"x": "label", "y": "x", "color": "label"},
+                "layers": [{"geom": "point"}]}"#,
+            frame(vec![0.0, 1.0, 2.0], vec!["a", "b", "b"]),
+        );
+        let guide = &inspection.guides[0];
+        assert_eq!(guide.aesthetic, Aesthetic::Color);
+        assert_eq!(guide.labels, ["a", "b"]);
+        assert!(matches!(&guide.values[0], GuideValue::Text(text) if text.starts_with('#')));
+        let panel = &inspection.panels[0];
+        assert_eq!(panel.x.levels, ["a", "b"]);
+        assert_eq!(panel.x.limits, (0.0, 1.0));
+        assert_eq!(panel.y.limits, (0.0, 2.0));
     }
 
     #[test]

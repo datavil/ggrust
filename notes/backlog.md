@@ -157,8 +157,6 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 - Standalone `stat_*` functions that exist only as `stat=` names: `stat_bin`,
   `stat_bin_2d`, `stat_boxplot`, `stat_count`, `stat_density`, `stat_density_2d`,
   `stat_identity`, `stat_sina`, `stat_smooth`, `stat_ydensity` [plotnine]
-- Accessors, tier 1 [accessors] (the built part is in [plans/accessors.md](plans/accessors.md)):
-  - `p.scale_info("x")`: trained limits, breaks and labels per panel after the build.
 - Accessors, tier 2 [accessors]: `p.panels()` (pixel boxes and data-to-pixel mapping),
   `p.layers[i].defaults`, `ggrust.theme_defaults("bw")`, a readable `repr` such as
   `<PlotSpec: 2 layers (point, smooth), 3 scales, facet_wrap(~species)>`.

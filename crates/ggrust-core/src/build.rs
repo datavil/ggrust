@@ -2979,7 +2979,9 @@ fn compute_layer(
         })?;
         layer_data.insert(*aesthetic, column)?;
         mapping_paths.insert(*aesthetic, mapping_path.clone());
-        from_variables.insert(*aesthetic);
+        if *computed != Computed::Sample {
+            from_variables.insert(*aesthetic);
+        }
     }
     for (aesthetic, computed) in stat.default_mapping() {
         if sets_constant(spec, oriented(*aesthetic))
@@ -2991,7 +2993,10 @@ fn compute_layer(
         }
         if let Some(column) = layer_data.get(*computed).cloned() {
             layer_data.insert(*aesthetic, column)?;
-            from_variables.insert(*aesthetic);
+            // `..sample..` is the stat's input, already in axis units.
+            if *computed != Computed::Sample {
+                from_variables.insert(*aesthetic);
+            }
         }
     }
     // Stat positions through the scales, as lets-plot maps stat output: variables

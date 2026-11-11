@@ -55,10 +55,14 @@ pub enum Computed {
     Thickness,
     /// `...width..` (ggdist `.width`): the probability mass of an interval.
     IntervalWidth,
+    /// `..theoretical..`: theoretical quantile of a Q-Q point.
+    Theoretical,
+    /// `..sample..`: sample quantile of a Q-Q point.
+    Sample,
 }
 
 impl Computed {
-    const ALL: [(Computed, &'static str); 22] = [
+    const ALL: [(Computed, &'static str); 24] = [
         (Computed::Count, "count"),
         (Computed::Density, "density"),
         (Computed::NormalizedCount, "ncount"),
@@ -81,6 +85,8 @@ impl Computed {
         (Computed::Cdf, "cdf"),
         (Computed::Thickness, "thickness"),
         (Computed::IntervalWidth, ".width"),
+        (Computed::Theoretical, "theoretical"),
+        (Computed::Sample, "sample"),
     ];
 
     /// lets-plot name without dots, e.g. `count`.

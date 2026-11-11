@@ -36,6 +36,7 @@ pub use lines::Arrow;
 mod path;
 mod point;
 mod polygon;
+mod qq;
 mod quantiles;
 mod raster;
 mod rect;
@@ -77,6 +78,7 @@ pub use path::{FreqpolyGeom, LineGeom, PathGeom};
 pub use point::PointGeom;
 pub use pointinterval::PointIntervalGeom;
 pub use polygon::PolygonGeom;
+pub use qq::{QQ_GEOM, QQ_LINE_GEOM, QQ2_GEOM, QQ2_LINE_GEOM, QqLineGeom, QqPointGeom};
 pub use raster::RasterGeom;
 pub use rect::RectGeom;
 pub use reference_line::{HorizontalLineGeom, VerticalLineGeom};
@@ -288,6 +290,10 @@ pub static GEOMS: &[&dyn Geom] = &[
     &MARK_ELLIPSE_GEOM,
     &MARK_RECT_GEOM,
     &StreamlineGeom,
+    &QQ_GEOM,
+    &QQ2_GEOM,
+    &QQ_LINE_GEOM,
+    &QQ2_LINE_GEOM,
 ];
 
 /// lets-plot geoms the Python API builds but the engine does not draw yet (plan.md).

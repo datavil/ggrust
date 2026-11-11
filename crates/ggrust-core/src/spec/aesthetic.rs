@@ -146,6 +146,7 @@ impl Aesthetic {
         matches!(
             self,
             Aesthetic::Y
+                | Aesthetic::Sample
                 | Aesthetic::Ymin
                 | Aesthetic::Ymax
                 | Aesthetic::Yend

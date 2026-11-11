@@ -8,8 +8,10 @@
 //! relative precision. Exact distributions count arrangements in `f64` with
 //! additions only (no cancellation).
 //!
-//! What it does not do: quantiles (`t_quantile` lives in `smooth.rs`), non-central
-//! distributions.
+//! Quantiles for Q-Q plots: `qnorm` (Wichura's AS 241), the regularized gamma's
+//! inverse by safeguarded Newton steps, and `t_quantile` from `smooth.rs`.
+//!
+//! What it does not do: non-central distributions.
 
 use super::smooth::{ln_gamma, regularized_beta};
 
@@ -87,6 +89,132 @@ pub(super) fn chi_squared_upper(x: f64, freedom: f64) -> f64 {
         return 1.0;
     }
     regularized_gamma_upper(freedom / 2.0, x / 2.0)
+}
+
+/// The standard normal quantile (Wichura's AS 241, R's `qnorm`), `0 < p < 1`.
+pub(super) fn normal_quantile(p: f64) -> f64 {
+    let q = p - 0.5;
+    if q.abs() <= 0.425 {
+        let r = 0.180625 - q * q;
+        return q * rational(
+            r,
+            &[
+                3.387132872796366_6,
+                133.141_667_891_784_38,
+                1_971.590_950_306_551_3,
+                13_731.693_765_509_46,
+                45_921.953_931_549_87,
+                67_265.770_927_008_7,
+                33_430.575_583_588_13,
+                2_509.080_928_730_122_7,
+            ],
+            &[
+                1.0,
+                42.313_330_701_600_91,
+                687.187_007_492_057_9,
+                5_394.196_021_424_751,
+                21_213.794_301_586_597,
+                39_307.895_800_092_71,
+                28_729.085_735_721_943,
+                5_226.495_278_852_545,
+            ],
+        );
+    }
+    let tail = if q < 0.0 { p } else { 1.0 - p };
+    let r = (-tail.ln()).sqrt();
+    let value = if r <= 5.0 {
+        rational(
+            r - 1.6,
+            &[
+                1.423_437_110_749_683_5,
+                4.630_337_846_156_546,
+                5.769_497_221_460_691,
+                3.647_848_324_763_204_5,
+                1.270_458_252_452_368_4,
+                0.241_780_725_177_450_6,
+                0.022_723_844_989_269_184,
+                7.745_450_142_783_414e-4,
+            ],
+            &[
+                1.0,
+                2.053_191_626_637_759,
+                1.676_384_830_183_803_8,
+                0.689_767_334_985_1,
+                0.148_103_976_427_480_08,
+                0.015_198_666_563_616_457,
+                5.475_938_084_995_345e-4,
+                1.050_750_071_644_416_9e-9,
+            ],
+        )
+    } else {
+        rational(
+            r - 5.0,
+            &[
+                6.657_904_643_501_103,
+                5.463_784_911_164_114,
+                1.784_826_539_917_291_3,
+                0.296_560_571_828_504_87,
+                0.026_532_189_526_576_124,
+                0.001_242_660_947_388_078_4,
+                2.711_555_568_743_487_6e-5,
+                2.010_334_399_292_288_1e-7,
+            ],
+            &[
+                1.0,
+                0.599_832_206_555_888,
+                0.136_929_880_922_735_8,
+                0.014_875_361_290_850_615,
+                7.868_691_311_456_133e-4,
+                1.846_318_317_510_054_8e-5,
+                1.421_511_758_316_446e-7,
+                2.044_263_103_389_939_8e-15,
+            ],
+        )
+    };
+    if q < 0.0 { -value } else { value }
+}
+
+/// `numerator(x) / denominator(x)`, coefficients from degree 0 up.
+fn rational(x: f64, numerator: &[f64], denominator: &[f64]) -> f64 {
+    let horner = |coefficients: &[f64]| {
+        coefficients
+            .iter()
+            .rev()
+            .fold(0.0, |sum, coefficient| sum * x + coefficient)
+    };
+    horner(numerator) / horner(denominator)
+}
+
+/// The quantile of a gamma with shape `a` and rate 1, `0 < p < 1`: Newton steps
+/// on the regularized gamma `P(a, x)`, kept inside a bracket by bisection.
+pub(super) fn gamma_quantile(p: f64, a: f64) -> f64 {
+    let lower = |x: f64| 1.0 - regularized_gamma_upper(a, x);
+    let (mut low, mut high) = (0.0, a.max(1.0));
+    while lower(high) < p && high < 1e300 {
+        low = high;
+        high *= 2.0;
+    }
+    let mut x = 0.5 * (low + high);
+    for _ in 0..200 {
+        let error = lower(x) - p;
+        if error > 0.0 {
+            high = x;
+        } else {
+            low = x;
+        }
+        let density = ((a - 1.0) * x.ln() - x - ln_gamma(a)).exp();
+        let step = x - error / density;
+        let next = if step > low && step < high && density > 0.0 {
+            step
+        } else {
+            0.5 * (low + high)
+        };
+        if (next - x).abs() <= 1e-14 * next.abs() {
+            return next;
+        }
+        x = next;
+    }
+    x
 }
 
 /// The regularized upper incomplete gamma function `Q(a, x)`: a series for

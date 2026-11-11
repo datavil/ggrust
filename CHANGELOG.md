@@ -6,6 +6,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Added
 
+- `geom_qq`, `geom_qq_line`, `geom_qq2`, `geom_qq2_line`, as lets-plot, with `distribution` (`norm`, `uniform`, `t`, `gamma`, `exp`, `chi2`), `dparams` and `quantiles`; `stat_qq` and `stat_qq_line`, as ggplot2's names.
 - `PlotSpec.scale_info("x")`: a position scale after the build, one entry per panel, with limits, levels, domain, breaks and labels.
 - `PlotSpec.columns`, every data column the plot reads, and `PlotSpec.validate()`, which builds without drawing and returns the warnings.
 - `PlotSpec.guide_data(aesthetic)`: a polars frame with the keys of a legend or colorbar (mapped value and label), as ggplot2's `get_guide_data()`. `build()` also returns them under `guides`.

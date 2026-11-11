@@ -92,3 +92,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [coord_3d](coord_3d.md): project rows and reuse 2D geoms on an identity panel, reorder styles with rows, renumber path groups, z scaled after the stat, layout with axes blanked.
 - [funky_heatmap port](funky_heatmap.md): unit canvas needs `plot_inset=0`, no `alpha=1` on transparent fills, text measured with `text_width` to grow the canvas, levelmatch counts every column_groups column.
 - [Horizontal intervals](letsplot_horizontal_intervals.md): orientation must be settled before the unused-aesthetic check; `xmin`/`xmax` without `ymin`/`ymax` flip the layer, keys stay vertical.
+- [Q-Q layers](letsplot_qq.md): line-by-line port, `sample` is a y position (`..sample..` is not transformed again), rows reordered with `take`; lets-plot source via `gh api`.

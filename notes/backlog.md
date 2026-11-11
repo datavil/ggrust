@@ -42,7 +42,6 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 ## 2. Geoms and stats
 
 - `geom_dotplot` / `stat_bindot` [gaps] [plotnine]
-- `geom_qq`, `geom_qq_line` / `stat_qq` [gaps] [plotnine] (plan lp5.4)
 - `stat_function`, `stat_quantile`, `stat_unique`, `stat_summary_2d` [gaps]; plotnine has
   all but `stat_summary_2d`, plus `geom_quantile` [plotnine]
 - `stat_hull`: a convex hull as a stat (`geom_mark_hull` only draws an annotation)

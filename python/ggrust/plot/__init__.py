@@ -66,6 +66,14 @@ from ggrust.plot.geom_halves import geom_half_boxplot, geom_half_point, geom_hal
 from ggrust.plot.geom_imshow import geom_imshow
 from ggrust.plot.geom_mark import geom_mark_ellipse, geom_mark_hull, geom_mark_rect
 from ggrust.plot.geom_pointdensity import geom_pointdensity, stat_pointdensity
+from ggrust.plot.geom_qq import (
+    geom_qq,
+    geom_qq2,
+    geom_qq2_line,
+    geom_qq_line,
+    stat_qq,
+    stat_qq_line,
+)
 from ggrust.plot.geom_streamline import geom_streamline, stat_streamline
 from ggrust.plot.gggrid import gggrid
 from ggrust.plot.gghighlight import gghighlight
@@ -318,6 +326,10 @@ __all__ = [
     "geom_pointdensity",
     "geom_pointrange",
     "geom_polygon",
+    "geom_qq",
+    "geom_qq2",
+    "geom_qq2_line",
+    "geom_qq_line",
     "geom_quasirandom",
     "geom_raster",
     "geom_rect",
@@ -486,6 +498,8 @@ __all__ = [
     "stat_pointdensity",
     "stat_pointinterval",
     "stat_poly_eq",
+    "stat_qq",
+    "stat_qq_line",
     "stat_slab",
     "stat_streamline",
     "stat_sum",

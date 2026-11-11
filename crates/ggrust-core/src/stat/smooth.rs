@@ -719,7 +719,7 @@ impl Spline {
 
 /// Quantile `p` (> 0.5) of Student's t with `freedom` degrees of freedom, by
 /// bisection on the CDF (lets-plot uses Apache `TDistribution`, same result).
-fn t_quantile(p: f64, freedom: f64) -> f64 {
+pub(super) fn t_quantile(p: f64, freedom: f64) -> f64 {
     let cdf = |t: f64| {
         let tail = 0.5 * regularized_beta(freedom / (freedom + t * t), freedom / 2.0, 0.5);
         if t >= 0.0 { 1.0 - tail } else { tail }

@@ -44,6 +44,10 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_half_boxplot()`](api/geom_half_boxplot.md) | Half of a box-and-whisker plot, on one side of each x. |
 | [`geom_line()`](api/geom_line.md) | Connect observations sorted by x. |
 | [`geom_step()`](api/geom_step.md) | Connect observations sorted by x with stairs. |
+| [`geom_qq()`](api/geom_qq.md) | Plot a sample against theoretical quantiles, one point per value. |
+| [`geom_qq_line()`](api/geom_qq_line.md) | Draw the line through two quantiles of a sample, to read a Q-Q plot against. |
+| [`geom_qq2()`](api/geom_qq2.md) | Plot one sample against another, one point per quantile. |
+| [`geom_qq2_line()`](api/geom_qq2_line.md) | Draw the line through two quantiles of two samples, to read ``geom_qq2`` against. |
 | [`geom_path()`](api/geom_path.md) | Connect observations in data order. |
 | [`geom_segment()`](api/geom_segment.md) | Line segments from (x, y) to (xend, yend), optionally with arrows. |
 | [`geom_curve()`](api/geom_curve.md) | Curved lines from (x, y) to (xend, yend), optionally with arrows. |
@@ -97,6 +101,8 @@ Layers named after their stat: each summarises the data, then draws it with a ge
 | [`stat_summary()`](api/stat_summary.md) | Summarise y at every distinct x (``stat="summary"``), drawn as point ranges. |
 | [`stat_summary_bin()`](api/stat_summary_bin.md) | Summarise y in bins of x (``stat="summarybin"``), drawn as point ranges. |
 | [`stat_ecdf()`](api/stat_ecdf.md) | Empirical cumulative distribution of x (``stat="ecdf"``), drawn as steps. |
+| [`stat_qq()`](api/stat_qq.md) | Plot theoretical quantiles of a sample (``stat="qq"``), ggplot2's ``stat_qq``. |
+| [`stat_qq_line()`](api/stat_qq_line.md) | Draw the fitting line of a Q-Q plot (``stat="qq_line"``), ggplot2's ``stat_qq_line``. |
 | [`stat_sum()`](api/stat_sum.md) | Rows at each distinct (x, y) (``stat="sum"``), drawn as points sized by the count. |
 | [`stat_centroid()`](api/stat_centroid.md) | One row per group at the centroid of its x and y (``stat="centroid"``), as ggpp. |
 | [`stat_summary_xy()`](api/stat_summary_xy.md) | One row per group at a summary of x and of y (``stat="summary_xy"``), as ggpp. |

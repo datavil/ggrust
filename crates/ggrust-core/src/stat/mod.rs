@@ -26,6 +26,7 @@ mod pointdensity;
 mod pointinterval;
 mod poly_eq;
 mod pubr_labels;
+mod qq;
 mod quasirandom;
 mod r_density;
 mod sina;
@@ -55,6 +56,7 @@ pub use identity::IdentityStat;
 pub use pointdensity::PointDensityStat;
 pub use pointinterval::{IntervalStat, PointIntervalStat};
 pub use poly_eq::PolyEqStat;
+pub use qq::{Qq2LineStat, Qq2Stat, QqLineStat, QqStat};
 pub use quasirandom::QuasirandomStat;
 pub use sina::SinaStat;
 pub use slab::SlabStat;
@@ -159,6 +161,10 @@ pub static STATS: &[&dyn Stat] = &[
     &StreamlineStat,
     &CentroidStat,
     &SummaryXyStat,
+    &QqStat,
+    &QqLineStat,
+    &Qq2Stat,
+    &Qq2LineStat,
 ];
 
 /// lets-plot stats the Python API builds but the engine does not compute yet

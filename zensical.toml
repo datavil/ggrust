@@ -155,6 +155,7 @@ nav = [
       "reference/api/geom_density2df.md",
       "reference/api/geom_raster.md",
       "reference/api/geom_imshow.md",
+      "reference/api/annotate.md",
       "reference/api/geom_text.md",
       "reference/api/geom_label.md",
       "reference/api/geom_text_repel.md",

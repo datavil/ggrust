@@ -10,7 +10,11 @@
 //!
 //! ggplot2's `fun.data` shortcuts (lets-plot #1507) as `fun_data`: `mean_se`
 //! (mean +- `mult` standard errors, default 1) and `mean_sdl` (mean +- `mult`
-//! standard deviations, default 2), with `fun_args={"mult": k}`.
+//! standard deviations, default 2), with `fun_args={"mult": k}`. `mean_cl_normal`
+//! (t interval), `mean_cl_boot` (bootstrap percentile interval) and `median_hilow`
+//! (the central quantile range) are Hmisc's `smean.cl.normal`, `smean.cl.boot` and
+//! `smedian.hilow`, with `fun_args` `conf_int` (default 0.95) and, for the bootstrap,
+//! `B` (default 1000) and `seed` (fixed by default, so output is reproducible).
 //!
 //! What it does not do: user functions (Python callables), `breaks` for
 //! `summary_bin` (lets-plot has none either).
@@ -18,10 +22,13 @@
 use std::collections::HashMap;
 
 use super::bin::{BinOptions, binning_parameters, finite_range};
+use super::boxplot::quantile as type_7_quantile;
 use super::groups::per_group;
+use super::smooth::t_quantile;
 use super::{Stat, StatContext};
 use crate::data::{ContinuousColumn, LayerData, Variable};
 use crate::parameters::Parameters;
+use crate::position::random::KotlinRandom;
 use crate::spec::{Aesthetic, Value};
 use crate::{Error, Result};
 
@@ -37,7 +44,20 @@ const FUNCTION_NAMES: [&str; 9] = [
 ];
 
 /// Names `fun_data` accepts (ggplot2 `fun.data`).
-const DATA_FUNCTION_NAMES: [&str; 2] = ["mean_se", "mean_sdl"];
+const DATA_FUNCTION_NAMES: [&str; 5] = [
+    "mean_se",
+    "mean_sdl",
+    "mean_cl_normal",
+    "mean_cl_boot",
+    "median_hilow",
+];
+
+/// Hmisc's default confidence level.
+const DEFAULT_CONFIDENCE: f64 = 0.95;
+/// Hmisc `smean.cl.boot` default resample count.
+const DEFAULT_BOOTSTRAP_SAMPLES: usize = 1000;
+/// Default bootstrap seed: output must not change from run to run.
+const DEFAULT_BOOTSTRAP_SEED: i64 = 1;
 
 /// lets-plot `SummaryStat.DEF_QUANTILES`.
 const DEFAULT_QUANTILES: [f64; 3] = [0.25, 0.5, 0.75];
@@ -186,6 +206,19 @@ enum Aggregate {
     MeanStandardError(f64),
     /// mean + `mult` x standard deviation (Hmisc `smean.sdl`).
     MeanStandardDeviation(f64),
+    /// mean + `t` x standard error, `t` signed (Hmisc `smean.cl.normal`).
+    MeanConfidenceNormal {
+        /// Quantile probability of Student's t: below 0.5 for the lower end.
+        probability: f64,
+    },
+    /// A percentile of the bootstrapped means (Hmisc `smean.cl.boot`).
+    MeanConfidenceBootstrap {
+        probability: f64,
+        samples: usize,
+        seed: i64,
+    },
+    /// R's type 7 quantile (Hmisc `smedian.hilow`).
+    QuantileType7(f64),
 }
 
 impl Aggregate {
@@ -221,9 +254,46 @@ impl Aggregate {
             Aggregate::MeanStandardDeviation(mult) if sorted.len() >= 2 => {
                 mean() + mult * variance().sqrt()
             }
-            Aggregate::MeanStandardError(_) | Aggregate::MeanStandardDeviation(_) => f64::NAN,
+            Aggregate::MeanConfidenceNormal { probability } if sorted.len() >= 2 => {
+                // t_quantile takes the upper half only.
+                let freedom = count - 1.0;
+                let t = if probability < 0.5 {
+                    -t_quantile(1.0 - probability, freedom)
+                } else {
+                    t_quantile(probability, freedom)
+                };
+                mean() + t * (variance() / count).sqrt()
+            }
+            Aggregate::MeanConfidenceBootstrap {
+                probability,
+                samples,
+                seed,
+            } if sorted.len() >= 2 => bootstrap_mean_quantile(sorted, probability, samples, seed),
+            Aggregate::MeanStandardError(_)
+            | Aggregate::MeanStandardDeviation(_)
+            | Aggregate::MeanConfidenceNormal { .. }
+            | Aggregate::MeanConfidenceBootstrap { .. } => f64::NAN,
+            Aggregate::QuantileType7(_) if sorted.is_empty() => f64::NAN,
+            Aggregate::QuantileType7(probability) => type_7_quantile(sorted, probability),
         }
     }
+}
+
+/// A percentile of `samples` resampled means. Both ends use the same seed, so they
+/// read one bootstrap distribution.
+fn bootstrap_mean_quantile(sorted: &[f64], probability: f64, samples: usize, seed: i64) -> f64 {
+    let mut random = KotlinRandom::new(seed);
+    let count = sorted.len();
+    let mut means: Vec<f64> = (0..samples)
+        .map(|_| {
+            let total: f64 = (0..count)
+                .map(|_| sorted[random.next_int_until(count as i32) as usize])
+                .sum();
+            total / count as f64
+        })
+        .collect();
+    means.sort_by(f64::total_cmp);
+    type_7_quantile(&means, probability)
 }
 
 /// lets-plot `AggregateFunctions.quantile`: the value at `p (n - 1)`, or the
@@ -294,32 +364,15 @@ impl Summary {
                     ),
                 ));
             }
-            let (default_mult, spread): (f64, fn(f64) -> Aggregate) = match data_function {
-                "mean_se" => (1.0, Aggregate::MeanStandardError),
-                "mean_sdl" => (2.0, Aggregate::MeanStandardDeviation),
-                _ => {
-                    return Err(Error::spec(
-                        parameters.path_of("fun_data"),
-                        format!(
-                            "unknown summary data function '{data_function}'; expected 'mean_se' \
-                             or 'mean_sdl'{}",
-                            crate::suggest::did_you_mean(data_function, DATA_FUNCTION_NAMES)
-                        ),
-                    ));
-                }
-            };
-            let mult = mult(parameters)?.unwrap_or(default_mult);
-            return Ok(Summary {
-                y: Aggregate::Mean,
-                ymin: spread(-mult),
-                ymax: spread(mult),
-            });
+            return data_function_summary(data_function, parameters);
         }
-        if parameters.contains("fun_args") && mult(parameters)?.is_some() {
+        if !fun_args(parameters)?.is_none_or(|arguments| arguments.is_empty()) {
             return Err(Error::spec(
                 parameters.path_of("fun_args"),
-                "fun_args applies to fun_data ('mean_se', 'mean_sdl'); pass fun_data too or \
-                 drop fun_args",
+                format!(
+                    "fun_args applies to fun_data ({}); pass fun_data too or drop fun_args",
+                    DATA_FUNCTION_NAMES.join(", ")
+                ),
             ));
         }
         Ok(Summary {
@@ -378,42 +431,173 @@ fn quantiles(parameters: &Parameters) -> Result<[f64; 3]> {
     Ok([probabilities[0], probabilities[1], probabilities[2]])
 }
 
-/// `fun_args={"mult": k}`.
-fn mult(parameters: &Parameters) -> Result<Option<f64>> {
+/// The `fun_args` dict, if given.
+fn fun_args<'a>(
+    parameters: &'a Parameters<'_>,
+) -> Result<Option<&'a serde_json::Map<String, Value>>> {
     let Some(value) = parameters
         .value("fun_args")
         .filter(|value| !value.is_null())
     else {
         return Ok(None);
     };
-    let invalid = || {
-        Error::spec(
+    match value {
+        Value::Object(entries) => Ok(Some(entries)),
+        _ => Err(Error::spec(
             parameters.path_of("fun_args"),
             format!("expected a dict like {{'mult': 2}}, got {value}"),
-        )
+        )),
+    }
+}
+
+/// A `fun_args` number that passes `valid`.
+fn fun_arg(
+    parameters: &Parameters,
+    name: &str,
+    expected: &str,
+    valid: fn(f64) -> bool,
+) -> Result<Option<f64>> {
+    let Some(value) = fun_args(parameters)?.and_then(|arguments| arguments.get(name)) else {
+        return Ok(None);
     };
-    let Value::Object(entries) = value else {
-        return Err(invalid());
+    value
+        .as_f64()
+        .filter(|number| number.is_finite() && valid(*number))
+        .map(Some)
+        .ok_or_else(|| {
+            Error::spec(
+                parameters.path_of("fun_args"),
+                format!("'{name}' expected {expected}, got {value}"),
+            )
+        })
+}
+
+/// y, ymin and ymax of a `fun_data` shortcut.
+fn data_function_summary(name: &str, parameters: &Parameters) -> Result<Summary> {
+    let allowed: &[&str] = match name {
+        "mean_se" | "mean_sdl" => &["mult"],
+        "mean_cl_normal" | "median_hilow" => &["conf_int"],
+        "mean_cl_boot" => &["conf_int", "B", "seed"],
+        _ => {
+            return Err(Error::spec(
+                parameters.path_of("fun_data"),
+                format!(
+                    "unknown summary data function '{name}'; expected one of {}{}",
+                    DATA_FUNCTION_NAMES.join(", "),
+                    crate::suggest::did_you_mean(name, DATA_FUNCTION_NAMES)
+                ),
+            ));
+        }
     };
-    if let Some(key) = entries.keys().find(|key| *key != "mult") {
+    if let Some(key) = fun_args(parameters)?
+        .into_iter()
+        .flat_map(|arguments| arguments.keys())
+        .find(|key| !allowed.contains(&key.as_str()))
+    {
         return Err(Error::spec(
             parameters.path_of("fun_args"),
-            format!("unknown argument '{key}'; fun_args takes only 'mult'"),
+            format!(
+                "unknown argument '{key}' for fun_data='{name}'; it takes {}",
+                allowed.join(", ")
+            ),
         ));
     }
-    match entries.get("mult") {
-        None => Ok(None),
-        Some(mult) => mult
-            .as_f64()
-            .filter(|mult| mult.is_finite() && *mult >= 0.0)
-            .map(Some)
-            .ok_or_else(invalid),
-    }
+    let mult = fun_arg(parameters, "mult", "a number >= 0", |mult| mult >= 0.0)?;
+    let confidence = fun_arg(
+        parameters,
+        "conf_int",
+        "a number between 0 and 1",
+        |level| level > 0.0 && level < 1.0,
+    )?
+    .unwrap_or(DEFAULT_CONFIDENCE);
+    let (lower, upper) = ((1.0 - confidence) / 2.0, (1.0 + confidence) / 2.0);
+    let spread = |make: fn(f64) -> Aggregate, default_mult: f64| {
+        let mult = mult.unwrap_or(default_mult);
+        Summary {
+            y: Aggregate::Mean,
+            ymin: make(-mult),
+            ymax: make(mult),
+        }
+    };
+    Ok(match name {
+        "mean_se" => spread(Aggregate::MeanStandardError, 1.0),
+        "mean_sdl" => spread(Aggregate::MeanStandardDeviation, 2.0),
+        "mean_cl_normal" => Summary {
+            y: Aggregate::Mean,
+            ymin: Aggregate::MeanConfidenceNormal { probability: lower },
+            ymax: Aggregate::MeanConfidenceNormal { probability: upper },
+        },
+        "median_hilow" => Summary {
+            y: Aggregate::QuantileType7(0.5),
+            ymin: Aggregate::QuantileType7(lower),
+            ymax: Aggregate::QuantileType7(upper),
+        },
+        _ => {
+            let whole = |number: f64| number.fract() == 0.0;
+            let samples = fun_arg(parameters, "B", "a whole number from 1 to 1000000", |n| {
+                n.fract() == 0.0 && (1.0..=1e6).contains(&n)
+            })?
+            .map_or(DEFAULT_BOOTSTRAP_SAMPLES, |samples| samples as usize);
+            let seed = fun_arg(parameters, "seed", "a whole number", whole)?
+                .map_or(DEFAULT_BOOTSTRAP_SEED, |seed| seed as i64);
+            let at = |probability| Aggregate::MeanConfidenceBootstrap {
+                probability,
+                samples,
+                seed,
+            };
+            Summary {
+                y: Aggregate::Mean,
+                ymin: at(lower),
+                ymax: at(upper),
+            }
+        }
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn confidence_shortcuts_match_hmisc() {
+        // R: x <- c(1, 2, 4, 9); Hmisc::smean.cl.normal(x) (mean + qt(.975, 3) * se);
+        // quantile(x, c(.5, .025, .975)).
+        let sorted = [1.0, 2.0, 4.0, 9.0];
+        let normal = |probability| Aggregate::MeanConfidenceNormal { probability }.apply(&sorted);
+        assert!((normal(0.025) + 1.6632).abs() < 1e-3, "{}", normal(0.025));
+        assert!((normal(0.975) - 9.6632).abs() < 1e-3, "{}", normal(0.975));
+        assert!((Aggregate::QuantileType7(0.5).apply(&sorted) - 3.0).abs() < 1e-12);
+        assert!((Aggregate::QuantileType7(0.025).apply(&sorted) - 1.075).abs() < 1e-12);
+        assert!((Aggregate::QuantileType7(0.975).apply(&sorted) - 8.625).abs() < 1e-12);
+        for aggregate in [
+            Aggregate::MeanConfidenceNormal { probability: 0.025 },
+            Aggregate::MeanConfidenceBootstrap {
+                probability: 0.025,
+                samples: 10,
+                seed: 1,
+            },
+        ] {
+            assert!(aggregate.apply(&[1.0]).is_nan());
+        }
+    }
+
+    #[test]
+    fn bootstrap_is_seeded_and_brackets_the_mean() {
+        let sorted: Vec<f64> = (0..50).map(f64::from).collect();
+        let at = |probability, seed| {
+            Aggregate::MeanConfidenceBootstrap {
+                probability,
+                samples: 1000,
+                seed,
+            }
+            .apply(&sorted)
+        };
+        assert_eq!(at(0.025, 3), at(0.025, 3));
+        assert_ne!(at(0.025, 3), at(0.025, 4));
+        // Standard error about 2.06: the interval is mean +- about 4.
+        assert!((at(0.025, 1) - 20.5).abs() < 1.0, "{}", at(0.025, 1));
+        assert!((at(0.975, 1) - 28.5).abs() < 1.0, "{}", at(0.975, 1));
+    }
 
     #[test]
     fn quantile_follows_lets_plot() {

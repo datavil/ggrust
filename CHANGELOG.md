@@ -6,6 +6,8 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Added
 
+- `annotate()`: a one-off layer from constants, as ggplot2.
+- `stat_summary` and `stat_summary_bin`: `fun_data` shortcuts `mean_cl_normal`, `mean_cl_boot` and `median_hilow`, with `fun_args` `conf_int`, `B` and `seed`.
 - More `trans` names: `log`, `log1p`, `exp`, `logit`, `probit`, `reciprocal`, `pseudo_log`, `symlog` and `boxcox_trans(p, offset)`, plus `scale_x_symlog` and `scale_y_symlog`.
 - `geom_spoke`, as lets-plot, with `arrow` and `pivot`.
 - `geom_lollipop`, as lets-plot, with `dir`, `fatten`, `slope` and `intercept`.

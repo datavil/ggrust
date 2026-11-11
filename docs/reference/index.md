@@ -89,6 +89,7 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_density2df()`](api/geom_density2df.md) | Fill the bands of a 2D kernel density estimate (``stat="density2df"``). |
 | [`geom_raster()`](api/geom_raster.md) | Equal-sized tiles on a regular grid. |
 | [`geom_imshow()`](api/geom_imshow.md) | Display an image array, as lets_plot ``geom_imshow``. |
+| [`annotate()`](api/annotate.md) | Add a one-off layer from constants, without a data frame. |
 | [`geom_text()`](api/geom_text.md) | Text labels at (x, y); the text comes from the ``label`` aesthetic. |
 | [`geom_label()`](api/geom_label.md) | Text labels in a rounded box at (x, y). |
 | [`geom_text_repel()`](api/geom_text_repel.md) | Text labels pushed apart so they do not overlap each other or the points. |

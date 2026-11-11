@@ -135,7 +135,10 @@ def test_fun_data_as_ggplot2(
     [
         ({"fun": "meen"}, r"layers\[0\]\.fun.*unknown summary function 'meen'.*'mean'"),
         ({"fun": "mean_se"}, r"pass fun_data='mean_se'"),
-        ({"fun_data": "mean_sd"}, r"layers\[0\]\.fun_data.*'mean_se' or 'mean_sdl'"),
+        ({"fun_data": "mean_sd"}, r"layers\[0\]\.fun_data.*'mean_sd'.*mean_se, mean_sdl"),
+        ({"fun_data": "mean_cl_normal", "fun_args": {"mult": 2}}, r"it takes conf_int"),
+        ({"fun_data": "median_hilow", "fun_args": {"conf_int": 1.5}}, r"between 0 and 1"),
+        ({"fun_data": "mean_cl_boot", "fun_args": {"B": 0.5}}, r"'B' expected a whole number"),
         ({"fun_data": "mean_se", "fun": "median"}, r"layers\[0\]\.fun.*cannot be combined"),
         ({"fun_data": "mean_se", "fun_args": {"mul": 2}}, r"unknown argument 'mul'"),
         ({"fun_args": {"mult": 2}}, r"fun_args applies to fun_data"),
@@ -168,3 +171,41 @@ def test_unused_summary_bounds_do_not_train_the_axis(oriented: bool) -> None:
         return sorted(re.findall(r">(-?[\d.]+)</t", plot.to_svg()))
 
     assert ticks(gg) == ticks(lp)
+
+
+@pytest.mark.parametrize(
+    ("fun_data", "fun_args", "centre", "low", "high"),
+    [
+        # R: x <- c(1, 2, 4, 9); Hmisc::smean.cl.normal(x); quantile(x, c(.5, .025, .975))
+        ("mean_cl_normal", None, 4.0, -1.6632, 9.6632),
+        ("mean_cl_normal", {"conf_int": 0.5}, 4.0, 2.6389, 5.3611),
+        ("median_hilow", None, 3.0, 1.075, 8.625),
+        ("median_hilow", {"conf_int": 0.5}, 3.0, 1.75, 5.25),
+    ],
+)
+def test_confidence_shortcuts_match_hmisc(
+    fun_data: str, fun_args: dict[str, float] | None, centre: float, low: float, high: float
+) -> None:
+    data = {"x": [0, 0, 0, 0], "y": [1.0, 2.0, 4.0, 9.0]}
+    plot = gg.ggplot(data, gg.aes("x", "y")) + gg.stat_summary(fun_data=fun_data, fun_args=fun_args)
+    row = plot.layer_data(0).row(0, named=True)
+    assert [row["y"], row["ymin"], row["ymax"]] == pytest.approx([centre, low, high], abs=1e-3)
+
+
+def test_mean_cl_boot_is_reproducible_and_seedable() -> None:
+    data = {"x": [0] * 30, "y": [float(i) for i in range(30)]}
+
+    def interval(fun_args: dict[str, float] | None) -> tuple[float, float]:
+        plot = gg.ggplot(data, gg.aes("x", "y"))
+        plot += gg.stat_summary(fun_data="mean_cl_boot", fun_args=fun_args)
+        row = plot.layer_data(0).row(0, named=True)
+        return row["ymin"], row["ymax"]
+
+    assert interval(None) == interval(None)
+    assert interval({"seed": 7}) != interval({"seed": 8})
+    low, high = interval({"B": 2000})
+    assert low < 14.5 < high
+    assert high - low == pytest.approx(2 * 1.96 * 8.8 / 30**0.5, rel=0.15)
+    narrow = interval({"conf_int": 0.5})
+    assert narrow[0] > low
+    assert narrow[1] < high

@@ -23,7 +23,9 @@ __all__ = ["stat_ecdf", "stat_ellipse", "stat_sum", "stat_summary", "stat_summar
 SummaryFunction = Literal["count", "sum", "mean", "median", "min", "max", "lq", "mq", "uq"]
 """Aggregate names ``fun``, ``fun_min`` and ``fun_max`` accept."""
 
-SummaryDataFunction = Literal["mean_se", "mean_sdl"]
+SummaryDataFunction = Literal[
+    "mean_se", "mean_sdl", "mean_cl_normal", "mean_cl_boot", "median_hilow"
+]
 """ggplot2 ``fun.data`` shortcuts: set y, ymin and ymax together."""
 
 
@@ -82,12 +84,17 @@ def stat_summary(
         Aggregate for ``ymin``; the same names as ``fun``.
     fun_max : str, default="max"
         Aggregate for ``ymax``; the same names as ``fun``.
-    fun_data : {"mean_se", "mean_sdl"}, optional
+    fun_data : {"mean_se", "mean_sdl", "mean_cl_normal", "mean_cl_boot", "median_hilow"}, optional
         ggplot2 shortcut that sets all three: the mean, plus and minus ``mult`` standard
         errors (``"mean_se"``, ``mult`` 1) or standard deviations (``"mean_sdl"``, ``mult``
-        2). Cannot be combined with ``fun``, ``fun_min`` or ``fun_max``. Not in lets_plot.
+        2); the mean with a t interval (``"mean_cl_normal"``) or a bootstrap percentile
+        interval (``"mean_cl_boot"``); the median with the central quantile range
+        (``"median_hilow"``). Cannot be combined with ``fun``, ``fun_min`` or ``fun_max``.
+        Not in lets_plot.
     fun_args : dict, optional
-        Arguments of ``fun_data``: ``{"mult": k}``.
+        Arguments of ``fun_data``: ``{"mult": k}`` for ``mean_se`` and ``mean_sdl``,
+        ``{"conf_int": 0.95}`` for the intervals, and also ``{"B": 1000, "seed": 1}``
+        for ``mean_cl_boot`` (the seed is fixed unless given).
     quantiles : list of float, default=[0.25, 0.5, 0.75]
         The probabilities of ``lq``, ``mq`` and ``uq``; three numbers in 0..1.
     color_by : str, optional
@@ -193,10 +200,10 @@ def stat_summary_bin(
         Aggregate for ``ymin``.
     fun_max : str, default="max"
         Aggregate for ``ymax``.
-    fun_data : {"mean_se", "mean_sdl"}, optional
+    fun_data : {"mean_se", "mean_sdl", "mean_cl_normal", "mean_cl_boot", "median_hilow"}, optional
         ggplot2 shortcut that sets all three; see ``stat_summary``.
     fun_args : dict, optional
-        Arguments of ``fun_data``: ``{"mult": k}``.
+        Arguments of ``fun_data``; see ``stat_summary``.
     quantiles : list of float, default=[0.25, 0.5, 0.75]
         The probabilities of ``lq``, ``mq`` and ``uq``.
     bins : int, default=30

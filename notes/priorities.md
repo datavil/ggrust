@@ -26,8 +26,6 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 
 | # | Item | Why here | Size |
 |---|---|---|---|
-| 3.2 | `stat_summary` shortcuts: `mean_cl_normal`, `mean_cl_boot`, `median_hilow` | Standard error bars for grouped data | S |
-| 3.3 | `annotate()` | Very common ggplot idiom | S |
 | 3.4 | Facet labellers: `labeller=`, `label_value`, `label_both`, `label_context`, `as_labeller` | Common, and facets are central to cellestial's plot types | M |
 | 3.5 | `facet_grid(space=, margins=, drop=)`, `as_table`, `shrink`, `facet_null` | Finishes the facet API | M |
 | 3.6 | Layer options warned about and ignored: `notch`, `notchwidth`, `closed`, `pad`, `just` on `geom_bar`, `lineend`, `linejoin`, `outline_type` | Each is small, and users see the warning | M |

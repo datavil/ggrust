@@ -110,6 +110,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "geom_density2df",
             "geom_raster",
             "geom_imshow",
+            "annotate",
             "geom_text",
             "geom_label",
             "geom_text_repel",

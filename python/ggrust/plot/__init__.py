@@ -1,5 +1,6 @@
 """lets_plot-compatible plot specification API."""
 
+from ggrust.plot.annotate import annotate
 from ggrust.plot.coord import coord_3d, coord_cartesian, coord_fixed, coord_flip, coord_polar
 from ggrust.plot.core import aes, layer
 from ggrust.plot.dendrogram import (
@@ -269,6 +270,7 @@ __all__ = [
     "RangeKey",
     "SupPlotsSpec",
     "aes",
+    "annotate",
     "arrow",
     "boxcox_trans",
     "coord_3d",

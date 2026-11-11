@@ -46,9 +46,8 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   [plotnine]
 - `geom_smooth`: methods `rlm`, `glm`, `gls`, `mavg`, `gpr`; options `formula`,
   `method_args`, `fullrange` [plotnine]
-- `stat_summary` and `stat_summary_bin`: `fun_data` shortcuts `mean_cl_boot`,
-  `mean_cl_normal`, `median_hilow`; Python callables for `fun` and `fun_data` (rejected
-  today because the engine only receives data values) [plotnine]
+- `stat_summary` and `stat_summary_bin`: Python callables for `fun` and `fun_data`
+  (rejected today because the engine only receives data values) [plotnine]
 - Layer options that are warned about and ignored today [plotnine]:
   - `geom_boxplot`: `notch`, `notchwidth`
   - `geom_histogram`: `closed`, `pad`
@@ -94,7 +93,6 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 
 ## 4. Layout, guides and annotation
 
-- `annotate()`: a one-off layer from constants, without a data frame [plotnine]
 - `annotation_logticks`, `annotation_stripes` [plotnine]
 - Facets: `facet_grid(space=, margins=, drop=)`, `as_table` and `shrink` on both facets,
   `facet_null` [plotnine]

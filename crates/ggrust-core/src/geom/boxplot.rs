@@ -6,7 +6,8 @@
 //! `varwidth` widths) x the x resolution, so dodging moves whole boxes. Drawing
 //! order as lets-plot: every box, then every midline (outline width x `fatten`,
 //! default 2), then the whiskers with fences `whisker_width` (default 0.5) of the
-//! box wide. `alpha` fades the fill only.
+//! box wide. `alpha` fades the fill only. `notch` and `notchwidth` (ggplot2)
+//! notch the box at the median's 1.58 IQR / sqrt(n) interval.
 //!
 //! What it does not do (yet): `orientation="y"`, `width_unit` other than `res`.
 
@@ -97,7 +98,14 @@ impl Geom for BoxplotGeom {
     }
 
     fn parameters(&self) -> &'static [&'static str] {
-        &["width", "fatten", "whisker_width", "width_unit"]
+        &[
+            "width",
+            "fatten",
+            "whisker_width",
+            "width_unit",
+            "notch",
+            "notchwidth",
+        ]
     }
 
     fn setup_aesthetics(&self) -> &'static [Aesthetic] {
@@ -118,7 +126,16 @@ impl Geom for BoxplotGeom {
             .parameters
             .number("whisker_width")?
             .unwrap_or(DEFAULT_WHISKER_WIDTH);
-        draw_boxes(layer, panel, fatten, whisker_width)
+        let notch = match layer.parameters.boolean("notch")?.unwrap_or(false) {
+            true => Some(
+                layer
+                    .parameters
+                    .number("notchwidth")?
+                    .unwrap_or(DEFAULT_NOTCH_WIDTH),
+            ),
+            false => None,
+        };
+        draw_boxes(layer, panel, fatten, whisker_width, notch)
     }
 
     fn minimum_key_size(&self, styles: &Styles) -> Result<(f64, f64)> {
@@ -170,11 +187,18 @@ pub(super) fn setup_box_spans(
 
 /// Boxes, then midlines (`fatten` x the outline), then whiskers at x with fences
 /// `whisker_width` of the box wide (none at 0).
+/// ggplot2 `notchwidth`: the notch's width relative to the box.
+const DEFAULT_NOTCH_WIDTH: f64 = 0.5;
+
+/// Every box, midline and whisker. `notch` (ggplot2 `notch=TRUE`) is the
+/// `notchwidth`: boxes are notched at `middle` +- 1.58 IQR / sqrt(n) (needs the
+/// stat's `..count..`; boxes without one stay plain).
 pub(super) fn draw_boxes(
     layer: &DrawLayer,
     panel: &Panel,
     fatten: f64,
     whisker_width: f64,
+    notch: Option<f64>,
 ) -> Result<Vec<Node>> {
     let column = |aesthetic| {
         layer
@@ -200,6 +224,18 @@ pub(super) fn draw_boxes(
     let rows = 0..layer.data.row_count();
     let fills = layer.styles.colors(Aesthetic::Fill)?;
     let alphas = layer.styles.numbers(Aesthetic::Alpha)?;
+    let counts = layer.data.continuous(crate::data::Computed::Count);
+    // Per row: (notch half height in data units, inset of the notch on each side).
+    let notch_of = |row: usize| -> Option<(f64, f64)> {
+        let width = notch?;
+        let n = counts?.get(row).filter(|n| n.is_finite() && *n > 0.0)?;
+        let (low, high) = (finite(lower, row)?, finite(upper, row)?);
+        let (x0, x1) = (finite(xmin, row)?, finite(xmax, row)?);
+        Some((
+            1.58 * (high - low) / n.sqrt(),
+            (1.0 - width) * (x1 - x0) / 2.0,
+        ))
+    };
 
     let mut boxes: Vec<Node> = Vec::new();
     for row in rows.clone() {
@@ -228,6 +264,30 @@ pub(super) fn draw_boxes(
             rect.height = 0.1;
         }
         let fill = fills.get(row).with_opacity(alphas.get(row));
+        if let (Some((half, inset)), Some(center)) = (notch_of(row), finite(middle, row)) {
+            // ggplot2 `GeomCrossbar`: the outline goes in to the middle and out.
+            let points = [
+                (x0, y1),
+                (x0, center + half),
+                (x0 + inset, center),
+                (x0, center - half),
+                (x0, y0),
+                (x1, y0),
+                (x1, center - half),
+                (x1 - inset, center),
+                (x1, center + half),
+                (x1, y1),
+            ]
+            .map(|(x, y)| panel.map(x, y))
+            .to_vec();
+            boxes.push(Node::Path(Path {
+                points,
+                closed: true,
+                fill: (fill.alpha > 0).then_some(fill),
+                stroke: lines::stroke_with_alpha(layer.styles, row, false)?,
+            }));
+            continue;
+        }
         boxes.push(Node::Rects(Rects {
             rects: vec![rect],
             fill: PerItem::Uniform((fill.alpha > 0).then_some(fill)),
@@ -242,6 +302,8 @@ pub(super) fn draw_boxes(
         else {
             continue;
         };
+        let inset = notch_of(row).map_or(0.0, |(_, inset)| inset);
+        let (x0, x1) = (x0 + inset, x1 - inset);
         let stroke = lines::stroke_with_alpha(layer.styles, row, false)?.map(|stroke| Stroke {
             width: stroke.width * fatten,
             dash: stroke.dash.iter().map(|length| length * fatten).collect(),

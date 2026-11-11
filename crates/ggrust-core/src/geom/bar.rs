@@ -61,11 +61,11 @@ pub struct BarGeom {
     parameters: &'static [&'static str],
 }
 
-/// `geom_bar`: by default the count of rows per x.
+/// `geom_bar`: by default the count of rows per x, with `just` (ggplot2).
 pub static BAR_GEOM: BarGeom = BarGeom {
     name: "bar",
     stat: "count",
-    parameters: &["width"],
+    parameters: &["width", "just"],
 };
 
 /// `geom_col` (ggplot2): bar heights from y, with `just`.
@@ -447,6 +447,6 @@ mod tests {
         assert_eq!(COL_GEOM.default_stat(), "identity");
         assert_eq!(BAR_GEOM.default_stat(), "count");
         assert!(COL_GEOM.parameters().contains(&"just"));
-        assert!(!BAR_GEOM.parameters().contains(&"just"));
+        assert!(BAR_GEOM.parameters().contains(&"just"));
     }
 }

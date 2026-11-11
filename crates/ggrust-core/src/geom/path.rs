@@ -62,11 +62,11 @@ impl Geom for PathGeom {
     }
 
     fn parameters(&self) -> &'static [&'static str] {
-        &["arrow"]
+        &["arrow", "lineend", "linejoin"]
     }
 
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
-        draw_paths(layer, panel, false, None)
+        lines::with_line_style(draw_paths(layer, panel, false, None)?, &layer.parameters)
     }
 
     fn minimum_key_size(&self, styles: &Styles) -> Result<(f64, f64)> {
@@ -107,11 +107,11 @@ impl Geom for LineGeom {
     }
 
     fn parameters(&self) -> &'static [&'static str] {
-        &["arrow"]
+        &["arrow", "lineend", "linejoin"]
     }
 
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
-        draw_paths(layer, panel, true, None)
+        lines::with_line_style(draw_paths(layer, panel, true, None)?, &layer.parameters)
     }
 
     fn minimum_key_size(&self, styles: &Styles) -> Result<(f64, f64)> {
@@ -152,8 +152,12 @@ impl Geom for FreqpolyGeom {
         LINE_STYLE_DEFAULTS
     }
 
+    fn parameters(&self) -> &'static [&'static str] {
+        &["lineend", "linejoin"]
+    }
+
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
-        draw_paths(layer, panel, true, None)
+        lines::with_line_style(draw_paths(layer, panel, true, None)?, &layer.parameters)
     }
 
     fn minimum_key_size(&self, styles: &Styles) -> Result<(f64, f64)> {

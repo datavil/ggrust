@@ -87,7 +87,7 @@ impl Geom for HalfBoxplotGeom {
             data: &data,
             ..*layer
         };
-        let mut nodes = draw_boxes(&half_layer, panel, fatten, 0.0)?;
+        let mut nodes = draw_boxes(&half_layer, panel, fatten, 0.0, None)?;
         if draws_fences {
             let column = |aesthetic| layer.data.continuous(aesthetic);
             let (Some(x), Some(xmin), Some(xmax), Some(ymin), Some(ymax)) = (

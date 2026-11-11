@@ -71,6 +71,8 @@ pub(super) fn stroke(color: Color, width: f64, linetype: &LineType) -> Option<St
         color,
         width,
         dash: linetype.0.iter().map(|length| length * width).collect(),
+        end: crate::scene::LineEnd::Butt,
+        join: crate::scene::LineJoin::Miter,
     })
 }
 
@@ -308,4 +310,48 @@ pub(super) fn key_line(styles: &Styles, cell: Rect, vertical: bool) -> Result<Ve
 pub(super) fn key_size(styles: &Styles) -> Result<(f64, f64)> {
     let width = styles.numbers(Aesthetic::Size)?.get(0).max(0.0) * POINT_UNIT_SIZE;
     Ok((width + 2.0, width + 2.0))
+}
+
+/// ggplot2 `lineend` and `linejoin` of a line layer: every stroke in `nodes` gets
+/// them (unset: butt ends and miter joins, as lets-plot).
+pub(super) fn with_line_style(
+    mut nodes: Vec<Node>,
+    parameters: &crate::parameters::Parameters,
+) -> Result<Vec<Node>> {
+    use crate::scene::{LineEnd, LineJoin};
+    let choice = |name: &str, accepted: [&'static str; 3]| -> Result<Option<usize>> {
+        match parameters.string(name)? {
+            None => Ok(None),
+            Some(value) => accepted
+                .iter()
+                .position(|candidate| *candidate == value)
+                .map(Some)
+                .ok_or_else(|| {
+                    crate::Error::spec(
+                        parameters.path_of(name),
+                        format!(
+                            "unknown {name} '{value}'; expected one of {}{}",
+                            accepted.join(", "),
+                            crate::suggest::did_you_mean(value, accepted)
+                        ),
+                    )
+                }),
+        }
+    };
+    let end = choice("lineend", ["butt", "round", "square"])?
+        .map(|index| [LineEnd::Butt, LineEnd::Round, LineEnd::Square][index]);
+    let join = choice("linejoin", ["miter", "round", "bevel"])?
+        .map(|index| [LineJoin::Miter, LineJoin::Round, LineJoin::Bevel][index]);
+    if end.is_none() && join.is_none() {
+        return Ok(nodes);
+    }
+    for node in &mut nodes {
+        if let Node::Path(path) = node
+            && let Some(stroke) = &mut path.stroke
+        {
+            stroke.end = end.unwrap_or(stroke.end);
+            stroke.join = join.unwrap_or(stroke.join);
+        }
+    }
+    Ok(nodes)
 }

@@ -16,6 +16,9 @@
 //! - Ribbon: from `ymin` to `ymax`. All bands first, then all `ymax` lines, then
 //!   all `ymin` lines.
 //!
+//! `outline_type` (ggplot2) picks the edge lines: `upper` (area and density
+//! default), `lower`, `both` (ribbon default) or `full` (the closed band).
+//!
 //! What it does not do (yet): split the fill where a mapped fill varies within a
 //! group (lets-plot does; ggrust fills from the first row), resampling in non-linear coordinates, `flat`, horizontal ribbons.
 
@@ -81,7 +84,7 @@ impl Geom for AreaGeom {
     }
 
     fn parameters(&self) -> &'static [&'static str] {
-        &["quantile_lines", "quantiles"]
+        &["quantile_lines", "quantiles", "outline_type"]
     }
 
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
@@ -119,6 +122,10 @@ impl Geom for RibbonGeom {
         STYLE_DEFAULTS
     }
 
+    fn parameters(&self) -> &'static [&'static str] {
+        &["outline_type"]
+    }
+
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
         let (Some(x), Some(low), Some(high)) = (
             layer.data.continuous(Aesthetic::X),
@@ -127,15 +134,19 @@ impl Geom for RibbonGeom {
         ) else {
             return Ok(Vec::new());
         };
+        let outline = OutlineType::parse(&layer.parameters, OutlineType::Both)?;
         let groups = sorted_groups(layer, x);
         let mut nodes = Vec::new();
         for rows in &groups {
             for piece in pieces(rows, |row| finite(low, row) && finite(high, row)) {
                 nodes.push(band_node(layer, panel, &piece, x, high, low)?);
+                if outline == OutlineType::Full {
+                    nodes.extend(full_outline(layer, panel, &piece, x, high, low)?);
+                }
             }
         }
         // Each edge splits on its own bound only (lets-plot `TO_LOCATION_X_YMAX`).
-        for bound in [high, low] {
+        for bound in outline.bounds(high, low) {
             for rows in &groups {
                 for piece in pieces(rows, |row| finite(bound, row)) {
                     nodes.extend(edge(layer, panel, &piece, x, bound)?);
@@ -203,7 +214,7 @@ impl Geom for DensityGeom {
     }
 
     fn parameters(&self) -> &'static [&'static str] {
-        &["quantile_lines", "quantiles"]
+        &["quantile_lines", "quantiles", "outline_type"]
     }
 
     fn includes_zero_y(&self) -> bool {
@@ -253,6 +264,7 @@ fn draw_areas(layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
     };
     let quantile_lines = layer.parameters.boolean("quantile_lines")?.unwrap_or(false);
     let quantiles = ydensity_quantiles(&layer.parameters)?;
+    let outline = OutlineType::parse(&layer.parameters, OutlineType::Upper)?;
     let band = layer.data.continuous(Aesthetic::Quantile);
     let band_of = |row: usize| band.and_then(|band| band.get(row)).unwrap_or(f64::NAN);
     let mut nodes = Vec::new();
@@ -269,7 +281,12 @@ fn draw_areas(layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
                 nodes.push(band_node(layer, panel, piece, x, top, base)?);
             }
             for piece in &pieces {
-                nodes.extend(edge(layer, panel, piece, x, top)?);
+                if outline == OutlineType::Full {
+                    nodes.extend(full_outline(layer, panel, piece, x, top, base)?);
+                }
+                for bound in outline.bounds(top, base) {
+                    nodes.extend(edge(layer, panel, piece, x, bound)?);
+                }
             }
         }
         if quantile_lines && band.is_some() {
@@ -376,6 +393,82 @@ pub(super) fn band_node(
         fill: (fill.alpha > 0).then_some(fill),
         stroke: None,
     }))
+}
+
+/// ggplot2 `outline.type`: which edges of a band get a line.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum OutlineType {
+    /// The upper edge (area and density default).
+    Upper,
+    /// The lower edge.
+    Lower,
+    /// Upper and lower edges (ribbon default).
+    Both,
+    /// The closed band outline, ends included.
+    Full,
+}
+
+impl OutlineType {
+    const NAMES: [&'static str; 4] = ["upper", "lower", "both", "full"];
+
+    /// `outline_type` from the layer, else `default`.
+    pub(super) fn parse(parameters: &Parameters, default: OutlineType) -> Result<OutlineType> {
+        match parameters.string("outline_type")? {
+            None => Ok(default),
+            Some("upper") => Ok(OutlineType::Upper),
+            Some("lower") => Ok(OutlineType::Lower),
+            Some("both") => Ok(OutlineType::Both),
+            Some("full") => Ok(OutlineType::Full),
+            Some(other) => Err(crate::Error::spec(
+                parameters.path_of("outline_type"),
+                format!(
+                    "unknown outline_type '{other}'; expected one of {}{}",
+                    OutlineType::NAMES.join(", "),
+                    crate::suggest::did_you_mean(other, OutlineType::NAMES)
+                ),
+            )),
+        }
+    }
+
+    /// The bounds that get an edge line, upper first (`full` draws its own).
+    fn bounds<'c>(
+        self,
+        upper: &'c ContinuousColumn,
+        lower: &'c ContinuousColumn,
+    ) -> Vec<&'c ContinuousColumn> {
+        match self {
+            OutlineType::Upper => vec![upper],
+            OutlineType::Lower => vec![lower],
+            OutlineType::Both => vec![upper, lower],
+            OutlineType::Full => Vec::new(),
+        }
+    }
+}
+
+/// The closed outline of the band of `piece` (`outline_type="full"`), stroked with
+/// the first row's line style (ggplot2 draws the polygon border).
+fn full_outline(
+    layer: &DrawLayer,
+    panel: &Panel,
+    piece: &[usize],
+    x: &ContinuousColumn,
+    upper: &ContinuousColumn,
+    lower: &ContinuousColumn,
+) -> Result<Option<Node>> {
+    let Some(stroke) = lines::stroke_with_alpha(layer.styles, piece[0], false)? else {
+        return Ok(None);
+    };
+    let at = |column: &ContinuousColumn, row: usize| {
+        panel.map(x.get(row).unwrap_or(0.0), column.get(row).unwrap_or(0.0))
+    };
+    let mut points: Vec<(f64, f64)> = piece.iter().map(|&row| at(upper, row)).collect();
+    points.extend(piece.iter().rev().map(|&row| at(lower, row)));
+    Ok(Some(Node::Path(Path {
+        points,
+        closed: true,
+        fill: None,
+        stroke: Some(stroke),
+    })))
 }
 
 /// The edge line of `piece` along `bound`, without `alpha` (lets-plot

@@ -31,7 +31,7 @@ impl Geom for SegmentGeom {
     }
 
     fn parameters(&self) -> &'static [&'static str] {
-        &["arrow", "spacer"]
+        &["arrow", "spacer", "lineend", "linejoin"]
     }
 
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
@@ -70,7 +70,7 @@ impl Geom for SegmentGeom {
             }));
             nodes.extend(heads);
         }
-        Ok(nodes)
+        lines::with_line_style(nodes, &layer.parameters)
     }
 
     fn minimum_key_size(&self, styles: &Styles) -> Result<(f64, f64)> {

@@ -34,8 +34,9 @@ use subsetter::GlyphRemapper;
 use super::svg::marker_stroke;
 use crate::scene::geometry::{ClipBox, is_drawable_marker, is_drawable_rect, is_drawable_stroke};
 use crate::scene::{
-    Bitmap, Color, Group, HorizontalAlign, Image, MarkerPart, MarkerShape, Node, Path, Points,
-    Rect, Rects, SUPERSCRIPT_RISE, SUPERSCRIPT_SCALE, Scene, Stroke, Text, VerticalAlign,
+    Bitmap, Color, Group, HorizontalAlign, Image, LineEnd, LineJoin, MarkerPart, MarkerShape, Node,
+    Path, Points, Rect, Rects, SUPERSCRIPT_RISE, SUPERSCRIPT_SCALE, Scene, Stroke, Text,
+    VerticalAlign,
 };
 use crate::text::{Font, loaded, measure, measure_label, shape, single_line};
 use crate::{Error, Result};
@@ -115,6 +116,8 @@ struct State {
     alpha: (u8, u8),
     line_width: Option<f64>,
     dash: Vec<f64>,
+    /// Line cap and join (the stream starts with butt caps and miter joins).
+    line_style: (LineEnd, LineJoin),
 }
 
 /// Glyphs used from one embedded font.
@@ -280,6 +283,23 @@ impl Writer {
         self.set_alpha((self.state.alpha.0, color.alpha));
     }
 
+    fn set_line_style(&mut self, end: LineEnd, join: LineJoin) {
+        if self.state.line_style == (end, join) {
+            return;
+        }
+        self.content.set_line_cap(match end {
+            LineEnd::Butt => LineCapStyle::ButtCap,
+            LineEnd::Round => LineCapStyle::RoundCap,
+            LineEnd::Square => LineCapStyle::ProjectingSquareCap,
+        });
+        self.content.set_line_join(match join {
+            LineJoin::Miter => LineJoinStyle::MiterJoin,
+            LineJoin::Round => LineJoinStyle::RoundJoin,
+            LineJoin::Bevel => LineJoinStyle::BevelJoin,
+        });
+        self.state.line_style = (end, join);
+    }
+
     fn set_stroke(&mut self, color: Color, width: f64, dash: &[f64]) {
         self.set_stroke_color(color);
         if self.state.line_width != Some(width) {
@@ -430,6 +450,9 @@ impl Writer {
             }
         };
         let dash = stroke.as_ref().map(|(_, dash)| dash.clone());
+        if let Some((stroke, _)) = &stroke {
+            self.set_line_style(stroke.end, stroke.join);
+        }
         let stroke = stroke.map(|(stroke, _)| (stroke.color, stroke.width));
         self.paint(
             geometry,
@@ -443,6 +466,9 @@ impl Writer {
             return;
         }
         let stroke = rects.stroke.as_ref().and_then(drawable_stroke);
+        if let Some((stroke, _)) = &stroke {
+            self.set_line_style(stroke.end, stroke.join);
+        }
         for (index, rect) in rects.rects.iter().enumerate() {
             let Some(rect) = self.clip_box.clip_rect(rect).filter(is_drawable_rect) else {
                 continue;
@@ -637,6 +663,7 @@ impl Writer {
         self.content.end_text();
         if text.halo.is_some() {
             self.content.set_line_join(LineJoinStyle::MiterJoin);
+            self.state.line_style.1 = LineJoin::Miter;
         }
     }
 

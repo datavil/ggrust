@@ -44,13 +44,7 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   beyond `y ~ x` and `y ~ poly(x, k)`, `method_args` beyond loess `span`
 - `stat_summary` and `stat_summary_bin`: Python callables for `fun` and `fun_data`
   (rejected today because the engine only receives data values) [plotnine]
-- Layer options that are warned about and ignored today [plotnine]:
-  - `geom_boxplot`: `notch`, `notchwidth`
-  - `geom_histogram`: `closed`, `pad`
-  - `geom_area`, `geom_ribbon`: `outline_type`
-  - `geom_bar`: `just` (`geom_col` has it)
-  - `geom_path`: `lineend`, `linejoin`; `geom_segment`: `lineend`
-  - `geom_text`: `parse`
+- `geom_text(parse=)` is warned about and ignored (needs math text) [plotnine]
 - GAM smoothing method for `geom_smooth` [gaps]
 - `geom_contour_filled` is an alias of `geom_contourf` (continuous `..level..` fill);
   ggplot2 fills each band with an ordered discrete level and has `stat_contour_filled` [gaps]

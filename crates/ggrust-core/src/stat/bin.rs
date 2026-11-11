@@ -4,7 +4,9 @@
 //! Bins are laid out once over the x range of every layer (scale limits replace
 //! its ends), then filled per group.
 //! Options: `bins` (default 30, clamped to 1..500), `binwidth`, `boundary` or
-//! `center` (boundary wins), `breaks`, `threshold`.
+//! `center` (boundary wins), `breaks`, `threshold`; ggplot2's `closed` (which side
+//! of a bin is closed; lets-plot's default is kept: equal bins `[low, high)`,
+//! `breaks` bins `(low, high]`) and `pad` (an empty bin at each end).
 //!
 //! Computed: `..count..`, `..density..` (area 1), `..sumprop..`, `..sumpct..`.
 //!
@@ -42,6 +44,8 @@ impl Stat for BinStat {
             "boundary",
             "breaks",
             "threshold",
+            "closed",
+            "pad",
         ]
     }
 
@@ -66,6 +70,8 @@ impl Stat for BinStat {
         let options = BinOptions::from_parameters(parameters)?;
         let breaks = breaks(parameters)?;
         let threshold = parameters.number("threshold")?;
+        let closed = Closed::parse(parameters)?;
+        let pad = parameters.boolean("pad")?.unwrap_or(false);
         let empty = ContinuousColumn::from_values(Vec::new());
         let x = data.continuous(Aesthetic::X).unwrap_or(&empty);
         let weight = data.continuous(Aesthetic::Weight);
@@ -84,18 +90,48 @@ impl Stat for BinStat {
             let mut bins = if data.row_count() == 0 {
                 Bins::default()
             } else if !breaks.is_empty() {
-                bins_between_breaks(&values, &breaks)
+                bins_between_breaks(&values, &breaks, closed.unwrap_or(Closed::Right))
             } else if let Some(range) = range {
                 let (count, width, start) = binning_parameters(range, &options);
-                equal_bins(&values, start, count, width)
+                equal_bins_closed(&values, start, count, width, closed.unwrap_or(Closed::Left))
             } else {
                 Bins::default()
             };
             if let Some(threshold) = threshold {
                 bins.drop_below(threshold);
             }
+            if pad {
+                bins.pad();
+            }
             Ok(bins.into_columns())
         })
+    }
+}
+
+/// ggplot2 `closed`: the side of a bin that holds values on its edge.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Closed {
+    /// `[low, high)`, the last bin closed on both sides.
+    Left,
+    /// `(low, high]`, the first bin closed on both sides.
+    Right,
+}
+
+impl Closed {
+    /// `closed` from the layer: `"left"`, `"right"` or unset.
+    fn parse(parameters: &Parameters) -> Result<Option<Closed>> {
+        match parameters.string("closed")? {
+            None => Ok(None),
+            Some("left") => Ok(Some(Closed::Left)),
+            Some("right") => Ok(Some(Closed::Right)),
+            Some(other) => Err(Error::spec(
+                parameters.path_of("closed"),
+                format!(
+                    "unknown closed '{other}'; expected 'left' or 'right'{}",
+                    crate::suggest::did_you_mean(other, ["left", "right"])
+                ),
+            )),
+        }
     }
 }
 
@@ -265,6 +301,25 @@ impl Bins {
         }
     }
 
+    /// ggplot2 `pad`: an empty bin before the first and after the last, as wide as
+    /// its neighbour.
+    fn pad(&mut self) {
+        let finite: Vec<f64> = self.x.iter().copied().filter(|x| x.is_finite()).collect();
+        let (Some(&first), Some(&last)) = (finite.first(), finite.last()) else {
+            return;
+        };
+        let (before, after) = match finite.len() {
+            1 => (1.0, 1.0),
+            count => (finite[1] - first, last - finite[count - 2]),
+        };
+        self.x.insert(0, first - before);
+        self.x.push(last + after);
+        for column in [&mut self.count, &mut self.density, &mut self.sum_proportion] {
+            column.insert(0, 0.0);
+            column.push(0.0);
+        }
+    }
+
     fn into_columns(self) -> Vec<(Variable, Vec<f64>)> {
         let sum_percent = self
             .sum_proportion
@@ -284,15 +339,30 @@ impl Bins {
     }
 }
 
-/// lets-plot `computeHistogramBins` over equal-width bins.
+/// lets-plot `computeHistogramBins` over equal-width bins, `[low, high)`.
 pub(super) fn equal_bins(values: &[(f64, f64)], start: f64, count: usize, width: f64) -> Bins {
+    equal_bins_closed(values, start, count, width, Closed::Left)
+}
+
+/// [`equal_bins`] with the closed side of each bin (`Right`: `(low, high]`, a
+/// value on the left edge of the first bin in it).
+pub(super) fn equal_bins_closed(
+    values: &[(f64, f64)],
+    start: f64,
+    count: usize,
+    width: f64,
+    closed: Closed,
+) -> Bins {
     let density_factor = if width > 0.0 { 1.0 / width } else { 1.0 };
     let mut total = 0.0;
     let mut count_by_bin: HashMap<i64, f64> = HashMap::new();
     for &(value, weight) in values {
         total += weight;
         // Kotlin `toInt()`: NaN is 0, out of range saturates (as Rust `as`).
-        let bin = ((value - start) / width).floor() as i64;
+        let bin = match closed {
+            Closed::Left => ((value - start) / width).floor() as i64,
+            Closed::Right => (((value - start) / width).ceil() as i64 - 1).max(0),
+        };
         *count_by_bin.entry(bin).or_insert(0.0) += weight;
     }
     let mut bins = Bins::default();
@@ -322,8 +392,9 @@ pub fn bracketing_index(breaks: &[f64], value: f64) -> Option<usize> {
 }
 
 /// lets-plot `computeHistogramBins` between `breaks` (sorted, distinct), with
-/// bins as [`bracketing_index`].
-fn bins_between_breaks(values: &[(f64, f64)], breaks: &[f64]) -> Bins {
+/// bins as [`bracketing_index`] (`Closed::Right`), or `[low, high)` with the last
+/// bin closed (`Closed::Left`).
+fn bins_between_breaks(values: &[(f64, f64)], breaks: &[f64], closed: Closed) -> Bins {
     if breaks.len() < 2 {
         return Bins::default();
     }
@@ -335,7 +406,14 @@ fn bins_between_breaks(values: &[(f64, f64)], breaks: &[f64]) -> Bins {
             continue;
         }
         total += weight;
-        if let Some(index) = bracketing_index(breaks, value) {
+        let index = match closed {
+            Closed::Right => bracketing_index(breaks, value),
+            Closed::Left => {
+                let above = breaks.partition_point(|edge| *edge <= value);
+                Some(above.clamp(1, breaks.len() - 1) - 1)
+            }
+        };
+        if let Some(index) = index {
             counts[index] += weight;
         }
     }
@@ -382,6 +460,46 @@ mod tests {
         (0..column.len())
             .map(|row| column.get(row).unwrap_or(f64::NAN))
             .collect()
+    }
+
+    #[test]
+    fn closed_moves_edge_values_and_pad_adds_empty_end_bins() {
+        let breaks = r#""breaks": [0, 1, 2, 3]"#;
+        let left = compute(
+            &[0.0, 1.0, 2.0, 3.0],
+            &format!(r#"{{{breaks}, "closed": "left"}}"#),
+        );
+        assert_eq!(values(&left, Computed::Count), [1.0, 1.0, 2.0]);
+        let right = compute(&[0.0, 1.0, 2.0, 3.0], &format!("{{{breaks}}}"));
+        assert_eq!(values(&right, Computed::Count), [2.0, 1.0, 1.0]);
+        let equal = r#""binwidth": 1, "boundary": 0"#;
+        let left = compute(&[1.0, 2.0, 2.0], &format!("{{{equal}}}"));
+        let right = compute(
+            &[1.0, 2.0, 2.0],
+            &format!(r#"{{{equal}, "closed": "right"}}"#),
+        );
+        let count_at = |data: &LayerData, center: f64| {
+            let x = values(data, Aesthetic::X);
+            let index = x.iter().position(|x| (x - center).abs() < 1e-9).unwrap();
+            values(data, Computed::Count)[index]
+        };
+        assert_eq!(count_at(&left, 2.5), 2.0);
+        assert_eq!(count_at(&right, 1.5), 2.0);
+        let padded = compute(&[0.5, 1.5], &format!(r#"{{{breaks}, "pad": true}}"#));
+        assert_eq!(values(&padded, Aesthetic::X), [-0.5, 0.5, 1.5, 2.5, 3.5]);
+        assert_eq!(values(&padded, Computed::Count), [0.0, 1.0, 1.0, 0.0, 0.0]);
+        let error = BinStat
+            .compute(
+                LayerData::new(0),
+                &Parameters::new(
+                    &serde_json::from_str(r#"{"closed": "rigth"}"#).unwrap(),
+                    "layers[0]",
+                ),
+                &StatContext::default(),
+            )
+            .unwrap_err()
+            .to_string();
+        assert!(error.contains("did you mean 'right'"), "{error}");
     }
 
     #[test]

@@ -16,9 +16,9 @@ use super::{canvas, webfont};
 use crate::parallel;
 use crate::scene::geometry::{ClipBox, is_drawable_marker, is_drawable_stroke, is_drawable_width};
 use crate::scene::{
-    Bitmap, Color, Group, HorizontalAlign, Image, KeyedItems, LAYER_ROLE, MarkerPart, Node,
-    Orientation, Path, PerItem, Points, Rect, Rects, SUPERSCRIPT_RISE, SUPERSCRIPT_SCALE, Scene,
-    Stroke, Text, VerticalAlign,
+    Bitmap, Color, Group, HorizontalAlign, Image, KeyedItems, LAYER_ROLE, LineEnd, LineJoin,
+    MarkerPart, Node, Orientation, Path, PerItem, Points, Rect, Rects, SUPERSCRIPT_RISE,
+    SUPERSCRIPT_SCALE, Scene, Stroke, Text, VerticalAlign,
 };
 use crate::text::{CSS_FONT_FAMILY, FaceRef, FontFamily, loaded, measure, single_line};
 
@@ -843,6 +843,16 @@ impl SvgWriter {
                 push_number(&mut pattern, length);
             }
             self.attribute("stroke-dasharray", &pattern);
+        }
+        match stroke.end {
+            LineEnd::Butt => {}
+            LineEnd::Round => self.raw(" stroke-linecap=\"round\""),
+            LineEnd::Square => self.raw(" stroke-linecap=\"square\""),
+        }
+        match stroke.join {
+            LineJoin::Miter => {}
+            LineJoin::Round => self.raw(" stroke-linejoin=\"round\""),
+            LineJoin::Bevel => self.raw(" stroke-linejoin=\"bevel\""),
         }
     }
 

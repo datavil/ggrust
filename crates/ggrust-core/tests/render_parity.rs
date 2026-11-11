@@ -66,6 +66,8 @@ fn line(points: Vec<(f64, f64)>, width: f64, dash: Vec<f64>) -> Node {
             color: Color::BLACK,
             width,
             dash,
+            end: Default::default(),
+            join: Default::default(),
         }),
     })
 }

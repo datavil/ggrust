@@ -73,6 +73,7 @@ EXTENSIONS = {
 }
 # Extras that sit among keyword-only parameters, before `**other_args`.
 KEYWORD_EXTENSIONS = {
+    "geom_bar": ("just",),
     "geom_boxplot": ("outlier_jitter", "outlier_seed"),
     "geom_raster": ("hjust", "vjust", "interpolate"),
 }

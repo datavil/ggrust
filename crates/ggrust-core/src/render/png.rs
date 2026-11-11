@@ -19,7 +19,8 @@ use crate::scene::geometry::{
     ClipBox, is_drawable_marker, is_drawable_rect, is_drawable_stroke, is_drawable_width,
 };
 use crate::scene::{
-    Bitmap, Color, Group, Image, MarkerPart, Node, Path, Points, Rect, Rects, Scene, Stroke, Text,
+    Bitmap, Color, Group, Image, LineEnd, LineJoin as SceneLineJoin, MarkerPart, Node, Path,
+    Points, Rect, Rects, Scene, Stroke, Text,
 };
 use crate::text::{FONT_FAMILY, Font, MONO_FONT_FAMILY, registered_faces};
 use crate::{Error, Result};
@@ -452,10 +453,13 @@ impl Canvas {
     fn path(&mut self, path: &Path, mask: Option<&Mask>) {
         let subpaths = self.clip_box.subpaths(&path.points, path.closed);
         if !path.closed
-            && let Some(stroke) = path
-                .stroke
-                .as_ref()
-                .filter(|stroke| is_drawable_stroke(stroke) && stroke.dash_pattern().is_none())
+            && let Some(stroke) = path.stroke.as_ref().filter(|stroke| {
+                // Chunks would show their ends at the seams of round lines.
+                is_drawable_stroke(stroke)
+                    && stroke.dash_pattern().is_none()
+                    && stroke.end == LineEnd::Butt
+                    && stroke.join == SceneLineJoin::Miter
+            })
             && subpaths
                 .iter()
                 .map(|run| run.len().saturating_sub(1))
@@ -572,8 +576,8 @@ impl Canvas {
         });
         let style = tiny_skia::Stroke {
             width: stroke.width as f32,
-            line_cap: LineCap::Butt,
-            line_join: LineJoin::Miter,
+            line_cap: line_cap(stroke.end),
+            line_join: line_join(stroke.join),
             dash,
             ..tiny_skia::Stroke::default()
         };
@@ -836,6 +840,24 @@ fn font_database() -> Arc<fontdb::Database> {
     let database = Arc::new(database);
     *cache = Some((generation, Arc::clone(&database)));
     database
+}
+
+/// tiny-skia's cap for a scene line end.
+fn line_cap(end: LineEnd) -> LineCap {
+    match end {
+        LineEnd::Butt => LineCap::Butt,
+        LineEnd::Round => LineCap::Round,
+        LineEnd::Square => LineCap::Square,
+    }
+}
+
+/// tiny-skia's join for a scene line join.
+fn line_join(join: SceneLineJoin) -> LineJoin {
+    match join {
+        SceneLineJoin::Miter => LineJoin::Miter,
+        SceneLineJoin::Round => LineJoin::Round,
+        SceneLineJoin::Bevel => LineJoin::Bevel,
+    }
 }
 
 #[cfg(test)]

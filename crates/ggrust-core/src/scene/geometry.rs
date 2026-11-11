@@ -359,6 +359,8 @@ mod tests {
                 color: Color::BLACK,
                 width: 1.0,
                 dash,
+                end: Default::default(),
+                join: Default::default(),
             }
             .dash_pattern()
         };

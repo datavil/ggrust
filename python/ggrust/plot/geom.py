@@ -1742,6 +1742,7 @@ def geom_bar(
     color_by: str | None = None,
     fill_by: str | None = None,
     na_rm: bool | None = None,
+    just: float | None = None,
     **other_args: Any,
 ) -> LayerSpec:
     """Bars, by default the count of rows per x (``stat="count"``), stacked.
@@ -1778,6 +1779,9 @@ def geom_bar(
         Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
     na_rm : bool, optional
         True removes rows with missing values silently; otherwise they are removed with a warning.
+    just : float, default=0.5
+        Where the bar sits on x (ggplot2): 0.5 centers it, 0 puts its left edge on
+        x, 1 its right edge.
     **other_args
         Constant aesthetics and the geom's options, as in lets_plot.
 
@@ -1808,6 +1812,7 @@ def geom_bar(
         color_by=color_by,
         fill_by=fill_by,
         na_rm=na_rm,
+        just=just,
         **other_args,
     )
 

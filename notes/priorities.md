@@ -26,7 +26,6 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 
 | # | Item | Why here | Size |
 |---|---|---|---|
-| 3.6 | Layer options warned about and ignored: `notch`, `notchwidth`, `closed`, `pad`, `just` on `geom_bar`, `lineend`, `linejoin`, `outline_type` | Each is small, and users see the warning | M |
 | 3.8 | `position_dodge2`, `position_dodge(preserve=)` | ggplot2's boxplot default | M |
 | 3.10 | Per-guide options: `reverse`, `position`, `direction`, `order`, `theme`; `display`, `alpha`, `draw_ulim`, `draw_llim` on colorbars | Legend control is a frequent request | M |
 | 3.11 | `minor_breaks`, `oob` on position scales, `rescaler` | Standard scale controls | M |

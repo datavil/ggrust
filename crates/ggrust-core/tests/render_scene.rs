@@ -134,6 +134,8 @@ fn showcase() -> Scene {
                     color: Color::rgb(80, 80, 80),
                     width: 1.5,
                     dash: vec![6.0, 3.0],
+                    end: Default::default(),
+                    join: Default::default(),
                 }),
             }),
             Node::Path(Path {

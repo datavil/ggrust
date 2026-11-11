@@ -245,6 +245,34 @@ pub struct Stroke {
     pub width: f64,
     /// Dash pattern in pixels (`[dash, gap, ...]`); empty is solid.
     pub dash: Vec<f64>,
+    /// Line ends (ggplot2 `lineend`); butt by default.
+    pub end: LineEnd,
+    /// Line joins (ggplot2 `linejoin`); miter by default, as lets-plot's SVG.
+    pub join: LineJoin,
+}
+
+/// How an open line ends (SVG `stroke-linecap`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LineEnd {
+    /// Flat at the end point.
+    #[default]
+    Butt,
+    /// A half circle past the end point.
+    Round,
+    /// A half square past the end point.
+    Square,
+}
+
+/// How line segments meet (SVG `stroke-linejoin`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum LineJoin {
+    /// A sharp corner.
+    #[default]
+    Miter,
+    /// A rounded corner.
+    Round,
+    /// A cut corner.
+    Bevel,
 }
 
 impl Stroke {
@@ -254,6 +282,8 @@ impl Stroke {
             color,
             width,
             dash: Vec::new(),
+            end: LineEnd::Butt,
+            join: LineJoin::Miter,
         }
     }
 }

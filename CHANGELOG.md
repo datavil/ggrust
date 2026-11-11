@@ -6,6 +6,8 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Added
 
+- `position_stack(reverse=)` and `position_fill(reverse=)`.
+- `geom_smooth(fullrange=, formula=, method_args=)`, as ggplot2 (`formula` is `y ~ x` or `y ~ poly(x, k)`).
 - `geom_density(bounds=)` (boundary reflection, as ggplot2); `cut`, `clip` and `gridsize` are accepted for plotnine code.
 - `geom_raster(hjust=, vjust=, interpolate=)`, as ggplot2.
 - `annotate()`: a one-off layer from constants, as ggplot2.

@@ -18,7 +18,13 @@
 //! A recorded deviation: lets-plot uses the straight-line formula for every
 //! method, so its polynomial and loess bands differ.
 //!
-//! What it does not do: `glm`, `gam`, `rlm` (lets-plot neither), `orientation`.
+//! ggplot2 options: `fullrange` evaluates the curve over the plot's whole x range
+//! (lines and polynomials extrapolate; loess, as R, stops at its data);
+//! `formula` is `y ~ x` or `y ~ poly(x, k)` (the same as `deg=k`); `method_args`
+//! passes `span` to loess.
+//!
+//! What it does not do: `glm`, `gam`, `rlm` (lets-plot neither), `orientation`,
+//! other formula terms.
 
 use std::collections::HashSet;
 
@@ -55,6 +61,7 @@ struct SmoothOptions {
     degree: usize,
     max_n: usize,
     seed: i64,
+    full_range: bool,
 }
 
 impl SmoothOptions {
@@ -99,7 +106,16 @@ impl SmoothOptions {
                 format!("expected a confidence level in [0.01, 0.99], got {level}"),
             ));
         }
-        let span = parameters.number("span")?.unwrap_or(DEFAULT_SPAN);
+        let span = match method_span(parameters, method)? {
+            Some(span) if parameters.value("span").is_some() => {
+                return Err(Error::spec(
+                    parameters.path_of("method_args"),
+                    format!("span is given twice (span= and method_args); keep one, got {span}"),
+                ));
+            }
+            Some(span) => span,
+            None => parameters.number("span")?.unwrap_or(DEFAULT_SPAN),
+        };
         if !(span > 0.0 && span <= 1.0) {
             return Err(Error::spec(
                 parameters.path_of("span"),
@@ -122,11 +138,91 @@ impl SmoothOptions {
             se: parameters.boolean("se")?.unwrap_or(true),
             level,
             span,
-            degree: whole("deg", 1, 1)?,
+            degree: match formula_degree(parameters, method)? {
+                Some(degree)
+                    if parameters
+                        .value("deg")
+                        .is_some_and(|deg| deg.as_f64() != Some(degree as f64)) =>
+                {
+                    return Err(Error::spec(
+                        parameters.path_of("formula"),
+                        format!("the formula sets degree {degree} but deg= sets another; keep one"),
+                    ));
+                }
+                Some(degree) => degree,
+                None => whole("deg", 1, 1)?,
+            },
             max_n: whole("max_n", DEFAULT_MAX_N, 1)?,
             seed,
+            full_range: parameters.boolean("fullrange")?.unwrap_or(false),
         })
     }
+}
+
+/// ggplot2 `formula`: `y ~ x` (degree 1) or `y ~ poly(x, k)` (degree k, lm only).
+fn formula_degree(parameters: &Parameters, method: Method) -> Result<Option<usize>> {
+    let Some(formula) = parameters.string("formula")? else {
+        return Ok(None);
+    };
+    let compact: String = formula.chars().filter(|c| !c.is_whitespace()).collect();
+    let unsupported = || {
+        Error::spec(
+            parameters.path_of("formula"),
+            format!(
+                "unsupported formula '{formula}'; supported: 'y ~ x', and 'y ~ poly(x, k)' \
+                 with method='lm'"
+            ),
+        )
+    };
+    let Some(right) = compact.strip_prefix("y~") else {
+        return Err(unsupported());
+    };
+    if right == "x" {
+        return Ok(Some(1));
+    }
+    let degree = right
+        .strip_prefix("poly(x,")
+        .and_then(|rest| rest.strip_suffix(')'))
+        .map(|degree| degree.strip_prefix("degree=").unwrap_or(degree))
+        .and_then(|degree| degree.parse::<usize>().ok())
+        .filter(|degree| *degree >= 1)
+        .ok_or_else(unsupported)?;
+    if method != Method::Linear {
+        return Err(unsupported());
+    }
+    Ok(Some(degree))
+}
+
+/// ggplot2 `method.args`: `{"span": s}` for loess, nothing for lm.
+fn method_span(parameters: &Parameters, method: Method) -> Result<Option<f64>> {
+    let Some(value) = parameters.value("method_args") else {
+        return Ok(None);
+    };
+    let allowed: &[&str] = match method {
+        Method::Loess => &["span"],
+        Method::Linear => &[],
+    };
+    let crate::spec::Value::Object(arguments) = value else {
+        return Err(Error::spec(
+            parameters.path_of("method_args"),
+            format!("expected a dict like {{'span': 0.3}}, got {value}"),
+        ));
+    };
+    if let Some(key) = arguments
+        .keys()
+        .find(|key| !allowed.contains(&key.as_str()))
+    {
+        let accepted = if allowed.is_empty() {
+            "none for method 'lm'".to_string()
+        } else {
+            allowed.join(", ")
+        };
+        return Err(Error::spec(
+            parameters.path_of("method_args"),
+            format!("unknown method argument '{key}'; accepted: {accepted}"),
+        ));
+    }
+    Ok(arguments.get("span").and_then(|span| span.as_f64()))
 }
 
 impl Stat for SmoothStat {
@@ -135,7 +231,19 @@ impl Stat for SmoothStat {
     }
 
     fn parameters(&self) -> &'static [&'static str] {
-        &["method", "n", "se", "level", "span", "deg", "seed", "max_n"]
+        &[
+            "method",
+            "n",
+            "se",
+            "level",
+            "span",
+            "deg",
+            "seed",
+            "max_n",
+            "fullrange",
+            "formula",
+            "method_args",
+        ]
     }
 
     fn aesthetics(&self) -> &'static [Aesthetic] {
@@ -150,9 +258,10 @@ impl Stat for SmoothStat {
         &self,
         data: LayerData,
         parameters: &Parameters,
-        _context: &StatContext,
+        context: &StatContext,
     ) -> Result<LayerData> {
         let options = SmoothOptions::from_parameters(parameters)?;
+        let full_range = context.x_range.filter(|_| options.full_range);
         let empty = ContinuousColumn::from_values(Vec::new());
         let x = data.continuous(Aesthetic::X).unwrap_or(&empty);
         let y = data.continuous(Aesthetic::Y).unwrap_or(&empty);
@@ -161,7 +270,7 @@ impl Stat for SmoothStat {
                 true => sample_rows(rows, options.max_n, options.seed),
                 false => rows.to_vec(),
             };
-            let curve = smooth(&rows, x, y, &options);
+            let curve = smooth(&rows, x, y, &options, full_range);
             let mut columns = vec![
                 (Variable::Aesthetic(Aesthetic::X), curve.x),
                 (Variable::Aesthetic(Aesthetic::Y), curve.y),
@@ -211,6 +320,7 @@ fn smooth(
     x: &ContinuousColumn,
     y: &ContinuousColumn,
     options: &SmoothOptions,
+    full_range: Option<(f64, f64)>,
 ) -> Curve {
     let (mut xs, mut ys) = (Vec::new(), Vec::new());
     for &row in rows {
@@ -246,17 +356,22 @@ fn smooth(
         .fold((f64::INFINITY, f64::NEG_INFINITY), |(low, high), &x| {
             (low.min(x), high.max(x))
         });
-    let step = (high - low) / (options.n - 1) as f64;
+    // Lines and polynomials extrapolate over the full range; loess (R `predict`
+    // gives NA) keeps the points within its data.
+    let extrapolate = !matches!(fit.model, Model::Spline { .. });
+    let (from, to) = full_range.map_or((low, high), |(from, to)| (from.min(low), to.max(high)));
+    let step = (to - from) / (options.n - 1) as f64;
     let points: Vec<f64> = (0..options.n)
-        .map(|index| low + index as f64 * step)
+        .map(|index| from + index as f64 * step)
+        .filter(|at| extrapolate || (low..=high).contains(at))
         .collect();
     let (errors, t_critical) = match options.se {
-        true => fit.standard_errors(&points, options.level),
+        true => fit.standard_errors(&points, options.level, extrapolate),
         false => (vec![f64::NAN; points.len()], f64::NAN),
     };
     let mut curve = Curve::default();
     for (&at, se) in points.iter().zip(errors) {
-        let value = fit.value(at.clamp(low, high));
+        let value = fit.value(if extrapolate { at } else { at.clamp(low, high) });
         let half = t_critical * se;
         curve.x.push(at);
         curve.y.push(value);
@@ -369,7 +484,7 @@ impl Fit {
 
     /// Standard errors of the fitted mean at `points` (clamped to the data
     /// range) and the two-sided t quantile at `level`.
-    fn standard_errors(&self, points: &[f64], level: f64) -> (Vec<f64>, f64) {
+    fn standard_errors(&self, points: &[f64], level: f64, extrapolate: bool) -> (Vec<f64>, f64) {
         let n = self.xs.len();
         let (low, high) = (
             self.xs[0].min(self.xs[n - 1]),
@@ -379,7 +494,10 @@ impl Fit {
             .xs
             .iter()
             .fold((low, high), |(a, b), &x| (a.min(x), b.max(x)));
-        let points: Vec<f64> = points.iter().map(|x| x.clamp(low, high)).collect();
+        let points: Vec<f64> = points
+            .iter()
+            .map(|&x| if extrapolate { x } else { x.clamp(low, high) })
+            .collect();
         let residuals: f64 = self
             .xs
             .iter()
@@ -848,7 +966,7 @@ mod tests {
         let fit = Fit::linear(xs, ys).unwrap();
         // lm(y ~ x): slope 0.8, intercept 0.5, residual s.e. sqrt(0.9).
         assert!((fit.value(0.0) - 0.5).abs() < 1e-12);
-        let (errors, t_critical) = fit.standard_errors(&[2.5], 0.95);
+        let (errors, t_critical) = fit.standard_errors(&[2.5], 0.95, false);
         let expected = 0.9_f64.sqrt() * (0.25_f64 + 0.0).sqrt();
         assert!((errors[0] - expected).abs() < 1e-12);
         assert!((t_critical - 4.302_652_729_911_275).abs() < 1e-6);
@@ -860,7 +978,7 @@ mod tests {
         let xs: Vec<f64> = (0..10).map(f64::from).collect();
         let ys = vec![1.2, 0.1, -0.4, 0.3, -0.2, 1.1, 2.9, 4.2, 7.0, 9.9];
         let fit = Fit::polynomial(xs, ys, 2).unwrap();
-        let (errors, t_critical) = fit.standard_errors(&[0.0, 2.5, 9.0], 0.95);
+        let (errors, t_critical) = fit.standard_errors(&[0.0, 2.5, 9.0], 0.95, false);
         for (error, r) in
             errors
                 .iter()

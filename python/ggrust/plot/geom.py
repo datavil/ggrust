@@ -19,7 +19,7 @@ from ggrust.plot.tooltip import layer_tooltips
 from ggrust.plot.util import as_annotated_data, key_int2str
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Mapping, Sequence
 
     from ggrust._typing import (
         Breaks,
@@ -2647,6 +2647,9 @@ def geom_smooth(
     deg: int | None = None,
     seed: int | None = None,
     max_n: int | None = None,
+    fullrange: bool | None = None,
+    formula: str | None = None,
+    method_args: Mapping[str, Number] | None = None,
     color_by: str | None = None,
     fill_by: str | None = None,
     na_rm: bool | None = None,
@@ -2703,6 +2706,16 @@ def geom_smooth(
         Seed of the row sampling for loess on more than ``max_n`` rows.
     max_n : int, default=1000
         Loess fits a random sample of this many rows per group when it has more.
+    fullrange : bool, default=False
+        True draws the curve over the plot's whole x range, not only the group's
+        data, as ggplot2: lines and polynomials extrapolate, loess stops at its data.
+        Not in lets_plot.
+    formula : str, optional
+        ``"y ~ x"`` or ``"y ~ poly(x, k)"`` (the same as ``deg=k``, with
+        ``method="lm"``), as ggplot2. Not in lets_plot.
+    method_args : dict, optional
+        Arguments of the method, as ggplot2's ``method.args``: ``{"span": 0.3}`` for
+        loess. Not in lets_plot.
     color_by : str, optional
         Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
     fill_by : str, optional
@@ -2744,6 +2757,9 @@ def geom_smooth(
         deg=deg,
         seed=seed,
         max_n=max_n,
+        fullrange=fullrange,
+        formula=formula,
+        method_args=method_args,
         color_by=color_by,
         fill_by=fill_by,
         na_rm=na_rm,

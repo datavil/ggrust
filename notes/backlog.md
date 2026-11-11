@@ -44,8 +44,8 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   all but `stat_summary_2d`, plus `geom_quantile` [plotnine]
 - `stat_hull`: a convex hull as a stat (`geom_mark_hull` only draws an annotation)
   [plotnine]
-- `geom_smooth`: methods `rlm`, `glm`, `gls`, `mavg`, `gpr`; options `formula`,
-  `method_args`, `fullrange` [plotnine]
+- `geom_smooth`: methods `rlm`, `glm`, `gls`, `mavg`, `gpr` [plotnine]; formula terms
+  beyond `y ~ x` and `y ~ poly(x, k)`, `method_args` beyond loess `span`
 - `stat_summary` and `stat_summary_bin`: Python callables for `fun` and `fun_data`
   (rejected today because the engine only receives data values) [plotnine]
 - Layer options that are warned about and ignored today [plotnine]:
@@ -77,7 +77,11 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 
 - `minor_breaks` and `oob` on position scales (color scales have `oob`), `rescaler` on
   continuous scales [plotnine]
-- `drop` and `na_translate` on discrete scales [plotnine]
+- `drop` and `na_translate` on discrete scales [plotnine]. Not S: `DiscreteColumn`
+  drops unused dictionary levels when it reads Arrow (`data/column.rs`), so `drop=False`
+  needs the full level list carried to the scales; `na_translate=True` (ggplot2's
+  default) needs an NA level with `na_value` on axes and legends, where ggrust and
+  lets-plot drop the rows today (`na_translate=False` behavior).
 - `scale_*_distiller`, `scale_*_desaturate`, `scale_*_ordinal` (color, fill, alpha, size),
   `scale_size_radius` [plotnine]
 - Binned scales: `scale_*_binned`, `scale_color_steps`, `steps2`, `stepsn` [gaps]

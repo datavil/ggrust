@@ -152,7 +152,9 @@ def position_jitterdodge(
     )
 
 
-def position_stack(vjust: Number | None = None, mode: str | None = None) -> FeatureSpec:
+def position_stack(
+    vjust: Number | None = None, mode: str | None = None, reverse: bool | None = None
+) -> FeatureSpec:
     """Stack overlapping objects on top of each other.
 
     Parameters
@@ -164,6 +166,9 @@ def position_stack(vjust: Number | None = None, mode: str | None = None) -> Feat
         and the group adds its largest value. ``"all"`` stacks every row. By
         default bars with ``stat="identity"`` use ``"all"``, as ggplot2, and
         everything else ``"groups"``, as lets-plot.
+    reverse : bool, default=False
+        True stacks the groups in the opposite order (the first group on top), as
+        ggplot2. Not in lets_plot.
 
     Returns
     -------
@@ -180,10 +185,12 @@ def position_stack(vjust: Number | None = None, mode: str | None = None) -> Feat
     ...     stat="identity", position=position_stack()
     ... )
     """
-    return _position("stack", vjust=vjust, mode=mode)
+    return _position("stack", vjust=vjust, mode=mode, reverse=reverse)
 
 
-def position_fill(vjust: Number | None = None, mode: str | None = None) -> FeatureSpec:
+def position_fill(
+    vjust: Number | None = None, mode: str | None = None, reverse: bool | None = None
+) -> FeatureSpec:
     """Stack overlapping objects and normalise each stack to height 1.
 
     Parameters
@@ -195,6 +202,9 @@ def position_fill(vjust: Number | None = None, mode: str | None = None) -> Featu
         and the group adds its largest value. ``"all"`` stacks every row. By
         default bars with ``stat="identity"`` use ``"all"``, as ggplot2, and
         everything else ``"groups"``, as lets-plot.
+    reverse : bool, default=False
+        True stacks the groups in the opposite order (the first group on top), as
+        ggplot2. Not in lets_plot.
 
     Returns
     -------
@@ -211,7 +221,7 @@ def position_fill(vjust: Number | None = None, mode: str | None = None) -> Featu
     ...     stat="identity", position=position_fill()
     ... )
     """
-    return _position("fill", vjust=vjust, mode=mode)
+    return _position("fill", vjust=vjust, mode=mode, reverse=reverse)
 
 
 def _position(name: str, **options: Any) -> FeatureSpec:

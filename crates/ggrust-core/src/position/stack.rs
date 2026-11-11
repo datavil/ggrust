@@ -8,6 +8,7 @@
 //! `"all"`, as ggplot2 ([`crate::geom::Geom::stacks_each_row`]); lets-plot
 //! overlaps them (#1398). `vjust` (default 1) places a row's y
 //! within its stacked span (0 bottom, 1 top); bars move as a whole.
+//! `reverse=True` (ggplot2) stacks the groups in the opposite order.
 //!
 //! `position="fill"` stacks the same way, then divides each x's stack by its
 //! total height (positive and negative stacks each by their own total), so every
@@ -32,7 +33,7 @@ impl Position for StackPosition {
     }
 
     fn parameters(&self) -> &'static [&'static str] {
-        &["vjust", "mode"]
+        &["vjust", "mode", "reverse"]
     }
 
     fn adjust(&self, data: LayerData, parameters: &Parameters) -> Result<LayerData> {
@@ -49,7 +50,7 @@ impl Position for FillPosition {
     }
 
     fn parameters(&self) -> &'static [&'static str] {
-        &["vjust", "mode"]
+        &["vjust", "mode", "reverse"]
     }
 
     fn adjust(&self, data: LayerData, parameters: &Parameters) -> Result<LayerData> {
@@ -73,11 +74,15 @@ fn stack(data: LayerData, parameters: &Parameters, normalize: bool) -> Result<La
     let (Some(x), Some(y)) = (data.continuous(Aesthetic::X), data.continuous(Aesthetic::Y)) else {
         return Ok(data);
     };
+    let mut groups = rows_by_group_id(&data);
+    if parameters.boolean("reverse")?.unwrap_or(false) {
+        groups.reverse();
+    }
     let mut context = StackingContext::new(all);
     let mut offsets = vec![0.0; data.row_count()];
     // The stack each row joined: x bits and whether it stacks above 0.
     let mut stacks: Vec<Option<(u64, bool)>> = vec![None; data.row_count()];
-    for rows in rows_by_group_id(&data) {
+    for rows in groups {
         for row in rows {
             let (Some(location), Some(value)) = (x.get(row), y.get(row)) else {
                 continue;
@@ -213,6 +218,25 @@ mod tests {
             "{}",
         );
         assert_eq!(y, [3.0, 1.0, -1.0, -4.0]);
+    }
+
+    #[test]
+    fn reverse_stacks_groups_the_other_way() {
+        let y = stacked(
+            &[0.0, 0.0, 0.0, 0.0],
+            &[2.0, 1.0, -1.0, -3.0],
+            vec![1, 0, 0, 1],
+            r#"{"reverse": true}"#,
+        );
+        assert_eq!(y, [2.0, 3.0, -4.0, -3.0]);
+        let filled = adjusted(
+            &FillPosition,
+            &[0.0, 0.0],
+            &[1.0, 3.0],
+            vec![0, 1],
+            r#"{"reverse": true}"#,
+        );
+        assert_eq!(filled, [1.0, 0.75]);
     }
 
     #[test]

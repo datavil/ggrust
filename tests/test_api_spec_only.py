@@ -64,6 +64,8 @@ def without_data(value):
 EXTENSIONS = {
     "ggtb": ("layers",),
     "gggrid": ("design", "tag_levels", "tag_level", "axes", "axis_titles"),
+    "position_stack": ("reverse",),
+    "position_fill": ("reverse",),
 }
 # Extras that sit among keyword-only parameters, before `**other_args`.
 KEYWORD_EXTENSIONS = {

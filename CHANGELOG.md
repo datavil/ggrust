@@ -6,6 +6,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Added
 
+- `geom_ribbon` `where` aesthetic (plotnine): fill only where a boolean column is True.
 - `scale_color_distiller`, `scale_fill_distiller`, `scale_color_desaturate`, `scale_fill_desaturate`, `scale_color_ordinal`, `scale_fill_ordinal`, `scale_alpha_ordinal`, `scale_size_ordinal` and `scale_size_radius`.
 - `stat_unique`, `stat_hull` (plotnine) and `stat_summary_2d`.
 - `coord_cartesian(expand=)` and `coord_fixed(expand=)`, as ggplot2.

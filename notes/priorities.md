@@ -39,7 +39,6 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 | 3.18 | Binned scales: `scale_*_binned`, `scale_color_steps`, `steps2`, `stepsn` | Useful for choropleths and heatmaps | M |
 | 3.19 | `stat_quantile`, `geom_quantile` | Needs quantile regression | M |
 | 3.22 | `annotation_logticks`, `annotation_stripes` | Pairs with log scales and dodged categories | M |
-| 3.23 | `geom_ribbon` `where` aesthetic | Niche | S |
 | 3.24 | `geom_text(parse=)` | Needs math text | L |
 
 ## 4. Python API ergonomics

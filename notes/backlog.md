@@ -52,7 +52,6 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   - `geom_bar`: `just` (`geom_col` has it)
   - `geom_path`: `lineend`, `linejoin`; `geom_segment`: `lineend`
   - `geom_text`: `parse`
-- `geom_ribbon` `where` aesthetic: fill only where a condition holds [plotnine]
 - GAM smoothing method for `geom_smooth` [gaps]
 - `geom_contour_filled` / `stat_contour_filled` [gaps]
 - `geom_cooks` (regression diagnostics) [gaps]

@@ -61,7 +61,7 @@ aesthetics! {
     Xmin => "xmin", Xmax => "xmax", Ymin => "ymin", Ymax => "ymax",
     Xend => "xend", Yend => "yend",
     MapId => "map_id", Frame => "frame", Speed => "speed", Flow => "flow",
-    Label => "label", Description => "description", Filter => "filter", Family => "family", Fontface => "fontface",
+    Label => "label", Description => "description", Filter => "filter", Where => "where", Family => "family", Fontface => "fontface",
     Lineheight => "lineheight", Angle => "angle", Hjust => "hjust", Vjust => "vjust",
     Radius => "radius", Slice => "slice", Explode => "explode",
     Istart => "istart", Iend => "iend", Lenstart => "lenstart", Lenend => "lenend",

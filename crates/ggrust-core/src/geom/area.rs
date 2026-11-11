@@ -14,7 +14,10 @@
 //!   the top to the base at each quantile. The y axis includes 0.
 //! - Density: an area with `stat="density"` and `position="identity"`.
 //! - Ribbon: from `ymin` to `ymax`. All bands first, then all `ymax` lines, then
-//!   all `ymin` lines.
+//!   all `ymin` lines. A boolean `where` mapping (plotnine) fills only runs of
+//!   True rows, each closed at the interpolated point where `ymax - ymin`
+//!   crosses 0 towards its False neighbours (matplotlib `fill_between(where,
+//!   interpolate=True)`); the edge lines stay whole.
 //!
 //! What it does not do (yet): split the fill where a mapped fill varies within a
 //! group (lets-plot does; ggrust fills from the first row), resampling in non-linear coordinates, `flat`, horizontal ribbons.
@@ -115,6 +118,10 @@ impl Geom for RibbonGeom {
         &[Aesthetic::X, Aesthetic::Ymin, Aesthetic::Ymax]
     }
 
+    fn optional_aesthetics(&self) -> &'static [Aesthetic] {
+        &[Aesthetic::Where]
+    }
+
     fn style_defaults(&self) -> &'static [(Aesthetic, StyleDefault)] {
         STYLE_DEFAULTS
     }
@@ -128,10 +135,19 @@ impl Geom for RibbonGeom {
             return Ok(Vec::new());
         };
         let groups = sorted_groups(layer, x);
+        let mask = where_mask(layer)?;
         let mut nodes = Vec::new();
         for rows in &groups {
             for piece in pieces(rows, |row| finite(low, row) && finite(high, row)) {
-                nodes.push(band_node(layer, panel, &piece, x, high, low)?);
+                match &mask {
+                    None => nodes.push(band_node(layer, panel, &piece, x, high, low)?),
+                    Some(mask) => {
+                        for points in where_bands(&piece, mask, x, high, low) {
+                            let points = points.iter().map(|&(x, y)| panel.map(x, y)).collect();
+                            nodes.push(band_path(layer, piece[0], points)?);
+                        }
+                    }
+                }
             }
         }
         // Each edge splits on its own bound only (lets-plot `TO_LOCATION_X_YMAX`).
@@ -363,7 +379,11 @@ pub(super) fn band_node(
     };
     let mut points: Vec<(f64, f64)> = piece.iter().map(|&row| at(upper, row)).collect();
     points.extend(piece.iter().rev().map(|&row| at(lower, row)));
-    let first = piece[0];
+    band_path(layer, piece[0], points)
+}
+
+/// A closed band through `points` (pixels), styled by row `first`.
+fn band_path(layer: &DrawLayer, first: usize, points: Vec<(f64, f64)>) -> Result<Node> {
     let alpha = layer.styles.numbers(Aesthetic::Alpha)?.get(first);
     let fill = layer
         .styles
@@ -376,6 +396,95 @@ pub(super) fn band_node(
         fill: (fill.alpha > 0).then_some(fill),
         stroke: None,
     }))
+}
+
+/// The `where` mapping of a ribbon: true where the band is filled (missing
+/// values count as false); `None` without the mapping.
+fn where_mask(layer: &DrawLayer) -> Result<Option<Vec<bool>>> {
+    let Some(column) = layer.data.get(Aesthetic::Where) else {
+        return Ok(None);
+    };
+    let accepted = "where must map a boolean column (True fills the band at that x), e.g. a \
+                    column `frame['high'] > frame['low']`";
+    let Column::Discrete(column) = column else {
+        return Err(crate::Error::spec(
+            layer.parameters.path_of("mapping.where"),
+            format!("{accepted}; got a numeric column"),
+        ));
+    };
+    (0..column.len())
+        .map(|row| match column.label(row) {
+            Some("true") => Ok(true),
+            Some("false") | None => Ok(false),
+            Some(other) => Err(crate::Error::spec(
+                layer.parameters.path_of("mapping.where"),
+                format!("{accepted}; got the value '{other}'"),
+            )),
+        })
+        .collect::<Result<Vec<_>>>()
+        .map(Some)
+}
+
+/// The filled parts of a ribbon `piece` under a `where` mask, in data space:
+/// each run of true rows, upper bound forward then lower bound back, widened
+/// at both ends to where `upper - lower` crosses 0 between the run and its false
+/// neighbour (clamped to the two rows, as matplotlib `fill_between`).
+fn where_bands(
+    piece: &[usize],
+    mask: &[bool],
+    x: &ContinuousColumn,
+    upper: &ContinuousColumn,
+    lower: &ContinuousColumn,
+) -> Vec<Vec<(f64, f64)>> {
+    let value = |column: &ContinuousColumn, row: usize| column.get(row).unwrap_or(0.0);
+    // The crossing from row `outside` (false) towards row `inside` (true).
+    let crossing = |outside: usize, inside: usize| {
+        let (gap_out, gap_in) = (
+            value(upper, outside) - value(lower, outside),
+            value(upper, inside) - value(lower, inside),
+        );
+        let t = if gap_out == gap_in {
+            1.0
+        } else {
+            (gap_out / (gap_out - gap_in)).clamp(0.0, 1.0)
+        };
+        let lerp = |column: &ContinuousColumn| {
+            value(column, outside) + t * (value(column, inside) - value(column, outside))
+        };
+        (lerp(x), lerp(upper), lerp(lower))
+    };
+    let mut bands = Vec::new();
+    let mut start = 0;
+    while start < piece.len() {
+        if !mask[piece[start]] {
+            start += 1;
+            continue;
+        }
+        let mut end = start;
+        while end + 1 < piece.len() && mask[piece[end + 1]] {
+            end += 1;
+        }
+        let mut vertices: Vec<(f64, f64, f64)> = Vec::new();
+        if start > 0 {
+            vertices.push(crossing(piece[start - 1], piece[start]));
+        }
+        vertices.extend(
+            piece[start..=end]
+                .iter()
+                .map(|&row| (value(x, row), value(upper, row), value(lower, row))),
+        );
+        if end + 1 < piece.len() {
+            vertices.push(crossing(piece[end + 1], piece[end]));
+        }
+        if vertices.len() >= 2 {
+            let mut points: Vec<(f64, f64)> =
+                vertices.iter().map(|&(x, high, _)| (x, high)).collect();
+            points.extend(vertices.iter().rev().map(|&(x, _, low)| (x, low)));
+            bands.push(points);
+        }
+        start = end + 1;
+    }
+    bands
 }
 
 /// The edge line of `piece` along `bound`, without `alpha` (lets-plot
@@ -411,5 +520,41 @@ mod tests {
         let runs = pieces(&rows, |row| row != 2 && row != 4);
         assert_eq!(runs, vec![vec![0, 1]]);
         assert_eq!(pieces(&rows, |_| true), vec![rows.to_vec()]);
+    }
+
+    #[test]
+    fn where_bands_close_runs_at_the_crossing() {
+        let column = |values: &[f64]| ContinuousColumn::from_values(values.to_vec());
+        let x = column(&[0.0, 1.0, 2.0, 3.0]);
+        // upper - lower: -1, 1, 3, -1; the mask is upper > lower.
+        let upper = column(&[0.0, 1.0, 3.0, 0.0]);
+        let lower = column(&[1.0, 0.0, 0.0, 1.0]);
+        let bands = where_bands(
+            &[0, 1, 2, 3],
+            &[false, true, true, false],
+            &x,
+            &upper,
+            &lower,
+        );
+        assert_eq!(
+            bands,
+            vec![vec![
+                (0.5, 0.5),
+                (1.0, 1.0),
+                (2.0, 3.0),
+                (2.75, 0.75),
+                (2.75, 0.75),
+                (2.0, 0.0),
+                (1.0, 0.0),
+                (0.5, 0.5),
+            ]]
+        );
+        // A lone true row at the edge, no false neighbour on one side: kept with
+        // its crossing; nothing true: no band.
+        assert_eq!(
+            where_bands(&[0, 1], &[true, false], &x, &upper, &lower).len(),
+            1
+        );
+        assert!(where_bands(&[0, 1], &[false, false], &x, &upper, &lower).is_empty());
     }
 }

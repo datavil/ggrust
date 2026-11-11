@@ -2614,6 +2614,8 @@ fn map_layer_into<'a>(
         if matches!(column, Column::Discrete(_))
             && !aesthetic.is_x_position()
             && !aesthetic.is_y_position()
+            // A ribbon's `where` cuts its fill, not its groups (plotnine).
+            && *aesthetic != Aesthetic::Where
             && !default_grouping.iter().any(|(seen, _)| seen == name)
         {
             default_grouping.push((name, column.clone()));
@@ -2633,6 +2635,7 @@ fn map_layer_into<'a>(
         if aesthetic.is_x_position()
             || aesthetic.is_y_position()
             || *aesthetic == Aesthetic::Group
+            || *aesthetic == Aesthetic::Where
             || Computed::from_mapping(name).is_some()
             || !geom_uses(geom, stat, *aesthetic)
             || default_grouping.iter().any(|(seen, _)| *seen == name)

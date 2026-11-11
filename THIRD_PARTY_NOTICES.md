@@ -98,3 +98,21 @@ SOFTWARE.
 benchmark (Luecken et al. 2022, Nature Methods), from
 https://github.com/theislab/scib-reproducibility (MIT License, Copyright (c) 2020
 Theis Lab).
+
+## Example datasets (`ggrust.data`)
+
+The CSV files in `python/ggrust/data/` are written by `scripts/make_datasets.R`.
+
+- `penguins.csv`: Palmer Archipelago (Antarctica) penguin data, as in the R package
+  palmerpenguins (Horst, Hill and Gorman 2020; data collected by Dr. Kristen Gorman and
+  the Palmer Station Long Term Ecological Research Network), taken from R's
+  `datasets::penguins` with palmerpenguins' column names. CC0 1.0 (public domain
+  dedication). https://allisonhorst.github.io/palmerpenguins/
+- `mpg.csv` and `economics.csv`: the `mpg` and `economics` datasets of the R package
+  ggplot2 4.0.1, MIT License, Copyright (c) 2020 ggplot2 authors.
+  https://ggplot2.tidyverse.org. Their underlying data are US government works:
+  `mpg` from the EPA fuel economy data (https://fueleconomy.gov), `economics` from
+  the Federal Reserve Bank of St. Louis FRED series (https://fred.stlouisfed.org).
+- `iris.csv`: Fisher's iris measurements (R. A. Fisher 1936, collected by Edgar
+  Anderson), public domain, taken from R's `datasets::iris` with snake_case column
+  names.

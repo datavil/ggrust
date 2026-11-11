@@ -141,8 +141,8 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 - Expressions in `aes`: `aes("np.log(x)")`, `factor(x)`, `reorder(x, y)`. Today a string
   must name a column (`as_discrete` covers `factor` and ordering) [plotnine]
 - `qplot` and `frame >> ggplot(...)` [plotnine]
-- Example datasets like `plotnine.data` (`mpg`, `mtcars`, `diamonds`, `penguins`, ...)
-  [plotnine]
+- More example datasets beyond `ggrust.data` (`penguins`, `mpg`, `economics`, `iris`):
+  `diamonds` (2.7 MB CSV, would need a compact format), `mtcars` (license unclear) [plotnine]
 - `scale_color_datetime` (also fill, alpha, size) [plotnine]: left out of the 4.1
   aliases because a datetime column on a non-position scale shows epoch numbers in the
   legend; needs temporal legend labels in the engine first.

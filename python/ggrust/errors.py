@@ -17,6 +17,7 @@ if TYPE_CHECKING:
 __all__ = [
     "ColumnNotFoundError",
     "DataError",
+    "DatasetNotFoundError",
     "ExportError",
     "FontError",
     "FontNotFoundError",
@@ -391,6 +392,37 @@ class GuideNotFoundError(GgrustError, LookupError):
     def __init__(self, message: str, *, aesthetic: str, available: list[str]) -> None:
         super().__init__(message)
         self.aesthetic = aesthetic
+        self.available = available
+
+
+class DatasetNotFoundError(GgrustError, AttributeError):
+    """Raised when ``ggrust.data`` has no dataset of the asked name.
+
+    It is an ``AttributeError``, so ``from ggrust.data import name`` raises
+    ``ImportError`` as for any missing module attribute.
+
+    Parameters
+    ----------
+    message : str
+        The full message: the name, the available datasets and a close match.
+    name : str
+        The name that was asked for.
+    available : list of str
+        The dataset names.
+
+    Examples
+    --------
+    >>> import ggrust.data
+    >>> from ggrust.errors import DatasetNotFoundError
+    >>> try:
+    ...     frame = ggrust.data.pengiuns
+    ... except DatasetNotFoundError as error:
+    ...     print(error.available)
+    ['economics', 'iris', 'mpg', 'penguins']
+    """
+
+    def __init__(self, message: str, *, name: str, available: list[str]) -> None:
+        super().__init__(message, name=name)
         self.available = available
 
 

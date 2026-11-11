@@ -119,3 +119,8 @@ def test_scale_sqrt() -> None:
     assert gg.scale_y_sqrt().as_dict()["aesthetic"] == "y"
     plot = gg.ggplot({"a": [1, 4, 9, 16]}, gg.aes("a", "a")) + gg.geom_point() + gg.scale_x_sqrt()
     assert plot.to_svg().startswith("<svg")
+
+
+def test_stat_layer_rejects_a_stat_argument() -> None:
+    with pytest.raises(TypeError, match=r"stat_bin\(\) sets stat='bin' itself"):
+        gg.stat_bin(gg.aes("x"), stat="count")

@@ -18,6 +18,7 @@ from pathlib import Path
 
 import build_examples
 import ggrust
+import ggrust.data
 from ggrust.plot.aliases import ALIASES
 
 DOCS = Path(__file__).parent
@@ -459,6 +460,10 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
         "Register font files (Arial, a brand font, CJK fonts) for `element_text(family=...)`.",
         ["register_font", "register_font_dir", "registered_fonts"],
     ),
+    "Example datasets": (
+        "Small everyday datasets as polars DataFrames: `from ggrust.data import penguins`.",
+        ["ggrust.data"],
+    ),
     "Aliases": (
         "Other spellings of the functions above, as in ggplot2 and plotnine "
         "(not in lets-plot). Each is the same function as its target.",
@@ -482,6 +487,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "ggrust.errors.GuideNotFoundError",
             "ggrust.errors.FontNotFoundError",
             "ggrust.errors.FontError",
+            "ggrust.errors.DatasetNotFoundError",
         ],
     ),
 }

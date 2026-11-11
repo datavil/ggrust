@@ -453,6 +453,9 @@ nav = [
       "reference/api/register_font_dir.md",
       "reference/api/registered_fonts.md",
     ] },
+    { "Example datasets" = [
+      "reference/api/data.md",
+    ] },
     { "Aliases" = [
       "reference/api/coord_equal.md",
       "reference/api/geom_bin_2d.md",
@@ -518,6 +521,7 @@ nav = [
       "reference/api/GuideNotFoundError.md",
       "reference/api/FontNotFoundError.md",
       "reference/api/FontError.md",
+      "reference/api/DatasetNotFoundError.md",
     ] },
   ] },
   # --- end of API reference nav ---

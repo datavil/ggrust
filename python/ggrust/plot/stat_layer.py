@@ -49,6 +49,7 @@ def _stat_layer(
     stat: str,
     default_geom: Callable[..., FeatureSpec],
     geom: str | None,
+    /,
     **arguments: Any,
 ) -> FeatureSpec:
     """Return the default geom function's layer with ``stat``, or a ``geom`` layer.
@@ -68,7 +69,18 @@ def _stat_layer(
     -------
     FeatureSpec
         The layer.
+
+    Raises
+    ------
+    TypeError
+        If ``stat`` is passed again in ``arguments``.
     """
+    if "stat" in arguments:
+        message = (
+            f"stat_{stat}() sets stat='{stat}' itself and takes no 'stat' argument; "
+            f"use geom_*(stat=...) for another stat, or geom= to draw '{stat}' differently."
+        )
+        raise TypeError(message)
     if geom is None:
         return default_geom(stat=stat, **arguments)
     return _geom(geom, stat=stat, **arguments)
@@ -142,7 +154,7 @@ def stat_bin(
     Returns
     -------
     FeatureSpec
-        The layer (a ``LayerSpec``, or two layers for the default boxplot geom).
+        The layer.
 
     Examples
     --------
@@ -234,7 +246,7 @@ def stat_bin2d(
     Returns
     -------
     FeatureSpec
-        The layer (a ``LayerSpec``, or two layers for the default boxplot geom).
+        The layer.
 
     Examples
     --------
@@ -280,7 +292,7 @@ def stat_boxplot(
 ) -> FeatureSpec:
     """Quartiles, whiskers and outliers of y per x (``stat="boxplot"``), drawn as boxplots.
 
-    Computes ``..lower..``, ``..middle..``, ``..upper..``, ``..ymin..`` and ``..ymax..``.
+    Outliers are drawn by a second point layer, as ``geom_boxplot``.
 
     ``stat_boxplot(...)`` is ``geom_boxplot(stat="boxplot", ...)``; another ``geom`` draws the
     same computed rows with that geom.
@@ -291,10 +303,6 @@ def stat_boxplot(
         Aesthetic mapping from ``aes()``.
     data : DataFrame or dict, optional
         Layer data; inherits the plot data when None.
-    outlier_alpha, outlier_color, outlier_fill : optional
-        Style of the outlier points (also ``outlier_shape``, ``outlier_size``,
-        ``outlier_stroke``); ``color``, ``fill``, ``shape``, ``size`` and
-        ``stroke`` in ``other_args`` are the fallback.
     geom : str, optional
         Geom that draws the computed rows, by name; ``"boxplot"`` when None.
     position : str or FeatureSpec, optional
@@ -323,7 +331,7 @@ def stat_boxplot(
     Returns
     -------
     FeatureSpec
-        The layer (a ``LayerSpec``, or two layers for the default boxplot geom).
+        The layer; the default boxplot geom adds the outlier layer.
 
     Examples
     --------
@@ -404,7 +412,7 @@ def stat_count(
     Returns
     -------
     FeatureSpec
-        The layer (a ``LayerSpec``, or two layers for the default boxplot geom).
+        The layer.
 
     Examples
     --------
@@ -512,7 +520,7 @@ def stat_density(
     Returns
     -------
     FeatureSpec
-        The layer (a ``LayerSpec``, or two layers for the default boxplot geom).
+        The layer.
 
     Examples
     --------
@@ -570,7 +578,7 @@ def stat_density2d(
 ) -> FeatureSpec:
     """Contours of a 2D kernel density estimate of x and y (``stat="density2d"``).
 
-    Computes ``..level..`` and ``..density..``.
+    Computes ``..level..``.
 
     ``stat_density2d(...)`` is ``geom_density2d(stat="density2d", ...)``; another ``geom`` draws the
     same computed rows with that geom.
@@ -626,7 +634,7 @@ def stat_density2d(
     Returns
     -------
     FeatureSpec
-        The layer (a ``LayerSpec``, or two layers for the default boxplot geom).
+        The layer.
 
     Examples
     --------
@@ -710,7 +718,7 @@ def stat_identity(
     Returns
     -------
     FeatureSpec
-        The layer (a ``LayerSpec``, or two layers for the default boxplot geom).
+        The layer.
 
     Examples
     --------
@@ -816,7 +824,7 @@ def stat_sina(
     Returns
     -------
     FeatureSpec
-        The layer (a ``LayerSpec``, or two layers for the default boxplot geom).
+        The layer.
 
     Examples
     --------
@@ -944,7 +952,7 @@ def stat_smooth(
     Returns
     -------
     FeatureSpec
-        The layer (a ``LayerSpec``, or two layers for the default boxplot geom).
+        The layer.
 
     Examples
     --------
@@ -1061,7 +1069,7 @@ def stat_ydensity(
     Returns
     -------
     FeatureSpec
-        The layer (a ``LayerSpec``, or two layers for the default boxplot geom).
+        The layer.
 
     Examples
     --------

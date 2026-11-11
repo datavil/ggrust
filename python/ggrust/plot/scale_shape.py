@@ -146,7 +146,6 @@ def scale_linetype(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
-    na_value: str | int | None = None,
     guide: Guide | None = None,
     format: str | None = None,
 ) -> FeatureSpec:
@@ -154,7 +153,8 @@ def scale_linetype(
 
     Sets the legend title, breaks and labels while keeping the default line types
     (solid, dashed, dotted, ...). Not in lets_plot; ggplot2 and plotnine have it.
-    Use ``scale_linetype_manual`` to choose the line types.
+    Use ``scale_linetype_manual`` to choose the line types or an ``na_value``
+    (the default line type scale has none, as in lets-plot).
 
     Parameters
     ----------
@@ -167,9 +167,7 @@ def scale_linetype(
     lablim : int, optional
         Maximum label length in characters; longer labels are cut.
     limits : list, optional
-        The levels (and their order). Data outside the limits gets ``na_value``.
-    na_value : str or int, optional
-        Line type drawn for missing data and data outside ``limits``; solid by default.
+        The levels (and their order).
     guide : str or FeatureSpec, optional
         ``"legend"``, ``"none"``, or a ``guide_legend()`` spec.
     format : str, optional

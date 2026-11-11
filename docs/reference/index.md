@@ -507,6 +507,14 @@ Register font files (Arial, a brand font, CJK fonts) for `element_text(family=..
 | [`register_font_dir()`](api/register_font_dir.md) | Register every font file under a directory, searched recursively. |
 | [`registered_fonts()`](api/registered_fonts.md) | Return the registered font families and their faces. |
 
+## Example datasets
+
+Small everyday datasets as polars DataFrames: `from ggrust.data import penguins`.
+
+| Name | Description |
+|---|---|
+| [`data`](api/data.md) | Small example datasets, as polars DataFrames: ``from ggrust.data import penguins``. |
+
 ## Aliases
 
 Other spellings of the functions above, as in ggplot2 and plotnine (not in lets-plot). Each is the same function as its target.
@@ -595,3 +603,4 @@ except ColumnNotFoundError as error:
 | [`GuideNotFoundError`](api/GuideNotFoundError.md) | Raised when a plot shows no guide for the asked aesthetic. |
 | [`FontNotFoundError`](api/FontNotFoundError.md) | Raised when a font file or directory to register does not exist. |
 | [`FontError`](api/FontError.md) | Raised when a font cannot be registered or embedded. |
+| [`DatasetNotFoundError`](api/DatasetNotFoundError.md) | Raised when ``ggrust.data`` has no dataset of the asked name. |

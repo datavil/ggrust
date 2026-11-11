@@ -75,6 +75,7 @@ from ggrust.plot.geom_qq import (
     stat_qq,
     stat_qq_line,
 )
+from ggrust.plot.geom_spoke import geom_spoke
 from ggrust.plot.geom_streamline import geom_streamline, stat_streamline
 from ggrust.plot.gggrid import gggrid
 from ggrust.plot.gghighlight import gghighlight
@@ -342,6 +343,7 @@ __all__ = [
     "geom_segment",
     "geom_sina",
     "geom_smooth",
+    "geom_spoke",
     "geom_step",
     "geom_streamline",
     "geom_surface",

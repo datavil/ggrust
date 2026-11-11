@@ -762,6 +762,20 @@ def lollipop_horizontal(m):
     return plot + m.geom_lollipop(color="red", fill="gold", shape=21) + m.ggsize(400, 300)
 
 
+def spoke_vector_field(m):
+    grid = [(x, y) for x in np.linspace(-2, 2, 9) for y in np.linspace(-2, 2, 9)]
+    frame = pl.DataFrame(
+        {
+            "x": [x for x, _ in grid],
+            "y": [y for _, y in grid],
+            "angle": [float(np.arctan2(y, -x)) for x, y in grid],
+            "speed": [0.15 + 0.1 * float(np.hypot(x, y)) for x, y in grid],
+        }
+    )
+    layer = m.geom_spoke(m.aes(angle="angle", radius="speed"), arrow=m.arrow(length=4))
+    return m.ggplot(frame, m.aes("x", "y")) + layer + m.ggsize(400, 350)
+
+
 def _polar_bars(m):
     frame = pl.DataFrame({"wind": list("abcdefgh"), "days": [3, 5, 8, 6, 4, 7, 2, 9]})
     return m.ggplot(frame, m.aes("wind", "days", fill="wind")) + m.geom_bar(stat="identity")
@@ -796,6 +810,7 @@ CASES = {
     for case in [
         lollipop_baselines,
         lollipop_horizontal,
+        spoke_vector_field,
         polar_rose,
         polar_pie,
         polar_radar_counter_clockwise,

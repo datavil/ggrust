@@ -49,6 +49,7 @@ mod segment;
 mod sina;
 mod size_unit;
 mod smooth;
+mod spoke;
 mod step;
 mod streamline;
 pub mod surface;
@@ -90,6 +91,7 @@ pub use segment::SegmentGeom;
 pub use sina::SinaGeom;
 pub use slab::SlabGeom;
 pub use smooth::SmoothGeom;
+pub use spoke::SpokeGeom;
 pub use step::StepGeom;
 pub use streamline::StreamlineGeom;
 pub use surface::SurfaceGeom;
@@ -248,6 +250,7 @@ pub static GEOMS: &[&dyn Geom] = &[
     &FreqpolyGeom,
     &SegmentGeom,
     &LollipopGeom,
+    &SpokeGeom,
     &RugGeom,
     &CurveGeom,
     &PolygonGeom,

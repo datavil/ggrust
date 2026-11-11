@@ -111,6 +111,7 @@ nav = [
       "reference/api/geom_line.md",
       "reference/api/geom_step.md",
       "reference/api/geom_lollipop.md",
+      "reference/api/geom_spoke.md",
       "reference/api/geom_qq.md",
       "reference/api/geom_qq_line.md",
       "reference/api/geom_qq2.md",

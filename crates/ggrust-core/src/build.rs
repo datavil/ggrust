@@ -3023,7 +3023,7 @@ fn compute_layer(
         &layer_data,
         &path,
         y_oriented,
-        geom.horizontal_from_ranges(),
+        geom.horizontal_from_ranges() && options.get("orientation").is_none_or(Value::is_null),
     )?;
     let layer_data = geom.setup(layer_data, &parameters)?;
     let x_span = setup_span(geom, &layer_data, Aesthetic::is_x_position);
@@ -3633,14 +3633,15 @@ fn layer_positions(
 /// Error unless every aesthetic in `required` has a column (mapped, constant or
 /// computed). `owner` names who needs them, e.g. `geom_bar`.
 /// `y_oriented`: `data` holds x and y swapped (see [`declared_orientation`]); the
-/// message names the user's aesthetics.
+/// message names the user's aesthetics. `from_ranges`: the mapped ranges pick the
+/// orientation (no `orientation` option), so the message speaks of intervals.
 fn require_aesthetics(
     owner: &str,
     required: &[Aesthetic],
     data: &LayerData,
     path: &str,
     y_oriented: bool,
-    horizontal_alternative: bool,
+    from_ranges: bool,
 ) -> Result<()> {
     let name = |aesthetic: &Aesthetic| match y_oriented {
         true => aesthetic.flip_orientation().as_str(),
@@ -3654,13 +3655,12 @@ fn require_aesthetics(
     if missing.is_empty() {
         return Ok(());
     }
-    let orientation = if y_oriented {
-        " with orientation='y'"
-    } else {
-        ""
+    let orientation = match (y_oriented, from_ranges) {
+        (true, true) => " for a horizontal interval",
+        (true, false) => " with orientation='y'",
+        (false, _) => "",
     };
-    // The interval family also draws horizontally.
-    let alternative = if horizontal_alternative && !y_oriented {
+    let alternative = if from_ranges && !y_oriented {
         " Map y, xmin and xmax instead for a horizontal interval."
     } else {
         ""

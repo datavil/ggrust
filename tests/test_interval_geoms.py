@@ -261,3 +261,17 @@ def test_errorbar_height_unit_is_dropped_with_a_warning() -> None:
     with pytest.warns(GgrustWarning, match="'height_unit' parameter is deprecated"):
         old = gg.geom_errorbar(gg.aes(**HORIZONTAL), height_unit="res")
     assert "height_unit" not in old.as_dict()
+
+
+def test_partial_x_range_error_speaks_of_a_horizontal_interval() -> None:
+    plot = gg.ggplot(DATA) + gg.geom_errorbar(gg.aes(y="x", xmin="low"))
+    with pytest.raises(SpecError, match=r"for a horizontal interval.*missing: xmax") as caught:
+        plot.to_svg()
+    assert "orientation=" not in str(caught.value)
+
+
+def test_explicit_orientation_x_error_offers_no_horizontal_mapping() -> None:
+    plot = gg.ggplot(DATA) + gg.geom_errorbar(gg.aes(x="x"), orientation="x")
+    with pytest.raises(SpecError, match="missing: ymin, ymax") as caught:
+        plot.to_svg()
+    assert "horizontal" not in str(caught.value)

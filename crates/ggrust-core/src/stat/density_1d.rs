@@ -12,7 +12,7 @@
 //!
 //! What it does not do: `orientation="y"`.
 
-use super::density::{DensityOptions, collect_bins, estimate_bins};
+use super::density::{DensityOptions, bounds, collect_bins, estimate_bins};
 use super::groups::per_group;
 use super::ydensity::quantiles;
 use super::{Stat, StatContext};
@@ -67,7 +67,8 @@ impl Stat for DensityStat {
         parameters: &Parameters,
         context: &StatContext,
     ) -> Result<LayerData> {
-        let options = DensityOptions::from_parameters(parameters, false, None)?;
+        let mut options = DensityOptions::from_parameters(parameters, false, None)?;
+        options.bounds = bounds(parameters)?;
         let quantiles = quantiles(parameters)?;
         let overall = context.x_range.unwrap_or((-0.5, 0.5));
         let empty = ContinuousColumn::from_values(Vec::new());
@@ -158,10 +159,9 @@ mod tests {
         for bad in [r#"[1, 0]"#, r#"[0]"#, r#""x""#, r#"[0, "a"]"#] {
             let options: Options =
                 serde_json::from_str(&format!(r#"{{"bounds": {bad}}}"#)).unwrap();
-            let error =
-                DensityOptions::from_parameters(&Parameters::new(&options, "l"), false, None)
-                    .unwrap_err()
-                    .to_string();
+            let error = bounds(&Parameters::new(&options, "l"))
+                .unwrap_err()
+                .to_string();
             assert!(error.contains("expected [low, high]"), "{error}");
         }
     }

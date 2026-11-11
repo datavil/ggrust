@@ -32,6 +32,8 @@ def _vector(value: object) -> list[Any] | None:
     """Return a sequence, array or series as a list, ``None`` for a single value."""
     if isinstance(value, str | bytes | Mapping) or not isinstance(value, Iterable):
         return None
+    if getattr(value, "ndim", 1) == 0:  # a 0-d numpy array is a single value
+        return None
     return list(value)
 
 
@@ -121,7 +123,9 @@ def annotate(
 
     def column(name: str, source: dict[str, Any], vector: list[Any] | None) -> list[Any]:
         if vector is None:
-            return [source[name]] * row_count
+            value = source[name]
+            # A numpy scalar or 0-d array becomes a plain value.
+            return [value.item() if hasattr(value, "item") else value] * row_count
         return vector * row_count if len(vector) == 1 else vector
 
     frame = {name: column(name, positions, columns[name]) for name in positions}

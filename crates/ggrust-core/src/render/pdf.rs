@@ -127,6 +127,8 @@ struct FontUse {
 
 /// An image XObject waiting to be written.
 struct ImageObject {
+    /// Viewers resample smoothly (`geom_raster(interpolate=True)`).
+    smooth: bool,
     columns: u32,
     rows: u32,
     rgb: Vec<u8>,
@@ -520,6 +522,7 @@ impl Writer {
             rows: scaled(image.rows),
             rgb,
             alpha,
+            smooth: image.smooth,
         });
         // The unit square, top row first, onto `rect` (scene y points down).
         let name = format!("I{index}");
@@ -804,7 +807,7 @@ impl Writer {
                 .width(dimension(image.columns))
                 .height(dimension(image.rows))
                 .bits_per_component(8)
-                .interpolate(false);
+                .interpolate(image.smooth);
             object.color_space().device_rgb();
             if let Some(mask_id) = mask_id {
                 object.s_mask(*mask_id);
@@ -817,7 +820,7 @@ impl Writer {
                 mask.width(dimension(image.columns))
                     .height(dimension(image.rows))
                     .bits_per_component(8)
-                    .interpolate(false);
+                    .interpolate(image.smooth);
                 mask.color_space().device_gray();
             }
         }

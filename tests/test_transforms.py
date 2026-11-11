@@ -118,3 +118,9 @@ def test_style_scale_accepts_the_new_names():
     )
     plot += gg.geom_point() + gg.scale_color_gradient(trans="log")
     assert "<svg" in plot.to_svg()
+
+
+def test_boxcox_trans_accepts_numpy_numbers():
+    import numpy as np
+
+    assert gg.boxcox_trans(np.float64(0.5), np.int64(1)) == "boxcox(0.5,1.0)"

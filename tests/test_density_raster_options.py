@@ -89,3 +89,10 @@ def test_interpolation_smooths_png_pixels():
 def test_unknown_interpolation():
     with pytest.raises(SpecError, match=re.escape("did you mean 'bilinear'")):
         raster_svg(interpolation="bilinea")
+
+
+def test_other_density_stats_do_not_read_bounds():
+    plot = gg.ggplot({"g": ["a"] * 6, "x": VALUES}, gg.aes("g", "x"))
+    with pytest.warns(UserWarning, match="does not support option 'bounds'"):
+        bounded = (plot + gg.geom_violin(bounds=[0, None])).layer_data(0)
+    assert bounded.equals((plot + gg.geom_violin()).layer_data(0))

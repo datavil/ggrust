@@ -77,6 +77,11 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 
 - `minor_breaks` and `oob` on position scales (color scales have `oob`), `rescaler` on
   continuous scales [plotnine]
+- `scale_*_gradient2(midpoint=)` with a non-identity `trans`: the midpoint is compared
+  with transformed values without being transformed (ggplot2 transforms it); found by a
+  bug hunter on 2026-11-11, older than the new transforms
+- Degenerate transformed bars: `geom_col` with `trans="exp"` labels the zero baseline
+  `-733`, with `trans="reciprocal"` the axis has no labels (0 is outside the domain)
 - `drop` and `na_translate` on discrete scales [plotnine]. Not S: `DiscreteColumn`
   drops unused dictionary levels when it reads Arrow (`data/column.rs`), so `drop=False`
   needs the full level list carried to the scales; `na_translate=True` (ggplot2's

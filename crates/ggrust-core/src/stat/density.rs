@@ -200,7 +200,8 @@ impl DensityOptions {
                 None => default_tails_cutoff,
                 Some(_) => parameters.number("tails_cutoff")?,
             },
-            bounds: bounds(parameters)?,
+            // Only `stat="density"` reads `bounds` (see `bounds`).
+            bounds: (f64::NEG_INFINITY, f64::INFINITY),
         })
     }
 
@@ -211,7 +212,7 @@ impl DensityOptions {
 }
 
 /// `bounds=[low, high]`: null (or infinity) is an open end.
-fn bounds(parameters: &Parameters) -> Result<(f64, f64)> {
+pub(super) fn bounds(parameters: &Parameters) -> Result<(f64, f64)> {
     let Some(value) = parameters.value("bounds") else {
         return Ok((f64::NEG_INFINITY, f64::INFINITY));
     };

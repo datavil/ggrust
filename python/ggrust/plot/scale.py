@@ -465,16 +465,21 @@ def boxcox_trans(p: Number, offset: Number = 0) -> BoxCoxTransform:
     >>> plot = plot + scale_x_continuous(trans=boxcox_trans(0.5))
     """
     for name, value in (("p", p), ("offset", offset)):
-        if (
-            isinstance(value, bool)
-            or not isinstance(value, int | float)
-            or not math.isfinite(value)
-        ):
+        number = math.nan if isinstance(value, bool | str | bytes) else _as_float(value)
+        if not math.isfinite(number):
             raise SpecError(
                 f"boxcox_trans: {name} expected a finite number, got {value!r}; "
                 "use for example boxcox_trans(0.5) or boxcox_trans(0.5, offset=1)"
             )
-    return cast("BoxCoxTransform", f"boxcox({float(p)!r},{float(offset)!r})")
+    return cast("BoxCoxTransform", f"boxcox({_as_float(p)!r},{_as_float(offset)!r})")
+
+
+def _as_float(value: object) -> float:
+    """Return ``value`` as a float (numpy numbers included), NaN when it is not a number."""
+    try:
+        return float(value)  # ty: ignore[invalid-argument-type]
+    except (TypeError, ValueError):
+        return math.nan
 
 
 def _transformed(scale: FunctionType, trans: Transform) -> Callable[..., FeatureSpec]:

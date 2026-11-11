@@ -534,8 +534,8 @@ fn data_function_summary(name: &str, parameters: &Parameters) -> Result<Summary>
         },
         _ => {
             let whole = |number: f64| number.fract() == 0.0;
-            let samples = fun_arg(parameters, "B", "a whole number from 1 to 1000000", |n| {
-                n.fract() == 0.0 && (1.0..=1e6).contains(&n)
+            let samples = fun_arg(parameters, "B", "a whole number from 1 to 100000", |n| {
+                n.fract() == 0.0 && (1.0..=1e5).contains(&n)
             })?
             .map_or(DEFAULT_BOOTSTRAP_SAMPLES, |samples| samples as usize);
             let seed = fun_arg(parameters, "seed", "a whole number", whole)?

@@ -105,3 +105,8 @@ def test_tooltips_are_off_unless_given():
 def test_errors(call, message: str):
     with pytest.raises(SpecError, match=message):
         call()
+
+
+def test_zero_dimensional_arrays_are_single_values():
+    plot = base() + gg.annotate("text", x=np.array(2.0), y=np.float64(12), label="here")
+    assert plot.layer_data(1)["x"].to_list() == [2.0]

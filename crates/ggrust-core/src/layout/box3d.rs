@@ -386,6 +386,10 @@ mod tests {
             azimuth: Some(azimuth),
             elevation: Some(elevation),
             perspective: None,
+            theta: None,
+            start: None,
+            direction: None,
+            transform_bkgr: None,
             unsupported: Default::default(),
         };
         let view = View::from_spec(&spec).unwrap();

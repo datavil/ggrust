@@ -250,6 +250,30 @@ impl PositionScale {
         }
     }
 
+    /// The domain with no expansion (coord limits and a geom's span kept).
+    pub fn unexpanded_domain(&self) -> (f64, f64) {
+        let mut scale = self.clone();
+        match &mut scale {
+            PositionScale::Continuous(scale) => {
+                scale.multiplicative_expand = 0.0;
+                scale.additive_expand = 0.0;
+            }
+            PositionScale::Discrete(scale) => {
+                scale.multiplicative_expand = 0.0;
+                scale.additive_expand = 0.0;
+            }
+        }
+        scale.expanded_domain()
+    }
+
+    /// Make the panel span exactly `[low, high]`, in transformed units.
+    pub fn set_view_domain(&mut self, low: f64, high: f64) {
+        match self {
+            PositionScale::Continuous(scale) => scale.coord_limits = [Some(low), Some(high)],
+            PositionScale::Discrete(scale) => scale.coord_limits = [Some(low), Some(high)],
+        }
+    }
+
     /// Domain after limits, before expansion (`scale_info()`).
     pub fn limited_domain(&self) -> (f64, f64) {
         match self {

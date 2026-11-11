@@ -18,6 +18,7 @@ Status: **live** = still drives work, **done** = finished, kept for the record,
 | [plans/plan-lp5.md](plans/plan-lp5.md) | Detail for the `lp5.N` steps (lets-plot gaps, score 3) | live |
 | [plans/extensions.md](plans/extensions.md) | Plan for ggplot2 extension features (19 steps done, 5 open) | live |
 | [plans/accessors.md](plans/accessors.md) | Spec for read-only plot accessors; the agreed part is built | done |
+| [plans/coord-polar-design.md](plans/coord-polar-design.md) | Design of `coord_polar`: bend the finished scene (option B, chosen) | done |
 | [cellestial/cellestial_workarounds.md](cellestial/cellestial_workarounds.md) | Maps ggrust features to cellestial workarounds they replace; add a row whenever a step removes one | live |
 | [audits/dep_port_audit.md](audits/dep_port_audit.md) | Read-only audit of cellestial's third-party dependencies and what ggrust must port (2026-11-08) | done |
 | [archive/](archive/) | Superseded docs go here (empty) | |

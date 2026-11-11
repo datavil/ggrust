@@ -5,10 +5,12 @@
 mod cartesian;
 mod fixed;
 mod flip;
+mod polar;
 
 pub use cartesian::Cartesian;
 pub use fixed::Fixed;
 pub use flip::Flip;
+pub use polar::{Polar, PolarView, RADIUS_EXPAND, RADIUS_PADDING, Warp};
 
 use crate::scale::PositionScale;
 use crate::scene::Rect;
@@ -28,7 +30,7 @@ pub trait Coord: Sync {
 }
 
 /// Every coordinate system, in one place: lookup and names derive from it.
-pub static COORDS: &[&dyn Coord] = &[&Cartesian, &Fixed, &Flip];
+pub static COORDS: &[&dyn Coord] = &[&Cartesian, &Fixed, &Flip, &Polar];
 
 /// Look up a coordinate system by its lets-plot name.
 pub fn coord(name: &str) -> Option<&'static dyn Coord> {

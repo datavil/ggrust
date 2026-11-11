@@ -30,7 +30,6 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 
 ## 1. Coordinates and positions
 
-- `coord_polar` for pie, donut and rose charts [gaps] [users] (plan lp5.5)
 - `coord_radial` / radar charts [gaps]
 - `coord_trans`: transform the coordinates after stats [gaps] [plotnine]
 - `coord_map` / `coord_sf`: map projections [gaps]

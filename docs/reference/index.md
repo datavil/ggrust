@@ -377,6 +377,7 @@ Coordinate systems, and small multiples.
 | [`coord_cartesian()`](api/coord_cartesian.md) | Cartesian coordinates; limits zoom without dropping data. |
 | [`coord_fixed()`](api/coord_fixed.md) | Cartesian coordinates with a fixed aspect ratio. |
 | [`coord_flip()`](api/coord_flip.md) | Swap the x and y axes. |
+| [`coord_polar()`](api/coord_polar.md) | Bend the panel into a circle, for pie, donut, rose and radar charts. |
 | [`coord_3d()`](api/coord_3d.md) | Show x, y and z in a static 3D view (ggrust only: lets-plot and ggplot2 have no 3D). |
 | [`facet_wrap()`](api/facet_wrap.md) | Wrap one panel per level of ``facets`` into rows. |
 | [`facet_grid()`](api/facet_grid.md) | Lay panels out in a grid: columns by ``x``, rows by ``y``. |

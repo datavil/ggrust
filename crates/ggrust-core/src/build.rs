@@ -11,7 +11,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::coord::{self, Coord, Panel};
+use crate::coord::{self, Coord, Panel, PolarView};
 use crate::data::as_discrete::{DiscreteOrder, as_discrete};
 use crate::data::{
     Column, Computed, ContinuousColumn, DataFrame, LayerData, SourceRows, group_index, inline,
@@ -20,6 +20,7 @@ use crate::facet::{Facets, LayerFacetColumns, grid_variables};
 use crate::geom::{self, DrawLayer, Geom};
 use crate::interactive_legend::{LayerLegends, RowKeys, row_keys, same_shape, tag_marks};
 use crate::layout::facet::{FacetGrid, FacetLayout, FacetPanel, draw_strips, layout_facets};
+use crate::layout::polar::draw_polar_tile;
 use crate::layout::side_panel::{
     band_layers_group, draw_band_axis, draw_band_background, draw_band_shared_grid,
 };
@@ -758,12 +759,17 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     }
     let mut theme = Theme::from_spec(spec.theme.as_ref(), &mut warnings)
         .map_err(|error| error.with_notes(&warnings))?;
-    // coord_3d draws its layers apart (`space3d::draw_tile`): no clickable keys.
-    if space3d::is_3d(spec) {
+    // coord_3d and coord_polar are static in HTML: no clickable keys.
+    if space3d::is_3d(spec)
+        || spec
+            .coord
+            .as_ref()
+            .is_some_and(|coord| coord.name == "polar")
+    {
         theme.legend_interactive = false;
     }
     side::check_theme(&theme, &band_setups).map_err(|error| error.with_notes(&warnings))?;
-    let bands = band_setups
+    let bands: Vec<side::SideBand> = band_setups
         .into_iter()
         .zip(band_scales)
         .map(|(setup, cross)| side::SideBand { setup, cross })
@@ -831,7 +837,11 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     let flipped = spec
         .coord
         .as_ref()
-        .is_some_and(|coord| coord.flip || coord.name == "flip");
+        .is_some_and(|coord| coord.flip || coord.name == "flip")
+        || match spec.coord.as_ref().filter(|coord| coord.name == "polar") {
+            Some(coord) => PolarView::theta_is_y(coord)?,
+            None => false,
+        };
     let (theme, titles) = if flipped {
         let titles = Titles {
             x: titles.y.clone(),
@@ -844,6 +854,32 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     } else {
         (theme, titles)
     };
+    let polar = PolarView::from_spec(spec.coord.as_ref())?;
+    if polar.is_some() {
+        check_polar_layers(spec, !bands.is_empty())?;
+        for (_, x, y) in &mut prepared_tiles {
+            let (theta, radius) = if flipped { (y, x) } else { (x, y) };
+            PolarView::adjust_scales(theta, radius);
+        }
+        // A round panel: square on screen whatever the domains.
+        let free = facets
+            .as_ref()
+            .is_some_and(|facets| facets.free_x || facets.free_y);
+        aspect = match (free, prepared_tiles.first()) {
+            (false, Some((_, x, y))) => {
+                let span = |scale: &PositionScale| {
+                    let (low, high) = scale.expanded_domain();
+                    high - low
+                };
+                let ratio = match flipped {
+                    true => span(y) / span(x),
+                    false => span(x) / span(y),
+                };
+                (ratio.is_finite() && ratio > 0.0).then_some(ratio)
+            }
+            _ => None,
+        };
+    }
     Ok(PreparedPlot {
         tiles: prepared_tiles,
         bands,
@@ -858,8 +894,33 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         size: (width, height),
         tooltip_setups,
         space,
+        polar,
         warnings,
     })
+}
+
+/// `coord_polar` bends vector marks: bitmap layers and side panels have no bent form.
+fn check_polar_layers(spec: &PlotSpec, has_bands: bool) -> Result<()> {
+    for (index, layer) in spec.layers.iter().enumerate() {
+        if matches!(layer.geom.as_str(), "raster" | "image") {
+            return Err(Error::spec(
+                format!("layers[{index}].geom"),
+                format!(
+                    "geom_{} draws a bitmap, which coord_polar() cannot bend; use geom_tile() \
+                     instead, or another coord",
+                    layer.geom
+                ),
+            ));
+        }
+    }
+    if has_bands {
+        return Err(Error::spec(
+            "coord",
+            "coord_polar() does not support side panels (ggside, ggmarginal); remove them or \
+             use a cartesian coord",
+        ));
+    }
+    Ok(())
 }
 
 /// A plot with its stats, scales and legends computed, ready to be laid out at any
@@ -890,6 +951,8 @@ pub struct PreparedPlot {
     tooltip_setups: Vec<LayerTooltipSetup>,
     /// `coord_3d`: the view, z scale and box titles.
     space: Option<space3d::Space3d>,
+    /// `coord_polar`: bends the drawn layers.
+    polar: Option<PolarView>,
     /// Things the user should know: ignored options, removed rows, ...
     pub warnings: Vec<String>,
 }
@@ -1308,7 +1371,8 @@ impl PreparedPlot {
         let flat_theme = self
             .space
             .as_ref()
-            .map(|_| space3d::layout_theme(&self.theme));
+            .map(|_| space3d::layout_theme(&self.theme))
+            .or_else(|| self.polar.map(|_| space3d::layout_theme(&self.theme)));
         let layout_theme = flat_theme.as_ref().unwrap_or(&self.theme);
         let layout_with = |titles: &Titles| match &self.facets {
             None => {
@@ -1427,12 +1491,16 @@ impl PreparedPlot {
         interaction: &mut Interaction,
         warnings: &mut Vec<String>,
     ) -> Result<()> {
-        if self.space.is_some() {
-            // coord_3d is static (tier 1): no tooltips, zoom or interactive legend.
-            let note =
-                "coord_3d() plots are static: no tooltips, zoom or interactive legend in HTML \
-                        output"
-                    .to_owned();
+        if self.space.is_some() || self.polar.is_some() {
+            // coord_3d and coord_polar are static: no tooltips, zoom or interactive legend.
+            let name = if self.polar.is_some() {
+                "coord_polar"
+            } else {
+                "coord_3d"
+            };
+            let note = format!(
+                "{name}() plots are static: no tooltips, zoom or interactive legend in HTML output"
+            );
             if !warnings.contains(&note)
                 && (interaction.zoom.is_some()
                     || self
@@ -1745,15 +1813,23 @@ impl PreparedPlot {
                 let main: Vec<&PreparedLayer> =
                     layers.iter().filter(|layer| layer.band.is_none()).collect();
                 let layer_nodes = draw_layers(&main, &panel)?;
-                let mut tile = draw_panel_background(layout, theme, &panel);
-                tile.push(Node::Group(Group {
-                    key: None,
-                    clip: Some(layout.panel),
-                    role: Some("panel"),
-                    anchor: None,
-                    nodes: layer_nodes,
-                }));
-                tile.extend(draw_panel_border(layout, theme));
+                let mut tile = Vec::new();
+                match self.polar {
+                    Some(view) => {
+                        tile.extend(draw_polar_tile(view, layout, theme, &panel, layer_nodes));
+                    }
+                    None => {
+                        tile.extend(draw_panel_background(layout, theme, &panel));
+                        tile.push(Node::Group(Group {
+                            key: None,
+                            clip: Some(layout.panel),
+                            role: Some("panel"),
+                            anchor: None,
+                            nodes: layer_nodes,
+                        }));
+                        tile.extend(draw_panel_border(layout, theme));
+                    }
+                }
                 for band in 0..self.bands.len() {
                     let Some(band_layout) = self.band_layout(layout, band) else {
                         continue;
@@ -1782,8 +1858,10 @@ impl PreparedPlot {
                     tile.push(band_layers_group(layout, band_layout, moving));
                     tile.extend(draw_band_axis(layout, band_layout, theme, &band_panel));
                 }
-                let shown = theme.grid_collected.drawn(layout.axis_sides);
-                tile.extend(draw_axes(layout, theme, &panel, shown));
+                if self.polar.is_none() {
+                    let shown = theme.grid_collected.drawn(layout.axis_sides);
+                    tile.extend(draw_axes(layout, theme, &panel, shown));
+                }
                 nodes.push(tile_group(tile));
             }
             Arranged::Facets(layout) => {
@@ -1813,6 +1891,13 @@ impl PreparedPlot {
                         };
                         let layers: Vec<&PreparedLayer> = layers.iter().collect();
                         let layer_nodes = draw_layers(&layers, &panel)?;
+                        if let Some(view) = self.polar {
+                            let tile_nodes =
+                                draw_polar_tile(view, &tile.layout, theme, &panel, layer_nodes);
+                            let mut panel_nodes = vec![tile_group(tile_nodes)];
+                            panel_nodes.extend(draw_strips(tile, theme));
+                            return Ok::<_, Error>(panel_nodes);
+                        }
                         let mut tile_nodes = draw_panel_background(&tile.layout, theme, &panel);
                         tile_nodes.push(Node::Group(Group {
                             key: None,

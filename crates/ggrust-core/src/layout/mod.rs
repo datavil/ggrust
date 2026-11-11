@@ -21,6 +21,7 @@ pub mod dendrogram;
 pub mod facet;
 pub mod grid;
 mod legend;
+pub mod polar;
 mod rotated;
 mod secondary;
 pub mod side;

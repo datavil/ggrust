@@ -30,6 +30,18 @@ pub struct CoordSpec {
     /// `coord_3d`: perspective projection instead of orthographic.
     #[serde(default)]
     pub perspective: Option<bool>,
+    /// `coord_polar`: the aesthetic around the circle (`x` or `y`).
+    #[serde(default)]
+    pub theta: Option<String>,
+    /// `coord_polar`: offset from 12 o'clock, radians.
+    #[serde(default)]
+    pub start: Option<f64>,
+    /// `coord_polar`: 1 clockwise, -1 counter-clockwise.
+    #[serde(default)]
+    pub direction: Option<f64>,
+    /// `coord_polar`: draw the background as a circle.
+    #[serde(default)]
+    pub transform_bkgr: Option<bool>,
     /// Keys no component consumes.
     #[serde(flatten)]
     pub unsupported: Options,

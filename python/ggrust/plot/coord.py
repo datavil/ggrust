@@ -1,4 +1,4 @@
-"""Coordinate systems: ``coord_cartesian``, ``coord_fixed``, ``coord_flip`` and ``coord_3d``.
+"""Coordinate systems: cartesian, fixed, flip, polar and 3D.
 
 Ported from lets-plot's ``lets_plot/plot/coord.py`` (MIT, see THIRD_PARTY_NOTICES.md).
 """
@@ -6,7 +6,7 @@ Ported from lets-plot's ``lets_plot/plot/coord.py`` (MIT, see THIRD_PARTY_NOTICE
 from __future__ import annotations
 
 import math
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from ggrust.errors import SpecError
 from ggrust.plot.core import FeatureSpec
@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 
     from ggrust._typing import Number
 
-__all__ = ["coord_3d", "coord_cartesian", "coord_fixed", "coord_flip"]
+__all__ = ["coord_3d", "coord_cartesian", "coord_fixed", "coord_flip", "coord_polar"]
 
 
 def coord_cartesian(
@@ -104,6 +104,58 @@ def coord_flip(
     >>> plot = plot + coord_flip()
     """
     return FeatureSpec("coord", name="flip", xlim=xlim, ylim=ylim, flip=True)
+
+
+def coord_polar(
+    xlim: Sequence[Number | None] | None = None,
+    ylim: Sequence[Number | None] | None = None,
+    theta: Literal["x", "y"] | None = None,
+    start: Number | None = None,
+    direction: Literal[1, -1] | None = None,
+    transform_bkgr: bool | None = None,
+) -> FeatureSpec:
+    """Bend the panel into a circle, for pie, donut, rose and radar charts.
+
+    Parameters
+    ----------
+    xlim, ylim : list, optional
+        As in ``coord_cartesian``.
+    theta : {"x", "y"}, default="x"
+        The aesthetic that runs around the circle; the other is the radius.
+    start : float, default=0
+        Offset from 12 o'clock, in radians.
+    direction : {1, -1}, default=1
+        1 runs clockwise, -1 counter-clockwise.
+    transform_bkgr : bool, default=True
+        Draw the panel background and border as a circle, else as a rectangle.
+
+    Returns
+    -------
+    FeatureSpec
+        The coordinate system.
+
+    Notes
+    -----
+    HTML output is static: no tooltips, zoom or interactive legend. ``geom_raster``,
+    ``geom_imshow`` and side panels cannot be bent and raise ``SpecError``.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"part": ["a", "b", "c"], "share": [50, 30, 20], "all": ["", "", ""]}
+    >>> plot = ggplot(data, aes("all", "share", fill="part")) + geom_bar(stat="identity", width=1)
+    >>> plot = plot + coord_polar(theta="y")
+    """
+    return FeatureSpec(
+        "coord",
+        name="polar",
+        xlim=xlim,
+        ylim=ylim,
+        theta=theta,
+        start=start,
+        direction=direction,
+        transform_bkgr=transform_bkgr,
+    )
 
 
 def coord_3d(

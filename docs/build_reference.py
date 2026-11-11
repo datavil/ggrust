@@ -350,7 +350,15 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
     ),
     "Coordinates and facets": (
         "Coordinate systems, and small multiples.",
-        ["coord_cartesian", "coord_fixed", "coord_flip", "coord_3d", "facet_wrap", "facet_grid"],
+        [
+            "coord_cartesian",
+            "coord_fixed",
+            "coord_flip",
+            "coord_polar",
+            "coord_3d",
+            "facet_wrap",
+            "facet_grid",
+        ],
     ),
     "Labels and guides": (
         "Titles, axis labels and legends.",

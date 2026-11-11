@@ -360,6 +360,10 @@ mod tests {
             azimuth: Some(f64::NAN),
             elevation: None,
             perspective: None,
+            theta: None,
+            start: None,
+            direction: None,
+            transform_bkgr: None,
             unsupported: Default::default(),
         };
         let error = View::from_spec(&spec).unwrap_err().to_string();

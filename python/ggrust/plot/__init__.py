@@ -1,6 +1,6 @@
 """lets_plot-compatible plot specification API."""
 
-from ggrust.plot.coord import coord_3d, coord_cartesian, coord_fixed, coord_flip
+from ggrust.plot.coord import coord_3d, coord_cartesian, coord_fixed, coord_flip, coord_polar
 from ggrust.plot.core import aes, layer
 from ggrust.plot.dendrogram import (
     ClusterTree,
@@ -267,6 +267,7 @@ __all__ = [
     "coord_cartesian",
     "coord_fixed",
     "coord_flip",
+    "coord_polar",
     "derive",
     "dup_axis",
     "element_blank",

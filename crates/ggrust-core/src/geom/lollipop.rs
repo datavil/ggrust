@@ -13,7 +13,7 @@ use super::{DrawLayer, Geom, interval};
 use crate::coord::Panel;
 use crate::data::{Column, ContinuousColumn, LayerData};
 use crate::parameters::Parameters;
-use crate::scene::{Node, Path, Rect};
+use crate::scene::{Node, Path, Rect, Stroke};
 use crate::spec::Aesthetic;
 use crate::style::{StyleDefault, Styles};
 use crate::tooltip::{HoverTargets, TooltipBehavior};
@@ -245,7 +245,11 @@ impl Geom for LollipopGeom {
         points.x = vec![x];
         points.y = vec![y];
         let mut nodes = vec![Node::Points(points)];
-        if let Some(stroke) = interval::range_stroke(styles, 0)? {
+        // lets-plot decorates the key's stick without `applyAlphaToAll`.
+        let color = styles.colors(Aesthetic::Color)?.get(0);
+        if let Some(stroke) =
+            interval::range_stroke(styles, 0)?.map(|stroke| Stroke { color, ..stroke })
+        {
             let top = y + point::stick_radius(styles, 0, 1.0)?;
             nodes.push(Node::Path(Path {
                 points: vec![(x, top), (x, top + KEY_STICK)],

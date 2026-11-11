@@ -21,6 +21,7 @@ Start a plot, map columns to aesthetics, and work with the plot object.
 | [`layer()`](api/layer.md) | Create a layer from a geom name, stat, data, mapping and position. |
 | [`ggsize()`](api/ggsize.md) | Set the plot size in pixels. |
 | [`as_discrete()`](api/as_discrete.md) | Use a discrete scale for a mapped column, optionally ordering its values. |
+| [`after_stat()`](api/after_stat.md) | Map a variable the stat computes (ggplot2 ``after_stat()``). |
 | [`PlotSpec`](api/PlotSpec.md) | A plot: data, mapping, layers, scales and features. Build it with ``ggplot()``. |
 
 ## Geometries

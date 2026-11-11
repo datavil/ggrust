@@ -92,6 +92,7 @@ nav = [
       "reference/api/layer.md",
       "reference/api/ggsize.md",
       "reference/api/as_discrete.md",
+      "reference/api/after_stat.md",
       "reference/api/PlotSpec.md",
     ] },
     { "Geometries" = [

@@ -118,8 +118,9 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 
 ## 5. Python API
 
-- `after_stat`, `after_scale`, `stage` in `aes` (ggrust has `..count..` for computed
-  variables; nothing reaches values after scaling) [plotnine]
+- `after_scale`, `stage`, and expressions in `after_stat` (`after_stat(count / max(count))`)
+  in `aes` [plotnine]. `after_stat("name")` landed; the rest needs an expression language
+  evaluated on stat output and on scaled values, which ggrust does not have
 - `aes(color=pl.Series([...]))` (and pandas Series) is rejected ("cannot send a value of
   type Series"); lists and numpy arrays work
 - Errors with required keyword-only `__init__` arguments (`GuideNotFoundError`,

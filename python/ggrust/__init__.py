@@ -16,7 +16,7 @@ from ggrust.density_outline import density_outline
 from ggrust.export import ggsave
 from ggrust.fonts import register_font, register_font_dir, registered_fonts
 from ggrust.kernel_density import kernel_density
-from ggrust.mapping import as_discrete
+from ggrust.mapping import after_stat, as_discrete
 from ggrust.plot import (
     ClusterTree,
     GGBunch,
@@ -386,6 +386,7 @@ __all__ = [
     "VelocityGrid",
     "__version__",
     "aes",
+    "after_stat",
     "annotate",
     "arrow",
     "as_discrete",

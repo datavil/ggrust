@@ -42,3 +42,16 @@ def test_stat_summary_2d_unknown_fun():
     plot = gg.ggplot(data, gg.aes("x", "y", z="z")) + gg.stat_summary_2d(fun="mena")  # ty: ignore[invalid-argument-type]
     with pytest.raises(SpecError, match="did you mean 'mean'"):
         plot.to_svg()
+
+
+def test_stat_summary_2d_rejects_a_discrete_z() -> None:
+    data = {"x": [1.0, 2, 3, 4], "y": [1.0, 3, 2, 5], "s": list("abab")}
+    plot = gg.ggplot(data, gg.aes("x", "y", z="s")) + gg.stat_summary_2d(bins=2)
+    with pytest.raises(SpecError, match="numeric z column"):
+        plot.to_svg()
+
+
+def test_stat_unique_treats_negative_zero_as_zero() -> None:
+    data = {"x": [0.0, -0.0, 1.0], "y": [1.0, 1.0, 1.0]}
+    built = (gg.ggplot(data, gg.aes("x", "y")) + gg.stat_unique()).to_svg()
+    assert built.count("<circle") == 2

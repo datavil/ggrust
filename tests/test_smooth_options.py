@@ -64,3 +64,14 @@ def test_method_args_span_equals_span():
 def test_errors(options: dict[str, object], message: str):
     with pytest.raises(SpecError, match=message):
         smooth(**options).to_svg()
+
+
+def test_method_args_span_must_be_a_positive_number() -> None:
+    import ggrust as gg
+    from ggrust.errors import SpecError
+
+    data = {"x": list(range(10)), "y": [value % 3 for value in range(10)]}
+    for span in ["a", -1]:
+        layer = gg.geom_smooth(method="loess", method_args={"span": span})
+        with pytest.raises(SpecError, match=r"method_args.span.*positive number"):
+            (gg.ggplot(data, gg.aes("x", "y")) + layer).to_svg()

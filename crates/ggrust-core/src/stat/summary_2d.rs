@@ -65,6 +65,15 @@ impl Stat for Summary2dStat {
         let empty = ContinuousColumn::from_values(Vec::new());
         let x = data.continuous(Aesthetic::X).unwrap_or(&empty);
         let y = data.continuous(Aesthetic::Y).unwrap_or(&empty);
+        if matches!(
+            data.get(Aesthetic::Z),
+            Some(crate::data::Column::Discrete(_))
+        ) {
+            return Err(Error::spec(
+                parameters.path_of("mapping.z"),
+                "stat_summary_2d needs a numeric z column to summarise; got a discrete one",
+            ));
+        }
         let z = data.continuous(Aesthetic::Z).unwrap_or(&empty);
         let ranges = context
             .x_range

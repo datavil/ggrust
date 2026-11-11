@@ -11,7 +11,7 @@
 use super::groups::per_group;
 use super::{Stat, StatContext};
 use crate::Result;
-use crate::data::{Computed, ContinuousColumn, LayerData, Variable};
+use crate::data::{Computed, LayerData, Variable};
 use crate::parameters::Parameters;
 use crate::spec::Aesthetic;
 
@@ -34,12 +34,16 @@ impl Stat for HullStat {
     fn compute(
         &self,
         data: LayerData,
-        _parameters: &Parameters,
+        parameters: &Parameters,
         _context: &StatContext,
     ) -> Result<LayerData> {
-        let empty = ContinuousColumn::from_values(Vec::new());
-        let x = data.continuous(Aesthetic::X).unwrap_or(&empty);
-        let y = data.continuous(Aesthetic::Y).unwrap_or(&empty);
+        let (Some(x), Some(y)) = (data.continuous(Aesthetic::X), data.continuous(Aesthetic::Y))
+        else {
+            return Err(crate::Error::spec(
+                parameters.path_of("mapping"),
+                "stat_hull needs numeric x and y positions",
+            ));
+        };
         per_group(&data, |rows| {
             let points: Vec<(f64, f64)> = rows
                 .iter()

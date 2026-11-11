@@ -222,7 +222,16 @@ fn method_span(parameters: &Parameters, method: Method) -> Result<Option<f64>> {
             format!("unknown method argument '{key}'; accepted: {accepted}"),
         ));
     }
-    Ok(arguments.get("span").and_then(|span| span.as_f64()))
+    match arguments.get("span") {
+        None => Ok(None),
+        Some(span) => match span.as_f64().filter(|span| *span > 0.0 && span.is_finite()) {
+            Some(span) => Ok(Some(span)),
+            None => Err(Error::spec(
+                format!("{}.span", parameters.path_of("method_args")),
+                format!("span must be a positive number, got {span}"),
+            )),
+        },
+    }
 }
 
 impl Stat for SmoothStat {

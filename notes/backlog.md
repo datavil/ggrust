@@ -69,6 +69,9 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 - Spatial: `geom_sf` / `geom_sf_text` (GeoJSON), map tiles, polygon label placement
   (polylabel), `annotation_scale` [gaps]; `geom_map` (geopandas geometries) [plotnine]
 
+- `geom_smooth(method="lm")` with a degree (`deg=` or `poly(x, k)`) of n or more
+  draws nothing without a warning (R errors); with one less the band is NaN [bug hunt]
+
 ## 3. Scales and color
 
 - `minor_breaks` and `oob` on position scales (color scales have `oob`), `rescaler` on
@@ -91,6 +94,9 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 - Set common scale options once, for example one palette for every color scale
   (ggplot2 #4269) [users]
 - Axis capping (lets-plot #1184), vertical fill gradient (lets-plot #994) [users]
+
+- `scale_*_distiller` and `scale_*_desaturate` accept discrete data and any
+  `direction` without an error (ggplot2 errors on discrete data) [bug hunt]
 
 ## 4. Layout, guides and annotation
 

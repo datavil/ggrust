@@ -43,11 +43,16 @@ impl Stat for UniqueStat {
             .filter(|&row| {
                 let mut key = Vec::with_capacity(columns.len() + 1);
                 key.push(u64::from(data.group_of(row)));
-                key.extend(columns.iter().map(|column| match column {
-                    // Missing values share one key: u64::MAX is no f64 bit pattern
-                    // a finite or NaN number produces here, nor a code.
-                    Column::Continuous(values) => values.get(row).map_or(u64::MAX, f64::to_bits),
-                    Column::Discrete(values) => values.code(row).map_or(u64::MAX, u64::from),
+                key.extend(columns.iter().map(|column| {
+                    match column {
+                        // Missing values share one key: u64::MAX is no f64 bit pattern
+                        // a finite or NaN number produces here, nor a code.
+                        // `+ 0.0` turns -0.0 into 0.0: they are one value, as in R.
+                        Column::Continuous(values) => values
+                            .get(row)
+                            .map_or(u64::MAX, |value| (value + 0.0).to_bits()),
+                        Column::Discrete(values) => values.code(row).map_or(u64::MAX, u64::from),
+                    }
                 }));
                 seen.insert(key)
             })

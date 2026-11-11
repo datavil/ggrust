@@ -199,6 +199,7 @@ nav = [
     ] },
     { "Positions" = [
       "reference/api/position_dodge.md",
+      "reference/api/position_dodge2.md",
       "reference/api/position_jitter.md",
       "reference/api/position_jitterdodge.md",
       "reference/api/position_nudge.md",

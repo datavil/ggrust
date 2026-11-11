@@ -162,6 +162,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
         "Arrange marks that would overlap.",
         [
             "position_dodge",
+            "position_dodge2",
             "position_jitter",
             "position_jitterdodge",
             "position_nudge",

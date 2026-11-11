@@ -2158,7 +2158,9 @@ def geom_boxplot(
             mapping=mapping,
             data=data,
             stat="boxplot_outlier",
-            position=_outlier_position(position, outlier_jitter, outlier_seed),
+            position=_outlier_position(
+                position, outlier_jitter, outlier_seed, other_args.get("width")
+            ),
             show_legend=False,
             inherit_aes=inherit_aes,
             sampling=None,
@@ -2171,6 +2173,8 @@ def geom_boxplot(
             stroke=outlier_parameter("stroke", outlier_stroke),
             # lets_plot leaves `coef` out here, so its outliers use the default 1.5.
             coef=other_args.get("coef"),
+            # Under dodge2 the points take their box's varwidth span.
+            varwidth=varwidth if _is_dodge2(position) else None,
             color_by=color_by,
             fill_by=fill_by,
             na_rm=True,
@@ -2183,8 +2187,76 @@ def geom_boxplot(
     return boxplot_layer
 
 
+def _position_name(position: Position | None) -> str | None:
+    """Return a position's name, for messages.
+
+    Parameters
+    ----------
+    position : str or FeatureSpec, optional
+        A layer position.
+
+    Returns
+    -------
+    str or None
+        The name (``"dodge2"``, ...), or None.
+    """
+    if isinstance(position, FeatureSpec):
+        name = position.as_dict().get("name")
+        return name if isinstance(name, str) else None
+    return position
+
+
+def _is_dodge2(position: Position | None) -> bool:
+    """Return whether a position is ``"dodge2"`` or ``position_dodge2()``.
+
+    Parameters
+    ----------
+    position : str or FeatureSpec, optional
+        A layer position.
+
+    Returns
+    -------
+    bool
+        True for dodge2.
+    """
+    if isinstance(position, FeatureSpec):
+        return position.kind == "pos" and position.as_dict().get("name") == "dodge2"
+    return position == "dodge2"
+
+
+def _dodge2_points(position: Position | None, box_width: Number | None) -> Position | None:
+    """Give a ``position_dodge2()`` the box width, so outlier points follow their box.
+
+    Parameters
+    ----------
+    position : str or FeatureSpec, optional
+        The box layer's position.
+    box_width : float, optional
+        The box width (share of the x resolution); None means 0.9.
+
+    Returns
+    -------
+    str or FeatureSpec or None
+        ``position`` unchanged, or a dodge2 spec with ``width`` set.
+    """
+    if position == "dodge2":
+        position = FeatureSpec("pos", name="dodge2")
+    if (
+        isinstance(position, FeatureSpec)
+        and _is_dodge2(position)
+        and position.as_dict().get("width") is None
+    ):
+        options = {key: value for key, value in position.as_dict().items() if key != "name"}
+        options["width"] = 0.9 if box_width is None else box_width
+        return FeatureSpec("pos", name="dodge2", **options)
+    return position
+
+
 def _outlier_position(
-    position: Position | None, outlier_jitter: Number | None, outlier_seed: int | None
+    position: Position | None,
+    outlier_jitter: Number | None,
+    outlier_seed: int | None,
+    box_width: Number | None = None,
 ) -> Position | None:
     """Return the outlier layer's position: the box position, jittered when asked.
 
@@ -2196,11 +2268,14 @@ def _outlier_position(
         Horizontal jitter, in x resolutions; None keeps ``position``.
     outlier_seed : int, optional
         Random seed of the jitter.
+    box_width : float, optional
+        The box width, handed to a ``position_dodge2()`` without its own width.
 
     Returns
     -------
     str or FeatureSpec or None
-        ``position`` unchanged, or a ``position_jitterdodge()`` spec.
+        ``position`` unchanged (dodge2 with the box width), or a
+        ``position_jitterdodge()`` spec.
 
     Raises
     ------
@@ -2213,7 +2288,7 @@ def _outlier_position(
                 "geom_boxplot(outlier_seed=...) only applies with outlier_jitter; "
                 "add outlier_jitter=<width>, e.g. outlier_jitter=0.1."
             )
-        return position
+        return _dodge2_points(position, box_width)
     if (
         isinstance(outlier_jitter, bool)
         or not isinstance(outlier_jitter, (int, float))
@@ -2234,7 +2309,7 @@ def _outlier_position(
     elif position not in (None, "dodge"):
         raise ValueError(
             "geom_boxplot(outlier_jitter=...) jitters around dodged boxes; "
-            f"got position={position!r}. "
+            f"got position={_position_name(position)!r}. "
             "Use position=None, 'dodge' or position_dodge(width=...), or drop outlier_jitter."
         )
     return position_jitterdodge(

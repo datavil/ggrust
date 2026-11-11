@@ -6,7 +6,7 @@ The specs are lets_plot-identical; the engine applies every adjustment listed he
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from ggrust.plot.core import FeatureSpec
 
@@ -18,6 +18,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "position_dodge",
+    "position_dodge2",
     "position_fill",
     "position_identity",
     "position_jitter",
@@ -27,13 +28,24 @@ __all__ = [
 ]
 
 
-def position_dodge(width: Number | None = None) -> FeatureSpec:
+def position_dodge(
+    width: Number | None = None, preserve: Literal["total", "single"] | None = None
+) -> FeatureSpec:
     """Place overlapping objects side by side.
 
     Parameters
     ----------
     width : float, optional
         Dodging width, as a share of the band.
+    preserve : {"total", "single"}, optional
+        ``"total"`` (default) splits the width among every group of the layer;
+        ``"single"`` gives each element the width of one slot (the most groups at
+        any x) and places it by its rank among the groups at its x, as ggplot2.
+
+    Raises
+    ------
+    ValueError
+        If ``preserve`` is not ``"total"`` or ``"single"``.
 
     Returns
     -------
@@ -50,7 +62,91 @@ def position_dodge(width: Number | None = None) -> FeatureSpec:
     ...     stat="identity", position=position_dodge(width=0.8), width=0.7
     ... )
     """
-    return _position("dodge", width=width)
+    return _position("dodge", width=width, preserve=_preserve("position_dodge", preserve))
+
+
+def position_dodge2(
+    width: Number | None = None,
+    preserve: Literal["total", "single"] = "total",
+    padding: Number = 0.1,
+    reverse: bool = False,
+) -> FeatureSpec:
+    """Place overlapping boxes or bars side by side, centred on their span (ggplot2).
+
+    Elements whose x spans overlap form one dodge group and are laid side by side,
+    each as wide as its span divided by the elements of the group. Unlike
+    ``position_dodge()``, it needs no grouping across the whole layer, so boxes of
+    different widths (``varwidth=True``) and missing groups dodge cleanly.
+
+    Parameters
+    ----------
+    width : float, optional
+        Width of elements without ``xmin``/``xmax`` (points, text), as a share of
+        the x resolution. Boxes and bars use their own span.
+    preserve : {"total", "single"}, default="total"
+        ``"total"`` splits each span among its overlapping elements; ``"single"``
+        gives every element the share of the most elements at one x.
+    padding : float, default=0.1
+        Share of each element's width left empty, between 0 and 1.
+    reverse : bool, default=False
+        True places the groups in reverse order.
+
+    Returns
+    -------
+    FeatureSpec
+        The position adjustment.
+
+    Raises
+    ------
+    ValueError
+        If ``preserve`` is unknown or ``padding`` is not between 0 and 1.
+    TypeError
+        If ``reverse`` is not a bool.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"day": ["Mon"] * 6 + ["Tue"] * 3,
+    ...         "shift": ["early", "late"] * 3 + ["early"] * 3,
+    ...         "minutes": [31, 40, 28, 45, 35, 38, 22, 25, 30]}
+    >>> plot = ggplot(data, aes("day", "minutes", fill="shift")) + geom_boxplot(
+    ...     position=position_dodge2(preserve="single")
+    ... )
+    """
+    _preserve("position_dodge2", preserve)
+    if isinstance(padding, bool) or not isinstance(padding, (int, float)) or not 0 <= padding <= 1:
+        raise ValueError(
+            f"position_dodge2(padding={padding!r}): expected a share between 0 and 1, "
+            "e.g. padding=0.1."
+        )
+    if not isinstance(reverse, bool):
+        raise TypeError(f"position_dodge2(reverse={reverse!r}): expected True or False.")
+    return _position("dodge2", width=width, preserve=preserve, padding=padding, reverse=reverse)
+
+
+def _preserve(function: str, preserve: str | None) -> str | None:
+    """Validate a ``preserve`` option.
+
+    Parameters
+    ----------
+    function : str
+        Name of the calling function, for the error message.
+    preserve : str, optional
+        The value given.
+
+    Returns
+    -------
+    str or None
+        ``preserve`` unchanged.
+
+    Raises
+    ------
+    ValueError
+        If ``preserve`` is not None, ``"total"`` or ``"single"``.
+    """
+    if preserve not in (None, "total", "single"):
+        raise ValueError(f"{function}(preserve={preserve!r}): expected 'total' or 'single'.")
+    return preserve
 
 
 def position_jitter(

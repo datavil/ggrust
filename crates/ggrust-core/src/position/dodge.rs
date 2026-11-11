@@ -7,6 +7,9 @@
 //! option, else the row's `width` (bars), else 1. Nothing moves when no x holds
 //! more than one group.
 //!
+//! `preserve="single"` (ggplot2): every element is as wide as at the x with the
+//! most groups, and the groups at an x take the first slots in group order.
+//!
 //! What it does not do: `dodgev` (vertical dodging).
 
 use std::collections::HashMap;
@@ -28,20 +31,23 @@ impl Position for DodgePosition {
     }
 
     fn parameters(&self) -> &'static [&'static str] {
-        &["width"]
+        &["width", "preserve"]
     }
 
     fn adjust(&self, data: LayerData, parameters: &Parameters) -> Result<LayerData> {
-        dodge(data, parameters.number("width")?, None)
+        let single = super::dodge2::preserve_single(parameters)?;
+        dodge(data, parameters.number("width")?, None, single)
     }
 }
 
 /// Dodge `data` (lets-plot `BaseDodgePos.translate`). `jitter` adds a per-row x
-/// offset before dodging, around the unjittered x (jitterdodge).
+/// offset before dodging, around the unjittered x (jitterdodge). `single`: ggplot2
+/// `preserve="single"`.
 pub(crate) fn dodge(
     data: LayerData,
     width: Option<f64>,
     jitter: Option<&[f64]>,
+    single: bool,
 ) -> Result<LayerData> {
     let Some(x) = data.continuous(Aesthetic::X).cloned() else {
         return Ok(data);
@@ -57,9 +63,40 @@ pub(crate) fn dodge(
     let median = (group_count - 1.0) / 2.0;
     let resolution = data.resolution(Aesthetic::X);
     let widths = data.continuous(Aesthetic::Width).cloned();
-    let groups: Vec<f64> = (0..data.row_count())
+    let mut groups: Vec<f64> = (0..data.row_count())
         .map(|row| data.group_of(row) as f64)
         .collect();
+    let mut group_count = group_count;
+    let mut median = median;
+    if single {
+        // Slot: rank of the group among the groups at its x; n: the most groups
+        // at one x (ggplot2 `pos_dodge` per `xmin` with `n`).
+        let mut groups_at: HashMap<u64, Vec<u32>> = HashMap::new();
+        for row in 0..data.row_count() {
+            if let Some(center) = x.get(row).filter(|value| value.is_finite()) {
+                let at = groups_at.entry(center.to_bits()).or_default();
+                let group = data.group_of(row);
+                if !at.contains(&group) {
+                    at.push(group);
+                }
+            }
+        }
+        for at in groups_at.values_mut() {
+            at.sort_unstable();
+        }
+        group_count = groups_at.values().map(Vec::len).max().unwrap_or(1) as f64;
+        median = (group_count - 1.0) / 2.0;
+        for (row, slot) in groups.iter_mut().enumerate() {
+            if let Some(at) = x
+                .get(row)
+                .filter(|value| value.is_finite())
+                .and_then(|center| groups_at.get(&center.to_bits()))
+            {
+                let group = data.group_of(row);
+                *slot = at.iter().position(|item| *item == group).unwrap_or(0) as f64;
+            }
+        }
+    }
     shift_positions(data, Aesthetic::is_x_position, |row, value| {
         let size = width
             .or_else(|| {

@@ -66,6 +66,7 @@ EXTENSIONS = {
     "gggrid": ("design", "tag_levels", "tag_level", "axes", "axis_titles"),
     "position_stack": ("reverse",),
     "position_fill": ("reverse",),
+    "position_dodge": ("preserve",),
     "coord_cartesian": ("expand",),
     "coord_fixed": ("expand",),
     "facet_grid": ("labeller", "space", "margins", "as_table", "shrink"),

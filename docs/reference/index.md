@@ -143,6 +143,7 @@ Arrange marks that would overlap.
 | Name | Description |
 |---|---|
 | [`position_dodge()`](api/position_dodge.md) | Place overlapping objects side by side. |
+| [`position_dodge2()`](api/position_dodge2.md) | Place overlapping boxes or bars side by side, centred on their span (ggplot2). |
 | [`position_jitter()`](api/position_jitter.md) | Add random noise to positions. |
 | [`position_jitterdodge()`](api/position_jitterdodge.md) | Dodge, then jitter (points over dodged boxplots). |
 | [`position_nudge()`](api/position_nudge.md) | Shift positions by a fixed offset. |

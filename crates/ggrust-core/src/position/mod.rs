@@ -3,6 +3,7 @@
 //! One file per position; add it to [`POSITIONS`].
 
 pub(crate) mod dodge;
+mod dodge2;
 mod identity;
 mod jitter;
 mod nudge;
@@ -11,6 +12,7 @@ mod shift;
 mod stack;
 
 pub use dodge::DodgePosition;
+pub use dodge2::Dodge2Position;
 pub use identity::IdentityPosition;
 pub use jitter::{JitterDodgePosition, JitterPosition};
 pub use nudge::NudgePosition;
@@ -96,6 +98,7 @@ pub static POSITIONS: &[&dyn Position] = &[
     &StackPosition,
     &FillPosition,
     &DodgePosition,
+    &Dodge2Position,
     &JitterPosition,
     &JitterDodgePosition,
     &NudgePosition,

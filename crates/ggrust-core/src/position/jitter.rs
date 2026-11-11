@@ -65,7 +65,7 @@ impl Position for JitterDodgePosition {
             seed(parameters)?,
         );
         let data = shift_positions(data, Aesthetic::is_y_position, |row, value| value + dy[row])?;
-        dodge(data, parameters.number("dodge_width")?, Some(&dx))
+        dodge(data, parameters.number("dodge_width")?, Some(&dx), false)
     }
 }
 

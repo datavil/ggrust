@@ -145,6 +145,7 @@ from ggrust.plot.new_scale import new_scale, new_scale_color, new_scale_colour, 
 from ggrust.plot.plot import GGBunch, ggplot, ggsize
 from ggrust.plot.position import (
     position_dodge,
+    position_dodge2,
     position_fill,
     position_identity,
     position_jitter,
@@ -498,6 +499,7 @@ __all__ = [
     "new_scale_colour",
     "new_scale_fill",
     "position_dodge",
+    "position_dodge2",
     "position_fill",
     "position_identity",
     "position_jitter",

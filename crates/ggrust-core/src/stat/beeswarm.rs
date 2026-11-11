@@ -132,7 +132,7 @@ impl Swarms {
     pub fn of(data: LayerData, parameters: &Parameters) -> Result<Swarms> {
         let dodge_width = parameters.number("dodge_width")?;
         let data = match dodge_width {
-            Some(width) => dodge(data, Some(width), None)?,
+            Some(width) => dodge(data, Some(width), None, false)?,
             None => data,
         };
         let column = |aesthetic: Aesthetic, default: f64| -> Vec<f64> {

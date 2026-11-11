@@ -105,7 +105,7 @@ impl Stat for BoxplotOutlierStat {
     }
 
     fn parameters(&self) -> &'static [&'static str] {
-        &["coef", "outlier_nudge"]
+        &["coef", "outlier_nudge", "varwidth"]
     }
 
     fn aesthetics(&self) -> &'static [Aesthetic] {
@@ -130,9 +130,13 @@ impl Stat for BoxplotOutlierStat {
         let coef = parameters.number("coef")?.unwrap_or(DEFAULT_COEF);
         // Outliers beside x, where gghalves' half boxes draw them.
         let nudge = parameters.number("outlier_nudge")?.unwrap_or(0.0);
-        per_group(&data, |rows| {
+        // `varwidth`: each row carries its box's width (as the box stat sets it), so
+        // `position_dodge2` gives the points their box's span.
+        let varwidth = parameters.boolean("varwidth")?.unwrap_or(false);
+        let mut result = per_group(&data, |rows| {
             let mut x_column = Vec::new();
             let mut y_column = Vec::new();
+            let mut count_column = Vec::new();
             for (x, values) in bins(&data, rows) {
                 let summary = Summary::of(&values, coef);
                 let outliers: Vec<f64> = values
@@ -149,13 +153,24 @@ impl Stat for BoxplotOutlierStat {
                 for y in outliers {
                     x_column.push(x + nudge);
                     y_column.push(y);
+                    count_column.push(values.len() as f64);
                 }
             }
             Ok(vec![
                 (Variable::Aesthetic(Aesthetic::X), x_column),
                 (Variable::Aesthetic(Aesthetic::Y), y_column),
+                (Variable::Computed(Computed::Count), count_column),
             ])
-        })
+        })?;
+        if varwidth && let Some(counts) = result.continuous(Computed::Count).cloned() {
+            let largest = (0..counts.len())
+                .filter_map(|row| counts.get(row))
+                .fold(0.0, f64::max);
+            let norm = largest.sqrt();
+            let widths = counts.map_values(|count| Some(count.sqrt() / norm));
+            result.insert(Aesthetic::Width, Column::Continuous(widths))?;
+        }
+        Ok(result)
     }
 }
 

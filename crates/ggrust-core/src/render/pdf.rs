@@ -483,7 +483,11 @@ impl Writer {
         };
         // Viewers that ignore `/Interpolate false` (macOS Quartz) blur large cells:
         // repeat each pixel `factor` times so the blur stays within a cell's edge.
-        let factor = if image.upsample { upsampling(image) } else { 1 };
+        let factor = if image.upsample && !image.smooth {
+            upsampling(image)
+        } else {
+            1
+        };
         let (columns, rows) = (image.columns as usize, image.rows as usize);
         let repeated = |channels: &dyn Fn(&Color, &mut Vec<u8>), width: usize| {
             let mut bytes = Vec::with_capacity(columns * rows * factor * factor * width);
@@ -1406,6 +1410,7 @@ mod tests {
             rows: 1,
             bitmap: Bitmap::Pixels(vec![Color::rgb(255, 0, 0)]),
             upsample: true,
+            smooth: false,
         });
         let faint = Node::Rects(Rects {
             rects: vec![Rect {
@@ -1477,6 +1482,7 @@ mod tests {
             rows: 1,
             bitmap: Bitmap::Pixels(vec![Color::rgb(255, 0, 0), Color::rgba(0, 0, 255, 0)]),
             upsample: true,
+            smooth: false,
         });
         let group = Node::Group(Group {
             key: None,

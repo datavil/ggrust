@@ -381,6 +381,7 @@ fn images_are_drawn_cell_by_cell_without_smoothing() {
             rows: 2,
             bitmap: Bitmap::Pixels(pixels),
             upsample: true,
+            smooth: false,
         })],
     };
     scene.validate().unwrap();
@@ -434,6 +435,7 @@ fn encoded_png_images_draw_like_their_pixels_and_embed_as_given() {
             rows: 2,
             bitmap,
             upsample: true,
+            smooth: false,
         })],
     };
     let direct = scene(Bitmap::Pixels(pixels.clone()));

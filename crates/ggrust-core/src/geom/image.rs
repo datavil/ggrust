@@ -108,6 +108,7 @@ impl Geom for ImageGeom {
             rows,
             bitmap: Bitmap::Png { png, orientation },
             upsample: true,
+            smooth: false,
         })])
     }
 

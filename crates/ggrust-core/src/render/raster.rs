@@ -159,6 +159,7 @@ impl Context {
             rows: rows as u32,
             bitmap: Bitmap::Pixels(pixels),
             upsample: false,
+            smooth: false,
         }))
     }
 }

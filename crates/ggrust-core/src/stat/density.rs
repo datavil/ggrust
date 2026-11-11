@@ -7,6 +7,10 @@
 //! Densities are evaluated on `n` equally spaced points; above `fs_max` values
 //! only those within 5 bandwidths are summed (lets-plot `densityFunctionFast`).
 //!
+//! `bounds` (ggplot2): values outside are dropped, and the kernels are reflected at
+//! each finite bound, so mass that would leak past it is folded back (summed
+//! exactly at each grid point, where ggplot2 interpolates a wider estimate).
+//!
 //! What it does not do: weighted bandwidths (weights only scale the kernels).
 
 use std::collections::HashMap;
@@ -124,6 +128,8 @@ pub struct DensityOptions {
     pub trim: bool,
     /// Bandwidths added beyond the data when not trimmed; `None`: the overall range.
     pub tails_cutoff: Option<f64>,
+    /// Known lower and upper bounds of the data (infinite: none).
+    pub bounds: (f64, f64),
 }
 
 impl DensityOptions {
@@ -194,7 +200,43 @@ impl DensityOptions {
                 None => default_tails_cutoff,
                 Some(_) => parameters.number("tails_cutoff")?,
             },
+            bounds: bounds(parameters)?,
         })
+    }
+
+    /// Whether a value lies within the bounds (data outside is dropped).
+    pub fn within_bounds(&self, value: f64) -> bool {
+        (self.bounds.0..=self.bounds.1).contains(&value)
+    }
+}
+
+/// `bounds=[low, high]`: null (or infinity) is an open end.
+fn bounds(parameters: &Parameters) -> Result<(f64, f64)> {
+    let Some(value) = parameters.value("bounds") else {
+        return Ok((f64::NEG_INFINITY, f64::INFINITY));
+    };
+    let invalid = || {
+        Error::spec(
+            parameters.path_of("bounds"),
+            format!(
+                "expected [low, high] with low < high, None (or inf) for an open end, \
+                 got {value}"
+            ),
+        )
+    };
+    let Value::Array(items) = value else {
+        return Err(invalid());
+    };
+    let [low, high] = items.as_slice() else {
+        return Err(invalid());
+    };
+    let end = |item: &Value, open: f64| match item {
+        Value::Null => Some(open),
+        item => item.as_f64().filter(|number| !number.is_nan()),
+    };
+    match (end(low, f64::NEG_INFINITY), end(high, f64::INFINITY)) {
+        (Some(low), Some(high)) if low < high => Ok((low, high)),
+        _ => Err(invalid()),
     }
 }
 
@@ -225,6 +267,25 @@ pub fn estimate(
         (false, None) => overall,
         (false, Some(cutoff)) => (first - cutoff * bandwidth, last + cutoff * bandwidth),
     };
+    let (lower_bound, upper_bound) = options.bounds;
+    let reflected = reflect(sorted, weights, options.bounds);
+    let (sorted, weights) = match &reflected {
+        Some((values, weights, _)) => (values.as_slice(), weights.as_slice()),
+        None => (sorted, weights),
+    };
+    // ggplot2 `compute_density`: a finite bound widens the range by its width on
+    // that side, then the grid stops at the bound.
+    let width = high - low;
+    let low = if lower_bound.is_finite() {
+        (low - width).max(lower_bound)
+    } else {
+        low
+    };
+    let high = if upper_bound.is_finite() {
+        (high + width).min(upper_bound)
+    } else {
+        high
+    };
     let grid = step_values(low, high, options.n);
     let h = bandwidth * options.adjust;
     let fast = sorted.len() > options.full_scan_max;
@@ -246,7 +307,8 @@ pub fn estimate(
             sum / h
         })
         .collect();
-    let total: f64 = weights.iter().sum();
+    // Reflected copies fold mass back; they add no weight of their own.
+    let total: f64 = weights.iter().sum::<f64>() / reflected.as_ref().map_or(1.0, |r| r.2);
     let largest = count.iter().copied().fold(f64::NEG_INFINITY, f64::max);
     Estimate {
         density: count.iter().map(|value| value / total).collect(),
@@ -254,6 +316,35 @@ pub fn estimate(
         grid,
         count,
     }
+}
+
+/// The values with their mirror images at each finite bound, sorted, with their
+/// weights and how many copies of the data that is; `None` without bounds.
+fn reflect(
+    sorted: &[f64],
+    weights: &[f64],
+    (low, high): (f64, f64),
+) -> Option<(Vec<f64>, Vec<f64>, f64)> {
+    let mirrors: Vec<f64> = [low, high].into_iter().filter(|b| b.is_finite()).collect();
+    if mirrors.is_empty() {
+        return None;
+    }
+    let mut pairs: Vec<(f64, f64)> = sorted
+        .iter()
+        .copied()
+        .zip(weights.iter().copied())
+        .collect();
+    for bound in &mirrors {
+        pairs.extend(
+            sorted
+                .iter()
+                .zip(weights)
+                .map(|(value, weight)| (2.0 * bound - value, *weight)),
+        );
+    }
+    pairs.sort_by(|left, right| left.0.total_cmp(&right.0));
+    let (values, weights) = pairs.into_iter().unzip();
+    Some((values, weights, (mirrors.len() + 1) as f64))
 }
 
 /// Finite (value, weight) pairs of `rows` per finite bin, bins in first
@@ -429,6 +520,7 @@ mod tests {
             full_scan_max: 5000,
             trim: false,
             tails_cutoff: Some(6.0),
+            bounds: (f64::NEG_INFINITY, f64::INFINITY),
         };
         let values = [1.0, 2.0, 2.5, 4.0];
         let estimate = estimate(&values, &[1.0; 4], &options, (0.0, 0.0));

@@ -7,6 +7,10 @@
 //! whole cells. Under `coord_flip` the bitmap is transposed, so each cell stays at
 //! its data position (lets-plot draws it untransposed).
 //!
+//! ggplot2's `hjust`, `vjust` (where each cell sits around its x, y; default 0.5,
+//! centered) and `interpolate` (smooth resampling; plotnine spells it
+//! `interpolation="bilinear"`) are supported; lets-plot has neither.
+//!
 //! What it does not do: draw grids over 5 million cells (an error; lets-plot
 //! writes a notice into the plot), mapped `width`/`height`.
 
@@ -59,6 +63,10 @@ impl Geom for RasterGeom {
         Some("fixed")
     }
 
+    fn parameters(&self) -> &'static [&'static str] {
+        &["hjust", "vjust", "interpolate", "interpolation"]
+    }
+
     fn setup_aesthetics(&self) -> &'static [Aesthetic] {
         CELL_AESTHETICS
     }
@@ -67,24 +75,26 @@ impl Geom for RasterGeom {
         CELL_AESTHETICS
     }
 
-    /// Cell edges (x, y -/+ half a step), so the axes cover whole cells.
-    fn setup(&self, mut data: LayerData, _parameters: &Parameters) -> Result<LayerData> {
-        for (center, low, high) in [
-            (Aesthetic::X, Aesthetic::Xmin, Aesthetic::Xmax),
-            (Aesthetic::Y, Aesthetic::Ymin, Aesthetic::Ymax),
+    /// Cell edges (x, y -/+ half a step by default), so the axes cover whole cells.
+    fn setup(&self, mut data: LayerData, parameters: &Parameters) -> Result<LayerData> {
+        let (hjust, vjust) = justification(parameters)?;
+        for (center, low, high, just) in [
+            (Aesthetic::X, Aesthetic::Xmin, Aesthetic::Xmax, hjust),
+            (Aesthetic::Y, Aesthetic::Ymin, Aesthetic::Ymax, vjust),
         ] {
             let Some(location) = data.continuous(center).cloned() else {
                 continue;
             };
-            let half = data.resolution(center) / 2.0;
+            let step = data.resolution(center);
             let edge = |offset: f64| {
                 let values = (0..location.len())
                     .map(|row| location.get(row).unwrap_or(f64::NAN) + offset)
                     .collect();
                 Column::Continuous(ContinuousColumn::from_values(values))
             };
-            data.insert(low, edge(-half))?;
-            data.insert(high, edge(half))?;
+            // ggplot2 `GeomRaster$setup_data`.
+            data.insert(low, edge(-step * (1.0 - just)))?;
+            data.insert(high, edge(step * just))?;
         }
         Ok(data)
     }
@@ -131,10 +141,11 @@ impl Geom for RasterGeom {
         }
         let (columns, grid_rows) = (columns as usize, grid_rows as usize);
 
-        // Corners half a step outside the data bounds, in pixels; data x may run
-        // vertically (coord_flip) and either axis may be reversed.
-        let corner0 = panel.map(x0 - step_x / 2.0, y0 - step_y / 2.0);
-        let corner2 = panel.map(x1 + step_x / 2.0, y1 + step_y / 2.0);
+        // Corners outside the data bounds (half a step when centered), in pixels;
+        // data x may run vertically (coord_flip) and either axis may be reversed.
+        let (hjust, vjust) = justification(&layer.parameters)?;
+        let corner0 = panel.map(x0 - step_x * (1.0 - hjust), y0 - step_y * (1.0 - vjust));
+        let corner2 = panel.map(x1 + step_x * hjust, y1 + step_y * vjust);
         let rect = Rect {
             x: corner0.0.min(corner2.0),
             y: corner0.1.min(corner2.1),
@@ -173,6 +184,7 @@ impl Geom for RasterGeom {
             rows: screen_rows as u32,
             bitmap: Bitmap::Pixels(pixels),
             upsample: true,
+            smooth: smooth(&layer.parameters)?,
         })])
     }
 
@@ -190,4 +202,32 @@ impl Geom for RasterGeom {
             stroke: None,
         })])
     }
+}
+
+/// `hjust`, `vjust`: finite numbers, 0.5 (centered) by default.
+fn justification(parameters: &Parameters) -> Result<(f64, f64)> {
+    Ok((
+        parameters.number("hjust")?.unwrap_or(0.5),
+        parameters.number("vjust")?.unwrap_or(0.5),
+    ))
+}
+
+/// `interpolate=True` (ggplot2) or `interpolation="bilinear"` (plotnine).
+fn smooth(parameters: &Parameters) -> Result<bool> {
+    let interpolate = parameters.boolean("interpolate")?;
+    let interpolation = match parameters.string("interpolation")? {
+        None => None,
+        Some("nearest" | "none") => Some(false),
+        Some("bilinear") => Some(true),
+        Some(other) => {
+            return Err(Error::spec(
+                parameters.path_of("interpolation"),
+                format!(
+                    "unknown interpolation '{other}'; expected 'nearest' or 'bilinear'{}",
+                    crate::suggest::did_you_mean(other, ["nearest", "bilinear"])
+                ),
+            ));
+        }
+    };
+    Ok(interpolate.or(interpolation).unwrap_or(false))
 }

@@ -66,7 +66,10 @@ EXTENSIONS = {
     "gggrid": ("design", "tag_levels", "tag_level", "axes", "axis_titles"),
 }
 # Extras that sit among keyword-only parameters, before `**other_args`.
-KEYWORD_EXTENSIONS = {"geom_boxplot": ("outlier_jitter", "outlier_seed")}
+KEYWORD_EXTENSIONS = {
+    "geom_boxplot": ("outlier_jitter", "outlier_seed"),
+    "geom_raster": ("hjust", "vjust", "interpolate"),
+}
 
 
 @pytest.mark.parametrize("name", NEW_NAMES)

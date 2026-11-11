@@ -380,6 +380,9 @@ pub struct Image {
     /// cell edges sharp (data images); `false` for bitmaps already at output
     /// resolution (a rasterized layer).
     pub upsample: bool,
+    /// Resample smoothly (bilinear) instead of keeping cell edges sharp
+    /// (`geom_raster(interpolate=True)`).
+    pub smooth: bool,
 }
 
 /// The pixels of an [`Image`].

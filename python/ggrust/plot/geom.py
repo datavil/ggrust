@@ -2518,6 +2518,7 @@ def geom_density(
     fs_max: Number | None = None,
     quantiles: Sequence[float] | None = None,
     quantile_lines: bool | None = None,
+    bounds: Sequence[Number | None] | None = None,
     color_by: str | None = None,
     fill_by: str | None = None,
     na_rm: bool | None = None,
@@ -2573,6 +2574,10 @@ def geom_density(
         Quantiles that split the area into bands (``..quantile..``), each in [0, 1].
     quantile_lines : bool, default=False
         True draws a line from the curve down to the base at each quantile.
+    bounds : list of [float or None, float or None], optional
+        Known lower and upper bounds of the data (``None`` or ``inf`` for an open end),
+        as ggplot2: values outside are dropped and the kernels are reflected at each
+        finite bound, so the density does not leak past it. Not in lets_plot.
     color_by : str, optional
         Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
     fill_by : str, optional
@@ -2613,6 +2618,7 @@ def geom_density(
         fs_max=fs_max,
         quantiles=quantiles,
         quantile_lines=quantile_lines,
+        bounds=bounds,
         color_by=color_by,
         fill_by=fill_by,
         na_rm=na_rm,
@@ -4046,6 +4052,9 @@ def geom_raster(
     inherit_aes: bool | None = None,
     manual_key: ManualKey | None = None,
     sampling: Sampling | None = None,
+    hjust: Number | None = None,
+    vjust: Number | None = None,
+    interpolate: bool | None = None,
     fill_by: str | None = None,
     na_rm: bool | None = None,
     **other_args: Any,
@@ -4071,6 +4080,14 @@ def geom_raster(
     sampling : str, int or FeatureSpec, optional
         Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
         or ``"none"``. Default: every row.
+    hjust, vjust : float, default=0.5
+        Where each cell sits around its x and y, as ggplot2: 0.5 centers it, 0 puts
+        the point on the cell's right (top) edge, 1 on its left (bottom) edge. Not in
+        lets_plot.
+    interpolate : bool, default=False
+        True resamples the image smoothly instead of keeping sharp cell edges, as
+        ggplot2 (plotnine's ``interpolation="bilinear"`` is accepted too). Not in
+        lets_plot.
     fill_by : str, optional
         Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
     na_rm : bool, optional
@@ -4100,6 +4117,9 @@ def geom_raster(
         inherit_aes=inherit_aes,
         manual_key=manual_key,
         sampling=sampling,
+        hjust=hjust,
+        vjust=vjust,
+        interpolate=interpolate,
         fill_by=fill_by,
         na_rm=na_rm,
         **other_args,

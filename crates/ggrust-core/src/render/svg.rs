@@ -670,7 +670,7 @@ impl SvgWriter {
         }
         // Data cells stay sharp; a rasterized layer (finer than the screen) is
         // resampled smoothly by the viewer.
-        if image.upsample {
+        if image.upsample && !image.smooth {
             self.raw(" style=\"image-rendering: optimizeSpeed; image-rendering: pixelated\"");
         }
         self.raw(" href=\"data:image/png;base64,");

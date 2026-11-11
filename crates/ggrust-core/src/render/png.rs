@@ -551,7 +551,11 @@ impl Canvas {
                 (rect.height / f64::from(image.rows)) as f32,
             );
         let paint = tiny_skia::PixmapPaint {
-            quality: tiny_skia::FilterQuality::Nearest,
+            quality: if image.smooth {
+                tiny_skia::FilterQuality::Bilinear
+            } else {
+                tiny_skia::FilterQuality::Nearest
+            },
             ..tiny_skia::PixmapPaint::default()
         };
         self.pixmap

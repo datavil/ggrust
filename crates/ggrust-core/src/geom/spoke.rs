@@ -108,6 +108,14 @@ impl Geom for SpokeGeom {
 
     fn setup(&self, mut data: LayerData, parameters: &Parameters) -> Result<LayerData> {
         let pivot = pivot(parameters)?;
+        for (aesthetic, name) in [(Aesthetic::Angle, "angle"), (Aesthetic::Radius, "radius")] {
+            if matches!(data.get(aesthetic), Some(Column::Discrete(_))) {
+                return Err(Error::spec(
+                    parameters.path_of(name),
+                    format!("geom_spoke needs a numeric column for '{name}', got a discrete one"),
+                ));
+            }
+        }
         let (Some(x), Some(y)) = (
             data.continuous(Aesthetic::X).cloned(),
             data.continuous(Aesthetic::Y).cloned(),

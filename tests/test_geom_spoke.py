@@ -40,3 +40,11 @@ def test_bad_pivot_names_the_parameter() -> None:
     plot = ggplot(DATA, aes("x", "y")) + geom_spoke(pivot="end", angle=0.0, radius=1.0)
     with pytest.raises(SpecError, match=r"pivot.*'tail'.*'end'"):
         plot.to_svg()
+
+
+@pytest.mark.parametrize("aesthetic", ["angle", "radius"])
+def test_a_discrete_column_names_the_aesthetic(aesthetic: str) -> None:
+    frame = {**DATA, "kind": ["p", "q"]}
+    mapping = {"angle": "a", "radius": "r", aesthetic: "kind"}
+    with pytest.raises(SpecError, match=f"numeric column for '{aesthetic}'"):
+        (ggplot(frame, aes("x", "y")) + geom_spoke(aes(**mapping))).to_svg()

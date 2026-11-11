@@ -37,6 +37,8 @@ pub enum FacetValue {
     Text(String),
     /// A finite number.
     Number(f64),
+    /// The `(all)` margin of `facet_grid(margins=)`: every row, missing values too.
+    All,
 }
 
 impl FacetValue {
@@ -45,6 +47,7 @@ impl FacetValue {
         match self {
             FacetValue::Text(text) => LevelKey::Text(text.clone()),
             FacetValue::Number(number) => LevelKey::Number(number.to_bits()),
+            FacetValue::All => LevelKey::All,
         }
     }
 }
@@ -53,6 +56,7 @@ impl FacetValue {
 enum LevelKey {
     Text(String),
     Number(u64),
+    All,
 }
 
 /// One panel.
@@ -107,6 +111,8 @@ pub struct Facets {
     pub free_x: bool,
     /// `scales="free"` or `"free_y"`.
     pub free_y: bool,
+    /// `facet_grid(space=)`: columns (x) and rows (y) sized by their scale ranges.
+    pub space: (bool, bool),
     /// Levels per faceting column, in panel order.
     levels: Vec<Vec<FacetValue>>,
 }
@@ -235,27 +241,36 @@ impl Facets {
         let names: Vec<&str> = variables.iter().map(String::as_str).collect();
         let count = combinations.len();
         let (columns, rows) = shape(count, spec.ncol, spec.nrow, vertical);
-        let mut tiles: Vec<Tile> = combinations
-            .into_iter()
-            .enumerate()
-            .map(|(index, combination)| {
+        // ggplot2 `as.table = FALSE`: by rows from the bottom ("lb"), or by
+        // columns from the right ("tr").
+        let as_table = spec.as_table.unwrap_or(true);
+        let places: Vec<(usize, usize)> = (0..count)
+            .map(|index| {
                 let (column, row) = if vertical {
                     (index / rows, index % rows)
                 } else {
                     (index % columns, index / columns)
                 };
-                let next = if vertical {
-                    column * rows + row + 1
-                } else {
-                    (row + 1) * columns + column
-                };
-                let is_bottom = (row + 1) % rows == 0 || next >= count;
-                let next_in_row = if vertical {
-                    (column + 1) * rows + row
-                } else {
-                    index + 1
-                };
-                let is_row_end = column + 1 == columns || next_in_row >= count;
+                match (as_table, vertical) {
+                    (true, _) => (column, row),
+                    (false, false) => (column, rows - 1 - row),
+                    (false, true) => (columns - 1 - column, row),
+                }
+            })
+            .collect();
+        let taken: std::collections::HashSet<(usize, usize)> = places.iter().copied().collect();
+        let has = |column: Option<usize>, row: Option<usize>| match (column, row) {
+            (Some(column), Some(row)) => taken.contains(&(column, row)),
+            _ => false,
+        };
+        let mut tiles: Vec<Tile> = combinations
+            .into_iter()
+            .zip(places.iter().copied())
+            .map(|(combination, (column, row))| {
+                let is_bottom = !has(Some(column), Some(row + 1));
+                let is_row_end = !has(Some(column + 1), Some(row));
+                let first_in_row = !has(column.checked_sub(1), Some(row));
+                let first_in_column = !has(Some(column), row.checked_sub(1));
                 let values = combination
                     .iter()
                     .enumerate()
@@ -276,9 +291,9 @@ impl Facets {
                     x_scale_group: if free.0 { tile_index } else { 0 },
                     y_scale_group: if free.1 { tile_index } else { 0 },
                     has_x_axis: is_bottom || free.0,
-                    has_y_axis: column == 0 || free.1,
+                    has_y_axis: first_in_row || free.1,
                     is_bottom,
-                    has_top_axis: row == 0 || free.0,
+                    has_top_axis: first_in_column || free.0,
                     has_right_axis: is_row_end || free.1,
                     is_row_end,
                     levels: combination,
@@ -293,6 +308,7 @@ impl Facets {
             tiles,
             free_x: free.0,
             free_y: free.1,
+            space: (false, false),
             levels,
         })
     }
@@ -313,6 +329,9 @@ impl Facets {
         let labeller = Labeller::parse(spec.labeller.as_ref(), functions, "facet.labeller")?;
         let variables = grid_variables(spec)?;
         let free = free_scales(spec)?;
+        let space = free_pair(spec.space.as_deref(), "space")?;
+        let margins = margin_variables(spec, &variables)?;
+        let as_table = spec.as_table.unwrap_or(true);
         let x_defined = spec.x.is_some();
         let y_defined = spec.y.is_some();
         let mut levels = Vec::with_capacity(variables.len());
@@ -326,7 +345,14 @@ impl Facets {
             } else {
                 (spec.y_order, &spec.y_format, spec.y_labwidth)
             };
-            let values = collect_levels(name, key, index, layers, order.unwrap_or(1))?;
+            let mut values = collect_levels(name, key, index, layers, order.unwrap_or(1))?;
+            // ggplot2 `as.table = FALSE`: the highest row level at the top.
+            if !is_x && !as_table {
+                values.reverse();
+            }
+            if margins[index] && !values.is_empty() {
+                values.push(FacetValue::All);
+            }
             let pattern = parse_format(format.as_deref(), &format!("{key}_format"))?;
             // Each margin is its own strip group of one variable (ggplot2).
             let level_labels = labeller.transform_levels(
@@ -409,6 +435,7 @@ impl Facets {
             tiles,
             free_x: free.0,
             free_y: free.1,
+            space,
             levels,
         })
     }
@@ -439,19 +466,67 @@ pub fn grid_variables(spec: &FacetSpec) -> Result<Vec<String>> {
 
 /// `scales`: whether x and y are free.
 fn free_scales(spec: &FacetSpec) -> Result<(bool, bool)> {
-    match spec.scales.as_deref().map(str::to_lowercase).as_deref() {
+    free_pair(spec.scales.as_deref(), "scales")
+}
+
+/// A `fixed` / `free` / `free_x` / `free_y` option (`scales`, `space`) at `key`:
+/// whether x and y are free.
+fn free_pair(value: Option<&str>, key: &str) -> Result<(bool, bool)> {
+    match value.map(str::to_lowercase).as_deref() {
         None | Some("fixed") => Ok((false, false)),
         Some("free") => Ok((true, true)),
         Some("free_x") => Ok((true, false)),
         Some("free_y") => Ok((false, true)),
-        Some(_) => Err(Error::spec(
-            "facet.scales",
+        Some(other) => Err(Error::spec(
+            format!("facet.{key}"),
             format!(
-                "unknown value '{}'; expected fixed, free, free_x or free_y",
-                spec.scales.as_deref().unwrap_or_default()
+                "unknown value '{other}'; expected fixed, free, free_x or free_y{}",
+                crate::suggest::did_you_mean(other, ["fixed", "free", "free_x", "free_y"])
             ),
         )),
     }
+}
+
+/// `facet_grid(margins=)`: per variable (in `variables` order), whether it gets an
+/// `(all)` margin level. `true` gives every variable one; a name or list of names
+/// gives those variables one.
+fn margin_variables(spec: &FacetSpec, variables: &[String]) -> Result<Vec<bool>> {
+    use crate::spec::Value;
+    let invalid = |message: String| Error::spec("facet.margins", message);
+    let names: Vec<String> = match &spec.margins {
+        None | Some(Value::Null) | Some(Value::Bool(false)) => {
+            return Ok(vec![false; variables.len()]);
+        }
+        Some(Value::Bool(true)) => return Ok(vec![true; variables.len()]),
+        Some(Value::String(name)) => vec![name.clone()],
+        Some(Value::Array(items)) => items
+            .iter()
+            .map(|item| match item {
+                Value::String(name) => Ok(name.clone()),
+                other => Err(invalid(format!(
+                    "expected a faceting column name, got {other}"
+                ))),
+            })
+            .collect::<Result<_>>()?,
+        Some(other) => {
+            return Err(invalid(format!(
+                "expected true, false or faceting column names, got {other}"
+            )));
+        }
+    };
+    for name in &names {
+        if !variables.contains(name) {
+            return Err(invalid(format!(
+                "'{name}' is not a faceting column; use one of {}{}",
+                variables.join(", "),
+                crate::suggest::did_you_mean(name, variables.iter().map(String::as_str))
+            )));
+        }
+    }
+    Ok(variables
+        .iter()
+        .map(|variable| names.contains(variable))
+        .collect())
 }
 
 /// Levels of faceting variable `index` (named `name`, given by option `key`) over
@@ -524,7 +599,7 @@ fn raw_texts(values: &[FacetValue]) -> Vec<Option<String>> {
     values
         .iter()
         .map(|value| match value {
-            FacetValue::Text(_) => None,
+            FacetValue::Text(_) | FacetValue::All => None,
             FacetValue::Number(number) => Some(number.to_string()),
         })
         .collect()
@@ -534,6 +609,7 @@ fn raw_texts(values: &[FacetValue]) -> Vec<Option<String>> {
 /// number in lets-plot's `{,~g}`.
 fn format_level(value: &FacetValue, pattern: Option<&LabelPattern>) -> Label {
     match (pattern, value) {
+        (_, FacetValue::All) => Label::plain("(all)".to_owned()),
         (Some(pattern), FacetValue::Text(text)) => pattern.format(PatternValue::Text(text)),
         (Some(pattern), FacetValue::Number(number)) => {
             pattern.format(PatternValue::Number(*number))
@@ -549,6 +625,8 @@ fn format_level(value: &FacetValue, pattern: Option<&LabelPattern>) -> Label {
 /// Level index of every value, per faceting variable.
 struct Lookup {
     index_by_key: Vec<HashMap<LevelKey, usize>>,
+    /// Per variable, the level index of its `(all)` margin, if any.
+    all_index: Vec<Option<usize>>,
 }
 
 impl Lookup {
@@ -563,6 +641,10 @@ impl Lookup {
                         .map(|(index, value)| (value.key(), index))
                         .collect()
                 })
+                .collect(),
+            all_index: levels
+                .iter()
+                .map(|values| values.iter().position(|value| *value == FacetValue::All))
                 .collect(),
         }
     }
@@ -586,7 +668,8 @@ impl Lookup {
             })
             .collect();
         let mut rows_by_tile = vec![Vec::new(); combinations.len()];
-        if row_levels.iter().all(Option::is_some) {
+        let has_margins = self.all_index.iter().any(Option::is_some);
+        if !has_margins && row_levels.iter().all(Option::is_some) {
             // Every variable present: each row is in at most one panel.
             let tile_by_combination: HashMap<&[usize], usize> = combinations
                 .iter()
@@ -610,13 +693,14 @@ impl Lookup {
         for (tile, combination) in combinations.iter().enumerate() {
             rows_by_tile[tile] = (0..row_count)
                 .filter(|&row| {
-                    row_levels
-                        .iter()
-                        .zip(combination)
-                        .all(|(levels, wanted)| match levels {
+                    row_levels.iter().zip(combination).zip(&self.all_index).all(
+                        |((levels, wanted), all)| match levels {
                             None => true,
+                            // ggplot2: the margin holds every row, missing values too.
+                            Some(_) if *all == Some(*wanted) => true,
                             Some(levels) => levels[row] == Some(*wanted),
-                        })
+                        },
+                    )
                 })
                 .map(|row| row as u32)
                 .collect();
@@ -692,6 +776,10 @@ fn compare_values(left: &FacetValue, right: &FacetValue) -> std::cmp::Ordering {
         (FacetValue::Text(left), FacetValue::Text(right)) => left.cmp(right),
         (FacetValue::Number(_), FacetValue::Text(_)) => std::cmp::Ordering::Less,
         (FacetValue::Text(_), FacetValue::Number(_)) => std::cmp::Ordering::Greater,
+        // Margins come last (they are added after sorting).
+        (FacetValue::All, FacetValue::All) => std::cmp::Ordering::Equal,
+        (FacetValue::All, _) => std::cmp::Ordering::Greater,
+        (_, FacetValue::All) => std::cmp::Ordering::Less,
     }
 }
 
@@ -1096,5 +1184,104 @@ mod tests {
             let error = facets.unwrap_err().to_string();
             assert!(error.contains(key), "{json}: {error}");
         }
+    }
+
+    #[test]
+    fn grid_margins_add_all_levels_that_hold_every_row() {
+        let columns: LayerFacetColumns = vec![
+            Some(texts(&[Some("a"), Some("b"), Some("a")])),
+            Some(texts(&[Some("x"), Some("x"), Some("y")])),
+        ];
+        let facets = Facets::grid(
+            &spec(r#"{"name": "grid", "x": "g", "y": "h", "margins": ["g"]}"#),
+            &[(&columns, 3)],
+        )
+        .unwrap();
+        assert_eq!((facets.columns, facets.rows), (3, 2));
+        assert_eq!(facets.tiles[2].labels[0].text, "(all)");
+        let rows = facets.rows_by_tile(&columns, 3);
+        // (a, x), (b, x), (all, x), (a, y), (b, y), (all, y)
+        assert_eq!(
+            rows,
+            [vec![0], vec![1], vec![0, 1], vec![2], vec![], vec![2]]
+        );
+        let error = Facets::grid(
+            &spec(r#"{"name": "grid", "x": "g", "margins": "gg"}"#),
+            &[(&columns, 3)],
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(
+            error.contains("facet.margins") && error.contains("use one of g"),
+            "{error}"
+        );
+    }
+
+    #[test]
+    fn as_table_false_reverses_grid_rows_and_fills_wrap_from_the_bottom() {
+        let columns: LayerFacetColumns = vec![
+            Some(texts(&[Some("a"), Some("b"), Some("c")])),
+            Some(texts(&[Some("x"), Some("y"), Some("y")])),
+        ];
+        let grid = Facets::grid(
+            &spec(r#"{"name": "grid", "x": "g", "y": "h", "as_table": false}"#),
+            &[(&columns, 3)],
+        )
+        .unwrap();
+        let row_labels: Vec<String> = grid
+            .tiles
+            .iter()
+            .filter_map(|tile| tile.row_label.as_ref().map(|label| label.text.clone()))
+            .collect();
+        assert_eq!(row_labels, ["y", "x"]);
+        let wrap_columns: LayerFacetColumns = vec![Some(texts(&[Some("a"), Some("b"), Some("c")]))];
+        let wrap = Facets::wrap(
+            &spec(r#"{"name": "wrap", "facets": "g", "ncol": 2, "order": 1, "as_table": false}"#),
+            &[(&wrap_columns, 3)],
+        )
+        .unwrap();
+        // Bottom row a b, top row c: c has no panel below but its own axis band
+        // comes from the bottom row, so it is not the column's bottom.
+        let places: Vec<(String, usize, usize, bool)> = wrap
+            .tiles
+            .iter()
+            .map(|tile| {
+                (
+                    tile.labels[0].text.clone(),
+                    tile.column,
+                    tile.row,
+                    tile.is_bottom,
+                )
+            })
+            .collect();
+        assert_eq!(
+            places,
+            [
+                ("c".to_owned(), 0, 0, false),
+                ("a".to_owned(), 0, 1, true),
+                ("b".to_owned(), 1, 1, true)
+            ]
+        );
+    }
+
+    #[test]
+    fn space_is_parsed_with_suggestions() {
+        let columns: LayerFacetColumns = vec![Some(texts(&[Some("a")]))];
+        let facets = Facets::grid(
+            &spec(r#"{"name": "grid", "x": "g", "space": "free_x"}"#),
+            &[(&columns, 1)],
+        )
+        .unwrap();
+        assert_eq!(facets.space, (true, false));
+        let error = Facets::grid(
+            &spec(r#"{"name": "grid", "x": "g", "space": "fre"}"#),
+            &[(&columns, 1)],
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(
+            error.contains("facet.space") && error.contains("free_x"),
+            "{error}"
+        );
     }
 }

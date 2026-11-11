@@ -392,6 +392,7 @@ nav = [
       "reference/api/coord_3d.md",
       "reference/api/facet_wrap.md",
       "reference/api/facet_grid.md",
+      "reference/api/facet_null.md",
       "reference/api/label_value.md",
       "reference/api/label_both.md",
       "reference/api/label_context.md",

@@ -58,7 +58,7 @@ from ggrust.plot.dendrogram import (
     scale_y_dendro,
 )
 from ggrust.plot.expand_limits import expand_limits
-from ggrust.plot.facet import facet_grid, facet_wrap
+from ggrust.plot.facet import facet_grid, facet_null, facet_wrap
 from ggrust.plot.geom import (
     geom_abline,
     geom_area,
@@ -368,6 +368,7 @@ __all__ = [
     "element_text",
     "expand_limits",
     "facet_grid",
+    "facet_null",
     "facet_wrap",
     "flavor_darcula",
     "flavor_high_contrast_dark",

@@ -1,4 +1,4 @@
-"""Faceting: ``facet_wrap`` and ``facet_grid``.
+"""Faceting: ``facet_wrap``, ``facet_grid`` and ``facet_null``.
 
 Ported from lets-plot's ``lets_plot/plot/facet.py`` (MIT, see THIRD_PARTY_NOTICES.md).
 The Rust engine splits the data into panels and lays them out.
@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ggrust.errors import SpecError, did_you_mean
 from ggrust.plot.core import FeatureSpec
 from ggrust.plot.labeller import resolve_labeller
 
@@ -18,7 +19,7 @@ if TYPE_CHECKING:
     from ggrust.plot.labeller import Labeller, LabellerName
 
 
-__all__ = ["facet_grid", "facet_wrap"]
+__all__ = ["facet_grid", "facet_null", "facet_wrap"]
 
 
 def facet_grid(
@@ -33,6 +34,10 @@ def facet_grid(
     x_labwidth: int | None = None,
     y_labwidth: int | None = None,
     labeller: Labeller | LabellerName | None = None,
+    space: Literal["fixed", "free", "free_x", "free_y"] = "fixed",
+    margins: bool | str | Sequence[str] = False,
+    as_table: bool = True,
+    shrink: bool = True,
 ) -> FeatureSpec:
     """Lay panels out in a grid: columns by ``x``, rows by ``y``.
 
@@ -59,6 +64,17 @@ def facet_grid(
         Strip labeller (ggplot2): ``label_value`` (the default), ``label_both``,
         ``label_context``, ``as_labeller({...})``, or a name such as
         ``"label_both"``. Applied after the format, before wrapping.
+    space : {"fixed", "free", "free_x", "free_y"}, default "fixed"
+        Whether grid columns (x) and rows (y) get widths and heights in proportion
+        to their scale ranges (ggplot2). Use with free ``scales``.
+    margins : bool, str or list of str, default False
+        Add ``(all)`` margin panels with every row: ``True`` for both faceting
+        columns, or the names of the columns that get one (ggplot2).
+    as_table : bool, default True
+        ``False`` puts the highest row level at the top (ggplot2 ``as.table``).
+    shrink : bool, default True
+        ``False`` makes the position scales also cover the data before the stats,
+        not only the stat results (ggplot2).
 
     Returns
     -------
@@ -86,6 +102,10 @@ def facet_grid(
         x_labwidth=x_labwidth,
         y_labwidth=y_labwidth,
         labeller=resolve_labeller(labeller),
+        space=_free_option(space, "space"),
+        margins=_margins(margins, x, y),
+        as_table=_flag(as_table, "as_table"),
+        shrink=_flag(shrink, "shrink"),
     )
 
 
@@ -101,6 +121,8 @@ def facet_wrap(
     dir: Literal["h", "v"] = "h",
     labwidth: int | Sequence[int] | None = None,
     labeller: Labeller | LabellerName | None = None,
+    as_table: bool = True,
+    shrink: bool = True,
 ) -> FeatureSpec:
     """Wrap one panel per level of ``facets`` into rows.
 
@@ -128,6 +150,12 @@ def facet_wrap(
         Strip labeller (ggplot2): ``label_value`` (the default), ``label_both``,
         ``label_context``, ``as_labeller({...})``, or a name such as
         ``"label_both"``. Applied after the format, before wrapping.
+    as_table : bool, default True
+        ``False`` fills the panels from the bottom row up (``dir="h"``) or from the
+        right column (``dir="v"``), as ggplot2 ``as.table``.
+    shrink : bool, default True
+        ``False`` makes the position scales also cover the data before the stats,
+        not only the stat results (ggplot2).
 
     Returns
     -------
@@ -156,4 +184,65 @@ def facet_wrap(
         dir=dir,
         labwidth=labwidth,
         labeller=resolve_labeller(labeller),
+        as_table=_flag(as_table, "as_table"),
+        shrink=_flag(shrink, "shrink"),
     )
+
+
+def facet_null() -> FeatureSpec:
+    """Remove faceting: one panel (ggplot2's default facet).
+
+    Adding it to a faceted plot takes the ``facet_wrap`` or ``facet_grid`` away.
+
+    Returns
+    -------
+    FeatureSpec
+        The facet specification.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 2, 4], "weight": [4, 6, 8, 12], "pet": ["cat", "cat", "dog", "dog"]}
+    >>> plot = ggplot(data, aes("age", "weight")) + geom_point() + facet_wrap("pet")
+    >>> plot = plot + facet_null()
+    >>> plot.facet is None
+    True
+    """
+    return FeatureSpec("facet", name="null")
+
+
+def _flag(value: bool, parameter: str) -> bool | None:
+    """Return ``None`` for the default ``True`` (kept out of the spec), checked."""
+    if not isinstance(value, bool):
+        raise TypeError(f"{parameter} must be True or False, got {value!r}")
+    return None if value else False
+
+
+def _free_option(value: str, parameter: str) -> str | None:
+    """Return a ``space`` value, ``None`` for ``"fixed"``, checked."""
+    accepted = ("fixed", "free", "free_x", "free_y")
+    if value not in accepted:
+        reason = (
+            f"unknown value {value!r}; use one of {', '.join(accepted)}"
+            f"{did_you_mean(str(value), accepted)}"
+        )
+        raise SpecError(f"facet.{parameter}: {reason}", path=f"facet.{parameter}", reason=reason)
+    return None if value == "fixed" else value
+
+
+def _margins(
+    margins: bool | str | Sequence[str], x: str | None, y: str | None
+) -> bool | list[str] | None:
+    """Return ``facet_grid(margins=)`` for the spec, checked against ``x`` and ``y``."""
+    if isinstance(margins, bool):
+        return True if margins else None
+    names = [margins] if isinstance(margins, str) else list(margins)
+    variables = [name for name in (x, y) if name is not None]
+    for name in names:
+        if name not in variables:
+            reason = (
+                f"'{name}' is not a faceting column; use one of {', '.join(variables)}"
+                f"{did_you_mean(str(name), variables)}"
+            )
+            raise SpecError(f"facet.margins: {reason}", path="facet.margins", reason=reason)
+    return names

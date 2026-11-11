@@ -760,6 +760,10 @@ class PlotSpec(FeatureSpec):
 
                 update_plot_aes_mapping(plot, other)
                 return plot
+            if other.kind == "facet" and other.props().get("name") == "null":
+                # facet_null(): back to a single panel.
+                plot.props().pop("facet", None)
+                return plot
             plot.props()[other.kind] = other
             return plot
         return NotImplemented

@@ -3,7 +3,8 @@
 //! a `facet_wrap`, the top row of a `facet_grid`) and row strips right of the right
 //! column (`facet_grid`), their text turned to read top to bottom.
 //!
-//! Every panel has the same size. The space left by titles and legends is split as
+//! Every panel has the same size, except with `facet_grid(space="free")`, where
+//! column widths and row heights follow their scale ranges (ggplot2). The space left by titles and legends is split as
 //! for a single plot, minus the strips, the axes and `panel_spacing` between panels.
 //! A grid row takes the strips of its panel with the most labels.
 //! A grid column is as wide as its widest shown y axis, a grid row's x axis band as
@@ -57,6 +58,9 @@ pub struct FacetGrid<'a> {
     pub shared_x: bool,
     /// Every panel has the same y scale.
     pub shared_y: bool,
+    /// `facet_grid(space=)`: grid columns (x) and rows (y) sized in proportion to
+    /// their scale's expanded range, as ggplot2.
+    pub free_space: (bool, bool),
 }
 
 /// One laid-out panel.
@@ -212,6 +216,8 @@ fn layout_grid(
     let right =
         content.x + content.width - legend_space.right - y_title_right - inset.right - right_strip;
     let (spacing_x, spacing_y) = theme.panel_spacing;
+    let column_weights = space_weights(grid, columns, grid.free_space.0, true);
+    let row_weights = space_weights(grid, rows, grid.free_space.1, false);
 
     // lets-plot `maxHAxisThickness`: the last panel of an unfinished column (above
     // the last row) takes no room for its x axis.
@@ -276,17 +282,20 @@ fn layout_grid(
         };
         let row_bands = bands(&row_has_band);
         let row_top_bands = bands(&row_has_top_band);
-        let panel_height = ((bottom - top)
-            - row_strips.iter().sum::<f64>()
-            - row_bands.iter().sum::<f64>()
-            - row_top_bands.iter().sum::<f64>()
-            - (rows - 1) as f64 * spacing_y)
-            / rows as f64;
-        let panel_height = panel_height.max(panel_min_size);
+        let panel_heights = split_space(
+            (bottom - top)
+                - row_strips.iter().sum::<f64>()
+                - row_bands.iter().sum::<f64>()
+                - row_top_bands.iter().sum::<f64>()
+                - (rows - 1) as f64 * spacing_y,
+            &row_weights,
+            panel_min_size,
+        );
+        let height_of = |panel: &FacetPanel| panel_heights[panel.row.min(rows - 1)];
         let y_breaks = per_panel(grid, grid.shared_y, |panel| {
             choose_breaks(
                 panel.y_scale,
-                panel_height,
+                height_of(panel),
                 Orientation::Vertical,
                 theme.axis_text_y,
                 (0.0, 0.0),
@@ -297,7 +306,7 @@ fn layout_grid(
             .iter()
             .zip(y_breaks)
             .map(|(panel, breaks)| {
-                fit_y_labels(breaks, panel.y_scale, panel_height, y_limit, theme)
+                fit_y_labels(breaks, panel.y_scale, height_of(panel), y_limit, theme)
             })
             .collect();
         let y_secondary: Vec<Option<SecondaryBreaks>> = grid
@@ -308,7 +317,7 @@ fn layout_grid(
                 secondary_breaks(
                     panel.y_scale,
                     breaks,
-                    panel_height,
+                    height_of(panel),
                     Orientation::Vertical,
                     theme.axis_text_y,
                     (0.0, 0.0),
@@ -328,12 +337,15 @@ fn layout_grid(
                 *width = width.max(y_axis_width(side_breaks(breaks, secondary, true), theme));
             }
         }
-        let panel_width = ((right - left)
-            - column_widths.iter().sum::<f64>()
-            - column_right_widths.iter().sum::<f64>()
-            - (columns - 1) as f64 * spacing_x)
-            / columns as f64;
-        let panel_width = panel_width.max(panel_min_size);
+        let panel_widths = split_space(
+            (right - left)
+                - column_widths.iter().sum::<f64>()
+                - column_right_widths.iter().sum::<f64>()
+                - (columns - 1) as f64 * spacing_x,
+            &column_weights,
+            panel_min_size,
+        );
+        let width_of = |panel: &FacetPanel| panel_widths[panel.column.min(columns - 1)];
         let x_breaks = match kept_x.take() {
             Some(breaks) => breaks,
             None => per_panel(grid, grid.shared_x, |panel| {
@@ -341,7 +353,7 @@ fn layout_grid(
                 let column = panel.column.min(columns - 1);
                 choose_breaks(
                     panel.x_scale,
-                    panel_width,
+                    width_of(panel),
                     Orientation::Horizontal,
                     theme.axis_text_x,
                     (
@@ -352,7 +364,9 @@ fn layout_grid(
             })
             .into_iter()
             .zip(&grid.panels)
-            .map(|(breaks, panel)| fit_x_labels(breaks, panel.x_scale, panel_width, x_limit, theme))
+            .map(|(breaks, panel)| {
+                fit_x_labels(breaks, panel.x_scale, width_of(panel), x_limit, theme)
+            })
             .collect(),
         };
         let x_secondary: Vec<Option<SecondaryBreaks>> = grid
@@ -364,7 +378,7 @@ fn layout_grid(
                 secondary_breaks(
                     panel.x_scale,
                     breaks,
-                    panel_width,
+                    width_of(panel),
                     Orientation::Horizontal,
                     theme.axis_text_x,
                     (
@@ -406,7 +420,7 @@ fn layout_grid(
             }
             cursor += width;
             column_x.push(cursor);
-            cursor += panel_width;
+            cursor += panel_widths[column];
             cursor += column_right_widths[column];
         }
         let mut row_y = Vec::with_capacity(rows);
@@ -418,7 +432,7 @@ fn layout_grid(
             cursor += row_top_bands[row];
             cursor += row_strips[row];
             row_y.push(cursor);
-            cursor += panel_height + band;
+            cursor += panel_heights[row] + band;
         }
         let tiles: Vec<TileLayout> = grid
             .panels
@@ -435,8 +449,8 @@ fn layout_grid(
                         panel: Rect {
                             x: column_x[column],
                             y: row_y[row],
-                            width: panel_width,
-                            height: panel_height,
+                            width: panel_widths[column],
+                            height: panel_heights[row],
                         },
                         axis_bands: Margins {
                             top: row_top_bands[row],
@@ -497,6 +511,43 @@ fn layout_grid(
         };
         return FacetLayout { plot, tiles };
     }
+}
+
+/// Relative size of each grid column (`horizontal`) or row: its scale's expanded
+/// range when the space is free, else 1 (ggplot2 `space="free"`).
+fn space_weights(grid: &FacetGrid, count: usize, free: bool, horizontal: bool) -> Vec<f64> {
+    let mut weights = vec![1.0; count];
+    if !free {
+        return weights;
+    }
+    for (index, weight) in weights.iter_mut().enumerate() {
+        let panel = grid.panels.iter().find(|panel| {
+            let place = if horizontal { panel.column } else { panel.row };
+            place.min(count - 1) == index
+        });
+        if let Some(panel) = panel {
+            let scale = if horizontal {
+                panel.x_scale
+            } else {
+                panel.y_scale
+            };
+            let (low, high) = scale.expanded_domain();
+            let span = (high - low).abs();
+            if span.is_finite() && span > 0.0 {
+                *weight = span;
+            }
+        }
+    }
+    weights
+}
+
+/// `total` split by `weights`, each part at least `minimum`.
+fn split_space(total: f64, weights: &[f64], minimum: f64) -> Vec<f64> {
+    let sum: f64 = weights.iter().sum();
+    weights
+        .iter()
+        .map(|weight| (total * weight / sum).max(minimum))
+        .collect()
 }
 
 /// The breaks drawn on one side (`far`: top / right) of a panel's axis.
@@ -742,6 +793,7 @@ mod tests {
             panels,
             shared_x: !free,
             shared_y: !free,
+            free_space: (false, false),
         }
     }
 
@@ -944,6 +996,7 @@ mod tests {
             panels,
             shared_x: true,
             shared_y: true,
+            free_space: (false, false),
         };
         let layout = layout_facets(
             area(),
@@ -1006,5 +1059,31 @@ mod tests {
         let panel = tile.layout.panel;
         assert!((text.x - (panel.x + panel.width / 2.0)).abs() < 1e-9);
         assert!(text.y < panel.y && text.y > panel.y - strips_height(&theme, &[1]));
+    }
+
+    #[test]
+    fn free_space_sizes_columns_by_their_scale_ranges() {
+        let scales = [scale(1.0), scale(3.0)];
+        let labels = [Label::plain("a".to_owned()), Label::plain("b".to_owned())];
+        let mut grid = panels(&scales, &labels, 2, 2, true);
+        grid.free_space = (true, false);
+        let layout = layout_facets(
+            area(),
+            &Theme::default(),
+            &Titles::default(),
+            &grid,
+            Margins::uniform(0.0),
+            None,
+            PANEL_MIN_SIZE,
+        );
+        let (first, second) = (layout.tiles[0].layout.panel, layout.tiles[1].layout.panel);
+        let (low_1, high_1) = scales[0].expanded_domain();
+        let (low_3, high_3) = scales[1].expanded_domain();
+        let ratio = (high_3 - low_3) / (high_1 - low_1);
+        assert!(
+            (second.width / first.width - ratio).abs() < 1e-9,
+            "{first:?} {second:?}"
+        );
+        assert_eq!(first.height, second.height);
     }
 }

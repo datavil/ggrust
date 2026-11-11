@@ -100,8 +100,11 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 ## 4. Layout, guides and annotation
 
 - `annotation_logticks`, `annotation_stripes` [plotnine]
-- Facets: `facet_grid(space=, margins=, drop=)`, `as_table` and `shrink` on both facets,
-  `facet_null` [plotnine]
+- `facet_grid(scales="free") + coord_flip()`: panels of one grid column may get different
+  horizontal ranges while only the bottom row draws the axis (bug hunt 2026-11-11, not yet
+  checked against ggplot2, may predate the facet options)
+- Facets: `facet_grid(drop=False)` (needs the full level list, see `drop` on discrete
+  scales), `facet_wrap(space=)` and ggplot2 4.0's two-letter `dir` codes (`"lb"`, `"tr"`)
 - Per-variable facet labellers, ggplot2 `labeller(cyl = label_both, .default = ...)`
   (the `labeller=` option and `label_*` / `as_labeller` exist)
 - Per-guide options: `reverse`, `position`, `direction`, `order`, `theme` on `guide_legend`

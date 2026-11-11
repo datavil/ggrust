@@ -63,6 +63,22 @@ pub struct FacetSpec {
     /// faceting columns; null or not positive: no wrap.
     #[serde(default)]
     pub labwidth: Option<OneOrMany<Option<i64>>>,
+    /// `fixed`, `free`, `free_x`, `free_y` (`facet_grid`): grid columns and rows
+    /// sized by their scale ranges.
+    #[serde(default)]
+    pub space: Option<String>,
+    /// `facet_grid` margin panels `(all)`: true for every variable, or the names
+    /// of the variables that get one.
+    #[serde(default)]
+    pub margins: Option<super::Value>,
+    /// `false`: the highest levels at the bottom (`facet_grid`) or panels filled
+    /// from the bottom row (`facet_wrap`), as ggplot2 `as.table = FALSE`.
+    #[serde(default)]
+    pub as_table: Option<bool>,
+    /// `false`: position scales also cover the data before the stats (ggplot2
+    /// `shrink = FALSE`); default true.
+    #[serde(default)]
+    pub shrink: Option<bool>,
     /// Strip labeller (ggplot2 `labeller=`): a name such as `label_both` or an
     /// object, see [`crate::facet::labeller::Labeller::parse`].
     #[serde(default)]

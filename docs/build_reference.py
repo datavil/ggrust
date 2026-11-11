@@ -395,6 +395,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "coord_3d",
             "facet_wrap",
             "facet_grid",
+            "facet_null",
             "label_value",
             "label_both",
             "label_context",

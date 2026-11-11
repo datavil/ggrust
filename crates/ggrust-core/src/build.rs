@@ -631,6 +631,21 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
             )
         }
     };
+    // `facet_*(shrink=False)`: position scales also cover each panel group's data
+    // range before the stats (ggplot2).
+    let shrink = spec
+        .facet
+        .as_ref()
+        .is_none_or(|facet| facet.shrink.unwrap_or(true));
+    type Range = Option<(f64, f64)>;
+    let unshrunk_ranges: Vec<(Range, Range)> = if shrink {
+        Vec::new()
+    } else {
+        tiles
+            .iter()
+            .map(|(_, _, _, context)| (context.x_range, context.y_range))
+            .collect()
+    };
     // Tiles and layers compute in parallel; results are taken in order, so
     // warnings and the first error are those of a sequential run.
     let results = parallel::ordered_map(tiles, parallel, |(layers, tile_x, tile_y, context)| {
@@ -696,8 +711,10 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     });
     let mut prepared_tiles = Vec::with_capacity(styled.len());
     let mut tile_warnings = Vec::new();
-    for ((results, tile_x, tile_y), (x_group, y_group)) in
-        styled.into_iter().zip(x_groups.iter().zip(&y_groups))
+    for (tile_index, ((results, tile_x, tile_y), (x_group, y_group))) in styled
+        .into_iter()
+        .zip(x_groups.iter().zip(&y_groups))
+        .enumerate()
     {
         let mut layers = Vec::with_capacity(results.len());
         for result in results {
@@ -721,6 +738,20 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
             &mut y_group_scales[*y_group],
         );
         train_positions(main_layers(), &mut x_scale, &mut y_scale);
+        if let Some((x_range, y_range)) = unshrunk_ranges.get(tile_index) {
+            for (range, scales) in [
+                (x_range, [&mut x_group_scales[*x_group], &mut x_scale]),
+                (y_range, [&mut y_group_scales[*y_group], &mut y_scale]),
+            ] {
+                if let Some((low, high)) = range {
+                    for scale in scales {
+                        if matches!(scale, PositionScale::Continuous(_)) {
+                            scale.train(&ContinuousColumn::from_values(vec![*low, *high]));
+                        }
+                    }
+                }
+            }
+        }
         side::train_bands(
             &layers,
             &band_setups,
@@ -1280,6 +1311,11 @@ impl PreparedPlot {
                 .collect(),
             shared_x,
             shared_y,
+            free_space: if self.flipped {
+                (facets.space.1, facets.space.0)
+            } else {
+                facets.space
+            },
         }
     }
 

@@ -747,9 +747,42 @@ def marginal_densities(m):
     )
 
 
+def _polar_bars(m):
+    frame = pl.DataFrame({"wind": list("abcdefgh"), "days": [3, 5, 8, 6, 4, 7, 2, 9]})
+    return m.ggplot(frame, m.aes("wind", "days", fill="wind")) + m.geom_bar(stat="identity")
+
+
+def polar_rose(m):
+    return _polar_bars(m) + m.coord_polar() + m.ggsize(400, 350)
+
+
+def polar_pie(m):
+    frame = pl.DataFrame({"part": list("abcd"), "share": [10, 20, 30, 40], "all": [""] * 4})
+    plot = m.ggplot(frame, m.aes("all", "share", fill="part"))
+    return (
+        plot + m.geom_bar(stat="identity", width=1) + m.coord_polar(theta="y") + m.ggsize(400, 350)
+    )
+
+
+def polar_radar_counter_clockwise(m):
+    frame = pl.DataFrame(
+        {"angle": list(range(0, 360, 30)), "reach": [3, 4, 6, 8, 7, 5, 4, 3, 5, 7, 8, 6]}
+    )
+    plot = m.ggplot(frame, m.aes("angle", "reach")) + m.geom_path() + m.geom_point()
+    return plot + m.coord_polar(start=0.5, direction=-1) + m.ggsize(400, 350)
+
+
+def polar_rectangular_background(m):
+    return _polar_bars(m) + m.theme_bw() + m.coord_polar(transform_bkgr=False) + m.ggsize(400, 350)
+
+
 CASES = {
     case.__name__: case
     for case in [
+        polar_rose,
+        polar_pie,
+        polar_radar_counter_clockwise,
+        polar_rectangular_background,
         scatter_basic,
         umap_titles,
         qc_commas,

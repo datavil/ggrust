@@ -93,3 +93,31 @@ def test_html_notes_that_polar_is_static() -> None:
     plot = ggplot(LINE, aes("x", "y")) + geom_point() + coord_polar() + gg.ggtb()
     with pytest.warns(gg.GgrustWarning, match="coord_polar.*static"):
         plot.to_html()
+
+
+def _texts(svg: str) -> list[str]:
+    """Return the text of every label of `svg`."""
+    found = re.findall(r"<text\b[^>]*>(.*?)</text>", svg, re.DOTALL)
+    return [" ".join(re.sub("<[^>]+>", "", text).split()) for text in found]
+
+
+def test_full_circle_merges_the_first_and_last_labels() -> None:
+    assert "100/0" in _texts(_pie().to_svg())
+
+
+def test_discrete_theta_labels_every_level() -> None:
+    frame = {"k": ["a", "b", "c"], "n": [1, 2, 3]}
+    plot = ggplot(frame, aes("k", "n")) + geom_bar(stat="identity") + coord_polar()
+    assert {"a", "b", "c"} <= set(_texts(plot.to_svg()))
+
+
+def test_radius_labels_stop_at_the_ring() -> None:
+    frame = {"x": [0.0, 1.0, 2.0], "y": [0.0, 5.0, 10.0]}
+    labels = _texts((ggplot(frame, aes("x", "y")) + geom_point() + coord_polar()).to_svg())
+    numbers = [float(label) for label in labels if label.replace(".", "").isdigit()]
+    assert max(numbers) <= 11.5
+
+
+def test_theme_void_draws_no_axis() -> None:
+    plot = ggplot(LINE, aes("x", "y")) + geom_point() + coord_polar() + gg.theme_void()
+    assert _texts(plot.to_svg()) == []

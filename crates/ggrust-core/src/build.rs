@@ -20,7 +20,7 @@ use crate::facet::{Facets, LayerFacetColumns, grid_variables};
 use crate::geom::{self, DrawLayer, Geom};
 use crate::interactive_legend::{LayerLegends, RowKeys, row_keys, same_shape, tag_marks};
 use crate::layout::facet::{FacetGrid, FacetLayout, FacetPanel, draw_strips, layout_facets};
-use crate::layout::polar::draw_polar_tile;
+use crate::layout::polar::{draw_polar_tile, layout_theme as polar_layout_theme};
 use crate::layout::side_panel::{
     band_layers_group, draw_band_axis, draw_band_background, draw_band_shared_grid,
 };
@@ -1372,7 +1372,7 @@ impl PreparedPlot {
             .space
             .as_ref()
             .map(|_| space3d::layout_theme(&self.theme))
-            .or_else(|| self.polar.map(|_| space3d::layout_theme(&self.theme)));
+            .or_else(|| self.polar.map(|_| polar_layout_theme(&self.theme)));
         let layout_theme = flat_theme.as_ref().unwrap_or(&self.theme);
         let layout_with = |titles: &Titles| match &self.facets {
             None => {
@@ -1816,7 +1816,15 @@ impl PreparedPlot {
                 let mut tile = Vec::new();
                 match self.polar {
                     Some(view) => {
-                        tile.extend(draw_polar_tile(view, layout, theme, &panel, layer_nodes));
+                        let shown = theme.grid_collected.drawn(layout.axis_sides);
+                        tile.extend(draw_polar_tile(
+                            view,
+                            layout,
+                            theme,
+                            &panel,
+                            layer_nodes,
+                            shown,
+                        ));
                     }
                     None => {
                         tile.extend(draw_panel_background(layout, theme, &panel));
@@ -1892,8 +1900,14 @@ impl PreparedPlot {
                         let layers: Vec<&PreparedLayer> = layers.iter().collect();
                         let layer_nodes = draw_layers(&layers, &panel)?;
                         if let Some(view) = self.polar {
-                            let tile_nodes =
-                                draw_polar_tile(view, &tile.layout, theme, &panel, layer_nodes);
+                            let tile_nodes = draw_polar_tile(
+                                view,
+                                &tile.layout,
+                                theme,
+                                &panel,
+                                layer_nodes,
+                                tile.axes,
+                            );
                             let mut panel_nodes = vec![tile_group(tile_nodes)];
                             panel_nodes.extend(draw_strips(tile, theme));
                             return Ok::<_, Error>(panel_nodes);

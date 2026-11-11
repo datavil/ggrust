@@ -21,7 +21,6 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 
 | # | Item | Why here | Size |
 |---|---|---|---|
-| 2.6 | Polar axis guides | Needed as soon as 2.5 lands | M |
 | 2.7 | `scale_color_cmapmpl`, `scale_fill_cmapmpl` (plotnine's `scale_*_cmap`, `scale_*_cmap_d`) | In lets-plot, `geom_imshow` already resolves colormaps | S |
 | 2.8 | `geom_lollipop` | In lets-plot, built from existing parts | S |
 | 2.9 | `geom_spoke` | In lets-plot and plotnine | S |

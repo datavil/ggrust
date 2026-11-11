@@ -121,7 +121,6 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 - `gggrid` `sharex` / `sharey` with discrete scales (lets-plot #1015) [users]
 - Corner-aware legend and tag layout [gaps]
 - Rich text in labels: bold, italic, color spans (ggtext style) [gaps]
-- Polar axis guides, once `coord_polar` lands [gaps]
 - Dark theme (plotnine #164) [users]
 
 ## 5. Python API

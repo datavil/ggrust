@@ -222,6 +222,12 @@ impl BrewerMapper {
         }
     }
 
+    /// ggplot2 `scale_*_distiller()`: the palette's 7-color set (direction
+    /// applied), for a continuous gradient.
+    pub fn distiller_colors(&self) -> Vec<Color> {
+        self.colors(self.scheme(false), 7)
+    }
+
     fn colors(&self, scheme: &BrewerScheme, count: usize) -> Vec<Color> {
         let mut colors = scheme_colors(scheme, count, self.overflow);
         if self.reversed {
@@ -286,5 +292,27 @@ mod tests {
         let cycled = scheme_colors(set2, 10, Overflow::Cycle);
         assert_eq!(cycled[8], cycled[0]);
         assert_eq!(scheme_by_name("set2"), None);
+    }
+
+    #[test]
+    fn distiller_takes_the_seven_color_set_in_direction_order() {
+        let blues = scheme_by_name("Blues").unwrap();
+        let mapper = BrewerMapper {
+            kind: None,
+            palette: PaletteChoice::Named(blues),
+            reversed: true,
+            overflow: Overflow::Auto,
+            na: Color::rgb(0, 0, 0),
+        };
+        let mut expected = blues.set(7);
+        expected.reverse();
+        assert_eq!(mapper.distiller_colors(), expected);
+        // ggplot2: palette 1 of type "seq" is the default, Blues.
+        let default = BrewerMapper {
+            palette: PaletteChoice::Default,
+            reversed: false,
+            ..mapper
+        };
+        assert_eq!(default.distiller_colors(), blues.set(7));
     }
 }

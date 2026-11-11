@@ -84,8 +84,6 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   needs the full level list carried to the scales; `na_translate=True` (ggplot2's
   default) needs an NA level with `na_value` on axes and legends, where ggrust and
   lets-plot drop the rows today (`na_translate=False` behavior).
-- `scale_*_distiller`, `scale_*_desaturate`, `scale_*_ordinal` (color, fill, alpha, size),
-  `scale_size_radius` [plotnine]
 - Binned scales: `scale_*_binned`, `scale_color_steps`, `steps2`, `stepsn` [gaps]
 - Bivariate color scale with a bivariate legend [gaps]
   (lets_plot needs `palettable`; `geom_imshow` `cmap` already does) [later]; plotnine

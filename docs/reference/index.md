@@ -199,6 +199,9 @@ Map data to `color` (lines, points, text) and `fill` (areas).
 | [`scale_color_continuous()`](api/scale_color_continuous.md) | Map ``color`` continuously: a gradient unless ``scale_mapper_kind`` says otherwise. |
 | [`scale_color_discrete()`](api/scale_color_discrete.md) | Map ``color`` as categories with the default discrete palette. |
 | [`scale_color_grey()`](api/scale_color_grey.md) | Map ``color`` to greys, from lightness ``start`` to ``end``. |
+| [`scale_color_distiller()`](api/scale_color_distiller.md) | Map continuous ``color`` with a ColorBrewer palette as a smooth gradient. |
+| [`scale_color_desaturate()`](api/scale_color_desaturate.md) | Map continuous ``color`` from a color to a desaturated version of it. |
+| [`scale_color_ordinal()`](api/scale_color_ordinal.md) | Map ordered categories of ``color`` to evenly spaced viridis colors. |
 | [`scale_color_gradient()`](api/scale_color_gradient.md) | Map ``color`` to a two-color gradient (in LAB space). |
 | [`scale_color_gradient2()`](api/scale_color_gradient2.md) | Map ``color`` to a diverging gradient around ``midpoint`` (continuous data only). |
 | [`scale_color_gradientn()`](api/scale_color_gradientn.md) | Map ``color`` to a gradient through several colors, evenly spaced over the data. |
@@ -211,6 +214,9 @@ Map data to `color` (lines, points, text) and `fill` (areas).
 | [`scale_fill_continuous()`](api/scale_fill_continuous.md) | Map ``fill`` continuously. See ``scale_color_continuous``. |
 | [`scale_fill_discrete()`](api/scale_fill_discrete.md) | Map ``fill`` as categories with the default discrete palette. |
 | [`scale_fill_grey()`](api/scale_fill_grey.md) | Map ``fill`` to greys, from lightness ``start`` to ``end``. |
+| [`scale_fill_distiller()`](api/scale_fill_distiller.md) | Map continuous ``fill`` with a ColorBrewer palette as a smooth gradient. |
+| [`scale_fill_desaturate()`](api/scale_fill_desaturate.md) | Map continuous ``fill`` from a color to a desaturated version of it. |
+| [`scale_fill_ordinal()`](api/scale_fill_ordinal.md) | Map ordered categories of ``fill`` to evenly spaced viridis colors. |
 | [`scale_fill_gradient()`](api/scale_fill_gradient.md) | Map ``fill`` to a two-color gradient. See ``scale_color_gradient``. |
 | [`scale_fill_gradient2()`](api/scale_fill_gradient2.md) | Map ``fill`` to a diverging gradient. See ``scale_color_gradient2``. |
 | [`scale_fill_gradientn()`](api/scale_fill_gradientn.md) | Map ``fill`` to a gradient through several colors. See ``scale_color_gradientn``. |
@@ -367,6 +373,9 @@ Map data to point size, point shape, transparency and line widths.
 |---|---|
 | [`scale_size()`](api/scale_size.md) | Sizes for ``size``: data mapped linearly onto ``range``. |
 | [`scale_size_area()`](api/scale_size_area.md) | Sizes whose circle area is proportional to the data. |
+| [`scale_size_radius()`](api/scale_size_radius.md) | Map continuous ``size`` linearly onto the point radius. |
+| [`scale_size_ordinal()`](api/scale_size_ordinal.md) | Map ordered categories of ``size`` to evenly spaced sizes. |
+| [`scale_alpha_ordinal()`](api/scale_alpha_ordinal.md) | Map ordered categories of ``alpha`` to evenly spaced opacities. |
 | [`scale_size_manual()`](api/scale_size_manual.md) | Your own sizes for ``size``, matched in order with the categories (or a dict). |
 | [`scale_size_identity()`](api/scale_size_identity.md) | Use the data as sizes; no legend by default. |
 | [`scale_shape()`](api/scale_shape.md) | Point shapes for categories. |

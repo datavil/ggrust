@@ -11,8 +11,8 @@ mod _ggrust {
     use ggrust_core::data::{Column, DataFrame};
     use ggrust_core::grid::build_figure_with;
     use ggrust_core::render::{
-        HtmlDocument, HtmlOptions, SCREEN_DPI, rasterize_layers, rgba_png_data_url, to_html,
-        to_pdf, to_png_with_dpi, to_svg,
+        DEFAULT_JPEG_QUALITY, HtmlDocument, HtmlOptions, SCREEN_DPI, rasterize_layers,
+        rgba_png_data_url, to_html, to_jpeg, to_pdf, to_png_with_dpi, to_svg, to_tiff,
     };
     use ggrust_core::spec::Figure;
     use pyo3::IntoPyObjectExt;
@@ -613,15 +613,16 @@ mod _ggrust {
     /// `spec_json` is the plot spec whose `data` keys are frame references
     /// (`{"frame": i}`); `frames` are the Arrow tables they point to (any object
     /// exporting `__arrow_c_stream__`).
-    /// `output` is `"svg"`, `"png"`, `"pdf"`, `"html"` (notebook fragment),
-    /// `"html_page"` or `"html_iframe"`; `scale` multiplies PNG/PDF pixel size;
-    /// `dpi` is the PNG resolution and the PDF page's (default 96); `html_id` is the
+    /// `output` is `"svg"`, `"png"`, `"jpeg"`, `"tiff"`, `"pdf"`, `"html"` (notebook
+    /// fragment), `"html_page"` or `"html_iframe"`; `scale` multiplies raster/PDF pixel
+    /// size; `dpi` is the raster resolution and the PDF page's (default 96);
+    /// `quality` is the JPEG quality (1..=100, default 75); `html_id` is the
     /// root element id of HTML outputs, unique per display (required for them);
     /// `functions` are the secondary axis transforms the spec indexes (`sec_axis`).
     /// Returns the encoded output (UTF-8 for text) and the build warnings.
     /// The GIL is released while building and rendering.
     #[pyfunction]
-    #[pyo3(signature = (spec_json, frames, output, scale, html_id=None, dpi=None, functions=None))]
+    #[pyo3(signature = (spec_json, frames, output, scale, html_id=None, dpi=None, functions=None, quality=None))]
     #[allow(clippy::too_many_arguments)]
     fn render<'py>(
         python: Python<'py>,
@@ -632,6 +633,7 @@ mod _ggrust {
         html_id: Option<String>,
         dpi: Option<f64>,
         functions: Option<Vec<Py<PyAny>>>,
+        quality: Option<u8>,
     ) -> PyResult<(Bound<'py, PyBytes>, Vec<String>)> {
         let functions = axis_functions(functions);
         let frames = frames
@@ -643,14 +645,14 @@ mod _ggrust {
         let (bytes, warnings) = python
             .detach(move || -> ggrust_core::Result<(Vec<u8>, Vec<String>)> {
                 let document = match output.as_str() {
-                    "svg" | "png" | "pdf" => None,
+                    "svg" | "png" | "jpeg" | "tiff" | "pdf" => None,
                     "html" => Some(HtmlDocument::Fragment),
                     "html_page" => Some(HtmlDocument::Page),
                     "html_iframe" => Some(HtmlDocument::Iframe),
                     other => {
                         return Err(ggrust_core::Error::render(format!(
-                            "unknown output format '{other}'; expected 'svg', 'png', 'pdf', \
-                             'html', 'html_page' or 'html_iframe'"
+                            "unknown output format '{other}'; expected 'svg', 'png', 'jpeg', \
+                             'tiff', 'pdf', 'html', 'html_page' or 'html_iframe'"
                         )));
                     }
                 };
@@ -671,6 +673,15 @@ mod _ggrust {
                     }
                     None if output == "png" => {
                         to_png_with_dpi(&built.scene, scale, dpi.unwrap_or(SCREEN_DPI))?
+                    }
+                    None if output == "jpeg" => to_jpeg(
+                        &built.scene,
+                        scale,
+                        dpi.unwrap_or(SCREEN_DPI),
+                        quality.unwrap_or(DEFAULT_JPEG_QUALITY),
+                    )?,
+                    None if output == "tiff" => {
+                        to_tiff(&built.scene, scale, dpi.unwrap_or(SCREEN_DPI))?
                     }
                     None if output == "pdf" => {
                         to_pdf(&built.scene, scale, dpi.unwrap_or(SCREEN_DPI))?

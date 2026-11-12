@@ -63,6 +63,7 @@ def without_data(value):
 # ggrust extensions: extra trailing parameters lets_plot does not have (deviations.md).
 EXTENSIONS = {
     "ggtb": ("layers",),
+    "ggsave": ("quality",),
     "gggrid": ("design", "tag_levels", "tag_level", "axes", "axis_titles"),
     "position_stack": ("reverse",),
     "position_fill": ("reverse",),
@@ -303,7 +304,7 @@ def test_ggsave_writes_by_extension(tmp_path):
     for name, message in [
         ("plot", "filename 'plot' has no extension; add one of '.svg'"),
         ("  ", "filename '' has no name"),
-        ("plot.jpg", "unsupported file extension 'jpg'; use one of 'svg'"),
+        ("plot.bmp", "unsupported file extension 'bmp'; use one of 'svg'"),
         ("plot.sgv", "did you mean 'svg'\\?"),
     ]:
         with pytest.raises(ExportError, match=message):

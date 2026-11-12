@@ -5,11 +5,12 @@ from __future__ import annotations
 import datetime
 import json
 import math
+import numbers
 import os
 import secrets
 import sys
 import warnings
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Literal, cast
 
 from ggrust._data import as_arrow
 from ggrust._ggrust import inspect, referenced_columns, render, tooltip_columns
@@ -53,6 +54,7 @@ def render_bytes(
     scale: float = 1.0,
     size: tuple | None = None,
     dpi: float | None = None,
+    quality: int | None = None,
 ) -> bytes:
     """Build ``plot`` in Rust and return the encoded output.
 
@@ -60,7 +62,7 @@ def render_bytes(
     ----------
     plot : PlotSpec
         The plot.
-    output : {"svg", "png", "pdf", "html", "html_page", "html_iframe"}
+    output : {"svg", "png", "jpeg", "tiff", "pdf", "html", "html_page", "html_iframe"}
         Output format. HTML outputs get a fresh element id on every call, so one plot
         displayed twice on a page keeps its ids apart.
     scale : float
@@ -68,12 +70,14 @@ def render_bytes(
     size : tuple of float, optional
         ``(width, height)`` overriding ``ggsize``.
     dpi : float, optional
-        PNG resolution metadata and PDF page resolution (96 when None).
+        Raster resolution metadata and PDF page resolution (96 when None).
+    quality : int, optional
+        JPEG quality, 1 to 100 (75 when None).
 
     Returns
     -------
     bytes
-        SVG or HTML (UTF-8), or PNG / PDF bytes.
+        SVG or HTML (UTF-8), or PNG / JPEG / TIFF / PDF bytes.
     """
     spec, frames = split_data(plot.as_dict())
     spec, functions = split_functions(spec)
@@ -98,6 +102,7 @@ def render_bytes(
         _display_id() if output.startswith("html") else None,
         None if dpi is None else float(dpi),
         functions,
+        quality,
     )
     for message in messages:
         warnings.warn(message, GgrustWarning, stacklevel=4)
@@ -686,6 +691,63 @@ def export_png(
     size, pixel_scale, resolution = _raster_options(w, h, unit, dpi, scale)
     png = render_bytes(plot, "png", scale=pixel_scale, size=size, dpi=resolution)
     return _write(path, png)
+
+
+def export_raster(
+    plot: PlotSpec | SupPlotsSpec,
+    path: Target,
+    output: Literal["jpeg", "tiff"],
+    scale: Number | None = None,
+    w: Number | None = None,
+    h: Number | None = None,
+    unit: str | None = None,
+    dpi: Number | None = None,
+    quality: int | None = None,
+) -> str | None:
+    """Write a JPEG or TIFF, sized exactly as ``PlotSpec.to_png`` sizes a PNG.
+
+    Parameters
+    ----------
+    plot : PlotSpec or SupPlotsSpec
+        The plot or grid of plots.
+    path : str or file-like
+        Where to write: a file path or a binary file-like object.
+    output : {"jpeg", "tiff"}
+        The format.
+    scale : float, optional
+        Multiplier of the pixel size.
+    w : float, optional
+        Width.
+    h : float, optional
+        Height.
+    unit : str, optional
+        Unit of ``w`` and ``h``: ``"in"``, ``"cm"``, ``"mm"`` or ``"px"``.
+    dpi : float, optional
+        Resolution in dots per inch.
+    quality : int, optional
+        JPEG only: quality from 1 to 100; 75 (R's ``jpeg()`` default) when None.
+
+    Raises
+    ------
+    ExportError
+        If ``quality`` is not an integer from 1 to 100, or is given for a TIFF.
+    """
+    if quality is not None:
+        if output != "jpeg":
+            message = f"'quality' applies to JPEG only, not {output.upper()}; remove it"
+            raise ExportError(message)
+        if isinstance(quality, bool) or not isinstance(quality, numbers.Integral):
+            message = f"'quality' must be an integer from 1 to 100, got {quality!r}"
+            raise ExportError(message)
+        quality = int(quality)
+        if not 1 <= quality <= 100:
+            message = f"'quality' must be an integer from 1 to 100, got {quality!r}"
+            raise ExportError(message)
+    size, pixel_scale, resolution = _raster_options(w, h, unit, dpi, scale)
+    image = render_bytes(
+        plot, output, scale=pixel_scale, size=size, dpi=resolution, quality=quality
+    )
+    return _write(path, image)
 
 
 def export_pdf(

@@ -191,6 +191,7 @@ def render(
     html_id: str | None = None,
     dpi: float | None = None,
     functions: list[Callable[..., object]] | None = None,
+    quality: int | None = None,
 ) -> tuple[bytes, list[str]]:
     """Build and render a plot.
 
@@ -202,23 +203,27 @@ def render(
     frames
         The referenced frames, each exporting ``__arrow_c_stream__``.
     output
-        ``"svg"``, ``"png"``, ``"pdf"``, ``"html"`` (notebook fragment: root ``<div>``
-        and the runtime ``<script>``), ``"html_page"`` or ``"html_iframe"``.
+        ``"svg"``, ``"png"``, ``"jpeg"``, ``"tiff"``, ``"pdf"``, ``"html"`` (notebook
+        fragment: root ``<div>`` and the runtime ``<script>``), ``"html_page"`` or
+        ``"html_iframe"``.
     scale
-        PNG / PDF pixel scale.
+        Raster / PDF pixel scale.
     html_id
         Id of the root element of HTML outputs; prefixes every id in the SVG.
         Must be unique on the page (one per display). Required for HTML outputs.
     dpi
-        PNG resolution (``pHYs``) and PDF page resolution; 96 when None.
+        Raster resolution (PNG ``pHYs``, JPEG JFIF density, TIFF ``XResolution``)
+        and PDF page resolution; 96 when None.
     functions
         Secondary axis transforms: ``sec_axis.transform == i`` in the spec calls
         ``functions[i]`` once per value.
+    quality
+        JPEG quality, 1 to 100; 75 (R's ``jpeg()`` default) when None.
 
     Returns
     -------
     tuple[bytes, list[str]]
-        Encoded output (UTF-8 for SVG and HTML; PNG or PDF bytes) and build warnings.
+        Encoded output (UTF-8 for SVG and HTML; PNG, JPEG, TIFF or PDF bytes) and build warnings.
 
     Raises
     ------

@@ -34,6 +34,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 - `PlotSpec.guide_data(aesthetic)`: a polars frame with the keys of a legend or colorbar (mapped value and label), as ggplot2's `get_guide_data()`. `build()` also returns them under `guides`.
 - Horizontal `geom_errorbar`, `geom_linerange`, `geom_pointrange` and `geom_crossbar`: map `y`, `xmin` and `xmax`, or pass `orientation="y"`, as in lets-plot. `height` on `geom_errorbar` is a deprecated alias of `width`.
 - `ggrust.bistro.funky_heatmap` and `position_arguments`, a port of the R package funkyheatmap: a table of bars, circles, rounded squares, rectangles, pies, text and PNG images, with column groups, row groups and legends, from funkyheatmap's `data` / `column_info` / `row_info` / `column_groups` / `row_groups` / `palettes` / `legends` arguments. The result is an ordinary plot, so `+` adds layers in table coordinates. ggrust additions: `col_annot_position="bottom"` (column names under the table), `col_group_radius` (pill-shaped group headers), `legend_position="right"|"none"`, and a canvas that grows to fit long labels. A new gallery example rebuilds the scIB benchmark summary figure (panel a of Luecken et al. 2022).
+- `ggsave()` writes JPEG (`.jpg`, `.jpeg`, with `quality`, 75 by default as R) and TIFF (`.tif`, `.tiff`, LZW compressed, RGBA when translucent), sized like PNG, with `dpi` recorded in the file.
 
 ### Changed
 

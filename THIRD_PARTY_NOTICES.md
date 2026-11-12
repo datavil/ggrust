@@ -116,3 +116,10 @@ The CSV files in `python/ggrust/data/` are written by `scripts/make_datasets.R`.
 - `iris.csv`: Fisher's iris measurements (R. A. Fisher 1936, collected by Edgar
   Anderson), public domain, taken from R's `datasets::iris` with snake_case column
   names.
+
+## jpeg-encoder (JPEG output)
+
+JPEG output (`ggsave("plot.jpg")`) uses the Rust crate jpeg-encoder
+(https://github.com/vstroebel/jpeg-encoder, MIT OR Apache-2.0), whose forward DCT comes
+from the Independent JPEG Group's libjpeg. As the IJG license asks: this software is
+based in part on the work of the Independent JPEG Group.

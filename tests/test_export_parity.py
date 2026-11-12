@@ -160,14 +160,23 @@ def test_svg_physical_size_matches_lets_plot(options):
 
 def test_ggsave_writes_every_format(tmp_path):
     plot = _plot(gg)
-    for extension in ["svg", "png", "pdf", "html", "htm"]:
+    for extension in ["svg", "png", "jpg", "tiff", "pdf", "html", "htm"]:
         path = gg.ggsave(
             plot, f"plot.{extension}", path=str(tmp_path), w=4, h=3, unit="in", dpi=300
         )
         with open(path, "rb") as file:
             head = file.read(4)
-        assert head in (b"<svg", b"\x89PNG", b"%PDF", b"<htm", b"<ifr", b"<!DO")
+        assert head in (
+            b"<svg",
+            b"\x89PNG",
+            b"\xff\xd8\xff\xe0",
+            b"II*\x00",
+            b"%PDF",
+            b"<htm",
+            b"<ifr",
+            b"<!DO",
+        )
     grid = gg.gggrid([plot, plot])
     assert gg.ggsave(grid, "grid.pdf", path=str(tmp_path)).endswith("grid.pdf")
-    with pytest.raises(ValueError, match="'svg', 'png', 'pdf', 'html', 'htm'"):
-        gg.ggsave(plot, "plot.jpg", path=str(tmp_path))
+    with pytest.raises(ValueError, match="'svg', 'png', 'jpg', 'jpeg', 'tif', 'tiff', 'pdf'"):
+        gg.ggsave(plot, "plot.bmp", path=str(tmp_path))

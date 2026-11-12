@@ -16,6 +16,7 @@ arrow-select.workspace = true
 crc32fast.workspace = true
 flate2.workspace = true
 harfrust.workspace = true
+jpeg-encoder.workspace = true
 pdf-writer.workspace = true
 png.workspace = true
 rayon.workspace = true
@@ -26,6 +27,7 @@ serde_json.workspace = true
 serde_path_to_error.workspace = true
 subsetter.workspace = true
 thiserror.workspace = true
+weezl.workspace = true
 
 [lints]
 workspace = true

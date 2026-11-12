@@ -49,7 +49,6 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 | # | Item | Why here | Size | Found in |
 |---|---|---|---|---|
 | 5.1 | Validation suite against R `ggplot_build()` output | Guards every stat, so it pays back on later work | M | n/a (ggrust tooling) |
-| 5.6 | JPEG, TIFF and other raster formats in `ggsave` | Some journals ask for TIFF | S | ggplot2, plotnine; lets-plot saves SVG, HTML, PNG, PDF only |
 | 5.7 | ggpubr helpers beyond `compare_means` | Publication plots | M | ggplot2 extension (ggpubr) |
 
 ## 6. Theming and polish

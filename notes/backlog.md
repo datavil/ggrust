@@ -46,7 +46,6 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 - GAM smoothing method for `geom_smooth` [gaps]
 - `geom_contour_filled` is an alias of `geom_contourf` (continuous `..level..` fill);
   ggplot2 fills each band with an ordered discrete level and has `stat_contour_filled` [gaps]
-- `geom_cooks` (regression diagnostics) [gaps]
 - `geom_density_ridges` with the full ggridges options (ggrust has `area_ridges`) [gaps]
 
 ### Specialised charts (lower priority for cellestial)
@@ -55,8 +54,6 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   packing, sunburst, waffle (lets-plot #1336), waterfall, funnel, Pareto, Marimekko,
   Venn, word cloud, bullet, variable-radius pie, timeline, tile map, wind barbs
   [gaps] [users]
-- Finance and time series: candlestick / OHLC, calendar heatmap [gaps]
-- Networks and trees: `geom_network`, arc diagram, tree geom [gaps]
 - Spatial: `geom_sf` / `geom_sf_text` (GeoJSON), map tiles, polygon label placement
   (polylabel), `annotation_scale` [gaps]; `geom_map` (geopandas geometries) [plotnine]
 
@@ -95,7 +92,7 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 - Locale-aware label formatting: decimal marks, currency, percent, month names [gaps]
 - Set common scale options once, for example one palette for every color scale
   (ggplot2 #4269) [users]
-- Axis capping (lets-plot #1184), vertical fill gradient (lets-plot #994) [users]
+- Axis capping (lets-plot #1184) [users]
 
 - `scale_*_distiller` accepts discrete data and any
   `direction` without an error (ggplot2 errors on discrete data) [bug hunt]
@@ -120,7 +117,6 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   bottom, left, right, inside), `legend_text_position`, `legend_title_position`,
   `legend_box_background`, `legend_box_margin`, `legend_frame` [plotnine]
 - `watermark`: an image drawn over the plot [plotnine]
-- Clipping per layer (ggplot2 #6773) [users]
 - `gggrid` `sharex` / `sharey` with discrete scales (lets-plot #1015) [users]
 - Corner-aware legend and tag layout [gaps]
 - Rich text in labels: bold, italic, color spans (ggtext style) [gaps]
@@ -162,12 +158,13 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   `theme_xkcd`, the `mavg` and `gpr` smoothing methods, a spec-rendering CLI, and Renko
   charts and technical indicators.
 - Dropped by the user on 2026-11-11: a conda-forge package and Pyodide / WASM builds.
+- Dropped by the user on 2026-11-12: notebook widget integrations (marimo, anywidget,
+  Panel) and the row-selection tool, finance charts (candlestick / OHLC, calendar
+  heatmap), networks and trees (`geom_network`, arc diagram, tree geom), `geom_cooks`,
+  clipping per layer, and a vertical fill gradient.
 
 ## 6. Output, interactivity and integrations
 
-- Selection tool that returns the selected rows (lets-plot #998) [users]
-- Notebook integrations: Panel (lets-plot #870), marimo, anywidget. `_repr_html_` is
-  one-way today; anywidget would let selection and zoom flow back to Python [users]
 - Export: multi-page PDF (`save_as_pdf_pages`); JPEG, TIFF and other raster formats in
   `ggsave` (today `svg`, `png`, `pdf`, `html`, `ggrs`) [plotnine]
 - ggpubr helpers beyond `compare_means` (themes, `ggarrange` style) [gaps]

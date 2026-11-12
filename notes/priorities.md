@@ -50,8 +50,6 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 | # | Item | Why here | Size | Found in |
 |---|---|---|---|---|
 | 5.1 | Validation suite against R `ggplot_build()` output | Guards every stat, so it pays back on later work | M | n/a (ggrust tooling) |
-| 5.2 | Notebook integrations: marimo, anywidget, Panel | Two-way selection and zoom | L | none |
-| 5.3 | Selection tool that returns the selected rows | Depends on 5.2 | M | none |
 | 5.6 | JPEG, TIFF and other raster formats in `ggsave` | Some journals ask for TIFF | S | ggplot2, plotnine; lets-plot saves SVG, HTML, PNG, PDF only |
 | 5.7 | ggpubr helpers beyond `compare_means` | Publication plots | M | ggplot2 extension (ggpubr) |
 
@@ -66,9 +64,7 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 | 6.5 | Rich text in labels (ggtext style) | Wanted, but touches text layout | L | lets-plot `element_markdown` (ggrust already has it), ggplot2 extension (ggtext); check what is still missing |
 | 6.6 | `gggrid` `sharex` / `sharey` with discrete scales | Narrow case | M | lets-plot |
 | 6.7 | Corner-aware legend and tag layout | Narrow case | M | n/a (layout quality) |
-| 6.8 | Clipping per layer | Narrow case | M | none (requested in ggplot2 #6773) |
 | 6.9 | Axis capping | Cosmetic | S | ggplot2 (`guide_axis(cap=)`) |
-| 6.10 | Vertical fill gradient | Cosmetic | M | none (requested in lets-plot #994) |
 | 6.12 | Bivariate color scale with a bivariate legend | Niche, needs a new guide | L | ggplot2 extension (biscale) |
 
 ## 7. Specialised charts
@@ -77,11 +73,8 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 |---|---|---|---|---|
 | 7.1 | `geom_contour_filled` fills bands by an ordered discrete level, as ggplot2 (today an alias of `geom_contourf`, continuous fill) | Discrete legend of bands | S | ggplot2 |
 | 7.2 | `geom_density_ridges` with the full ggridges options | `geom_area_ridges` covers the main use | M | ggplot2 extension (ggridges); lets-plot `geom_area_ridges` covers part |
-| 7.3 | `geom_cooks` (regression diagnostics) | Niche | S | none |
 | 7.4 | `coord_radial`, radar charts | Follows 2.5 | M | `coord_radial`: ggplot2; radar charts: lets-plot through `coord_polar` |
-| 7.5 | Networks and trees: `geom_network`, arc diagram, tree geom | Trees are partly served by the dendrogram work | L | ggplot2 extensions (ggraph, ggtree) |
 | 7.6 | Business and infographic: Sankey / alluvial (plan ex2.6), treemap, waffle, waterfall, chord, circle packing, sunburst, funnel, Pareto, Marimekko, Venn, word cloud, bullet, variable-radius pie, timeline, tile map, wind barbs | Outside the scientific core; Sankey first, as it is scheduled | L | ggplot2 extensions (ggalluvial, treemapify, waffle, ...) |
-| 7.7 | Finance and time series: candlestick / OHLC, calendar heatmap | Outside the scientific core | L | ggplot2 extension (tidyquant) |
 | 7.8 | Spatial: `coord_map`, `coord_sf`, `geom_sf`, `geom_sf_text`, `geom_map`, map tiles, polylabel placement, `annotation_scale` | A subsystem of its own | L | ggplot2 (`coord_sf`, `geom_sf`), lets-plot (`geom_map`, `coord_map`, `geom_livemap`, map tiles), plotnine (`geom_map`) |
 
 ## Non-essential (plotnine only)

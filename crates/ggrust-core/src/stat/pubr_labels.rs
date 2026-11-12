@@ -7,6 +7,9 @@
 //!   `p.format`): `"<2e-16"` below machine epsilon.
 //! - [`p_equals`]: `"p = 0.012"` / `"p < 2e-16"` (ggpubr `create_p_label`).
 //! - [`p_signif`]: significance stars, `(0, 1e-4]` `****` ... `(0.05, 1]` `ns`.
+//! - [`p_format_rstatix`]: rstatix `p_format(p)` (geom_pwc's `p.format`):
+//!   `"<0.0001"` below 1e-4, else 2 significant digits.
+//! - [`signif`], [`round_value`]: R's `signif(x, d)` and rstatix's `p_round`.
 //!
 //! - [`label_column`]: label texts as a discrete `label` column.
 //! - [`labels_per_group`]: one label per group at ggpubr's `.label_params`
@@ -22,7 +25,7 @@ use crate::spec::{Aesthetic, Value};
 use crate::{Error, Result};
 
 /// `format(x, digits = digits)` in R, for one finite number (`"NA"` for NaN).
-pub(super) fn significant(x: f64, digits: usize) -> String {
+pub fn significant(x: f64, digits: usize) -> String {
     if x.is_nan() {
         return "NA".to_owned();
     }
@@ -90,6 +93,45 @@ pub(super) fn p_equals(p: f64) -> String {
     match formatted.strip_prefix('<') {
         Some(bound) => format!("p < {bound}"),
         None => format!("p = {formatted}"),
+    }
+}
+
+/// rstatix's `p_format(p, accuracy = 1e-4, digits = 2)` for one p-value
+/// (`format.pval` with `eps = 1e-4`, `"<1e-04"` written `"<0.0001"`).
+pub(super) fn p_format_rstatix(p: f64) -> String {
+    if p.is_nan() {
+        return "NA".to_owned();
+    }
+    if p < 1e-4 {
+        return "<0.0001".to_owned();
+    }
+    significant(p, 2)
+}
+
+/// R's `signif(x, digits)`.
+pub(super) fn signif(x: f64, digits: i32) -> f64 {
+    if !x.is_finite() || x == 0.0 {
+        return x;
+    }
+    let exponent = digits - 1 - x.abs().log10().floor() as i32;
+    if exponent > 300 {
+        return x;
+    }
+    let scale = 10_f64.powi(exponent);
+    (x * scale).round_ties_even() / scale
+}
+
+/// rstatix `p_round(x, digits)`: `round(x, digits)` above `10^-digits`, else
+/// `signif(x, digits)`.
+pub(super) fn round_value(x: f64, digits: i32) -> f64 {
+    if x.is_nan() {
+        return x;
+    }
+    if x.abs() > 10_f64.powi(-digits) {
+        let scale = 10_f64.powi(digits);
+        (x * scale).round_ties_even() / scale
+    } else {
+        signif(x, digits)
     }
 }
 
@@ -344,5 +386,25 @@ mod tests {
         assert_eq!(p_equals(0.0645), "p = 0.065");
         assert_eq!(p_signif(0.05), "*");
         assert_eq!(p_signif(0.0001), "****");
+    }
+
+    #[test]
+    fn rstatix_rounding_and_formats() {
+        // R: signif(0.0147630147630148, 3), rstatix:::round_value(c(...), 3).
+        assert_eq!(signif(0.014_763_014_763_014_8, 3), 0.0148);
+        assert_eq!(signif(1.268_300_720_173_85e-7, 3), 1.27e-7);
+        assert_eq!(round_value(0.0148, 3), 0.015);
+        assert_eq!(round_value(0.000_181_5, 3), 0.000_182);
+        assert_eq!(round_value(0.001, 3), 0.001);
+        for (p, text) in [
+            (0.000_152, "0.00015"),
+            (9.9e-5, "<0.0001"),
+            (1e-4, "1e-04"),
+            (0.0232, "0.023"),
+            (1.0, "1"),
+            (0.004_03, "0.004"),
+        ] {
+            assert_eq!(p_format_rstatix(p), text, "{p}");
+        }
     }
 }

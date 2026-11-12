@@ -1,0 +1,1560 @@
+{
+  "data": {
+    "tooth": {
+      "len": [4.2, 11.5, 7.3, 5.8, 6.4, 10, 11.2, 11.2, 5.2, 7, 16.5, 16.5, 15.2, 17.3, 22.5, 17.3, 13.6, 14.5, 18.8, 15.5, 23.6, 18.5, 33.9, 25.5, 26.4, 32.5, 26.7, 21.5, 23.3, 29.5, 15.2, 21.5, 17.6, 9.7, 14.5, 10, 8.2, 9.4, 16.5, 9.7, 19.7, 23.3, 23.6, 26.4, 20, 25.2, 25.8, 21.2, 14.5, 27.3, 25.5, 26.4, 22.4, 24.5, 24.8, 30.9, 26.4, 27.3, 29.4, 23],
+      "supp": ["VC", "VC", "VC", "VC", "VC", "VC", "VC", "VC", "VC", "VC", "VC", "VC", "VC", "VC", "VC", "VC", "VC", "VC", "VC", "VC", "VC", "VC", "VC", "VC", "VC", "VC", "VC", "VC", "VC", "VC", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ", "OJ"],
+      "dose": ["0.5", "0.5", "0.5", "0.5", "0.5", "0.5", "0.5", "0.5", "0.5", "0.5", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "2", "2", "2", "2", "2", "2", "2", "2", "2", "2", "0.5", "0.5", "0.5", "0.5", "0.5", "0.5", "0.5", "0.5", "0.5", "0.5", "1", "1", "1", "1", "1", "1", "1", "1", "1", "1", "2", "2", "2", "2", "2", "2", "2", "2", "2", "2"]
+    },
+    "four": [
+      {
+        "g": "w",
+        "v": 0.04
+      },
+      {
+        "g": "w",
+        "v": 0.71
+      },
+      {
+        "g": "w",
+        "v": 1.26
+      },
+      {
+        "g": "w",
+        "v": -0.15
+      },
+      {
+        "g": "w",
+        "v": 1.2
+      },
+      {
+        "g": "w",
+        "v": 1.03
+      },
+      {
+        "g": "w",
+        "v": 1.09
+      },
+      {
+        "g": "w",
+        "v": 2.12
+      },
+      {
+        "g": "x",
+        "v": 0.28
+      },
+      {
+        "g": "x",
+        "v": 2.77
+      },
+      {
+        "g": "x",
+        "v": 0.76
+      },
+      {
+        "g": "x",
+        "v": 0.37
+      },
+      {
+        "g": "x",
+        "v": 0.78
+      },
+      {
+        "g": "x",
+        "v": 1.75
+      },
+      {
+        "g": "x",
+        "v": 1.65
+      },
+      {
+        "g": "x",
+        "v": 1.19
+      },
+      {
+        "g": "y",
+        "v": 1.65
+      },
+      {
+        "g": "y",
+        "v": 1.95
+      },
+      {
+        "g": "y",
+        "v": 3.82
+      },
+      {
+        "g": "y",
+        "v": 2.8
+      },
+      {
+        "g": "y",
+        "v": 2.02
+      },
+      {
+        "g": "y",
+        "v": 1.66
+      },
+      {
+        "g": "y",
+        "v": 2.4
+      },
+      {
+        "g": "y",
+        "v": 0.93
+      },
+      {
+        "g": "z",
+        "v": 0.72
+      },
+      {
+        "g": "z",
+        "v": 0.46
+      },
+      {
+        "g": "z",
+        "v": 2.36
+      },
+      {
+        "g": "z",
+        "v": 2.21
+      },
+      {
+        "g": "z",
+        "v": 1.13
+      },
+      {
+        "g": "z",
+        "v": 0.06
+      },
+      {
+        "g": "z",
+        "v": 2.1
+      },
+      {
+        "g": "z",
+        "v": 2.05
+      }
+    ],
+    "three": [
+      {
+        "x": "a",
+        "color": "u",
+        "v": 1.73
+      },
+      {
+        "x": "a",
+        "color": "u",
+        "v": 1.74
+      },
+      {
+        "x": "a",
+        "color": "u",
+        "v": 0.65
+      },
+      {
+        "x": "a",
+        "color": "u",
+        "v": 1.71
+      },
+      {
+        "x": "a",
+        "color": "u",
+        "v": 2.3
+      },
+      {
+        "x": "a",
+        "color": "u",
+        "v": 1.04
+      },
+      {
+        "x": "a",
+        "color": "v",
+        "v": 1.02
+      },
+      {
+        "x": "a",
+        "color": "v",
+        "v": 2.79
+      },
+      {
+        "x": "a",
+        "color": "v",
+        "v": 2.79
+      },
+      {
+        "x": "a",
+        "color": "v",
+        "v": 1.69
+      },
+      {
+        "x": "a",
+        "color": "v",
+        "v": 3.7
+      },
+      {
+        "x": "a",
+        "color": "v",
+        "v": 1.21
+      },
+      {
+        "x": "a",
+        "color": "w",
+        "v": 1.85
+      },
+      {
+        "x": "a",
+        "color": "w",
+        "v": -0.77
+      },
+      {
+        "x": "a",
+        "color": "w",
+        "v": 1.34
+      },
+      {
+        "x": "a",
+        "color": "w",
+        "v": 2.63
+      },
+      {
+        "x": "a",
+        "color": "w",
+        "v": 1.04
+      },
+      {
+        "x": "a",
+        "color": "w",
+        "v": 0.6
+      },
+      {
+        "x": "b",
+        "color": "u",
+        "v": 3.73
+      },
+      {
+        "x": "b",
+        "color": "u",
+        "v": 2.19
+      },
+      {
+        "x": "b",
+        "color": "u",
+        "v": 3.27
+      },
+      {
+        "x": "b",
+        "color": "u",
+        "v": 1.26
+      },
+      {
+        "x": "b",
+        "color": "u",
+        "v": 1.59
+      },
+      {
+        "x": "b",
+        "color": "u",
+        "v": 2.55
+      },
+      {
+        "x": "b",
+        "color": "v",
+        "v": -0.04
+      },
+      {
+        "x": "b",
+        "color": "v",
+        "v": 2.36
+      },
+      {
+        "x": "b",
+        "color": "v",
+        "v": 1.92
+      },
+      {
+        "x": "b",
+        "color": "v",
+        "v": 0.21
+      },
+      {
+        "x": "b",
+        "color": "v",
+        "v": 1.57
+      },
+      {
+        "x": "b",
+        "color": "v",
+        "v": 1.92
+      },
+      {
+        "x": "b",
+        "color": "w",
+        "v": 1.46
+      },
+      {
+        "x": "b",
+        "color": "w",
+        "v": 1.55
+      },
+      {
+        "x": "b",
+        "color": "w",
+        "v": 2.37
+      },
+      {
+        "x": "b",
+        "color": "w",
+        "v": 0.72
+      },
+      {
+        "x": "b",
+        "color": "w",
+        "v": 0.78
+      },
+      {
+        "x": "b",
+        "color": "w",
+        "v": 2.16
+      }
+    ]
+  },
+  "compare_means": [
+    {
+      "name": "dose",
+      "formula": "len ~ dose",
+      "options": [],
+      "rows": [
+        {
+          ".y.": "len",
+          "group1": "0.5",
+          "group2": "1",
+          "p": 7.02085488443259e-06,
+          "p.adj": 1.4e-05,
+          "p.format": "7.0e-06",
+          "p.signif": "****",
+          "method": "Wilcoxon",
+          "p.format.each": "7e-06"
+        },
+        {
+          ".y.": "len",
+          "group1": "0.5",
+          "group2": "2",
+          "p": 8.40644657573716e-08,
+          "p.adj": 2.5e-07,
+          "p.format": "8.4e-08",
+          "p.signif": "****",
+          "method": "Wilcoxon",
+          "p.format.each": "8.4e-08"
+        },
+        {
+          ".y.": "len",
+          "group1": "1",
+          "group2": "2",
+          "p": 0.000177238217912475,
+          "p.adj": 0.00018,
+          "p.format": "0.00018",
+          "p.signif": "***",
+          "method": "Wilcoxon",
+          "p.format.each": "0.00018"
+        }
+      ]
+    },
+    {
+      "name": "dose_t",
+      "formula": "len ~ dose",
+      "options": {
+        "method": "t.test"
+      },
+      "rows": [
+        {
+          ".y.": "len",
+          "group1": "0.5",
+          "group2": "1",
+          "p": 1.26830072017385e-07,
+          "p.adj": 2.5e-07,
+          "p.format": "1.3e-07",
+          "p.signif": "****",
+          "method": "T-test",
+          "p.format.each": "1.3e-07"
+        },
+        {
+          ".y.": "len",
+          "group1": "0.5",
+          "group2": "2",
+          "p": 4.39752495936323e-14,
+          "p.adj": 1.3e-13,
+          "p.format": "4.4e-14",
+          "p.signif": "****",
+          "method": "T-test",
+          "p.format.each": "4.4e-14"
+        },
+        {
+          ".y.": "len",
+          "group1": "1",
+          "group2": "2",
+          "p": 1.9064295136718e-05,
+          "p.adj": 1.9e-05,
+          "p.format": "1.9e-05",
+          "p.signif": "****",
+          "method": "T-test",
+          "p.format.each": "1.9e-05"
+        }
+      ]
+    },
+    {
+      "name": "supp_paired",
+      "formula": "len ~ supp",
+      "options": {
+        "method": "t.test",
+        "paired": true
+      },
+      "rows": [
+        {
+          ".y.": "len",
+          "group1": "OJ",
+          "group2": "VC",
+          "p": 0.00254984241330606,
+          "p.adj": 0.0025,
+          "p.format": "0.0025",
+          "p.signif": "**",
+          "method": "T-test",
+          "p.format.each": "0.0025"
+        }
+      ]
+    },
+    {
+      "name": "dose_reference",
+      "formula": "len ~ dose",
+      "options": {
+        "ref.group": "0.5"
+      },
+      "rows": [
+        {
+          ".y.": "len",
+          "group1": "0.5",
+          "group2": "1",
+          "p": 7.02085488443259e-06,
+          "p.adj": 7e-06,
+          "p.format": "7.0e-06",
+          "p.signif": "****",
+          "method": "Wilcoxon",
+          "p.format.each": "7e-06"
+        },
+        {
+          ".y.": "len",
+          "group1": "0.5",
+          "group2": "2",
+          "p": 8.40644657573716e-08,
+          "p.adj": 1.7e-07,
+          "p.format": "8.4e-08",
+          "p.signif": "****",
+          "method": "Wilcoxon",
+          "p.format.each": "8.4e-08"
+        }
+      ]
+    },
+    {
+      "name": "dose_reference_all",
+      "formula": "len ~ dose",
+      "options": {
+        "ref.group": ".all.",
+        "method": "t.test"
+      },
+      "rows": [
+        {
+          ".y.": "len",
+          "group1": ".all.",
+          "group2": "0.5",
+          "p": 2.8952771857314e-07,
+          "p.adj": 8.7e-07,
+          "p.format": "2.9e-07",
+          "p.signif": "****",
+          "method": "T-test",
+          "p.format.each": "2.9e-07"
+        },
+        {
+          ".y.": "len",
+          "group1": ".all.",
+          "group2": "1",
+          "p": 0.511877290007757,
+          "p.adj": 0.51,
+          "p.format": "0.51",
+          "p.signif": "ns",
+          "method": "T-test",
+          "p.format.each": "0.51"
+        },
+        {
+          ".y.": "len",
+          "group1": ".all.",
+          "group2": "2",
+          "p": 4.25180222770508e-07,
+          "p.adj": 8.7e-07,
+          "p.format": "4.3e-07",
+          "p.signif": "****",
+          "method": "T-test",
+          "p.format.each": "4.3e-07"
+        }
+      ]
+    },
+    {
+      "name": "dose_anova",
+      "formula": "len ~ dose",
+      "options": {
+        "method": "anova"
+      },
+      "rows": [
+        {
+          ".y.": "len",
+          "p": 9.53272701170013e-16,
+          "p.adj": 9.5e-16,
+          "p.format": "9.5e-16",
+          "p.signif": "****",
+          "method": "Anova",
+          "p.format.each": "9.5e-16"
+        }
+      ]
+    },
+    {
+      "name": "dose_kruskal_by_supp",
+      "formula": "len ~ dose",
+      "options": {
+        "method": "kruskal.test",
+        "group.by": "supp"
+      },
+      "rows": [
+        {
+          "supp": "VC",
+          ".y.": "len",
+          "p": 3.59448929180122e-06,
+          "p.adj": 7.2e-06,
+          "p.format": "3.6e-06",
+          "p.signif": "****",
+          "method": "Kruskal-Wallis",
+          "p.format.each": "3.6e-06"
+        },
+        {
+          "supp": "OJ",
+          ".y.": "len",
+          "p": 9.58432660706677e-05,
+          "p.adj": 9.6e-05,
+          "p.format": "9.6e-05",
+          "p.signif": "****",
+          "method": "Kruskal-Wallis",
+          "p.format.each": "9.6e-05"
+        }
+      ]
+    },
+    {
+      "name": "supp_by_dose",
+      "formula": "len ~ supp",
+      "options": {
+        "group.by": "dose",
+        "p.adjust.method": "BH"
+      },
+      "rows": [
+        {
+          "dose": "0.5",
+          ".y.": "len",
+          "group1": "OJ",
+          "group2": "VC",
+          "p": 0.0231864266967979,
+          "p.adj": 0.035,
+          "p.format": "0.023",
+          "p.signif": "*",
+          "method": "Wilcoxon",
+          "p.format.each": "0.023"
+        },
+        {
+          "dose": "1",
+          ".y.": "len",
+          "group1": "OJ",
+          "group2": "VC",
+          "p": 0.00403036661885227,
+          "p.adj": 0.012,
+          "p.format": "0.004",
+          "p.signif": "**",
+          "method": "Wilcoxon",
+          "p.format.each": "0.004"
+        },
+        {
+          "dose": "2",
+          ".y.": "len",
+          "group1": "OJ",
+          "group2": "VC",
+          "p": 1,
+          "p.adj": 1,
+          "p.format": "1.000",
+          "p.signif": "ns",
+          "method": "Wilcoxon",
+          "p.format.each": "1"
+        }
+      ]
+    },
+    {
+      "name": "four",
+      "formula": "v ~ g",
+      "options": [],
+      "rows": [
+        {
+          ".y.": "v",
+          "group1": "w",
+          "group2": "x",
+          "p": 0.645376845376845,
+          "p.adj": 1,
+          "p.format": "0.645",
+          "p.signif": "ns",
+          "method": "Wilcoxon",
+          "p.format.each": "0.65"
+        },
+        {
+          ".y.": "v",
+          "group1": "w",
+          "group2": "y",
+          "p": 0.0147630147630148,
+          "p.adj": 0.089,
+          "p.format": "0.015",
+          "p.signif": "*",
+          "method": "Wilcoxon",
+          "p.format.each": "0.015"
+        },
+        {
+          ".y.": "v",
+          "group1": "x",
+          "group2": "y",
+          "p": 0.035556231642398,
+          "p.adj": 0.18,
+          "p.format": "0.036",
+          "p.signif": "*",
+          "method": "Wilcoxon",
+          "p.format.each": "0.036"
+        },
+        {
+          ".y.": "v",
+          "group1": "w",
+          "group2": "z",
+          "p": 0.328205128205128,
+          "p.adj": 1,
+          "p.format": "0.328",
+          "p.signif": "ns",
+          "method": "Wilcoxon",
+          "p.format.each": "0.33"
+        },
+        {
+          ".y.": "v",
+          "group1": "x",
+          "group2": "z",
+          "p": 0.720901320901321,
+          "p.adj": 1,
+          "p.format": "0.721",
+          "p.signif": "ns",
+          "method": "Wilcoxon",
+          "p.format.each": "0.72"
+        },
+        {
+          ".y.": "v",
+          "group1": "y",
+          "group2": "z",
+          "p": 0.278632478632479,
+          "p.adj": 1,
+          "p.format": "0.279",
+          "p.signif": "ns",
+          "method": "Wilcoxon",
+          "p.format.each": "0.28"
+        }
+      ]
+    },
+    {
+      "name": "four_bonferroni",
+      "formula": "v ~ g",
+      "options": {
+        "p.adjust.method": "bonferroni"
+      },
+      "rows": [
+        {
+          ".y.": "v",
+          "group1": "w",
+          "group2": "x",
+          "p": 0.645376845376845,
+          "p.adj": 1,
+          "p.format": "0.645",
+          "p.signif": "ns",
+          "method": "Wilcoxon",
+          "p.format.each": "0.65"
+        },
+        {
+          ".y.": "v",
+          "group1": "w",
+          "group2": "y",
+          "p": 0.0147630147630148,
+          "p.adj": 0.089,
+          "p.format": "0.015",
+          "p.signif": "*",
+          "method": "Wilcoxon",
+          "p.format.each": "0.015"
+        },
+        {
+          ".y.": "v",
+          "group1": "x",
+          "group2": "y",
+          "p": 0.035556231642398,
+          "p.adj": 0.21,
+          "p.format": "0.036",
+          "p.signif": "*",
+          "method": "Wilcoxon",
+          "p.format.each": "0.036"
+        },
+        {
+          ".y.": "v",
+          "group1": "w",
+          "group2": "z",
+          "p": 0.328205128205128,
+          "p.adj": 1,
+          "p.format": "0.328",
+          "p.signif": "ns",
+          "method": "Wilcoxon",
+          "p.format.each": "0.33"
+        },
+        {
+          ".y.": "v",
+          "group1": "x",
+          "group2": "z",
+          "p": 0.720901320901321,
+          "p.adj": 1,
+          "p.format": "0.721",
+          "p.signif": "ns",
+          "method": "Wilcoxon",
+          "p.format.each": "0.72"
+        },
+        {
+          ".y.": "v",
+          "group1": "y",
+          "group2": "z",
+          "p": 0.278632478632479,
+          "p.adj": 1,
+          "p.format": "0.279",
+          "p.signif": "ns",
+          "method": "Wilcoxon",
+          "p.format.each": "0.28"
+        }
+      ]
+    }
+  ],
+  "pwc": [
+    {
+      "name": "default",
+      "options": [],
+      "y_range": [4.2, 42.513],
+      "rows": [
+        {
+          "xmin": 1,
+          "xmax": 2,
+          "y": 35.385,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "<0.0001",
+          "colour": "black"
+        },
+        {
+          "xmin": 1,
+          "xmax": 3,
+          "y": 38.949,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "<0.0001",
+          "colour": "black"
+        },
+        {
+          "xmin": 2,
+          "xmax": 3,
+          "y": 42.513,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "0.00018",
+          "colour": "black"
+        }
+      ]
+    },
+    {
+      "name": "t_test",
+      "options": {
+        "method": "t_test",
+        "label": "p.adj.signif"
+      },
+      "y_range": [4.2, 42.513],
+      "rows": [
+        {
+          "xmin": 1,
+          "xmax": 2,
+          "y": 35.385,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "****",
+          "colour": "black"
+        },
+        {
+          "xmin": 1,
+          "xmax": 3,
+          "y": 38.949,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "****",
+          "colour": "black"
+        },
+        {
+          "xmin": 2,
+          "xmax": 3,
+          "y": 42.513,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "****",
+          "colour": "black"
+        }
+      ]
+    },
+    {
+      "name": "reference",
+      "options": {
+        "ref.group": "0.5",
+        "p.adjust.method": "bonferroni",
+        "label": "{p.adj.format}{p.adj.signif}"
+      },
+      "y_range": [4.2, 38.949],
+      "rows": [
+        {
+          "xmin": 1,
+          "xmax": 2,
+          "y": 35.385,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "<0.0001****",
+          "colour": "black"
+        },
+        {
+          "xmin": 1,
+          "xmax": 3,
+          "y": 38.949,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "<0.0001****",
+          "colour": "black"
+        }
+      ]
+    },
+    {
+      "name": "reference_all",
+      "options": {
+        "ref.group": "all",
+        "label": "p.adj"
+      },
+      "y_range": [4.2, 35.385],
+      "rows": [
+        {
+          "xmin": 1,
+          "xmax": 1,
+          "y": 35.385,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "0.000152",
+          "colour": "black"
+        },
+        {
+          "xmin": 2,
+          "xmax": 2,
+          "y": 35.385,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "0.764",
+          "colour": "black"
+        },
+        {
+          "xmin": 3,
+          "xmax": 3,
+          "y": 35.385,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "0.000358",
+          "colour": "black"
+        }
+      ]
+    },
+    {
+      "name": "x_var",
+      "options": [],
+      "y_range": [4.2, 35.385],
+      "rows": [
+        {
+          "xmin": 0.8,
+          "xmax": 1.2,
+          "y": 35.385,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "0.023",
+          "colour": "black"
+        },
+        {
+          "xmin": 1.8,
+          "xmax": 2.2,
+          "y": 35.385,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "0.004",
+          "colour": "black"
+        },
+        {
+          "xmin": 2.8,
+          "xmax": 3.2,
+          "y": 35.385,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "1",
+          "colour": "black"
+        }
+      ]
+    },
+    {
+      "name": "legend_var",
+      "options": {
+        "group.by": "legend.var"
+      },
+      "y_range": [4.2, 53.205],
+      "rows": [
+        {
+          "xmin": 0.8,
+          "xmax": 1.8,
+          "y": 35.385,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "0.001",
+          "colour": "#F8766D"
+        },
+        {
+          "xmin": 0.8,
+          "xmax": 2.8,
+          "y": 38.949,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "0.00018",
+          "colour": "#F8766D"
+        },
+        {
+          "xmin": 1.8,
+          "xmax": 2.8,
+          "y": 42.513,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "0.082",
+          "colour": "#F8766D"
+        },
+        {
+          "xmin": 1.2,
+          "xmax": 2.2,
+          "y": 46.077,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "0.00018",
+          "colour": "#00BFC4"
+        },
+        {
+          "xmin": 1.2,
+          "xmax": 3.2,
+          "y": 49.641,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "0.00018",
+          "colour": "#00BFC4"
+        },
+        {
+          "xmin": 2.2,
+          "xmax": 3.2,
+          "y": 53.205,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "0.00044",
+          "colour": "#00BFC4"
+        }
+      ]
+    },
+    {
+      "name": "legend_var_hide_ns",
+      "options": {
+        "group.by": "legend.var",
+        "hide.ns": true,
+        "label": "p.signif"
+      },
+      "y_range": [4.2, 49.641],
+      "rows": [
+        {
+          "xmin": 0.8,
+          "xmax": 1.8,
+          "y": 35.385,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "***",
+          "colour": "#F8766D"
+        },
+        {
+          "xmin": 0.8,
+          "xmax": 2.8,
+          "y": 38.949,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "***",
+          "colour": "#F8766D"
+        },
+        {
+          "xmin": 1.2,
+          "xmax": 2.2,
+          "y": 42.513,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "***",
+          "colour": "#00BFC4"
+        },
+        {
+          "xmin": 1.2,
+          "xmax": 3.2,
+          "y": 46.077,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "***",
+          "colour": "#00BFC4"
+        },
+        {
+          "xmin": 2.2,
+          "xmax": 3.2,
+          "y": 49.641,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "***",
+          "colour": "#00BFC4"
+        }
+      ]
+    },
+    {
+      "name": "legend_var_panel",
+      "options": {
+        "group.by": "legend.var",
+        "p.adjust.by": "panel",
+        "label": "p.adj.format"
+      },
+      "y_range": [4.2, 53.205],
+      "rows": [
+        {
+          "xmin": 0.8,
+          "xmax": 1.8,
+          "y": 35.385,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "0.002",
+          "colour": "#F8766D"
+        },
+        {
+          "xmin": 0.8,
+          "xmax": 2.8,
+          "y": 38.949,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "0.0011",
+          "colour": "#F8766D"
+        },
+        {
+          "xmin": 1.8,
+          "xmax": 2.8,
+          "y": 42.513,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "0.082",
+          "colour": "#F8766D"
+        },
+        {
+          "xmin": 1.2,
+          "xmax": 2.2,
+          "y": 46.077,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "0.0011",
+          "colour": "#00BFC4"
+        },
+        {
+          "xmin": 1.2,
+          "xmax": 3.2,
+          "y": 49.641,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "0.0011",
+          "colour": "#00BFC4"
+        },
+        {
+          "xmin": 2.2,
+          "xmax": 3.2,
+          "y": 53.205,
+          "tip_left": 0.890999999999998,
+          "tip_right": 0.890999999999998,
+          "label": "0.0013",
+          "colour": "#00BFC4"
+        }
+      ]
+    },
+    {
+      "name": "positioned",
+      "options": {
+        "y.position": 40,
+        "step.increase": 0.05,
+        "tip.length": 0.02,
+        "bracket.nudge.y": 0.1,
+        "label": "p = {p.format}, {method}"
+      },
+      "y_range": [4.2, 45.94],
+      "rows": [
+        {
+          "xmin": 1,
+          "xmax": 2,
+          "y": 42.97,
+          "tip_left": 0.594000000000001,
+          "tip_right": 0.594000000000001,
+          "label": "p < 0.0001, Wilcoxon test",
+          "colour": "black"
+        },
+        {
+          "xmin": 1,
+          "xmax": 3,
+          "y": 44.455,
+          "tip_left": 0.594000000000001,
+          "tip_right": 0.594000000000001,
+          "label": "p < 0.0001, Wilcoxon test",
+          "colour": "black"
+        },
+        {
+          "xmin": 2,
+          "xmax": 3,
+          "y": 45.94,
+          "tip_left": 0.594000000000001,
+          "tip_right": 0.594000000000001,
+          "label": "p = 0.00018, Wilcoxon test",
+          "colour": "black"
+        }
+      ]
+    },
+    {
+      "name": "four",
+      "options": {
+        "label": "{p} {p.adj} n = {n1}"
+      },
+      "y_range": [-0.15, 6.4005],
+      "rows": [
+        {
+          "xmin": 1,
+          "xmax": 2,
+          "y": 4.0185,
+          "tip_left": 0.1191,
+          "tip_right": 0.1191,
+          "label": "0.645 1 n = 8",
+          "colour": "black"
+        },
+        {
+          "xmin": 1,
+          "xmax": 3,
+          "y": 4.4949,
+          "tip_left": 0.1191,
+          "tip_right": 0.1191,
+          "label": "0.015 0.089 n = 8",
+          "colour": "black"
+        },
+        {
+          "xmin": 1,
+          "xmax": 4,
+          "y": 4.9713,
+          "tip_left": 0.1191,
+          "tip_right": 0.1191,
+          "label": "0.328 1 n = 8",
+          "colour": "black"
+        },
+        {
+          "xmin": 2,
+          "xmax": 3,
+          "y": 5.4477,
+          "tip_left": 0.1191,
+          "tip_right": 0.1191,
+          "label": "0.036 0.178 n = 8",
+          "colour": "black"
+        },
+        {
+          "xmin": 2,
+          "xmax": 4,
+          "y": 5.9241,
+          "tip_left": 0.1191,
+          "tip_right": 0.1191,
+          "label": "0.721 1 n = 8",
+          "colour": "black"
+        },
+        {
+          "xmin": 3,
+          "xmax": 4,
+          "y": 6.4005,
+          "tip_left": 0.1191,
+          "tip_right": 0.1191,
+          "label": "0.279 1 n = 8",
+          "colour": "black"
+        }
+      ]
+    },
+    {
+      "name": "three_x_var",
+      "options": {
+        "label": "p.adj.format"
+      },
+      "y_range": [-0.77, 5.035],
+      "rows": [
+        {
+          "xmin": 0.733333333333333,
+          "xmax": 1,
+          "y": 3.955,
+          "tip_left": 0.135,
+          "tip_right": 0.135,
+          "label": "0.94",
+          "colour": "black"
+        },
+        {
+          "xmin": 0.733333333333333,
+          "xmax": 1.26666666666667,
+          "y": 4.495,
+          "tip_left": 0.135,
+          "tip_right": 0.135,
+          "label": "0.94",
+          "colour": "black"
+        },
+        {
+          "xmin": 1,
+          "xmax": 1.26666666666667,
+          "y": 5.035,
+          "tip_left": 0.135,
+          "tip_right": 0.135,
+          "label": "0.52",
+          "colour": "black"
+        },
+        {
+          "xmin": 1.73333333333333,
+          "xmax": 2,
+          "y": 3.955,
+          "tip_left": 0.135,
+          "tip_right": 0.135,
+          "label": "0.28",
+          "colour": "black"
+        },
+        {
+          "xmin": 1.73333333333333,
+          "xmax": 2.26666666666667,
+          "y": 4.495,
+          "tip_left": 0.135,
+          "tip_right": 0.135,
+          "label": "0.28",
+          "colour": "black"
+        },
+        {
+          "xmin": 2,
+          "xmax": 2.26666666666667,
+          "y": 5.035,
+          "tip_left": 0.135,
+          "tip_right": 0.135,
+          "label": "0.94",
+          "colour": "black"
+        }
+      ]
+    }
+  ],
+  "pvalue_manual": [
+    {
+      "name": "stepped",
+      "table": [
+        {
+          ".y.": "len",
+          "group1": "0.5",
+          "group2": "1",
+          "p": 7.02085488443259e-06,
+          "p.adj": 1.4e-05,
+          "p.format": "7.0e-06",
+          "p.signif": "****",
+          "method": "Wilcoxon",
+          "cat": "u",
+          "height": 35
+        },
+        {
+          ".y.": "len",
+          "group1": "0.5",
+          "group2": "2",
+          "p": 8.40644657573716e-08,
+          "p.adj": 2.5e-07,
+          "p.format": "8.4e-08",
+          "p.signif": "****",
+          "method": "Wilcoxon",
+          "cat": "u",
+          "height": 37
+        },
+        {
+          ".y.": "len",
+          "group1": "1",
+          "group2": "2",
+          "p": 0.000177238217912475,
+          "p.adj": 0.00018,
+          "p.format": "0.00018",
+          "p.signif": "***",
+          "method": "Wilcoxon",
+          "cat": "v",
+          "height": 39
+        }
+      ],
+      "options": {
+        "label": "p.signif",
+        "y.position": 35,
+        "step.increase": 0.1
+      },
+      "rows": [
+        {
+          "xmin": 1,
+          "xmax": 2,
+          "y": 35,
+          "tip_left": 0.923999999999999,
+          "tip_right": 0.923999999999999,
+          "label": "****",
+          "colour": "black"
+        },
+        {
+          "xmin": 1,
+          "xmax": 3,
+          "y": 38.08,
+          "tip_left": 0.923999999999999,
+          "tip_right": 0.923999999999999,
+          "label": "****",
+          "colour": "black"
+        },
+        {
+          "xmin": 2,
+          "xmax": 3,
+          "y": 41.16,
+          "tip_left": 0.923999999999999,
+          "tip_right": 0.923999999999999,
+          "label": "***",
+          "colour": "black"
+        }
+      ]
+    },
+    {
+      "name": "columns",
+      "table": [
+        {
+          ".y.": "len",
+          "group1": "0.5",
+          "group2": "1",
+          "p": 7.02085488443259e-06,
+          "p.adj": 1.4e-05,
+          "p.format": "7.0e-06",
+          "p.signif": "****",
+          "method": "Wilcoxon",
+          "cat": "u",
+          "height": 35
+        },
+        {
+          ".y.": "len",
+          "group1": "0.5",
+          "group2": "2",
+          "p": 8.40644657573716e-08,
+          "p.adj": 2.5e-07,
+          "p.format": "8.4e-08",
+          "p.signif": "****",
+          "method": "Wilcoxon",
+          "cat": "u",
+          "height": 37
+        },
+        {
+          ".y.": "len",
+          "group1": "1",
+          "group2": "2",
+          "p": 0.000177238217912475,
+          "p.adj": 0.00018,
+          "p.format": "0.00018",
+          "p.signif": "***",
+          "method": "Wilcoxon",
+          "cat": "v",
+          "height": 39
+        }
+      ],
+      "options": {
+        "label": "p = {p.adj}",
+        "y.position": "height",
+        "tip.length": 0.01,
+        "bracket.nudge.y": 1
+      },
+      "rows": [
+        {
+          "xmin": 1,
+          "xmax": 2,
+          "y": 36,
+          "tip_left": 0.347999999999999,
+          "tip_right": 0.347999999999999,
+          "label": "p = 1.4e-05",
+          "colour": "black"
+        },
+        {
+          "xmin": 1,
+          "xmax": 3,
+          "y": 38,
+          "tip_left": 0.347999999999999,
+          "tip_right": 0.347999999999999,
+          "label": "p = 2.5e-07",
+          "colour": "black"
+        },
+        {
+          "xmin": 2,
+          "xmax": 3,
+          "y": 40,
+          "tip_left": 0.347999999999999,
+          "tip_right": 0.347999999999999,
+          "label": "p = 0.00018",
+          "colour": "black"
+        }
+      ]
+    },
+    {
+      "name": "step_groups",
+      "table": [
+        {
+          ".y.": "len",
+          "group1": "0.5",
+          "group2": "1",
+          "p": 7.02085488443259e-06,
+          "p.adj": 1.4e-05,
+          "p.format": "7.0e-06",
+          "p.signif": "****",
+          "method": "Wilcoxon",
+          "cat": "u",
+          "height": 35
+        },
+        {
+          ".y.": "len",
+          "group1": "0.5",
+          "group2": "2",
+          "p": 8.40644657573716e-08,
+          "p.adj": 2.5e-07,
+          "p.format": "8.4e-08",
+          "p.signif": "****",
+          "method": "Wilcoxon",
+          "cat": "u",
+          "height": 37
+        },
+        {
+          ".y.": "len",
+          "group1": "1",
+          "group2": "2",
+          "p": 0.000177238217912475,
+          "p.adj": 0.00018,
+          "p.format": "0.00018",
+          "p.signif": "***",
+          "method": "Wilcoxon",
+          "cat": "v",
+          "height": 39
+        }
+      ],
+      "options": {
+        "label": "p.format",
+        "y.position": 35,
+        "step.increase": 0.1,
+        "step.group.by": "cat"
+      },
+      "rows": [
+        {
+          "xmin": 1,
+          "xmax": 2,
+          "y": 35,
+          "tip_left": 0.923999999999999,
+          "tip_right": 0.923999999999999,
+          "label": "7.0e-06",
+          "colour": "black"
+        },
+        {
+          "xmin": 1,
+          "xmax": 3,
+          "y": 38.08,
+          "tip_left": 0.923999999999999,
+          "tip_right": 0.923999999999999,
+          "label": "8.4e-08",
+          "colour": "black"
+        },
+        {
+          "xmin": 2,
+          "xmax": 3,
+          "y": 35,
+          "tip_left": 0.923999999999999,
+          "tip_right": 0.923999999999999,
+          "label": "0.00018",
+          "colour": "black"
+        }
+      ]
+    },
+    {
+      "name": "hide_ns",
+      "table": [
+        {
+          ".y.": "len",
+          "group1": "0.5",
+          "group2": "1",
+          "p": 7.02085488443259e-06,
+          "p.adj": 0.01,
+          "p.format": "7.0e-06",
+          "p.signif": "****",
+          "method": "Wilcoxon",
+          "cat": "u",
+          "height": 35
+        },
+        {
+          ".y.": "len",
+          "group1": "0.5",
+          "group2": "2",
+          "p": 8.40644657573716e-08,
+          "p.adj": 0.2,
+          "p.format": "8.4e-08",
+          "p.signif": "****",
+          "method": "Wilcoxon",
+          "cat": "u",
+          "height": 37
+        },
+        {
+          ".y.": "len",
+          "group1": "1",
+          "group2": "2",
+          "p": 0.000177238217912475,
+          "p.adj": 0.03,
+          "p.format": "0.00018",
+          "p.signif": "***",
+          "method": "Wilcoxon",
+          "cat": "v",
+          "height": 39
+        }
+      ],
+      "options": {
+        "y.position": 35,
+        "step.increase": 0.1,
+        "hide.ns": true
+      },
+      "rows": [
+        {
+          "xmin": 1,
+          "xmax": 2,
+          "y": 35,
+          "tip_left": 0.923999999999999,
+          "tip_right": 0.923999999999999,
+          "label": "0.01",
+          "colour": "black"
+        },
+        {
+          "xmin": 2,
+          "xmax": 3,
+          "y": 38.08,
+          "tip_left": 0.923999999999999,
+          "tip_right": 0.923999999999999,
+          "label": "0.03",
+          "colour": "black"
+        }
+      ]
+    }
+  ]
+}

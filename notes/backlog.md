@@ -164,6 +164,9 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   `theme_xkcd`, the `mavg` and `gpr` smoothing methods, a spec-rendering CLI, and Renko
   charts and technical indicators.
 - Dropped by the user on 2026-11-11: a conda-forge package and Pyodide / WASM builds.
+- Ruled out by the user on 2026-11-13 (plan 5.7): ggpubr's `ggarrange()` (`gggrid` covers it)
+  and its quick-plot wrappers (`ggboxplot`, `ggviolin`, ...; `qplot()`-like). ggpubr's
+  `theme_pubr` / `theme_pubclean` stay with ex2.1.
 - Dropped by the user on 2026-11-12: notebook widget integrations (marimo, anywidget,
   Panel) and the row-selection tool, finance charts (candlestick / OHLC, calendar
   heatmap), networks and trees (`geom_network`, arc diagram, tree geom), `geom_cooks`,
@@ -172,7 +175,6 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 ## 6. Output, interactivity and integrations
 
 - Export: multi-page PDF (`save_as_pdf_pages`) [plotnine]
-- ggpubr helpers beyond `compare_means` (themes, `ggarrange` style) [gaps]
 
 ## Sources
 

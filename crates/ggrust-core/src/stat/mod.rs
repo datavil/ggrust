@@ -8,6 +8,7 @@ mod binhex;
 mod boxplot;
 mod centroid;
 mod compare_means;
+mod compare_table;
 mod contour;
 mod contour_filled;
 mod cor;
@@ -29,6 +30,8 @@ mod pointdensity;
 mod pointinterval;
 mod poly_eq;
 mod pubr_labels;
+mod pvalue_manual;
+mod pwc;
 mod qq;
 mod quantile;
 mod quasirandom;
@@ -50,6 +53,7 @@ pub use binhex::BinHexStat;
 pub use boxplot::{BoxplotOutlierStat, BoxplotStat};
 pub use centroid::{CentroidStat, SummaryXyStat};
 pub use compare_means::CompareMeansStat;
+pub use compare_table::{CompareTable, Reference as CompareReference, compare_means};
 pub use contour::{ContourStat, ContourfStat};
 pub use contour_filled::ContourFilledStat;
 pub use cor::CorStat;
@@ -65,6 +69,9 @@ pub use identity::IdentityStat;
 pub use pointdensity::PointDensityStat;
 pub use pointinterval::{IntervalStat, PointIntervalStat};
 pub use poly_eq::PolyEqStat;
+pub use pubr_labels::significant as r_format;
+pub use pvalue_manual::PvalueManualStat;
+pub use pwc::PwcStat;
 pub use qq::{Qq2LineStat, Qq2Stat, QqLineStat, QqStat};
 pub use quantile::QuantileStat;
 pub use quasirandom::QuasirandomStat;
@@ -175,6 +182,8 @@ pub static STATS: &[&dyn Stat] = &[
     &PointIntervalStat,
     &IntervalStat,
     &CompareMeansStat,
+    &PwcStat,
+    &PvalueManualStat,
     &CorStat,
     &PolyEqStat,
     &StreamlineStat,

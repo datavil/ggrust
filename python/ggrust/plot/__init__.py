@@ -341,6 +341,7 @@ from ggrust.plot.stat_layer import (
     stat_ydensity,
 )
 from ggrust.plot.stat_pubr import stat_compare_means, stat_cor, stat_poly_eq
+from ggrust.plot.stat_pubr_brackets import geom_pwc, stat_pvalue_manual
 from ggrust.plot.subplots import SupPlotsSpec
 from ggrust.plot.theme import (
     element_blank,
@@ -457,6 +458,7 @@ __all__ = [
     "geom_pointdensity",
     "geom_pointrange",
     "geom_polygon",
+    "geom_pwc",
     "geom_qq",
     "geom_qq2",
     "geom_qq2_line",
@@ -715,6 +717,7 @@ __all__ = [
     "stat_pointdensity",
     "stat_pointinterval",
     "stat_poly_eq",
+    "stat_pvalue_manual",
     "stat_qq",
     "stat_qq_line",
     "stat_quantile",

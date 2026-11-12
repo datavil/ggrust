@@ -198,6 +198,8 @@ nav = [
       "reference/api/stat_interval.md",
       "reference/api/stat_halfeye.md",
       "reference/api/stat_compare_means.md",
+      "reference/api/geom_pwc.md",
+      "reference/api/stat_pvalue_manual.md",
       "reference/api/stat_cor.md",
       "reference/api/stat_ellipse.md",
       "reference/api/stat_poly_eq.md",
@@ -344,6 +346,9 @@ nav = [
     ] },
     { "Density outlines (scipy gaussian_kde + skimage find_contours)" = [
       "reference/api/density_outline.md",
+    ] },
+    { "Group comparison tables (ggpubr compare_means)" = [
+      "reference/api/compare_means.md",
     ] },
     { "Kernel densities (scipy gaussian_kde)" = [
       "reference/api/kernel_density.md",

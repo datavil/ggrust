@@ -1186,6 +1186,43 @@ def coord_3d_surface(m):
     )
 
 
+def _fertiliser_heights(m):
+    random = np.random.default_rng(29)
+    fertilisers = ["none", "compost", "nitrogen"]
+    rows = []
+    for index, fertiliser in enumerate(fertilisers):
+        for watering, lift in (("low", 0.0), ("high", 2.0 + index)):
+            for value in random.normal(20.0 + 4.0 * index + lift, 2.5, 12):
+                rows.append((fertiliser, watering, round(float(value), 1)))
+    return pl.DataFrame(rows, schema=["fertiliser", "watering", "height_cm"], orient="row")
+
+
+def pubr_pairwise_brackets(m):
+    # Plan 5.7: geom_pwc between the dodged color groups at each x.
+    return (
+        m.ggplot(_fertiliser_heights(m), m.aes("fertiliser", "height_cm", color="watering"))
+        + m.geom_boxplot()
+        + m.geom_pwc(label="{p.adj.format} {p.adj.signif}")
+        # Room for the labels above the top bracket, as ggpubr's examples add.
+        + m.scale_y_continuous(expand=[0.1, 0])
+        + m.ggtitle("Plant height by watering")
+        + m.ggsize(460, 380)
+    )
+
+
+def pubr_manual_brackets(m):
+    # Plan 5.7: a compare_means() table drawn with stat_pvalue_manual.
+    frame = _fertiliser_heights(m)
+    table = m.compare_means("height_cm ~ fertiliser", frame, method="t.test")
+    return (
+        m.ggplot(frame, m.aes("fertiliser", "height_cm"))
+        + m.geom_violin(fill="#DDE6F0")
+        + m.stat_pvalue_manual(table, label="p = {p.adj}", y_position=37.5, step_increase=0.09)
+        + m.labs(y="height_cm")
+        + m.ggsize(420, 380)
+    )
+
+
 EXTENSION_CASES = {
     case.__name__: case
     for case in [
@@ -1205,5 +1242,7 @@ EXTENSION_CASES = {
         streamline_scattered_groups,
         coord_3d_points_path,
         coord_3d_surface,
+        pubr_pairwise_brackets,
+        pubr_manual_brackets,
     ]
 }

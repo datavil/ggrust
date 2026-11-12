@@ -48,7 +48,6 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 
 | # | Item | Why here | Size | Found in |
 |---|---|---|---|---|
-| 5.7 | ggpubr helpers beyond `compare_means` | Publication plots | M | ggplot2 extension (ggpubr) |
 
 ## 6. Theming and polish
 

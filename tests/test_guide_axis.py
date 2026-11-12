@@ -118,3 +118,24 @@ def test_other_ggplot2_options_warn() -> None:
     )
     with pytest.warns(gg.GgrustWarning, match="guides.x.angle"):
         plot.to_svg()
+
+
+def _flipped_lines(plot: gg.PlotSpec) -> tuple[tuple[float, ...], tuple[float, ...]]:
+    svg = (plot + gg.theme_classic() + gg.coord_flip()).to_svg()
+    return _axis_paths(svg, "axis-x")[0], _axis_paths(svg, "axis-y")[0]
+
+
+def test_guides_follow_the_screen_axis_under_flip() -> None:
+    # R (ggplot2 4.0.1) with coord_flip(): guides(x=) caps the bottom axis,
+    # guides(y=) the left one, a scale's own guide= its scale's (left) axis.
+    base = gg.ggplot(DATA, gg.aes("g", "y")) + gg.geom_point()
+    full_bottom, full_left = _flipped_lines(base)
+    bottom, left = _flipped_lines(base + gg.guides(x=gg.guide_axis(cap="both")))
+    assert bottom != full_bottom and left == full_left
+    bottom, left = _flipped_lines(base + gg.guides(y=gg.guide_axis(cap="upper")))
+    assert bottom == full_bottom and left != full_left
+    assert min(left[1], left[3]) > min(full_left[1], full_left[3])
+    assert max(left[1], left[3]) == pytest.approx(max(full_left[1], full_left[3]))
+    plot = base + gg.scale_x_discrete(guide=gg.guide_axis(cap="both"))
+    bottom, left = _flipped_lines(plot)
+    assert bottom == full_bottom and left != full_left

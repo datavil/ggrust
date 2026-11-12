@@ -67,6 +67,8 @@ def guide_axis(
         right (top) end only (``"upper"``), the left (bottom) end only
         (``"lower"``), or none. ``True`` is ``"both"``, ``False`` is ``"none"``.
         The ends are visual: ``"upper"`` is the right end also on a reversed scale.
+        Under ``coord_flip()``, ``guides(x=...)`` caps the axis drawn horizontally
+        (as ggplot2); a scale's own ``guide=`` caps that scale's axis.
 
     Returns
     -------

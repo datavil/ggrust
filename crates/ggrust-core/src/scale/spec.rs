@@ -733,6 +733,10 @@ pub fn position_scales(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<Po
             report_unbuilt(scale, &path, warnings);
         }
     }
+    let flipped = spec
+        .coord
+        .as_ref()
+        .is_some_and(|coord| coord.flip || coord.name == "flip");
     // `guides(x=guide_axis_mark())`, unless the scale sets its own mark guide.
     for (aesthetic, target) in ["x", "y"].into_iter().zip(merged.iter_mut()) {
         if target.mark_guide.is_none()
@@ -748,13 +752,21 @@ pub fn position_scales(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<Po
         {
             target.nested_guide = Some((options, format!("guides.{aesthetic}")));
         }
+        // `guides(x=guide_axis())` styles the axis on screen, as ggplot2: under
+        // coord_flip the x scale is drawn vertically, so it takes `guides.y`. A
+        // scale's own `guide=` stays with the scale.
+        let screen = match (aesthetic, flipped) {
+            ("x", true) => "y",
+            ("y", true) => "x",
+            (aesthetic, _) => aesthetic,
+        };
         if target.axis_guide.is_none()
             && let Some(options) = spec
                 .guides
-                .get(aesthetic)
+                .get(screen)
                 .and_then(|guide| named_options(guide, "axis"))
         {
-            target.axis_guide = Some((options, format!("guides.{aesthetic}")));
+            target.axis_guide = Some((options, format!("guides.{screen}")));
         }
     }
     let [x, y, xside_y, yside_x, z] = merged;

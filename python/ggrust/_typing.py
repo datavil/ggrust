@@ -133,6 +133,8 @@ class AxisScale(TypedDict):
     """Break positions drawn on the axis, in transformed units."""
     labels: list[str]
     """Break labels as drawn, one per break (a superscript written as ``10^6``)."""
+    reversed: bool
+    """Whether the low end of ``domain`` is drawn at the right (or top) of the panel."""
     secondary: NotRequired[SecondaryAxisScale]
     """The secondary axis (``sec_axis=``), when the scale has one."""
 
@@ -142,6 +144,51 @@ class PanelScales(TypedDict):
 
     x: AxisScale
     y: AxisScale
+    box: tuple[float, float, float, float]
+    """The panel in plot pixels: left, top, width, height (origin at the top left)."""
+    flipped: bool
+    """``coord_flip()``: the data x runs vertically, the data y horizontally."""
+
+
+class PanelAxis(TypedDict):
+    """How one data axis of a panel maps to pixels (``PlotSpec.panels()``)."""
+
+    domain: tuple[float, float]
+    """The range the panel spans, in transformed units (as ``AxisScale.domain``)."""
+    reversed: bool
+    """Whether ``domain[0]`` is at the right (or top) edge instead of the left (bottom)."""
+
+
+class PanelBox(TypedDict):
+    """One panel's pixel box and data-to-pixel mapping (``PlotSpec.panels()``)."""
+
+    panel: int
+    """The panel index, 0-based, as the ``panel`` column of ``layer_data()``."""
+    box: tuple[float, float, float, float]
+    """The panel in plot pixels: left, top, width, height (origin at the top left)."""
+    flipped: bool
+    """``coord_flip()``: ``x`` runs vertically, ``y`` horizontally."""
+    x: PanelAxis
+    """The data x axis."""
+    y: PanelAxis
+    """The data y axis."""
+
+
+StyleDefaultValue: TypeAlias = str | float | int | list[float] | None
+"""A geom's default for one style aesthetic: a color (``#rrggbb``, or a theme color
+name ``"pen"``, ``"brush"``, ``"paper"``, ``"alpha(pen, 0.1)"``), a number, a shape
+code, ``"solid"`` or a dash list, or None when unset."""
+
+
+class LayerDefaults(TypedDict):
+    """What a layer draws with when it sets nothing (``LayerSpec.defaults``)."""
+
+    stat: str
+    """The geom's default stat."""
+    position: str
+    """The geom's default position."""
+    aesthetics: dict[str, StyleDefaultValue]
+    """The default of every style aesthetic the geom draws."""
 
 
 class GuideKeys(TypedDict):

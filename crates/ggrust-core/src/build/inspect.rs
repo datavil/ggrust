@@ -15,6 +15,7 @@ use super::{Arranged, PANEL_MIN_SIZE, PlotData, PreparedLayer, prepare_plot};
 use crate::data::{Column, Variable};
 use crate::layout::{AxisBreaks, PlotLayout};
 use crate::scale::PositionScale;
+use crate::scale::Transform;
 use crate::scale::format::Label;
 use crate::scene::{Color, Rect};
 use crate::spec::{Aesthetic, PlotSpec};
@@ -34,6 +35,11 @@ pub struct PlotInspection {
     pub guides: Vec<GuideKeys>,
     /// Build warnings (as rendering would give).
     pub warnings: Vec<String>,
+    /// `coord_flip`: the data x runs vertically.
+    pub flipped: bool,
+    /// Why panel positions are not a linear map of transformed units (`coord_polar`,
+    /// `coord_3d`, `coord_trans(x='log10')`); `None` when they are.
+    pub nonlinear: Option<String>,
 }
 
 /// The keys of one legend or colorbar (ggplot2's `get_guide_data()`).
@@ -69,6 +75,8 @@ pub struct PanelScales {
     pub x: AxisScale,
     /// The y scale.
     pub y: AxisScale,
+    /// The panel's box in plot pixels: left, top, width, height (origin top left).
+    pub rect: (f64, f64, f64, f64),
 }
 
 /// One trained position scale with the breaks drawn on its axis.
@@ -89,6 +97,9 @@ pub struct AxisScale {
     /// The secondary axis (`sec_axis=`): its breaks placed on this scale (in
     /// its transformed units) with their labels; `None` without one.
     pub secondary: Option<(Vec<f64>, Vec<String>)>,
+    /// Whether the low end of `domain` is drawn at the right (or top) of the panel
+    /// (a decreasing `coord_trans` warp such as `'reverse'`).
+    pub reversed: bool,
 }
 
 /// Prepare and lay out `spec` at its own size, returning its computed layer data
@@ -107,6 +118,7 @@ pub fn inspect_plot(spec: &PlotSpec, data: &PlotData) -> Result<PlotInspection> 
         Arranged::Single(layout) => vec![layout],
         Arranged::Facets(layout) => layout.tiles.iter().map(|tile| &tile.layout).collect(),
     };
+    let rects: Vec<Rect> = layouts.iter().map(|layout| layout.panel).collect();
     let screen_breaks: Vec<(ScreenAxis, ScreenAxis)> = layouts
         .iter()
         .map(|layout| {
@@ -125,7 +137,8 @@ pub fn inspect_plot(spec: &PlotSpec, data: &PlotData) -> Result<PlotInspection> 
         .tiles
         .iter()
         .zip(&screen_breaks)
-        .map(|((_, x, y), (horizontal, vertical))| {
+        .zip(&rects)
+        .map(|(((_, x, y), (horizontal, vertical)), rect)| {
             // Layout breaks are screen axes: under coord_flip the data x is vertical.
             let (x_breaks, y_breaks) = match plot.flipped {
                 true => (*vertical, *horizontal),
@@ -134,6 +147,7 @@ pub fn inspect_plot(spec: &PlotSpec, data: &PlotData) -> Result<PlotInspection> 
             PanelScales {
                 x: axis_scale(x, x_breaks),
                 y: axis_scale(y, y_breaks),
+                rect: (rect.x, rect.y, rect.width, rect.height),
             }
         })
         .collect();
@@ -155,11 +169,14 @@ pub fn inspect_plot(spec: &PlotSpec, data: &PlotData) -> Result<PlotInspection> 
         LegendPosition::None => Vec::new(),
         _ => plot.style_guides.iter().map(guide_keys).collect(),
     };
+    let nonlinear = nonlinear_reason(&plot);
     Ok(PlotInspection {
         layers,
         panels,
         guides,
         warnings: plot.warnings.clone(),
+        flipped: plot.flipped,
+        nonlinear,
     })
 }
 
@@ -209,6 +226,84 @@ fn color_text(color: Color) -> String {
     }
 }
 
+/// What a geom draws with when a layer sets nothing (`LayerSpec.defaults` in Python,
+/// ggplot2's `Geom$default_aes`): its default stat and position, and per style
+/// aesthetic its default as JSON. Theme colors are their `element_geom` names
+/// (`"pen"`, `"brush"`, `"paper"`; a translucent one `"alpha(pen, 0.1)"`), other
+/// colors `#rrggbb`, an unset number (point alpha) `null`, a line type `"solid"` or
+/// its dash list. `None` for an unknown geom.
+pub fn geom_defaults(name: &str) -> Option<serde_json::Value> {
+    use crate::style::{StyleDefault, ThemeColor};
+    use serde_json::Value;
+
+    let geom = crate::geom::geom(name)?;
+    let aesthetics = geom
+        .style_defaults()
+        .iter()
+        .map(|(aesthetic, default)| {
+            let value = match *default {
+                StyleDefault::Color(color) => Value::from(color_text(color)),
+                StyleDefault::Themed(color, alpha) => {
+                    let name = match color {
+                        ThemeColor::Pen => "pen",
+                        ThemeColor::Brush => "brush",
+                        ThemeColor::Paper => "paper",
+                    };
+                    match alpha {
+                        255 => Value::from(name),
+                        alpha => {
+                            let fraction = (f64::from(alpha) / 255.0 * 100.0).round() / 100.0;
+                            Value::from(format!("alpha({name}, {fraction})"))
+                        }
+                    }
+                }
+                StyleDefault::Number(number) if number.is_nan() => Value::Null,
+                StyleDefault::Number(number) => Value::from(number),
+                StyleDefault::Shape(shape) => Value::from(shape),
+                StyleDefault::Linetype([]) => Value::from("solid"),
+                StyleDefault::Linetype(dashes) => Value::from(dashes.to_vec()),
+                StyleDefault::Text(text) => Value::from(text),
+            };
+            (aesthetic.as_str().to_owned(), value)
+        })
+        .collect::<serde_json::Map<_, _>>();
+    Some(serde_json::json!({
+        "stat": geom.default_stat(),
+        "position": geom.default_position().name,
+        "aesthetics": aesthetics,
+    }))
+}
+
+/// Why the plot's panels do not map transformed units linearly to pixels, if so.
+fn nonlinear_reason(plot: &super::PreparedPlot) -> Option<String> {
+    if plot.polar.is_some() {
+        return Some("coord_polar()".to_owned());
+    }
+    if plot.space.is_some() {
+        return Some("coord_3d()".to_owned());
+    }
+    let (x, y) = plot.tiles.first().map(|(_, x, y)| (x, y))?;
+    let warps: Vec<String> = [("x", x), ("y", y)]
+        .into_iter()
+        .filter_map(|(name, scale)| match warp(scale) {
+            warp if warp.is_linear() => None,
+            warp => Some(format!("{name}='{}'", warp.as_str())),
+        })
+        .collect();
+    match warps.is_empty() {
+        true => None,
+        false => Some(format!("coord_trans({})", warps.join(", "))),
+    }
+}
+
+/// The `coord_trans` warp of a position scale (identity on a discrete axis).
+fn warp(scale: &PositionScale) -> Transform {
+    match scale {
+        PositionScale::Continuous(scale) => scale.coord_transform,
+        PositionScale::Discrete(_) => Transform::Identity,
+    }
+}
+
 /// A screen axis's own breaks and its secondary axis's.
 type ScreenAxis<'a> = (&'a AxisBreaks, Option<&'a AxisBreaks>);
 
@@ -221,6 +316,7 @@ fn axis_scale(scale: &PositionScale, (breaks, secondary): ScreenAxis) -> AxisSca
         breaks: breaks.values.clone(),
         labels: label_texts(breaks),
         secondary: secondary.map(|secondary| (secondary.values.clone(), label_texts(secondary))),
+        reversed: warp(scale).is_decreasing(),
     }
 }
 
@@ -430,6 +526,36 @@ mod tests {
             layers: Vec::new(),
         };
         inspect_plot(&spec, &data).unwrap()
+    }
+
+    #[test]
+    fn geom_defaults_name_theme_colors() {
+        let point = geom_defaults("point").unwrap();
+        assert_eq!(point["stat"], "identity");
+        assert_eq!(point["aesthetics"]["color"], "pen");
+        assert_eq!(point["aesthetics"]["size"], 3.0);
+        assert!(point["aesthetics"]["alpha"].is_null());
+        let rect = geom_defaults("rect").unwrap();
+        assert_eq!(rect["aesthetics"]["fill"], "alpha(pen, 0.1)");
+        assert_eq!(rect["aesthetics"]["linetype"], "solid");
+        assert_eq!(geom_defaults("histogram").unwrap()["stat"], "bin");
+        assert!(geom_defaults("piont").is_none());
+    }
+
+    #[test]
+    fn panels_give_pixel_boxes_and_flip() {
+        let data = frame(vec![1.0, 2.0, 3.0], vec!["a", "b", "c"]);
+        let inspection = inspect(
+            r#"{"kind": "plot", "ggsize": {"width": 400, "height": 300},
+                "mapping": {"x": "x", "y": "x"},
+                "layers": [{"geom": "point"}], "coord": {"name": "flip"}}"#,
+            data,
+        );
+        assert!(inspection.flipped);
+        assert!(inspection.nonlinear.is_none());
+        let (left, top, width, height) = inspection.panels[0].rect;
+        assert!(left > 0.0 && top > 0.0 && left + width < 400.0 && top + height < 300.0);
+        assert!(!inspection.panels[0].x.reversed);
     }
 
     #[test]

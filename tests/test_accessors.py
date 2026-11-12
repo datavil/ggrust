@@ -518,6 +518,8 @@ MEMBERS = [
         "with_data",
         "layer_data",
         "build",
+        "panels",
+        "defaults",
         "geom",
         "stat",
         "params",

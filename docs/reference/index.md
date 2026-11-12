@@ -479,6 +479,7 @@ Complete themes, and `theme()` to change single elements.
 | [`theme_linedraw()`](api/theme_linedraw.md) | Use the line-drawing theme: a black frame and thin black grid lines. |
 | [`theme_void()`](api/theme_void.md) | Use the classic theme without lines and axes. |
 | [`theme_none()`](api/theme_none.md) | Use the unstyled theme. |
+| [`theme_defaults()`](api/theme_defaults.md) | Return what a named theme sets, in ``theme()`` vocabulary. |
 
 ## Theme elements and flavors
 

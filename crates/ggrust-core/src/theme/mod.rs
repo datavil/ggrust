@@ -12,7 +12,7 @@
 
 mod values;
 
-pub use values::{FLAVOR_NAMES, THEME_NAMES};
+pub use values::{FLAVOR_NAMES, THEME_NAMES, theme_defaults};
 
 use values::{Paint, Props, Symbol, Values, theme_values};
 

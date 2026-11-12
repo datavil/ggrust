@@ -530,6 +530,12 @@ class SupPlotsSpec(FeatureSpec):
             result["insets"] = [inset.as_dict() for inset in result["insets"]]
         return result
 
+    def __repr__(self) -> str:
+        """Return a one-line summary: ``<SupPlotsSpec: 3 figures, nrow=2, ncol=2>``."""
+        count = sum(figure is not None for figure in self.figures)
+        noun = "figure" if count == 1 else "figures"
+        return f"<SupPlotsSpec: {count} {noun}, nrow={self.nrow}, ncol={self.ncol}>"
+
     def _repr_html_(self) -> str:
         from ggrust._render import render_notebook_html
 

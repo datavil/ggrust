@@ -170,8 +170,6 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 
 - Export: multi-page PDF (`save_as_pdf_pages`) [plotnine]
 - ggpubr helpers beyond `compare_means` (themes, `ggarrange` style) [gaps]
-- Validation suite against R `ggplot_build()` output, reused as a stat-correctness
-  check [gaps]
 
 ## Sources
 

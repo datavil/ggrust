@@ -554,6 +554,12 @@ export docs say a unitless size is inches in both lets-plot and ggplot2.
 - [x] 11.2 Skipped (user, 2026-11-09): insets already do this; see the decisions table ("No `ggbunch()`"). Was: **`ggbunch(plots, regions)`**: lets_plot 4.11's free layout,
   plots placed by `(x, y, width, height)` regions in figure fractions, overlap allowed (not the
   same as `gggrid`). Then point the `GGBunch` stub's message at `ggbunch()`. Own session.
+- [x] P4.5 **Generic scales with `aesthetic=`** (notes/priorities.md 4.5, 2026-11-13): lets-plot's
+  `scale_manual`, `scale_continuous`, `scale_discrete`, `scale_gradient`, `scale_gradient2`,
+  `scale_gradientn`, `scale_hue`, `scale_grey`, `scale_brewer`, `scale_viridis`; a list of aesthetics
+  gives one scale per aesthetic (same spec as lets_plot, same SVG as the per-aesthetic scales).
+  Python only (`plot/scale_generic.py`). ggplot2's `aesthetics=` keyword on every scale is not added
+  (new syntax, waits for the user; deviations.md row).
 
 ## Performance strategy (honest)
 

@@ -252,6 +252,23 @@ Map data to `color` (lines, points, text) and `fill` (areas).
 | [`scale_fill_manual()`](api/scale_fill_manual.md) | Your own colors for ``fill``. |
 | [`scale_fill_identity()`](api/scale_fill_identity.md) | Use the data as fill colors; no legend by default. |
 
+## Scales for any aesthetic
+
+Name the aesthetic, or a list of them (`['color', 'fill']`) to set one scale on all.
+
+| Name | Description |
+|---|---|
+| [`scale_manual()`](api/scale_manual.md) | Your own values for any aesthetic, or for several at once. |
+| [`scale_continuous()`](api/scale_continuous.md) | Map any aesthetic, or several at once, continuously. |
+| [`scale_discrete()`](api/scale_discrete.md) | Map any aesthetic, or several at once, as categories. |
+| [`scale_gradient()`](api/scale_gradient.md) | Map color aesthetics to a two-color gradient (in LAB space). |
+| [`scale_gradient2()`](api/scale_gradient2.md) | Map color aesthetics to a diverging three-color gradient. |
+| [`scale_gradientn()`](api/scale_gradientn.md) | Map color aesthetics to an n-color gradient. |
+| [`scale_hue()`](api/scale_hue.md) | Qualitative colors around the HCL color wheel, for color aesthetics. |
+| [`scale_grey()`](api/scale_grey.md) | Greys from lightness ``start`` to ``end``, for color aesthetics. |
+| [`scale_brewer()`](api/scale_brewer.md) | Map color aesthetics with a ColorBrewer palette. |
+| [`scale_viridis()`](api/scale_viridis.md) | Map color aesthetics with a viridis-family color map. |
+
 ## Journal palettes (ggsci)
 
 Discrete palettes from the R package ggsci (not in lets-plot).

@@ -214,7 +214,9 @@ def _scale(
         raise UnsupportedValueError(
             f"scale_*(rescaler={rescaler!r}): {reason}", path="rescaler", reason=reason
         )
-    oob_names = _POSITION_OOB_NAMES if aesthetic in ("x", "y") else _OOB_NAMES
+    names = [aesthetic] if isinstance(aesthetic, str) else list(aesthetic)
+    is_position = all(name in ("x", "y") for name in names)
+    oob_names = _POSITION_OOB_NAMES if is_position else _OOB_NAMES
     if oob is not None and oob not in oob_names:
         accepted = ", ".join(repr(name) for name in oob_names)
         reason = f"unknown oob; use one of {accepted}{did_you_mean(str(oob), oob_names)}"

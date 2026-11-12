@@ -41,7 +41,6 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 
 | # | Item | Why here | Size | Found in |
 |---|---|---|---|---|
-| 4.5 | Set common scale options once | Saves repetition | M | ggplot2 (`aesthetics=` on every scale, `palette.*` theme elements in 4.0), lets-plot (generic `scale_manual`, `scale_gradient`, ... with `aesthetic=`, which ggrust lacks) |
 | 4.6 | Accessors tier 2: `p.panels()`, `p.layers[i].defaults`, `theme_defaults`, readable `repr` | Handy, nothing is blocked on it | M | none (ggrust's own API; ggplot2's `ggplot_build()` is the nearest) |
 
 ## 5. Output and integrations

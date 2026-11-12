@@ -6,6 +6,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Added
 
+- Generic scales with `aesthetic=` as lets-plot: `scale_manual`, `scale_continuous`, `scale_discrete`, `scale_gradient`, `scale_gradient2`, `scale_gradientn`, `scale_hue`, `scale_grey`, `scale_brewer`, `scale_viridis`. A list (`scale_manual(['color', 'fill'], values=...)`) sets the same scale on every aesthetic named.
 - `geom_contour_filled` fills each band with an ordered discrete level `"(low, high]"` (a legend of bands, viridis by default), as ggplot2, at R's `pretty()` breaks; it was an alias of `geom_contourf`, which is unchanged.
 - `scale_size_binned`, `scale_alpha_binned` and `guide_bins()`, as ggplot2: values take the size or alpha of their bin, and the legend shows touching keys labelled on their edges (`guide_bins(show_limits=)`, also usable on `scale_*_steps`).
 - `guide_axis(title=, cap=)`: axis capping, as ggplot2 (the axis line stops at the outermost breaks).

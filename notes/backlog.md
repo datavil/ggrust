@@ -79,6 +79,10 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   needs the full level list carried to the scales; `na_translate=True` (ggplot2's
   default) needs an NA level with `na_value` on axes and legends, where ggrust and
   lets-plot drop the rows today (`na_translate=False` behavior).
+- `breaks_with_step` (scale/breaks.rs) keeps a break that lies within `step / 10000` outside
+  the domain and clamps it onto the end: a y range from 0.187 to 11,616 gets a break
+  labelled "0.1873" (0 clamped up). Seen under `coord_cartesian(ylim=)` and
+  `coord_trans()`; the tolerance should only absorb float error relative to the value
 - `scale_*_gradient2(trans=..., midpoint=...)` (and `steps2`) use `midpoint` in
   transformed units as given: `trans="log10", midpoint=100` colors everything near the
   low end; ggplot2 transforms the midpoint first (found by the 3.18 bug hunter)
@@ -98,7 +102,7 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 
 ## 4. Layout, guides and annotation
 
-- `annotation_logticks`, `annotation_stripes` [plotnine]
+- `annotation_stripes` [plotnine]
 - `facet_grid(scales="free") + coord_flip()`: panels of one grid column may get different
   horizontal ranges while only the bottom row draws the axis (bug hunt 2026-11-11, not yet
   checked against ggplot2, may predate the facet options)

@@ -51,6 +51,7 @@ from ggrust.plot.aliases import (
     stat_function,
 )
 from ggrust.plot.annotate import annotate
+from ggrust.plot.annotation_logticks import annotation_logticks
 from ggrust.plot.coord import (
     coord_3d,
     coord_cartesian,
@@ -373,6 +374,7 @@ __all__ = [
     "SupPlotsSpec",
     "aes",
     "annotate",
+    "annotation_logticks",
     "arrow",
     "as_labeller",
     "boxcox_trans",

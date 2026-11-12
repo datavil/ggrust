@@ -26,6 +26,7 @@ mod image;
 mod interval;
 mod jitter;
 mod lines;
+mod logticks;
 mod mark;
 mod mark_label;
 mod mark_shape;
@@ -78,6 +79,7 @@ pub use hex::HexGeom;
 pub use image::ImageGeom;
 pub use interval::{CrossBarGeom, ErrorBarGeom, LineRangeGeom, PointRangeGeom};
 pub use jitter::JitterGeom;
+pub use logticks::LogticksGeom;
 pub use lollipop::LollipopGeom;
 pub use mark::{MARK_ELLIPSE_GEOM, MARK_HULL_GEOM, MARK_RECT_GEOM, MarkGeom, MarkKind};
 pub use path::{FreqpolyGeom, LineGeom, PathGeom};
@@ -307,6 +309,7 @@ pub static GEOMS: &[&dyn Geom] = &[
     &Density2dGeom,
     &Density2dfGeom,
     &QuantileGeom,
+    &LogticksGeom,
     &RectGeom,
     &RasterGeom,
     &ImageGeom,

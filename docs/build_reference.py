@@ -122,6 +122,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "geom_raster",
             "geom_imshow",
             "annotate",
+            "annotation_logticks",
             "geom_text",
             "geom_label",
             "geom_text_repel",

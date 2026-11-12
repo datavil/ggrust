@@ -1186,6 +1186,25 @@ def coord_3d_surface(m):
     )
 
 
+def guide_positions_sides(m):
+    # Priorities 3.10 (ggplot2 3.5 guide_*(position=)): the colorbar on top in a
+    # row, the size legend on the left in a column.
+    frame = pl.DataFrame(
+        {
+            "gene": np.repeat(["CD3E", "MS4A1", "NKG7", "LYZ", "FCGR3A"], 6),
+            "cluster": np.tile([f"c{index}" for index in range(6)], 5),
+            "expression": np.random.default_rng(31).uniform(0, 3, 30),
+            "fraction": np.random.default_rng(32).uniform(0, 100, 30),
+        }
+    )
+    return (
+        m.ggplot(frame, m.aes("cluster", "gene", color="expression", size="fraction"))
+        + m.geom_point()
+        + m.scale_color_viridis(option="magma", direction=-1)
+        + m.guides(color=m.guide_colorbar(position="top"), size=m.guide_legend(position="left"))
+    )
+
+
 EXTENSION_CASES = {
     case.__name__: case
     for case in [
@@ -1205,5 +1224,6 @@ EXTENSION_CASES = {
         streamline_scattered_groups,
         coord_3d_points_path,
         coord_3d_surface,
+        guide_positions_sides,
     ]
 }

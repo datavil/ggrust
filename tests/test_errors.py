@@ -100,7 +100,7 @@ def test_every_class_is_a_ggrust_error_and_the_matching_builtin() -> None:
         (
             lambda: scatter() + gg.theme(legend_position="botom"),
             "theme.legend_position",
-            "expected left, right, top, bottom, none or two numbers, got 'botom'; "
+            "expected left, right, top, bottom, inside, none or two numbers, got 'botom'; "
             "did you mean 'bottom'\\?$",
         ),
     ],

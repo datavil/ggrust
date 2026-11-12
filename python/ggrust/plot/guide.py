@@ -518,6 +518,7 @@ def guide_legend(
     override_aes: Mapping[str, Any] | None = None,
     reverse: bool | None = None,
     direction: Literal["horizontal", "vertical"] | None = None,
+    position: Literal["top", "right", "bottom", "left", "inside"] | None = None,
     order: int | None = None,
     theme: FeatureSpec | None = None,
 ) -> FeatureSpec:
@@ -538,6 +539,12 @@ def guide_legend(
     direction : {"horizontal", "vertical"}, optional
         Key layout of this legend; None follows ``theme(legend_direction=...)``
         (ggplot2).
+    position : {"top", "right", "bottom", "left", "inside"}, optional
+        Side of the plot this guide goes to, over ``theme(legend_position=...)``;
+        ``"inside"`` puts it in the panel at ``theme(legend_position_inside=...)``
+        (ggplot2 3.5). Guides at one position are stacked in one block. None
+        follows ``legend_position``; ``legend_position="none"`` still hides every
+        guide.
     order : int, optional
         Place among the legends, 1 to 99: legends with a lower order come first,
         legends without one (or 0) last, in their usual order (ggplot2).
@@ -565,7 +572,7 @@ def guide_legend(
     >>> plot = plot + guides(color=guide_legend(nrow=1, override_aes={"size": 8}))
     >>> plot = plot + guides(color=guide_legend(reverse=True, order=1))
     """
-    _check_common("guide_legend", reverse, direction, order)
+    _check_common("guide_legend", reverse, direction, order, position)
     return _guide("legend", **_with_theme(locals(), "guide_legend"))
 
 
@@ -578,6 +585,7 @@ def guide_colorbar(
     label_position: Literal["ends"] | None = None,
     reverse: bool | None = None,
     direction: Literal["horizontal", "vertical"] | None = None,
+    position: Literal["top", "right", "bottom", "left", "inside"] | None = None,
     order: int | None = None,
     theme: FeatureSpec | None = None,
     display: Literal["gradient", "rectangles", "raster"] | None = None,
@@ -606,6 +614,12 @@ def guide_colorbar(
     direction : {"horizontal", "vertical"}, optional
         Bar orientation of this colorbar; None follows
         ``theme(legend_direction=...)`` (ggplot2).
+    position : {"top", "right", "bottom", "left", "inside"}, optional
+        Side of the plot this guide goes to, over ``theme(legend_position=...)``;
+        ``"inside"`` puts it in the panel at ``theme(legend_position_inside=...)``
+        (ggplot2 3.5). Guides at one position are stacked in one block. None
+        follows ``legend_position``; ``legend_position="none"`` still hides every
+        guide.
     order : int, optional
         Place among the legends, 1 to 99, as in ``guide_legend()``.
     theme : FeatureSpec, optional
@@ -644,7 +658,7 @@ def guide_colorbar(
             f"expected 'ends' or None{did_you_mean(str(label_position), ['ends'])}"
         )
         raise SpecError(message)
-    _check_common("guide_colorbar", reverse, direction, order)
+    _check_common("guide_colorbar", reverse, direction, order, position)
     if display is not None and display not in _DISPLAYS:
         message = (
             f"guide_colorbar(display={display!r}) is not supported; expected one of "
@@ -668,6 +682,7 @@ def guide_bins(
     show_limits: bool | None = None,
     reverse: bool | None = None,
     direction: Literal["horizontal", "vertical"] | None = None,
+    position: Literal["top", "right", "bottom", "left", "inside"] | None = None,
     order: int | None = None,
     theme: FeatureSpec | None = None,
 ) -> FeatureSpec:
@@ -690,6 +705,12 @@ def guide_bins(
         True lists the bins from high to low.
     direction : {"horizontal", "vertical"}, optional
         Key layout of this guide; None follows ``theme(legend_direction=...)``.
+    position : {"top", "right", "bottom", "left", "inside"}, optional
+        Side of the plot this guide goes to, over ``theme(legend_position=...)``;
+        ``"inside"`` puts it in the panel at ``theme(legend_position_inside=...)``
+        (ggplot2 3.5). Guides at one position are stacked in one block. None
+        follows ``legend_position``; ``legend_position="none"`` still hides every
+        guide.
     order : int, optional
         Place among the legends, 1 to 99, as in ``guide_legend``.
     theme : FeatureSpec, optional
@@ -713,13 +734,14 @@ def guide_bins(
     >>> plot = ggplot(data, aes("x", "y", size="score")) + geom_point()
     >>> plot = plot + scale_size_binned(guide=guide_bins(show_limits=True))
     """
-    _check_common("guide_bins", reverse, direction, order)
+    _check_common("guide_bins", reverse, direction, order, position)
     if show_limits is not None and not isinstance(show_limits, bool):
         raise SpecError(f"guide_bins(show_limits={show_limits!r}): expected True or False")
     return _guide("bins", **_with_theme(locals(), "guide_bins"))
 
 
 _DIRECTIONS: tuple[str, ...] = ("horizontal", "vertical")
+_POSITIONS: tuple[str, ...] = ("top", "right", "bottom", "left", "inside")
 _DISPLAYS: tuple[str, ...] = ("gradient", "rectangles", "raster")
 # Elements that place or arrange the whole legend block, not one guide.
 _BLOCK_ELEMENTS: frozenset[str] = frozenset(
@@ -738,7 +760,11 @@ _BLOCK_ELEMENTS: frozenset[str] = frozenset(
 
 
 def _check_common(
-    function: str, reverse: bool | None, direction: str | None, order: int | None
+    function: str,
+    reverse: bool | None,
+    direction: str | None,
+    order: int | None,
+    position: str | None = None,
 ) -> None:
     """Validate the options every legend guide takes.
 
@@ -752,6 +778,8 @@ def _check_common(
         The ``direction`` option.
     order : int, optional
         The ``order`` option.
+    position : str, optional
+        The ``position`` option.
 
     Raises
     ------
@@ -770,6 +798,13 @@ def _check_common(
         isinstance(order, bool) or not isinstance(order, int) or not 0 <= order <= 99
     ):
         raise SpecError(f"{function}(order={order!r}): expected an integer from 0 to 99")
+    if position is not None and position not in _POSITIONS:
+        message = (
+            f"{function}(position={position!r}) is not supported; expected one of "
+            f"{', '.join(repr(name) for name in _POSITIONS)}"
+            f"{did_you_mean(str(position), list(_POSITIONS))}"
+        )
+        raise SpecError(message)
 
 
 def _with_theme(options: dict[str, Any], function: str) -> dict[str, Any]:

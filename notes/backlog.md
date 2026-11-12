@@ -111,9 +111,7 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   scales), `facet_wrap(space=)` and ggplot2 4.0's two-letter `dir` codes (`"lb"`, `"tr"`)
 - Per-variable facet labellers, ggplot2 `labeller(cyl = label_both, .default = ...)`
   (the `labeller=` option and `label_*` / `as_labeller` exist)
-- Per-guide `position=` on `guide_legend` and `guide_colorbar` (ggplot2): legends on
-  several sides need one legend band per side in the layout (size L; the other
-  per-guide options landed in 3.10). Guide `theme=` also rejects complete themes
+- Guide `theme=` rejects complete themes
   and block-level elements (`legend_position`, `legend_box*`, `legend_spacing*`) [plotnine]
 - Built-in themes: `theme_538`, `theme_tufte` [plotnine]
 - Theme options: `axis_ticks_direction` (and `_x`, `_y`), `legend_justification_top` (and

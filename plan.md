@@ -554,6 +554,10 @@ export docs say a unitless size is inches in both lets-plot and ggplot2.
 - [x] 11.2 Skipped (user, 2026-11-09): insets already do this; see the decisions table ("No `ggbunch()`"). Was: **`ggbunch(plots, regions)`**: lets_plot 4.11's free layout,
   plots placed by `(x, y, width, height)` regions in figure fractions, overlap allowed (not the
   same as `gggrid`). Then point the `GGBunch` stub's message at `ggbunch()`. Own session.
+- [x] P3.10 (priorities, 2026-11-13) **Per-guide `position=`** (ggplot2 3.5) on `guide_legend`,
+  `guide_colorbar`, `guide_bins`: one legend block per position (top, right, bottom, left,
+  inside), each laid out as that `legend_position`; plus `theme(legend_position_inside=)` and
+  `legend_position="inside"`. Gaps in deviations.md.
 
 ## Performance strategy (honest)
 

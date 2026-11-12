@@ -17,7 +17,7 @@ pub enum GuideSpec {
 impl GuideSpec {
     /// Whether a style aesthetic's guide uses only options ggrust draws: `"none"`,
     /// `"legend"`, `"colorbar"`, a title, `guide_legend(ncol, nrow, byrow, reverse,
-    /// direction, order, theme)` and `guide_colorbar(barwidth, barheight, nbin,
+    /// direction, order, position, theme)` and `guide_colorbar(barwidth, barheight, nbin,
     /// label_position, display, alpha, draw_ulim, draw_llim)` plus those four, and
     /// `guide_bins(show_limits)` with the legend's options.
     /// Anything else (`override_aes`, ...) is not built yet.
@@ -50,6 +50,7 @@ impl GuideSpec {
                     show_limits: options.show_limits.filter(|_| !bins),
                     reverse: None,
                     direction: None,
+                    position: None,
                     order: None,
                     theme: None,
                     unsupported: Default::default(),
@@ -95,6 +96,9 @@ pub struct GuideOptions {
     pub reverse: Option<bool>,
     /// `"horizontal"` or `"vertical"`: this guide's layout over `legend_direction`.
     pub direction: Option<String>,
+    /// `"top"`, `"right"`, `"bottom"`, `"left"` or `"inside"`: where this guide
+    /// goes, over `legend_position` (ggplot2 3.5).
+    pub position: Option<String>,
     /// `theme(legend_*=...)` elements for this guide only.
     pub theme: Option<ThemeSpec>,
     /// Colorbar `display`: `"rectangles"` (flat segments), `"gradient"`, `"raster"`.

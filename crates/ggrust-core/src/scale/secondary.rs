@@ -37,6 +37,19 @@ pub trait AxisFunction: Send + Sync {
         let _ = values;
         Err("this function maps numbers, not labels".to_owned())
     }
+
+    /// A color scale's `rescaler` (ggplot2 `function(x, to, from)`): every
+    /// value of `values` rescaled from `from` to `to`, in order, in one call.
+    /// Other functions keep the default, which refuses.
+    fn rescale(
+        &self,
+        values: &[f64],
+        to: (f64, f64),
+        from: (f64, f64),
+    ) -> std::result::Result<Vec<f64>, String> {
+        let _ = (values, to, from);
+        Err("this function is not a rescaler".to_owned())
+    }
 }
 
 /// The transform functions of a figure, indexed by `sec_axis.transform` in the

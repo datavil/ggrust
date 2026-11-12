@@ -190,7 +190,7 @@ def render(
     scale: float,
     html_id: str | None = None,
     dpi: float | None = None,
-    functions: list[Callable[[float], float] | Callable[[str], str]] | None = None,
+    functions: list[Callable[..., object]] | None = None,
 ) -> tuple[bytes, list[str]]:
     """Build and render a plot.
 
@@ -229,7 +229,7 @@ def render(
 def inspect(
     spec_json: str,
     frames: list[Any],
-    functions: list[Callable[[float], float] | Callable[[str], str]] | None = None,
+    functions: list[Callable[..., object]] | None = None,
 ) -> tuple[list[Any], list[dict[str, Any]], list[dict[str, Any]], list[str]]:
     """Prepare and lay out a single plot without drawing it (``PlotSpec.build()``).
 

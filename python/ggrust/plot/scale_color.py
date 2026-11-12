@@ -14,7 +14,17 @@ from ggrust.plot.scale import _scale
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from ggrust._typing import Breaks, Color, Guide, Labels, Limits, Number, Oob, Transform
+    from ggrust._typing import (
+        Breaks,
+        Color,
+        Guide,
+        Labels,
+        Limits,
+        Number,
+        Oob,
+        Rescaler,
+        Transform,
+    )
 
 __all__ = [
     "scale_color_brewer",
@@ -366,6 +376,7 @@ def scale_color_gradient(
     lablim: int | None = None,
     limits: Limits | None = None,
     oob: Oob | None = None,
+    rescaler: Rescaler | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -394,6 +405,12 @@ def scale_color_gradient(
         default) draws ``na_value``, ``"squish"`` clamps it to the nearest limit
         so it takes the end color. Missing data stays ``na_value``. Not in
         lets-plot (ggplot2 ``oob``).
+    rescaler : callable, optional
+        ``rescaler(x, to, from_)``: maps the data ``x`` (a polars ``Series`` of the
+        finite values, in transformed units) from ``from_`` (the scale's range) to
+        ``to`` (``(0.0, 1.0)``) before the palette is applied; results outside
+        ``to`` get ``na_value``. Default: linear. Not in lets-plot (ggplot2
+        ``rescaler``).
     na_value : str, optional
         Value drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
@@ -432,6 +449,7 @@ def scale_fill_gradient(
     lablim: int | None = None,
     limits: Limits | None = None,
     oob: Oob | None = None,
+    rescaler: Rescaler | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -460,6 +478,12 @@ def scale_fill_gradient(
         default) draws ``na_value``, ``"squish"`` clamps it to the nearest limit
         so it takes the end color. Missing data stays ``na_value``. Not in
         lets-plot (ggplot2 ``oob``).
+    rescaler : callable, optional
+        ``rescaler(x, to, from_)``: maps the data ``x`` (a polars ``Series`` of the
+        finite values, in transformed units) from ``from_`` (the scale's range) to
+        ``to`` (``(0.0, 1.0)``) before the palette is applied; results outside
+        ``to`` get ``na_value``. Default: linear. Not in lets-plot (ggplot2
+        ``rescaler``).
     na_value : str, optional
         Value drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
@@ -637,6 +661,7 @@ def scale_color_gradientn(
     lablim: int | None = None,
     limits: Limits | None = None,
     oob: Oob | None = None,
+    rescaler: Rescaler | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -665,6 +690,12 @@ def scale_color_gradientn(
         default) draws ``na_value``, ``"squish"`` clamps it to the nearest limit
         so it takes the end color. Missing data stays ``na_value``. Not in
         lets-plot (ggplot2 ``oob``).
+    rescaler : callable, optional
+        ``rescaler(x, to, from_)``: maps the data ``x`` (a polars ``Series`` of the
+        finite values, in transformed units) from ``from_`` (the scale's range) to
+        ``to`` (``(0.0, 1.0)``) before the palette is applied; results outside
+        ``to`` get ``na_value``. Default: linear. Not in lets-plot (ggplot2
+        ``rescaler``).
     na_value : str, optional
         Value drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
@@ -702,6 +733,7 @@ def scale_fill_gradientn(
     lablim: int | None = None,
     limits: Limits | None = None,
     oob: Oob | None = None,
+    rescaler: Rescaler | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -730,6 +762,12 @@ def scale_fill_gradientn(
         default) draws ``na_value``, ``"squish"`` clamps it to the nearest limit
         so it takes the end color. Missing data stays ``na_value``. Not in
         lets-plot (ggplot2 ``oob``).
+    rescaler : callable, optional
+        ``rescaler(x, to, from_)``: maps the data ``x`` (a polars ``Series`` of the
+        finite values, in transformed units) from ``from_`` (the scale's range) to
+        ``to`` (``(0.0, 1.0)``) before the palette is applied; results outside
+        ``to`` get ``na_value``. Default: linear. Not in lets-plot (ggplot2
+        ``rescaler``).
     na_value : str, optional
         Value drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
@@ -771,6 +809,7 @@ def scale_color_viridis(
     lablim: int | None = None,
     limits: Limits | None = None,
     oob: Oob | None = None,
+    rescaler: Rescaler | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -806,6 +845,12 @@ def scale_color_viridis(
         default) draws ``na_value``, ``"squish"`` clamps it to the nearest limit
         so it takes the end color. Missing data stays ``na_value``. Not in
         lets-plot (ggplot2 ``oob``).
+    rescaler : callable, optional
+        ``rescaler(x, to, from_)``: maps the data ``x`` (a polars ``Series`` of the
+        finite values, in transformed units) from ``from_`` (the scale's range) to
+        ``to`` (``(0.0, 1.0)``) before the palette is applied; results outside
+        ``to`` get ``na_value``. Default: linear. Not in lets-plot (ggplot2
+        ``rescaler``).
     na_value : str, optional
         Value drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
@@ -847,6 +892,7 @@ def scale_fill_viridis(
     lablim: int | None = None,
     limits: Limits | None = None,
     oob: Oob | None = None,
+    rescaler: Rescaler | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -882,6 +928,12 @@ def scale_fill_viridis(
         default) draws ``na_value``, ``"squish"`` clamps it to the nearest limit
         so it takes the end color. Missing data stays ``na_value``. Not in
         lets-plot (ggplot2 ``oob``).
+    rescaler : callable, optional
+        ``rescaler(x, to, from_)``: maps the data ``x`` (a polars ``Series`` of the
+        finite values, in transformed units) from ``from_`` (the scale's range) to
+        ``to`` (``(0.0, 1.0)``) before the palette is applied; results outside
+        ``to`` get ``na_value``. Default: linear. Not in lets-plot (ggplot2
+        ``rescaler``).
     na_value : str, optional
         Value drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
@@ -918,6 +970,7 @@ def scale_color_continuous(
     lablim: int | None = None,
     limits: Limits | None = None,
     oob: Oob | None = None,
+    rescaler: Rescaler | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -946,6 +999,12 @@ def scale_color_continuous(
         default) draws ``na_value``, ``"squish"`` clamps it to the nearest limit
         so it takes the end color. Missing data stays ``na_value``. Not in
         lets-plot (ggplot2 ``oob``).
+    rescaler : callable, optional
+        ``rescaler(x, to, from_)``: maps the data ``x`` (a polars ``Series`` of the
+        finite values, in transformed units) from ``from_`` (the scale's range) to
+        ``to`` (``(0.0, 1.0)``) before the palette is applied; results outside
+        ``to`` get ``na_value``. Default: linear. Not in lets-plot (ggplot2
+        ``rescaler``).
     na_value : str, optional
         Value drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
@@ -986,6 +1045,7 @@ def scale_fill_continuous(
     lablim: int | None = None,
     limits: Limits | None = None,
     oob: Oob | None = None,
+    rescaler: Rescaler | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -1014,6 +1074,12 @@ def scale_fill_continuous(
         default) draws ``na_value``, ``"squish"`` clamps it to the nearest limit
         so it takes the end color. Missing data stays ``na_value``. Not in
         lets-plot (ggplot2 ``oob``).
+    rescaler : callable, optional
+        ``rescaler(x, to, from_)``: maps the data ``x`` (a polars ``Series`` of the
+        finite values, in transformed units) from ``from_`` (the scale's range) to
+        ``to`` (``(0.0, 1.0)``) before the palette is applied; results outside
+        ``to`` get ``na_value``. Default: linear. Not in lets-plot (ggplot2
+        ``rescaler``).
     na_value : str, optional
         Value drawn for missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional

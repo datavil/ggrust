@@ -194,7 +194,7 @@ def _scale(
         side of the scale's axis, or ``na_value`` / ``break_width`` is NaN or
         infinite.
     UnsupportedValueError
-        If ``oob`` or ``position`` is not a string.
+        If ``oob`` or ``position`` is not a string, or ``rescaler`` is not callable.
     """
     _check_position(aesthetic, position)
     for key, value in (("na_value", na_value), ("break_width", kwargs.get("break_width"))):
@@ -205,6 +205,15 @@ def _scale(
     if oob is not None and not isinstance(oob, str):
         reason = f"expected an oob name, got {type(oob).__name__}; use 'censor' or 'squish'"
         raise UnsupportedValueError(f"scale_*(oob={oob!r}): {reason}", path="oob", reason=reason)
+    rescaler = kwargs.get("rescaler")
+    if rescaler is not None and not callable(rescaler):
+        reason = (
+            f"expected a function rescaler(x, to, from_), got {type(rescaler).__name__}; "
+            "pass a callable such as lambda x, to, from_: (x - from_[0]) / (from_[1] - from_[0])"
+        )
+        raise UnsupportedValueError(
+            f"scale_*(rescaler={rescaler!r}): {reason}", path="rescaler", reason=reason
+        )
     oob_names = _POSITION_OOB_NAMES if aesthetic in ("x", "y") else _OOB_NAMES
     if oob is not None and oob not in oob_names:
         accepted = ", ".join(repr(name) for name in oob_names)

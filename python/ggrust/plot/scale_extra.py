@@ -13,7 +13,17 @@ from ggrust.plot.scale import _scale
 if TYPE_CHECKING:
     from collections.abc import Sequence
 
-    from ggrust._typing import Breaks, Color, Guide, Labels, Limits, Number, Oob, Transform
+    from ggrust._typing import (
+        Breaks,
+        Color,
+        Guide,
+        Labels,
+        Limits,
+        Number,
+        Oob,
+        Rescaler,
+        Transform,
+    )
     from ggrust.plot.core import FeatureSpec
 
 __all__ = [
@@ -56,6 +66,7 @@ def scale_color_distiller(
     labels: Labels | None = None,
     limits: Limits | None = None,
     oob: Oob | None = None,
+    rescaler: Rescaler | None = None,
     na_value: Color | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -86,6 +97,12 @@ def scale_color_distiller(
         ``[low, high]`` data range. Data outside the limits gets ``na_value``.
     oob : {"censor", "squish"}, optional
         What data outside ``limits`` maps to: ``na_value`` or the end color.
+    rescaler : callable, optional
+        ``rescaler(x, to, from_)``: maps the data ``x`` (a polars ``Series`` of the
+        finite values, in transformed units) from ``from_`` (the scale's range) to
+        ``to`` (``(0.0, 1.0)``) before the palette is applied; results outside
+        ``to`` get ``na_value``. Default: linear. Not in lets-plot (ggplot2
+        ``rescaler``).
     na_value : str, optional
         Color of missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
@@ -118,6 +135,7 @@ def scale_color_distiller(
         labels=labels,
         limits=limits,
         oob=oob,
+        rescaler=rescaler,
         na_value=na_value,
         guide=guide,
         trans=trans,
@@ -134,6 +152,7 @@ def scale_fill_distiller(
     labels: Labels | None = None,
     limits: Limits | None = None,
     oob: Oob | None = None,
+    rescaler: Rescaler | None = None,
     na_value: Color | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
@@ -159,6 +178,12 @@ def scale_fill_distiller(
         ``[low, high]`` data range.
     oob : {"censor", "squish"}, optional
         What data outside ``limits`` maps to.
+    rescaler : callable, optional
+        ``rescaler(x, to, from_)``: maps the data ``x`` (a polars ``Series`` of the
+        finite values, in transformed units) from ``from_`` (the scale's range) to
+        ``to`` (``(0.0, 1.0)``) before the palette is applied; results outside
+        ``to`` get ``na_value``. Default: linear. Not in lets-plot (ggplot2
+        ``rescaler``).
     na_value : str, optional
         Color of missing data and data outside ``limits``.
     guide : str or FeatureSpec, optional
@@ -190,6 +215,7 @@ def scale_fill_distiller(
         labels=labels,
         limits=limits,
         oob=oob,
+        rescaler=rescaler,
         na_value=na_value,
         guide=guide,
         trans=trans,

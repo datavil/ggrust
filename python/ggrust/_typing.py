@@ -67,6 +67,10 @@ Transform: TypeAlias = (
 Oob: TypeAlias = Literal["censor", "squish"]
 """What a continuous color scale does with values outside its limits."""
 
+Rescaler: TypeAlias = Callable[[pl.Series, tuple[float, float], tuple[float, float]], Any]
+"""A continuous color scale's ``rescaler(x, to, from_)`` (ggplot2): ``x`` (a polars
+``Series``) from ``from_`` to ``to``; returns a ``Series``, an array or a list."""
+
 PositionOob: TypeAlias = Literal["censor", "squish", "keep"]
 """What a continuous position scale does with values outside its limits."""
 

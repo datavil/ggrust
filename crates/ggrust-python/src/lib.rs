@@ -74,6 +74,26 @@ mod _ggrust {
                     .collect()
             })
         }
+
+        /// The Python front end wraps a `rescaler` so it takes and returns lists
+        /// of floats (`ggrust._render._rescaler_call`).
+        fn rescale(
+            &self,
+            values: &[f64],
+            to: (f64, f64),
+            from: (f64, f64),
+        ) -> Result<Vec<f64>, String> {
+            Python::attach(|python| {
+                let result = self
+                    .0
+                    .bind(python)
+                    .call1((values.to_vec(), to, from))
+                    .map_err(|error| error.to_string())?;
+                result
+                    .extract::<Vec<f64>>()
+                    .map_err(|_| "it did not return numbers; return one number per value".into())
+            })
+        }
     }
 
     /// Parse a figure and attach the secondary axis transforms (`functions[i]` is

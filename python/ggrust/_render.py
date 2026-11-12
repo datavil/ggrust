@@ -244,13 +244,14 @@ def split_data(spec: dict[str, Any]) -> tuple[dict, list[tuple[Any, str]]]:
 
 def split_functions(
     spec: dict[str, Any],
-) -> tuple[dict[str, Any], list[Callable[[float], float] | Callable[[str], str]]]:
-    """Replace secondary axis transforms and labeller functions with list indexes.
+) -> tuple[dict[str, Any], list[Callable[..., object]]]:
+    """Replace secondary axis transforms, rescalers and labellers with list indexes.
 
     Every ``sec_axis`` of the figure (any scale, nested figures and insets) whose
-    ``transform`` is a callable, and every facet ``labeller`` whose ``function`` is
-    one, gets the callable's index instead; the callables go to the engine beside
-    the JSON, which calls them once per value.
+    ``transform`` is a callable, every scale ``rescaler``, and every facet
+    ``labeller`` whose ``function`` is one, gets the callable's index instead; the
+    callables go to the engine beside the JSON, which calls them once per value
+    (a rescaler once per mapping, wrapped by ``_rescaler_call``).
 
     Parameters
     ----------
@@ -262,11 +263,14 @@ def split_functions(
     tuple
         ``(spec with indexes, [callable, ...])``. The spec is copied where changed.
     """
-    functions: list[Callable[[float], float] | Callable[[str], str]] = []
+    functions: list[Callable[..., object]] = []
 
     def scale(item: object) -> object:
         if not isinstance(item, dict):
             return item
+        if callable(item.get("rescaler")):
+            functions.append(_rescaler_call(item["rescaler"]))
+            item = {**item, "rescaler": len(functions) - 1}
         axis = item.get("sec_axis")
         if not isinstance(axis, dict) or not callable(axis.get("transform")):
             return item
@@ -300,6 +304,46 @@ def split_functions(
         return figure
 
     return cast("dict[str, Any]", walk(spec)), functions
+
+
+def _rescaler_call(
+    function: Callable[..., Any],
+) -> Callable[[list[float], tuple[float, float], tuple[float, float]], list[float]]:
+    """Wrap a scale ``rescaler`` so the engine can call it with plain lists.
+
+    The engine calls the wrapper with the finite values (transformed units), ``to``
+    and ``from``; the user's function gets ``x`` as a polars ``Series`` (ggplot2
+    passes a vector) and may return a ``Series``, a numpy array or a list.
+
+    Parameters
+    ----------
+    function : callable
+        ``rescaler(x, to, from_)``.
+
+    Returns
+    -------
+    callable
+        ``(values, to, from_) -> list of float``.
+    """
+    import polars as pl
+
+    def call(
+        values: list[float], to: tuple[float, float], from_: tuple[float, float]
+    ) -> list[float]:
+        result = function(pl.Series("x", values, dtype=pl.Float64), to, from_)
+        try:
+            series = pl.Series("x", result, dtype=pl.Float64)
+        except (TypeError, ValueError) as error:
+            reason = (
+                f"rescaler(x, to, from_) returned {type(result).__name__}; return a "
+                "Series, array or list with one number per value of x"
+            )
+            raise UnsupportedValueError(
+                f"scale_*(rescaler=...): {reason}", path="rescaler", reason=reason
+            ) from error
+        return [math.nan if value is None else float(value) for value in series.to_list()]
+
+    return call
 
 
 def _column_names(data: object) -> list[str]:

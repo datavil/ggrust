@@ -265,6 +265,79 @@ pub struct ContinuousDomain {
     pub format: Option<LabelPattern>,
     /// `scale_*_steps()` / `scale_*_binned()`: values map to the color of their bin.
     pub binning: Option<Binning>,
+    /// `rescaler=...` (ggplot2): maps values to 0..1 before the palette.
+    pub rescaler: Option<Rescaler>,
+}
+
+/// A continuous scale's `rescaler` (ggplot2 `continuous_scale(rescaler=)`):
+/// called once per mapping as `rescaler(x, to = (0, 1), from = domain)` with the
+/// finite values in transformed units; results outside 0..1 map to the NA value.
+#[derive(Clone)]
+pub struct Rescaler(pub Arc<dyn crate::scale::secondary::AxisFunction>);
+
+impl std::fmt::Debug for Rescaler {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str("Rescaler")
+    }
+}
+
+impl PartialEq for Rescaler {
+    fn eq(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl Rescaler {
+    /// `column` with every finite value rescaled into `domain` (as the palette
+    /// sees it: `domain.0 + r * (domain.1 - domain.0)` for the rescaled `r`).
+    /// Missing and non-finite values stay; results outside 0..1 become missing.
+    fn apply(
+        &self,
+        column: &ContinuousColumn,
+        domain: (f64, f64),
+    ) -> std::result::Result<ContinuousColumn, String> {
+        let mut values: Vec<Option<f64>> = (0..column.len()).map(|row| column.get(row)).collect();
+        let finite: Vec<f64> = values
+            .iter()
+            .flatten()
+            .copied()
+            .filter(|value| value.is_finite())
+            .collect();
+        if finite.is_empty() {
+            return Ok(ContinuousColumn::from_options(values));
+        }
+        let rescaled = self
+            .0
+            .rescale(&finite, (0.0, 1.0), domain)
+            .map_err(|reason| format!("the scale's rescaler failed: {reason}"))?;
+        if rescaled.len() != finite.len() {
+            return Err(format!(
+                "the scale's rescaler returned {} values for {} inputs; return one value per \
+                 value of x",
+                rescaled.len(),
+                finite.len()
+            ));
+        }
+        let (low, high) = domain;
+        let mut results = rescaled.into_iter();
+        for value in values.iter_mut().flatten() {
+            if !value.is_finite() {
+                continue;
+            }
+            let rescaled = results.next().unwrap_or(f64::NAN);
+            *value = if (0.0..=1.0).contains(&rescaled) {
+                (low + rescaled * (high - low)).clamp(low.min(high), low.max(high))
+            } else {
+                f64::NAN
+            };
+        }
+        Ok(ContinuousColumn::from_options(
+            values
+                .into_iter()
+                .map(|value| value.filter(|value| !value.is_nan()))
+                .collect(),
+        ))
+    }
 }
 
 /// Options of a binned style scale (ggplot2 `binned_scale`).
@@ -642,8 +715,14 @@ impl StyleScale {
                     });
                 let transform = self.transform();
                 let bins = self.bins();
+                let rescaler = self.rescaler();
                 if limits == [None, None] && transform == Transform::Identity && bins.is_none() {
-                    return Ok(self.mapper.map_continuous(column, domain));
+                    return Ok(match rescaler {
+                        Some(rescaler) => self
+                            .mapper
+                            .map_continuous(&rescaler.apply(column, domain)?, domain),
+                        None => self.mapper.map_continuous(column, domain),
+                    });
                 }
                 // lets-plot: values outside the limits (or the transform's domain)
                 // are missing. Squished values are clamped to the limits first;
@@ -670,6 +749,10 @@ impl StyleScale {
                         })
                         .collect(),
                 );
+                let limited = match rescaler {
+                    Some(rescaler) => rescaler.apply(&limited, domain)?,
+                    None => limited,
+                };
                 Ok(self.mapper.map_continuous(&limited, domain))
             }
             (Trained::Discrete { .. }, column) => {
@@ -937,7 +1020,14 @@ impl StyleScale {
             .map_or(Transform::Identity, |domain| domain.transform)
     }
 
+    /// `rescaler=...` of a continuous scale.
+    fn rescaler(&self) -> Option<&Rescaler> {
+        self.continuous.as_ref().ok()?.rescaler.as_ref()
+    }
+
     /// Mapped values of transformed numbers on a continuous scale (for guides).
+    /// A failing `rescaler` (already reported when the layers were mapped) maps
+    /// them to the NA value.
     pub fn map_numbers(&self, values: &[f64]) -> StyleValues {
         let column = match self.bins() {
             Some(bins) => ContinuousColumn::from_options(
@@ -945,8 +1035,21 @@ impl StyleScale {
             ),
             None => ContinuousColumn::from_values(values.to_vec()),
         };
-        self.mapper
-            .map_continuous(&column, self.continuous_domain())
+        self.map_guide_column(&column)
+    }
+
+    /// Map a guide's column over the scale's domain, through the `rescaler`.
+    fn map_guide_column(&self, column: &ContinuousColumn) -> StyleValues {
+        let domain = self.continuous_domain();
+        match self.rescaler() {
+            Some(rescaler) => {
+                let rescaled = rescaler
+                    .apply(column, domain)
+                    .unwrap_or_else(|_| ContinuousColumn::from_options(vec![None; column.len()]));
+                self.mapper.map_continuous(&rescaled, domain)
+            }
+            None => self.mapper.map_continuous(column, domain),
+        }
     }
 
     /// Legend entries of a style scale: a discrete scale's categories, or a
@@ -997,9 +1100,7 @@ impl StyleScale {
             .map(|pair| (pair[0] + pair[1]) / 2.0)
             .collect();
         let column = ContinuousColumn::from_values(midpoints);
-        let mapped = self
-            .mapper
-            .map_continuous(&column, self.continuous_domain());
+        let mapped = self.map_guide_column(&column);
         labels
             .windows(2)
             .enumerate()
@@ -1488,6 +1589,90 @@ mod tests {
             panic!("expected colors");
         };
         colors
+    }
+
+    /// One rescaler call: values, `to`, `from`.
+    type RescaleCall = (Vec<f64>, (f64, f64), (f64, f64));
+
+    /// A rescaler that reverses the range and remembers what it was called with.
+    struct Reverse(std::sync::Mutex<Vec<RescaleCall>>);
+
+    impl crate::scale::secondary::AxisFunction for Reverse {
+        fn call(&self, _: &[f64]) -> std::result::Result<Vec<f64>, String> {
+            Err("not a transform".into())
+        }
+
+        fn rescale(
+            &self,
+            values: &[f64],
+            to: (f64, f64),
+            from: (f64, f64),
+        ) -> std::result::Result<Vec<f64>, String> {
+            self.0.lock().unwrap().push((values.to_vec(), to, from));
+            // 1 - linear, and 2 (outside 0..1) for the value 3.
+            Ok(values
+                .iter()
+                .map(|value| match *value {
+                    3.0 => 2.0,
+                    value => 1.0 - (value - from.0) / (from.1 - from.0),
+                })
+                .collect())
+        }
+    }
+
+    fn rescaled_scale(values: &[f64]) -> (StyleScale, Column, Arc<Reverse>) {
+        let reverse = Arc::new(Reverse(std::sync::Mutex::new(Vec::new())));
+        let mut scale = scale(Aesthetic::Fill);
+        scale.continuous = Ok(ContinuousDomain {
+            rescaler: Some(Rescaler(reverse.clone())),
+            ..ContinuousDomain::default()
+        });
+        let column = Column::Continuous(ContinuousColumn::from_values(values.to_vec()));
+        scale.train(&column).unwrap();
+        (scale, column, reverse)
+    }
+
+    #[test]
+    fn a_rescaler_maps_values_before_the_palette() {
+        let (scale, column, reverse) = rescaled_scale(&[0.0, 1.0, 3.0, 4.0, f64::NAN]);
+        let StyleValues::Colors(PerItem::Varying(colors)) = scale.map(&column).unwrap() else {
+            panic!("expected colors");
+        };
+        let plain = limited_colors(
+            vec![4.0, 3.0, 1.0, 0.0],
+            [None, None],
+            Oob::Censor,
+            Transform::Identity,
+        );
+        // Reversed: 0 takes the color of 4, 4 the color of 0.
+        assert_eq!(colors[0], plain[0]);
+        assert_eq!(colors[1], plain[1]);
+        assert_eq!(colors[3], plain[3]);
+        // Outside 0..1, and missing: the NA color.
+        assert_eq!(colors[2], NA_COLOR);
+        assert_eq!(colors[4], NA_COLOR);
+        // One call with the finite values, to = 0..1, from = the domain.
+        let calls = reverse.0.lock().unwrap();
+        assert_eq!(
+            calls.as_slice(),
+            [(vec![0.0, 1.0, 3.0, 4.0], (0.0, 1.0), (0.0, 4.0))]
+        );
+    }
+
+    #[test]
+    fn a_rescaler_also_colors_the_guide() {
+        let (scale, _, _) = rescaled_scale(&[0.0, 4.0]);
+        let StyleValues::Colors(guide) = scale.map_numbers(&[0.0, 4.0]) else {
+            panic!("expected colors");
+        };
+        let plain = limited_colors(
+            vec![0.0, 4.0],
+            [None, None],
+            Oob::Censor,
+            Transform::Identity,
+        );
+        assert_eq!(guide.get(0), plain[1]);
+        assert_eq!(guide.get(1), plain[0]);
     }
 
     #[test]

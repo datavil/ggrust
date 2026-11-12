@@ -68,6 +68,10 @@ const LABEL_LIMIT: &str = "lablim";
 /// The `parameters` key of `oob=...` (ggplot2; lets-plot has no such option).
 const OOB: &str = "oob";
 
+/// The `parameters` key of `rescaler=...` (ggplot2; lets-plot has no such
+/// option): an index into the figure's functions, set by the Python front end.
+const RESCALER: &str = "rescaler";
+
 /// Merged `scale_*()` options of one style aesthetic.
 #[derive(Debug, Clone, Default)]
 pub struct StyleScaleSpec {
@@ -90,6 +94,11 @@ pub struct StyleScaleSpec {
     label_limit_path: Option<String>,
     /// `oob=...`, checked by [`StyleScaleSpec::oob`]. Merges like `limits`.
     oob: Set<Value>,
+    /// `rescaler=...`, resolved by [`StyleScaleSpec::continuous_domain`]. Merges
+    /// like `limits`.
+    rescaler: Set<Value>,
+    /// The functions passed with the spec, which `rescaler` indexes.
+    functions: crate::scale::secondary::AxisFunctions,
     options: BTreeMap<String, (Value, String)>,
 }
 
@@ -108,7 +117,9 @@ pub fn style_scale_specs(
                 continue; // position scales, or reported by `position_scales`
             }
             let key = ScaleKey::new(aesthetic, scale.scale_group(aesthetic));
-            merge(merged.entry(key).or_default(), scale, &path, warnings);
+            let target = merged.entry(key).or_default();
+            target.functions = spec.functions.clone();
+            merge(target, scale, &path, warnings);
             report_unbuilt(scale, &path, warnings);
         }
     }
@@ -168,6 +179,13 @@ fn merge(target: &mut StyleScaleSpec, scale: &ScaleSpec, path: &str, warnings: &
     if let Some(oob) = scale.parameters.get(OOB).filter(|value| !value.is_null()) {
         target.oob = Some((oob.clone(), at(OOB)));
     }
+    if let Some(rescaler) = scale
+        .parameters
+        .get(RESCALER)
+        .filter(|value| !value.is_null())
+    {
+        target.rescaler = Some((rescaler.clone(), at(RESCALER)));
+    }
     if let Some(na_value) = &scale.na_value {
         target.na_value = Some((na_value.clone(), at("na_value")));
     }
@@ -211,6 +229,7 @@ fn report_unbuilt(scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
         if !MAPPER_OPTIONS.contains(&key.as_str())
             && key != LABEL_LIMIT
             && key != OOB
+            && key != RESCALER
             && !value.is_null()
         {
             warnings.push(format!("at '{path}.{key}': not supported yet; ignored"));
@@ -479,7 +498,33 @@ impl StyleScaleSpec {
             domain.transform = Transform::parse(name, path).map_err(|error| error.to_string())?;
         }
         domain.binning = self.binning()?;
+        domain.rescaler = self.rescaler()?;
         Ok(domain)
+    }
+
+    /// `rescaler=...`: the function its index names.
+    fn rescaler(&self) -> std::result::Result<Option<super::Rescaler>, String> {
+        let Some((value, path)) = &self.rescaler else {
+            return Ok(None);
+        };
+        let index = match value {
+            Value::Number(number) => number.as_u64(),
+            _ => None,
+        }
+        .ok_or_else(|| {
+            format!(
+                "at '{path}': expected a function rescaler(x, to, from), got {value}; pass a \
+                 Python callable"
+            )
+        })?;
+        let function = self.functions.0.get(index as usize).ok_or_else(|| {
+            format!(
+                "at '{path}': function {index} was not passed with the spec ({} given); render \
+                 through ggrust so the rescaler callable reaches the engine",
+                self.functions.0.len()
+            )
+        })?;
+        Ok(Some(super::Rescaler(function.clone())))
     }
 
     /// `scale_*_steps()` / `scale_*_binned()` options; `None` for other scales.

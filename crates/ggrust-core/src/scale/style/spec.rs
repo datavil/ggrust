@@ -238,6 +238,15 @@ fn report_unbuilt(scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
 }
 
 impl StyleScaleSpec {
+    /// A scale with only a mapper kind (`scale_mapper_kind`), as a default
+    /// scale: `color_cmap` is `scale_*_viridis()`.
+    pub fn of_kind(kind: &str) -> Self {
+        StyleScaleSpec {
+            kind: Some((kind.to_owned(), String::new())),
+            ..StyleScaleSpec::default()
+        }
+    }
+
     /// The mapper the options ask for: `scale_mapper_kind` (lets-plot lets it win
     /// over `values`), then manual `values`, then the aesthetic's default. `na_value`
     /// applies to the first two only, as in lets-plot.

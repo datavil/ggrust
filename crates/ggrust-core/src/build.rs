@@ -4114,6 +4114,19 @@ fn train_style_scales(
         .map(|(key, _, _)| *key)
         .collect();
     let default_spec = StyleScaleSpec::default();
+    // ggplot2: contour bands are an ordered factor, whose default color and fill
+    // scale is viridis (`geom_contour_filled`); only when every layer on the scale
+    // draws such bands.
+    let band_spec = StyleScaleSpec::of_kind("color_cmap");
+    let mut band_only: BTreeMap<ScaleKey, bool> = BTreeMap::new();
+    for layer in layers {
+        for aesthetic in layer.data.aesthetics() {
+            let bands = layer.geom.name() == "contour_filled"
+                && matches!(layer.data.get(aesthetic), Some(Column::Discrete(_)))
+                && matches!(aesthetic, Aesthetic::Fill | Aesthetic::Color);
+            *band_only.entry(layer.scale_key(aesthetic)).or_insert(true) &= bands;
+        }
+    }
     let mut scales: BTreeMap<ScaleKey, StyleScale> = BTreeMap::new();
     for (key, column, path) in columns {
         if default_mapper(key.aesthetic).is_none() {
@@ -4122,7 +4135,12 @@ fn train_style_scales(
         let scale = match scales.entry(key) {
             std::collections::btree_map::Entry::Occupied(entry) => entry.into_mut(),
             std::collections::btree_map::Entry::Vacant(entry) => {
-                let spec = specs.get(&key).unwrap_or(&default_spec);
+                let fallback = if band_only.get(&key) == Some(&true) {
+                    &band_spec
+                } else {
+                    &default_spec
+                };
+                let spec = specs.get(&key).unwrap_or(fallback);
                 let mapper = spec.mapper(key.aesthetic, warnings)?;
                 let domain = spec.discrete_domain()?;
                 // Fail early on a bad `oob`, also when the data turns out discrete.

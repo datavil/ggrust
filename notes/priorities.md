@@ -65,7 +65,6 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 
 | # | Item | Why here | Size | Found in |
 |---|---|---|---|---|
-| 7.1 | `geom_contour_filled` fills bands by an ordered discrete level, as ggplot2 (today an alias of `geom_contourf`, continuous fill) | Discrete legend of bands | S | ggplot2 |
 | 7.2 | `geom_density_ridges` with the full ggridges options | `geom_area_ridges` covers the main use | M | ggplot2 extension (ggridges); lets-plot `geom_area_ridges` covers part |
 | 7.4 | `coord_radial`, radar charts | Follows 2.5 | M | `coord_radial`: ggplot2; radar charts: lets-plot through `coord_polar` |
 | 7.6 | Business and infographic: Sankey / alluvial (plan ex2.6), treemap, waffle, waterfall, chord, circle packing, sunburst, funnel, Pareto, Marimekko, Venn, word cloud, bullet, variable-radius pie, timeline, tile map, wind barbs | Outside the scientific core; Sankey first, as it is scheduled | L | ggplot2 extensions (ggalluvial, treemapify, waffle, ...) |

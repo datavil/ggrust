@@ -86,6 +86,7 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_hex()`](api/geom_hex.md) | Hexagons counting the rows in a hexagonal grid (``stat="binhex"``). |
 | [`geom_contour()`](api/geom_contour.md) | Draw contour lines of z over a grid of x and y (``stat="contour"``). |
 | [`geom_contourf()`](api/geom_contourf.md) | Fill the bands between the contour lines of z (``stat="contourf"``). |
+| [`geom_contour_filled()`](api/geom_contour_filled.md) | Fill the bands between the contour lines of z by band (ggplot2 ``geom_contour_filled``). |
 | [`geom_density2d()`](api/geom_density2d.md) | Draw contour lines of a 2D kernel density estimate (``stat="density2d"``). |
 | [`geom_quantile()`](api/geom_quantile.md) | Draw quantile regression lines (``stat="quantile"``, ggplot2). |
 | [`geom_density2df()`](api/geom_density2df.md) | Fill the bands of a 2D kernel density estimate (``stat="density2df"``). |
@@ -548,7 +549,6 @@ Other spellings of the functions above, as in ggplot2 and plotnine (not in lets-
 |---|---|
 | [`coord_equal()`](api/coord_equal.md) | Alias of [`coord_fixed()`](coord_fixed.md). |
 | [`geom_bin_2d()`](api/geom_bin_2d.md) | Alias of [`geom_bin2d()`](geom_bin2d.md). |
-| [`geom_contour_filled()`](api/geom_contour_filled.md) | Alias of [`geom_contourf()`](geom_contourf.md). |
 | [`geom_density_2d()`](api/geom_density_2d.md) | Alias of [`geom_density2d()`](geom_density2d.md). |
 | [`geom_density_2d_filled()`](api/geom_density_2d_filled.md) | Alias of [`geom_density2df()`](geom_density2df.md). |
 | [`guide_colourbar()`](api/guide_colourbar.md) | Alias of [`guide_colorbar()`](guide_colorbar.md). |

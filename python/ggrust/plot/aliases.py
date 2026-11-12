@@ -9,7 +9,7 @@ lets_plot has none of these names.
 from __future__ import annotations
 
 from ggrust.plot.coord import coord_fixed
-from ggrust.plot.geom import geom_bin2d, geom_contourf, geom_density2d, geom_density2df
+from ggrust.plot.geom import geom_bin2d, geom_density2d, geom_density2df
 from ggrust.plot.geom_function import geom_function
 from ggrust.plot.guide import guide_colorbar
 from ggrust.plot.scale import scale_x_datetime, scale_y_datetime
@@ -57,7 +57,6 @@ from ggrust.plot.stat_layer import stat_bin2d, stat_density2d
 __all__ = [
     "coord_equal",
     "geom_bin_2d",
-    "geom_contour_filled",
     "geom_density_2d",
     "geom_density_2d_filled",
     "guide_colourbar",
@@ -138,7 +137,6 @@ guide_colourbar = guide_colorbar
 geom_bin_2d = geom_bin2d
 geom_density_2d = geom_density2d
 geom_density_2d_filled = geom_density2df
-geom_contour_filled = geom_contourf
 stat_function = geom_function
 stat_bin_2d = stat_bin2d
 stat_density_2d = stat_density2d

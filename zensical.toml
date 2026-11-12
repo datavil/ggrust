@@ -152,6 +152,7 @@ nav = [
       "reference/api/geom_hex.md",
       "reference/api/geom_contour.md",
       "reference/api/geom_contourf.md",
+      "reference/api/geom_contour_filled.md",
       "reference/api/geom_density2d.md",
       "reference/api/geom_quantile.md",
       "reference/api/geom_density2df.md",
@@ -484,7 +485,6 @@ nav = [
     { "Aliases" = [
       "reference/api/coord_equal.md",
       "reference/api/geom_bin_2d.md",
-      "reference/api/geom_contour_filled.md",
       "reference/api/geom_density_2d.md",
       "reference/api/geom_density_2d_filled.md",
       "reference/api/guide_colourbar.md",

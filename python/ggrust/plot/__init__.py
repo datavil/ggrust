@@ -3,7 +3,6 @@
 from ggrust.plot.aliases import (
     coord_equal,
     geom_bin_2d,
-    geom_contour_filled,
     geom_density_2d,
     geom_density_2d_filled,
     guide_colourbar,
@@ -83,6 +82,7 @@ from ggrust.plot.geom import (
     geom_bracket,
     geom_col,
     geom_contour,
+    geom_contour_filled,
     geom_contourf,
     geom_count,
     geom_crossbar,

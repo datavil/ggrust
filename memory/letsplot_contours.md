@@ -31,4 +31,12 @@ GitHub): `ContourStatUtil.kt`, `ContourFillHelper.kt`, `Contour.kt`,
   with `bw = MASS::bandwidth.nrd / 4` (fixture `tests/fixtures/density2d_reference.json`):
   line bounding boxes match to 1e-4.
 
+- **geom_contour_filled (priorities 7.1, ggplot2)**: its own stat (`stat/contour_filled.rs`),
+  not the lets-plot `contourf` levels. Default breaks are R's `pretty(range, 10)` (ported
+  `R_pretty`, rounding_eps 1e-10; tested against R), and the labels need ggplot2's
+  `pretty_isoband_levels` loop: `format(digits = d)` over the vector, `d` grown from 3
+  until every break formats differently (else narrow ranges like 100..101 collapse into
+  duplicate labels and the fill merges bands). Viridis default lives in
+  `train_style_scales` (`band_only`), not in the stat.
+
 **How to apply:** read before touching contour stats, isobands, or multi-ring polygons.

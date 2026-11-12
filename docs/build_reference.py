@@ -116,6 +116,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "geom_hex",
             "geom_contour",
             "geom_contourf",
+            "geom_contour_filled",
             "geom_density2d",
             "geom_quantile",
             "geom_density2df",

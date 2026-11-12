@@ -3896,6 +3896,107 @@ def geom_contourf(
     )
 
 
+def geom_contour_filled(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    bins: int | None = None,
+    binwidth: float | None = None,
+    breaks: Sequence[float] | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Fill the bands between the contour lines of z by band (ggplot2 ``geom_contour_filled``).
+
+    The rows give z at grid nodes, in any order; a missing node leaves a hole. Each band
+    between two consecutive breaks is one ordered category, ``..level..`` = ``"(low,
+    high]"``, so the legend lists the bands and any discrete fill scale applies
+    (``scale_fill_viridis()`` for ggplot2's look). ``geom_contourf`` is lets_plot's
+    variant with a continuous ``..level..`` and a colorbar.
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``: ``x``, ``y``, ``z`` (required), ``fill``,
+        ``color``, ``alpha``, ``size``, ``linetype``.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name; ``"contour_filled"`` when None.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"identity"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        This layer's key in a manual legend: a label, or ``layer_key()``.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content: ``layer_tooltips()``, a list of column names, or ``"none"`` to disable
+        tooltips (HTML output).
+    bins : int, optional
+        Number of bands; the z range is widened to round steps first (ggplot2).
+        Default: about 10 bands at R's ``pretty()`` breaks.
+    binwidth : float, optional
+        Height of each band, on multiples of it; used when ``bins`` is not given.
+    breaks : list of float, optional
+        Explicit band edges (z values, at least two); win over ``bins`` and
+        ``binwidth``. Nothing is drawn below the first or above the last.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Constant aesthetics such as ``fill="steelblue"`` or ``alpha=0.5``.
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> import numpy as np
+    >>> x, y = np.meshgrid(np.linspace(-2, 2, 40), np.linspace(-2, 2, 40))
+    >>> data = {"x": x.ravel(), "y": y.ravel(), "z": np.exp(-(x**2 + y**2)).ravel()}
+    >>> plot = ggplot(data, aes("x", "y", z="z")) + geom_contour_filled()
+    """
+    return _geom(
+        "contour_filled",
+        mapping=mapping,
+        data=data,
+        stat=stat,
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        manual_key=manual_key,
+        sampling=sampling,
+        tooltips=tooltips,
+        bins=bins,
+        binwidth=binwidth,
+        breaks=breaks,
+        color_by=color_by,
+        fill_by=fill_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
 def geom_density2d(
     mapping: FeatureSpec | None = None,
     *,

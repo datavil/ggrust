@@ -44,8 +44,9 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   (rejected today because the engine only receives data values) [plotnine]
 - `geom_text(parse=)` is warned about and ignored (needs math text) [plotnine]
 - GAM smoothing method for `geom_smooth` [gaps]
-- `geom_contour_filled` is an alias of `geom_contourf` (continuous `..level..` fill);
-  ggplot2 fills each band with an ordered discrete level and has `stat_contour_filled` [gaps]
+- `stat_contour_filled` as a standalone layer and its `level_low`, `level_high`,
+  `level_mid`, `nlevel` variables (`geom_contour_filled` landed; breaks per panel
+  when faceted, ggplot2 takes them over the whole layer) [gaps]
 - `geom_density_ridges` with the full ggridges options (ggrust has `area_ridges`) [gaps]
 
 ### Specialised charts (lower priority for cellestial)

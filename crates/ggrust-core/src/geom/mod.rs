@@ -69,7 +69,7 @@ pub use bin2d::Bin2dGeom;
 pub use blank::BlankGeom;
 pub use boxplot::BoxplotGeom;
 pub use bracket::BracketGeom;
-pub use contour::{ContourGeom, ContourfGeom, Density2dGeom, Density2dfGeom};
+pub use contour::{ContourFilledGeom, ContourGeom, ContourfGeom, Density2dGeom, Density2dfGeom};
 pub use curve::CurveGeom;
 pub use dotplot::{DotplotGeom, YDotplotGeom};
 pub use half_boxplot::HalfBoxplotGeom;
@@ -306,6 +306,7 @@ pub static GEOMS: &[&dyn Geom] = &[
     &HexGeom,
     &ContourGeom,
     &ContourfGeom,
+    &ContourFilledGeom,
     &Density2dGeom,
     &Density2dfGeom,
     &QuantileGeom,

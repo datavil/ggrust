@@ -43,6 +43,10 @@ pub struct Density2dGeom;
 /// Bands between isolines of z (`stat="contourf"`).
 pub struct ContourfGeom;
 
+/// Bands between isolines of z, filled by an ordered discrete band level
+/// (`stat="contour_filled"`, ggplot2 `geom_contour_filled`).
+pub struct ContourFilledGeom;
+
 /// Bands of a 2D density (`stat="density2df"`).
 pub struct Density2dfGeom;
 
@@ -131,4 +135,5 @@ macro_rules! band_geom {
 line_geom!(ContourGeom, "contour");
 line_geom!(Density2dGeom, "density2d");
 band_geom!(ContourfGeom, "contourf");
+band_geom!(ContourFilledGeom, "contour_filled");
 band_geom!(Density2dfGeom, "density2df");

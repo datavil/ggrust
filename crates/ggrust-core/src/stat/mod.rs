@@ -9,6 +9,7 @@ mod boxplot;
 mod centroid;
 mod compare_means;
 mod contour;
+mod contour_filled;
 mod cor;
 mod count;
 mod density;
@@ -50,6 +51,7 @@ pub use boxplot::{BoxplotOutlierStat, BoxplotStat};
 pub use centroid::{CentroidStat, SummaryXyStat};
 pub use compare_means::CompareMeansStat;
 pub use contour::{ContourStat, ContourfStat};
+pub use contour_filled::ContourFilledStat;
 pub use cor::CorStat;
 pub use count::CountStat;
 pub use density_1d::DensityStat;
@@ -165,6 +167,7 @@ pub static STATS: &[&dyn Stat] = &[
     &BinHexStat,
     &ContourStat,
     &ContourfStat,
+    &ContourFilledStat,
     &Density2dStat,
     &Density2dfStat,
     &PointDensityStat,

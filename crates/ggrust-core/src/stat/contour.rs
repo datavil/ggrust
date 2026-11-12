@@ -417,6 +417,26 @@ impl Grid {
     }
 }
 
+impl Grid {
+    /// The bands between consecutive `breaks` (ascending), lowest first, one piece
+    /// per non-empty band; `level` is the band's index (`stat="contour_filled"`).
+    pub(super) fn bands_between(&self, breaks: &[f64]) -> Vec<Piece> {
+        if breaks.len() < 2 || self.z_range().is_none() {
+            return Vec::new();
+        }
+        let cells = Cells::new(self);
+        let bands: Vec<usize> = (1..breaks.len()).collect();
+        let parallel = parallel::is_worth(self.z.len() * bands.len());
+        parallel::ordered_map(bands, parallel, |band| Piece {
+            points: cells.isoband(band, breaks),
+            level: (band - 1) as f64,
+        })
+        .into_iter()
+        .filter(|piece| !piece.points.is_empty())
+        .collect()
+    }
+}
+
 /// The grid with the centre value of every complete cell.
 struct Cells<'a> {
     grid: &'a Grid,

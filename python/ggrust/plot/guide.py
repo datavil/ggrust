@@ -22,6 +22,7 @@ if TYPE_CHECKING:
 
 __all__ = [
     "RangeKey",
+    "guide_axis",
     "guide_axis_mark",
     "guide_axis_nested",
     "guide_bins",
@@ -41,6 +42,68 @@ def _guide(name: str | None, **kwargs: Any) -> FeatureSpec:
         )
         raise SpecError(message)
     return FeatureSpec("guide", name=name, **kwargs)
+
+
+_CAPS: tuple[str, ...] = ("none", "both", "upper", "lower")
+
+
+def guide_axis(
+    title: str | None = None,
+    *,
+    cap: Literal["none", "both", "upper", "lower"] | bool | None = None,
+) -> FeatureSpec:
+    """Axis guide for a position scale, with axis capping (ggplot2 ``guide_axis``).
+
+    ``cap`` cuts the axis line back to the outermost breaks. It shows only where the
+    theme draws an axis line (``theme_classic()``, or
+    ``theme(axis_line=element_line())``); ticks, labels and the grid are unchanged.
+
+    Parameters
+    ----------
+    title : str, optional
+        Axis title, as ``labs(x=...)``.
+    cap : {"none", "both", "upper", "lower"} or bool, default="none"
+        Which ends of the axis line stop at the outermost break: ``"both"``, the
+        right (top) end only (``"upper"``), the left (bottom) end only
+        (``"lower"``), or none. ``True`` is ``"both"``, ``False`` is ``"none"``.
+        The ends are visual: ``"upper"`` is the right end also on a reversed scale.
+
+    Returns
+    -------
+    FeatureSpec
+        Guide specification for ``guides(x=...)`` / ``guides(y=...)`` or a discrete
+        position scale's ``guide=``.
+
+    Raises
+    ------
+    SpecError
+        If ``cap`` is an unknown name.
+    UnsupportedValueError
+        If ``cap`` is neither a name nor a boolean.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3]}
+    >>> plot = (
+    ...     ggplot(data, aes("age", "weight"))
+    ...     + geom_point()
+    ...     + theme_classic()
+    ...     + guides(x=guide_axis(cap="both"), y=guide_axis(cap="upper"))
+    ... )
+    """
+    if cap is not None and not isinstance(cap, bool):
+        listing = ", ".join(map(repr, _CAPS))
+        if not isinstance(cap, str):
+            reason = f"expected one of {listing} or a bool, got {cap.__class__.__name__}"
+            raise UnsupportedValueError(
+                f"guide_axis(cap={cap!r}): {reason}", path="cap", reason=reason
+            )
+        if cap not in _CAPS:
+            reason = f"unknown cap {cap!r}; use one of {listing}{did_you_mean(cap, _CAPS)}"
+            raise SpecError(f"guide_axis(cap={cap!r}): {reason}", path="cap", reason=reason)
+    return _guide("axis", title=title, cap=cap)
 
 
 _SPREADS: tuple[str, ...] = ("nearest", "even")

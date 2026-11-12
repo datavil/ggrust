@@ -59,7 +59,6 @@ new engine work or a new subsystem. Items already scheduled keep their `plan.md`
 | 6.5 | Rich text in labels (ggtext style) | Wanted, but touches text layout | L | lets-plot `element_markdown` (ggrust already has it), ggplot2 extension (ggtext); check what is still missing |
 | 6.6 | `gggrid` `sharex` / `sharey` with discrete scales | Narrow case | M | lets-plot |
 | 6.7 | Corner-aware legend and tag layout | Narrow case | M | n/a (layout quality) |
-| 6.9 | Axis capping | Cosmetic | S | ggplot2 (`guide_axis(cap=)`) |
 | 6.12 | Bivariate color scale with a bivariate legend | Niche, needs a new guide | L | ggplot2 extension (biscale) |
 
 ## 7. Specialised charts

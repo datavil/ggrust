@@ -144,6 +144,7 @@ from ggrust.plot.gghighlight import gghighlight
 from ggrust.plot.ggtb import ggtb
 from ggrust.plot.guide import (
     RangeKey,
+    guide_axis,
     guide_axis_mark,
     guide_axis_nested,
     guide_bins,
@@ -507,6 +508,7 @@ __all__ = [
     "ggsize",
     "ggtb",
     "ggtitle",
+    "guide_axis",
     "guide_axis_dendro",
     "guide_axis_mark",
     "guide_axis_nested",

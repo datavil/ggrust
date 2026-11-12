@@ -454,6 +454,7 @@ Titles, axis labels and legends.
 | [`guide_legend()`](api/guide_legend.md) | Show a key legend for an aesthetic. |
 | [`guide_colorbar()`](api/guide_colorbar.md) | Show a colorbar for a continuous color or fill scale. |
 | [`guide_bins()`](api/guide_bins.md) | Show a binned scale's keys touching, labelled on their edges (ggplot2). |
+| [`guide_axis()`](api/guide_axis.md) | Axis guide for a position scale, with axis capping (ggplot2 ``guide_axis``). |
 | [`guide_axis_mark()`](api/guide_axis_mark.md) | Axis guide that labels the scale's breaks with leader lines (ComplexHeatmap ``anno_mark``). |
 | [`guide_axis_nested()`](api/guide_axis_nested.md) | Axis guide with brackets naming groups of breaks (R legendry ``guide_axis_nested``). |
 | [`key_range_manual()`](api/key_range_manual.md) | Give the groups of ``guide_axis_nested()`` by their first and last break (legendry). |

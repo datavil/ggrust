@@ -5574,9 +5574,14 @@ fn report_unimplemented(spec: &PlotSpec, warnings: &mut Vec<String>) {
             });
         let is_axis_mark = matches!(key.as_str(), "x" | "y")
             && match guide {
-                GuideSpec::Name(name) => matches!(name.as_str(), "axis_mark" | "axis_nested"),
+                GuideSpec::Name(name) => {
+                    matches!(name.as_str(), "axis" | "axis_mark" | "axis_nested")
+                }
                 GuideSpec::Full(options) => {
-                    matches!(options.name.as_deref(), Some("axis_mark" | "axis_nested"))
+                    matches!(
+                        options.name.as_deref(),
+                        Some("axis" | "axis_mark" | "axis_nested")
+                    )
                 }
             };
         // `labs(z=)` titles the z axis of coord_3d.

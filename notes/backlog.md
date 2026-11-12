@@ -96,7 +96,6 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 - Locale-aware label formatting: decimal marks, currency, percent, month names [gaps]
 - Set common scale options once, for example one palette for every color scale
   (ggplot2 #4269) [users]
-- Axis capping (lets-plot #1184) [users]
 
 - `scale_*_distiller` accepts discrete data and any
   `direction` without an error (ggplot2 errors on discrete data) [bug hunt]

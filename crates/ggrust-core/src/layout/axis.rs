@@ -67,6 +67,8 @@ pub struct AxisBreaks {
     /// `minor_breaks=[...]` of the scale (transformed units); `None`: halfway
     /// between the breaks.
     pub minor: Option<Vec<f64>>,
+    /// `guide_axis(cap=)` of the scale: the axis line stops at the outermost breaks.
+    pub cap: super::axis_cap::AxisCap,
 }
 
 impl AxisBreaks {
@@ -78,6 +80,7 @@ impl AxisBreaks {
             target_count: 0,
             nested: None,
             minor: None,
+            cap: Default::default(),
         }
     }
 
@@ -134,6 +137,7 @@ pub fn choose_breaks(
         .nested()
         .filter(|nested| nested.side == super::axis_nested::NestedSide::Axis)
         .map(|nested| nested.resolve(scale));
+    breaks.cap = scale.cap();
     breaks.minor = match scale {
         PositionScale::Continuous(scale) => scale.minor_breaks.clone(),
         PositionScale::Discrete(_) => None,

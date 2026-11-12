@@ -72,6 +72,8 @@ pub struct ContinuousPositionScale {
     pub mark: Option<crate::layout::axis_mark::AxisMark>,
     /// `guide_axis_nested()`: brackets over ranges of the axis.
     pub nested: Option<std::sync::Arc<crate::layout::axis_nested::AxisNested>>,
+    /// `guide_axis(cap=)`: ends of the axis line cut back to the outermost breaks.
+    pub cap: crate::layout::axis_cap::AxisCap,
     /// `sec_axis=...`: a secondary axis on the other side.
     pub secondary: Option<super::secondary::SecondaryAxis>,
     /// `oob=...`: what values outside the limits become.
@@ -134,6 +136,7 @@ impl Default for ContinuousPositionScale {
             sides: Default::default(),
             mark: None,
             nested: None,
+            cap: Default::default(),
             secondary: None,
             oob: PositionOob::Censor,
             minor_breaks: None,

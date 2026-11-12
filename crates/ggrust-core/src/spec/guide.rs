@@ -130,11 +130,23 @@ impl TryFrom<Value> for GuideSpec {
 
 impl GuideSpec {
     pub(super) fn collect_unsupported(&self, parent: &str, found: &mut Vec<String>) {
-        // `guide_axis_mark()` / `guide_axis_nested()` options are read (and checked) with the position scales.
+        // `guide_axis()` / `guide_axis_mark()` / `guide_axis_nested()` options are
+        // read (and checked) with the position scales.
         if let GuideSpec::Full(options) = self
-            && !matches!(options.name.as_deref(), Some("axis_mark" | "axis_nested"))
+            && !matches!(
+                options.name.as_deref(),
+                Some("axis" | "axis_mark" | "axis_nested")
+            )
         {
             report_unsupported(parent, &options.unsupported, found);
+        }
+        // `guide_axis()` reads `title` and `cap`; its other ggplot2 options are not built.
+        if let GuideSpec::Full(options) = self
+            && options.name.as_deref() == Some("axis")
+        {
+            let mut rest = options.unsupported.clone();
+            rest.remove("cap");
+            report_unsupported(parent, &rest, found);
         }
     }
 }

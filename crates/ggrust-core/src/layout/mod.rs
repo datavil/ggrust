@@ -13,6 +13,7 @@
 //! Faceted plots are laid out by [`facet`]; the cells of a grid of plots by [`grid`].
 
 mod axis;
+pub mod axis_cap;
 pub mod axis_mark;
 pub mod axis_nested;
 pub mod box3d;
@@ -1505,7 +1506,16 @@ pub(crate) fn axis_side_nodes(
         theme.axis_line_y
     };
     if let Some(line) = line {
-        nodes.push(edge.line(layout, line));
+        let horizontal = edge.side.is_horizontal();
+        let capped = breaks.cap.line_span(
+            breaks.values.iter().map(|value| pixel(*value)),
+            span,
+            horizontal,
+        );
+        nodes.push(match capped {
+            Some(along) => edge.capped_line(layout, line, along),
+            None => edge.line(layout, line),
+        });
     }
     if let LabelArrangement::Mark(mark) = &breaks.arrangement
         && let Some(marks) = axis_mark::mark_nodes(edge, breaks, theme, mark, pixel, span)

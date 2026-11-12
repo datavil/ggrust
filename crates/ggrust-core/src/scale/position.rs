@@ -377,6 +377,14 @@ impl PositionScale {
         }
     }
 
+    /// `guide_axis(cap=)`: which ends of the axis line stop at the outermost breaks.
+    pub fn cap(&self) -> crate::layout::axis_cap::AxisCap {
+        match self {
+            PositionScale::Continuous(scale) => scale.cap,
+            PositionScale::Discrete(scale) => scale.cap,
+        }
+    }
+
     /// `guide_axis_nested()` options, when the axis draws group brackets.
     pub fn nested(&self) -> Option<&std::sync::Arc<crate::layout::axis_nested::AxisNested>> {
         match self {

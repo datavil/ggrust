@@ -197,6 +197,25 @@ impl AxisEdge {
         axis_line_node(layout.panel, line, self.side, self.base)
     }
 
+    /// The axis line on this side over `along` (low, high pixels along the axis)
+    /// only: `guide_axis(cap=)`.
+    pub fn capped_line(
+        self,
+        layout: &PlotLayout,
+        line: crate::theme::AxisLine,
+        along: (f64, f64),
+    ) -> Node {
+        let mut panel = layout.panel;
+        if self.side.is_horizontal() {
+            panel.x = along.0;
+            panel.width = along.1 - along.0;
+        } else {
+            panel.y = along.0;
+            panel.height = along.1 - along.0;
+        }
+        axis_line_node(panel, line, self.side, self.base)
+    }
+
     /// Major tick style and length on this side.
     pub fn major_tick(self, theme: &Theme) -> Option<(LineStyle, f64)> {
         if self.side.is_horizontal() {

@@ -438,6 +438,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "guide_legend",
             "guide_colorbar",
             "guide_bins",
+            "guide_axis",
             "guide_axis_mark",
             "guide_axis_nested",
             "key_range_manual",

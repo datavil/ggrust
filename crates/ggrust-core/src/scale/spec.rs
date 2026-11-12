@@ -128,6 +128,8 @@ pub struct AxisScaleSpec {
     mark_guide: Set<Options>,
     /// `guide_axis_nested(...)` options (`key`, `type`, `bracket`, ...).
     nested_guide: Set<Options>,
+    /// `guide_axis(...)` options (`cap`).
+    axis_guide: Set<Options>,
     /// `position=...`: the sides the axis is drawn on.
     sides: Set<AxisSides>,
     /// `sec_axis=...` / `dup_axis()`, parsed, with its path.
@@ -204,6 +206,7 @@ impl AxisScaleSpec {
         scale.sides = self.sides();
         scale.mark = self.axis_mark()?;
         scale.nested = self.axis_nested(false)?;
+        scale.cap = self.axis_cap()?;
         let labels = self.label_texts()?;
         scale.temporal = self.temporal_axis(column_kind, warnings)?;
         if scale.temporal.is_none() {
@@ -342,6 +345,7 @@ impl AxisScaleSpec {
         scale.sides = self.sides();
         scale.mark = self.axis_mark()?;
         scale.nested = self.axis_nested(true)?;
+        scale.cap = self.axis_cap()?;
         for (key, set) in [("oob", &self.oob), ("minor_breaks", &self.minor_breaks)] {
             if let Some((_, path)) = set {
                 warnings.push(format!(
@@ -426,6 +430,15 @@ impl AxisScaleSpec {
             .as_ref()
             .map(|(options, path)| AxisMark::parse(options, path))
             .transpose()
+    }
+
+    /// The `guide_axis(cap=)` option, checked.
+    fn axis_cap(&self) -> Result<crate::layout::axis_cap::AxisCap> {
+        self.axis_guide
+            .as_ref()
+            .map_or(Ok(Default::default()), |(options, path)| {
+                crate::layout::axis_cap::AxisCap::parse(options, path)
+            })
     }
 
     /// The `guide_axis_nested()` options, checked for a discrete or continuous axis.
@@ -735,6 +748,14 @@ pub fn position_scales(spec: &PlotSpec, warnings: &mut Vec<String>) -> Result<Po
         {
             target.nested_guide = Some((options, format!("guides.{aesthetic}")));
         }
+        if target.axis_guide.is_none()
+            && let Some(options) = spec
+                .guides
+                .get(aesthetic)
+                .and_then(|guide| named_options(guide, "axis"))
+        {
+            target.axis_guide = Some((options, format!("guides.{aesthetic}")));
+        }
     }
     let [x, y, xside_y, yside_x, z] = merged;
     Ok(PositionScales {
@@ -829,6 +850,13 @@ fn merge(target: &mut AxisScaleSpec, scale: &ScaleSpec, path: &str) {
     if let Some(name) = &scale.name {
         target.name = Some(name.clone());
     }
+    // `guide_axis(title=)` on the scale titles the axis, over the scale's name.
+    if let Some(GuideSpec::Full(options)) = &scale.guide
+        && options.name.as_deref() == Some("axis")
+        && let Some(title) = &options.title
+    {
+        target.name = Some(title.clone());
+    }
     if let Some(trans) = &scale.trans {
         target.trans = Some((trans.clone(), at("trans")));
     }
@@ -904,6 +932,13 @@ fn merge(target: &mut AxisScaleSpec, scale: &ScaleSpec, path: &str) {
         .and_then(|guide| named_options(guide, "axis_nested"))
     {
         target.nested_guide = Some((options, at("guide")));
+    }
+    if let Some(options) = scale
+        .guide
+        .as_ref()
+        .and_then(|guide| named_options(guide, "axis"))
+    {
+        target.axis_guide = Some((options, at("guide")));
     }
 }
 
@@ -1155,12 +1190,28 @@ fn report_unbuilt(scale: &ScaleSpec, path: &str, warnings: &mut Vec<String>) {
                     .guide
                     .as_ref()
                     .and_then(|guide| named_options(guide, "axis_nested"))
+                    .is_none()
+                && scale
+                    .guide
+                    .as_ref()
+                    .and_then(|guide| named_options(guide, "axis"))
                     .is_none(),
         ),
         ("scale_mapper_kind", scale.scale_mapper_kind.is_some()),
     ];
     for (key, _) in present.iter().filter(|(_, present)| *present) {
         warnings.push(format!("at '{path}.{key}': not supported yet; ignored"));
+    }
+    if let Some(options) = scale
+        .guide
+        .as_ref()
+        .and_then(|guide| named_options(guide, "axis"))
+    {
+        for key in options.keys().filter(|key| *key != "cap") {
+            warnings.push(format!(
+                "at '{path}.guide.{key}': guide_axis({key}=) is not supported yet; ignored"
+            ));
+        }
     }
     let built = [
         "datetime",

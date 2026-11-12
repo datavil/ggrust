@@ -7,6 +7,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 ### Added
 
 - `scale_size_binned`, `scale_alpha_binned` and `guide_bins()`, as ggplot2: values take the size or alpha of their bin, and the legend shows touching keys labelled on their edges (`guide_bins(show_limits=)`, also usable on `scale_*_steps`).
+- `guide_axis(title=, cap=)`: axis capping, as ggplot2 (the axis line stops at the outermost breaks).
 - `theme_dark()` and `theme_linedraw()`, as ggplot2.
 - `rescaler=` on continuous color scales, as ggplot2: a function `rescaler(x, to, from_)` (`x` a polars Series) that maps the data to 0..1 before the palette, colorbar included.
 - `ggrust.data`: example datasets `penguins`, `mpg`, `economics` and `iris` as polars DataFrames (`from ggrust.data import penguins`), with `DatasetNotFoundError` for unknown names.

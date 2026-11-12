@@ -425,6 +425,7 @@ nav = [
       "reference/api/guide_legend.md",
       "reference/api/guide_colorbar.md",
       "reference/api/guide_bins.md",
+      "reference/api/guide_axis.md",
       "reference/api/guide_axis_mark.md",
       "reference/api/guide_axis_nested.md",
       "reference/api/key_range_manual.md",

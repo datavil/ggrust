@@ -50,6 +50,8 @@ pub struct DiscretePositionScale {
     pub mark: Option<crate::layout::axis_mark::AxisMark>,
     /// `guide_axis_nested()`: brackets over groups of categories.
     pub nested: Option<std::sync::Arc<crate::layout::axis_nested::AxisNested>>,
+    /// `guide_axis(cap=)`: ends of the axis line cut back to the outermost breaks.
+    pub cap: crate::layout::axis_cap::AxisCap,
 }
 
 impl Default for DiscretePositionScale {
@@ -72,6 +74,7 @@ impl Default for DiscretePositionScale {
             sides: Default::default(),
             mark: None,
             nested: None,
+            cap: Default::default(),
         }
     }
 }

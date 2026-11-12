@@ -916,7 +916,8 @@ def scale_x_discrete(
         ``guide_axis_mark()`` labels the ``breaks`` with leader lines, spread so
         they never overlap (a ggrust guide); pass ``limits=`` too to keep the axis
         order. ``guide_axis_nested()`` draws brackets naming groups of
-        categories. Other axis guides are not supported.
+        categories. ``guide_axis(cap=)`` cuts the axis line back to the outermost
+        categories.
     limits : list of str, optional
         The categories to show, in axis order; other categories are dropped.
     expand : list, optional

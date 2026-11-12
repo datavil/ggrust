@@ -436,6 +436,8 @@ nav = [
       "reference/api/theme_minimal2.md",
       "reference/api/theme_bw.md",
       "reference/api/theme_light.md",
+      "reference/api/theme_dark.md",
+      "reference/api/theme_linedraw.md",
       "reference/api/theme_void.md",
       "reference/api/theme_none.md",
     ] },

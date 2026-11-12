@@ -111,8 +111,7 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   several sides need one legend band per side in the layout (size L; the other
   per-guide options landed in 3.10). Guide `theme=` also rejects complete themes
   and block-level elements (`legend_position`, `legend_box*`, `legend_spacing*`) [plotnine]
-- Built-in themes: `theme_538`, `theme_dark`, `theme_linedraw`, `theme_tufte`
-  [plotnine]
+- Built-in themes: `theme_538`, `theme_tufte` [plotnine]
 - Theme options: `axis_ticks_direction` (and `_x`, `_y`), `legend_justification_top` (and
   bottom, left, right, inside), `legend_text_position`, `legend_title_position`,
   `legend_box_background`, `legend_box_margin`, `legend_frame` [plotnine]
@@ -120,7 +119,10 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 - `gggrid` `sharex` / `sharey` with discrete scales (lets-plot #1015) [users]
 - Corner-aware legend and tag layout [gaps]
 - Rich text in labels: bold, italic, color spans (ggtext style) [gaps]
-- Dark theme (plotnine #164) [users]
+- Complete themes with `ink=` and `paper=` (ggplot2 4.0: `theme_grey(ink="white",
+  paper="black")` draws a whole plot dark from two colors); today a dark plot is a
+  dark flavor (`flavor_darcula`, `flavor_high_contrast_dark`) and `theme_dark` darkens
+  only the panel [gaps]
 
 ## 5. Python API
 

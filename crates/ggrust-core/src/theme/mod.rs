@@ -1652,6 +1652,45 @@ mod tests {
     }
 
     #[test]
+    fn dark_and_linedraw_follow_ggplot2() {
+        let theme = |name: &str| {
+            Theme::from_spec(
+                Some(&spec(&format!(r#"{{"name": "{name}"}}"#))),
+                &mut Vec::new(),
+            )
+            .unwrap()
+        };
+        // ggplot2 4.0.1 theme_dark: col_mix(ink, paper, 0.499 / 0.42 / 0.15 / 0.899).
+        let dark = theme("dark");
+        let panel = dark.panel_background.unwrap();
+        assert_eq!(panel.fill, Color::rgb(0x7F, 0x7F, 0x7F));
+        assert_eq!(panel.border, None);
+        let grid = dark.panel_grid_major_x.unwrap();
+        assert_eq!(
+            (grid.color, grid.width),
+            (Color::rgb(0x6B, 0x6B, 0x6B), 0.7)
+        );
+        assert_eq!(dark.panel_grid_minor_x.unwrap().width, 0.25);
+        assert_eq!(dark.axis_ticks_x.unwrap().width, 0.7);
+        assert_eq!(
+            dark.strip_background.unwrap().fill,
+            Color::rgb(0x26, 0x26, 0x26)
+        );
+        assert_eq!(dark.strip_text.unwrap().color, Color::rgb(0xE5, 0xE5, 0xE5));
+
+        // theme_linedraw: theme_bw in pure ink.
+        let linedraw = theme("linedraw");
+        let border = linedraw.panel_background.unwrap().border.unwrap();
+        assert_eq!(border.color, Color::BLACK);
+        let grid = linedraw.panel_grid_major_x.unwrap();
+        assert_eq!((grid.color, grid.width), (Color::BLACK, 0.14));
+        assert_eq!(linedraw.panel_grid_minor_x.unwrap().width, 0.07);
+        assert_eq!(linedraw.strip_background.unwrap().fill, Color::BLACK);
+        assert_eq!(linedraw.strip_text.unwrap().color, Color::WHITE);
+        assert_eq!(linedraw.axis_text_x.unwrap().color, Color::BLACK);
+    }
+
+    #[test]
     fn errors_and_warnings_name_the_option() {
         let error = Theme::from_spec(
             Some(&spec(r#"{"legend_position": "middle"}"#)),

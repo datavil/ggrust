@@ -452,6 +452,8 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "theme_minimal2",
             "theme_bw",
             "theme_light",
+            "theme_dark",
+            "theme_linedraw",
             "theme_void",
             "theme_none",
         ],

@@ -470,6 +470,8 @@ Complete themes, and `theme()` to change single elements.
 | [`theme_minimal2()`](api/theme_minimal2.md) | Use lets-plot's default theme. |
 | [`theme_bw()`](api/theme_bw.md) | Use the black-and-white theme. |
 | [`theme_light()`](api/theme_light.md) | Use the light theme. |
+| [`theme_dark()`](api/theme_dark.md) | Use the dark theme: a mid-grey panel with dark grid lines. |
+| [`theme_linedraw()`](api/theme_linedraw.md) | Use the line-drawing theme: a black frame and thin black grid lines. |
 | [`theme_void()`](api/theme_void.md) | Use the classic theme without lines and axes. |
 | [`theme_none()`](api/theme_none.md) | Use the unstyled theme. |
 

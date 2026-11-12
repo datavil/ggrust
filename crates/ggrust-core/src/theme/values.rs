@@ -234,7 +234,7 @@ const GREY85: Color = Color::rgb(0xD9, 0xD9, 0xD9);
 
 /// Named theme names, for error messages.
 pub const THEME_NAMES: &str =
-    "'minimal2', 'classic', 'bw', 'grey' ('gray'), 'light', 'minimal', 'none'";
+    "'minimal2', 'classic', 'bw', 'grey' ('gray'), 'light', 'dark', 'linedraw', 'minimal', 'none'";
 
 /// Flavor names, for error messages.
 pub const FLAVOR_NAMES: &str = "'standard', 'darcula', 'solarized_light', 'solarized_dark', \
@@ -566,6 +566,123 @@ fn named(name: &str) -> Option<(Values, Option<Flavor>)> {
                 GREY85,
                 Color::rgb(0xEB, 0xEB, 0xEB),
                 DARK_GREY,
+            ))
+        }
+        "dark" => {
+            // ggplot2 4.0.1 `theme_dark`: `theme_grey` with a mid-grey panel, a
+            // darker grid at half the grey theme's widths, thin ticks and dark
+            // strips with light text. Widths are the grey theme's lets-plot widths
+            // scaled by ggplot2's ratios.
+            values.element(
+                "panel_background",
+                Props {
+                    size: Some(0.0),
+                    fill: symbol(Symbol::Grey3),
+                    ..Props::default()
+                },
+            );
+            grid(&mut values, Symbol::Grey1);
+            values.element(
+                "panel_grid_major",
+                Props {
+                    size: Some(0.7),
+                    ..Props::default()
+                },
+            );
+            values.element(
+                "panel_grid_minor",
+                Props {
+                    size: Some(0.25),
+                    ..Props::default()
+                },
+            );
+            values.element("axis_line", blank());
+            values.element(
+                "axis_ticks",
+                Props {
+                    size: Some(0.7),
+                    ..Props::default()
+                },
+            );
+            values.element(
+                "strip_background",
+                Props {
+                    size: Some(0.0),
+                    fill: symbol(Symbol::Grey2),
+                    ..Props::default()
+                },
+            );
+            values.element(
+                "strip_text",
+                Props {
+                    color: Some(Paint::Color(Color::rgb(0xE5, 0xE5, 0xE5))),
+                    ..Props::default()
+                },
+            );
+            Some(Flavor {
+                white: Color::WHITE,
+                black: DARK_GREY,
+                grey: [
+                    Color::rgb(0x6B, 0x6B, 0x6B),
+                    Color::rgb(0x26, 0x26, 0x26),
+                    Color::rgb(0x7F, 0x7F, 0x7F),
+                    DARK_GREY,
+                ],
+            })
+        }
+        "linedraw" => {
+            // ggplot2 4.0.1 `theme_linedraw`: `theme_bw` drawn in pure ink: a
+            // black frame, thin black grid lines (a tenth and a twentieth of the
+            // bw widths), thin black ticks and black strips with paper text.
+            values.element(
+                "panel_background",
+                Props {
+                    color: symbol(Symbol::Black),
+                    ..Props::default()
+                },
+            );
+            grid(&mut values, Symbol::Black);
+            values.element(
+                "panel_grid_major",
+                Props {
+                    size: Some(0.14),
+                    ..Props::default()
+                },
+            );
+            values.element(
+                "panel_grid_minor",
+                Props {
+                    size: Some(0.07),
+                    ..Props::default()
+                },
+            );
+            values.element("axis_line", blank());
+            values.element(
+                "axis_ticks",
+                Props {
+                    size: Some(0.7),
+                    ..Props::default()
+                },
+            );
+            values.element(
+                "strip_background",
+                Props {
+                    color: symbol(Symbol::Black),
+                    fill: symbol(Symbol::Black),
+                    ..Props::default()
+                },
+            );
+            values.element(
+                "strip_text",
+                Props {
+                    color: symbol(Symbol::White),
+                    ..Props::default()
+                },
+            );
+            Some(Flavor::of(
+                "#FFFFFF",
+                "#000000",
+                ["#E9E9E9", "#D9D9D9", "#FFFFFF", "#000000"],
             ))
         }
         "light" => {

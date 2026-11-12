@@ -35,9 +35,11 @@ __all__ = [
     "theme",
     "theme_bw",
     "theme_classic",
+    "theme_dark",
     "theme_gray",
     "theme_grey",
     "theme_light",
+    "theme_linedraw",
     "theme_minimal",
     "theme_minimal2",
     "theme_none",
@@ -797,6 +799,52 @@ def theme_light() -> FeatureSpec:
     >>> plot = plot + theme_light()
     """
     return _named("light")
+
+
+def theme_dark() -> FeatureSpec:
+    """Use the dark theme: a mid-grey panel with dark grid lines.
+
+    ggplot2's ``theme_dark``. The page stays light; only the panel and strips are
+    dark, so bright colors stand out. For a fully dark plot, add a dark flavor such as
+    ``flavor_darcula()``.
+
+    Returns
+    -------
+    FeatureSpec
+        The theme.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + theme_dark()
+    """
+    return _named("dark")
+
+
+def theme_linedraw() -> FeatureSpec:
+    """Use the line-drawing theme: a black frame and thin black grid lines.
+
+    ggplot2's ``theme_linedraw``: ``theme_bw`` drawn in pure ink, with black strips.
+
+    Returns
+    -------
+    FeatureSpec
+        The theme.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + theme_linedraw()
+    """
+    return _named("linedraw")
 
 
 def theme_classic() -> FeatureSpec:

@@ -358,3 +358,12 @@ def test_display_modes_switch_notebook_output():
 def test_display_not_star_exported_and_lets_plot_removed():
     assert "display" not in gg.__all__  # would shadow IPython's display()
     assert not hasattr(gg, "LetsPlot")
+
+
+@pytest.mark.parametrize("name", ["dark", "linedraw"])
+def test_ggplot2_only_themes_render(name: str) -> None:
+    plot = gg.ggplot(FRAME, gg.aes("x", "y")) + gg.geom_point() + getattr(gg, f"theme_{name}")()
+    assert plot.as_dict()["theme"] == {"name": name}
+    svg = plot.to_svg()
+    color = "#7f7f7f" if name == "dark" else "#000000"
+    assert color in svg.lower()

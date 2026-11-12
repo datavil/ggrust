@@ -12,7 +12,8 @@ placement and fonts.
 --8<-- "figures/themes.html"
 
 ggrust has `theme_grey` (the default), `theme_classic`, `theme_minimal`,
-`theme_minimal2`, `theme_bw`, `theme_light`, `theme_void` and `theme_none`. The
+`theme_minimal2`, `theme_bw`, `theme_light`, `theme_dark`, `theme_linedraw`,
+`theme_void` and `theme_none`. The
 `flavor_*` functions (`flavor_darcula`, `flavor_solarized_light`, ...) recolor any of
 them.
 

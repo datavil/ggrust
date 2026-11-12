@@ -309,3 +309,15 @@ def test_bars_on_a_density_stat_stack_groups_only():
         stat="ydensity", position=gg.position_stack(mode="groups")
     )
     assert _ggrust_bars(implicit.to_svg()) == _ggrust_bars(explicit.to_svg())
+
+
+@pytest.mark.parametrize("position", ["identity", "stack", "dodge", "fill"])
+def test_bar_ends_are_ordered_below_zero(position):
+    # As ggplot2's layer data: ymin is the lower end, also for bars below zero.
+    plot = gg.ggplot(SIGNED, gg.aes("x", "y", fill="k")) + gg.geom_col(position=position)
+    frame = plot.layer_data(0)
+    assert (frame["ymin"] <= frame["ymax"]).all()
+    if position in ("identity", "dodge"):
+        # Unmoved bars span 0 to y in either direction.
+        assert frame["ymin"].to_list() == [min(0.0, y) for y in frame["y"]]
+        assert frame["ymax"].to_list() == [max(0.0, y) for y in frame["y"]]

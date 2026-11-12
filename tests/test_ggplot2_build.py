@@ -228,7 +228,6 @@ DENSITY_KERNEL = "inherited, 'Density kernels other than gaussian': unit support
 VIOLIN_QUANTILE_ROWS = "inherited, 'Violin quantile rows': ggplot2 4.0 appends the quartiles"
 BAR_STACK_ORDER = "inherited, 'Stack order': first group at the bottom, ggplot2 puts it on top"
 BAR_DODGE_SLOTS = "inherited, 'Dodge slots': a slot for every group, even where absent"
-NEGATIVE_BAR_ENDS = "gap, 'ymin and ymax of negative bars': swapped in layer data"
 
 KNOWN: dict[str, dict[str, str]] = {
     "histogram_bins": {
@@ -303,8 +302,6 @@ KNOWN: dict[str, dict[str, str]] = {
         "y.range": ZERO_BASED,
     },
     "col_values": {
-        "layer.ymax": NEGATIVE_BAR_ENDS,
-        "layer.ymin": NEGATIVE_BAR_ENDS,
         "x.range": DISCRETE_RANGE,
         "y.breaks": BREAKS,
     },

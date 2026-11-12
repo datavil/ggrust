@@ -46,6 +46,10 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 - Interactive zoom asks for the same number of axis breaks as a static plot of the zoomed range.
 - `lablim` on a continuous color, fill, size or alpha scale now warns. It still has no effect, as in lets-plot; use `format=` to shorten numeric labels.
 
+### Fixed
+
+- Bars below zero (`geom_bar`, `geom_col`, `geom_histogram`) have `ymin` as their lower end in `layer_data()` and `build()` (`ymin` = y, `ymax` = 0), as ggplot2; they had `ymin` = 0 and `ymax` = y. Drawing is unchanged. Found by the ggplot2 validation suite.
+
 ## [0.8.1] - 2026-11-09
 
 ### Added

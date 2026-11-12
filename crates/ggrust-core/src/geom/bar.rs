@@ -6,8 +6,9 @@
 //!
 //! Setup (before the position adjustment) turns x into `xmin`/`xmax` spans of
 //! `width` x the x resolution (lets-plot `BarGeom.getBinSpanCalculator`; a
-//! histogram with `breaks` spans the bin between them) and y into `ymin` = 0,
-//! `ymax` = y, so stacking and dodging move whole rectangles.
+//! histogram with `breaks` spans the bin between them) and y into the span from 0
+//! to y, `ymin` the lower end (as ggplot2: a bar below zero has `ymin` = y,
+//! `ymax` = 0), so stacking and dodging move whole rectangles.
 //!
 //! Drawing follows lets-plot: rows in reverse order, zero-width or zero-height
 //! rectangles widened to 0.1 px, `alpha` on the fill only.
@@ -248,7 +249,8 @@ fn histogram_breaks(parameters: &Parameters) -> Result<Vec<f64>> {
     Ok(breaks)
 }
 
-/// Add `xmin`/`xmax` (x spans), `ymin` = 0, `ymax` = y and the `width` used.
+/// Add `xmin`/`xmax` (x spans), `ymin`/`ymax` (0 and y, lower end first) and the
+/// `width` used.
 /// `just` places the span without `breaks` (ggplot2 `GeomBar$setup_data`):
 /// `x - width * just` to `x + width * (1 - just)`, in x resolutions.
 fn rectangles(mut data: LayerData, width: f64, just: f64, breaks: &[f64]) -> Result<LayerData> {
@@ -278,8 +280,28 @@ fn rectangles(mut data: LayerData, width: f64, just: f64, breaks: &[f64]) -> Res
     let continuous = |values: Vec<f64>| Column::Continuous(ContinuousColumn::from_values(values));
     data.insert(Aesthetic::Xmin, continuous(left))?;
     data.insert(Aesthetic::Xmax, continuous(right))?;
-    data.insert(Aesthetic::Ymin, continuous(vec![0.0; row_count]))?;
-    data.insert(Aesthetic::Ymax, Column::Continuous(y))?;
+    // A NaN y keeps NaN ends (`f64::min` would return the 0).
+    let ends = |pick: fn(f64, f64) -> f64| {
+        (0..row_count)
+            .map(|row| {
+                y.get(row).map(|value| {
+                    if value.is_nan() {
+                        value
+                    } else {
+                        pick(0.0, value)
+                    }
+                })
+            })
+            .collect()
+    };
+    data.insert(
+        Aesthetic::Ymin,
+        Column::Continuous(ContinuousColumn::from_options(ends(f64::min))),
+    )?;
+    data.insert(
+        Aesthetic::Ymax,
+        Column::Continuous(ContinuousColumn::from_options(ends(f64::max))),
+    )?;
     data.insert(Aesthetic::Width, continuous(vec![width; row_count]))?;
     Ok(data)
 }
@@ -415,7 +437,11 @@ mod tests {
         let bars = rectangles(data.clone(), 0.9, 0.5, &[]).unwrap();
         let xmin = bars.continuous(Aesthetic::Xmin).unwrap();
         assert!((xmin.get(0).unwrap() + 0.45).abs() < 1e-12);
-        assert_eq!(bars.continuous(Aesthetic::Ymax).unwrap().get(1), Some(-2.0));
+        // A bar below zero: ymin is its lower end, as ggplot2.
+        assert_eq!(bars.continuous(Aesthetic::Ymin).unwrap().get(1), Some(-2.0));
+        assert_eq!(bars.continuous(Aesthetic::Ymax).unwrap().get(1), Some(0.0));
+        assert_eq!(bars.continuous(Aesthetic::Ymin).unwrap().get(0), Some(0.0));
+        assert_eq!(bars.continuous(Aesthetic::Ymax).unwrap().get(0), Some(1.0));
         let bins = rectangles(data.clone(), 1.0, 0.5, &[-1.0, 1.0, 2.5, 4.0]).unwrap();
         let (xmin, xmax) = (
             bins.continuous(Aesthetic::Xmin).unwrap(),

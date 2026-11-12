@@ -8,7 +8,7 @@ use super::{Options, ThemeSpec, Value, from_value_tracked, optional_count, repor
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(try_from = "Value")]
 pub enum GuideSpec {
-    /// `"none"`, `"legend"`, `"colorbar"`.
+    /// `"none"`, `"legend"`, `"colorbar"`, `"bins"`.
     Name(String),
     /// `guide_legend(...)`, `guide_colorbar(...)`, or `{"title": ...}` from `labs()`.
     Full(Box<GuideOptions>),
@@ -18,18 +18,22 @@ impl GuideSpec {
     /// Whether a style aesthetic's guide uses only options ggrust draws: `"none"`,
     /// `"legend"`, `"colorbar"`, a title, `guide_legend(ncol, nrow, byrow, reverse,
     /// direction, order, theme)` and `guide_colorbar(barwidth, barheight, nbin,
-    /// label_position, display, alpha, draw_ulim, draw_llim)` plus those four.
+    /// label_position, display, alpha, draw_ulim, draw_llim)` plus those four, and
+    /// `guide_bins(show_limits)` with the legend's options.
     /// Anything else (`override_aes`, ...) is not built yet.
     pub fn is_built_style_guide(&self) -> bool {
         match self {
-            GuideSpec::Name(name) => matches!(name.as_str(), "none" | "legend" | "colorbar"),
+            GuideSpec::Name(name) => {
+                matches!(name.as_str(), "none" | "legend" | "colorbar" | "bins")
+            }
             GuideSpec::Full(options) => {
                 let colorbar = options.name.as_deref() == Some("colorbar");
+                let bins = options.name.as_deref() == Some("bins");
                 let rest = GuideOptions {
                     name: options
                         .name
                         .clone()
-                        .filter(|name| name != "legend" && name != "colorbar"),
+                        .filter(|name| !matches!(name.as_str(), "legend" | "colorbar" | "bins")),
                     title: None,
                     ncol: None,
                     nrow: None,
@@ -43,6 +47,7 @@ impl GuideSpec {
                     alpha: options.alpha.filter(|_| !colorbar),
                     draw_ulim: options.draw_ulim.filter(|_| !colorbar),
                     draw_llim: options.draw_llim.filter(|_| !colorbar),
+                    show_limits: options.show_limits.filter(|_| !bins),
                     reverse: None,
                     direction: None,
                     order: None,
@@ -100,6 +105,8 @@ pub struct GuideOptions {
     pub draw_ulim: Option<bool>,
     /// Colorbar: draw the ticks of a break at the lower end.
     pub draw_llim: Option<bool>,
+    /// `guide_bins(show_limits=)`: label the two outer edges (ggplot2).
+    pub show_limits: Option<bool>,
     /// Manual legend entries.
     pub manual_key: Option<Value>,
     /// Keys no component consumes.

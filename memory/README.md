@@ -95,3 +95,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Q-Q layers](letsplot_qq.md): line-by-line port, `sample` is a y position (`..sample..` is not transformed again), rows reordered with `take`; lets-plot source via `gh api`.
 - [coord_polar](coord_polar.md): layers draw flat, `Warp` bends the finished scene once; flat x is theta, flat y the radius; bitmaps raise.
 - [ggplot2 validation suite](ggplot2_validation_suite.md): checked-in `ggplot_build()` fixtures, KNOWN differences quote deviations rows; empty CSV cells, category names not slots, JSON infinities, FFT density tolerance, verify "inherited" against lets-plot SVG.
+- [rescaler and guide_bins](rescaler_and_guide_bins.md): callables travel in the spec's function table (index + `AxisFunction` method), rescale at the StyleScale, guide_bins = key legend with `bin_edges`, binned x needs pre-stat training.

@@ -146,6 +146,7 @@ from ggrust.plot.guide import (
     RangeKey,
     guide_axis_mark,
     guide_axis_nested,
+    guide_bins,
     guide_colorbar,
     guide_legend,
     guides,
@@ -207,6 +208,7 @@ from ggrust.plot.scale import (
     xlim,
     ylim,
 )
+from ggrust.plot.scale_binned import scale_alpha_binned, scale_size_binned
 from ggrust.plot.scale_color import (
     scale_color_brewer,
     scale_color_continuous,
@@ -508,6 +510,7 @@ __all__ = [
     "guide_axis_dendro",
     "guide_axis_mark",
     "guide_axis_nested",
+    "guide_bins",
     "guide_colorbar",
     "guide_colourbar",
     "guide_legend",
@@ -548,6 +551,7 @@ __all__ = [
     "sampling_vertex_dp",
     "sampling_vertex_vw",
     "scale_alpha",
+    "scale_alpha_binned",
     "scale_alpha_continuous",
     "scale_alpha_discrete",
     "scale_alpha_identity",
@@ -647,6 +651,7 @@ __all__ = [
     "scale_shape_manual",
     "scale_size",
     "scale_size_area",
+    "scale_size_binned",
     "scale_size_continuous",
     "scale_size_discrete",
     "scale_size_identity",

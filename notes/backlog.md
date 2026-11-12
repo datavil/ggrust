@@ -84,9 +84,12 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 - `scale_*_gradient2(trans=..., midpoint=...)` (and `steps2`) use `midpoint` in
   transformed units as given: `trans="log10", midpoint=100` colors everything near the
   low end; ggplot2 transforms the midpoint first (found by the 3.18 bug hunter)
-- Binned non-color scales: `scale_x_binned`, `scale_y_binned`, `scale_size_binned`,
-  `scale_alpha_binned` (with `guide_bins()`), and `guide_coloursteps()` as a guide name
-  with `even_steps=False`. The color and fill steps scales landed [gaps]
+- Binned position scales `scale_x_binned`, `scale_y_binned` (priorities 3.18, L), and
+  `guide_coloursteps()` as a guide name with `even_steps=False`. The color, fill, size
+  and alpha binned scales and `guide_bins()` landed [gaps]
+- `guide_bins()` on a continuous (not binned) scale: ggplot2 uses the breaks as bin
+  edges; ggrust raises a SpecError. `scale_linewidth_binned` and `guide_bins(angle=)`
+  are not built [ggplot2]
 - Bivariate color scale with a bivariate legend [gaps]
   (lets_plot needs `palettable`; `geom_imshow` `cmap` already does) [later]; plotnine
   spells these `scale_*_cmap` and `scale_*_cmap_d` [plotnine]

@@ -8,7 +8,8 @@
 //! or as `guide_legend(ncol, nrow, byrow)` asks. Horizontal legends put the title
 //! at the left. Several legends stack vertically, or side by side with
 //! `legend_box="horizontal"`. Text is measured with the real font, as everywhere
-//! in the layout.
+//! in the layout. A legend with `bin_edges` is ggplot2's `guide_bins()`: touching
+//! keys with labels on their edges along an axis line.
 //!
 //! Where the block goes (`legend_position`) is decided by the plot builder.
 
@@ -60,6 +61,10 @@ pub struct Legend {
     pub grid: KeyGrid,
     /// `guide_legend(direction, theme)`.
     pub style: GuideStyle,
+    /// `guide_bins()` (ggplot2): one label per bin edge (keys + 1, low end first,
+    /// blank ends unless `show_limits`). The keys touch in one row or column with
+    /// the labels on their edges along an axis line; `None`: a plain legend.
+    pub bin_edges: Option<Vec<Label>>,
 }
 
 /// Options of one guide box over the block's (ggplot2 `guide_*(direction=, theme=)`).
@@ -184,6 +189,7 @@ impl LegendBox {
                     && right.style.theme.is_none()
                     && left.title == right.title
                     && left.grid == right.grid
+                    && left.bin_edges == right.bin_edges
                     && left.keys.len() == right.keys.len()
                     && left.keys.iter().zip(&right.keys).all(|(left, right)| {
                         left.label == right.label
@@ -239,6 +245,41 @@ enum Measured<'a> {
     /// middle) and lines.
     Keys(&'a Legend, Vec<KeyCell>),
     Colorbar(&'a Colorbar, ColorbarLayout),
+    /// `guide_bins()`: the key cells (one per key), the edge labels with their
+    /// anchors (vertical middle) and alignment, the axis line and its ticks.
+    Bins(&'a Legend, BinsLayout),
+}
+
+/// A measured `guide_bins()`.
+struct BinsLayout {
+    cells: Vec<Rect>,
+    labels: Vec<((f64, f64), HorizontalAlign)>,
+    axis: [(f64, f64); 2],
+    ticks: Vec<[(f64, f64); 2]>,
+}
+
+impl BinsLayout {
+    fn translated(self, (dx, dy): (f64, f64)) -> BinsLayout {
+        let point = |(x, y): (f64, f64)| (x + dx, y + dy);
+        BinsLayout {
+            cells: self
+                .cells
+                .into_iter()
+                .map(|cell| Rect {
+                    x: cell.x + dx,
+                    y: cell.y + dy,
+                    ..cell
+                })
+                .collect(),
+            labels: self
+                .labels
+                .into_iter()
+                .map(|(anchor, align)| (point(anchor), align))
+                .collect(),
+            axis: self.axis.map(point),
+            ticks: self.ticks.into_iter().map(|tick| tick.map(point)).collect(),
+        }
+    }
 }
 
 type KeyCell = (Option<usize>, Rect, (f64, f64), Vec<Label>);
@@ -532,6 +573,20 @@ fn fit_legend<'a>(
     theme: &Theme,
     budget: Option<LegendBudget>,
 ) -> Result<MeasuredLegend<'a>> {
+    if let Some(edges) = &legend.bin_edges
+        && !legend.keys.is_empty()
+        && edges.len() == legend.keys.len() + 1
+    {
+        // Too large for its room: the plain legend's reflow and "+K more" keep it
+        // on the canvas.
+        let bins = measure_bins(legend, edges, horizontal, theme)?;
+        let fits = budget.is_none_or(|budget| {
+            bins.size.0 <= budget.most.0 + 1e-9 && bins.size.1 <= budget.most.1 + 1e-9
+        });
+        if fits {
+            return Ok(bins);
+        }
+    }
     let count = legend.keys.len();
     let fixed = legend.grid.columns.is_some() || legend.grid.rows.is_some();
     let natural = measure_legend(
@@ -766,6 +821,116 @@ fn measure_legend<'a>(
     })
 }
 
+/// `guide_bins()` (ggplot2 `GuideBins`): every key as large as the largest, the
+/// keys touching in one column (low bin at the top) or row (low bin at the left),
+/// an axis line on the label side with a tick toward the keys at each labelled
+/// edge, and the edge labels beside it.
+fn measure_bins<'a>(
+    legend: &'a Legend,
+    edges: &[Label],
+    horizontal: bool,
+    theme: &Theme,
+) -> Result<MeasuredLegend<'a>> {
+    let mut key = theme.legend_key_size;
+    for entry in &legend.keys {
+        for layer in &entry.layers {
+            let (width, height) = layer.geom.minimum_key_size(&layer.styles)?;
+            key.0 = key.0.max(pretty(width));
+            key.1 = key.1.max(pretty(height));
+        }
+    }
+    let (label_gap, band) = match theme.legend_text {
+        Some(style) => (
+            measure("_", style.size, style.font).width / 2.0,
+            text_band(style),
+        ),
+        None => (0.0, 0.0),
+    };
+    let label_width = |label: &Label| match theme.legend_text {
+        Some(style) if !label.text.is_empty() => measure_label(
+            &label.text,
+            label.superscript.as_deref(),
+            label.suffix.as_deref(),
+            style.size,
+            style.font,
+        ),
+        _ => 0.0,
+    };
+    let shown = |label: &Label| !label.text.is_empty() || label.superscript.is_some();
+    let count = legend.keys.len();
+    let tick = theme.legend_ticks_length;
+    let last = edges.len() - 1;
+    let (cells, labels, axis, ticks, graph) = if horizontal {
+        // Room for the end labels, centred on the ends.
+        let left = label_width(&edges[0]) / 2.0;
+        let right = label_width(&edges[last]) / 2.0;
+        let along = |index: usize| left + key.0 * index as f64;
+        let cells = (0..count)
+            .map(|index| Rect {
+                x: along(index),
+                y: 0.0,
+                width: key.0,
+                height: key.1,
+            })
+            .collect();
+        let label_y = key.1 + label_gap + band / 2.0;
+        let labels = (0..edges.len())
+            .map(|index| ((along(index), label_y), HorizontalAlign::Middle))
+            .collect();
+        let ticks = (0..edges.len())
+            .filter(|index| shown(&edges[*index]))
+            .map(|index| [(along(index), key.1 - tick), (along(index), key.1)])
+            .collect();
+        let axis = [(along(0), key.1), (along(count), key.1)];
+        let size = (
+            left + key.0 * count as f64 + right,
+            key.1 + if band > 0.0 { label_gap + band } else { 0.0 },
+        );
+        (cells, labels, axis, ticks, size)
+    } else {
+        // Room for the end labels, centred on the ends.
+        let top = if shown(&edges[0]) { band / 2.0 } else { 0.0 };
+        let bottom = if shown(&edges[last]) { band / 2.0 } else { 0.0 };
+        let along = |index: usize| top + key.1 * index as f64;
+        let cells = (0..count)
+            .map(|index| Rect {
+                x: 0.0,
+                y: along(index),
+                width: key.0,
+                height: key.1,
+            })
+            .collect();
+        let labels = (0..edges.len())
+            .map(|index| ((key.0 + label_gap, along(index)), HorizontalAlign::Start))
+            .collect();
+        let ticks = (0..edges.len())
+            .filter(|index| shown(&edges[*index]))
+            .map(|index| [(key.0 - tick, along(index)), (key.0, along(index))])
+            .collect();
+        let axis = [(key.0, along(0)), (key.0, along(count))];
+        let widest = edges.iter().map(label_width).fold(0.0, f64::max);
+        let size = (
+            key.0 + label_gap + widest,
+            top + key.1 * count as f64 + bottom,
+        );
+        (cells, labels, axis, ticks, size)
+    };
+    let (origin, title_anchor, size) = arrange_title(&legend.title, graph, horizontal, theme);
+    let layout = BinsLayout {
+        cells,
+        labels,
+        axis,
+        ticks,
+    };
+    Ok(MeasuredLegend {
+        theme: None,
+        title: &legend.title,
+        title_anchor,
+        size,
+        content: Measured::Bins(legend, layout.translated(origin)),
+    })
+}
+
 /// Lines of a label: plain labels wrap; a power label (`2·10` + superscript) stays
 /// on one line.
 fn label_lines(label: &Label, line_length: usize) -> Vec<Label> {
@@ -996,14 +1161,8 @@ pub fn draw_legends(block: &LegendBlock, origin: (f64, f64), theme: &Theme) -> R
                     // A real key's nodes go in a clickable group (interactive
                     // legend, HTML only); "+K more" stays plain.
                     let start = legend_nodes.len();
-                    let key = key.map(|index| &legend.keys[index]);
-                    if let Some(key) = key {
-                        if let Some(style) = theme.legend_key_background {
-                            legend_nodes.push(super::rect_node(cell, style));
-                        }
-                        for layer in &key.layers {
-                            legend_nodes.extend(layer.geom.draw_key(&layer.styles, cell)?);
-                        }
+                    if let Some(index) = key {
+                        draw_key(&legend.keys[*index], cell, theme, &mut legend_nodes)?;
                     }
                     if let Some(style) = theme.legend_text {
                         // Lines centred as a block on the key's middle.
@@ -1019,18 +1178,51 @@ pub fn draw_legends(block: &LegendBlock, origin: (f64, f64), theme: &Theme) -> R
                             ));
                         }
                     }
-                    if let Some(key) = key.filter(|_| theme.legend_interactive) {
-                        let nodes = legend_nodes.split_off(start);
-                        legend_nodes.push(Node::Group(Group {
-                            clip: None,
-                            role: Some(LEGEND_KEY_ROLE),
-                            anchor: None,
-                            key: Some(key_tag(&[legend_key_id(
-                                &legend.title,
-                                &key.label.to_string(),
-                            )])),
-                            nodes,
+                    if let Some(index) = key {
+                        group_key(
+                            legend,
+                            &legend.keys[*index],
+                            start,
+                            theme,
+                            &mut legend_nodes,
+                        );
+                    }
+                }
+            }
+            Measured::Bins(legend, layout) => {
+                let point = |(px, py): (f64, f64)| (x + px, y + py);
+                for (index, cell) in layout.cells.iter().enumerate() {
+                    let cell = Rect {
+                        x: x + cell.x,
+                        y: y + cell.y,
+                        ..*cell
+                    };
+                    let start = legend_nodes.len();
+                    draw_key(&legend.keys[index], cell, theme, &mut legend_nodes)?;
+                    group_key(legend, &legend.keys[index], start, theme, &mut legend_nodes);
+                }
+                // ggplot2 `legend.axis.line`: a thin line in the text color.
+                if let Some(style) = theme.legend_text {
+                    let stroke = crate::theme::LineStyle {
+                        color: style.color,
+                        width: BINS_AXIS_WIDTH,
+                        dash: Default::default(),
+                    }
+                    .stroke();
+                    for points in std::iter::once(layout.axis).chain(layout.ticks.iter().copied()) {
+                        legend_nodes.push(Node::Path(crate::scene::Path {
+                            points: points.iter().map(|point_at| point(*point_at)).collect(),
+                            closed: false,
+                            fill: None,
+                            stroke: Some(stroke.clone()),
                         }));
+                    }
+                    let edges = legend.bin_edges.as_deref().unwrap_or_default();
+                    for (label, (anchor, align)) in edges.iter().zip(&layout.labels) {
+                        if label.text.is_empty() && label.superscript.is_none() {
+                            continue;
+                        }
+                        legend_nodes.push(label_node(label, style, point(*anchor), *align, 0.0));
                     }
                 }
             }
@@ -1044,6 +1236,39 @@ pub fn draw_legends(block: &LegendBlock, origin: (f64, f64), theme: &Theme) -> R
         }));
     }
     Ok(nodes)
+}
+
+/// Width in pixels of a `guide_bins()` axis line and its ticks.
+const BINS_AXIS_WIDTH: f64 = 1.0;
+
+/// Draw one key (its background, then each layer's key) into `cell`.
+fn draw_key(key: &LegendKey, cell: Rect, theme: &Theme, nodes: &mut Vec<Node>) -> Result<()> {
+    if let Some(style) = theme.legend_key_background {
+        nodes.push(super::rect_node(cell, style));
+    }
+    for layer in &key.layers {
+        nodes.extend(layer.geom.draw_key(&layer.styles, cell)?);
+    }
+    Ok(())
+}
+
+/// Move the nodes from `start` on into the key's clickable group (interactive
+/// legend, HTML only).
+fn group_key(legend: &Legend, key: &LegendKey, start: usize, theme: &Theme, nodes: &mut Vec<Node>) {
+    if !theme.legend_interactive {
+        return;
+    }
+    let grouped = nodes.split_off(start);
+    nodes.push(Node::Group(Group {
+        clip: None,
+        role: Some(LEGEND_KEY_ROLE),
+        anchor: None,
+        key: Some(key_tag(&[legend_key_id(
+            &legend.title,
+            &key.label.to_string(),
+        )])),
+        nodes: grouped,
+    }));
 }
 
 #[cfg(test)]

@@ -377,6 +377,7 @@ nav = [
     ] },
     { "Size, shape and alpha scales" = [
       "reference/api/scale_size.md",
+      "reference/api/scale_size_binned.md",
       "reference/api/scale_size_area.md",
       "reference/api/scale_size_radius.md",
       "reference/api/scale_size_ordinal.md",
@@ -390,6 +391,7 @@ nav = [
       "reference/api/scale_linetype_manual.md",
       "reference/api/scale_linetype_identity.md",
       "reference/api/scale_alpha.md",
+      "reference/api/scale_alpha_binned.md",
       "reference/api/scale_alpha_manual.md",
       "reference/api/scale_alpha_identity.md",
       "reference/api/scale_linewidth.md",
@@ -422,6 +424,7 @@ nav = [
       "reference/api/guides.md",
       "reference/api/guide_legend.md",
       "reference/api/guide_colorbar.md",
+      "reference/api/guide_bins.md",
       "reference/api/guide_axis_mark.md",
       "reference/api/guide_axis_nested.md",
       "reference/api/key_range_manual.md",

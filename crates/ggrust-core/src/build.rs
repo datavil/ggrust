@@ -4265,9 +4265,14 @@ fn assemble_legends(
             }
             // lets-plot `fitsColorBar`: continuous colors get a colorbar unless a
             // legend is asked for.
+            // A binned scale gets `guide_bins()` unless a legend or colorbar is
+            // asked for (ggplot2; binned colors keep their steps colorbar).
+            let bins = guides.named("bins")
+                || (scale.is_binned() && !fits_colorbar && !guides.named("legend"));
             if let Some(guide) = scale.continuous_guide()
                 && fits_colorbar
                 && !guides.named("legend")
+                && !guides.named("bins")
             {
                 let options = guides.colorbar_options(aesthetic)?;
                 let style = guides.style(spec, theme)?;
@@ -4353,7 +4358,21 @@ fn assemble_legends(
             let Some(mut entries) = scale.legend_entries() else {
                 continue;
             };
-            if let Some(value) = missing_value(layer, aesthetic, scale, specs.get(&key)) {
+            let bin_edges = match bins {
+                true => Some(scale.bin_edge_labels(guides.show_limits()).ok_or_else(|| {
+                    Error::spec(
+                        format!("guides.{key}"),
+                        format!(
+                            "guide_bins() needs a binned scale; '{aesthetic}' is not binned. Use \
+                             scale_{aesthetic}_binned(), or guide_legend()"
+                        ),
+                    )
+                })?),
+                false => None,
+            };
+            if let Some(value) = missing_value(layer, aesthetic, scale, specs.get(&key))
+                .filter(|_| bin_edges.is_none())
+            {
                 entries.push(LegendEntry {
                     label: Label::plain("NA"),
                     value,
@@ -4368,10 +4387,15 @@ fn assemble_legends(
             let style = guides.style(spec, theme)?;
             match by_title
                 .iter_mut()
-                .find(|(known, known_group, _, _, _, _)| {
+                .find(|(known, known_group, _, _, _, _, _)| {
                     *known == title && *known_group == key.group
                 }) {
-                Some((_, _, group, known, known_overrides, known_style)) => {
+                Some((_, _, group, known, known_overrides, known_style, known_edges)) => {
+                    // guide_bins only when every merged aesthetic has the same
+                    // edges; otherwise a plain legend (ggplot2 draws two guides).
+                    if *known_edges != bin_edges {
+                        *known_edges = None;
+                    }
                     group.push((aesthetic, entries));
                     *known = known.combine(grid);
                     *known_style = std::mem::take(known_style).or(style);
@@ -4388,10 +4412,11 @@ fn assemble_legends(
                     grid,
                     overrides,
                     style,
+                    bin_edges,
                 )),
             }
         }
-        for (title, scale_group, mut group, grid, overrides, style) in by_title {
+        for (title, scale_group, mut group, grid, overrides, style, bin_edges) in by_title {
             if let Some(shown) = layer_legends.get_mut(layer_index) {
                 shown.push((title.clone(), group.clone()));
             }
@@ -4403,6 +4428,12 @@ fn assemble_legends(
                 grid,
                 style,
             );
+            // The same rule across layers sharing the legend.
+            if contributions[index].is_empty() {
+                legends[index].bin_edges = bin_edges;
+            } else if legends[index].bin_edges != bin_edges {
+                legends[index].bin_edges = None;
+            }
             let mut keys = Vec::new();
             // lets-plot `applyOverrideAesLists`: labels of every aesthetic, distinct;
             // per label, each aesthetic's last value with that label.
@@ -4456,6 +4487,9 @@ fn assemble_legends(
     for legend in &mut legends {
         if legend.style.reverse == Some(true) {
             legend.keys.reverse();
+            if let Some(edges) = &mut legend.bin_edges {
+                edges.reverse();
+            }
         }
     }
     let mut boxes: Vec<LegendBox> = colorbars
@@ -4480,6 +4514,7 @@ type TitledEntries = (
     KeyGrid,
     Overrides,
     GuideStyle,
+    Option<Vec<Label>>,
 );
 
 /// Colorbar segments drawn for `display="gradient"` / `"raster"`.
@@ -4588,6 +4623,7 @@ fn legend_index(
                 keys: Vec::new(),
                 grid,
                 style,
+                bin_edges: None,
             });
             contributions.push(Vec::new());
             groups.push(group);
@@ -4929,6 +4965,13 @@ impl<'a> Guides<'a> {
     /// `guide_colorbar(barwidth, barheight, nbin, label_position)`, validated. As lets-plot
     /// (`GuideOptionsList.getColorBarOptions`), one colorbar guide gives all of them:
     /// `guides()` over the scale's own guide, never mixed.
+    /// `guide_bins(show_limits=)`, when given.
+    fn show_limits(&self) -> Option<bool> {
+        self.options()
+            .filter(|(options, _)| options.name.as_deref() == Some("bins"))
+            .find_map(|(options, _)| options.show_limits)
+    }
+
     fn colorbar_options(&self, aesthetic: Aesthetic) -> Result<ColorbarOptions> {
         let Some((options, path)) = self
             .options()

@@ -384,6 +384,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
         "Map data to point size, point shape, transparency and line widths.",
         [
             "scale_size",
+            "scale_size_binned",
             "scale_size_area",
             "scale_size_radius",
             "scale_size_ordinal",
@@ -397,6 +398,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "scale_linetype_manual",
             "scale_linetype_identity",
             "scale_alpha",
+            "scale_alpha_binned",
             "scale_alpha_manual",
             "scale_alpha_identity",
             "scale_linewidth",
@@ -435,6 +437,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "guides",
             "guide_legend",
             "guide_colorbar",
+            "guide_bins",
             "guide_axis_mark",
             "guide_axis_nested",
             "key_range_manual",

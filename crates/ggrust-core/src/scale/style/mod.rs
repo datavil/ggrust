@@ -1077,24 +1077,65 @@ impl StyleScale {
         self.discrete_legend_entries()
     }
 
-    /// One legend entry per bin of a binned scale, low bin first, labelled with
-    /// its ends ("20 - 40"; ggplot2 `guide_bins` labels the edges instead).
-    fn bin_legend_entries(&self, bins: &Bins) -> Vec<LegendEntry> {
+    /// The labels of a binned scale's edges, low end first: formatted, the
+    /// inner edges taking given `labels` when `given` is set.
+    fn edge_labels(&self, bins: &Bins, given: bool) -> Vec<Label> {
         let transform = self.transform();
         let edges = bins.edges();
         let values: Vec<f64> = edges.iter().map(|edge| transform.inverse(*edge)).collect();
-        let format = self
-            .continuous
-            .as_ref()
-            .ok()
-            .and_then(|options| options.format.as_ref());
-        let labels: Vec<Label> = match format {
+        let options = self.continuous.as_ref().ok();
+        let format = options.and_then(|options| options.format.as_ref());
+        let mut labels: Vec<Label> = match format {
             Some(format) => values
                 .iter()
                 .map(|&value| format.format(PatternValue::Number(value)))
                 .collect(),
             None => format_breaks(&values, self.exponent_format),
         };
+        if let Some(given) = options
+            .and_then(|options| options.labels.as_ref())
+            .filter(|_| given)
+        {
+            let inner = bins.inner.len();
+            for (label, given) in labels[1..=inner].iter_mut().zip(align_labels(inner, given)) {
+                *label = Label::plain(given.clone());
+            }
+        }
+        labels
+    }
+
+    /// The edge labels of a binned scale for `guide_bins()` (ggplot2): one per
+    /// bin edge, low end first; the two ends are blank unless `show_limits`
+    /// (the guide's, else the scale's). `None` when the scale is not binned.
+    pub fn bin_edge_labels(&self, show_limits: Option<bool>) -> Option<Vec<Label>> {
+        let bins = self.bins()?;
+        let show_limits = show_limits.unwrap_or_else(|| {
+            self.continuous
+                .as_ref()
+                .ok()
+                .and_then(|options| options.binning)
+                .is_some_and(|binning| binning.show_limits)
+        });
+        let mut labels = self.edge_labels(&bins, true);
+        if !show_limits {
+            let last = labels.len() - 1;
+            labels[0] = Label::plain(String::new());
+            labels[last] = Label::plain(String::new());
+        }
+        Some(labels)
+    }
+
+    /// Whether the scale is binned (`scale_*_steps()`, `scale_*_binned()`).
+    pub fn is_binned(&self) -> bool {
+        self.bins().is_some()
+    }
+
+    /// One legend entry per bin of a binned scale, low bin first, labelled with
+    /// its ends ("20 - 40"); `guide_bins()` labels the edges instead
+    /// ([`Self::bin_edge_labels`]).
+    fn bin_legend_entries(&self, bins: &Bins) -> Vec<LegendEntry> {
+        let edges = bins.edges();
+        let labels = self.edge_labels(bins, false);
         let midpoints: Vec<f64> = edges
             .windows(2)
             .map(|pair| (pair[0] + pair[1]) / 2.0)
@@ -1508,6 +1549,35 @@ mod tests {
         let bins = scale.bins().unwrap();
         assert_eq!(bins.domain, (0.0, 100.0));
         assert_eq!(bins.inner, [20.0, 40.0, 60.0, 80.0]);
+    }
+
+    #[test]
+    fn bin_edge_labels_blank_the_ends_unless_limits_are_shown() {
+        let texts = |labels: Vec<Label>| -> Vec<String> {
+            labels.into_iter().map(|label| label.text).collect()
+        };
+        let steps = binned(vec![3.0, 50.0, 99.0], BINNING, None);
+        assert_eq!(
+            texts(steps.bin_edge_labels(None).unwrap()),
+            ["", "20", "40", "60", "80", ""]
+        );
+        assert_eq!(
+            texts(steps.bin_edge_labels(Some(true)).unwrap()),
+            ["0", "20", "40", "60", "80", "100"]
+        );
+        // The scale's show_limits, unless the guide says otherwise.
+        let shown = binned(
+            vec![3.0, 50.0, 99.0],
+            Binning {
+                show_limits: true,
+                ..BINNING
+            },
+            None,
+        );
+        assert_eq!(texts(shown.bin_edge_labels(None).unwrap())[0], "0");
+        assert_eq!(texts(shown.bin_edge_labels(Some(false)).unwrap())[0], "");
+        assert!(steps.is_binned());
+        assert!(scale(Aesthetic::Fill).bin_edge_labels(None).is_none());
     }
 
     #[test]

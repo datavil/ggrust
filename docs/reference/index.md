@@ -396,6 +396,7 @@ Map data to point size, point shape, transparency and line widths.
 | Name | Description |
 |---|---|
 | [`scale_size()`](api/scale_size.md) | Sizes for ``size``: data mapped linearly onto ``range``. |
+| [`scale_size_binned()`](api/scale_size_binned.md) | Map ``size`` to binned sizes (ggplot2). |
 | [`scale_size_area()`](api/scale_size_area.md) | Sizes whose circle area is proportional to the data. |
 | [`scale_size_radius()`](api/scale_size_radius.md) | Map continuous ``size`` linearly onto the point radius. |
 | [`scale_size_ordinal()`](api/scale_size_ordinal.md) | Map ordered categories of ``size`` to evenly spaced sizes. |
@@ -409,6 +410,7 @@ Map data to point size, point shape, transparency and line widths.
 | [`scale_linetype_manual()`](api/scale_linetype_manual.md) | Your own line types for ``linetype``. |
 | [`scale_linetype_identity()`](api/scale_linetype_identity.md) | Use the data as line types (codes 0..6 or names such as ``"dashed"``); no legend by default. |
 | [`scale_alpha()`](api/scale_alpha.md) | Transparency for ``alpha``: data mapped linearly onto ``range``. |
+| [`scale_alpha_binned()`](api/scale_alpha_binned.md) | Map ``alpha`` to binned transparency (ggplot2). |
 | [`scale_alpha_manual()`](api/scale_alpha_manual.md) | Your own alphas for ``alpha``, matched in order with the categories (or a dict). |
 | [`scale_alpha_identity()`](api/scale_alpha_identity.md) | Use the data as alphas; no legend by default. |
 | [`scale_linewidth()`](api/scale_linewidth.md) | Line widths for ``linewidth``: data mapped linearly onto ``range``. |
@@ -451,6 +453,7 @@ Titles, axis labels and legends.
 | [`guides()`](api/guides.md) | Set guides (legends, colorbars) per aesthetic. |
 | [`guide_legend()`](api/guide_legend.md) | Show a key legend for an aesthetic. |
 | [`guide_colorbar()`](api/guide_colorbar.md) | Show a colorbar for a continuous color or fill scale. |
+| [`guide_bins()`](api/guide_bins.md) | Show a binned scale's keys touching, labelled on their edges (ggplot2). |
 | [`guide_axis_mark()`](api/guide_axis_mark.md) | Axis guide that labels the scale's breaks with leader lines (ComplexHeatmap ``anno_mark``). |
 | [`guide_axis_nested()`](api/guide_axis_nested.md) | Axis guide with brackets naming groups of breaks (R legendry ``guide_axis_nested``). |
 | [`key_range_manual()`](api/key_range_manual.md) | Give the groups of ``guide_axis_nested()`` by their first and last break (legendry). |

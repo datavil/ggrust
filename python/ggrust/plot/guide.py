@@ -24,6 +24,7 @@ __all__ = [
     "RangeKey",
     "guide_axis_mark",
     "guide_axis_nested",
+    "guide_bins",
     "guide_colorbar",
     "guide_legend",
     "guides",
@@ -594,6 +595,63 @@ def guide_colorbar(
         if flag is not None and not isinstance(flag, bool):
             raise SpecError(f"guide_colorbar({name}={flag!r}): expected True or False")
     return _guide("colorbar", **_with_theme(arguments, "guide_colorbar"))
+
+
+def guide_bins(
+    title: str | None = None,
+    *,
+    show_limits: bool | None = None,
+    reverse: bool | None = None,
+    direction: Literal["horizontal", "vertical"] | None = None,
+    order: int | None = None,
+    theme: FeatureSpec | None = None,
+) -> FeatureSpec:
+    """Show a binned scale's keys touching, labelled on their edges (ggplot2).
+
+    The default guide of ``scale_size_binned`` and ``scale_alpha_binned``: one key
+    per bin in a single column (or row), an axis line beside them with a tick at
+    each labelled edge, and the break values on the edges between the keys. Not in
+    lets-plot. Scales merged into one legend (the same title) need the same bins,
+    and a guide too large for its room is drawn as a plain legend instead. There is
+    no ``ncol`` / ``nrow``: the keys always form one column (or row).
+
+    Parameters
+    ----------
+    title : str, optional
+        Legend title.
+    show_limits : bool, optional
+        Also label the two outer edges. None follows the scale's ``show_limits``.
+    reverse : bool, optional
+        True lists the bins from high to low.
+    direction : {"horizontal", "vertical"}, optional
+        Key layout of this guide; None follows ``theme(legend_direction=...)``.
+    order : int, optional
+        Place among the legends, 1 to 99, as in ``guide_legend``.
+    theme : FeatureSpec, optional
+        ``theme(legend_*=...)`` options for this guide only.
+
+    Returns
+    -------
+    FeatureSpec
+        The guide.
+
+    Raises
+    ------
+    SpecError
+        If ``direction``, ``order`` or ``theme`` is not accepted, or
+        ``show_limits`` is not True, False or None.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": [1, 2, 3, 4, 5], "y": [2, 4, 3, 5, 1], "score": [3, 18, 41, 66, 97]}
+    >>> plot = ggplot(data, aes("x", "y", size="score")) + geom_point()
+    >>> plot = plot + scale_size_binned(guide=guide_bins(show_limits=True))
+    """
+    _check_common("guide_bins", reverse, direction, order)
+    if show_limits is not None and not isinstance(show_limits, bool):
+        raise SpecError(f"guide_bins(show_limits={show_limits!r}): expected True or False")
+    return _guide("bins", **_with_theme(locals(), "guide_bins"))
 
 
 _DIRECTIONS: tuple[str, ...] = ("horizontal", "vertical")

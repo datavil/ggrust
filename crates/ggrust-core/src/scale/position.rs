@@ -312,7 +312,8 @@ impl PositionScale {
         }
     }
 
-    /// Map a position to 0..1 across the panel. Non-finite input gives NaN.
+    /// Map a position to 0..1 across the panel. -inf / +inf go to the panel
+    /// edges (0 / 1); NaN gives NaN.
     pub fn map(&self, value: f64) -> f64 {
         match self {
             PositionScale::Continuous(scale) => scale.map(value),

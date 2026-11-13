@@ -329,8 +329,9 @@ fn same_fill(layer: &DrawLayer, rows: &[usize]) -> Result<bool> {
         .all(|&row| fill.get(row) == fill.get(first) && alpha_of(row) == alpha_of(first)))
 }
 
+/// Whether `row` has a value: -inf / +inf count (drawn at the panel edges), NaN not.
 pub(super) fn finite(column: &ContinuousColumn, row: usize) -> bool {
-    column.get(row).is_some_and(f64::is_finite)
+    column.get(row).is_some_and(|value| !value.is_nan())
 }
 
 /// Rows with a finite x per group, in group order, each sorted by x (stable).

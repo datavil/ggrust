@@ -51,6 +51,26 @@ impl<'a> Parameters<'a> {
         }
     }
 
+    /// A position constant (`x=`, `yintercept=`): a finite number, or -inf / +inf
+    /// (sent as `{"$float": "inf"}`, JSON has no infinity), drawn at the panel
+    /// edge. Null counts as absent.
+    pub fn position(&self, name: &str) -> Result<Option<f64>> {
+        let infinite = self
+            .options
+            .get(name)
+            .and_then(|value| value.get("$float"))
+            .and_then(Value::as_str)
+            .and_then(|text| match text {
+                "inf" => Some(f64::INFINITY),
+                "-inf" => Some(f64::NEG_INFINITY),
+                _ => None,
+            });
+        match infinite {
+            Some(value) => Ok(Some(value)),
+            None => self.number(name),
+        }
+    }
+
     /// A color string (see [`Color::parse`]; `"pen"`, `"brush"` and `"paper"` are the
     /// standard flavor's). Null counts as absent.
     pub fn color(&self, name: &str) -> Result<Option<Color>> {
@@ -118,6 +138,20 @@ mod tests {
         assert_eq!(parameters.number("none").unwrap(), None);
         assert_eq!(parameters.number("missing").unwrap(), None);
         assert!(!parameters.contains("none"));
+    }
+
+    #[test]
+    fn positions_accept_the_infinity_marker() {
+        let options = options(
+            r#"{"x": {"$float": "inf"}, "y": {"$float": "-inf"}, "z": 2, "size": {"$float": "inf"}}"#,
+        );
+        let parameters = Parameters::new(&options, "layers[0]");
+        assert_eq!(parameters.position("x").unwrap(), Some(f64::INFINITY));
+        assert_eq!(parameters.position("y").unwrap(), Some(f64::NEG_INFINITY));
+        assert_eq!(parameters.position("z").unwrap(), Some(2.0));
+        assert_eq!(parameters.position("missing").unwrap(), None);
+        // Other numbers stay finite only.
+        assert!(parameters.number("size").is_err());
     }
 
     #[test]

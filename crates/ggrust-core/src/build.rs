@@ -3130,7 +3130,7 @@ fn compute_layer(
             continue;
         }
         let parameters = Parameters::new(&options, &path);
-        if let Some(value) = parameters.number(oriented(aesthetic).as_str())? {
+        if let Some(value) = parameters.position(oriented(aesthetic).as_str())? {
             let column = ContinuousColumn::from_values(vec![value; layer_data.row_count()]);
             let column = match scale_of(aesthetic) {
                 Some(scale) => scale
@@ -3319,8 +3319,8 @@ fn compute_layer(
         report_missing_values(
             &format!("geom_{}", geom.name()),
             geom.required_aesthetics(),
-            // Padded steps draw x = -inf / +inf at the panel edges.
-            geom.draws_infinite_x(&parameters)?,
+            // Geoms draw -inf / +inf positions at the panel edges.
+            true,
             &layer_data,
             &path,
             &mut warnings,
@@ -5530,12 +5530,13 @@ fn label_texts(column: &Column, options: &LabelTextOptions) -> StyleValues {
 }
 
 /// Warn when rows cannot be used because a required aesthetic is missing.
-/// `owner` names who needs them, e.g. `geom_point`. With `infinite_x_drawn`
-/// (padded steps), x = -inf / +inf counts as usable.
+/// `owner` names who needs them, e.g. `geom_point`. With `infinite_drawn`
+/// (geoms draw -inf / +inf positions at the panel edges), infinite values count
+/// as usable; stats drop them.
 fn report_missing_values(
     owner: &str,
     required: &[Aesthetic],
-    infinite_x_drawn: bool,
+    infinite_drawn: bool,
     data: &LayerData,
     path: &str,
     warnings: &mut Vec<String>,
@@ -5547,7 +5548,8 @@ fn report_missing_values(
     let removed = (0..data.row_count())
         .filter(|&row| {
             required.iter().any(|(aesthetic, column)| {
-                let usable = if infinite_x_drawn && *aesthetic == Aesthetic::X {
+                let position = aesthetic.is_x_position() || aesthetic.is_y_position();
+                let usable = if infinite_drawn && position {
                     |value: f64| !value.is_nan()
                 } else {
                     f64::is_finite

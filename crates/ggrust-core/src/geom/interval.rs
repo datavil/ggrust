@@ -579,9 +579,10 @@ fn fatten(parameters: &Parameters, default: f64) -> Result<f64> {
     Ok(value)
 }
 
-/// The value of `row` when finite.
+/// The value of `row` when present: -inf / +inf are kept (drawn at the panel
+/// edges), NaN is not.
 fn finite(column: &ContinuousColumn, row: usize) -> Option<f64> {
-    column.get(row).filter(|value| value.is_finite())
+    column.get(row).filter(|value| !value.is_nan())
 }
 
 /// Point range line: `linewidth` (not `size`) wide, faded by `alpha`.

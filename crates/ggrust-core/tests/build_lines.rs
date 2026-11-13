@@ -404,3 +404,94 @@ fn label_vjust_one_hangs_the_box_from_the_point() {
         .unwrap();
     assert!((top - point_y).abs() < 1e-9, "{top} vs {point_y}");
 }
+
+/// The panel rectangle (its clip).
+fn panel_rect(built: &BuiltPlot) -> ggrust_core::scene::Rect {
+    panel(built).clip.expect("a clipped panel")
+}
+
+fn bounds(path: &Path) -> (f64, f64, f64, f64) {
+    let xs = path.points.iter().map(|point| point.0);
+    let ys = path.points.iter().map(|point| point.1);
+    (
+        xs.clone().fold(f64::MAX, f64::min),
+        xs.fold(f64::MIN, f64::max),
+        ys.clone().fold(f64::MAX, f64::min),
+        ys.fold(f64::MIN, f64::max),
+    )
+}
+
+#[test]
+fn infinite_text_positions_sit_on_the_panel_edges() {
+    let data = frame(
+        vec![1.0, 5.0, f64::INFINITY, f64::NEG_INFINITY],
+        vec![2.0, 6.0, f64::NEG_INFINITY, f64::INFINITY],
+        vec!["a", "b", "corner", "corner"],
+    );
+    let built = build(r#"{"geom": "text", "mapping": {"label": "g"}}"#, data);
+    assert!(built.warnings.is_empty(), "{:?}", built.warnings);
+    let rect = panel_rect(&built);
+    let corners: Vec<_> = texts(&built)
+        .into_iter()
+        .filter(|text| text.content == "corner")
+        .map(|text| (text.x, text.y))
+        .collect();
+    let (right, bottom) = (rect.x + rect.width, rect.y + rect.height);
+    // Centred text: x is the anchor; y within half a line of the anchor.
+    assert_eq!(corners.len(), 2, "{corners:?}");
+    assert!((corners[0].0 - right).abs() < 1e-9, "{corners:?} {rect:?}");
+    assert!((corners[0].1 - bottom).abs() < 10.0, "{corners:?} {rect:?}");
+    assert!((corners[1].0 - rect.x).abs() < 1e-9, "{corners:?} {rect:?}");
+    assert!((corners[1].1 - rect.y).abs() < 10.0, "{corners:?} {rect:?}");
+}
+
+#[test]
+fn infinite_constants_span_the_panel_and_do_not_train_the_scales() {
+    let layers = r#"{"geom": "point"},
+        {"geom": "rect", "xmin": 2, "xmax": 3,
+         "ymin": {"$float": "-inf"}, "ymax": {"$float": "inf"}, "inherit_aes": false},
+        {"geom": "hline", "yintercept": {"$float": "inf"}}"#;
+    let data = || frame(vec![1.0, 5.0], vec![10.0, 1000.0], vec!["a", "b"]);
+    let check = |built: &BuiltPlot| {
+        assert!(built.warnings.is_empty(), "{:?}", built.warnings);
+        let panel_area = panel_rect(built);
+        let rects: Vec<_> = panel(built)
+            .flattened()
+            .into_iter()
+            .filter_map(|node| match node {
+                Node::Rects(rects) => Some(rects.rects.clone()),
+                _ => None,
+            })
+            .flatten()
+            .collect();
+        // The rect runs from the panel's top to its bottom edge.
+        assert_eq!(rects.len(), 1, "{rects:?}");
+        assert!(
+            (rects[0].y - panel_area.y).abs() < 1e-9,
+            "{rects:?} {panel_area:?}"
+        );
+        assert!((rects[0].height - panel_area.height).abs() < 1e-9);
+        // The hline sits on the top edge.
+        let spans: Vec<_> = paths(built).into_iter().map(bounds).collect();
+        assert!(
+            spans
+                .iter()
+                .any(|&(_, _, low, high)| low == high && (low - panel_area.y).abs() < 1e-9),
+            "{spans:?}"
+        );
+    };
+    check(&build(layers, data()));
+    let json = format!(
+        r#"{{"kind": "plot", "mapping": {{"x": "x", "y": "y"}}, "layers": [{layers}],
+             "scales": [{{"aesthetic": "y", "trans": "log10"}}]}}"#
+    );
+    let log = build_plot(
+        &spec(&json),
+        &PlotData {
+            plot: Some(data()),
+            layers: vec![],
+        },
+    )
+    .unwrap();
+    check(&log);
+}

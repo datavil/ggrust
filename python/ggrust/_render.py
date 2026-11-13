@@ -7,6 +7,7 @@ import json
 import math
 import numbers
 import os
+import re
 import secrets
 import sys
 import warnings
@@ -483,6 +484,12 @@ def _select(data: object, columns: set[str]) -> object:
 # for self-referencing containers).
 MAX_DEPTH = 64
 
+# Layer constants that are positions: an infinite one is drawn at the panel edge
+# (ggplot2), so it is sent as {"$float": "inf"} instead of null.
+_INFINITE_POSITION = re.compile(
+    r"(?:^|\.)layers\[\d+\]\.(?:x|y|xmin|xmax|ymin|ymax|xend|yend|xintercept|yintercept)$"
+)
+
 
 def to_json(spec: dict[str, Any]) -> str:
     """Serialise a spec to JSON.
@@ -515,7 +522,11 @@ def _plain(value: object, path: str, depth: int) -> object:
     if value is None or isinstance(value, bool | int | str):
         return value
     if isinstance(value, float):
-        return value if math.isfinite(value) else None
+        if math.isfinite(value):
+            return value
+        if math.isinf(value) and _INFINITE_POSITION.search(path):
+            return {"$float": "inf" if value > 0 else "-inf"}
+        return None
     if isinstance(value, dict):
         plain = {}
         for key, item in value.items():

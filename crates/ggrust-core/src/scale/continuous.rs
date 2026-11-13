@@ -442,14 +442,21 @@ impl ContinuousPositionScale {
 
     /// A data value in transformed units, or `None` when it is outside the
     /// transform's domain or the scale limits (lets-plot drops those rows).
+    /// -inf / +inf stay infinite (flipped by a decreasing transform) and are
+    /// drawn at the panel edges, as in ggplot2.
     pub fn transform_value(&self, value: f64) -> Option<f64> {
+        if value.is_infinite() {
+            let flipped = self.transform.is_decreasing();
+            return Some(if flipped { -value } else { value });
+        }
         self.limit(self.transform.apply(value)?)
     }
 
     /// A value in transformed units after `oob`: kept inside the limits; outside
     /// them missing (censor), on the nearest limit (squish), or kept (keep).
+    /// Infinite values are kept (ggplot2's `only.finite = TRUE`).
     pub fn limit(&self, transformed: f64) -> Option<f64> {
-        if self.within_limits(transformed) {
+        if transformed.is_infinite() || self.within_limits(transformed) {
             return Some(transformed);
         }
         match self.oob {
@@ -637,12 +644,14 @@ impl ContinuousPositionScale {
     }
 
     /// Map a transformed value to 0..1 across the panel (outside for out-of-range values).
-    /// Non-finite input gives NaN.
+    /// -inf / +inf go to the panel edges (0 / 1, ggplot2); NaN gives NaN.
     pub fn map(&self, value: f64) -> f64 {
-        if !value.is_finite() {
-            return f64::NAN;
-        }
         let warp = self.coord_transform;
+        if let Some(edge) = infinite_edge(value) {
+            // A decreasing coord warp (`coord_trans(x="reverse")`) swaps the edges.
+            let flipped = warp != Transform::Identity && warp.is_decreasing();
+            return if flipped { 1.0 - edge } else { edge };
+        }
         if warp != Transform::Identity {
             // Across the warped range, so a decreasing warp flips the axis.
             let (low, high) = self.warped_range();
@@ -650,6 +659,17 @@ impl ContinuousPositionScale {
         }
         let (low, high) = self.expanded_domain();
         (value / 2.0 - low / 2.0) / (high / 2.0 - low / 2.0)
+    }
+}
+
+/// The panel edge (0 or 1) an infinite position is drawn at, as ggplot2 does
+/// (`-Inf` / `Inf` mean "at the edge"); `None` for finite values. NaN maps to NaN.
+pub(crate) fn infinite_edge(value: f64) -> Option<f64> {
+    match value {
+        f64::NEG_INFINITY => Some(0.0),
+        f64::INFINITY => Some(1.0),
+        value if value.is_nan() => Some(f64::NAN),
+        _ => None,
     }
 }
 
@@ -689,6 +709,17 @@ mod tests {
         };
         scale.train_range(low, high);
         scale
+    }
+
+    #[test]
+    fn decreasing_coord_warps_swap_the_infinite_edges() {
+        let reverse = warped(Transform::Reverse, 1.0, 5.0);
+        // Large values sit on the left, so +inf does too.
+        assert!(reverse.map(5.0) < reverse.map(1.0));
+        assert_eq!(reverse.map(f64::INFINITY), 0.0);
+        assert_eq!(reverse.map(f64::NEG_INFINITY), 1.0);
+        let log = warped(Transform::Log10, 1.0, 1000.0);
+        assert_eq!(log.map(f64::INFINITY), 1.0);
     }
 
     #[test]
@@ -909,6 +940,39 @@ mod tests {
             ..ContinuousPositionScale::default()
         };
         assert_eq!(open.transform_value(-1e9), Some(-1e9));
+    }
+
+    #[test]
+    fn infinite_values_stay_infinite_and_map_to_the_panel_edges() {
+        let log = ContinuousPositionScale {
+            limits: [Some(0.0), Some(2.0)],
+            transform: Transform::Log10,
+            ..ContinuousPositionScale::default()
+        };
+        // Kept past the limits (ggplot2 censors finite values only).
+        assert_eq!(log.transform_value(f64::INFINITY), Some(f64::INFINITY));
+        assert_eq!(
+            log.transform_value(f64::NEG_INFINITY),
+            Some(f64::NEG_INFINITY)
+        );
+        let reverse = ContinuousPositionScale {
+            transform: Transform::Reverse,
+            ..ContinuousPositionScale::default()
+        };
+        assert_eq!(
+            reverse.transform_value(f64::INFINITY),
+            Some(f64::NEG_INFINITY)
+        );
+        let mut scale = ContinuousPositionScale::default();
+        scale.train_range(1.0, 5.0);
+        assert_eq!(scale.map(f64::NEG_INFINITY), 0.0);
+        assert_eq!(scale.map(f64::INFINITY), 1.0);
+        assert!(scale.map(f64::NAN).is_nan());
+        // Infinite values do not train the domain.
+        let column = crate::data::ContinuousColumn::from_values(vec![2.0, f64::INFINITY]);
+        let mut trained = ContinuousPositionScale::default();
+        trained.train(&column);
+        assert_eq!(trained.trained_domain(), Some((2.0, 2.0)));
     }
 
     #[test]

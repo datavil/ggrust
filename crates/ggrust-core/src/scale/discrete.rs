@@ -275,10 +275,11 @@ impl DiscretePositionScale {
         (low, high)
     }
 
-    /// Map a position to 0..1 across the panel. Non-finite input gives NaN.
+    /// Map a position to 0..1 across the panel. -inf / +inf go to the panel
+    /// edges (0 / 1, ggplot2); NaN gives NaN.
     pub fn map(&self, value: f64) -> f64 {
-        if !value.is_finite() {
-            return f64::NAN;
+        if let Some(edge) = super::continuous::infinite_edge(value) {
+            return edge;
         }
         let (low, high) = self.expanded_domain();
         (value - low) / (high - low)
@@ -346,6 +347,14 @@ mod tests {
 
     fn texts(breaks: &ScaleBreaks) -> Vec<String> {
         breaks.labels.iter().map(Label::to_string).collect()
+    }
+
+    #[test]
+    fn infinite_positions_map_to_the_panel_edges() {
+        let scale = DiscretePositionScale::default();
+        assert_eq!(scale.map(f64::NEG_INFINITY), 0.0);
+        assert_eq!(scale.map(f64::INFINITY), 1.0);
+        assert!(scale.map(f64::NAN).is_nan());
     }
 
     #[test]

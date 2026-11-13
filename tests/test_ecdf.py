@@ -1,7 +1,9 @@
 """stat_ecdf against lets-plot.
 
 Layer paths are compared as vertex coordinates relative to their first vertex,
-with ``theme_void`` and fixed scale limits so both libraries lay out the same panel.
+with ``theme_void`` and fixed y limits so both libraries lay out the same panel.
+No x limits: lets-plot drops the -inf / +inf padding rows when x has limits (ggrust
+draws them at the panel edges, as ggplot2; see deviations.md).
 """
 
 import re
@@ -49,7 +51,6 @@ def _svg(module: ModuleType, layer: Callable[[ModuleType], object]) -> str:
         + layer(module)
         + module.theme_void()
         + module.theme(legend_position="none")
-        + module.scale_x_continuous(limits=[-2, 3])
         + module.scale_y_continuous(limits=[0, 1])
         + module.ggsize(400, 300)
     )
@@ -60,7 +61,8 @@ CASES: dict[str, Callable[[ModuleType], object]] = {
     "padded": lambda m: m.stat_ecdf(),
     "unpadded": lambda m: m.stat_ecdf(pad=False),
     "groups": lambda m: m.stat_ecdf(m.aes(color="g")),
-    "points_n": lambda m: m.stat_ecdf(geom="point", n=7),
+    # lets-plot drops points at -inf / +inf (ggrust draws them at the edges).
+    "points_n": lambda m: m.stat_ecdf(geom="point", n=7, pad=False),
     "line": lambda m: m.stat_ecdf(geom="line", pad=False),
 }
 
@@ -73,6 +75,29 @@ def test_matches_lets_plot(name: str) -> None:
     for mine, other in zip(ours, theirs, strict=True):
         for point, expected in zip(mine, other, strict=True):
             assert point == pytest.approx(expected, abs=0.15)
+
+
+def test_padding_reaches_the_panel_edges_under_x_limits() -> None:
+    def svg(layer: Callable[[ModuleType], object]) -> str:
+        plot = (
+            gg.ggplot(DATA, gg.aes("x"))
+            + layer(gg)
+            + gg.theme_void()
+            + gg.scale_x_continuous(limits=[-2, 3])
+            + gg.ggsize(400, 300)
+        )
+        return plot.to_svg()
+
+    # ggplot2: the padded line runs from the left to the right panel edge, up to 1.
+    line = _vertices(svg(lambda m: m.stat_ecdf()))[0]
+    assert len(line) == 20
+    # The panel is 388 px wide (400 minus the 6 px plot margins).
+    assert max(x for x, _ in line) - min(x for x, _ in line) == pytest.approx(388, abs=0.5)
+    # Padded points: the two padding rows are drawn on the edges, not dropped.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        points = _vertices(svg(lambda m: m.stat_ecdf(geom="point", n=7)))
+    assert len(points) == 9
 
 
 def test_fractional_and_negative_n_as_lets_plot() -> None:

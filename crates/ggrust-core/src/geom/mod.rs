@@ -165,12 +165,6 @@ pub trait Geom: Sync {
         true
     }
 
-    /// Whether rows at x = -inf / +inf are drawn (padded steps), so they are
-    /// not reported as missing.
-    fn draws_infinite_x(&self, _parameters: &Parameters) -> Result<bool> {
-        Ok(false)
-    }
-
     /// Position aesthetics that must be mapped.
     fn required_aesthetics(&self) -> &'static [Aesthetic];
 

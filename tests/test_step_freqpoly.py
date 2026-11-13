@@ -108,8 +108,9 @@ def test_step_padded_reaches_panel_edges() -> None:
     plot = gg.ggplot(data, gg.aes("x", "y")) + gg.geom_step(pad=True)
     shapes = _line_shapes(plot.to_svg())
     assert shapes == ["hvhvhv"]
+    # Infinite x is drawn at the panel edges without pad too (ggplot2).
     unpadded = gg.ggplot(data, gg.aes("x", "y")) + gg.geom_step()
-    assert _line_shapes(unpadded.to_svg()) == ["hv"]
+    assert _line_shapes(unpadded.to_svg()) == ["hvhvhv"]
 
 
 def test_unknown_direction_suggests() -> None:
@@ -125,11 +126,13 @@ def test_spec_matches_lets_plot() -> None:
         assert ours["layers"][0]["geom"] == theirs["layers"][0]["geom"]
 
 
-def test_padded_infinite_rows_dropped_by_limits_are_reported() -> None:
+def test_infinite_rows_are_kept_by_limits() -> None:
+    # ggplot2 censors finite values only: -inf / +inf stay at the panel edges.
     data = {"x": [float("-inf"), 1, 2, float("inf")], "y": [0, 1, 2, 3]}
     plot = gg.ggplot(data, gg.aes("x", "y")) + gg.geom_step(pad=True) + gg.xlim(0, 10)
-    with pytest.warns(UserWarning, match="removed 2 rows"):
-        plot.to_svg()
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        assert _line_shapes(plot.to_svg()) == ["hvhvhv"]
 
 
 def test_step_arrow_is_supported() -> None:

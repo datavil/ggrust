@@ -160,10 +160,6 @@ impl Geom for StepGeom {
         &["direction", "pad", "arrow"]
     }
 
-    fn draws_infinite_x(&self, parameters: &Parameters) -> Result<bool> {
-        Ok(parameters.boolean("pad")?.unwrap_or(false))
-    }
-
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
         let steps = Steps::parse(&layer.parameters)?;
         draw_paths(layer, panel, true, Some(steps))

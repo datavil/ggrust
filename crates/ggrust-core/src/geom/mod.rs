@@ -49,6 +49,7 @@ mod repel;
 mod repel_layout;
 mod rug;
 mod segment;
+mod shape;
 mod sina;
 mod size_unit;
 mod smooth;
@@ -94,6 +95,7 @@ pub use reference_line::{HorizontalLineGeom, VerticalLineGeom};
 pub use repel::{LabelRepelGeom, TextRepelGeom};
 pub use rug::RugGeom;
 pub use segment::SegmentGeom;
+pub use shape::ShapeGeom;
 pub use sina::SinaGeom;
 pub use slab::SlabGeom;
 pub use smooth::SmoothGeom;
@@ -273,6 +275,7 @@ pub static GEOMS: &[&dyn Geom] = &[
     &RugGeom,
     &CurveGeom,
     &PolygonGeom,
+    &ShapeGeom,
     &SurfaceGeom,
     &VerticalLineGeom,
     &HorizontalLineGeom,

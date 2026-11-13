@@ -137,6 +137,7 @@ from ggrust.plot.geom_qq import (
     stat_qq_line,
 )
 from ggrust.plot.geom_quantile import geom_quantile, stat_quantile
+from ggrust.plot.geom_shape import geom_shape
 from ggrust.plot.geom_spoke import geom_spoke
 from ggrust.plot.geom_streamline import geom_streamline, stat_streamline
 from ggrust.plot.gggrid import gggrid
@@ -483,6 +484,7 @@ __all__ = [
     "geom_ribbon",
     "geom_rug",
     "geom_segment",
+    "geom_shape",
     "geom_sina",
     "geom_smooth",
     "geom_spoke",

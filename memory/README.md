@@ -73,6 +73,7 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Spec accessors and layer_data](spec_accessors.md): properties return fresh dicts/tuples, `with_*` copies, layer_data on the plot (shared LayerSpecs), inspect as a child module of build, PyTable via the C stream.
 - [Colab drops script attributes](colab_script_attributes.md): Colab re-creates output scripts with only type and text, so runtime payloads are found by `type="application/vnd.ggrust-<kind>+json"`, never by class.
 - [ggforce marks](ggforce_marks.md): screen-space outlines, expansion as a distance level set (no clipping), Khachiyan scaled to enclose, grid text metrics for label boxes, grid placement in group order.
+- [geom_shape rounded corners](ggforce_geom_shape.md): exact fillets with a radius fitted to the edges (stadiums), fillet before the round `expand` offset, pixels after the coord.
 - [Dendrograms](dendrograms.md): R hclust tie order + `cor()` arithmetic for parity, tree sets discrete limits, leaves via effective_levels, bands in the axis area (gggrid unchanged), facets drop the tree.
 - [gghighlight rewrite](gghighlight.md): grey/highlighted copies at `+` time, `merge_plot_data: false` stops lets-plot row-count column merging, copy plot as_discrete into rewritten layers.
 - [patchwork extras](patchwork_extras.md): lets-plot tag rules (measured), two-phase grid layout (layout then draw, nested frames), spans for design areas, tags numbered before preparing, insets in grid/inset.rs.

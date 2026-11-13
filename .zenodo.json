@@ -1,0 +1,31 @@
+{
+  "title": "ggrust: A grammar of graphics plotting engine in Rust for Python",
+  "upload_type": "software",
+  "description": "Grammar-of-graphics plotting library written in Rust and used from Python, with a lets_plot-compatible API and SVG, PNG and interactive HTML output.",
+  "creators": [
+    {
+      "name": "Kosar, Zafer"
+    }
+  ],
+  "license": "MIT",
+  "access_right": "open",
+  "keywords": [
+    "data visualization",
+    "grammar of graphics",
+    "plotting",
+    "rust",
+    "python"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "https://github.com/datavil/ggrust",
+      "relation": "isSupplementTo",
+      "scheme": "url"
+    },
+    {
+      "identifier": "https://ggrust.datavil.org",
+      "relation": "isDocumentedBy",
+      "scheme": "url"
+    }
+  ]
+}

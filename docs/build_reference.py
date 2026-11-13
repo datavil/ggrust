@@ -273,6 +273,21 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "scale_fill_identity",
         ],
     ),
+    "Scales for any aesthetic": (
+        "Name the aesthetic, or a list of them (`['color', 'fill']`) to set one scale on all.",
+        [
+            "scale_manual",
+            "scale_continuous",
+            "scale_discrete",
+            "scale_gradient",
+            "scale_gradient2",
+            "scale_gradientn",
+            "scale_hue",
+            "scale_grey",
+            "scale_brewer",
+            "scale_viridis",
+        ],
+    ),
     "Journal palettes (ggsci)": (
         "Discrete palettes from the R package ggsci (not in lets-plot).",
         [

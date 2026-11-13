@@ -293,6 +293,18 @@ nav = [
       "reference/api/scale_fill_manual.md",
       "reference/api/scale_fill_identity.md",
     ] },
+    { "Scales for any aesthetic" = [
+      "reference/api/scale_manual.md",
+      "reference/api/scale_continuous.md",
+      "reference/api/scale_discrete.md",
+      "reference/api/scale_gradient.md",
+      "reference/api/scale_gradient2.md",
+      "reference/api/scale_gradientn.md",
+      "reference/api/scale_hue.md",
+      "reference/api/scale_grey.md",
+      "reference/api/scale_brewer.md",
+      "reference/api/scale_viridis.md",
+    ] },
     { "Journal palettes (ggsci)" = [
       "reference/api/scale_color_npg.md",
       "reference/api/scale_fill_npg.md",

@@ -18,7 +18,16 @@ if TYPE_CHECKING:
 
     import polars as pl
 
-    from ggrust._typing import AxisScale, Number, PlotBuild, PlotData, Position, Target
+    from ggrust._typing import (
+        AxisScale,
+        LayerDefaults,
+        Number,
+        PanelBox,
+        PlotBuild,
+        PlotData,
+        Position,
+        Target,
+    )
 
 
 __all__ = ["aes", "layer"]
@@ -160,6 +169,25 @@ def _specs_to_dict(raw_options: dict[str, Any]) -> dict[str, Any]:
         else:
             options[key] = value
     return _filter_none(options)
+
+
+def _facet_text(facet: dict[str, Any] | None) -> str:
+    """Return a facet as ggplot2 writes it (``facet_wrap(~a + b)``), or ``""``."""
+    if not facet:
+        return ""
+
+    def formula(names: object) -> str:
+        if names is None:
+            return "."
+        if isinstance(names, (list, tuple)):
+            return " + ".join(str(name) for name in names) or "."
+        return str(names)
+
+    if facet.get("name") == "wrap":
+        return f"facet_wrap(~{formula(facet.get('facets'))})"
+    if facet.get("name") == "grid":
+        return f"facet_grid({formula(facet.get('y'))} ~ {formula(facet.get('x'))})"
+    return f"facet_{facet.get('name')}"
 
 
 class FeatureSpec:
@@ -685,6 +713,48 @@ class PlotSpec(FeatureSpec):
             raise SpecError(message, path="scale_info.aesthetic")
         return [panel[aesthetic] for panel in self.build()["panels"]]
 
+    def panels(self) -> list[PanelBox]:
+        """Return every panel's box in plot pixels and how data maps into it.
+
+        Runs the engine without drawing, at the plot's size (``ggsize``). Positions
+        are in the scale's transformed units, as ``layer_data()`` gives them
+        (categories on a discrete axis sit at 0, 1, 2, ...). For a
+        data value ``v`` on an axis with ``domain=(low, high)``, the fraction
+        ``t = (v - low) / (high - low)`` (``1 - t`` when ``reversed``) runs left to
+        right on a horizontal axis and bottom to top on a vertical one; ``x`` is
+        horizontal unless ``flipped``. Pixels then are
+        ``left + t * width`` and ``top + (1 - t) * height``.
+
+        Returns
+        -------
+        list of PanelBox
+            Per panel, in panel order (one without facets): ``panel``, ``box``
+            (left, top, width, height; origin at the top left), ``flipped``, and the
+            data ``x`` and ``y`` axes with their ``domain`` and ``reversed``.
+
+        Raises
+        ------
+        SpecError
+            If the coordinate system does not map positions linearly
+            (``coord_polar()``, ``coord_3d()``, ``coord_trans()`` with a non-linear
+            transform).
+        SpecError, DataError
+            If the plot cannot be built, as when rendering it.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> data = {"weight": [2.6, 3.4, 4.1], "mpg": [31, 22, 15]}
+        >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point() + ggsize(400, 300)
+        >>> panel = plot.panels()[0]
+        >>> left, top, width, height = panel["box"]
+        >>> 0 < left < left + width < 400
+        True
+        """
+        from ggrust._render import inspect_panels
+
+        return inspect_panels(self)
+
     def has_layers(self) -> bool:
         """Return whether the plot has at least one layer."""
         return bool(self.__layers)
@@ -856,6 +926,22 @@ class PlotSpec(FeatureSpec):
                 lines.append("-" * 34)
         lines.append("")
         return "\n".join(lines)
+
+    def __repr__(self) -> str:
+        """Return a one-line summary: ``<PlotSpec: 2 layers (point, smooth), 1 scale>``."""
+        geoms = ", ".join(str(layer.geom) for layer in self.layers)
+        count = len(self.__layers)
+        parts = [f"{count} layer{'s' if count != 1 else ''}" + (f" ({geoms})" if geoms else "")]
+        if self.__scales:
+            scale_count = len(self.__scales)
+            parts.append(f"{scale_count} scale{'s' if scale_count != 1 else ''}")
+        facet = _facet_text(self.facet)
+        if facet:
+            parts.append(facet)
+        coord = self.coord
+        if coord and coord.get("name"):
+            parts.append(f"coord_{coord['name']}()")
+        return f"<PlotSpec: {', '.join(parts)}>"
 
     def _repr_html_(self) -> str:
         from ggrust._render import render_notebook_html
@@ -1099,6 +1185,56 @@ class LayerSpec(FeatureSpec):
             if key not in ("geom", "stat", "data", "mapping", "data_meta")
         }
         return copy.deepcopy(_specs_to_dict(options))
+
+    @property
+    def defaults(self) -> LayerDefaults:
+        """What the layer draws with when it sets nothing (ggplot2's ``default_aes``).
+
+        The geom's default ``stat`` and ``position``, and per style aesthetic its
+        default. A layer has no theme, so theme-driven colors are given by their
+        ``element_geom()`` names: ``"pen"`` (lines, outlines, text), ``"brush"``
+        (fills) and ``"paper"`` (backgrounds), a translucent one as
+        ``"alpha(pen, 0.1)"``. Other colors are ``#rrggbb``, an unset number (point
+        ``alpha``) is None, a line type is ``"solid"`` or a dash list. Options the
+        layer sets (``size=3``) are in ``params``, not here.
+
+        Raises
+        ------
+        SpecError
+            If the layer has no geom (``layer()`` without ``geom=``) or the engine
+            does not know it.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> defaults = geom_point().defaults
+        >>> defaults["stat"], defaults["aesthetics"]["color"], defaults["aesthetics"]["size"]
+        ('identity', 'pen', 3.0)
+        """
+        import json
+
+        from ggrust._ggrust import geom_defaults
+        from ggrust.errors import SpecError
+
+        geom = self.geom
+        if not isinstance(geom, str):
+            message = "defaults: the layer has no geom; give one, as layer(geom='point')"
+            raise SpecError(message, path="layer.geom")
+        try:
+            return cast("LayerDefaults", json.loads(geom_defaults(geom)))
+        except ValueError as error:
+            message = f"defaults: {error}; the geom name comes from geom_*() or layer(geom=...)"
+            raise SpecError(message, path="layer.geom") from None
+
+    def __repr__(self) -> str:
+        """Return a one-line summary: ``<LayerSpec: point, mapping={'color': 'origin'}>``."""
+        parts = [str(self.geom) if self.geom is not None else "no geom"]
+        if self.stat is not None:
+            parts.append(f"stat={self.stat}")
+        mapping = self.mapping
+        if mapping:
+            parts.append(f"mapping={mapping!r}")
+        return f"<LayerSpec: {', '.join(parts)}>"
 
     def __add__(self, other: object) -> FeatureSpec:
         if isinstance(other, DummySpec):

@@ -476,6 +476,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "theme_linedraw",
             "theme_void",
             "theme_none",
+            "theme_defaults",
         ],
     ),
     "Theme elements and flavors": (

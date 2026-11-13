@@ -203,7 +203,7 @@ mod _ggrust {
     ) -> PyResult<Vec<String>> {
         python
             .detach(|| ggrust_core::text::register_font_data(data, Some(family)))
-            .map_err(pyo3::exceptions::PyValueError::new_err)
+            .map_err(PyValueError::new_err)
     }
 
     /// Encode straight-alpha RGBA bytes (`width` x `height`, top row first) as a
@@ -702,13 +702,16 @@ mod _ggrust {
         Vec<Bound<'py, PyDict>>,
         Vec<Bound<'py, PyDict>>,
         Vec<String>,
+        Option<String>,
     );
 
     /// Prepare and lay out a single plot without drawing it (``PlotSpec.build()``).
     /// Arguments as `render`. Returns one Arrow table per spec layer (data after
     /// stat and position), one dict per panel with its `x` and `y` scales
     /// (`discrete`, `domain`, `breaks`, `labels`), one dict per shown style guide
-    /// (`aesthetic`, `group`, `title`, `labels`, `values`) and the build warnings.
+    /// (`aesthetic`, `group`, `title`, `labels`, `values`), the build warnings, and
+    /// why panel pixels are not linear in transformed units (`None` when they are).
+    /// Each panel also has its pixel `box` and `flipped`; each axis `reversed`.
     /// The GIL is released while building.
     #[pyfunction]
     #[pyo3(signature = (spec_json, frames, functions=None))]
@@ -758,6 +761,7 @@ mod _ggrust {
             dict.set_item("domain", scale.domain)?;
             dict.set_item("breaks", &scale.breaks)?;
             dict.set_item("labels", &scale.labels)?;
+            dict.set_item("reversed", scale.reversed)?;
             if let Some((breaks, labels)) = &scale.secondary {
                 let secondary = PyDict::new(python);
                 secondary.set_item("breaks", breaks)?;
@@ -773,6 +777,8 @@ mod _ggrust {
                 let dict = PyDict::new(python);
                 dict.set_item("x", axis(&panel.x)?)?;
                 dict.set_item("y", axis(&panel.y)?)?;
+                dict.set_item("box", panel.rect)?;
+                dict.set_item("flipped", inspection.flipped)?;
                 Ok(dict)
             })
             .collect::<PyResult<Vec<_>>>()?;
@@ -798,7 +804,37 @@ mod _ggrust {
                 Ok(dict)
             })
             .collect::<PyResult<Vec<_>>>()?;
-        Ok((layers, panels, guides, inspection.warnings))
+        Ok((
+            layers,
+            panels,
+            guides,
+            inspection.warnings,
+            inspection.nonlinear,
+        ))
+    }
+
+    /// A geom's default stat, position and style aesthetics as JSON
+    /// (``LayerSpec.defaults``). Raises `ValueError` for an unknown geom name, with
+    /// the closest known one.
+    #[pyfunction]
+    fn geom_defaults(name: &str) -> PyResult<String> {
+        ggrust_core::build::inspect::geom_defaults(name)
+            .map(|value| value.to_string())
+            .ok_or_else(|| {
+                let names = ggrust_core::geom::names();
+                let hint = ggrust_core::suggest::did_you_mean(name, names.iter().copied());
+                PyValueError::new_err(format!("unknown geom '{name}'{hint}"))
+            })
+    }
+
+    /// A named theme's options in `theme()` vocabulary as JSON (``theme_defaults()``).
+    /// Raises `ValueError` for an unknown theme or flavor name.
+    #[pyfunction]
+    #[pyo3(signature = (name, flavor=None))]
+    fn theme_defaults(name: &str, flavor: Option<&str>) -> PyResult<String> {
+        ggrust_core::theme::theme_defaults(name, flavor)
+            .map(|value| value.to_string())
+            .map_err(PyValueError::new_err)
     }
 
     fn to_frame(data: AnyRecordBatch) -> PyResult<DataFrame> {

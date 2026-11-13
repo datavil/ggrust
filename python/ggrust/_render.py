@@ -20,7 +20,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
 
     from ggrust._data import ArrowStreamExportable
-    from ggrust._typing import GuideKeys, Number, PanelScales, PlotBuild, Target
+    from ggrust._typing import GuideKeys, Number, PanelBox, PanelScales, PlotBuild, Target
     from ggrust.plot.core import PlotSpec
     from ggrust.plot.subplots import SupPlotsSpec
 
@@ -125,7 +125,7 @@ def build_plot(plot: PlotSpec) -> PlotBuild:
     """
     import polars as pl
 
-    tables, panels, guides, messages = _inspect(plot)
+    tables, panels, guides, messages, _ = _inspect(plot)
     for message in messages:
         warnings.warn(message, GgrustWarning, stacklevel=4)
     layers = [pl.DataFrame(table) for table in tables]
@@ -134,6 +134,49 @@ def build_plot(plot: PlotSpec) -> PlotBuild:
         "panels": cast("list[PanelScales]", panels),
         "guides": cast("list[GuideKeys]", guides),
     }
+
+
+def inspect_panels(plot: PlotSpec) -> list[PanelBox]:
+    """Return every panel's pixel box and data-to-pixel mapping (``PlotSpec.panels()``).
+
+    Parameters
+    ----------
+    plot : PlotSpec
+        A single plot.
+
+    Returns
+    -------
+    list of PanelBox
+        Per panel: index, box, flip, and the data axes' domains and directions.
+        Build warnings are emitted as ``GgrustWarning``, as when rendering.
+
+    Raises
+    ------
+    SpecError
+        If the plot's coordinate system does not map positions linearly.
+    """
+    from ggrust.errors import SpecError
+
+    _, panels, _, messages, nonlinear = _inspect(plot)
+    if nonlinear is not None:
+        message = (
+            f"panels: {nonlinear} does not map data to pixels linearly, so a panel has "
+            "no box-and-domain mapping; use coord_cartesian() or coord_flip(), or a scale "
+            "transform (scale_x_log10()) instead of coord_trans()"
+        )
+        raise SpecError(message, path="coord")
+    for message in messages:
+        warnings.warn(message, GgrustWarning, stacklevel=4)
+    return [
+        {
+            "panel": index,
+            "box": panel["box"],
+            "flipped": panel["flipped"],
+            "x": {"domain": panel["x"]["domain"], "reversed": panel["x"]["reversed"]},
+            "y": {"domain": panel["y"]["domain"], "reversed": panel["y"]["reversed"]},
+        }
+        for index, panel in enumerate(panels)
+    ]
 
 
 def plot_warnings(plot: PlotSpec) -> list[str]:
@@ -176,8 +219,8 @@ def plot_columns(plot: PlotSpec) -> tuple[str, ...]:
 
 def _inspect(
     plot: PlotSpec,
-) -> tuple[list[Any], list[dict[str, Any]], list[dict[str, Any]], list[str]]:
-    """Run the engine on ``plot`` and return its tables, panels, guides and warnings."""
+) -> tuple[list[Any], list[dict[str, Any]], list[dict[str, Any]], list[str], str | None]:
+    """Run the engine on ``plot``: its tables, panels, guides, warnings and non-linearity."""
     spec, frames = split_data(plot.as_dict())
     spec, functions = split_functions(spec)
     spec_json = to_json(spec)

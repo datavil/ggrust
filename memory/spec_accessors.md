@@ -23,3 +23,11 @@ breaks are screen axes: swap them under `coord_flip`.
 False (a polars frame keeps its identity). lets_plot's `data_meta` key is internal:
 `params` leaves it out. The doctest suite only runs reference entries (class
 docstrings), so `tests/test_accessors.py` runs every accessor's own example.
+
+**Tier 2 (`panels()`, `defaults`, `theme_defaults()`, `repr`):** `PlotLayout.panel` is already
+in plot pixels for every facet tile, so `panels()` reads it straight from the arrangement.
+`scale_x_reverse` negates the transformed units, so the domain still runs left to right;
+only a decreasing `coord_trans` warp sets `reversed`. Test the mapping against the
+`<circle cx cy>` of `to_svg()`, not against hand-computed numbers
+(`tests/test_accessors_tier2.py`). `defaults` and `theme_defaults` cross PyO3 as JSON
+strings (NaN becomes null, and unset NaN props are dropped).

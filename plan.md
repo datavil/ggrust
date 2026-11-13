@@ -565,6 +565,17 @@ export docs say a unitless size is inches in both lets-plot and ggplot2.
   Python only (`plot/scale_generic.py`). ggplot2's `aesthetics=` keyword on every scale is not added
   (user, 2026-11-13: one spelling is enough; deviations.md row).
 
+### Phase 12: backlog priorities (2026-11-13)
+
+Items from [priorities.md](notes/priorities.md), one per step, each on its own branch.
+
+- [x] 4.6 **Accessors tier 2.** Done 2026-11-13 (shapes agreed with the user): `p.panels()` (per
+  panel `box` in plot pixels, `flipped`, data `x`/`y` with `domain` and `reversed`; `SpecError` for
+  `coord_polar`, `coord_3d` and non-linear `coord_trans`), `build()` panels gain `box`, `flipped`,
+  `reversed`; `layer.defaults` (geom's default `stat`, `position`, style aesthetics; theme colors as
+  `"pen"`/`"brush"`/`"paper"`); `theme_defaults(name, flavor)` in `theme()` vocabulary; one-line
+  `repr` for `PlotSpec`, `LayerSpec`, `SupPlotsSpec`. `tests/test_accessors_tier2.py`.
+
 ## Performance strategy (honest)
 
 - Biggest structural win: lets-plot serializes data to JSON in Python, then parses it in Kotlin/JS.

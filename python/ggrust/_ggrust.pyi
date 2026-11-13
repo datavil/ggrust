@@ -235,7 +235,7 @@ def inspect(
     spec_json: str,
     frames: list[Any],
     functions: list[Callable[..., object]] | None = None,
-) -> tuple[list[Any], list[dict[str, Any]], list[dict[str, Any]], list[str]]:
+) -> tuple[list[Any], list[dict[str, Any]], list[dict[str, Any]], list[str], str | None]:
     """Prepare and lay out a single plot without drawing it (``PlotSpec.build()``).
 
     Parameters
@@ -249,16 +249,36 @@ def inspect(
 
     Returns
     -------
-    tuple[list[Any], list[dict[str, Any]], list[str]]
+    tuple[list[Any], list[dict[str, Any]], list[dict[str, Any]], list[str], str | None]
         One Arrow table per layer (``__arrow_c_stream__``; data after stat and
         position, with ``panel`` and ``group`` columns), one dict per panel with its
-        ``x`` and ``y`` scales (``discrete``, ``domain``, ``breaks``, ``labels``), and
-        the build warnings.
+        ``x`` and ``y`` scales (``discrete``, ``domain``, ``breaks``, ``labels``,
+        ``reversed``), its pixel ``box`` and ``flipped``, one dict per shown guide,
+        the build warnings, and why panel pixels are not linear in transformed units
+        (``coord_polar()``, ...; None when they are).
 
     Raises
     ------
     ValueError
         If the spec or data is invalid, or the spec is a grid.
+    """
+
+def geom_defaults(name: str) -> str:
+    """Return a geom's default stat, position and style aesthetics as JSON.
+
+    Raises
+    ------
+    ValueError
+        If the engine does not know the geom; the message suggests a close name.
+    """
+
+def theme_defaults(name: str, flavor: str | None = None) -> str:
+    """Return a named theme's options in ``theme()`` vocabulary as JSON.
+
+    Raises
+    ------
+    ValueError
+        If the theme or flavor name is unknown; the message lists the names.
     """
 
 def hclust(

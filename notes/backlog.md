@@ -144,9 +144,6 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 - `scale_color_datetime` (also fill, alpha, size) [plotnine]: left out of the 4.1
   aliases because a datetime column on a non-position scale shows epoch numbers in the
   legend; needs temporal legend labels in the engine first.
-- Accessors, tier 2 [accessors]: `p.panels()` (pixel boxes and data-to-pixel mapping),
-  `p.layers[i].defaults`, `ggrust.theme_defaults("bw")`, a readable `repr` such as
-  `<PlotSpec: 2 layers (point, smooth), 3 scales, facet_wrap(~species)>`.
 - Not worth it: `last_plot()`, plotnine's `theme_set` / `theme_update` / `theme_get` and
   `plotnine.options` (global state, ruled out by AGENTS.md), and setters on everything
   (`with_data` plus `+` cover it).

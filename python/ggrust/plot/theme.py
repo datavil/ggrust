@@ -36,6 +36,7 @@ __all__ = [
     "theme_bw",
     "theme_classic",
     "theme_dark",
+    "theme_defaults",
     "theme_gray",
     "theme_grey",
     "theme_light",
@@ -745,6 +746,73 @@ def element_geom(
 
 def _named(name: str) -> FeatureSpec:
     return FeatureSpec("theme", name=name)
+
+
+def theme_defaults(
+    name: Literal[
+        "minimal2", "classic", "bw", "grey", "gray", "light", "dark", "linedraw", "minimal", "none"
+    ] = "minimal2",
+    flavor: Literal[
+        "standard",
+        "darcula",
+        "solarized_light",
+        "solarized_dark",
+        "high_contrast_light",
+        "high_contrast_dark",
+    ]
+    | None = None,
+) -> dict[str, Any]:
+    """Return what a named theme sets, in ``theme()`` vocabulary.
+
+    The options of ``theme_<name>()`` before any ``theme(...)`` on top: an element
+    option gives the properties the theme sets on it (``color`` and ``fill`` as
+    ``#rrggbb`` after the flavor, ``size``, ``face``, ``hjust``, ``blank``,
+    ``margin`` as ``[top, right, bottom, left]`` with None for a side left to
+    inherit, ...), a margin option (``plot_margin``) its list, a plain option
+    (``legend_position``) its value. Properties the theme leaves to inheritance are
+    absent: an ``axis_text_x`` without ``color`` takes ``axis_text``'s, then
+    ``text``'s.
+
+    Parameters
+    ----------
+    name : str, default="minimal2"
+        The theme, as ``theme_<name>()`` names it; ``"minimal2"`` is the default
+        theme.
+    flavor : str or None, default=None
+        A flavor, as ``flavor_<name>()`` names it; None keeps the theme's own colors.
+
+    Returns
+    -------
+    dict
+        Option name to its element properties (a dict) or value.
+
+    Raises
+    ------
+    SpecError
+        If ``name`` or ``flavor`` is not a known theme or flavor; the message lists
+        the names.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> bw = theme_defaults("bw")
+    >>> bw["panel_background"]["color"], bw["legend_position"]
+    ('#333333', 'right')
+    >>> theme_defaults("bw", flavor="darcula")["rect"]["fill"]
+    '#303030'
+    """
+    import json
+
+    from ggrust._ggrust import theme_defaults as engine_theme_defaults
+
+    try:
+        return json.loads(engine_theme_defaults(name, flavor))
+    except ValueError as error:
+        # The engine locates the error in a plot spec (at 'theme.name'): drop that.
+        reason = str(error).split(": ", 1)[-1]
+        message = f"theme_defaults: {reason}"
+        path = "theme_defaults.flavor" if "flavor" in reason else "theme_defaults.name"
+        raise SpecError(message, path=path) from None
 
 
 def theme_grey() -> FeatureSpec:

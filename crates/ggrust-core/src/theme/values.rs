@@ -914,3 +914,101 @@ fn thickness(value: &Value) -> Result<[Option<f64>; 4], String> {
         _ => return Err(format!("expected 1 to 4 margins, got {}", numbers.len())),
     })
 }
+
+/// A named theme's options in `theme(...)` vocabulary (`theme_defaults()` in Python):
+/// an element gives the properties the theme sets (colors as `#rrggbb` after the
+/// flavor, `margin` as `[top, right, bottom, left]`), a margin option its list, a
+/// plain option its value. `flavor` is a `flavor_*()` name; `None` keeps the theme's.
+///
+/// # Errors
+///
+/// An unknown theme or flavor name, with the accepted names.
+pub fn theme_defaults(name: &str, flavor: Option<&str>) -> Result<Value, String> {
+    let mut elements = BTreeMap::new();
+    if let Some(flavor) = flavor {
+        elements.insert(
+            "flavor".to_owned(),
+            ThemeValue::Scalar(Value::String(flavor.to_owned())),
+        );
+    }
+    let spec = ThemeSpec {
+        name: Some(name.to_owned()),
+        elements,
+    };
+    let (values, flavor) = theme_values(Some(&spec))?;
+    let hex = |paint: Paint| {
+        let color = match paint {
+            Paint::Symbol(symbol) => flavor.color(symbol),
+            Paint::Color(color) => color,
+        };
+        match color.alpha {
+            255 => color.to_string(),
+            alpha => format!("{color}{alpha:02x}"),
+        }
+    };
+    let margin = |sides: &[Option<f64>; 4]| Value::from(sides.to_vec());
+    let options = values
+        .entries
+        .iter()
+        .map(|(key, entry)| {
+            let value = match entry {
+                Entry::Value(value) => value.clone(),
+                Entry::Element(props) if MARGIN_KEYS.contains(&key.as_str()) => {
+                    margin(&props.margin)
+                }
+                Entry::Element(props) => {
+                    let mut map = serde_json::Map::new();
+                    // NaN numbers mean "unset" (automatic justification, angle).
+                    let mut put = |name: &str, value: Option<Value>| {
+                        if let Some(value) = value.filter(|value| !value.is_null()) {
+                            map.insert(name.to_owned(), value);
+                        }
+                    };
+                    put("blank", props.blank.map(Value::from));
+                    put("color", props.color.map(|paint| Value::from(hex(paint))));
+                    put("fill", props.fill.map(|paint| Value::from(hex(paint))));
+                    put("size", props.size.map(Value::from));
+                    put("face", props.face.clone().map(Value::from));
+                    put("family", props.family.clone().map(Value::from));
+                    put("hjust", props.hjust.map(Value::from));
+                    put("vjust", props.vjust.map(Value::from));
+                    put("angle", props.angle.map(Value::from));
+                    if props.margin.iter().any(Option::is_some) {
+                        put("margin", Some(margin(&props.margin)));
+                    }
+                    put("linetype", props.linetype.clone());
+                    put("extent", props.extent.map(Value::from));
+                    Value::Object(map)
+                }
+            };
+            (key.clone(), value)
+        })
+        .collect();
+    Ok(Value::Object(options))
+}
+
+#[cfg(test)]
+mod defaults_tests {
+    use super::*;
+
+    #[test]
+    fn theme_defaults_resolve_colors_and_keep_plain_values() {
+        let bw = theme_defaults("bw", None).unwrap();
+        assert_eq!(bw["panel_background"]["color"], Value::from("#333333"));
+        assert_eq!(bw["panel_border"]["blank"], Value::from(true));
+        // Unset (NaN, "auto") numbers are left out.
+        assert!(bw["axis_text"].get("angle").is_none());
+        assert_eq!(bw["legend_position"], Value::from("right"));
+        let dark = theme_defaults("bw", Some("darcula")).unwrap();
+        assert_eq!(dark["rect"]["fill"], Value::from("#303030"));
+        assert!(bw["plot_margin"].is_array());
+    }
+
+    #[test]
+    fn theme_defaults_name_errors_list_the_names() {
+        let error = theme_defaults("bww", None).unwrap_err();
+        assert!(error.contains("unknown theme 'bww'"), "{error}");
+        let error = theme_defaults("bw", Some("dracula")).unwrap_err();
+        assert!(error.contains("unknown flavor 'dracula'"), "{error}");
+    }
+}

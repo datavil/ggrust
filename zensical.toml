@@ -457,6 +457,7 @@ nav = [
       "reference/api/theme_linedraw.md",
       "reference/api/theme_void.md",
       "reference/api/theme_none.md",
+      "reference/api/theme_defaults.md",
     ] },
     { "Theme elements and flavors" = [
       "reference/api/element_text.md",

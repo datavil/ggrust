@@ -13,19 +13,27 @@
 //! (`p = 1.29395870135052e-10`); ggrust prints `p_digits` significant digits, as
 //! earlier ggpubr and its plotmath labels do.
 //!
+//! Computed variables (ggpubr's): `..r.label..` (`"R = -0.87"`), `..rr.label..`
+//! (`"R² = 0.75"`) and `..p.label..` (`"p = 1.3e-10"`), so
+//! `aes(label=after_stat("r.label"))` hides the p-value.
+//!
 //! What it does not do: one-sided `alternative`, `output.type`, `r.accuracy`,
-//! `p.accuracy`, confidence intervals, `rr.label`.
+//! `p.accuracy`, confidence intervals, the numeric `r`, `rr`, `p` variables.
 
 use super::hypothesis::Correlation;
 use super::pubr_labels::{labels_per_group, significant};
 use super::{Stat, StatContext};
-use crate::data::LayerData;
+use crate::data::{Computed, LayerData};
 use crate::parameters::Parameters;
 use crate::spec::Aesthetic;
 use crate::{Error, Result};
 
 /// Correlation labels.
 pub struct CorStat;
+
+/// The label parts as stat variables (ggpubr's computed variables), for
+/// `aes(label=after_stat("r.label"))`.
+const VARIABLES: [Computed; 3] = [Computed::RLabel, Computed::RrLabel, Computed::PLabel];
 
 impl Stat for CorStat {
     fn name(&self) -> &'static str {
@@ -92,7 +100,7 @@ impl Stat for CorStat {
         else {
             return Ok(LayerData::new(0));
         };
-        labels_per_group(&data, parameters, context, |rows| {
+        labels_per_group(&data, parameters, context, &VARIABLES, |rows| {
             let xs: Vec<f64> = rows
                 .iter()
                 .map(|&row| x.get(row).unwrap_or(f64::NAN))
@@ -114,10 +122,16 @@ impl Stat for CorStat {
                 p if p < 2.2e-16 => "p < 2.2e-16".to_owned(),
                 p => format!("p = {}", significant(p, p_digits)),
             };
-            Ok(Some(format!(
-                "{name} = {}{separator}{p_text}",
-                significant(estimate, r_digits)
-            )))
+            let r_text = format!("{name} = {}", significant(estimate, r_digits));
+            // ggpubr: `rr = signif(estimate^2, r.digits)`; "R2" in its text
+            // output, R² as its default plotmath output draws it.
+            let rr_text = format!("{name}² = {}", significant(estimate * estimate, r_digits));
+            Ok(Some(vec![
+                format!("{r_text}{separator}{p_text}"),
+                r_text,
+                rr_text,
+                p_text,
+            ]))
         })
     }
 }

@@ -224,3 +224,99 @@ def test_panel_without_a_category_draws_the_other_brackets() -> None:
     )
     # Panel u has both brackets, panel v only b vs c (no a there).
     assert len(bracket_paths(plot.to_svg())) == 3
+
+
+# Fig 4B style labels: Pearson r and the slope per group, as numpy computes them.
+SLOPES = {
+    "group": ["a"] * 8 + ["b"] * 8,
+    "x": [1.0, 2, 3, 4, 5, 6, 7, 8] * 2,
+    "y": [52.0, 55, 61, 64, 70, 71, 78, 83, 9.1, 8.7, 9.6, 8.2, 9.9, 8.4, 9.0, 9.3],
+}
+
+
+def test_poly_eq_r_and_slope_match_numpy() -> None:
+    plot = (
+        gg.ggplot(SLOPES, gg.aes("x", "y", color="group"))
+        + gg.geom_point()
+        + gg.stat_poly_eq(label=["R", "slope"], small_r=True, slope_name="m", slope_digits=1)
+    )
+    frame = plot.layer_data(1).sort("group")
+    expected = []
+    for group in ("a", "b"):
+        x = np.array(SLOPES["x"][:8])
+        y = np.array([v for g, v in zip(SLOPES["group"], SLOPES["y"], strict=True) if g == group])
+        r = np.corrcoef(x, y)[0, 1]
+        slope = np.polyfit(x, y, 1)[0]
+        expected.append(f"r = {r:.2f}, m = {slope:.1f}")
+    assert frame["label"].to_list() == expected
+    assert expected[1].startswith("r = 0.0") or expected[1].startswith("r = -0.0")
+    drawn = texts(plot.to_svg())
+    assert set(expected) <= set(drawn)
+
+
+def test_poly_eq_r_and_slope_defaults() -> None:
+    plot = gg.ggplot(CARS, gg.aes("wt", "mpg")) + gg.stat_poly_eq(label=["R", "slope", "R2"])
+    x, y = np.array(CARS["wt"]), np.array(CARS["mpg"])
+    r = np.corrcoef(x, y)[0, 1]
+    slope = np.polyfit(x, y, 1)[0]
+    # R's cor(mtcars$wt, mtcars$mpg) = -0.8676594, lm slope -5.344472.
+    assert abs(r - -0.8676594) < 1e-7 and abs(slope - -5.344472) < 1e-6
+    label = plot.layer_data(0)["label"][0]
+    assert label == f"R = {r:.2f}, slope = {slope:.2f}, R² = {r * r:.2f}"
+    assert label == "R = -0.87, slope = -5.34, R² = 0.75"
+
+
+def test_poly_eq_computed_labels_match_ggpmisc() -> None:
+    data = {"x": [1, 2, 3, 4, 5, 6, 7, 8], "y": [52, 55, 61, 64, 70, 71, 78, 83]}
+    frame = (gg.ggplot(data, gg.aes("x", "y")) + gg.stat_poly_eq()).layer_data(0)
+    # ggpmisc 1.0 text output: "y = 47.0 + 4.38  x", "r^2 = 0.99" (small.r),
+    # "P < 0.001", "n = 8".
+    assert frame["eq.label"][0] == "y = 47 + 4.38x"
+    assert frame["rr.label"][0] == "R² = 0.99"
+    assert frame["p.value.label"][0] == "P < 0.001"
+    assert frame["n.label"][0] == "n = 8"
+    shown = gg.ggplot(data, gg.aes("x", "y")) + gg.stat_poly_eq(
+        gg.aes(label=gg.after_stat("n.label"))
+    )
+    assert shown.layer_data(0)["label"][0] == "n = 8"
+
+
+def test_cor_label_without_p_value() -> None:
+    data = {"x": [1, 2, 3, 4, 5, 6, 7, 8], "y": [52, 55, 61, 64, 70, 71, 78, 83]}
+    base = gg.ggplot(data, gg.aes("x", "y")) + gg.geom_point()
+    frame = (base + gg.stat_cor()).layer_data(1)
+    # ggpubr 0.6.3, output.type = "text": R = 0.99, R2 = 0.99, p = 4.8e-07.
+    assert frame["label"][0] == "R = 0.99, p = 4.8e-07"
+    assert frame["r.label"][0] == "R = 0.99"
+    assert frame["rr.label"][0] == "R² = 0.99"
+    assert frame["p.label"][0] == "p = 4.8e-07"
+    for variable, text in [("r.label", "R = 0.99"), ("p.label", "p = 4.8e-07")]:
+        plot = base + gg.stat_cor(gg.aes(label=gg.after_stat(variable)))
+        assert plot.layer_data(1)["label"][0] == text
+        drawn = texts(plot.to_svg())
+        assert text in drawn and "R = 0.99, p = 4.8e-07" not in drawn
+    renamed = base + gg.stat_cor(gg.aes(label=gg.after_stat("r.label")), cor_coef_name="rho")
+    assert renamed.layer_data(1)["label"][0] == "rho = 0.99"
+
+
+def test_r_and_slope_errors() -> None:
+    with pytest.raises(SpecError, match="needs the linear formula"):
+        (
+            gg.ggplot(CARS, gg.aes("wt", "mpg"))
+            + gg.stat_poly_eq(label=["R"], formula="y ~ x + I(x^2)")
+        ).to_svg()
+    with pytest.raises(SpecError, match="decimals are from 0 to 15"):
+        gg.stat_poly_eq(slope_digits=-1)
+    with pytest.raises(UnsupportedValueError, match="expected a string"):
+        gg.stat_poly_eq(slope_name=3)  # type: ignore[arg-type]
+    with pytest.raises(SpecError, match="did you mean 'slope'"):
+        gg.stat_poly_eq(label=["slop"])  # type: ignore[list-item]
+    with pytest.raises(SpecError, match=r"does not compute '\.\.r\.label\.\.'"):
+        (
+            gg.ggplot(CARS, gg.aes("wt", "mpg"))
+            + gg.stat_poly_eq(gg.aes(label=gg.after_stat("r.label")))
+        ).to_svg()
+    assert gg.after_stat("adj.rr.label") == "..adj.rr.label.."
+    for bad in ("r..label", "r.", ".r.label.", "r label"):
+        with pytest.raises(SpecError):
+            gg.after_stat(bad)

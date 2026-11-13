@@ -17,7 +17,7 @@ if TYPE_CHECKING:
 __all__ = ["after_stat", "as_discrete"]
 
 # ggdist's ``.width`` keeps its leading dot.
-_COMPUTED_NAME = re.compile(r"\.?[A-Za-z_][A-Za-z0-9_]*")
+_COMPUTED_NAME = re.compile(r"\.?[A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*")
 
 
 class MappingMeta:
@@ -87,13 +87,18 @@ def after_stat(name: str) -> str:
 
     Another spelling of lets-plot's ``"..name.."``: ``aes(y=after_stat("density"))``
     is ``aes(y="..density..")``. Only a variable name is accepted, not an
-    expression such as ggplot2's ``after_stat(count / max(count))``.
+    expression such as ggplot2's ``after_stat(count / max(count))``. Text
+    variables of the ggpubr / ggpmisc stats work too: ``after_stat("r.label")``
+    labels ``stat_cor`` with ``"R = 0.58"`` only (no p-value).
 
     Parameters
     ----------
     name : str
         A computed variable of the layer's stat, e.g. ``"count"``, ``"density"``,
-        ``"level"`` (``".width"`` for ggdist intervals).
+        ``"level"`` (``".width"`` for ggdist intervals), or a label such as
+        ``"r.label"``, ``"p.label"``, ``"rr.label"`` (``stat_cor``) and
+        ``"eq.label"``, ``"rr.label"``, ``"adj.rr.label"``, ``"p.value.label"``,
+        ``"n.label"`` (``stat_poly_eq``).
 
     Returns
     -------
@@ -112,6 +117,13 @@ def after_stat(name: str) -> str:
     >>> from ggrust import *
     >>> data = {"height": [150, 152, 158, 160, 161, 165, 170, 171, 178, 185]}
     >>> plot = ggplot(data, aes("height", after_stat("density"))) + geom_histogram(bins=5)
+
+    A correlation label without the p-value:
+
+    >>> data = {"height": [150, 160, 165, 170, 175, 182, 190],
+    ...         "weight": [52, 58, 63, 66, 74, 80, 88]}
+    >>> plot = (ggplot(data, aes("height", "weight")) + geom_point()
+    ...         + stat_cor(aes(label=after_stat("r.label"))))
     """
     if not isinstance(name, str):
         reason = f"expected a computed variable name, got {type(name).__name__}"

@@ -41,8 +41,8 @@ PAdjustMethod: TypeAlias = Literal[
 Level: TypeAlias = str | int
 """An x category, by name or 1-based position."""
 
-PolyLabel: TypeAlias = Literal["eq", "R2", "adj.R2", "P", "n"]
-"""A part of a ``stat_poly_eq`` label (ggpmisc ``use_label`` names)."""
+PolyLabel: TypeAlias = Literal["eq", "R2", "adj.R2", "P", "n", "R", "slope"]
+"""A part of a ``stat_poly_eq`` label (ggpmisc ``use_label`` names, plus ``slope``)."""
 
 _COMPARE_METHODS: tuple[str, ...] = (
     "t.test",
@@ -68,7 +68,7 @@ _ADJUSTMENTS: tuple[str, ...] = (
     "fdr",
 )
 _P_LABELS: tuple[str, ...] = ("p.format", "p.signif")
-_POLY_LABELS: tuple[str, ...] = ("eq", "R2", "adj.R2", "P", "n")
+_POLY_LABELS: tuple[str, ...] = ("eq", "R2", "adj.R2", "P", "n", "R", "slope")
 _X_NPC: tuple[str, ...] = ("left", "center", "centre", "right")
 _Y_NPC: tuple[str, ...] = ("bottom", "center", "centre", "top")
 
@@ -157,6 +157,16 @@ def _check_digits(function: str, name: str, value: object) -> None:
         _fail(function, name, value, "expected a whole number of digits", UnsupportedValueError)
     if not 1 <= int(value) <= 15:
         _fail(function, name, value, "digits are from 1 to 15", SpecError)
+
+
+def _check_decimals(function: str, name: str, value: object) -> None:
+    """Raise unless ``value`` is None or a whole number from 0 to 15."""
+    if value is None:
+        return
+    if isinstance(value, bool) or not isinstance(value, Integral):
+        _fail(function, name, value, "expected a whole number of decimals", UnsupportedValueError)
+    if not 0 <= int(value) <= 15:
+        _fail(function, name, value, "decimals are from 0 to 15", SpecError)
 
 
 def stat_compare_means(
@@ -342,6 +352,10 @@ def stat_cor(
     As ``stat_cor`` in the R package ggpubr: ``"R = -0.87, p = 1.3e-10"`` at the top
     left of the data, one label per group (colored by group), stacked downward.
 
+    Computed variables, for ``aes(label=after_stat(...))``: ``"r.label"``
+    (``"R = -0.87"``, the label without its p-value), ``"rr.label"``
+    (``"R² = 0.75"``) and ``"p.label"`` (``"p = 1.3e-10"``), as in ggpubr.
+
     Parameters
     ----------
     mapping : FeatureSpec, optional
@@ -395,6 +409,11 @@ def stat_cor(
     >>> data = {"height": [150, 160, 165, 170, 175, 182, 190],
     ...         "weight": [52, 58, 63, 66, 74, 80, 88]}
     >>> plot = ggplot(data, aes("height", "weight")) + geom_point() + stat_cor()
+
+    Only the coefficient, without the p-value:
+
+    >>> plot = (ggplot(data, aes("height", "weight")) + geom_point()
+    ...         + stat_cor(aes(label=after_stat("r.label"))))
     """
     function = "stat_cor"
     _check_choice(function, "method", method, _CORRELATIONS)
@@ -441,6 +460,10 @@ def stat_poly_eq(
     label_y: Number | Sequence[Number] | None = None,
     coef_digits: int | None = None,
     rr_digits: int | None = None,
+    r_digits: int | None = None,
+    slope_digits: int | None = None,
+    slope_name: str | None = None,
+    small_r: bool | None = None,
     geom: str | None = None,
     position: Position | None = None,
     show_legend: bool | None = None,
@@ -454,7 +477,13 @@ def stat_poly_eq(
     As ``stat_poly_eq`` in the R package ggpmisc. The default label is ``"R² = 0.75"``;
     ``label=["eq", "R2"]`` (ggpmisc ``use_label("eq", "R2")``) also shows the equation
     ``"y = 37.3 - 5.34x"``. Labels sit at the top left of the data, stacked per group,
-    as ``stat_cor``.
+    as ``stat_cor``. For a line, ``label=["R", "slope"]`` shows the signed Pearson r
+    and the slope: ``"R = 0.58, slope = 0.53"`` (``small_r=True`` and
+    ``slope_name="m"`` give ``"r = 0.58, m = 0.53"``).
+
+    Computed variables, for ``aes(label=after_stat(...))``: ``"eq.label"``,
+    ``"rr.label"``, ``"adj.rr.label"``, ``"p.value.label"`` and ``"n.label"``, as
+    in ggpmisc.
 
     Parameters
     ----------
@@ -467,7 +496,8 @@ def stat_poly_eq(
         ``"y ~ x + I(x^2)"``. Pair it with ``geom_smooth(method="lm", deg=2)``.
     label : str or list of str, default="R2"
         Parts of the label: ``"eq"`` (equation), ``"R2"``, ``"adj.R2"``, ``"P"`` (the
-        fit's F test) and ``"n"``.
+        fit's F test) and ``"n"``; for a linear ``formula`` also ``"R"`` (Pearson's
+        r, with the sign of the slope) and ``"slope"``.
     label_sep : str, default=", "
         Separator between the parts.
     label_x_npc : {"left", "center", "right"} or float, default="left"
@@ -480,6 +510,14 @@ def stat_poly_eq(
         Significant digits of the coefficients.
     rr_digits : int, default=2
         Decimals of R².
+    r_digits : int, default=2
+        Decimals of r (label part ``"R"``), from 0.
+    slope_digits : int, default=2
+        Decimals of the slope (label part ``"slope"``), from 0.
+    slope_name : str, default="slope"
+        Name of the slope in the label, e.g. ``"m"`` or ``"b"``.
+    small_r : bool, default=False
+        Write ``r`` and ``r²`` instead of ``R`` and ``R²`` (ggpmisc ``small.r``).
     geom : str, default="text"
         Geom that draws the labels.
     position : str or FeatureSpec, optional
@@ -503,7 +541,8 @@ def stat_poly_eq(
     Raises
     ------
     SpecError
-        If a label part or place name is not accepted.
+        If a label part or place name is not accepted. At render time, if
+        ``"R"`` or ``"slope"`` is asked of a non-linear ``formula``.
     UnsupportedValueError
         If an option has the wrong type.
 
@@ -514,6 +553,12 @@ def stat_poly_eq(
     ...         "score": [52, 55, 61, 64, 70, 71, 78, 83]}
     >>> plot = (ggplot(data, aes("hours", "score")) + geom_point()
     ...         + stat_poly_eq(label=["eq", "R2"]))
+
+    Pearson's r and the slope, per group, as ``"r = 0.99, m = 4.4"``:
+
+    >>> plot = (ggplot(data, aes("hours", "score")) + geom_point()
+    ...         + stat_poly_eq(label=["R", "slope"], small_r=True,
+    ...                        slope_name="m", slope_digits=1))
     """
     function = "stat_poly_eq"
     if formula is not None and not isinstance(formula, str):
@@ -537,6 +582,14 @@ def stat_poly_eq(
     _check_numbers(function, "label_y", label_y)
     _check_digits(function, "coef_digits", coef_digits)
     _check_digits(function, "rr_digits", rr_digits)
+    _check_decimals(function, "r_digits", r_digits)
+    _check_decimals(function, "slope_digits", slope_digits)
+    if slope_name is not None and not isinstance(slope_name, str):
+        _fail(
+            function, "slope_name", slope_name, "expected a string, e.g. 'm'", UnsupportedValueError
+        )
+    if small_r is not None and not isinstance(small_r, bool):
+        _fail(function, "small_r", small_r, "expected True or False", UnsupportedValueError)
     return _geom(
         geom if geom is not None else "text",
         mapping=mapping,
@@ -556,6 +609,10 @@ def stat_poly_eq(
         label_y=list(label_y) if isinstance(label_y, Sequence) else label_y,
         coef_digits=coef_digits,
         rr_digits=rr_digits,
+        r_digits=r_digits,
+        slope_digits=slope_digits,
+        slope_name=slope_name,
+        small_r=small_r,
         na_rm=na_rm,
         **other_args,
     )

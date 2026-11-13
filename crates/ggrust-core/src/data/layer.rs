@@ -63,10 +63,24 @@ pub enum Computed {
     Value,
     /// `..area..`: area of a convex hull (`stat_hull`).
     Area,
+    /// `..r.label..`: a correlation label, `"R = 0.58"` (stat_cor).
+    RLabel,
+    /// `..rr.label..`: an R² label, `"R² = 0.34"` (stat_cor, stat_poly_eq).
+    RrLabel,
+    /// `..p.label..`: a p-value label, `"p = 0.012"` (stat_cor).
+    PLabel,
+    /// `..eq.label..`: a fitted equation, `"y = 37.3 - 5.34x"` (stat_poly_eq).
+    EqLabel,
+    /// `..adj.rr.label..`: an adjusted R² label (stat_poly_eq).
+    AdjRrLabel,
+    /// `..p.value.label..`: the F test's p-value label, `"P < 0.001"` (stat_poly_eq).
+    PValueLabel,
+    /// `..n.label..`: the number of observations, `"n = 8"` (stat_poly_eq).
+    NLabel,
 }
 
 impl Computed {
-    const ALL: [(Computed, &'static str); 26] = [
+    const ALL: [(Computed, &'static str); 33] = [
         (Computed::Count, "count"),
         (Computed::Density, "density"),
         (Computed::NormalizedCount, "ncount"),
@@ -93,6 +107,13 @@ impl Computed {
         (Computed::Sample, "sample"),
         (Computed::Value, "value"),
         (Computed::Area, "area"),
+        (Computed::RLabel, "r.label"),
+        (Computed::RrLabel, "rr.label"),
+        (Computed::PLabel, "p.label"),
+        (Computed::EqLabel, "eq.label"),
+        (Computed::AdjRrLabel, "adj.rr.label"),
+        (Computed::PValueLabel, "p.value.label"),
+        (Computed::NLabel, "n.label"),
     ];
 
     /// lets-plot name without dots, e.g. `count`.

@@ -47,3 +47,14 @@ Step 5.7 (2026-11-13, ggpubr 0.6.3 + rstatix 0.7.3, reference
 - Dodge: ggpubr's 0.8 fits `ggboxplot`, not ggrust's boxes (0.95): default 0.95.
 - R's `layer_data` of `geom_pwc` stacks left tips, bars, right tips; ggpubr's
   `geom_bracket` (stat_pvalue_manual) gives each bracket its three rows in turn.
+
+2026-11-13 (r / slope labels, ggpmisc 1.0 + ggpubr 0.6.3 checked in a scratch `R_LIBS`):
+
+- ggpmisc's `stat_poly_eq` has **no** `r.label` (`use_label("R")` errors there; only
+  `stat_correlation` computes it) and no slope label: `"R"` and `"slope"` parts are
+  ggrust extensions, linear formula only, decimals (not significant digits).
+- Text computed variables are `Computed` variants holding a discrete column;
+  `labels_per_group` takes the variable list and the closure returns
+  `[label, one text per variable]`. A `..name..` mapping on `label` then just
+  replaces the stat's `label` column (build.rs `stat_mappings`).
+- ggpubr text-mode `rr.label` is `"R2 = 0.99"`; ggrust writes `R²` (the plotmath look).

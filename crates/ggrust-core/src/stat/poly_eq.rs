@@ -7,7 +7,17 @@
 //! (`"y = 37.3 - 5.34x"`, 3 significant digits per coefficient), `"R2"`
 //! (`"R² = 0.75"`, 2 decimals, the default as ggpmisc), `"adj.R2"`, `"P"` (the
 //! F test, `"P < 0.001"` or 3 decimals) and `"n"`, joined with `", "`
-//! (`label_sep`). Digits: `coef_digits` (3), `rr_digits` (2). Places as
+//! (`label_sep`). Digits: `coef_digits` (3), `rr_digits` (2). `small_r`
+//! writes `r` for `R` (ggpmisc `small.r`).
+//!
+//! Two parts beyond ggpmisc's `stat_poly_eq` (recorded deviations), for a linear
+//! `formula` only: `"R"`, the signed Pearson r (`"R = -0.87"`, `r_digits`
+//! decimals, 2, as ggpmisc's `stat_correlation`), and `"slope"`, the fitted
+//! slope (`"slope = 0.53"`, named `slope_name`, `slope_digits` decimals, 2).
+//!
+//! Computed variables (ggpmisc's text labels, for `aes(label=after_stat(..))`):
+//! `..eq.label..`, `..rr.label..`, `..adj.rr.label..`, `..p.value.label..`,
+//! `..n.label..`. Places as
 //! `stat_cor` (`stat/pubr_labels.rs`): top left of the data range, groups
 //! stacked; ggpmisc's npc placement is a recorded deviation.
 //!
@@ -19,7 +29,7 @@
 use super::distribution::f_upper;
 use super::pubr_labels::{labels_per_group, significant};
 use super::{Stat, StatContext};
-use crate::data::LayerData;
+use crate::data::{Computed, LayerData};
 use crate::parameters::Parameters;
 use crate::spec::{Aesthetic, Value};
 use crate::{Error, Result};
@@ -27,8 +37,17 @@ use crate::{Error, Result};
 /// Polynomial equation labels.
 pub struct PolyEqStat;
 
-/// The parts a label can show (ggpmisc `use_label` names).
-const PARTS: [&str; 5] = ["eq", "R2", "adj.R2", "P", "n"];
+/// The parts a label can show (ggpmisc `use_label` names, plus `slope`).
+const PARTS: [&str; 7] = ["eq", "R2", "adj.R2", "P", "n", "R", "slope"];
+
+/// The parts as stat variables, in this order after the label.
+const VARIABLES: [Computed; 5] = [
+    Computed::EqLabel,
+    Computed::RrLabel,
+    Computed::AdjRrLabel,
+    Computed::PValueLabel,
+    Computed::NLabel,
+];
 
 impl Stat for PolyEqStat {
     fn name(&self) -> &'static str {
@@ -42,6 +61,10 @@ impl Stat for PolyEqStat {
             "label_sep",
             "coef_digits",
             "rr_digits",
+            "r_digits",
+            "slope_digits",
+            "slope_name",
+            "small_r",
             "label_x",
             "label_y",
             "label_x_npc",
@@ -76,25 +99,44 @@ impl Stat for PolyEqStat {
             })?,
         };
         let parts = label_parts(parameters)?;
-        let digits = |name: &str, default: usize| -> Result<usize> {
+        if degree != 1
+            && let Some(part) = parts.iter().find(|part| matches!(**part, "R" | "slope"))
+        {
+            return Err(Error::spec(
+                parameters.path_of("label"),
+                format!(
+                    "label part '{part}' needs the linear formula 'y ~ x', got degree {degree}; \
+                     drop '{part}' or fit a line"
+                ),
+            ));
+        }
+        let digits = |name: &str, default: usize, least: usize| -> Result<usize> {
             match parameters.number(name)? {
                 None => Ok(default),
-                Some(value) if value >= 1.0 && value.fract() == 0.0 && value <= 15.0 => {
+                Some(value) if value >= least as f64 && value.fract() == 0.0 && value <= 15.0 => {
                     Ok(value as usize)
                 }
                 Some(value) => Err(Error::spec(
                     parameters.path_of(name),
-                    format!("expected a whole number of digits from 1 to 15, got {value}"),
+                    format!("expected a whole number of digits from {least} to 15, got {value}"),
                 )),
             }
         };
-        let (coef_digits, rr_digits) = (digits("coef_digits", 3)?, digits("rr_digits", 2)?);
+        let coef_digits = digits("coef_digits", 3, 1)?;
+        let rr_digits = digits("rr_digits", 2, 1)?;
+        let r_digits = digits("r_digits", 2, 0)?;
+        let slope_digits = digits("slope_digits", 2, 0)?;
+        let slope_name = parameters.string("slope_name")?.unwrap_or("slope");
+        let r = match parameters.boolean("small_r")? {
+            Some(true) => "r",
+            _ => "R",
+        };
         let separator = parameters.string("label_sep")?.unwrap_or(", ");
         let (Some(x), Some(y)) = (data.continuous(Aesthetic::X), data.continuous(Aesthetic::Y))
         else {
             return Ok(LayerData::new(0));
         };
-        labels_per_group(&data, parameters, context, |rows| {
+        labels_per_group(&data, parameters, context, &VARIABLES, |rows| {
             let (xs, ys): (Vec<f64>, Vec<f64>) = rows
                 .iter()
                 .filter_map(|&row| Some((x.get(row)?, y.get(row)?)))
@@ -103,20 +145,29 @@ impl Stat for PolyEqStat {
             let Some(fit) = PolynomialFit::new(&xs, &ys, degree) else {
                 return Ok(None);
             };
-            let texts: Vec<String> = parts
+            let text = |part: &str| match part {
+                "eq" => fit.equation(coef_digits),
+                "R2" => format!("{r}² = {:.*}", rr_digits, fit.r_squared),
+                "adj.R2" => format!("{r}²adj = {:.*}", rr_digits, fit.adjusted_r_squared()),
+                "P" => match fit.p_value() {
+                    p if p < 0.001 => "P < 0.001".to_owned(),
+                    p => format!("P = {p:.3}"),
+                },
+                "R" => format!("{r} = {}", fixed(pearson(&xs, &ys), r_digits)),
+                "slope" => format!(
+                    "{slope_name} = {}",
+                    fixed(fit.coefficients[1], slope_digits)
+                ),
+                _ => format!("n = {}", fit.n),
+            };
+            let label = parts
                 .iter()
-                .map(|part| match *part {
-                    "eq" => fit.equation(coef_digits),
-                    "R2" => format!("R² = {:.*}", rr_digits, fit.r_squared),
-                    "adj.R2" => format!("R²adj = {:.*}", rr_digits, fit.adjusted_r_squared()),
-                    "P" => match fit.p_value() {
-                        p if p < 0.001 => "P < 0.001".to_owned(),
-                        p => format!("P = {p:.3}"),
-                    },
-                    _ => format!("n = {}", fit.n),
-                })
-                .collect();
-            Ok(Some(texts.join(separator)))
+                .map(|part| text(part))
+                .collect::<Vec<_>>()
+                .join(separator);
+            let mut texts = vec![label];
+            texts.extend(["eq", "R2", "adj.R2", "P", "n"].map(text));
+            Ok(Some(texts))
         })
     }
 }
@@ -191,6 +242,30 @@ fn parse_formula(formula: &str) -> Option<usize> {
         }
     }
     Some(terms.len())
+}
+
+/// `value` with `decimals` decimals, without the sign of a value that rounds
+/// to zero (`-0.001` with 1 decimal is `"0.0"`, not `"-0.0"`).
+fn fixed(value: f64, decimals: usize) -> String {
+    let text = format!("{value:.decimals$}");
+    match text.strip_prefix('-') {
+        Some(rest) if rest.chars().all(|c| c == '0' || c == '.') => rest.to_owned(),
+        _ => text,
+    }
+}
+
+/// Pearson's r of paired values (both with some spread).
+fn pearson(xs: &[f64], ys: &[f64]) -> f64 {
+    let n = xs.len() as f64;
+    let (mean_x, mean_y) = (xs.iter().sum::<f64>() / n, ys.iter().sum::<f64>() / n);
+    let (mut xy, mut xx, mut yy) = (0.0, 0.0, 0.0);
+    for (x, y) in xs.iter().zip(ys) {
+        let (dx, dy) = (x - mean_x, y - mean_y);
+        xy += dx * dy;
+        xx += dx * dx;
+        yy += dy * dy;
+    }
+    xy / (xx * yy).sqrt()
 }
 
 /// A least squares polynomial fit.
@@ -349,6 +424,53 @@ mod tests {
                 "p {degree}"
             );
         }
+    }
+
+    #[test]
+    fn pearson_and_slope_match_r() {
+        let reference: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../tests/fixtures/pubr_reference.json"
+        ))
+        .unwrap();
+        let numbers = |value: &serde_json::Value| -> Vec<f64> {
+            value
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_f64().unwrap())
+                .collect()
+        };
+        let mut checked = 0;
+        for case in reference["correlations"].as_array().unwrap() {
+            if case["method"] != "pearson" {
+                continue;
+            }
+            let (xs, ys) = (numbers(&case["x"]), numbers(&case["y"]));
+            if xs.iter().chain(&ys).any(|v| !v.is_finite()) {
+                continue;
+            }
+            let expected = case["estimate"].as_f64().unwrap();
+            let r = pearson(&xs, &ys);
+            assert!(
+                (r - expected).abs() < 1e-12,
+                "{}: {r} vs R {expected}",
+                case["name"]
+            );
+            // A line's slope has the sign of r and R² = r².
+            let fit = PolynomialFit::new(&xs, &ys, 1).unwrap();
+            assert_eq!(fit.coefficients[1].signum(), r.signum());
+            assert!((fit.r_squared - r * r).abs() < 1e-12);
+            checked += 1;
+        }
+        assert!(checked >= 5);
+    }
+
+    #[test]
+    fn fixed_drops_the_sign_of_zero() {
+        assert_eq!(fixed(-0.001, 1), "0.0");
+        assert_eq!(fixed(-0.17, 0), "0");
+        assert_eq!(fixed(-0.06, 1), "-0.1");
+        assert_eq!(fixed(0.04, 2), "0.04");
     }
 
     #[test]

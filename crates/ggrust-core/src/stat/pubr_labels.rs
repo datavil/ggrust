@@ -19,7 +19,7 @@
 
 use super::StatContext;
 use super::groups::{per_group, rows_by_group};
-use crate::data::{Column, ContinuousColumn, DiscreteColumn, LayerData, Variable};
+use crate::data::{Column, Computed, ContinuousColumn, DiscreteColumn, LayerData, Variable};
 use crate::parameters::Parameters;
 use crate::spec::{Aesthetic, Value};
 use crate::{Error, Result};
@@ -285,11 +285,16 @@ pub(super) fn column_range(
 /// plot's data range by default, group `g` (from 1) `1.4 g` lines below the
 /// top. A constant `hjust`/`vjust` option replaces the computed one. Other
 /// columns are carried per group (a label's color is its group's).
+///
+/// `label` returns the group's `label` text first, then one text per entry of
+/// `variables` (ggpubr's `r.label`, `p.label`, ...), each kept as a discrete
+/// stat variable for `aes(label=after_stat("r.label"))`.
 pub(super) fn labels_per_group(
     data: &LayerData,
     parameters: &Parameters,
     context: &StatContext,
-    label: impl Fn(&[usize]) -> Result<Option<String>> + Sync,
+    variables: &[Computed],
+    label: impl Fn(&[usize]) -> Result<Option<Vec<String>>> + Sync,
 ) -> Result<LayerData> {
     let place_x = Place::parse(parameters, 'x', "left")?;
     let place_y = Place::parse(parameters, 'y', "top")?;
@@ -303,9 +308,19 @@ pub(super) fn labels_per_group(
         .or_else(|| column_range(data.continuous(Aesthetic::Y), &all_rows))
         .unwrap_or((0.0, 1.0));
     let groups = rows_by_group(data);
-    let mut labels: Vec<Option<String>> = Vec::with_capacity(groups.len());
+    let mut labels: Vec<Option<Vec<String>>> = Vec::with_capacity(groups.len());
     for rows in &groups {
-        labels.push(label(rows)?);
+        let texts = label(rows)?;
+        if let Some(texts) = &texts
+            && texts.len() != variables.len() + 1
+        {
+            return Err(Error::data(format!(
+                "a label stat returned {} texts, expected {}",
+                texts.len(),
+                variables.len() + 1
+            )));
+        }
+        labels.push(texts);
     }
     let slot_of = |rows: &[usize]| {
         rows.first()
@@ -326,18 +341,29 @@ pub(super) fn labels_per_group(
             (Variable::Aesthetic(Aesthetic::Label), vec![slot as f64]),
         ])
     })?;
-    let texts: Vec<String> = result
+    let slots: Vec<usize> = result
         .continuous(Aesthetic::Label)
         .map(|column| {
             (0..column.len())
-                .map(|row| {
-                    let slot = column.get(row).unwrap_or(0.0) as usize;
-                    labels[slot].clone().unwrap_or_default()
-                })
+                .map(|row| column.get(row).unwrap_or(0.0) as usize)
                 .collect()
         })
         .unwrap_or_default();
-    result.insert(Aesthetic::Label, label_column(&texts))?;
+    let texts = |index: usize| -> Vec<String> {
+        slots
+            .iter()
+            .map(|&slot| {
+                labels[slot]
+                    .as_ref()
+                    .map(|texts| texts[index].clone())
+                    .unwrap_or_default()
+            })
+            .collect()
+    };
+    result.insert(Aesthetic::Label, label_column(&texts(0)))?;
+    for (index, variable) in variables.iter().enumerate() {
+        result.insert(*variable, label_column(&texts(index + 1)))?;
+    }
     for aesthetic in [Aesthetic::Hjust, Aesthetic::Vjust] {
         if parameters.value(aesthetic.as_str()).is_some() {
             result.remove(aesthetic);

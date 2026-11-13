@@ -34,8 +34,8 @@ pub use axis::{AxisBreaks, LabelArrangement, Orientation, choose_breaks};
 pub use colorbar::{Colorbar, DEFAULT_BINS};
 pub(crate) use legend::wrap_words;
 pub use legend::{
-    GuideStyle, KeyGrid, KeyLayer, Legend, LegendBlock, LegendBox, LegendBudget, LegendKey,
-    draw_legends, measure_legends, measure_themed_legends,
+    GuidePosition, GuideStyle, KeyGrid, KeyLayer, Legend, LegendBlock, LegendBox, LegendBudget,
+    LegendKey, draw_legends, measure_legends, measure_legends_where, measure_themed_legends,
 };
 
 use axis::{LABELS_OVERFLOW, TILT_DEGREES};
@@ -812,9 +812,16 @@ pub const LEGEND_MAX_SHARE: f64 = 0.5;
 /// side; across, [`LEGEND_MAX_SHARE`] of it for automatic grids and all but a
 /// minimum panel for grids the user fixed (`guide_legend(ncol, nrow)`).
 pub fn legend_budget(theme: &Theme, area: Rect) -> LegendBudget {
+    shared_legend_budget(theme, area, 1)
+}
+
+/// [`legend_budget`] for one of `parts` legend blocks on opposite sides (top and
+/// bottom, or left and right: `guide_*(position=)`), which split the room across.
+pub fn shared_legend_budget(theme: &Theme, area: Rect, parts: usize) -> LegendBudget {
     let content = shrink(area, theme.plot_margin);
     let spacing = theme.legend_box_spacing;
-    let room = |share: f64, extent: f64| (extent * share - spacing).max(1.0);
+    let parts = parts.max(1) as f64;
+    let room = |share: f64, extent: f64| (extent * share / parts - spacing).max(1.0);
     let sized = |across: &dyn Fn(f64) -> f64| match theme.legend_position {
         LegendPosition::Right | LegendPosition::Left => (across(content.width), content.height),
         LegendPosition::Top | LegendPosition::Bottom => (content.width, across(content.height)),
@@ -822,7 +829,7 @@ pub fn legend_budget(theme: &Theme, area: Rect) -> LegendBudget {
     };
     LegendBudget {
         preferred: sized(&|extent| room(LEGEND_MAX_SHARE, extent)),
-        most: sized(&|extent| (extent - PANEL_MIN_SIZE - spacing).max(1.0)),
+        most: sized(&|extent| ((extent - PANEL_MIN_SIZE) / parts - spacing).max(1.0)),
     }
 }
 

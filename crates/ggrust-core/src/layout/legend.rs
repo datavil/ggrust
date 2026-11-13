@@ -21,7 +21,7 @@ use crate::scale::format::Label;
 use crate::scene::{Group, HorizontalAlign, LEGEND_KEY_ROLE, Node, Rect};
 use crate::style::Styles;
 use crate::text::{measure, measure_label};
-use crate::theme::Theme;
+use crate::theme::{LegendPosition, Theme};
 use crate::{Error, Result};
 
 /// lets-plot `LegendAssembler.MAX_ROWS_PER_COL`.
@@ -79,6 +79,56 @@ pub struct GuideStyle {
     pub reverse: Option<bool>,
     /// `order`, 0 to 99 (0 or unset: last); the plot builder sorts boxes by it.
     pub order: Option<u32>,
+    /// `position`: the side (or the panel inside) this guide goes to; `None`
+    /// follows `legend_position` (ggplot2 3.5).
+    pub position: Option<GuidePosition>,
+}
+
+/// Where one guide goes (ggplot2 `guide_*(position=)`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum GuidePosition {
+    /// Above the panel.
+    Top,
+    /// Right of the panel.
+    Right,
+    /// Below the panel.
+    Bottom,
+    /// Left of the panel.
+    Left,
+    /// Inside the panel, at `legend_position_inside`.
+    Inside,
+}
+
+impl GuidePosition {
+    /// The accepted names, in ggplot2's order.
+    pub const NAMES: [&'static str; 5] = ["top", "right", "bottom", "left", "inside"];
+
+    /// The position named `name` (`None`: not a position).
+    pub fn parse(name: &str) -> Option<GuidePosition> {
+        Some(match name {
+            "top" => GuidePosition::Top,
+            "right" => GuidePosition::Right,
+            "bottom" => GuidePosition::Bottom,
+            "left" => GuidePosition::Left,
+            "inside" => GuidePosition::Inside,
+            _ => return None,
+        })
+    }
+
+    /// The legend position this guide takes in a plot with `theme`: an inside
+    /// guide sits at `theme`'s inside point.
+    pub fn resolve(self, theme: &Theme) -> LegendPosition {
+        match self {
+            GuidePosition::Top => LegendPosition::Top,
+            GuidePosition::Right => LegendPosition::Right,
+            GuidePosition::Bottom => LegendPosition::Bottom,
+            GuidePosition::Left => LegendPosition::Left,
+            GuidePosition::Inside => {
+                let (x, y) = theme.inside_point();
+                LegendPosition::Inside(x, y)
+            }
+        }
+    }
 }
 
 impl GuideStyle {
@@ -89,6 +139,7 @@ impl GuideStyle {
             theme: self.theme.or(other.theme),
             reverse: self.reverse.or(other.reverse),
             order: self.order.or(other.order),
+            position: self.position.or(other.position),
         }
     }
 }
@@ -171,6 +222,16 @@ impl LegendBox {
         }
     }
 
+    /// Where the box goes in a plot with `theme`: its guide's `position`, else
+    /// `legend_position`. An inside guide uses its own theme's inside point first.
+    pub fn position(&self, theme: &Theme) -> LegendPosition {
+        let style = self.style();
+        match style.position {
+            None => theme.legend_position,
+            Some(position) => position.resolve(style.theme.as_deref().unwrap_or(theme)),
+        }
+    }
+
     /// The title.
     pub fn title(&self) -> &str {
         match self {
@@ -219,7 +280,9 @@ impl LegendBox {
         }
     }
 
-    fn is_empty(&self) -> bool {
+    /// Whether the box shows nothing (no keys, or a colorbar without breaks); such
+    /// boxes are not drawn.
+    pub fn is_empty(&self) -> bool {
         match self {
             LegendBox::Keys(legend) => legend.keys.is_empty(),
             LegendBox::Colorbar(colorbar) => colorbar.breaks.is_empty(),
@@ -395,6 +458,18 @@ pub fn measure_themed_legends<'a>(
     theme: &Theme,
     budget: Option<LegendBudget>,
 ) -> Result<Option<LegendBlock<'a>>> {
+    measure_legends_where(boxes, box_themes, theme, budget, |_| true)
+}
+
+/// [`measure_themed_legends`] for the boxes `keep` accepts only (the guides at
+/// one position, when guides go to several sides).
+pub fn measure_legends_where<'a>(
+    boxes: &'a [LegendBox],
+    box_themes: Option<&'a [Theme]>,
+    theme: &Theme,
+    budget: Option<LegendBudget>,
+    keep: impl Fn(&LegendBox) -> bool,
+) -> Result<Option<LegendBlock<'a>>> {
     if let Some(themes) = box_themes
         && themes.len() != boxes.len()
     {
@@ -418,7 +493,7 @@ pub fn measure_themed_legends<'a>(
     let (shown, shown_themes): (Vec<&LegendBox>, Vec<Option<&'a Theme>>) = boxes
         .iter()
         .enumerate()
-        .filter(|(_, legend_box)| !legend_box.is_empty())
+        .filter(|(_, legend_box)| !legend_box.is_empty() && keep(legend_box))
         .map(|(index, legend_box)| (legend_box, box_themes.map(|themes| &themes[index])))
         .unzip();
     let measure_one = |index: usize, budget: Option<LegendBudget>| {

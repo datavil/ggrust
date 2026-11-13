@@ -9,6 +9,7 @@
 //! Features parsed by `spec` but not built yet are reported as warnings by
 //! [`report_unimplemented`]; remove an entry there when its phase lands.
 
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::coord::{self, Coord, Panel, PolarView};
@@ -26,10 +27,10 @@ use crate::layout::side_panel::{
 };
 use crate::layout::zoom::{Zoom, ZoomPlot, zoom_tile};
 use crate::layout::{
-    Colorbar, DEFAULT_BINS, GuideStyle, KeyGrid, KeyLayer, Legend, LegendBox, LegendKey,
-    PANEL_MIN_SIZE, PlotLayout, Titles, draw_axes, draw_legends, draw_panel_background,
-    draw_panel_border, draw_titles, headings_band, layout_plot, legend_budget, legend_origin,
-    legend_space, measure_legends, wrap_headings,
+    Colorbar, DEFAULT_BINS, GuidePosition, GuideStyle, KeyGrid, KeyLayer, Legend, LegendBox,
+    LegendKey, PANEL_MIN_SIZE, PlotLayout, Titles, draw_axes, draw_legends, draw_panel_background,
+    draw_panel_border, draw_titles, headings_band, layout_plot, legend_origin, legend_space,
+    measure_legends_where, shared_legend_budget, wrap_headings,
 };
 use crate::parallel;
 use crate::parameters::Parameters;
@@ -1211,13 +1212,60 @@ impl PreparedPlot {
             .map_or(crate::scene::Color::WHITE, |background| background.fill)
     }
 
-    fn legend_block(&self, area: Rect) -> Result<Option<crate::layout::LegendBlock<'_>>> {
+    /// The legend blocks, one per position the guides go to (`guide_*(position=)`,
+    /// else `legend_position`), each with the theme that places it: the plot theme
+    /// with that `legend_position`. Empty with `legend_position="none"`, which
+    /// hides every guide (ggplot2).
+    fn legend_blocks(
+        &self,
+        area: Rect,
+    ) -> Result<Vec<(Cow<'_, Theme>, crate::layout::LegendBlock<'_>)>> {
         if self.theme.legend_position == LegendPosition::None {
-            Ok(None)
-        } else {
-            let budget = legend_budget(&self.theme, area);
-            measure_legends(&self.legends, &self.theme, Some(budget))
+            return Ok(Vec::new());
         }
+        let mut positions: Vec<LegendPosition> = Vec::new();
+        for legend_box in self
+            .legends
+            .iter()
+            .filter(|legend_box| !legend_box.is_empty())
+        {
+            let position = legend_box.position(&self.theme);
+            if !positions.contains(&position) {
+                positions.push(position);
+            }
+        }
+        let mut blocks = Vec::with_capacity(positions.len());
+        for &position in &positions {
+            let theme = if position == self.theme.legend_position {
+                Cow::Borrowed(&self.theme)
+            } else {
+                let mut theme = self.theme.clone();
+                theme.legend_position = position;
+                Cow::Owned(theme)
+            };
+            // Blocks on opposite sides split the room across between them.
+            let opposite = match position {
+                LegendPosition::Top => Some(LegendPosition::Bottom),
+                LegendPosition::Bottom => Some(LegendPosition::Top),
+                LegendPosition::Left => Some(LegendPosition::Right),
+                LegendPosition::Right => Some(LegendPosition::Left),
+                LegendPosition::None | LegendPosition::Inside(..) => None,
+            };
+            let parts = if opposite.is_some_and(|side| positions.contains(&side)) {
+                2
+            } else {
+                1
+            };
+            let budget = shared_legend_budget(&theme, area, parts);
+            let block =
+                measure_legends_where(&self.legends, None, &theme, Some(budget), |legend_box| {
+                    legend_box.position(&self.theme) == position
+                })?;
+            if let Some(block) = block {
+                blocks.push((theme, block));
+            }
+        }
+        Ok(blocks)
     }
 
     /// The data scales (x, y) of side band `band`: the main scale along the shared
@@ -1458,9 +1506,10 @@ impl PreparedPlot {
     /// across ([`PANEL_MIN_SIZE`] for a whole figure).
     pub fn arrange(&self, area: Rect, panel_min_size: f64) -> Result<Arrangement> {
         let legend_space = self
-            .legend_block(area)?
-            .map_or(Margins::uniform(0.0), |block| {
-                legend_space(&self.theme, block.size)
+            .legend_blocks(area)?
+            .iter()
+            .fold(Margins::uniform(0.0), |space, (theme, block)| {
+                space.plus(legend_space(theme, block.size))
             });
         let band_requests = side::band_requests(&self.bands, &self.theme, self.flipped);
         // coord_3d draws its axes inside the panel.
@@ -2037,9 +2086,9 @@ impl PreparedPlot {
         }
         let plot_layout = arrangement.plot_layout();
         nodes.push(draw_titles(plot_layout, theme, &arrangement.titles));
-        if let Some(block) = &self.legend_block(arrangement.area)? {
-            let origin = legend_origin(plot_layout, theme, &arrangement.titles, block.size);
-            nodes.extend(draw_legends(block, origin, theme)?);
+        for (block_theme, block) in &self.legend_blocks(arrangement.area)? {
+            let origin = legend_origin(plot_layout, block_theme, &arrangement.titles, block.size);
+            nodes.extend(draw_legends(block, origin, block_theme)?);
         }
         // The plot background's border, drawn last over the whole plot (lets-plot
         // `PlotSvgComponent.backgroundBorder`).
@@ -5086,7 +5135,7 @@ impl<'a> Guides<'a> {
         })
     }
 
-    /// `reverse`, `direction`, `order` and `theme` of any of the guides (the
+    /// `reverse`, `direction`, `order`, `position` and `theme` of any of the guides (the
     /// first one given wins). The theme is the plot's with the guide's elements on
     /// top; `plot_theme` lends it the block-wide settings.
     fn style(&self, spec: &PlotSpec, plot_theme: &Theme) -> Result<GuideStyle> {
@@ -5132,11 +5181,25 @@ impl<'a> Guides<'a> {
                     Some(Box::new(theme))
                 }
             };
+            let position = match options.position.as_deref() {
+                None => None,
+                Some(name) => Some(GuidePosition::parse(name).ok_or_else(|| {
+                    Error::spec(
+                        format!("{path}.position"),
+                        format!(
+                            "unknown guide position '{name}'; expected one of {}{}",
+                            GuidePosition::NAMES.join(", "),
+                            crate::suggest::did_you_mean(name, GuidePosition::NAMES)
+                        ),
+                    )
+                })?),
+            };
             style = style.or(GuideStyle {
                 horizontal,
                 theme,
                 reverse: options.reverse,
                 order,
+                position,
             });
         }
         Ok(style)

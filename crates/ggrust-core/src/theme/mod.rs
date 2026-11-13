@@ -434,6 +434,9 @@ pub struct Theme {
     pub legend_ticks_length: f64,
     /// `legend_position`.
     pub legend_position: LegendPosition,
+    /// `legend_position_inside`: where inside legends go, (x, y) in 0..1 from the
+    /// panel's bottom-left; `None` uses `legend_justification` (ggplot2 3.5).
+    pub legend_position_inside: Option<(f64, f64)>,
     /// `legend_interactive` (ggrust extension, HTML only): clickable discrete
     /// legend keys. `false` drops the key data from the output.
     pub legend_interactive: bool,
@@ -565,6 +568,7 @@ const BUILT_OPTIONS: &[&str] = &[
     "legend_title",
     "legend_key",
     "legend_position",
+    "legend_position_inside",
     "legend_justification",
     "legend_direction",
     "legend_margin",
@@ -1191,7 +1195,21 @@ impl Resolver<'_> {
             legend_box_spacing: self.number(&["legend_box_spacing"], 0.0)?,
             legend_ticks,
             legend_ticks_length: self.number(&["legend_ticks_length"], 4.0)?,
-            legend_position: legend_position(self.values.value_of(&["legend_position"]))?,
+            legend_position: legend_position(
+                self.values.value_of(&["legend_position"]),
+                self.values
+                    .value_of(&["legend_position_inside"])
+                    .map(inside_point)
+                    .transpose()?
+                    .unwrap_or(legend_justification(
+                        self.values.value_of(&["legend_justification"]),
+                    )?),
+            )?,
+            legend_position_inside: self
+                .values
+                .value_of(&["legend_position_inside"])
+                .map(inside_point)
+                .transpose()?,
             legend_interactive: legend_interactive(self.values.value_of(&["legend_interactive"]))?,
             legend_justification: legend_justification(
                 self.values.value_of(&["legend_justification"]),
@@ -1244,6 +1262,17 @@ impl Theme {
         }
     }
 
+    /// Where inside legends go (ggplot2 `legend.position.inside`, else a numeric
+    /// `legend_position`, else the justification): (x, y) in 0..1 from the panel's bottom-left.
+    pub fn inside_point(&self) -> (f64, f64) {
+        match (self.legend_position_inside, self.legend_position) {
+            (Some(point), _) => point,
+            // A numeric `legend_position` is the inside point (ggplot2 3.5).
+            (None, LegendPosition::Inside(x, y)) => (x, y),
+            (None, _) => self.legend_justification,
+        }
+    }
+
     /// Whether legend keys run in rows (lets-plot `LegendAssemblerUtil.legendDirection`):
     /// `legend_direction`, else horizontal at the top or bottom.
     pub fn legends_horizontal(&self) -> bool {
@@ -1271,6 +1300,16 @@ fn pair(value: &Value, key: &str) -> Result<(f64, f64)> {
     })
 }
 
+/// `legend_position_inside`: two numbers.
+fn inside_point(value: &Value) -> Result<(f64, f64)> {
+    pair(value, "legend_position_inside").map_err(|_| {
+        Error::spec(
+            "theme.legend_position_inside",
+            format!("expected two numbers [x, y] (0 to 1 over the panel), got {value}"),
+        )
+    })
+}
+
 fn as_refs(keys: &[String]) -> Vec<&str> {
     keys.iter().map(String::as_str).collect()
 }
@@ -1287,10 +1326,12 @@ fn legend_interactive(value: Option<&Value>) -> Result<bool> {
     }
 }
 
-fn legend_position(value: Option<&Value>) -> Result<LegendPosition> {
+/// `legend_position`; `"inside"` puts legends at `inside` (ggplot2 3.5).
+fn legend_position(value: Option<&Value>, inside: (f64, f64)) -> Result<LegendPosition> {
     Ok(match value {
         None => LegendPosition::Right,
         Some(Value::String(name)) => match name.as_str() {
+            "inside" => LegendPosition::Inside(inside.0, inside.1),
             "right" => LegendPosition::Right,
             "left" => LegendPosition::Left,
             "top" => LegendPosition::Top,
@@ -1300,11 +1341,11 @@ fn legend_position(value: Option<&Value>) -> Result<LegendPosition> {
                 return Err(Error::spec(
                     "theme.legend_position",
                     format!(
-                        "expected left, right, top, bottom, none or two numbers, got \
-                         '{name}'{}",
+                        "expected left, right, top, bottom, inside, none or two numbers, \
+                         got '{name}'{}",
                         crate::suggest::did_you_mean(
                             name,
-                            ["left", "right", "top", "bottom", "none"]
+                            ["left", "right", "top", "bottom", "inside", "none"]
                         )
                     ),
                 ));

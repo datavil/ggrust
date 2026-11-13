@@ -86,6 +86,7 @@ def theme(
     legend_text: ThemeElement | None = None,
     legend_title: ThemeElement | None = None,
     legend_position: str | Sequence[Number] | None = None,
+    legend_position_inside: Sequence[Number] | None = None,
     legend_justification: str | Sequence[Number] | None = None,
     legend_direction: Literal["horizontal", "vertical"] | None = None,
     legend_margin: Margins | None = None,
@@ -260,7 +261,12 @@ def theme(
         Legend box (``element_rect()``), key labels and title (``element_text()``).
     legend_position : str or list of float, optional
         ``"right"``, ``"left"``, ``"top"``, ``"bottom"``, ``"none"``, or ``[x, y]``
-        inside the plot (0 to 1).
+        inside the plot (0 to 1). ``"inside"`` puts legends in the panel at
+        ``legend_position_inside`` (ggplot2 3.5).
+    legend_position_inside : list of float, optional
+        ``[x, y]`` (0 to 1, from the panel's bottom-left) where inside legends go:
+        ``legend_position="inside"`` and ``guide_*(position="inside")``. None uses
+        ``legend_justification`` (ggplot2 3.5).
     legend_justification : str or list of float, optional
         Anchor of the legend box: a name such as ``"center"``, or ``[x, y]``.
     legend_direction : {"horizontal", "vertical"}, optional

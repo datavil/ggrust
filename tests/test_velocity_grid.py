@@ -52,8 +52,9 @@ def _close(actual: float, expected: float, scale: float) -> bool:
 def test_matches_scvelo(case: dict[str, Any]) -> None:
     points, vectors, options = CASES[case["name"]]
     grid = velocity_grid(points, vectors, **options)
-    assert grid.x == case["x"]
-    assert grid.y == case["y"]
+    # Exact equality fails across platforms (libm differs in the last bit).
+    assert grid.x == pytest.approx(case["x"], rel=TOLERANCE, abs=TOLERANCE)
+    assert grid.y == pytest.approx(case["y"], rel=TOLERANCE, abs=TOLERANCE)
     for name in ("u", "v"):
         actual = GENERATOR.summarize(np.array(getattr(grid, name)))
         expected = case[name]

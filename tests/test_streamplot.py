@@ -49,9 +49,11 @@ def test_matches_matplotlib(case: dict[str, Any]) -> None:
         x = line["x"].to_numpy()
         y = line["y"].to_numpy()
         summary = [len(x), x[0], y[0], x[-1], y[-1], *np.sum(np.column_stack([x, y]), axis=0)]
-        assert summary == expected
+        assert summary == pytest.approx(expected, rel=1e-12, abs=1e-12)
     arrows = streams.arrows.select("x", "y", "xend", "yend").rows()
-    assert [list(row) for row in arrows] == case["arrows"]
+    assert [list(row) for row in arrows] == [
+        pytest.approx(row, rel=1e-12, abs=1e-12) for row in case["arrows"]
+    ]
 
 
 def test_frames_and_meshgrid_input() -> None:

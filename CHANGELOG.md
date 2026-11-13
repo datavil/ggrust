@@ -58,6 +58,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Fixed
 
+- `gggrid(guides="collect")` merges equal legends and colorbars that carry a guide theme (`guide_colorbar(theme=theme(...))`); each plot used to draw its own copy.
 - Colorbar breaks outside the scale limits (given `breaks=` past the data range) no longer draw a tick and label past the bar's end.
 - Bars below zero (`geom_bar`, `geom_col`, `geom_histogram`) have `ymin` as their lower end in `layer_data()` and `build()` (`ymin` = y, `ymax` = 0), as ggplot2; they had `ymin` = 0 and `ymax` = y. Drawing is unchanged. Found by the ggplot2 validation suite.
 

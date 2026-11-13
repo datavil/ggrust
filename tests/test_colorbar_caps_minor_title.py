@@ -185,3 +185,18 @@ def test_tick_length_takes_one_or_two_numbers() -> None:
     plot = _plot() + gg.theme(legend_ticks_length=[1, 2, 3])
     with pytest.raises(ValueError, match=r"legend_ticks_length.*two numbers"):
         plot.to_svg()
+
+
+def _themed(position: str) -> PlotSpec:
+    return (
+        gg.ggplot({"x": [1, 2, 3], "y": [1, 2, 3], "v": [1.0, 2.0, 3.0]})
+        + gg.geom_point(gg.aes("x", "y", color="v"))
+        + gg.labs(color="Life")
+        + gg.guides(color=gg.guide_colorbar(theme=gg.theme(legend_title_position=position)))
+    )
+
+
+@pytest.mark.parametrize(("second", "count"), [("bottom", 1), ("top", 2)])
+def test_collect_merges_colorbars_with_equal_guide_themes(second: str, count: int) -> None:
+    grid = gg.gggrid([_themed("bottom"), _themed(second)], ncol=1, guides="collect")
+    assert _svg(grid).count(">Life<") == count

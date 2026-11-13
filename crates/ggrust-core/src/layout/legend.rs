@@ -84,6 +84,17 @@ pub struct GuideStyle {
     pub position: Option<GuidePosition>,
 }
 
+/// Whether two guide themes are the same: both unset, or equal field by field with
+/// NaN equal to NaN (unset text justifications are NaN, so the derived `==` never
+/// matches). Compared through their debug text, which prints every field.
+fn same_theme(left: &Option<Box<Theme>>, right: &Option<Box<Theme>>) -> bool {
+    match (left, right) {
+        (None, None) => true,
+        (Some(left), Some(right)) => format!("{left:?}") == format!("{right:?}"),
+        _ => false,
+    }
+}
+
 /// Where one guide goes (ggplot2 `guide_*(position=)`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum GuidePosition {
@@ -246,8 +257,7 @@ impl LegendBox {
         match (self, other) {
             (LegendBox::Keys(left), LegendBox::Keys(right)) => {
                 left.style.horizontal == right.style.horizontal
-                    && left.style.theme.is_none()
-                    && right.style.theme.is_none()
+                    && same_theme(&left.style.theme, &right.style.theme)
                     && left.title == right.title
                     && left.grid == right.grid
                     && left.bin_edges == right.bin_edges
@@ -263,8 +273,7 @@ impl LegendBox {
             }
             (LegendBox::Colorbar(left), LegendBox::Colorbar(right)) => {
                 left.style.horizontal == right.style.horizontal
-                    && left.style.theme.is_none()
-                    && right.style.theme.is_none()
+                    && same_theme(&left.style.theme, &right.style.theme)
                     && left.reverse == right.reverse
                     && left.limit_ticks == right.limit_ticks
                     && left.title == right.title
@@ -275,6 +284,9 @@ impl LegendBox {
                     && left.bar_height == right.bar_height
                     && left.label_ends == right.label_ends
                     && left.na == right.na
+                    && left.caps == right.caps
+                    && left.cap_size == right.cap_size
+                    && left.minor == right.minor
             }
             _ => false,
         }

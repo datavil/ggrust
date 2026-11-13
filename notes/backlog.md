@@ -95,9 +95,6 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
   (lets_plot needs `palettable`; `geom_imshow` `cmap` already does) [later]; plotnine
   spells these `scale_*_cmap` and `scale_*_cmap_d` [plotnine]
 - Locale-aware label formatting: decimal marks, currency, percent, month names [gaps]
-- Set common scale options once, the ggplot2 way: `aesthetics=` on every scale and 4.0's
-  `palette.*` theme elements (ggplot2 #4269). lets-plot's generic `scale_*(aesthetic=)` landed
-  (plan P4.5); the ggplot2 keyword is new syntax and needs the user's yes [users]
 
 - `scale_*_distiller` accepts discrete data and any
   `direction` without an error (ggplot2 errors on discrete data) [bug hunt]
@@ -155,6 +152,9 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 - Not worth it: `last_plot()`, plotnine's `theme_set` / `theme_update` / `theme_get` and
   `plotnine.options` (global state, ruled out by AGENTS.md), and setters on everything
   (`with_data` plus `+` cover it).
+- Ruled out by the user on 2026-11-13: ggplot2's `aesthetics=` keyword on every scale
+  (`scale_color_manual(aesthetics=[...])`). lets-plot's generic `scale_*(aesthetic, ...)`
+  (plan P4.5) already sets one scale on several aesthetics; one spelling is enough.
 - Ruled out by the user on 2026-11-11 as too far from ggrust's identity (a
   lets_plot-compatible ggplot2 grammar, used from Python): the `frame >> ggplot()` pipe,
   `qplot()`, the plotnine-only `geom_ribbon` `where` aesthetic, `scale_*_desaturate` and

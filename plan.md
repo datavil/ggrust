@@ -559,7 +559,7 @@ export docs say a unitless size is inches in both lets-plot and ggplot2.
   `scale_gradientn`, `scale_hue`, `scale_grey`, `scale_brewer`, `scale_viridis`; a list of aesthetics
   gives one scale per aesthetic (same spec as lets_plot, same SVG as the per-aesthetic scales).
   Python only (`plot/scale_generic.py`). ggplot2's `aesthetics=` keyword on every scale is not added
-  (new syntax, waits for the user; deviations.md row).
+  (user, 2026-11-13: one spelling is enough; deviations.md row).
 
 ## Performance strategy (honest)
 

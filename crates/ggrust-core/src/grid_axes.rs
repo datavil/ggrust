@@ -225,9 +225,9 @@ fn collect_axes(
         };
         keepers.extend(cells[row][column]);
     }
-    for figure in 0..spans.len() {
+    for (figure, collected) in result.collected.iter_mut().enumerate().take(spans.len()) {
         if has(figure) && !keepers.contains(&figure) {
-            result.collected[figure].axes[index] = true;
+            collected.axes[index] = true;
         }
     }
 }

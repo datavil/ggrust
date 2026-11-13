@@ -567,7 +567,7 @@ def summary(path: str) -> str:
     """
     name = path.rpartition(".")[2]
     if name in ALIASES:
-        return f"Alias of [`{ALIASES[name]}()`]({ALIASES[name]}.md)."
+        return f"Alias of [`{ALIASES[name]}()`](api/{ALIASES[name]}.md)."
     docstring = inspect.getdoc(resolve(path)) or ""
     first_paragraph = docstring.split("\n\n", 1)[0]
     return " ".join(first_paragraph.split()).replace("|", "\\|")

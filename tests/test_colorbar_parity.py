@@ -113,7 +113,9 @@ CASES = {
     ),
     "multiline_labels": lambda m: (
         point(m, color="v")
-        + m.scale_color_gradient(breaks=[-6, -3, 0, 3], labels=["a\nb", "c\nd", "e\nf", "g\nh"])
+        # Breaks inside the data range: lets-plot also labels breaks past the limits
+        # (beyond the bar); ggrust drops those, as ggplot2 (deviations.md).
+        + m.scale_color_gradient(breaks=[-3, 0, 3], labels=["c\nd", "e\nf", "g\nh"])
     ),
     "scale_guide_options": lambda m: (
         point(m, color="e") + m.scale_color_gradient(guide=m.guide_colorbar(nbin=3, title="E"))

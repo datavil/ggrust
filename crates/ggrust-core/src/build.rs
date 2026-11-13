@@ -4397,6 +4397,7 @@ fn assemble_legends(
                 };
                 let colorbar = Colorbar {
                     caps: options.caps,
+                    cap_size: options.cap_size,
                     minor,
                     title,
                     domain: guide.domain,
@@ -4895,6 +4896,7 @@ fn same_colorbar(left: &Colorbar, right: &Colorbar) -> bool {
         && left.bar_height == right.bar_height
         && left.label_ends == right.label_ends
         && left.caps == right.caps
+        && left.cap_size == right.cap_size
         && left.minor == right.minor
 }
 
@@ -4961,6 +4963,8 @@ struct ColorbarOptions {
     limit_ticks: (bool, bool),
     /// `shape="triangle"` with `show`: caps at the (low, high) end.
     caps: (bool, bool),
+    /// `cap_size`, pixels.
+    cap_size: Option<f64>,
     /// `minor_ticks`.
     minor_ticks: bool,
 }
@@ -5119,6 +5123,7 @@ impl<'a> Guides<'a> {
                 alpha: None,
                 limit_ticks: (true, true),
                 caps: (false, false),
+                cap_size: None,
                 minor_ticks: false,
             });
         };
@@ -5201,6 +5206,16 @@ impl<'a> Guides<'a> {
                 options.draw_ulim.unwrap_or(true),
             ),
             caps: colorbar_caps(options, path)?,
+            cap_size: match options.cap_size {
+                Some(_) if options.shape.is_none() => {
+                    return Err(Error::spec(
+                        format!("{path}.cap_size"),
+                        "cap_size sets the length of the colorbar caps, which need a shape; \
+                         add shape='triangle'",
+                    ));
+                }
+                given => size(given, "cap_size")?,
+            },
             minor_ticks: options.minor_ticks.unwrap_or(false),
         })
     }

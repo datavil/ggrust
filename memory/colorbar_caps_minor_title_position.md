@@ -16,3 +16,11 @@
   `(0.0..=1.0).contains` silently dropped the low end tick.
 - Build with `CARGO_TARGET_DIR=$PWD/target` in parallel worktrees: a plain `uv run`
   loaded another worktree's extension and reported the new guide options as unsupported.
+- matplotlib look (residence2 Fig 4A): `cap_size` about 5 percent of the bar length,
+  `legend_ticks_length=[-6, 0]` (ggplot2 3.5 signs: negative points out of the bar; the
+  label side pushes labels out), `legend_frame` outlines bar and caps. `legend_frame` is
+  read only when the element is set (`has_element`): resolving an unset element gives
+  default props and would outline every colorbar.
+- Breaks outside the limits get NaN ticks/anchors in `layout_colorbar` (ggplot2);
+  lets-plot keeps their labels past the bar, so the lets-plot parity case uses
+  in-range breaks.

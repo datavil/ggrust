@@ -443,8 +443,13 @@ pub struct Theme {
     pub legend_box_spacing: f64,
     /// Colorbar ticks (`legend_ticks`; colored like the legend background unless set).
     pub legend_ticks: Option<LineStyle>,
-    /// Colorbar tick length (`legend_ticks_length`).
-    pub legend_ticks_length: f64,
+    /// Colorbar tick lengths (`legend_ticks_length`) at the bottom (vertical bar:
+    /// right) and top (left) edge: positive into the bar, negative out of it
+    /// (ggplot2 3.5).
+    pub legend_ticks_length: (f64, f64),
+    /// Colorbar outline (`legend_frame`, ggplot2 3.5): the border of an
+    /// `element_rect()`; `None` draws none.
+    pub legend_frame: Option<LineStyle>,
     /// `legend_position`.
     pub legend_position: LegendPosition,
     /// `legend_position_inside`: where inside legends go, (x, y) in 0..1 from the
@@ -619,6 +624,7 @@ const BUILT_OPTIONS: &[&str] = &[
     "legend_box_spacing",
     "legend_ticks",
     "legend_ticks_length",
+    "legend_frame",
     "legend_interactive",
     "strip_text",
     "strip_text_x",
@@ -1215,7 +1221,30 @@ impl Resolver<'_> {
             ),
             legend_box_spacing: self.number(&["legend_box_spacing"], 0.0)?,
             legend_ticks,
-            legend_ticks_length: self.number(&["legend_ticks_length"], 4.0)?,
+            legend_ticks_length: match self.values.value_of(&["legend_ticks_length"]) {
+                Some(value @ Value::Array(_)) => {
+                    pair(value, "legend_ticks_length").map_err(|_| {
+                        Error::spec(
+                            "theme.legend_ticks_length",
+                            format!(
+                                "expected a number or two numbers [bottom/right, top/left], got \
+                             {value}"
+                            ),
+                        )
+                    })?
+                }
+                _ => {
+                    let length = self.number(&["legend_ticks_length"], 4.0)?;
+                    (length, length)
+                }
+            },
+            // Only when set: no outline by default (lets-plot).
+            legend_frame: self
+                .values
+                .has_element("legend_frame")
+                .then(|| self.rect(&["legend_frame"]))
+                .flatten()
+                .and_then(|frame| frame.border),
             legend_position: legend_position(
                 self.values.value_of(&["legend_position"]),
                 self.values

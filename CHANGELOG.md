@@ -9,6 +9,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 - `gggrid(tag_level="unit")`: a grid nested in a tagged grid takes one tag, drawn once at its corner and styled by `theme(plot_tag=, plot_tag_position=, ...)`, and leaves its plots untagged (patchwork's `wrap_elements(full=)` around a nested patchwork). One letter per column of stacked plots: `gggrid([gggrid(column_a, ncol=1, tag_level="unit"), gggrid(column_b, ncol=1, tag_level="unit")], ncol=2, tag_levels="A")`.
 - `stat_poly_eq(label=["R", "slope"])`: the signed Pearson r and the slope of a line per group, with `r_digits`, `slope_digits`, `slope_name` and `small_r` (`"r = 0.58, m = 0.5"`). Text computed variables for `after_stat`: `stat_cor(aes(label=after_stat("r.label")))` drops the p-value (also `rr.label`, `p.label`; `eq.label`, `rr.label`, `adj.rr.label`, `p.value.label`, `n.label` on `stat_poly_eq`), as ggpubr and ggpmisc.
 - `theme(legend_title_position="top" | "right" | "bottom" | "left")`, as ggplot2 3.5, also per guide (`guide_colorbar(theme=theme(legend_title_position="bottom"))`); `legend_title` hjust and vjust justify the title and keys.
+- `guide_colorbar(cap_size=)`, `theme(legend_frame=element_rect(...))` (an outline around the colorbar and its caps, ggplot2 3.5) and ggplot2 3.5's `legend_ticks_length` as two lengths with negative values for ticks outside the bar: with the caps and minor ticks, a matplotlib-style colorbar.
 - `guide_colorbar(shape="triangle", show=)`: pointed caps past the colorbar's ends, as matplotlib's `colorbar(extend=)` (names after legendry's `guide_colbar`), and `guide_colorbar(minor_ticks=True)`: minor ticks between the breaks, 2 to 9 per decade on log10 scales.
 - Saved files record which ggrust made them, as plain text `ggrust vX.Y.Z` in each format's usual metadata field (PNG and TIFF `Software`, JPEG comment, PDF `Producer`, an SVG comment, the HTML `generator` meta tag). Never drawn, and nothing about the user. `ggsave(..., metadata=False)` leaves it out.
 - `guide_legend(position=)`, `guide_colorbar(position=)` and `guide_bins(position=)`, as ggplot2 3.5: legends on several sides of one plot (`"top"`, `"right"`, `"bottom"`, `"left"`, `"inside"`), plus `theme(legend_position_inside=[x, y])` and `legend_position="inside"`.
@@ -57,6 +58,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Fixed
 
+- Colorbar breaks outside the scale limits (given `breaks=` past the data range) no longer draw a tick and label past the bar's end.
 - Bars below zero (`geom_bar`, `geom_col`, `geom_histogram`) have `ymin` as their lower end in `layer_data()` and `build()` (`ymin` = y, `ymax` = 0), as ggplot2; they had `ymin` = 0 and `ymax` = y. Drawing is unchanged. Found by the ggplot2 validation suite.
 
 ## [0.8.1] - 2026-11-09

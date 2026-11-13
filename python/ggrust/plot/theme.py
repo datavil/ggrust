@@ -106,7 +106,8 @@ def theme(
     legend_box_just: str | None = None,
     legend_box_spacing: Number | None = None,
     legend_ticks: ThemeElement | None = None,
-    legend_ticks_length: Number | None = None,
+    legend_ticks_length: Number | Sequence[Number] | None = None,
+    legend_frame: ThemeElement | None = None,
     legend_interactive: bool | None = None,
     panel_background: ThemeElement | None = None,
     panel_border: ThemeElement | None = None,
@@ -361,8 +362,16 @@ def theme(
         Space between the plot panel and the legend box, in pixels.
     legend_ticks : dict or str, optional
         Ticks of the color bar (``element_line()``).
-    legend_ticks_length : float, optional
-        Length of the color bar ticks, in pixels.
+    legend_ticks_length : float or (float, float), optional
+        Length of the color bar ticks, in pixels (default 4). Two numbers set
+        the bottom (vertical bar: right) and top (left) edge apart, as ggplot2
+        3.5: positive values point into the bar, negative ones out of it, 0 draws
+        none. ``[-5, 0]`` gives matplotlib-style ticks outside the bar on the label
+        side; the labels move out to make room. Minor ticks are half as long.
+    legend_frame : dict or str, optional
+        Outline of the color bar (``element_rect()``; its ``color``, ``size`` and
+        ``linetype``, the fill is not drawn), around the triangle caps too
+        (ggplot2 3.5 ``legend.frame``). Unset: no outline, as lets-plot.
     legend_interactive : bool, optional
         ggrust extension, HTML output only. Clickable discrete legend keys:
         click hides or shows a key's marks, double-click isolates the key.

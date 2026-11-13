@@ -980,7 +980,7 @@ fn measure_bins<'a>(
     };
     let shown = |label: &Label| !label.text.is_empty() || label.superscript.is_some();
     let count = legend.keys.len();
-    let tick = theme.legend_ticks_length;
+    let tick = theme.legend_ticks_length.0;
     let last = edges.len() - 1;
     let (cells, labels, axis, ticks, graph) = if horizontal {
         // Room for the end labels, centred on the ends.

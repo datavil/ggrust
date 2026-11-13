@@ -18,7 +18,8 @@ impl GuideSpec {
     /// Whether a style aesthetic's guide uses only options ggrust draws: `"none"`,
     /// `"legend"`, `"colorbar"`, a title, `guide_legend(ncol, nrow, byrow, reverse,
     /// direction, order, position, theme)` and `guide_colorbar(barwidth, barheight, nbin,
-    /// label_position, display, alpha, draw_ulim, draw_llim, shape, show, minor_ticks)`
+    /// label_position, display, alpha, draw_ulim, draw_llim, shape, show, cap_size,
+    /// minor_ticks)`
     /// plus those four, and
     /// `guide_bins(show_limits)` with the legend's options.
     /// Anything else (`override_aes`, ...) is not built yet.
@@ -51,6 +52,7 @@ impl GuideSpec {
                     shape: options.shape.clone().filter(|_| !colorbar),
                     show: options.show.clone().filter(|_| !colorbar),
                     minor_ticks: options.minor_ticks.filter(|_| !colorbar),
+                    cap_size: options.cap_size.filter(|_| !colorbar),
                     show_limits: options.show_limits.filter(|_| !bins),
                     reverse: None,
                     direction: None,
@@ -118,6 +120,8 @@ pub struct GuideOptions {
     /// Colorbar caps shown: `true`, `false` or `[lower, upper]` (legendry
     /// `guide_colbar(show=)`); unset, both ends when `shape` is given.
     pub show: Option<Value>,
+    /// Colorbar cap length in pixels (ggrust; legendry `guide_colbar(size=)`).
+    pub cap_size: Option<f64>,
     /// Colorbar minor ticks between the breaks (ggrust; ggplot2 `minor.ticks`).
     pub minor_ticks: Option<bool>,
     /// `guide_bins(show_limits=)`: label the two outer edges (ggplot2).

@@ -134,3 +134,54 @@ def test_engine_rejects_hand_written_caps() -> None:
     plot = _plot() + gg.guides(fill=_guide("colorbar", shape="triangle", show=[1, 0]))
     with pytest.raises(ValueError, match=r"show.*\[lower, upper\]"):
         plot.to_svg()
+
+
+def _bar_paths(svg: str) -> list[str]:
+    return re.findall(r'<path d="(M[^"]*Z)" fill="none"', svg)
+
+
+def test_legend_frame_outlines_bar_and_caps() -> None:
+    assert not _bar_paths(_svg(_plot(shape="triangle")))
+    framed = _plot(shape="triangle") + gg.theme(legend_frame=gg.element_rect(color="black"))
+    outlines = _bar_paths(_svg(framed))
+    assert len(outlines) == 1
+    # A vertical bar with both caps: 4 corners plus 2 tips.
+    assert outlines[0].count("L") == 5
+
+
+def test_negative_tick_length_points_ticks_out_of_the_bar() -> None:
+    # Axis ticks off: only the colorbar draws short marks.
+    ticks = gg.theme(legend_ticks=gg.element_line(color="black"), axis_ticks=gg.element_blank())
+    inside = _ticks(_svg(_plot(position="bottom") + ticks))
+    outside = _ticks(_svg(_plot(position="bottom") + ticks + gg.theme(legend_ticks_length=[-5, 0])))
+    short = [tick for tick in outside if 0 < abs(tick[3] - tick[1]) < 10]
+    # Bottom edge only, pointing down (y grows), 5 px long.
+    assert short and all(y2 - y1 == pytest.approx(5) for _, y1, _, y2 in short)
+    assert len(short) * 2 == len([t for t in inside if 0 < abs(t[3] - t[1]) < 10])
+
+
+def test_cap_size_sets_the_cap_length() -> None:
+    svg = _svg(_plot(position="bottom", shape="triangle", cap_size=30))
+    match = re.search(r'<path d="M([\d.]+) [\d.]+L([\d.]+) [\d.]+L[^"]*Z" fill="#', svg)
+    assert match
+    base, tip = float(match.group(1)), float(match.group(2))
+    assert abs(base - tip) == pytest.approx(31)  # 30 plus the unit tucked under the bar
+
+
+@pytest.mark.parametrize(
+    ("options", "message"),
+    [
+        ({"cap_size": 5}, r"cap_size=5.*add shape='triangle'"),
+        ({"shape": "triangle", "cap_size": -1}, r"cap_size=-1.*positive"),
+        ({"shape": "triangle", "cap_size": True}, r"cap_size=True.*positive"),
+    ],
+)
+def test_bad_cap_size_fails_early(options: dict[str, object], message: str) -> None:
+    with pytest.raises(SpecError, match=message):
+        gg.guide_colorbar(**options)  # ty: ignore[invalid-argument-type]
+
+
+def test_tick_length_takes_one_or_two_numbers() -> None:
+    plot = _plot() + gg.theme(legend_ticks_length=[1, 2, 3])
+    with pytest.raises(ValueError, match=r"legend_ticks_length.*two numbers"):
+        plot.to_svg()

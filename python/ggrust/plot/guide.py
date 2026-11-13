@@ -594,6 +594,7 @@ def guide_colorbar(
     draw_llim: bool | None = None,
     shape: Literal["triangle"] | None = None,
     show: bool | tuple[bool, bool] | list[bool] | None = None,
+    cap_size: Number | None = None,
     minor_ticks: bool | None = None,
 ) -> FeatureSpec:
     """Show a colorbar for a continuous color or fill scale.
@@ -647,6 +648,10 @@ def guide_colorbar(
         ``(lower, upper)`` for the low and high ends of the scale (legendry). Ends
         follow the transformed scale: with ``trans="reverse"`` the upper end holds
         the smallest data value. Needs ``shape``.
+    cap_size : float, optional
+        Length of each cap along the bar, in pixels (legendry's ``size``). None
+        makes the caps equilateral; matplotlib's look is about 5 percent of the
+        bar length (``extendfrac``). Needs ``shape``.
     minor_ticks : bool, optional
         True adds shorter ticks between the breaks: 2 to 9 times each power of ten
         on a log10 scale (none past 50 decades), else halfway between neighbouring
@@ -662,7 +667,8 @@ def guide_colorbar(
     ------
     SpecError
         If ``label_position``, ``direction``, ``order``, ``theme``, ``display``,
-        ``alpha``, ``shape``, ``show`` or ``minor_ticks`` is not accepted.
+        ``alpha``, ``shape``, ``show``, ``cap_size`` or ``minor_ticks`` is not
+        accepted.
 
     Examples
     --------
@@ -725,6 +731,21 @@ def guide_colorbar(
         elif not isinstance(show, bool):
             raise SpecError(
                 f"guide_colorbar(show={show!r}): expected True, False or (lower, upper) booleans"
+            )
+    if cap_size is not None:
+        if shape is None:
+            raise SpecError(
+                f"guide_colorbar(cap_size={cap_size!r}): cap_size sets the length of the "
+                "caps drawn by shape; add shape='triangle'"
+            )
+        if (
+            isinstance(cap_size, bool)
+            or not isinstance(cap_size, Real)
+            or not math.isfinite(cap_size)
+            or cap_size <= 0
+        ):
+            raise SpecError(
+                f"guide_colorbar(cap_size={cap_size!r}): expected a positive size in pixels"
             )
     return _guide("colorbar", **_with_theme(arguments, "guide_colorbar"))
 

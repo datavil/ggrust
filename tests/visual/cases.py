@@ -841,8 +841,8 @@ def _lifetimes(m):
 
 
 def colorbar_extend_log_minor(m):
-    # matplotlib colorbar(extend="both") look: triangle caps, log minor ticks and
-    # the title centred below a horizontal bar.
+    # matplotlib colorbar(extend="both") look: triangle caps, log minor ticks, an
+    # outline, ticks outside the bar and the title centred below a horizontal bar.
     return (
         m.ggplot(_lifetimes(m), m.aes("x", "y", color="lifetime"))
         + m.geom_point(size=4)
@@ -854,13 +854,22 @@ def colorbar_extend_log_minor(m):
             name="Mean Lifetime (a.u.)",
         )
         + m.guides(
-            color=m.guide_colorbar(shape="triangle", minor_ticks=True, barwidth=300, barheight=10)
+            color=m.guide_colorbar(
+                shape="triangle",
+                cap_size=16,
+                minor_ticks=True,
+                display="gradient",
+                barwidth=320,
+                barheight=16,
+            )
         )
         + m.theme(
             legend_position="bottom",
             legend_title_position="bottom",
             legend_title=m.element_text(hjust=0.5),
             legend_ticks=m.element_line(color="black"),
+            legend_ticks_length=[-5, 0],
+            legend_frame=m.element_rect(color="black", size=0.8),
         )
         + m.ggsize(500, 350)
     )

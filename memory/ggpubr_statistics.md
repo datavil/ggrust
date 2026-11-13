@@ -28,3 +28,22 @@ behaviour, implemented from the statistics. R reference: `tests/fixtures/generat
 - ggpubr 1.0's text-mode `stat_cor` prints raw p-values (a regression); ggrust prints
   2 significant digits. Group label stacking follows ggrust's group order (first
   appearance), not R's sorted factor levels.
+
+Step 5.7 (2026-11-13, ggpubr 0.6.3 + rstatix 0.7.3, reference
+`tests/fixtures/generate_pubr_helpers_reference.R`):
+
+- **`compare_means()`** pairs follow R's `pairwise.*.test` matrix read row by row
+  (`(1,2), (1,3), (2,3), (1,4)`), `group.by` partitions keep first appearance (not
+  sorted), `p.adj` is `signif(p.adjust(p), 2)` over every row, `p.signif` from raw p.
+- **`geom_pwc` p-values are rstatix's**, not ggpubr's: every p is `signif(p, 3)`;
+  a family with more than 2 levels goes through `pairwise_*` (combn order
+  `(1,2), (1,3), (1,4), (2,3)`), adjusts the rounded p and then `p_round`s p and
+  p.adj (3 decimals, `signif 3` below 0.001); when no family has more than 2 levels,
+  ggpubr adjusts over the panel without rounding. `p.format` is
+  `format.pval(eps = 1e-4)` with `"<0.0001"`. Labels go through
+  `gsub("=+(\\s+)?<", "<\\1")`.
+- Heights use the y range at stat time (the data, not the brackets); `"all"` puts
+  every label at one height; `legend.var` keeps the stacking order legend-major.
+- Dodge: ggpubr's 0.8 fits `ggboxplot`, not ggrust's boxes (0.95): default 0.95.
+- R's `layer_data` of `geom_pwc` stacks left tips, bars, right tips; ggpubr's
+  `geom_bracket` (stat_pvalue_manual) gives each bracket its three rows in turn.

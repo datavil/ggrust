@@ -137,6 +137,8 @@ Layers named after their stat: each summarises the data, then draws it with a ge
 | [`stat_interval()`](api/stat_interval.md) | Stacked quantile intervals of y per x, colored by level. |
 | [`stat_halfeye()`](api/stat_halfeye.md) | Half-eye plot: a density slab with a point interval at its base, per x. |
 | [`stat_compare_means()`](api/stat_compare_means.md) | Test the groups of y along a discrete x and label the p-values. |
+| [`geom_pwc()`](api/geom_pwc.md) | Test every pair of groups and draw a labelled bracket per comparison. |
+| [`stat_pvalue_manual()`](api/stat_pvalue_manual.md) | Draw brackets with p-value labels from a table of comparisons. |
 | [`stat_cor()`](api/stat_cor.md) | Label the correlation of x and y and its p-value, per group. |
 | [`stat_ellipse()`](api/stat_ellipse.md) | Confidence ellipse of x and y per group (ggplot2 ``stat_ellipse``). |
 | [`stat_poly_eq()`](api/stat_poly_eq.md) | Label a least squares polynomial fit of y on x (equation, R²), per group. |
@@ -365,6 +367,14 @@ Outline a 2D point cloud where its kernel density falls to a fraction of the pea
 | Name | Description |
 |---|---|
 | [`density_outline()`](api/density_outline.md) | Outline a 2D point cloud where its kernel density falls to ``level`` of the peak. |
+
+## Group comparison tables (ggpubr compare_means)
+
+Test groups against each other and list the p-values, as ggpubr's ``compare_means``, to draw with ``stat_pvalue_manual`` (not in lets-plot).
+
+| Name | Description |
+|---|---|
+| [`compare_means()`](api/compare_means.md) | Test the groups of a column against each other and list the p-values. |
 
 ## Kernel densities (scipy gaussian_kde)
 

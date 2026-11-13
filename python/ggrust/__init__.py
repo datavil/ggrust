@@ -12,6 +12,7 @@ from importlib.metadata import version as _distribution_version
 from ggrust._display import display as display
 from ggrust._ggrust import engine_version
 from ggrust._render import GgrustWarning
+from ggrust.compare_means import compare_means
 from ggrust.density_outline import density_outline
 from ggrust.export import ggsave
 from ggrust.fonts import register_font, register_font_dir, registered_fonts
@@ -102,6 +103,7 @@ from ggrust.plot import (
     geom_pointdensity,
     geom_pointrange,
     geom_polygon,
+    geom_pwc,
     geom_qq,
     geom_qq2,
     geom_qq2_line,
@@ -370,6 +372,7 @@ from ggrust.plot import (
     stat_pointdensity,
     stat_pointinterval,
     stat_poly_eq,
+    stat_pvalue_manual,
     stat_qq,
     stat_qq_line,
     stat_quantile,
@@ -425,6 +428,7 @@ __all__ = [
     "as_discrete",
     "as_labeller",
     "boxcox_trans",
+    "compare_means",
     "coord_3d",
     "coord_cartesian",
     "coord_equal",
@@ -501,6 +505,7 @@ __all__ = [
     "geom_pointdensity",
     "geom_pointrange",
     "geom_polygon",
+    "geom_pwc",
     "geom_qq",
     "geom_qq2",
     "geom_qq2_line",
@@ -775,6 +780,7 @@ __all__ = [
     "stat_pointdensity",
     "stat_pointinterval",
     "stat_poly_eq",
+    "stat_pvalue_manual",
     "stat_qq",
     "stat_qq_line",
     "stat_quantile",

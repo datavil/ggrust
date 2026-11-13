@@ -452,7 +452,7 @@ fn groups_within_x(
 }
 
 /// The x position of a level given by name or 1-based position.
-fn level_position(
+pub(super) fn level_position(
     level: &Value,
     option: &str,
     parameters: &Parameters,

@@ -165,6 +165,8 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "stat_interval",
             "stat_halfeye",
             "stat_compare_means",
+            "geom_pwc",
+            "stat_pvalue_manual",
             "stat_cor",
             "stat_ellipse",
             "stat_poly_eq",
@@ -357,6 +359,11 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
         "as scipy's ``gaussian_kde`` with scikit-image's ``find_contours``, to draw with "
         "``geom_path`` (not in lets-plot).",
         ["density_outline"],
+    ),
+    "Group comparison tables (ggpubr compare_means)": (
+        "Test groups against each other and list the p-values, as ggpubr's "
+        "``compare_means``, to draw with ``stat_pvalue_manual`` (not in lets-plot).",
+        ["compare_means"],
     ),
     "Kernel densities (scipy gaussian_kde)": (
         "Evaluate a 1D Gaussian kernel density at chosen points, as scipy's "

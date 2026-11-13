@@ -540,6 +540,73 @@ mod _ggrust {
         Ok((at, density))
     }
 
+    /// ggpubr `compare_means()` p-values (see `ggrust_core::stat::compare_means`):
+    /// `partitions[k][level]` holds the values of each level in partition `k`.
+    /// `reference` is a level index, or `reference_all` compares each level with
+    /// all values. Returns `(partition, group1, group2, p, p_adj, p_format,
+    /// p_signif, method)`; `group1` is `None` for `.all.`. The GIL is released
+    /// while computing.
+    #[pyfunction]
+    #[pyo3(signature = (partitions, levels, method, paired, reference, reference_all, p_adjust_method))]
+    #[allow(clippy::type_complexity, clippy::too_many_arguments)]
+    fn compare_means(
+        python: Python<'_>,
+        partitions: Vec<Vec<Vec<f64>>>,
+        levels: Vec<String>,
+        method: &str,
+        paired: bool,
+        reference: Option<usize>,
+        reference_all: bool,
+        p_adjust_method: &str,
+    ) -> PyResult<(
+        Vec<usize>,
+        Vec<Option<usize>>,
+        Vec<usize>,
+        Vec<f64>,
+        Vec<f64>,
+        Vec<String>,
+        Vec<String>,
+        String,
+    )> {
+        use ggrust_core::stat::CompareReference;
+        let reference = match (reference_all, reference) {
+            (true, _) => CompareReference::All,
+            (false, Some(index)) => CompareReference::Level(index),
+            (false, None) => CompareReference::None,
+        };
+        let table = python
+            .detach(|| {
+                ggrust_core::stat::compare_means(
+                    &partitions,
+                    &levels,
+                    method,
+                    paired,
+                    reference,
+                    p_adjust_method,
+                )
+            })
+            .map_err(to_python_error)?;
+        Ok((
+            table.partition,
+            table.group1,
+            table.group2,
+            table.p,
+            table.p_adjusted,
+            table.p_format,
+            table.p_signif,
+            table.method.to_owned(),
+        ))
+    }
+
+    /// Numbers as R's `format(x, digits)` prints each (`as.character` with 15).
+    #[pyfunction]
+    fn format_r_numbers(values: Vec<f64>, digits: usize) -> Vec<String> {
+        values
+            .iter()
+            .map(|value| ggrust_core::stat::r_format(*value, digits))
+            .collect()
+    }
+
     /// Column names `layer_tooltips()` reads, sorted: exported for HTML output only.
     ///
     /// Raises `ggrust.errors.SpecError` (with its `path`) if the spec is invalid.

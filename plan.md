@@ -576,6 +576,17 @@ Items from [priorities.md](notes/priorities.md), one per step, each on its own b
   `"pen"`/`"brush"`/`"paper"`); `theme_defaults(name, flavor)` in `theme()` vocabulary; one-line
   `repr` for `PlotSpec`, `LayerSpec`, `SupPlotsSpec`. `tests/test_accessors_tier2.py`.
 
+### Backlog priorities (notes/priorities.md)
+
+- [x] 5.7 **ggpubr helpers beyond `stat_compare_means`** (user's set, 2026-11-13: not
+  `ggarrange()` or the quick-plot wrappers). `compare_means()` (table of p-values, tests in
+  Rust, `stat/compare_table.rs`), `geom_pwc()` (`stat="pwc"`: rstatix `wilcox_test` /
+  `t_test` pairs per family, holm by default, rstatix rounding, label templates) and
+  `stat_pvalue_manual()` (`stat="pvalue_manual"`: steps and tips of a comparison table),
+  all drawn by `geom_bracket`. Rows equal ggpubr 0.6.3's `ggplot_build` / `compare_means`
+  (`tests/fixtures/generate_pubr_helpers_reference.R`), goldens `pubr_pairwise_brackets`,
+  `pubr_manual_brackets`; deviations rows (default dodge 0.95). See `memory/ggpubr_statistics.md`.
+
 ## Performance strategy (honest)
 
 - Biggest structural win: lets-plot serializes data to JSON in Python, then parses it in Kotlin/JS.

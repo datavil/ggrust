@@ -11,3 +11,9 @@ and running `make test` alone tested the *old* extension: false green. On a fres
 Also: cargo (clippy/test) must see the project interpreter, so the Makefile exports
 `PYO3_PYTHON=.venv/bin/python` (abi3-py311 fails against an older system python3).
 Verified by sabotaging `engine_version()` and confirming `make test` fails.
+
+**Parallel worktrees (2026-11-13):** `~/.cargo/config.toml` points every checkout at one
+shared target dir. Two sessions building at once can leave another worktree's cdylib in
+your `python/ggrust/_ggrust.abi3.so` (ImportError for a pyfunction you just added, or
+another branch's engine under test). Build with `CARGO_TARGET_DIR=$PWD/target` (ignored)
+when other sessions run.

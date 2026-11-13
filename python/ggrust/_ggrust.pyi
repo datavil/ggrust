@@ -372,6 +372,38 @@ def density_outline(
         If ``points`` is not a sequence of ``(x, y)`` number pairs.
     """
 
+def compare_means(
+    partitions: list[list[list[float]]],
+    levels: list[str],
+    method: str,
+    paired: bool,
+    reference: int | None,
+    reference_all: bool,
+    p_adjust_method: str,
+) -> tuple[
+    list[int],
+    list[int | None],
+    list[int],
+    list[float],
+    list[float],
+    list[str],
+    list[str],
+    str,
+]:
+    """Rows of ggpubr's ``compare_means()`` table.
+
+    ``(partition, group1, group2, p, p_adj, p_format, p_signif, method)``;
+    ``group1`` is None for ``.all.``.
+
+    Raises
+    ------
+    ggrust.errors.SpecError
+        If the method or adjustment is unknown or a test cannot run.
+    """
+
+def format_r_numbers(values: list[float], digits: int) -> list[str]:
+    """Each number as R's ``format(x, digits)`` prints it."""
+
 def kernel_density(
     values: object,
     at: object,

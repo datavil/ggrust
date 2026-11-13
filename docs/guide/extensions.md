@@ -12,7 +12,7 @@ behavior in Rust; the R packages and their authors designed it.
 |---|---|---|
 | [Beeswarm and quasirandom points](#beeswarm-points) | [`geom_beeswarm`](../reference/api/geom_beeswarm.md), [`geom_quasirandom`](../reference/api/geom_quasirandom.md) | [ggbeeswarm](https://cran.r-project.org/package=ggbeeswarm) |
 | [Journal color palettes](#journal-palettes) | `scale_color_npg`, `_aaas`, `_nejm`, `_lancet`, `_jama`, `_jco`, `_d3`, `_igv` (and `scale_fill_*`) | [ggsci](https://cran.r-project.org/package=ggsci) |
-| [Significance tests and labels](#significance-tests) | [`stat_compare_means`](../reference/api/stat_compare_means.md), [`stat_cor`](../reference/api/stat_cor.md), [`stat_poly_eq`](../reference/api/stat_poly_eq.md) | [ggpubr](https://cran.r-project.org/package=ggpubr), [ggpmisc](https://cran.r-project.org/package=ggpmisc) |
+| [Significance tests and labels](#significance-tests) | [`stat_compare_means`](../reference/api/stat_compare_means.md), [`geom_pwc`](../reference/api/geom_pwc.md), [`stat_pvalue_manual`](../reference/api/stat_pvalue_manual.md), [`compare_means`](../reference/api/compare_means.md), [`stat_cor`](../reference/api/stat_cor.md), [`stat_poly_eq`](../reference/api/stat_poly_eq.md) | [ggpubr](https://cran.r-project.org/package=ggpubr), [ggpmisc](https://cran.r-project.org/package=ggpmisc) |
 | [Cluster marks](#cluster-marks) | [`geom_mark_hull`](../reference/api/geom_mark_hull.md), [`geom_mark_ellipse`](../reference/api/geom_mark_ellipse.md), [`geom_mark_rect`](../reference/api/geom_mark_rect.md) | [ggforce](https://cran.r-project.org/package=ggforce) |
 | [Highlighting](#highlighting) | [`gghighlight`](../reference/api/gghighlight.md) | [gghighlight](https://cran.r-project.org/package=gghighlight) |
 | [Point density](#point-density) | [`geom_pointdensity`](../reference/api/geom_pointdensity.md) | [ggpointdensity](https://cran.r-project.org/package=ggpointdensity) |
@@ -65,6 +65,11 @@ correlation and `stat_poly_eq` a fitted polynomial, as in ggpubr and
 ```
 
 --8<-- "figures/compare_means.html"
+
+`geom_pwc` compares every pair of groups by itself, also the colored groups within
+each x, with Holm-adjusted p-values, as ggpubr's `geom_pwc`. To draw your own
+comparisons, `compare_means()` returns them as a table (ggpubr's `compare_means`)
+and `stat_pvalue_manual` draws a table's rows as brackets.
 
 ## Cluster marks
 

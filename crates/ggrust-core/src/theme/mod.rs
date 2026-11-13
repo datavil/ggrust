@@ -283,6 +283,19 @@ pub enum LegendDirection {
     Vertical,
 }
 
+/// Side of a legend box its title goes to (`legend_title_position`, ggplot2 3.5).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum LegendTitlePosition {
+    /// Above the keys or bar.
+    Top,
+    /// Right of the keys or bar.
+    Right,
+    /// Below the keys or bar.
+    Bottom,
+    /// Left of the keys or bar.
+    Left,
+}
+
 /// `legend_box_just` as given.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LegendBoxJust {
@@ -444,6 +457,9 @@ pub struct Theme {
     pub legend_justification: (f64, f64),
     /// `legend_direction`.
     pub legend_direction: LegendDirection,
+    /// `legend_title_position`; `None`: top for vertical guides, left for
+    /// horizontal ones (ggplot2 3.5).
+    pub legend_title_position: Option<LegendTitlePosition>,
     /// `legend_box`: several legends side by side (`true`) or stacked.
     pub legend_box_horizontal: bool,
     /// `legend_box_just`: alignment of stacked legends (see
@@ -571,6 +587,7 @@ const BUILT_OPTIONS: &[&str] = &[
     "legend_position_inside",
     "legend_justification",
     "legend_direction",
+    "legend_title_position",
     "legend_margin",
     "legend_spacing",
     "legend_spacing_x",
@@ -743,7 +760,11 @@ fn report_unbuilt(spec: &ThemeSpec, warnings: &mut Vec<String>) {
             ("margin", element.margin.is_some() && !strip_text),
             (
                 "vjust",
-                element.vjust.is_some() && !axis_text && !axis_title && !plot_tag,
+                element.vjust.is_some()
+                    && !axis_text
+                    && !axis_title
+                    && !plot_tag
+                    && key != "legend_title",
             ),
             (
                 "angle",
@@ -1215,6 +1236,9 @@ impl Resolver<'_> {
                 self.values.value_of(&["legend_justification"]),
             )?,
             legend_direction: legend_direction(self.values.value_of(&["legend_direction"]))?,
+            legend_title_position: legend_title_position(
+                self.values.value_of(&["legend_title_position"]),
+            )?,
             legend_box_horizontal: match self.values.value_of(&["legend_box"]) {
                 None => false,
                 Some(Value::String(name)) if name == "vertical" => false,
@@ -1542,6 +1566,30 @@ fn legend_direction(value: Option<&Value>) -> Result<LegendDirection> {
         Some(other) => Err(Error::spec(
             "theme.legend_direction",
             format!("expected 'horizontal' or 'vertical', got {other}"),
+        )),
+    }
+}
+
+fn legend_title_position(value: Option<&Value>) -> Result<Option<LegendTitlePosition>> {
+    const NAMES: [&str; 4] = ["top", "right", "bottom", "left"];
+    match value {
+        None => Ok(None),
+        Some(Value::String(name)) => match name.as_str() {
+            "top" => Ok(Some(LegendTitlePosition::Top)),
+            "right" => Ok(Some(LegendTitlePosition::Right)),
+            "bottom" => Ok(Some(LegendTitlePosition::Bottom)),
+            "left" => Ok(Some(LegendTitlePosition::Left)),
+            _ => Err(Error::spec(
+                "theme.legend_title_position",
+                format!(
+                    "expected 'top', 'right', 'bottom' or 'left', got '{name}'{}",
+                    crate::suggest::did_you_mean(name, NAMES)
+                ),
+            )),
+        },
+        Some(other) => Err(Error::spec(
+            "theme.legend_title_position",
+            format!("expected 'top', 'right', 'bottom' or 'left', got {other}"),
         )),
     }
 }

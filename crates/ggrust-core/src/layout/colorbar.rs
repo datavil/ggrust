@@ -2,6 +2,8 @@
 //! `ColorBarComponentLayout`, `ColorBarComponent`): a bar of `bins` color segments
 //! with ticks at both edges. Vertical: high values at the top, labels at the right.
 //! Horizontal (legends at the top or bottom): high values at the right, labels below.
+//! Optional (ggrust, after legendry's `guide_colbar`): triangle caps past either
+//! end (matplotlib `extend`) and minor ticks between the breaks.
 
 use super::axis::estimated_label_width;
 use super::{label_node, text_band};
@@ -59,6 +61,63 @@ pub struct Colorbar {
     pub limit_ticks: (bool, bool),
     /// `guide_colorbar(direction, theme)`.
     pub style: super::legend::GuideStyle,
+    /// `guide_colorbar(shape="triangle", show=)`: a triangle cap past the low
+    /// (first) and high (second) end, filled with that end's color.
+    pub caps: (bool, bool),
+    /// `guide_colorbar(minor_ticks=True)`: minor tick values (transformed units),
+    /// from [`minor_values`]; empty draws none.
+    pub minor: Vec<f64>,
+}
+
+/// Minor tick values of a colorbar (transformed units) inside `domain`: for a
+/// log10 scale 2 to 9 times each power of ten (matplotlib `LogLocator`), else
+/// halfway between neighbouring breaks and half a step past the outer ones
+/// (lets-plot `AxisUtil.minorDomainBreaks` for even breaks). Values on a break
+/// are left out. Log10 ranges over 50 decades get none.
+pub fn minor_values(domain: (f64, f64), breaks: &[f64], log10: bool) -> Vec<f64> {
+    let (low, high) = (domain.0.min(domain.1), domain.0.max(domain.1));
+    if !(low.is_finite() && high.is_finite()) {
+        return Vec::new();
+    }
+    let tolerance = (high - low).abs() * 1e-9;
+    let inside = |value: f64| value >= low - tolerance && value <= high + tolerance;
+    let mut sorted: Vec<f64> = breaks
+        .iter()
+        .copied()
+        .filter(|value| value.is_finite())
+        .collect();
+    sorted.sort_by(f64::total_cmp);
+    sorted.dedup();
+    let on_break = |value: f64| {
+        sorted
+            .iter()
+            .any(|known| (known - value).abs() <= tolerance)
+    };
+    let mut values = Vec::new();
+    if log10 {
+        // Past 50 decades minor ticks are an unreadable smear (and many nodes).
+        if high - low > 50.0 {
+            return Vec::new();
+        }
+        let mut decade = low.floor();
+        while decade <= high.ceil() {
+            for factor in 2..=9 {
+                values.push(decade + f64::from(factor).log10());
+            }
+            decade += 1.0;
+        }
+    } else if let [first, second, ..] = sorted[..] {
+        values.push(first - (second - first) / 2.0);
+        for pair in sorted.windows(2) {
+            values.push((pair[0] + pair[1]) / 2.0);
+        }
+        let last = sorted.len() - 1;
+        values.push(sorted[last] + (sorted[last] - sorted[last - 1]) / 2.0);
+    }
+    values
+        .into_iter()
+        .filter(|value| inside(*value) && !on_break(*value))
+        .collect()
 }
 
 impl Colorbar {
@@ -90,6 +149,10 @@ pub(super) struct ColorbarLayout {
     /// The NA swatch and its label anchor (vertical middle; left end for a
     /// vertical bar, centre-top for a horizontal one), with `Colorbar::na`.
     pub na: Option<(Rect, (f64, f64))>,
+    /// Minor tick positions along the bar (y, or x when horizontal).
+    pub minor: Vec<f64>,
+    /// Triangle caps at the bar's start (left, or top) and end (right, or bottom).
+    pub caps: (bool, bool),
     /// Bar plus labels.
     pub size: (f64, f64),
 }
@@ -121,9 +184,33 @@ impl ColorbarLayout {
                     (x + dx, y + dy),
                 )
             }),
+            minor: self.minor.iter().map(|tick| tick + along).collect(),
+            caps: self.caps,
             size: self.size,
         }
     }
+
+    /// The length of a triangle cap: an equilateral triangle on the bar's thickness.
+    pub fn cap_length(&self) -> f64 {
+        cap_length(if self.horizontal {
+            self.bar.height
+        } else {
+            self.bar.width
+        })
+    }
+}
+
+/// The length of a triangle cap on a bar `thickness` across: equilateral.
+fn cap_length(thickness: f64) -> f64 {
+    thickness * 3f64.sqrt() / 2.0
+}
+
+/// The caps at the bar's (start, end) on screen: left and right, or top and
+/// bottom. Low values sit at the left and the bottom unless `reverse`.
+fn screen_caps(colorbar: &Colorbar, horizontal: bool) -> (bool, bool) {
+    let (low, high) = colorbar.caps;
+    let low_first = horizontal != colorbar.reverse;
+    if low_first { (low, high) } else { (high, low) }
 }
 
 /// The label of the NA swatch.
@@ -139,6 +226,7 @@ pub(super) fn layout_colorbar(
     theme: &Theme,
 ) -> ColorbarLayout {
     let mut layout = layout_bar(colorbar, origin, horizontal, theme);
+    layout = make_room_for_caps(layout, origin);
     if colorbar.na.is_none() {
         return layout;
     }
@@ -197,6 +285,42 @@ pub(super) fn layout_colorbar(
         );
     }
     layout
+}
+
+/// `layout` grown (and moved) so its caps fit inside its box: labels may already
+/// reach past the bar's ends, so only the part of a cap beyond them adds room.
+fn make_room_for_caps(layout: ColorbarLayout, origin: (f64, f64)) -> ColorbarLayout {
+    let cap = layout.cap_length();
+    let (start, end) = layout.caps;
+    if !(start || end) {
+        return layout;
+    }
+    let bar = layout.bar;
+    let (before, after) = if layout.horizontal {
+        (
+            bar.x - origin.0,
+            origin.0 + layout.size.0 - (bar.x + bar.width),
+        )
+    } else {
+        (
+            bar.y - origin.1,
+            origin.1 + layout.size.1 - (bar.y + bar.height),
+        )
+    };
+    let lead = if start { (cap - before).max(0.0) } else { 0.0 };
+    let trail = if end { (cap - after).max(0.0) } else { 0.0 };
+    let shift = if layout.horizontal {
+        (lead, 0.0)
+    } else {
+        (0.0, lead)
+    };
+    let mut moved = layout.translated(shift);
+    if moved.horizontal {
+        moved.size.0 += lead + trail;
+    } else {
+        moved.size.1 += lead + trail;
+    }
+    moved
 }
 
 /// [`layout_colorbar`] without the NA swatch.
@@ -260,6 +384,18 @@ fn layout_bar(
         };
         if reverse { 1.0 - at } else { at }
     };
+    let caps = screen_caps(colorbar, horizontal);
+    let minor_along = |bar: Rect| -> Vec<f64> {
+        colorbar
+            .minor
+            .iter()
+            .map(|value| fraction(*value))
+            // Values on the domain ends may land a rounding error outside it.
+            .filter(|at| (-1e-9..=1.0 + 1e-9).contains(at))
+            .map(|at| tick_position(bar, horizontal, at.clamp(0.0, 1.0)))
+            .collect()
+    };
+    let minor = minor_along(bar);
     let Some(style) = theme.legend_text else {
         // No labels: ticks only.
         let ticks = colorbar
@@ -276,12 +412,21 @@ fn layout_bar(
             horizontal,
             ticks,
             na: None,
+            minor,
+            caps,
             size: (width, height),
         };
     };
     let band = text_band(style);
     if colorbar.label_ends {
-        return layout_end_labels(colorbar, bar, horizontal, style, band, &fraction);
+        let title_left = super::legend::title_position(theme, horizontal)
+            == crate::theme::LegendTitlePosition::Left;
+        let mut layout = layout_end_labels(
+            colorbar, bar, horizontal, style, band, &fraction, title_left,
+        );
+        layout.minor = minor_along(layout.bar);
+        layout.caps = caps;
+        return layout;
     }
     if horizontal {
         // lets-plot: labels a third of a line below the bar, centred on their ticks.
@@ -341,6 +486,8 @@ fn layout_bar(
             horizontal,
             ticks,
             na: None,
+            minor: minor_along(bar),
+            caps,
             size: (
                 overhang_left + width + overhang_right,
                 height + distance + label_height,
@@ -376,6 +523,8 @@ fn layout_bar(
         horizontal,
         ticks,
         na: None,
+        minor,
+        caps,
         size: (width + label_gap + label_width, height),
     }
 }
@@ -390,6 +539,7 @@ fn layout_end_labels(
     style: crate::theme::TextStyle,
     band: f64,
     fraction: &dyn Fn(f64) -> f64,
+    title_left: bool,
 ) -> ColorbarLayout {
     let inside = |value: f64| (0.0..=1.0).contains(&fraction(value));
     let pick = |better: fn(f64, f64) -> bool| {
@@ -429,9 +579,33 @@ fn layout_end_labels(
         })
     };
     let (low_size, high_size) = (block(low), block(high));
-    let gap = |size: (f64, f64)| if size.0 > 0.0 { band / 2.0 } else { 0.0 };
+    // Caps sit between the bar and the end labels: the gaps grow by their length.
+    let (cap_start, cap_end) = screen_caps(colorbar, horizontal);
+    let cap = cap_length(if horizontal { bar.height } else { bar.width });
+    let cap_at = |shown: bool| if shown { cap } else { 0.0 };
+    // Horizontal: low before (left), high after; vertical: high above (start).
+    let (cap_low, cap_high) = if horizontal {
+        (cap_at(cap_start), cap_at(cap_end))
+    } else {
+        (cap_at(cap_end), cap_at(cap_start))
+    };
+    let gap_low = |size: (f64, f64)| {
+        if size.0 > 0.0 {
+            band / 2.0 + cap_low
+        } else {
+            0.0
+        }
+    };
+    let gap_high = |size: (f64, f64)| {
+        if size.0 > 0.0 {
+            band / 2.0 + cap_high
+        } else {
+            0.0
+        }
+    };
     // The title sits right before the graph: keep a wider gap from the left label.
-    let lead = if horizontal && low_size.0 > 0.0 && !colorbar.title.trim().is_empty() {
+    let lead = if horizontal && low_size.0 > 0.0 && title_left && !colorbar.title.trim().is_empty()
+    {
         band * 0.75
     } else {
         0.0
@@ -440,7 +614,7 @@ fn layout_end_labels(
     let (bar, size, low_anchor, high_anchor) = if horizontal {
         let height = bar.height.max(low_size.1).max(high_size.1);
         let bar = Rect {
-            x: origin_x + low_size.0 + gap(low_size),
+            x: origin_x + low_size.0 + gap_low(low_size),
             y: origin_y + (height - bar.height) / 2.0,
             ..bar
         };
@@ -448,17 +622,21 @@ fn layout_end_labels(
         (
             bar,
             (
-                lead + low_size.0 + gap(low_size) + bar.width + gap(high_size) + high_size.0,
+                lead + low_size.0
+                    + gap_low(low_size)
+                    + bar.width
+                    + gap_high(high_size)
+                    + high_size.0,
                 height,
             ),
-            (bar.x - gap(low_size), middle),
-            (bar.x + bar.width + gap(high_size), middle),
+            (bar.x - gap_low(low_size), middle),
+            (bar.x + bar.width + gap_high(high_size), middle),
         )
     } else {
         let width = bar.width.max(low_size.0).max(high_size.0);
         let bar = Rect {
             x: origin_x + (width - bar.width) / 2.0,
-            y: origin_y + high_size.1 + gap(high_size),
+            y: origin_y + high_size.1 + gap_high(high_size),
             ..bar
         };
         let centre = bar.x + bar.width / 2.0;
@@ -466,9 +644,9 @@ fn layout_end_labels(
             bar,
             (
                 width,
-                high_size.1 + gap(high_size) + bar.height + gap(low_size) + low_size.1,
+                high_size.1 + gap_high(high_size) + bar.height + gap_low(low_size) + low_size.1,
             ),
-            (centre, bar.y + bar.height + gap(low_size)),
+            (centre, bar.y + bar.height + gap_low(low_size)),
             (centre, origin_y),
         )
     };
@@ -493,6 +671,8 @@ fn layout_end_labels(
         horizontal,
         ticks,
         na: None,
+        minor: Vec::new(),
+        caps: (false, false),
         size,
     }
 }
@@ -562,6 +742,53 @@ pub(super) fn draw_colorbar(
     let opaque = colorbar.colors.iter().all(|color| color.alpha == u8::MAX);
     let overlap = if opaque { 2 } else { 1 };
     let edge = |at: f64| if opaque { at } else { at.round() };
+    // Caps go first, reaching a unit under the bar (opaque bars only) so no
+    // anti-aliased seam shows where they meet it.
+    let tuck = if opaque { 1.0 } else { 0.0 };
+    let cap = layout.cap_length();
+    let ends = [
+        (layout.caps.0, colors.first().copied().flatten(), true),
+        (layout.caps.1, colors.last().copied().flatten(), false),
+    ];
+    for (shown, color, start) in ends {
+        let (true, Some(color)) = (shown, color) else {
+            continue;
+        };
+        let points = match (horizontal, start) {
+            (true, true) => vec![
+                (bar.x + tuck, bar.y),
+                (bar.x - cap, bar.y + bar.height / 2.0),
+                (bar.x + tuck, bar.y + bar.height),
+            ],
+            (true, false) => {
+                let edge = bar.x + bar.width;
+                vec![
+                    (edge - tuck, bar.y),
+                    (edge + cap, bar.y + bar.height / 2.0),
+                    (edge - tuck, bar.y + bar.height),
+                ]
+            }
+            (false, true) => vec![
+                (bar.x, bar.y + tuck),
+                (bar.x + bar.width / 2.0, bar.y - cap),
+                (bar.x + bar.width, bar.y + tuck),
+            ],
+            (false, false) => {
+                let edge = bar.y + bar.height;
+                vec![
+                    (bar.x, edge - tuck),
+                    (bar.x + bar.width / 2.0, edge + cap),
+                    (bar.x + bar.width, edge - tuck),
+                ]
+            }
+        };
+        nodes.push(Node::Path(Path {
+            points,
+            closed: true,
+            fill: Some(color),
+            stroke: None,
+        }));
+    }
     let mut rects = Vec::with_capacity(count);
     for index in 0..colors.len() {
         let start = edge(start_of(index));
@@ -620,10 +847,16 @@ pub(super) fn draw_colorbar(
             (!colorbar.limit_ticks.0 && (value - low).abs() <= tolerance)
                 || (!colorbar.limit_ticks.1 && (value - high).abs() <= tolerance)
         };
-        for ((tick, _), (value, _)) in layout.ticks.iter().zip(&colorbar.breaks) {
-            if hidden(*value) {
-                continue;
-            }
+        let major = layout
+            .ticks
+            .iter()
+            .zip(&colorbar.breaks)
+            .filter(|(_, (value, _))| !hidden(*value))
+            .map(|((tick, _), _)| (*tick, length));
+        // Minor ticks: half as long as the major ones.
+        let minor = layout.minor.iter().map(|tick| (*tick, length / 2.0));
+        for (tick, length) in major.chain(minor) {
+            let tick = &tick;
             let marks = if horizontal {
                 [
                     ((*tick, bar.y), (*tick, bar.y + length)),
@@ -744,6 +977,8 @@ mod tests {
             reverse: false,
             limit_ticks: (true, true),
             style: Default::default(),
+            caps: (false, false),
+            minor: Vec::new(),
         };
         let theme = Theme::default();
         let layout = layout_colorbar(&colorbar, (0.0, 0.0), false, &theme).translated((3.4, 5.6));
@@ -783,6 +1018,8 @@ mod tests {
             reverse: false,
             limit_ticks: (true, true),
             style: Default::default(),
+            caps: (false, false),
+            minor: Vec::new(),
         };
         let theme = Theme::default();
         let plain = |horizontal| layout_colorbar(&colorbar, (0.0, 0.0), horizontal, &theme);
@@ -827,6 +1064,8 @@ mod tests {
             reverse: false,
             limit_ticks: (true, true),
             style: Default::default(),
+            caps: (false, false),
+            minor: Vec::new(),
         };
         let theme = Theme::default();
         let layout = layout_colorbar(&colorbar, (0.0, 0.0), true, &theme);
@@ -862,6 +1101,8 @@ mod tests {
             reverse: false,
             limit_ticks: (true, true),
             style: Default::default(),
+            caps: (false, false),
+            minor: Vec::new(),
         };
         let theme = Theme::default();
         let layout = layout_colorbar(&colorbar, (0.0, 0.0), true, &theme);
@@ -886,6 +1127,8 @@ mod tests {
             reverse: false,
             limit_ticks: (true, true),
             style: Default::default(),
+            caps: (false, false),
+            minor: Vec::new(),
         };
         let kept = layout_colorbar(&outside, (0.0, 0.0), true, &theme);
         assert_eq!((kept.bar.x, kept.size.0), (0.0, 80.0));
@@ -916,6 +1159,8 @@ mod tests {
             reverse: false,
             limit_ticks: (true, true),
             style: Default::default(),
+            caps: (false, false),
+            minor: Vec::new(),
         };
         let theme = Theme::default();
         let style = theme.legend_text.expect("default theme has legend text");
@@ -947,5 +1192,92 @@ mod tests {
         let single = layout_colorbar(&outside, (0.0, 0.0), true, &theme);
         assert!(single.ticks[0].1.0.is_nan());
         assert!(single.ticks[1].1.0 < single.bar.x);
+    }
+
+    fn plain(caps: (bool, bool), reverse: bool) -> Colorbar {
+        Colorbar {
+            title: "v".into(),
+            domain: (0.0, 10.0),
+            breaks: vec![(0.0, Label::plain("0")), (10.0, Label::plain("10"))],
+            colors: vec![Color::WHITE; DEFAULT_BINS],
+            bar_width: None,
+            bar_height: None,
+            label_ends: false,
+            na: None,
+            reverse,
+            limit_ticks: (true, true),
+            style: Default::default(),
+            caps,
+            minor: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn log10_minor_ticks_fill_each_decade_and_skip_breaks() {
+        // 5 to 500: 5..9, 20..90 except 50, 200..500 (the domain ends count).
+        let domain = (5f64.log10(), 500f64.log10());
+        let breaks = [10f64.log10(), 50f64.log10(), 100f64.log10()];
+        let values: Vec<f64> = minor_values(domain, &breaks, true)
+            .into_iter()
+            .map(|value| (10f64.powf(value) * 1e6).round() / 1e6)
+            .collect();
+        let expected = [
+            5.0, 6.0, 7.0, 8.0, 9.0, 20.0, 30.0, 40.0, 60.0, 70.0, 80.0, 90.0, 200.0, 300.0, 400.0,
+            500.0,
+        ];
+        assert_eq!(values, expected);
+    }
+
+    #[test]
+    fn linear_minor_ticks_sit_between_breaks() {
+        let values = minor_values((0.0, 10.0), &[2.0, 4.0, 6.0, 8.0], false);
+        assert_eq!(values, vec![1.0, 3.0, 5.0, 7.0, 9.0]);
+        assert!(minor_values((0.0, 10.0), &[5.0], false).is_empty());
+        assert!(minor_values((f64::NAN, 1.0), &[0.5], true).is_empty());
+    }
+
+    #[test]
+    fn caps_take_room_past_the_bar_ends() {
+        let theme = Theme::default();
+        let without = layout_colorbar(&plain((false, false), false), (0.0, 0.0), false, &theme);
+        let with = layout_colorbar(&plain((true, true), false), (0.0, 0.0), false, &theme);
+        let cap = with.cap_length();
+        assert_eq!(cap, 23.0 * 3f64.sqrt() / 2.0);
+        // Vertical: the bar moves down by one cap and the box grows by two.
+        assert_eq!(with.bar.y, without.bar.y + cap);
+        assert_eq!(with.size.1, without.size.1 + 2.0 * cap);
+        assert_eq!(with.caps, (true, true));
+        // Only the high (top) cap: the bar moves, the box grows by one cap.
+        let high = layout_colorbar(&plain((false, true), false), (0.0, 0.0), false, &theme);
+        assert_eq!((high.caps, high.bar.y), ((true, false), cap));
+        // Reversed: the high cap is at the bottom.
+        let reversed = layout_colorbar(&plain((false, true), true), (0.0, 0.0), false, &theme);
+        assert_eq!((reversed.caps, reversed.bar.y), ((false, true), 0.0));
+        assert_eq!(reversed.size.1, without.size.1 + cap);
+        // Horizontal: labels already reach past the ends; the caps add the rest.
+        let flat = layout_colorbar(&plain((true, true), false), (0.0, 0.0), true, &theme);
+        assert!(flat.bar.x >= flat.cap_length());
+        assert!(flat.size.0 >= flat.bar.x + flat.bar.width + flat.cap_length());
+    }
+
+    #[test]
+    fn caps_and_minor_ticks_are_drawn() {
+        let theme = Theme::default();
+        let mut colorbar = plain((true, true), false);
+        colorbar.minor = vec![5.0];
+        let layout = layout_colorbar(&colorbar, (0.0, 0.0), true, &theme);
+        assert_eq!(layout.minor.len(), 1);
+        let nodes = draw_colorbar(&colorbar, &layout, &theme);
+        let triangles = nodes
+            .iter()
+            .filter(|node| matches!(node, Node::Path(path) if path.closed && path.fill.is_some()))
+            .count();
+        assert_eq!(triangles, 2);
+        let ticks = nodes
+            .iter()
+            .filter(|node| matches!(node, Node::Path(path) if !path.closed))
+            .count();
+        // Two marks (both edges) per major and minor tick.
+        assert_eq!(ticks, 2 * 3);
     }
 }

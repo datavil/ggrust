@@ -99,3 +99,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [rescaler and guide_bins](rescaler_and_guide_bins.md): callables travel in the spec's function table (index + `AxisFunction` method), rescale at the StyleScale, guide_bins = key legend with `bin_edges`, binned x needs pre-stat training.
 - [Per-guide legend positions](guide_positions.md): one legend block per position with a theme clone at that `legend_position`, opposite sides split the budget, inside point fallbacks, collect ignores positions.
 - [Infinite positions](infinite_positions.md): -inf/+inf mapped to the panel edges in the scale `map`, kept by transforms and limits, constants sent as `{"$float": "inf"}` (JSON has no infinity).
+- [Colorbar caps, minor ticks, title position](colorbar_caps_minor_title_position.md): arrange_title places every guide title (hjust/vjust as ggplot2), caps only add room labels lack, minor ticks need a tolerant domain filter.

@@ -829,6 +829,60 @@ def polar_rectangular_background(m):
     return _polar_bars(m) + m.theme_bw() + m.coord_polar(transform_bkgr=False) + m.ggsize(400, 350)
 
 
+def _lifetimes(m):
+    random = np.random.default_rng(41)
+    return pl.DataFrame(
+        {
+            "x": random.uniform(0, 10, 120),
+            "y": random.uniform(0, 4, 120),
+            "lifetime": 10 ** random.uniform(0.6, 2.8, 120),
+        }
+    )
+
+
+def colorbar_extend_log_minor(m):
+    # matplotlib colorbar(extend="both") look: triangle caps, log minor ticks and
+    # the title centred below a horizontal bar.
+    return (
+        m.ggplot(_lifetimes(m), m.aes("x", "y", color="lifetime"))
+        + m.geom_point(size=4)
+        + m.scale_color_gradient(
+            low="#fcfbfd",
+            high="#3f007d",
+            trans="log10",
+            breaks=[5, 10, 20, 50, 100, 200, 500],
+            name="Mean Lifetime (a.u.)",
+        )
+        + m.guides(
+            color=m.guide_colorbar(shape="triangle", minor_ticks=True, barwidth=300, barheight=10)
+        )
+        + m.theme(
+            legend_position="bottom",
+            legend_title_position="bottom",
+            legend_title=m.element_text(hjust=0.5),
+            legend_ticks=m.element_line(color="black"),
+        )
+        + m.ggsize(500, 350)
+    )
+
+
+def colorbar_extend_vertical_linear(m):
+    # Upper cap only, linear minor ticks, the title right of a vertical bar.
+    return (
+        m.ggplot(_lifetimes(m), m.aes("x", "y", color="lifetime"))
+        + m.geom_point(size=4)
+        + m.guides(
+            color=m.guide_colorbar(
+                shape="triangle",
+                show=(False, True),
+                minor_ticks=True,
+                theme=m.theme(legend_title_position="right"),
+            )
+        )
+        + m.ggsize(500, 350)
+    )
+
+
 CASES = {
     case.__name__: case
     for case in [
@@ -1264,5 +1318,7 @@ EXTENSION_CASES = {
         guide_positions_sides,
         pubr_pairwise_brackets,
         pubr_manual_brackets,
+        colorbar_extend_log_minor,
+        colorbar_extend_vertical_linear,
     ]
 }

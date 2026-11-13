@@ -90,6 +90,7 @@ def theme(
     legend_position_inside: Sequence[Number] | None = None,
     legend_justification: str | Sequence[Number] | None = None,
     legend_direction: Literal["horizontal", "vertical"] | None = None,
+    legend_title_position: Literal["top", "right", "bottom", "left"] | None = None,
     legend_margin: Margins | None = None,
     legend_spacing: Number | None = None,
     legend_spacing_x: Number | None = None,
@@ -272,6 +273,13 @@ def theme(
         Anchor of the legend box: a name such as ``"center"``, or ``[x, y]``.
     legend_direction : {"horizontal", "vertical"}, optional
         Layout of the legend keys.
+    legend_title_position : {"top", "right", "bottom", "left"}, optional
+        Side of each legend (keys or colorbar) its title goes to (ggplot2 3.5).
+        None puts it at the top of vertical legends and the left of horizontal
+        ones. Above or below, ``legend_title``'s ``hjust`` places both the title and
+        the keys across the legend width (0 left, 0.5 centred); left or right, its
+        ``vjust`` places them down the height (default 0.5, centred). Per guide:
+        ``guide_colorbar(theme=theme(legend_title_position="bottom"))``.
     legend_margin : float or list of float, optional
         Margins around the legend, in pixels (one number, or 2 to 4 as in CSS).
     legend_spacing, legend_spacing_x, legend_spacing_y : float, optional

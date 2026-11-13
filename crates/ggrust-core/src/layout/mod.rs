@@ -31,7 +31,7 @@ pub mod tag;
 pub mod zoom;
 
 pub use axis::{AxisBreaks, LabelArrangement, Orientation, choose_breaks};
-pub use colorbar::{Colorbar, DEFAULT_BINS};
+pub use colorbar::{Colorbar, DEFAULT_BINS, minor_values as colorbar_minor_values};
 pub(crate) use legend::wrap_words;
 pub use legend::{
     GuidePosition, GuideStyle, KeyGrid, KeyLayer, Legend, LegendBlock, LegendBox, LegendBudget,

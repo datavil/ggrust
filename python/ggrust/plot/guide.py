@@ -592,6 +592,9 @@ def guide_colorbar(
     alpha: Number | None = None,
     draw_ulim: bool | None = None,
     draw_llim: bool | None = None,
+    shape: Literal["triangle"] | None = None,
+    show: bool | tuple[bool, bool] | list[bool] | None = None,
+    minor_ticks: bool | None = None,
 ) -> FeatureSpec:
     """Show a colorbar for a continuous color or fill scale.
 
@@ -633,6 +636,22 @@ def guide_colorbar(
     draw_ulim, draw_llim : bool, optional
         False hides the ticks of a break at the upper (lower) end of the bar
         (ggplot2).
+    shape : {"triangle"}, optional
+        Caps past the bar's ends: ``"triangle"`` draws a pointed, equilateral cap on
+        the bar's thickness, filled with that end's color, like matplotlib's
+        ``colorbar(extend=...)`` (values beyond the limits). Named after legendry's
+        ``guide_colbar(shape=)``; a ggrust option, not in lets-plot or ggplot2.
+        None (the default) draws no caps.
+    show : bool or (bool, bool), optional
+        Which caps ``shape`` draws: True both (the default), False none, or
+        ``(lower, upper)`` for the low and high ends of the scale (legendry). Ends
+        follow the transformed scale: with ``trans="reverse"`` the upper end holds
+        the smallest data value. Needs ``shape``.
+    minor_ticks : bool, optional
+        True adds shorter ticks between the breaks: 2 to 9 times each power of ten
+        on a log10 scale (none past 50 decades), else halfway between neighbouring
+        breaks (like ggplot2's axis ``minor.ticks``). A ggrust option; stepped
+        (binned) colorbars draw none.
 
     Returns
     -------
@@ -642,14 +661,21 @@ def guide_colorbar(
     Raises
     ------
     SpecError
-        If ``label_position``, ``direction``, ``order``, ``theme``, ``display`` or
-        ``alpha`` is not accepted.
+        If ``label_position``, ``direction``, ``order``, ``theme``, ``display``,
+        ``alpha``, ``shape``, ``show`` or ``minor_ticks`` is not accepted.
 
     Examples
     --------
     >>> from ggrust import *
     >>> spec = guides(fill=guide_colorbar(label_position="ends"))
     >>> spec = guides(fill=guide_colorbar(reverse=True, display="gradient", alpha=0.8))
+    >>> spec = guides(
+    ...     color=guide_colorbar(
+    ...         shape="triangle",
+    ...         minor_ticks=True,
+    ...         theme=theme(legend_title_position="bottom"),
+    ...     )
+    ... )
     """
     arguments = dict(locals())
     if label_position is not None and label_position != "ends":
@@ -670,9 +696,36 @@ def guide_colorbar(
         isinstance(alpha, bool) or not isinstance(alpha, Real) or not 0 <= alpha <= 1
     ):
         raise SpecError(f"guide_colorbar(alpha={alpha!r}): expected a number between 0 and 1")
-    for name, flag in (("draw_ulim", draw_ulim), ("draw_llim", draw_llim)):
+    for name, flag in (
+        ("draw_ulim", draw_ulim),
+        ("draw_llim", draw_llim),
+        ("minor_ticks", minor_ticks),
+    ):
         if flag is not None and not isinstance(flag, bool):
             raise SpecError(f"guide_colorbar({name}={flag!r}): expected True or False")
+    if shape is not None and shape != "triangle":
+        message = (
+            f"guide_colorbar(shape={shape!r}) is not supported; expected 'triangle' or "
+            f"None{did_you_mean(str(shape), ['triangle'])}"
+        )
+        raise SpecError(message)
+    if show is not None:
+        if shape is None:
+            raise SpecError(
+                f"guide_colorbar(show={show!r}): show picks the caps drawn by shape; "
+                "add shape='triangle'"
+            )
+        if isinstance(show, (tuple, list)):
+            if len(show) != 2 or not all(isinstance(flag, bool) for flag in show):
+                raise SpecError(
+                    f"guide_colorbar(show={show!r}): expected True, False or "
+                    "(lower, upper) booleans"
+                )
+            arguments["show"] = list(show)
+        elif not isinstance(show, bool):
+            raise SpecError(
+                f"guide_colorbar(show={show!r}): expected True, False or (lower, upper) booleans"
+            )
     return _guide("colorbar", **_with_theme(arguments, "guide_colorbar"))
 
 

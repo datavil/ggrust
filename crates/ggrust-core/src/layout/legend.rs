@@ -21,7 +21,7 @@ use crate::scale::format::Label;
 use crate::scene::{Group, HorizontalAlign, LEGEND_KEY_ROLE, Node, Rect};
 use crate::style::Styles;
 use crate::text::{measure, measure_label};
-use crate::theme::{LegendPosition, Theme};
+use crate::theme::{LegendPosition, LegendTitlePosition, Theme};
 use crate::{Error, Result};
 
 /// lets-plot `LegendAssembler.MAX_ROWS_PER_COL`.
@@ -377,10 +377,36 @@ fn title_size(title: &str, theme: &Theme) -> (f64, f64) {
     }
 }
 
-/// Place a title and a graph (keys or bar) in a box (lets-plot `LegendBoxLayout`):
-/// vertical legends put the title above, half a title line apart; horizontal ones
-/// put it at the left, both centred vertically. Returns the graph origin, the title
-/// anchor and the box size, margins included.
+/// Where a guide's title goes: `legend_title_position`, else at the top of vertical
+/// guides and the left of horizontal ones (ggplot2 3.5, lets-plot).
+pub(super) fn title_position(theme: &Theme, horizontal: bool) -> LegendTitlePosition {
+    theme.legend_title_position.unwrap_or(if horizontal {
+        LegendTitlePosition::Left
+    } else {
+        LegendTitlePosition::Top
+    })
+}
+
+/// `legend_title` justification: hjust (unset: 0, left) and vjust (unset: 0.5,
+/// centred), each clamped to 0..1.
+fn title_justification(theme: &Theme) -> (f64, f64) {
+    let pick = |value: Option<f64>, default: f64| match value {
+        Some(value) if value.is_finite() => value.clamp(0.0, 1.0),
+        _ => default,
+    };
+    (
+        pick(theme.legend_title.map(|style| style.hjust), 0.0),
+        pick(theme.legend_title.map(|style| style.vjust), 0.5),
+    )
+}
+
+/// Place a title and a graph (keys or bar) in a box (lets-plot `LegendBoxLayout`,
+/// ggplot2 3.5 `legend.title.position`). A title above or below the graph is half
+/// a title line from it; one at the left touches it (lets-plot) and one at the
+/// right is half a line away. Above or below, the title and the graph are both
+/// placed across the box width by the title's hjust (ggplot2 `Guide$add_title`);
+/// left or right, down the box height by its vjust. Returns the graph origin, the
+/// title anchor and the box size, margins included.
 fn arrange_title(
     title: &str,
     graph: (f64, f64),
@@ -399,30 +425,51 @@ fn arrange_title(
     } else {
         (0.0, 0.0)
     };
-    let (graph_origin, content) = if horizontal {
-        let height = title_height.max(graph.1);
-        (
-            (title_width, (height - graph.1) / 2.0),
-            (title_width + graph.0, height),
-        )
-    } else {
-        // lets-plot `LegendBoxLayout.graphOrigin`: half a title line below the title.
-        let top = match theme.legend_title {
-            Some(style) if title_height > 0.0 => title_height + text_band(style) / 2.0,
-            _ => 0.0,
-        };
-        ((0.0, top), (title_width.max(graph.0), top + graph.1))
+    let half_line = match theme.legend_title {
+        Some(style) if title_height > 0.0 => text_band(style) / 2.0,
+        _ => 0.0,
     };
-    let title_top = if horizontal {
-        (content.1 - title_height) / 2.0
-    } else {
-        0.0
+    let (hjust, vjust) = title_justification(theme);
+    let (graph_origin, title_origin, content) = match title_position(theme, horizontal) {
+        position @ (LegendTitlePosition::Left | LegendTitlePosition::Right) => {
+            let height = title_height.max(graph.1);
+            let title_y = (1.0 - vjust) * (height - title_height);
+            let graph_y = (1.0 - vjust) * (height - graph.1);
+            let gap = if title_width > 0.0 && position == LegendTitlePosition::Right {
+                half_line
+            } else {
+                0.0
+            };
+            let width = title_width + gap + graph.0;
+            if position == LegendTitlePosition::Left {
+                ((title_width, graph_y), (0.0, title_y), (width, height))
+            } else {
+                ((0.0, graph_y), (graph.0 + gap, title_y), (width, height))
+            }
+        }
+        position @ (LegendTitlePosition::Top | LegendTitlePosition::Bottom) => {
+            let width = title_width.max(graph.0);
+            let title_x = hjust * (width - title_width);
+            let graph_x = hjust * (width - graph.0);
+            // lets-plot `LegendBoxLayout.graphOrigin`: half a title line between.
+            let gap = if title_height > 0.0 { half_line } else { 0.0 };
+            let height = title_height + gap + graph.1;
+            if position == LegendTitlePosition::Top {
+                (
+                    (graph_x, title_height + gap),
+                    (title_x, 0.0),
+                    (width, height),
+                )
+            } else {
+                ((graph_x, 0.0), (title_x, graph.1 + gap), (width, height))
+            }
+        }
     };
     (
         (margin.left + graph_origin.0, margin.top + graph_origin.1),
         (
-            margin.left + title_margin.left,
-            margin.top + title_top + title_margin.top,
+            margin.left + title_origin.0 + title_margin.left,
+            margin.top + title_origin.1 + title_margin.top,
         ),
         (
             margin.left + content.0 + margin.right,
@@ -1212,11 +1259,15 @@ pub fn draw_legends(block: &LegendBlock, origin: (f64, f64), theme: &Theme) -> R
         {
             let band = text_band(style);
             let (left, top) = (x + measured.title_anchor.0, y + measured.title_anchor.1);
+            // Lines of a multi-line title line up by the title's hjust.
+            let (hjust, _) = title_justification(theme);
+            let width = title_size(measured.title, theme).0;
             for (index, line) in title_lines(measured.title).into_iter().enumerate() {
+                let shift = hjust * (width - measure(line, style.size, style.font).width);
                 legend_nodes.push(text_node(
                     line,
                     style,
-                    (left, top + band * (index as f64 + 0.5)),
+                    (left + shift, top + band * (index as f64 + 0.5)),
                     HorizontalAlign::Start,
                     0.0,
                 ));
@@ -1376,6 +1427,52 @@ mod tests {
             arrange_title("", graph, true, &padded).2,
             arrange_title("", graph, true, &plain).2
         );
+    }
+
+    #[test]
+    fn title_positions_place_the_title_on_each_side() {
+        let at = |position: LegendTitlePosition, hjust: f64, vjust: f64| {
+            let mut theme = Theme {
+                legend_title_position: Some(position),
+                legend_margin: Margins {
+                    top: 0.0,
+                    right: 0.0,
+                    bottom: 0.0,
+                    left: 0.0,
+                },
+                ..Theme::default()
+            };
+            if let Some(style) = theme.legend_title.as_mut() {
+                style.hjust = hjust;
+                style.vjust = vjust;
+            }
+            arrange_title("RNA", (200.0, 10.0), true, &theme)
+        };
+        let theme = Theme::default();
+        let (title_width, title_height) = title_size("RNA", &theme);
+        let half_line = theme.legend_title.map_or(0.0, text_band) / 2.0;
+        // Bottom, centred: the title below the bar, both centred on the wider bar.
+        let (origin, anchor, size) = at(LegendTitlePosition::Bottom, 0.5, f64::NAN);
+        assert_eq!(origin, (0.0, 0.0));
+        assert_eq!(anchor, ((200.0 - title_width) / 2.0, 10.0 + half_line));
+        assert_eq!(size, (200.0, 10.0 + half_line + title_height));
+        // Top, unset hjust: left.
+        let (origin, anchor, _) = at(LegendTitlePosition::Top, f64::NAN, f64::NAN);
+        assert_eq!(anchor, (0.0, 0.0));
+        assert_eq!(origin, (0.0, title_height + half_line));
+        // Right, top-justified: the bar at the left, the title after half a line.
+        let (origin, anchor, size) = at(LegendTitlePosition::Right, 0.0, 1.0);
+        assert_eq!(origin.0, 0.0);
+        assert_eq!(anchor, (200.0 + half_line, 0.0));
+        assert_eq!(size.0, 200.0 + half_line + title_width);
+        // Left: unset vjust centres both (lets-plot's horizontal legends).
+        let (origin, anchor, _) = at(LegendTitlePosition::Left, f64::NAN, f64::NAN);
+        assert_eq!(origin.0, title_width);
+        assert_eq!(anchor.0, 0.0);
+        assert!(title_height > 10.0 && origin.1 == (title_height - 10.0) / 2.0);
+        // Unset position: top when vertical, left when horizontal.
+        assert_eq!(title_position(&theme, false), LegendTitlePosition::Top);
+        assert_eq!(title_position(&theme, true), LegendTitlePosition::Left);
     }
 
     #[test]

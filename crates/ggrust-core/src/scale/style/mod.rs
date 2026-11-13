@@ -1014,7 +1014,7 @@ impl StyleScale {
     }
 
     /// `trans=...` of a continuous scale (identity otherwise).
-    fn transform(&self) -> Transform {
+    pub(crate) fn transform(&self) -> Transform {
         self.continuous
             .as_ref()
             .map_or(Transform::Identity, |domain| domain.transform)

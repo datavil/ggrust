@@ -4382,7 +4382,21 @@ fn assemble_legends(
                     Some(StyleValues::Colors(colors)) => Some(colors.get(0)),
                     _ => None,
                 };
+                // Minor ticks: not on stepped (binned) colorbars, whose guide runs
+                // in bin index space.
+                let minor = if options.minor_ticks && scale.steps_guide().is_none() {
+                    let values: Vec<f64> = guide.breaks.iter().map(|(value, _)| *value).collect();
+                    crate::layout::colorbar_minor_values(
+                        guide.domain,
+                        &values,
+                        scale.transform() == Transform::Log10,
+                    )
+                } else {
+                    Vec::new()
+                };
                 let colorbar = Colorbar {
+                    caps: options.caps,
+                    minor,
                     title,
                     domain: guide.domain,
                     breaks: guide.breaks,
@@ -4879,6 +4893,53 @@ fn same_colorbar(left: &Colorbar, right: &Colorbar) -> bool {
         && left.bar_width == right.bar_width
         && left.bar_height == right.bar_height
         && left.label_ends == right.label_ends
+        && left.caps == right.caps
+        && left.minor == right.minor
+}
+
+/// `guide_colorbar(shape=, show=)`: which ends get a triangle cap, (low, high).
+fn colorbar_caps(options: &GuideOptions, path: &str) -> Result<(bool, bool)> {
+    match options.shape.as_deref() {
+        None => {
+            if options.show.is_some() {
+                return Err(Error::spec(
+                    format!("{path}.show"),
+                    "show= picks the colorbar caps, which need a shape; add \
+                     shape='triangle'",
+                ));
+            }
+            return Ok((false, false));
+        }
+        Some("triangle") => {}
+        Some(other) => {
+            return Err(Error::spec(
+                format!("{path}.shape"),
+                format!(
+                    "unknown colorbar cap shape '{other}'; expected 'triangle'{}",
+                    crate::suggest::did_you_mean(other, ["triangle"])
+                ),
+            ));
+        }
+    }
+    let flag = |value: &Value| value.as_bool();
+    match &options.show {
+        None => Ok((true, true)),
+        Some(Value::Bool(shown)) => Ok((*shown, *shown)),
+        Some(Value::Array(items)) if items.len() == 2 => match (flag(&items[0]), flag(&items[1])) {
+            (Some(lower), Some(upper)) => Ok((lower, upper)),
+            _ => Err(Error::spec(
+                format!("{path}.show"),
+                format!(
+                    "expected True, False or [lower, upper] of booleans, got {}",
+                    Value::Array(items.clone())
+                ),
+            )),
+        },
+        Some(other) => Err(Error::spec(
+            format!("{path}.show"),
+            format!("expected True, False or [lower, upper] of booleans, got {other}"),
+        )),
+    }
 }
 
 /// lets-plot has no limit; this keeps a typo from allocating billions of segments.
@@ -4897,6 +4958,10 @@ struct ColorbarOptions {
     alpha: Option<f64>,
     /// `(draw_llim, draw_ulim)`.
     limit_ticks: (bool, bool),
+    /// `shape="triangle"` with `show`: caps at the (low, high) end.
+    caps: (bool, bool),
+    /// `minor_ticks`.
+    minor_ticks: bool,
 }
 
 /// The guides of one aesthetic: `guides(...)` first, then the scale's own `guide`.
@@ -5052,6 +5117,8 @@ impl<'a> Guides<'a> {
                 gradient: false,
                 alpha: None,
                 limit_ticks: (true, true),
+                caps: (false, false),
+                minor_ticks: false,
             });
         };
         let size = |value: Option<f64>, key: &str| -> Result<Option<f64>> {
@@ -5132,6 +5199,8 @@ impl<'a> Guides<'a> {
                 options.draw_llim.unwrap_or(true),
                 options.draw_ulim.unwrap_or(true),
             ),
+            caps: colorbar_caps(options, path)?,
+            minor_ticks: options.minor_ticks.unwrap_or(false),
         })
     }
 

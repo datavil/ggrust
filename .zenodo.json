@@ -4,7 +4,8 @@
   "description": "Grammar-of-graphics plotting library written in Rust and used from Python, with a lets_plot-compatible API and SVG, PNG and interactive HTML output.",
   "creators": [
     {
-      "name": "Kosar, Zafer"
+      "name": "Kosar, Zafer",
+      "orcid": "0000-0002-9275-4998"
     }
   ],
   "license": "MIT",

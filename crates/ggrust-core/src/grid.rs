@@ -72,6 +72,7 @@ pub fn build_figure_with(
                 container_collects: false,
                 container_aligns: false,
                 tags: None,
+                untagged: false,
                 path: "",
             };
             let toolbar = match figure {
@@ -218,6 +219,9 @@ struct GridContext<'a> {
     /// The tags of this grid's figures and insets, when a containing grid numbers
     /// them ([`crate::grid_tags`]).
     tags: Option<&'a FigureTags>,
+    /// Whether the grid is inside a grid tagged as one unit (`tag_level="unit"`): it
+    /// tags nothing, not even by its own `tag_levels`.
+    untagged: bool,
     /// Spec path of this grid (`figures[1].`), for messages.
     path: &'a str,
 }
@@ -499,9 +503,18 @@ impl<'s> PreparedGrid<'s> {
                 DEFAULT_SIZE.1 * (0.5 + 0.5 / rows as f64) * rows as f64,
             ),
         };
-        grid_tags::starts_level(spec).map_err(|error| nest_error(error, path))?;
+        grid_tags::tag_level(spec).map_err(|error| nest_error(error, path))?;
+        // Figures inside a grid tagged as one unit are not tagged at all.
+        let untagged = context.untagged || matches!(context.tags, Some(FigureTags::Unit(_)));
+        if context.untagged && spec.layout.tag_levels.is_some() {
+            warnings.push(format!(
+                "at '{path}layout.tag_levels': a grid inside a grid tagged as one unit \
+                 (tag_level='unit') is not tagged; ignored"
+            ));
+        }
         let own_tags = match context.tags {
             Some(_) => None,
+            None if context.untagged => None,
             None => {
                 grid_tags::grid_tags(spec, warnings).map_err(|error| nest_error(error, path))?
             }
@@ -566,6 +579,7 @@ impl<'s> PreparedGrid<'s> {
                 container_collects: false,
                 container_aligns: false,
                 tags: None,
+                untagged,
                 path: &child_path,
             };
             let element = match figure {
@@ -611,7 +625,8 @@ impl<'s> PreparedGrid<'s> {
                         container: Some((&theme_spec, &theme)),
                         container_collects: collects,
                         container_aligns: align,
-                        tags: figure_tag(index).filter(|tags| matches!(tags, FigureTags::Grid(..))),
+                        tags: figure_tag(index).filter(|tags| tags.is_grid()),
+                        untagged,
                         path: &child_path,
                     };
                     let (grid, mut passed_up) =
@@ -636,7 +651,11 @@ impl<'s> PreparedGrid<'s> {
                 .caption
                 .as_ref()
                 .and_then(|caption| caption.text.clone()),
-            tag: spec.tag.as_ref().and_then(|tag| tag.text.clone()),
+            // A grid tagged as one unit draws its automatic tag, replacing its own.
+            tag: match context.tags {
+                Some(FigureTags::Unit(tag)) => Some(tag.clone()),
+                _ => spec.tag.as_ref().and_then(|tag| tag.text.clone()),
+            },
             ..Default::default()
         };
         let insets = {
@@ -646,6 +665,7 @@ impl<'s> PreparedGrid<'s> {
                 container_collects: false,
                 container_aligns: false,
                 tags: None,
+                untagged,
                 path,
             };
             inset::prepare(&spec.insets, inset_tags, &inset_context, warnings)?

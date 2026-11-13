@@ -99,7 +99,7 @@ pub(super) fn prepare<'s>(
             }
             Figure::Subplots(grid_spec) => {
                 let child_context = GridContext {
-                    tags: tag.filter(|tags| matches!(tags, FigureTags::Grid(..))),
+                    tags: tag.filter(|tags| tags.is_grid()),
                     path: &child_path,
                     ..*context
                 };

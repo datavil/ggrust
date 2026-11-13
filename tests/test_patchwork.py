@@ -220,6 +220,63 @@ def test_new_tag_level_numbers_a_nested_grid_below_one_tag():
     assert _tags(grid.to_svg(), {f"{name}." for name in names}) == ["A.", "B1.", "B2.", "C."]
 
 
+def _column():
+    """Two stacked plots with a color legend each, tagged as one unit."""
+    plot = (
+        gg.ggplot(
+            {"x": [1, 2, 3], "y": [3, 1, 2], "g": ["a", "b", "a"]}, gg.aes("x", "y", color="g")
+        )
+        + gg.geom_point()
+    )
+    return gg.gggrid([plot, plot], ncol=1, guides="collect", tag_level="unit")
+
+
+def test_unit_tag_level_tags_a_nested_grid_once_at_its_corner():
+    column = _column()
+    grid = gg.gggrid([column, column], ncol=2, tag_levels="A") + gg.ggsize(800, 600)
+    svg = grid.to_svg()
+    texts = [text for text in _texts(svg) if text[0] in {"A", "B", "C", "D"}]
+    assert [text[0] for text in texts] == ["A", "B"]
+    (_, a_x, a_y), (_, b_x, b_y) = texts
+    # One tag at the top-left of each column, left of its panels.
+    assert a_x < 50 and 400 <= b_x < 450 and a_y == b_y < 50
+    panels = _ggrust_panel_rects(svg)
+    assert len(panels) == 4
+    assert all(a_x < panel[0] < 400 or b_x < panel[0] for panel in panels)
+    # Each column still collects its two identical legends into one.
+    assert svg.count(">g</text>") == 2
+
+
+def test_unit_tag_level_continues_the_numbering_and_follows_the_theme():
+    inner = gg.gggrid([_plot(gg), _plot(gg)], ncol=1)
+    own = _column() + gg.labs(tag="own")
+    grid = gg.gggrid([own, _plot(gg), inner], ncol=3, tag_levels="A") + gg.theme(
+        plot_tag=gg.element_text(size=22), plot_tag_suffix=")"
+    )
+    svg = grid.to_svg()
+    tags = re.findall(r'<text [^>]*font-size="22"[^>]*>([^<]*)</text>', svg)
+    assert tags == ["A)", "B)", "C)", "D)"]
+    assert "own" not in svg
+
+
+def test_unit_tag_level_silences_nested_tag_levels_and_keeps_own_tags():
+    inner = gg.gggrid([_plot(gg), _plot(gg)], ncol=1, tag_levels="a")
+    unit = gg.gggrid([inner, _plot(gg, gg.labs(tag="own"))], ncol=2, tag_level="unit")
+    grid = gg.gggrid([unit, _plot(gg)], ncol=2, tag_levels="A")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        svg = grid.to_svg()
+    assert sorted(_tags(svg, {"A", "B", "a", "b", "own"})) == ["A", "B", "own"]
+    messages = " ".join(str(warning.message) for warning in caught)
+    assert "figures[0].figures[0].layout.tag_levels" in messages
+    assert "tagged as one unit" in messages
+
+
+def test_unit_tag_level_keeps_the_grid_untagged_outside_a_tagged_grid():
+    svg = gg.gggrid([_column(), _plot(gg)]).to_svg()
+    assert _tags(svg, {"A", "B", "C"}) == []
+
+
 def test_tag_level_warnings_and_errors():
     inner = gg.gggrid([_plot(gg)], tag_level="new", tag_levels="a")
     grid = gg.gggrid([_plot(gg), inner], tag_levels="A")
@@ -233,6 +290,8 @@ def test_tag_level_warnings_and_errors():
         gg.gggrid([_plot(gg)], tag_levels="B")
     with pytest.raises(SpecError, match="did you mean 'new'"):
         gg.gggrid([_plot(gg)], tag_level="nwe")
+    with pytest.raises(SpecError, match=r"'keep', 'new' or 'unit'.*did you mean 'unit'"):
+        gg.gggrid([_plot(gg)], tag_level="unti")
 
 
 # nested grids under align
@@ -361,5 +420,5 @@ def test_bad_tag_levels_type_and_engine_tag_level():
         gg.gggrid([_plot(gg)], tag_levels=3)
     spec = gg.gggrid([gg.ggplot()]).as_dict()
     spec["layout"]["tag_level"] = "x"
-    with pytest.raises(ValueError, match=r"tag_level.*'keep' or 'new'"):
+    with pytest.raises(ValueError, match=r"tag_level.*'keep', 'new' or 'unit'"):
         _render_raw(spec)

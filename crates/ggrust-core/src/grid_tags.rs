@@ -4,7 +4,9 @@
 //! What it does: number every plot of a tagged grid in figure order (a plot, then
 //! its insets, then the next figure), skipping empty cells and insets with
 //! `ignore_tag`. Nested grids continue the numbering (`tag_level="keep"`) or take
-//! one tag and number their plots at the next level (`"new"`: A1, A2).
+//! one tag and number their plots at the next level (`"new"`: A1, A2), or take one
+//! tag that the grid draws itself, leaving its plots untagged (`"unit"`: patchwork's
+//! `wrap_elements(full=)` of a nested patchwork).
 //!
 //! What it does not do: draw tags (each plot draws its own, [`crate::layout::tag`])
 //! or style them (the plots' themes, inherited from the grid).
@@ -21,6 +23,27 @@ pub enum FigureTags {
     Plot(String, Vec<FigureTags>),
     /// A grid's figures' tags and its insets' tags.
     Grid(Vec<FigureTags>, Vec<FigureTags>),
+    /// A grid tagged as one unit (`tag_level="unit"`): the grid draws this tag, its
+    /// figures and insets are untagged.
+    Unit(String),
+}
+
+impl FigureTags {
+    /// Whether these are a nested grid's tags (numbered figures or one unit tag).
+    pub fn is_grid(&self) -> bool {
+        matches!(self, FigureTags::Grid(..) | FigureTags::Unit(_))
+    }
+}
+
+/// How a grid nested in a tagged grid is tagged (`tag_level=`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TagLevel {
+    /// Its plots continue the containing grid's numbering (the default).
+    Keep,
+    /// It takes one tag and numbers its plots at the next level.
+    New,
+    /// It takes one tag, drawn by the grid; its plots are untagged.
+    Unit,
 }
 
 /// One numbering of `tag_levels`.
@@ -107,15 +130,15 @@ fn roman(number: usize) -> String {
     text
 }
 
-/// Whether a grid starts the next level (`tag_level="new"`); errors name the
-/// accepted values.
-pub fn starts_level(spec: &SubplotsSpec) -> Result<bool> {
+/// A grid's `tag_level`; errors name the accepted values.
+pub fn tag_level(spec: &SubplotsSpec) -> Result<TagLevel> {
     match spec.layout.tag_level.as_deref() {
-        None | Some("keep") => Ok(false),
-        Some("new") => Ok(true),
+        None | Some("keep") => Ok(TagLevel::Keep),
+        Some("new") => Ok(TagLevel::New),
+        Some("unit") => Ok(TagLevel::Unit),
         Some(other) => Err(Error::spec(
             "layout.tag_level",
-            format!("expected 'keep' or 'new', got '{other}'"),
+            format!("expected 'keep', 'new' or 'unit', got '{other}'"),
         )),
     }
 }
@@ -203,7 +226,11 @@ impl Tagger<'_> {
                         self.path
                     ));
                 }
-                let new = starts_level(grid).map_err(|error| error.nested(&self.path))?;
+                let level = tag_level(grid).map_err(|error| error.nested(&self.path))?;
+                if level == TagLevel::Unit {
+                    return Ok(FigureTags::Unit(self.next(depth, prefix, counter)));
+                }
+                let new = level == TagLevel::New;
                 if new && depth + 1 < self.levels.len() {
                     let prefix = self.next(depth, prefix, counter);
                     let mut inner = 0;
@@ -270,5 +297,47 @@ mod tests {
         let message = error.to_string();
         assert!(message.contains("unknown tag level 'B'"), "{message}");
         assert!(message.contains("'A', 'a', '1', 'i' or 'I'"), "{message}");
+    }
+
+    fn grid(json: &str) -> SubplotsSpec {
+        match Figure::from_json(json).expect("valid grid") {
+            Figure::Subplots(grid) => *grid,
+            Figure::Plot(_) => panic!("expected a grid"),
+        }
+    }
+
+    #[test]
+    fn unit_grids_take_one_tag_and_leave_their_plots_untagged() {
+        let plot = r#"{"kind": "plot", "layers": []}"#;
+        let unit = format!(
+            r#"{{"kind": "subplots", "layout": {{"name": "grid", "ncol": 1, "nrow": 2,
+                "tag_level": "unit"}}, "figures": [{plot}, {plot}]}}"#
+        );
+        let spec = grid(&format!(
+            r#"{{"kind": "subplots", "layout": {{"name": "grid", "ncol": 3, "nrow": 1,
+                "tag_levels": ["A"]}}, "figures": [{unit}, {plot}, {unit}]}}"#
+        ));
+        let mut warnings = Vec::new();
+        let tags = grid_tags(&spec, &mut warnings).expect("tags");
+        let expected = FigureTags::Grid(
+            vec![
+                FigureTags::Unit("A".into()),
+                FigureTags::Plot("B".into(), Vec::new()),
+                FigureTags::Unit("C".into()),
+            ],
+            Vec::new(),
+        );
+        assert_eq!(tags, Some(expected));
+        assert!(warnings.is_empty(), "{warnings:?}");
+    }
+
+    #[test]
+    fn unknown_tag_level_names_unit() {
+        let spec = grid(
+            r#"{"kind": "subplots", "layout": {"name": "grid", "ncol": 1, "nrow": 1,
+                "tag_level": "one"}, "figures": [null]}"#,
+        );
+        let message = tag_level(&spec).expect_err("unknown").to_string();
+        assert!(message.contains("'keep', 'new' or 'unit'"), "{message}");
     }
 }

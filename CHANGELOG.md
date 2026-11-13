@@ -6,6 +6,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Added
 
+- `gggrid(tag_level="unit")`: a grid nested in a tagged grid takes one tag, drawn once at its corner and styled by `theme(plot_tag=, plot_tag_position=, ...)`, and leaves its plots untagged (patchwork's `wrap_elements(full=)` around a nested patchwork). One letter per column of stacked plots: `gggrid([gggrid(column_a, ncol=1, tag_level="unit"), gggrid(column_b, ncol=1, tag_level="unit")], ncol=2, tag_levels="A")`.
 - `guide_legend(position=)`, `guide_colorbar(position=)` and `guide_bins(position=)`, as ggplot2 3.5: legends on several sides of one plot (`"top"`, `"right"`, `"bottom"`, `"left"`, `"inside"`), plus `theme(legend_position_inside=[x, y])` and `legend_position="inside"`.
 - Generic scales with `aesthetic=` as lets-plot: `scale_manual`, `scale_continuous`, `scale_discrete`, `scale_gradient`, `scale_gradient2`, `scale_gradientn`, `scale_hue`, `scale_grey`, `scale_brewer`, `scale_viridis`. A list (`scale_manual(['color', 'fill'], values=...)`) sets the same scale on every aesthetic named.
 - Accessors tier 2: `p.panels()` (each panel's pixel box and data-to-pixel mapping), `layer.defaults` (a geom's default stat, position and style aesthetics), `theme_defaults(name, flavor)` (what a named theme sets, in `theme()` vocabulary) and a one-line `repr` for plots, layers and grids. `build()` panels also give `box`, `flipped` and each axis's `reversed`.

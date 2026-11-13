@@ -130,7 +130,7 @@ pub struct GridLayoutSpec {
     #[serde(default)]
     pub tag_levels: Option<Vec<String>>,
     /// `tag_level=`: `keep` (default) continues the containing grid's numbering,
-    /// `new` starts the next level.
+    /// `new` starts the next level, `unit` tags the grid as one figure.
     #[serde(default)]
     pub tag_level: Option<String>,
     /// `axes=`: `keep`, `collect`, `collect_x` or `collect_y` (patchwork):

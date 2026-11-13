@@ -17,6 +17,9 @@ TAG_LEVELS = ("A", "a", "1", "i", "I")
 """Numberings ``tag_levels`` accepts: letters, lowercase letters, numbers, roman
 numerals in lowercase and uppercase (patchwork's)."""
 
+TAG_LEVEL_VALUES = ("keep", "new", "unit")
+"""Values ``tag_level`` accepts."""
+
 COLLECT_VALUES = ("keep", "collect", "collect_x", "collect_y")
 """Values ``axes`` and ``axis_titles`` accept (patchwork's)."""
 
@@ -43,7 +46,7 @@ def gggrid(
     guides: str | None = None,
     design: str | None = None,
     tag_levels: str | list[str] | None = None,
-    tag_level: Literal["keep", "new"] | None = None,
+    tag_level: Literal["keep", "new", "unit"] | None = None,
     axes: Collect | None = None,
     axis_titles: Collect | None = None,
 ) -> SupPlotsSpec:
@@ -89,10 +92,14 @@ def gggrid(
         own ``labs(tag=)``; the theme's ``plot_tag``, ``plot_tag_position``,
         ``plot_tag_location``, ``plot_tag_prefix`` and ``plot_tag_suffix`` style
         them. A ggrust extension (patchwork ``plot_annotation(tag_levels=)``).
-    tag_level : {"keep", "new"}, optional
+    tag_level : {"keep", "new", "unit"}, optional
         For a grid nested in a tagged grid: ``"keep"`` (default) numbers its plots
         on with the outer grid's; ``"new"`` takes one outer tag and numbers its
-        plots at the next level of ``tag_levels``.
+        plots at the next level of ``tag_levels``; ``"unit"`` takes one outer tag
+        and draws it once, at the nested grid's corner (styled by the theme's
+        ``plot_tag*`` options like a plot's tag), leaving its plots untagged
+        (their own ``labs(tag=)`` stay; grids inside it ignore ``tag_levels``).
+        patchwork's ``wrap_elements(full=)`` around a nested patchwork.
     axes : {"keep", "collect", "collect_x", "collect_y"}, optional
         Collect axes that repeat (patchwork's ``plot_layout(axes=)``): plots next
         to each other whose axis on a side is identical (same scale, same axis
@@ -130,6 +137,11 @@ def gggrid(
 
     >>> plot = gggrid([points, bars, points], design="AAB\nCCB", tag_levels="A")
 
+    Two columns of stacked plots, tagged A and B as whole columns:
+
+    >>> column = gggrid([points, bars], ncol=1, tag_level="unit")
+    >>> plot = gggrid([column, column], ncol=2, tag_levels="A")
+
     Shared axes shown once, with one title per axis:
 
     >>> plot = gggrid(
@@ -145,10 +157,10 @@ def gggrid(
         message = "gggrid(): 'plots' is empty; pass a list of plots (None leaves a cell empty)"
         raise SpecError(message)
     levels = _tag_levels(tag_levels)
-    if tag_level is not None and tag_level not in ("keep", "new"):
+    if tag_level is not None and tag_level not in TAG_LEVEL_VALUES:
         message = (
-            f"gggrid(): tag_level must be 'keep' or 'new', got {tag_level!r}"
-            f"{did_you_mean(str(tag_level), ['keep', 'new'])}"
+            f"gggrid(): tag_level must be 'keep', 'new' or 'unit', got {tag_level!r}"
+            f"{did_you_mean(str(tag_level), TAG_LEVEL_VALUES)}"
         )
         raise SpecError(message, path="layout.tag_level", reason=message)
     for key, value in (("axes", axes), ("axis_titles", axis_titles)):

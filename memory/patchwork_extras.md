@@ -17,7 +17,10 @@
   span's first (and last) row/column.
 - **Tags are numbered before preparing** (`grid_tags.rs`, a `FigureTags` tree mirroring
   figures and insets) because plot specs are cloned and prepared in parallel; a nested
-  grid gets its subtree through `GridContext.tags`.
+  grid gets its subtree through `GridContext.tags`. `tag_level="unit"` gives a nested
+  grid `FigureTags::Unit(tag)`: the grid draws it through its own `labs(tag=)` path
+  (`titles.tag`), so bands, theme and placement need no new code (user chose this over
+  a `wrap_elements` function, 2026-11-13).
 - **Insets** live in `grid/inset.rs` (child module so it reaches grid internals). A
   top-level plot with insets goes through the grid path (`Placed::Plot`), not
   `build_plot_with`. Insets with `on_top=False` draw after the host background, so the

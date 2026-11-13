@@ -165,7 +165,8 @@ Together they make raincloud plots; panel B of the next example is a `stat_halfe
 ## Figure layouts
 
 `gggrid` accepts a `design` string that names a cell per letter, and `tag_levels` tags
-the panels A, B, C (or a, 1, i). `axes="collect"` shows axes that repeat once per run
+the panels A, B, C (or a, 1, i). A nested grid with `tag_level="unit"` takes one tag
+for all its plots, for example one letter per column of stacked plots. `axes="collect"` shows axes that repeat once per run
 of plots (with `sharex` / `sharey`), and `axis_titles="collect"` turns repeated axis
 titles into one title centred on the run. `inset_element` places a plot inside
 another. These follow [patchwork](https://cran.r-project.org/package=patchwork) by Thomas Lin

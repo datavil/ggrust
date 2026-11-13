@@ -193,6 +193,11 @@ struct CanvasBatches {
 impl SvgWriter {
     fn document(&mut self, scene: &Scene) {
         self.open(scene.width, scene.height);
+        if scene.metadata {
+            self.raw("<!-- ");
+            self.raw(super::GENERATOR);
+            self.raw(" -->\n");
+        }
         if let Some(background) = scene.background {
             self.raw("<rect");
             self.attribute_number("width", scene.width);
@@ -1105,6 +1110,7 @@ mod tests {
         Scene {
             width: 300.0,
             height: 100.0,
+            metadata: false,
             background: None,
             nodes: vec![plot(0.0), rects, plot(100.0), plot(200.0)],
         }
@@ -1138,6 +1144,7 @@ mod tests {
         Scene {
             width: 100.0,
             height: 100.0,
+            metadata: false,
             background: None,
             nodes: vec![Node::Points(points)],
         }
@@ -1306,6 +1313,7 @@ mod tests {
         let scene = |width: f64| Scene {
             width,
             height: 50.0,
+            metadata: false,
             background: None,
             nodes: vec![Node::Group(Group {
                 key: None,

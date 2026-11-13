@@ -685,11 +685,12 @@ mod _ggrust {
     /// size; `dpi` is the raster resolution and the PDF page's (default 96);
     /// `quality` is the JPEG quality (1..=100, default 75); `html_id` is the
     /// root element id of HTML outputs, unique per display (required for them);
-    /// `functions` are the secondary axis transforms the spec indexes (`sec_axis`).
+    /// `functions` are the secondary axis transforms the spec indexes (`sec_axis`);
+    /// `metadata` records `ggrust vX.Y.Z` in the output (`render::GENERATOR`).
     /// Returns the encoded output (UTF-8 for text) and the build warnings.
     /// The GIL is released while building and rendering.
     #[pyfunction]
-    #[pyo3(signature = (spec_json, frames, output, scale, html_id=None, dpi=None, functions=None, quality=None))]
+    #[pyo3(signature = (spec_json, frames, output, scale, html_id=None, dpi=None, functions=None, quality=None, metadata=true))]
     #[allow(clippy::too_many_arguments)]
     fn render<'py>(
         python: Python<'py>,
@@ -701,6 +702,7 @@ mod _ggrust {
         dpi: Option<f64>,
         functions: Option<Vec<Py<PyAny>>>,
         quality: Option<u8>,
+        metadata: bool,
     ) -> PyResult<(Bound<'py, PyBytes>, Vec<String>)> {
         let functions = axis_functions(functions);
         let frames = frames
@@ -733,7 +735,8 @@ mod _ggrust {
                     (None, _) => None,
                 };
                 let figure = figure_with_functions(&spec_json, &functions)?;
-                let built = build_figure_with(&figure, &frames, html.is_some())?;
+                let mut built = build_figure_with(&figure, &frames, html.is_some())?;
+                built.scene.metadata = metadata;
                 let bytes = match html {
                     Some(options) => {
                         to_html(&built.scene, built.interaction.as_ref(), &options).into_bytes()

@@ -121,6 +121,7 @@ pub fn build_figure_with(
             let scene = Scene {
                 width,
                 height,
+                metadata: true,
                 background,
                 nodes,
             };

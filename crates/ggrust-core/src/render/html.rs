@@ -55,13 +55,18 @@ pub fn to_html(scene: &Scene, interaction: Option<&Interaction>, options: &HtmlO
     match options.document {
         HtmlDocument::Fragment => write_fragment(String::new(), &id, scene, interaction),
         HtmlDocument::Page => {
-            let mut document = write_fragment(page_start(""), &id, scene, interaction);
+            let mut document =
+                write_fragment(page_start("", scene.metadata), &id, scene, interaction);
             document.push_str(PAGE_END);
             document
         }
         HtmlDocument::Iframe => {
-            let mut document =
-                write_fragment(page_start(" overflow: hidden;"), &id, scene, interaction);
+            let mut document = write_fragment(
+                page_start(" overflow: hidden;", scene.metadata),
+                &id,
+                scene,
+                interaction,
+            );
             document.push_str(PAGE_END);
             format!(
                 "<iframe src=\"about:blank\" style=\"border:none !important;\" \
@@ -253,11 +258,20 @@ fn zoom_json(zoom: &Zoom, scene: &Scene) -> Value {
     })
 }
 
-/// A standalone page up to its fragment; [`PAGE_END`] closes it.
-fn page_start(extra_body_style: &str) -> String {
+/// A standalone page up to its fragment; [`PAGE_END`] closes it. `metadata` adds
+/// `<meta name="generator">` holding [`GENERATOR`](super::GENERATOR).
+fn page_start(extra_body_style: &str, metadata: bool) -> String {
+    let generator = if metadata {
+        format!(
+            "<meta name=\"generator\" content=\"{}\">\n",
+            super::GENERATOR
+        )
+    } else {
+        String::new()
+    };
     format!(
         "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"UTF-8\">\n\
-         <title>ggrust plot</title>\n\
+         {generator}<title>ggrust plot</title>\n\
          <style> html, body {{ margin: 0; padding: 0;{extra_body_style} }} </style>\n\
          </head>\n<body>\n"
     )
@@ -290,6 +304,7 @@ mod tests {
         Scene {
             width: 200.5,
             height: 100.0,
+            metadata: false,
             background: None,
             nodes: vec![Node::Group(Group {
                 key: None,
@@ -397,6 +412,7 @@ mod tests {
         let scene = Scene {
             width: 200.0,
             height: 200.0,
+            metadata: false,
             background: None,
             nodes: vec![Node::Points(points)],
         };

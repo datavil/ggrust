@@ -104,7 +104,7 @@ pub fn to_pdf(scene: &Scene, scale: f64, dpi: f64) -> Result<Vec<u8>> {
             .fill_nonzero();
     }
     writer.nodes(&scene.nodes)?;
-    writer.finish(page_width as f32, page_height as f32)
+    writer.finish(page_width as f32, page_height as f32, scene.metadata)
 }
 
 /// Paint state already set in the content stream (to skip redundant operators).
@@ -746,8 +746,9 @@ impl Writer {
         }
     }
 
-    /// Write the document: page, content, fonts, images and graphics states.
-    fn finish(self, page_width: f32, page_height: f32) -> Result<Vec<u8>> {
+    /// Write the document: page, content, fonts, images and graphics states, and
+    /// the `Producer` ([`GENERATOR`](super::GENERATOR)) when `metadata` is set.
+    fn finish(self, page_width: f32, page_height: f32, metadata: bool) -> Result<Vec<u8>> {
         let mut next = 1;
         let mut new_ref = || {
             let id = Ref::new(next);
@@ -776,7 +777,10 @@ impl Writer {
         let mut pdf = Pdf::new();
         pdf.catalog(catalog_id).pages(pages_id);
         pdf.pages(pages_id).kids([page_id]).count(1);
-        pdf.document_info(info_id).producer(TextStr("ggrust"));
+        if metadata {
+            pdf.document_info(info_id)
+                .producer(TextStr(super::GENERATOR));
+        }
         {
             let mut page = pdf.page(page_id);
             page.media_box(PdfRect::new(0.0, 0.0, page_width, page_height))
@@ -1171,6 +1175,7 @@ mod tests {
         Scene {
             width: 40.0,
             height: 30.0,
+            metadata: false,
             background: Some(Color::WHITE),
             nodes,
         }

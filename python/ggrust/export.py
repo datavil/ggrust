@@ -28,6 +28,7 @@ def ggsave(
     unit: str | None = None,
     dpi: int | None = None,
     quality: int | None = None,
+    metadata: bool = True,
 ) -> str:
     """Save a plot to ``filename`` (inside ``path`` if given); the extension picks the format.
 
@@ -59,6 +60,12 @@ def ggsave(
     quality : int, optional
         JPEG only: quality from 1 to 100; 75 (R's ``jpeg()`` default, as ggplot2's
         ``ggsave``) when None. Raise it to avoid blur around text.
+    metadata : bool, default True
+        Record which ggrust made the file, as plain text ``ggrust vX.Y.Z``: the
+        ``Software`` field of PNG and TIFF, a JPEG comment, the PDF ``Producer``, an
+        SVG comment, the HTML ``generator`` meta tag. Never drawn, and nothing about
+        you or your machine. Pass False to leave it out (not for ``.ggrs``). Not in
+        lets_plot.
 
     Raises
     ------
@@ -113,20 +120,45 @@ def ggsave(
     if quality is not None and extension not in ["jpg", "jpeg"]:
         message = f"ggsave(): 'quality' applies to .jpg / .jpeg only, not .{extension}; remove it"
         raise ExportError(message)
+    if not metadata and extension == "ggrs":
+        message = (
+            "ggsave(): 'metadata' applies to rendered files, not .ggrs plot files "
+            "(they hold the plot, not an output); remove it"
+        )
+        raise ExportError(message)
     if extension == "svg":
-        export_svg(plot, pathname, w=w, h=h, unit=unit)
+        export_svg(plot, pathname, w=w, h=h, unit=unit, metadata=metadata)
     elif extension in ["html", "htm"]:
-        export_html(plot, pathname, iframe)
+        export_html(plot, pathname, iframe, metadata=metadata)
     elif extension == "png":
-        export_png(plot, pathname, scale=scale, w=w, h=h, unit=unit, dpi=dpi)
+        export_png(plot, pathname, scale=scale, w=w, h=h, unit=unit, dpi=dpi, metadata=metadata)
     elif extension in ["jpg", "jpeg"]:
         export_raster(
-            plot, pathname, "jpeg", scale=scale, w=w, h=h, unit=unit, dpi=dpi, quality=quality
+            plot,
+            pathname,
+            "jpeg",
+            scale=scale,
+            w=w,
+            h=h,
+            unit=unit,
+            dpi=dpi,
+            quality=quality,
+            metadata=metadata,
         )
     elif extension in ["tif", "tiff"]:
-        export_raster(plot, pathname, "tiff", scale=scale, w=w, h=h, unit=unit, dpi=dpi)
+        export_raster(
+            plot,
+            pathname,
+            "tiff",
+            scale=scale,
+            w=w,
+            h=h,
+            unit=unit,
+            dpi=dpi,
+            metadata=metadata,
+        )
     elif extension == "pdf":
-        export_pdf(plot, pathname, scale=scale, w=w, h=h, unit=unit, dpi=dpi)
+        export_pdf(plot, pathname, scale=scale, w=w, h=h, unit=unit, dpi=dpi, metadata=metadata)
     elif extension == "ggrs":
         from ggrust.plot_file import write_plot_file
 

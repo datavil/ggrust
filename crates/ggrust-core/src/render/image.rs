@@ -32,7 +32,7 @@ pub fn to_jpeg(scene: &Scene, scale: f64, dpi: f64, quality: u8) -> Result<Vec<u
         )));
     }
     let pixmap = render_pixmap(scene, scale)?;
-    encode_jpeg(&pixmap, dpi, quality)
+    encode_jpeg(&pixmap, dpi, quality, scene.metadata)
 }
 
 /// Render a scene to LZW-compressed TIFF bytes. `scale` multiplies the pixel
@@ -40,7 +40,7 @@ pub fn to_jpeg(scene: &Scene, scale: f64, dpi: f64, quality: u8) -> Result<Vec<u
 pub fn to_tiff(scene: &Scene, scale: f64, dpi: f64) -> Result<Vec<u8>> {
     check_dpi(dpi)?;
     let pixmap = render_pixmap(scene, scale)?;
-    encode_tiff(&pixmap, dpi)
+    encode_tiff(&pixmap, dpi, scene.metadata)
 }
 
 fn check_dpi(dpi: f64) -> Result<()> {
@@ -54,7 +54,9 @@ fn check_dpi(dpi: f64) -> Result<()> {
     }
 }
 
-fn encode_jpeg(pixmap: &Pixmap, dpi: f64, quality: u8) -> Result<Vec<u8>> {
+/// JPEG bytes of `pixmap`; `metadata` adds a `COM` segment holding
+/// [`GENERATOR`](super::GENERATOR).
+fn encode_jpeg(pixmap: &Pixmap, dpi: f64, quality: u8, metadata: bool) -> Result<Vec<u8>> {
     // Premultiplied pixels over white: channel + (255 - alpha).
     let rgb: Vec<u8> = pixmap
         .pixels()
@@ -88,15 +90,40 @@ fn encode_jpeg(pixmap: &Pixmap, dpi: f64, quality: u8) -> Result<Vec<u8>> {
     encoder
         .encode(&rgb, width, height, ColorType::Rgb)
         .map_err(|error| Error::render(format!("JPEG encoding failed: {error}")))?;
+    if metadata {
+        insert_jpeg_comment(&mut bytes, super::GENERATOR)?;
+    }
     Ok(bytes)
 }
 
+/// Insert a `COM` segment holding `comment` after the JFIF `APP0` segment (which
+/// must directly follow the start-of-image marker).
+fn insert_jpeg_comment(bytes: &mut Vec<u8>, comment: &str) -> Result<()> {
+    let jfif = bytes.len() >= 6 && bytes[..4] == [0xFF, 0xD8, 0xFF, 0xE0];
+    if !jfif {
+        return Err(Error::render(
+            "JPEG encoding failed: the encoder did not start with a JFIF header",
+        ));
+    }
+    let after_app0 = 4 + usize::from(u16::from_be_bytes([bytes[4], bytes[5]]));
+    let length = u16::try_from(comment.len() + 2)
+        .map_err(|_| Error::render("a JPEG comment is at most 65533 bytes"))?;
+    let mut segment = vec![0xFF, 0xFE];
+    segment.extend_from_slice(&length.to_be_bytes());
+    segment.extend_from_slice(comment.as_bytes());
+    bytes.splice(after_app0..after_app0, segment);
+    Ok(())
+}
+
 /// TIFF field types used here.
+const ASCII: u16 = 2;
 const SHORT: u16 = 3;
 const LONG: u16 = 4;
 const RATIONAL: u16 = 5;
 
-fn encode_tiff(pixmap: &Pixmap, dpi: f64) -> Result<Vec<u8>> {
+/// TIFF bytes of `pixmap`; `metadata` adds the `Software` tag (305) holding
+/// [`GENERATOR`](super::GENERATOR).
+fn encode_tiff(pixmap: &Pixmap, dpi: f64, metadata: bool) -> Result<Vec<u8>> {
     let opaque = pixmap.pixels().iter().all(|pixel| pixel.alpha() == 255);
     let samples: usize = if opaque { 3 } else { 4 };
     let (width, height) = (pixmap.width() as usize, pixmap.height() as usize);
@@ -145,6 +172,12 @@ fn encode_tiff(pixmap: &Pixmap, dpi: f64) -> Result<Vec<u8>> {
         (284, SHORT, Values::Short(vec![1])), // chunky
         (296, SHORT, Values::Short(vec![2])), // inch
     ];
+    if metadata {
+        // NUL-terminated ASCII; tags stay in ascending order (296 < 305 < 338).
+        let mut software = super::GENERATOR.as_bytes().to_vec();
+        software.push(0);
+        entries.push((305, ASCII, Values::Ascii(software)));
+    }
     if !opaque {
         entries.push((338, SHORT, Values::Short(vec![2]))); // unassociated alpha
     }
@@ -177,6 +210,7 @@ fn encode_tiff(pixmap: &Pixmap, dpi: f64) -> Result<Vec<u8>> {
 
 /// A TIFF value array, little-endian.
 enum Values {
+    Ascii(Vec<u8>),
     Short(Vec<u16>),
     Long(Vec<u32>),
 }
@@ -184,6 +218,14 @@ enum Values {
 impl Values {
     fn encode(&self) -> (usize, Vec<u8>) {
         match self {
+            // Out-of-line values start on word boundaries: pad odd text with a NUL.
+            Values::Ascii(text) => {
+                let mut encoded = text.clone();
+                if encoded.len() % 2 == 1 {
+                    encoded.push(0);
+                }
+                (text.len(), encoded)
+            }
             Values::Short(values) => (
                 values.len(),
                 values
@@ -218,6 +260,7 @@ mod tests {
         Scene {
             width,
             height,
+            metadata: false,
             background,
             nodes: Vec::new(),
         }
@@ -346,5 +389,75 @@ mod tests {
         assert!(to_jpeg(&scene(None), 1.0, 96.0, 0).is_err());
         assert!(to_jpeg(&scene(None), 1.0, 96.0, 101).is_err());
         assert!(to_tiff(&scene(None), 1.0, 0.0).is_err());
+    }
+    fn tagged(background: Option<Color>) -> Scene {
+        Scene {
+            metadata: true,
+            ..scene(background)
+        }
+    }
+
+    #[test]
+    fn tiff_software_tag_holds_the_generator() {
+        for background in [Some(Color::WHITE), None] {
+            let bytes = to_tiff(&tagged(background), 1.0, 96.0).expect("tiff");
+            let entries = directory(&bytes);
+            let tags: Vec<u16> = entries.iter().map(|entry| entry.0).collect();
+            assert!(tags.windows(2).all(|pair| pair[0] < pair[1]), "{tags:?}");
+            let &(_, kind, count, at) = entries
+                .iter()
+                .find(|entry| entry.0 == 305)
+                .expect("Software tag");
+            assert_eq!(kind, ASCII);
+            let text = &bytes[at as usize..at as usize + count as usize];
+            assert_eq!(text, format!("{}\0", crate::render::GENERATOR).as_bytes());
+            // Same pixels as the untagged file.
+            let plain = to_tiff(&scene(background), 1.0, 96.0).expect("tiff");
+            assert_eq!(decode_tiff(&bytes), decode_tiff(&plain));
+            assert!(directory(&plain).iter().all(|entry| entry.0 != 305));
+        }
+    }
+
+    #[test]
+    fn tiff_odd_length_text_keeps_later_values_word_aligned() {
+        let (count, encoded) = Values::Ascii(b"abc\0".to_vec()).encode();
+        assert_eq!((count, encoded.len()), (4, 4));
+        let (count, encoded) = Values::Ascii(b"ab\0".to_vec()).encode();
+        assert_eq!((count, encoded), (3, b"ab\0\0".to_vec()));
+    }
+
+    /// (marker, payload) of each JPEG segment before the scan.
+    fn jpeg_segments(bytes: &[u8]) -> Vec<(u8, Vec<u8>)> {
+        let mut segments = Vec::new();
+        let mut at = 2;
+        while bytes[at] == 0xFF && bytes[at + 1] != 0xDA {
+            let length = usize::from(u16::from_be_bytes([bytes[at + 2], bytes[at + 3]]));
+            segments.push((bytes[at + 1], bytes[at + 4..at + 2 + length].to_vec()));
+            at += 2 + length;
+        }
+        segments
+    }
+
+    #[test]
+    fn jpeg_comment_follows_the_jfif_header() {
+        let bytes = to_jpeg(&tagged(None), 1.0, 96.0, 90).expect("jpeg");
+        let segments = jpeg_segments(&bytes);
+        assert_eq!(segments[0].0, 0xE0);
+        assert!(segments[0].1.starts_with(b"JFIF\0"));
+        assert_eq!(
+            segments[1],
+            (0xFE, crate::render::GENERATOR.as_bytes().to_vec())
+        );
+        let plain = to_jpeg(&scene(None), 1.0, 96.0, 90).expect("jpeg");
+        assert!(
+            jpeg_segments(&plain)
+                .iter()
+                .all(|segment| segment.0 != 0xFE)
+        );
+        // Only the comment segment differs.
+        let comment = 4 + crate::render::GENERATOR.len();
+        let after_app0 = 4 + usize::from(u16::from_be_bytes([plain[4], plain[5]]));
+        assert_eq!(bytes[..after_app0], plain[..after_app0]);
+        assert_eq!(bytes[after_app0 + comment..], plain[after_app0..]);
     }
 }

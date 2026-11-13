@@ -143,6 +143,7 @@ pub fn build_plot_with(spec: &PlotSpec, data: &PlotData, interactive: bool) -> R
     let scene = Scene {
         width,
         height,
+        metadata: true,
         background: plot.background(),
         nodes,
     };

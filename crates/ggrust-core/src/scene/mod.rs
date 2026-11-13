@@ -28,6 +28,10 @@ pub struct Scene {
     pub width: f64,
     /// Height in pixels.
     pub height: f64,
+    /// Write [`GENERATOR`](crate::render::GENERATOR) (`ggrust vX.Y.Z`) into the
+    /// file's metadata (PNG `Software`, SVG comment, PDF `Producer`, ...). Never
+    /// drawn. Plots built by ggrust set it; `ggsave(..., metadata=False)` clears it.
+    pub metadata: bool,
     /// Background fill of the whole drawing; `None` is transparent.
     pub background: Option<Color>,
     /// Top-level nodes, drawn in order.
@@ -583,6 +587,7 @@ mod tests {
         let scene = |fill| Scene {
             width: 10.0,
             height: 10.0,
+            metadata: false,
             background: None,
             nodes: vec![Node::Group(Group {
                 key: None,

@@ -63,7 +63,7 @@ def without_data(value):
 # ggrust extensions: extra trailing parameters lets_plot does not have (deviations.md).
 EXTENSIONS = {
     "ggtb": ("layers",),
-    "ggsave": ("quality",),
+    "ggsave": ("quality", "metadata"),
     "gggrid": ("design", "tag_levels", "tag_level", "axes", "axis_titles"),
     "position_stack": ("reverse",),
     "position_fill": ("reverse",),

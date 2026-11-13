@@ -56,6 +56,7 @@ def render_bytes(
     size: tuple | None = None,
     dpi: float | None = None,
     quality: int | None = None,
+    metadata: bool = True,
 ) -> bytes:
     """Build ``plot`` in Rust and return the encoded output.
 
@@ -74,6 +75,9 @@ def render_bytes(
         Raster resolution metadata and PDF page resolution (96 when None).
     quality : int, optional
         JPEG quality, 1 to 100 (75 when None).
+    metadata : bool, default True
+        Record ``ggrust vX.Y.Z`` in the output's metadata (PNG / TIFF ``Software``,
+        JPEG comment, PDF ``Producer``, SVG comment, HTML ``generator``).
 
     Returns
     -------
@@ -104,6 +108,7 @@ def render_bytes(
         None if dpi is None else float(dpi),
         functions,
         quality,
+        metadata,
     )
     for message in messages:
         warnings.warn(message, GgrustWarning, stacklevel=4)
@@ -684,6 +689,7 @@ def export_svg(
     w: Number | None = None,
     h: Number | None = None,
     unit: str | None = None,
+    metadata: bool = True,
 ) -> str | None:
     """See ``PlotSpec.to_svg``.
 
@@ -699,16 +705,21 @@ def export_svg(
         Height.
     unit : str, optional
         Unit of ``w`` and ``h``: ``"in"``, ``"cm"``, ``"mm"`` or ``"px"``.
+    metadata : bool, default True
+        Record ``ggrust vX.Y.Z`` in the file's metadata (never drawn).
     """
     given = _given_size(w, h, _unit(unit))
     if given is None or given[2] == "px":
         size = None if given is None else given[:2]
-        svg = render_bytes(plot, "svg", size=size).decode()
+        svg = render_bytes(plot, "svg", size=size, metadata=metadata).decode()
     else:
         w, h, unit = given
         inches = INCHES_PER_UNIT[unit]
         svg = render_bytes(
-            plot, "svg", size=(w * inches * SCREEN_DPI, h * inches * SCREEN_DPI)
+            plot,
+            "svg",
+            size=(w * inches * SCREEN_DPI, h * inches * SCREEN_DPI),
+            metadata=metadata,
         ).decode()
         svg = _svg_size(svg, w, h, unit)
     return svg if path is None else _write(path, svg)
@@ -722,6 +733,7 @@ def export_png(
     h: Number | None = None,
     unit: str | None = None,
     dpi: Number | None = None,
+    metadata: bool = True,
 ) -> str | None:
     """See ``PlotSpec.to_png``.
 
@@ -741,9 +753,11 @@ def export_png(
         Unit of ``w`` and ``h``: ``"in"``, ``"cm"``, ``"mm"`` or ``"px"``.
     dpi : float, optional
         Resolution in dots per inch.
+    metadata : bool, default True
+        Record ``ggrust vX.Y.Z`` in the file's metadata (never drawn).
     """
     size, pixel_scale, resolution = _raster_options(w, h, unit, dpi, scale)
-    png = render_bytes(plot, "png", scale=pixel_scale, size=size, dpi=resolution)
+    png = render_bytes(plot, "png", scale=pixel_scale, size=size, dpi=resolution, metadata=metadata)
     return _write(path, png)
 
 
@@ -757,6 +771,7 @@ def export_raster(
     unit: str | None = None,
     dpi: Number | None = None,
     quality: int | None = None,
+    metadata: bool = True,
 ) -> str | None:
     """Write a JPEG or TIFF, sized exactly as ``PlotSpec.to_png`` sizes a PNG.
 
@@ -780,6 +795,8 @@ def export_raster(
         Resolution in dots per inch.
     quality : int, optional
         JPEG only: quality from 1 to 100; 75 (R's ``jpeg()`` default) when None.
+    metadata : bool, default True
+        Record ``ggrust vX.Y.Z`` in the file's metadata (never drawn).
 
     Raises
     ------
@@ -799,7 +816,13 @@ def export_raster(
             raise ExportError(message)
     size, pixel_scale, resolution = _raster_options(w, h, unit, dpi, scale)
     image = render_bytes(
-        plot, output, scale=pixel_scale, size=size, dpi=resolution, quality=quality
+        plot,
+        output,
+        scale=pixel_scale,
+        size=size,
+        dpi=resolution,
+        quality=quality,
+        metadata=metadata,
     )
     return _write(path, image)
 
@@ -812,6 +835,7 @@ def export_pdf(
     h: Number | None = None,
     unit: str | None = None,
     dpi: Number | None = None,
+    metadata: bool = True,
 ) -> str | None:
     """See ``PlotSpec.to_pdf``.
 
@@ -831,14 +855,19 @@ def export_pdf(
         Unit of ``w`` and ``h``: ``"in"``, ``"cm"``, ``"mm"`` or ``"px"``.
     dpi : float, optional
         Resolution in dots per inch.
+    metadata : bool, default True
+        Record ``ggrust vX.Y.Z`` in the file's metadata (never drawn).
     """
     size, pixel_scale, resolution = _raster_options(w, h, unit, dpi, scale)
-    pdf = render_bytes(plot, "pdf", scale=pixel_scale, size=size, dpi=resolution)
+    pdf = render_bytes(plot, "pdf", scale=pixel_scale, size=size, dpi=resolution, metadata=metadata)
     return _write(path, pdf)
 
 
 def export_html(
-    plot: PlotSpec | SupPlotsSpec, path: Target | None = None, iframe: bool | None = None
+    plot: PlotSpec | SupPlotsSpec,
+    path: Target | None = None,
+    iframe: bool | None = None,
+    metadata: bool = True,
 ) -> str | None:
     """See ``PlotSpec.to_html``.
 
@@ -850,8 +879,11 @@ def export_html(
         Where to write: a file path or a binary file-like object.
     iframe : bool, optional
         Return an ``<iframe srcdoc>`` sized to the plot instead of a page.
+    metadata : bool, default True
+        Record ``ggrust vX.Y.Z`` in the file's metadata (never drawn).
     """
-    page = render_bytes(plot, "html_iframe" if iframe else "html_page").decode()
+    output = "html_iframe" if iframe else "html_page"
+    page = render_bytes(plot, output, metadata=metadata).decode()
     return page if path is None else _write(path, page)
 
 

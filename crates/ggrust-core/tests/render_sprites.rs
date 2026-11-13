@@ -129,6 +129,7 @@ fn render(nodes: Vec<Node>, clipped: bool, scale: f64) -> Pixmap {
     let scene = Scene {
         width: 300.0,
         height: 200.0,
+        metadata: false,
         background: Some(Color::WHITE),
         nodes,
     };
@@ -233,6 +234,7 @@ fn large_markers_centred_off_a_tiny_canvas_are_drawn() {
     let scene = Scene {
         width: 10.0,
         height: 10.0,
+        metadata: false,
         background: Some(Color::WHITE),
         nodes: vec![Node::Points(points)],
     };

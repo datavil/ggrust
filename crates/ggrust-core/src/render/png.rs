@@ -47,7 +47,7 @@ pub fn to_png(scene: &Scene, scale: f64) -> Result<Vec<u8>> {
 
 /// [`to_png`] with the resolution written to the PNG (`pHYs`, dots per inch).
 pub fn to_png_with_dpi(scene: &Scene, scale: f64, dpi: f64) -> Result<Vec<u8>> {
-    encode_with_dpi(&render_pixmap(scene, scale)?, dpi)
+    encode_with_dpi(&render_pixmap(scene, scale)?, dpi, scene.metadata)
 }
 
 /// Rasterise a scene; `scale` multiplies the pixel size.
@@ -239,7 +239,9 @@ fn encode(pixmap: &Pixmap) -> Result<Vec<u8>> {
 }
 
 /// Straight-alpha RGBA PNG with a `pHYs` chunk of `dpi` dots per inch.
-fn encode_with_dpi(pixmap: &Pixmap, dpi: f64) -> Result<Vec<u8>> {
+/// PNG bytes of `pixmap` with `dpi` in `pHYs` and, when `metadata` is set, a
+/// `Software` text chunk holding [`GENERATOR`](super::GENERATOR).
+fn encode_with_dpi(pixmap: &Pixmap, dpi: f64, metadata: bool) -> Result<Vec<u8>> {
     if !(dpi.is_finite() && dpi > 0.0) {
         return Err(Error::render(format!("dpi must be positive, got {dpi}")));
     }
@@ -265,6 +267,12 @@ fn encode_with_dpi(pixmap: &Pixmap, dpi: f64) -> Result<Vec<u8>> {
         yppu: per_meter,
         unit: ::png::Unit::Meter,
     }));
+    if metadata {
+        // `Software` is the PNG spec's keyword for the creating program.
+        encoder
+            .add_text_chunk("Software".into(), super::GENERATOR.into())
+            .map_err(failed)?;
+    }
     let mut writer = encoder.write_header().map_err(failed)?;
     writer.write_image_data(&data).map_err(failed)?;
     writer.finish().map_err(failed)?;

@@ -19,6 +19,7 @@ fn scene(nodes: Vec<Node>) -> Scene {
     Scene {
         width: 200.0,
         height: 100.0,
+        metadata: false,
         background: Some(Color::WHITE),
         nodes,
     }
@@ -336,6 +337,7 @@ fn empty_scene_error_says_empty() {
         &Scene {
             width: 0.0,
             height: 0.0,
+            metadata: false,
             background: None,
             nodes: vec![],
         },
@@ -360,6 +362,7 @@ fn interleaved_text_under_a_clip_stays_fast() {
     let scene = Scene {
         width: 2000.0,
         height: 2000.0,
+        metadata: false,
         background: Some(Color::WHITE),
         nodes: vec![Node::Group(Group {
             key: None,

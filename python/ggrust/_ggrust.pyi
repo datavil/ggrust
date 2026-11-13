@@ -192,6 +192,7 @@ def render(
     dpi: float | None = None,
     functions: list[Callable[..., object]] | None = None,
     quality: int | None = None,
+    metadata: bool = True,
 ) -> tuple[bytes, list[str]]:
     """Build and render a plot.
 
@@ -219,6 +220,8 @@ def render(
         ``functions[i]`` once per value.
     quality
         JPEG quality, 1 to 100; 75 (R's ``jpeg()`` default) when None.
+    metadata
+        Record ``ggrust vX.Y.Z`` in the output's metadata (never drawn).
 
     Returns
     -------

@@ -201,6 +201,7 @@ fn showcase() -> Scene {
     Scene {
         width: 540.0,
         height: 250.0,
+        metadata: false,
         background: Some(Color::WHITE),
         nodes,
     }
@@ -371,6 +372,7 @@ fn images_are_drawn_cell_by_cell_without_smoothing() {
     let scene = Scene {
         width: 60.0,
         height: 40.0,
+        metadata: false,
         background: Some(Color::WHITE),
         nodes: vec![Node::Image(Image {
             rect: Rect {
@@ -425,6 +427,7 @@ fn encoded_png_images_draw_like_their_pixels_and_embed_as_given() {
     let scene = |bitmap: Bitmap| Scene {
         width: 60.0,
         height: 40.0,
+        metadata: false,
         background: Some(Color::WHITE),
         nodes: vec![Node::Image(Image {
             rect: Rect {

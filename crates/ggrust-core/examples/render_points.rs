@@ -23,6 +23,7 @@ fn main() {
     let scene = Scene {
         width: 600.0,
         height: 400.0,
+        metadata: false,
         background: Some(Color::WHITE),
         nodes: vec![Node::Points(Points {
             keys: None,

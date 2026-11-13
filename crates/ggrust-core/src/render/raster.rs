@@ -44,6 +44,7 @@ pub fn rasterize_layers(scene: &Scene, inches_per_pixel: f64) -> Result<Cow<'_, 
     Ok(Cow::Owned(Scene {
         width: scene.width,
         height: scene.height,
+        metadata: scene.metadata,
         background: scene.background,
         nodes: context.nodes(&scene.nodes, whole)?,
     }))
@@ -129,6 +130,7 @@ impl Context {
         let sub_scene = Scene {
             width: columns / scale,
             height: rows / scale,
+            metadata: false,
             background: None,
             nodes: raster
                 .nodes
@@ -311,6 +313,7 @@ mod tests {
         Scene {
             width: 100.0,
             height: 60.0,
+            metadata: false,
             background: Some(Color::WHITE),
             nodes: vec![
                 title,

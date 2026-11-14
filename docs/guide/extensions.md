@@ -22,7 +22,7 @@ behavior in Rust; the R packages and their authors designed it.
 | [Raincloud plots](#raincloud-plots) | [`stat_halfeye`](../reference/api/stat_halfeye.md), `stat_slab`, `stat_interval`, `stat_pointinterval`, [`geom_half_violin`](../reference/api/geom_half_violin.md), `geom_half_boxplot`, `geom_half_point` | [ggdist](https://cran.r-project.org/package=ggdist), [gghalves](https://cran.r-project.org/package=gghalves) |
 | [Figure layouts](#figure-layouts) | `gggrid(design=, tag_levels=, axes=, axis_titles=)`, [`inset_element`](../reference/api/inset_element.md) | [patchwork](https://cran.r-project.org/package=patchwork) |
 | [Rasterized layers](#rasterized-layers) | [`rasterize`](../reference/api/rasterize.md) | [ggrastr](https://cran.r-project.org/package=ggrastr), [scattermore](https://cran.r-project.org/package=scattermore) |
-| [Animation](#animation) | [`transition_manual`](../reference/api/transition_manual.md), [`transition_states`](../reference/api/transition_states.md), [`transition_time`](../reference/api/transition_time.md), [`transition_reveal`](../reference/api/transition_reveal.md), [`ease_aes`](../reference/api/ease_aes.md), [`animate`](../reference/api/animate.md), [`anim_save`](../reference/api/anim_save.md) | [gganimate](https://cran.r-project.org/package=gganimate) |
+| [Animation](#animation) | [`transition_manual`](../reference/api/transition_manual.md), [`transition_states`](../reference/api/transition_states.md), [`transition_time`](../reference/api/transition_time.md), [`transition_reveal`](../reference/api/transition_reveal.md), [`ease_aes`](../reference/api/ease_aes.md), [`enter_fade`](../reference/api/enter_fade.md), [`exit_fade`](../reference/api/exit_fade.md), [`enter_grow`](../reference/api/enter_grow.md), [`exit_shrink`](../reference/api/exit_shrink.md), [`shadow_wake`](../reference/api/shadow_wake.md), [`shadow_mark`](../reference/api/shadow_mark.md), [`animate`](../reference/api/animate.md), [`anim_save`](../reference/api/anim_save.md) | [gganimate](https://cran.r-project.org/package=gganimate) |
 
 Two more, `geom_text_repel` / `geom_label_repel` ([ggrepel](https://cran.r-project.org/package=ggrepel))
 and `geom_area_ridges` ([ggridges](https://cran.r-project.org/package=ggridges)), come
@@ -219,7 +219,8 @@ default) from the last state back to the first. Rows are matched by group (set i
 with `aes(group=...)`; discrete mappings such as `fill` split groups too), numbers
 and sizes move by the plot's `ease_aes("cubic-in-out", y="bounce-out")`, colours
 through CIE Lab as gganimate's tweenr does, and categories switch halfway. Rows
-without a partner in the next state show only in their own state.
+without a partner in the next state show only in their own state, unless the plot
+has enter and exit effects (see below).
 `{closest_state}`, `{previous_state}`, `{next_state}` and `{transitioning}` fill the
 labels.
 
@@ -251,3 +252,17 @@ geoms (points, texts) show only that moving point, kept at the end of its group 
 ```
 
 --8<-- "figures/animation_reveal.html"
+
+Marks that appear or leave between two states can move in and out instead of popping:
+`enter_fade(alpha=0)` / `exit_fade(alpha=0)` fade them, `enter_grow(size=0)` /
+`exit_shrink(size=0)` grow points and texts from nothing, bars from the axis, lines and
+polygons from their centre. Effects added with `+` apply one after the other, and they
+work with `transition_states` and `transition_time`. `shadow_wake(0.1)` leaves a fading
+trail of the last tenth of the frames behind moving marks, and `shadow_mark(alpha=0.3)`
+keeps the marks of the states already shown in the background.
+
+```python
+--8<-- "animation_enter_exit.py:code"
+```
+
+--8<-- "figures/animation_enter_exit.html"

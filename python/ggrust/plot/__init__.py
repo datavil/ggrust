@@ -56,6 +56,14 @@ from ggrust.plot.animation import (
     transition_states,
     transition_time,
 )
+from ggrust.plot.animation_effects import (
+    enter_fade,
+    enter_grow,
+    exit_fade,
+    exit_shrink,
+    shadow_mark,
+    shadow_wake,
+)
 from ggrust.plot.annotate import annotate
 from ggrust.plot.annotation_logticks import annotation_logticks
 from ggrust.plot.coord import (
@@ -425,6 +433,10 @@ __all__ = [
     "element_markdown",
     "element_rect",
     "element_text",
+    "enter_fade",
+    "enter_grow",
+    "exit_fade",
+    "exit_shrink",
     "expand_limits",
     "facet_grid",
     "facet_null",
@@ -734,6 +746,8 @@ __all__ = [
     "scale_ysidex_discrete",
     "scale_z_continuous",
     "sec_axis",
+    "shadow_mark",
+    "shadow_wake",
     "stat_bin",
     "stat_bin2d",
     "stat_bin_2d",

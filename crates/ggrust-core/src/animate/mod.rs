@@ -10,7 +10,9 @@
 //! Writers (`render::to_gif`, `render::to_apng`, `render::to_html_animation`)
 //! draw frames through [`FrameSource`]. A frame shows whole states, or two
 //! states tweened ([`tween`]) at the frame's progress with the plot's
-//! `ease_aes()` ([`ease`]).
+//! `ease_aes()` ([`ease`]). Rows without a partner move in or out by the
+//! plot's enter and exit effects ([`transmute`]); a shadow ([`shadow`]) adds
+//! rows of other frames behind each frame's rows.
 
 mod align;
 mod along;
@@ -18,11 +20,13 @@ mod ease;
 mod labels;
 mod manual;
 mod reveal;
+mod shadow;
 mod spec;
 mod states;
 mod time;
 pub(crate) mod timeline;
 mod transition;
+mod transmute;
 mod tween;
 
 pub use spec::{AnimateOptions, AnimationSpec};
@@ -40,15 +44,30 @@ use along::TimeClass;
 use ease::Easing;
 use labels::{FRAME_VARIABLES, Template};
 use reveal::RevealRows;
+use shadow::{Shadow, stack};
 use time::{TimeShow, kept_states, time_show};
 use timeline::{Settings, r_number};
 use transition::{FrameShow, StateSet, Transition};
+use transmute::Transmuters;
+use tween::{Drawn, Phase};
 
 /// A planned animation of one plot.
 pub struct Animation {
     prepared: PreparedPlot,
     transition: Box<dyn Transition>,
     easing: Easing,
+    /// Enter and exit effects (`enter_fade()`, `exit_shrink()`, ...).
+    transmuters: Transmuters,
+    /// `shadow_wake()` or `shadow_mark()`.
+    shadow: Option<Shadow>,
+    /// Per scene frame: whether it shows a state as it is for the last time
+    /// before moving on (tweenr's `raw` phase; the other state frames are
+    /// `static`). Only frames that show whole states can be raw.
+    raw_frames: Vec<bool>,
+    /// [tile][layer]: the geom name and the user layer (0-based).
+    layers: Vec<Vec<(&'static str, usize)>>,
+    /// [tile][layer]: `shadow_mark()` rows, `(raw scene frame, rows)`.
+    marks: Vec<Vec<MarkRows>>,
     timeline: Timeline,
     /// [tile][layer]: every prepared row.
     rows: Vec<Vec<LayerFrame>>,
@@ -90,6 +109,17 @@ impl Animation {
         let (name, options) = &animation.transition;
         let mut transition = transition::transition(name, options)?;
         let easing = Easing::parse(animation.ease.as_ref())?;
+        let transmuters = Transmuters::parse(animation.enter.as_ref(), animation.exit.as_ref())?;
+        let shadow = animation.shadow.as_ref().map(Shadow::parse).transpose()?;
+        if let (Some(Shadow::Mark(_)), FrameShow::Reveal { .. }) =
+            (&shadow, transition.frame_show(0))
+        {
+            return Err(Error::spec(
+                "animation.shadow",
+                "shadow_mark() needs frames that show whole states; transition_reveal() \
+                 has none. Use shadow_wake(), or transition_states() / transition_time()",
+            ));
+        }
         let settings = Settings::resolve(&animation.options)?;
         let prepared = prepare_plot_states(spec, data, Some(transition.state_variable()))?;
         let states = StateSet {
@@ -152,7 +182,26 @@ impl Animation {
             .iter()
             .map(|names| names.iter().map(|(geom, _)| Shape::of(geom)).collect())
             .collect();
-        Ok(Animation {
+        let raw_frames: Vec<bool> = (0..timeline.scene_frames)
+            .map(|frame| match transition.frame_show(frame) {
+                FrameShow::States(states) => {
+                    frame + 1 >= timeline.scene_frames
+                        || transition.frame_show(frame + 1) != FrameShow::States(states)
+                }
+                _ => false,
+            })
+            .collect();
+        let layers = prepared
+            .layer_names()
+            .iter()
+            .map(|names| {
+                names
+                    .iter()
+                    .map(|(geom, path)| (*geom, user_layer(path)))
+                    .collect()
+            })
+            .collect();
+        let mut animation = Animation {
             state_labels,
             shapes,
             rows,
@@ -160,12 +209,91 @@ impl Animation {
             along_layers,
             warnings,
             easing,
+            transmuters,
+            shadow,
+            raw_frames,
+            layers,
+            marks: Vec::new(),
             prepared,
             transition,
             timeline,
             templates,
             metadata: true,
-        })
+        };
+        animation.marks = animation.mark_rows()?;
+        Ok(animation)
+    }
+
+    /// [tile][layer] `shadow_mark()` rows: the rows of every raw frame (see
+    /// [`Self::raw_frames`]; `transition_time`: the frames of a layer's times),
+    /// with the mark's style overrides. Empty without a mark.
+    fn mark_rows(&self) -> Result<Vec<Vec<MarkRows>>> {
+        let Some(Shadow::Mark(mark)) = &self.shadow else {
+            return Ok(Vec::new());
+        };
+        let mut tiles = Vec::with_capacity(self.rows.len());
+        for (tile, layers) in self.rows.iter().enumerate() {
+            let mut marks = Vec::with_capacity(layers.len());
+            for layer in 0..layers.len() {
+                let mut raws = Vec::new();
+                if !self.shadow_excludes(tile, layer) {
+                    for frame in 0..self.timeline.scene_frames {
+                        let raw = match self.transition.frame_show(frame) {
+                            FrameShow::States(_) => self.raw_frames[frame],
+                            FrameShow::Time { position } => matches!(
+                                time_show(self.time_anchors(tile, layer), position),
+                                TimeShow::State(_)
+                            ),
+                            FrameShow::Tween { .. } | FrameShow::Reveal { .. } => false,
+                        };
+                        if !raw {
+                            continue;
+                        }
+                        if let Some(drawn) = self.drawn(tile, layer, frame)? {
+                            let mut rows = drawn.frame;
+                            mark.restyle(&mut rows)?;
+                            raws.push((frame, rows));
+                        }
+                    }
+                }
+                marks.push(raws);
+            }
+            tiles.push(marks);
+        }
+        Ok(tiles)
+    }
+
+    /// Whether layer `layer` of tile `tile` never gets a shadow: a static layer
+    /// or one in the shadow's `exclude_layer`.
+    fn shadow_excludes(&self, tile: usize, layer: usize) -> bool {
+        let is_static = self
+            .state_rows
+            .get(tile)
+            .and_then(|layers| layers.get(layer))
+            .is_none_or(Option::is_none);
+        let user_layer = self
+            .layers
+            .get(tile)
+            .and_then(|layers| layers.get(layer))
+            .map_or(0, |(_, user)| *user);
+        is_static
+            || self
+                .shadow
+                .as_ref()
+                .is_some_and(|shadow| shadow.excludes(user_layer))
+    }
+
+    /// `transition_time` anchors of a layer (empty for other transitions).
+    fn time_anchors(&self, tile: usize, layer: usize) -> &[(i64, usize)] {
+        match self
+            .along_layers
+            .get(tile)
+            .and_then(|layers| layers.get(layer))
+            .and_then(Option::as_ref)
+        {
+            Some(AlongLayer::Time(anchors)) => anchors.as_slice(),
+            _ => &[],
+        }
     }
 
     /// The planned output frames and speed.
@@ -206,83 +334,148 @@ impl Animation {
         values
     }
 
-    /// Draw scene frame `frame` (0-based).
-    fn scene_frame(&self, frame: usize) -> Result<Scene> {
-        let show = self.transition.frame_show(frame);
-        let mut frames = Vec::with_capacity(self.rows.len());
-        for (tile_index, (layers, layer_states)) in
-            self.rows.iter().zip(&self.state_rows).enumerate()
-        {
-            let mut tile = Vec::with_capacity(layers.len());
-            for (layer_index, (all, by_state)) in layers.iter().zip(layer_states).enumerate() {
+    /// The rows layer `layer` of tile `tile` draws in scene frame `frame`
+    /// (before any shadow), with every row's identity and phase; `None` for a
+    /// static layer (drawn whole in every frame).
+    fn drawn(&self, tile: usize, layer: usize, frame: usize) -> Result<Option<Drawn>> {
+        let (Some(all), Some(Some(by_state))) = (
+            self.rows.get(tile).and_then(|layers| layers.get(layer)),
+            self.state_rows
+                .get(tile)
+                .and_then(|layers| layers.get(layer)),
+        ) else {
+            return Ok(None);
+        };
+        let geom = self
+            .layers
+            .get(tile)
+            .and_then(|layers| layers.get(layer))
+            .map_or("", |(geom, _)| *geom);
+        let rows_of = |state: usize| -> &[u32] { by_state.get(state).map_or(&[], Vec::as_slice) };
+        let shape = self
+            .shapes
+            .get(tile)
+            .and_then(|shapes| shapes.get(layer))
+            .copied()
+            .unwrap_or(Shape::Points);
+        let tween = |from: usize, to: usize, progress: f64| {
+            tween::tween_rows(
+                &all.take(rows_of(from)),
+                &all.take(rows_of(to)),
+                progress,
+                &self.easing,
+                &self.transmuters,
+                geom,
+                shape,
+            )
+        };
+        Ok(Some(match self.transition.frame_show(frame) {
+            FrameShow::States(states) => {
+                let rows: Vec<u32> = states
+                    .iter()
+                    .flat_map(|state| rows_of(*state))
+                    .copied()
+                    .collect();
+                let phase = match self.raw_frames.get(frame) {
+                    Some(true) => Phase::Raw,
+                    _ => Phase::Static,
+                };
+                Drawn::as_is(all.take(&rows), phase)
+            }
+            FrameShow::Tween { from, to, progress } => tween(from, to, progress)?,
+            FrameShow::Time { position } => {
+                match time_show(self.time_anchors(tile, layer), position) {
+                    TimeShow::Nothing => Drawn::as_is(all.take(&[]), Phase::Raw),
+                    TimeShow::State(state) => Drawn::as_is(all.take(rows_of(state)), Phase::Raw),
+                    TimeShow::Tween { from, to, progress } => tween(from, to, progress)?,
+                }
+            }
+            FrameShow::Reveal {
+                position,
+                keep_last,
+            } => {
                 let along = self
                     .along_layers
-                    .get(tile_index)
-                    .and_then(|layers| layers.get(layer_index))
+                    .get(tile)
+                    .and_then(|layers| layers.get(layer))
                     .and_then(Option::as_ref);
-                let shape = self
-                    .shapes
-                    .get(tile_index)
-                    .and_then(|shapes| shapes.get(layer_index))
-                    .copied()
-                    .unwrap_or(Shape::Points);
-                let rows_of = |state: usize| -> &[u32] {
-                    by_state
-                        .as_ref()
-                        .and_then(|by_state| by_state.get(state))
-                        .map_or(&[], Vec::as_slice)
-                };
-                tile.push(match (by_state, &show) {
-                    (None, _) => all.clone(),
-                    (Some(_), FrameShow::States(states)) => {
-                        let rows: Vec<u32> = states
+                match along {
+                    Some(AlongLayer::Reveal { rows, connected }) => {
+                        let rows = rows.frame(position, keep_last, *connected);
+                        let phases = rows
                             .iter()
-                            .flat_map(|state| rows_of(*state))
-                            .copied()
+                            .map(|(from, to, progress)| match from != to && *progress > 0.0 {
+                                true => Phase::Transition,
+                                false => Phase::Raw,
+                            })
                             .collect();
-                        all.take(&rows)
+                        let mut drawn =
+                            Drawn::as_is(tween::mix_rows(all, &rows, &self.easing)?, Phase::Raw);
+                        drawn.phases = phases;
+                        drawn
                     }
-                    (Some(_), FrameShow::Tween { from, to, progress }) => tween::tween(
-                        &all.take(rows_of(*from)),
-                        &all.take(rows_of(*to)),
-                        *progress,
-                        &self.easing,
-                        shape,
-                    )?,
-                    (Some(_), FrameShow::Time { position }) => {
-                        let anchors = match along {
-                            Some(AlongLayer::Time(anchors)) => anchors.as_slice(),
-                            _ => &[],
-                        };
-                        match time_show(anchors, *position) {
-                            TimeShow::Nothing => all.take(&[]),
-                            TimeShow::State(state) => all.take(rows_of(state)),
-                            TimeShow::Tween { from, to, progress } => tween::tween(
-                                &all.take(rows_of(from)),
-                                &all.take(rows_of(to)),
-                                progress,
-                                &self.easing,
-                                shape,
-                            )?,
-                        }
+                    _ => Drawn::as_is(all.take(&[]), Phase::Raw),
+                }
+            }
+        }))
+    }
+
+    /// `drawn` with the plot's shadow of layer `layer` of tile `tile` at scene
+    /// frame `frame`.
+    fn shadowed(
+        &self,
+        tile: usize,
+        layer: usize,
+        frame: usize,
+        drawn: Drawn,
+    ) -> Result<LayerFrame> {
+        if self.shadow_excludes(tile, layer) {
+            return Ok(drawn.frame);
+        }
+        match &self.shadow {
+            None => Ok(drawn.frame),
+            Some(Shadow::Wake(wake)) => {
+                let geom = self.layers[tile][layer].0;
+                let mut frames = Vec::new();
+                for (past, at) in wake.frames(frame, self.timeline.scene_frames) {
+                    if let Some(mut shadow) = self.drawn(tile, layer, past)? {
+                        wake.fade(&mut shadow.frame, at, geom)?;
+                        frames.push(shadow);
                     }
-                    (
-                        Some(_),
-                        FrameShow::Reveal {
-                            position,
-                            keep_last,
-                        },
-                    ) => match along {
-                        Some(AlongLayer::Reveal { rows, connected }) => tween::mix_rows(
-                            all,
-                            &rows.frame(*position, *keep_last, *connected),
-                            &self.easing,
-                        )?,
-                        _ => all.take(&[]),
-                    },
+                }
+                wake.compose(frames, drawn)
+            }
+            Some(Shadow::Mark(mark)) => {
+                let mut parts: Vec<LayerFrame> = self
+                    .marks
+                    .get(tile)
+                    .and_then(|layers| layers.get(layer))
+                    .into_iter()
+                    .flatten()
+                    .filter(|(raw, rows)| mark.shows(*raw, frame) && rows.data.row_count() > 0)
+                    .map(|(_, rows)| rows.clone())
+                    .collect();
+                if parts.is_empty() {
+                    return Ok(drawn.frame);
+                }
+                parts.push(drawn.frame);
+                stack(parts)
+            }
+        }
+    }
+
+    /// Draw scene frame `frame` (0-based).
+    fn scene_frame(&self, frame: usize) -> Result<Scene> {
+        let mut frames = Vec::with_capacity(self.rows.len());
+        for (tile, layers) in self.rows.iter().enumerate() {
+            let mut drawn_layers = Vec::with_capacity(layers.len());
+            for (layer, all) in layers.iter().enumerate() {
+                drawn_layers.push(match self.drawn(tile, layer, frame)? {
+                    None => all.clone(),
+                    Some(drawn) => self.shadowed(tile, layer, frame, drawn)?,
                 });
             }
-            frames.push(tile);
+            frames.push(drawn_layers);
         }
         let mut plot = self.prepared.with_layer_frames(frames)?;
         if self.templates.iter().any(Option::is_some) {
@@ -330,6 +523,18 @@ fn state_labels(prepared: &PreparedPlot, class: TimeClass) -> Vec<String> {
         }
         _ => prepared.state_labels().to_vec(),
     }
+}
+
+/// `shadow_mark()` rows of one layer: `(raw scene frame, rows)`.
+type MarkRows = Vec<(usize, LayerFrame)>;
+
+/// The user layer (0-based) of a prepared layer from its spec path
+/// (`layers[2]...`); 0 when the path has no index.
+fn user_layer(path: &str) -> usize {
+    path.strip_prefix("layers[")
+        .and_then(|rest| rest.split(']').next())
+        .and_then(|index| index.parse().ok())
+        .unwrap_or(0)
 }
 
 /// Per-layer data of the time-based transitions, planned once.

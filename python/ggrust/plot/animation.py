@@ -161,7 +161,8 @@ def transition_states(
     the k-th row of a group moves to the k-th row of the same group. Numbers
     and sizes move linearly by the plot's ``ease_aes()``, colors through CIE Lab,
     categories, shapes and texts switch halfway. Rows without a partner show
-    only in their own state.
+    only in their own state, unless the plot has enter or exit effects
+    (``enter_fade()``, ``exit_shrink()``, ...).
 
     Titles, subtitles and captions can show ``{closest_state}``,
     ``{previous_state}``, ``{next_state}`` and ``{transitioning}`` (``TRUE``

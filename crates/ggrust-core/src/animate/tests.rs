@@ -492,3 +492,81 @@ fn lines_with_uneven_points_get_points_inserted() {
         "{seen:?}"
     );
 }
+
+#[test]
+fn enter_and_exit_effects_draw_unmatched_rows_while_moving() {
+    let spec = states_points(
+        r#", "enter": [{"name": "fade"}, {"name": "grow"}], "exit": [{"name": "shrink"}]"#,
+    );
+    let animation = Animation::new(&spec, &stalls()).unwrap();
+    let xs = |frame: usize| point_xs(&animation.output_scene(frame).unwrap().nodes);
+    let counts: Vec<usize> = (0..10).map(|frame| xs(frame).len()).collect();
+    // Frame 2: the second 2021 apple shrinks out; frame 6: a pear and a plum
+    // grow in. The states themselves are unchanged.
+    assert_eq!(counts, vec![4, 4, 4, 3, 3, 3, 5, 5, 5, 5]);
+    // The exiting apple keeps its place in the 2021 order and does not move
+    // (shrinking changes its size only).
+    let (start, middle) = (xs(0), xs(2));
+    assert!((middle[2] - start[2]).abs() < 1e-9, "{middle:?} {start:?}");
+}
+
+#[test]
+fn shadow_mark_draws_earlier_states_behind() {
+    let spec = states_points(r#", "shadow": {"name": "mark", "aesthetics": {"alpha": 0.3}}"#);
+    let animation = Animation::new(&spec, &stalls()).unwrap();
+    let count = |frame: usize| point_xs(&animation.output_scene(frame).unwrap().nodes).len();
+    // Raw frames: 1 (2021), 5 (2022) and 9 (2023).
+    let counts: Vec<usize> = (0..10).map(count).collect();
+    assert_eq!(counts, vec![4, 4, 7, 7, 7, 7, 10, 12, 12, 12]);
+    let future = states_points(
+        r#", "shadow": {"name": "mark", "past": false, "future": true, "exclude_layer": [2]}"#,
+    );
+    let animation = Animation::new(&future, &stalls()).unwrap();
+    assert_eq!(
+        point_xs(&animation.output_scene(0).unwrap().nodes).len(),
+        4 + 4 + 3 + 5
+    );
+    let excluded = states_points(r#", "shadow": {"name": "mark", "exclude_layer": 1}"#);
+    let animation = Animation::new(&excluded, &stalls()).unwrap();
+    assert_eq!(point_xs(&animation.output_scene(9).unwrap().nodes).len(), 5);
+}
+
+#[test]
+fn shadow_wake_follows_drawn_elements() {
+    let spec = states_points(r#", "shadow": {"name": "wake", "wake_length": 0.2}"#);
+    let animation = Animation::new(&spec, &stalls()).unwrap();
+    let count = |frame: usize| point_xs(&animation.output_scene(frame).unwrap().nodes).len();
+    // Two wake frames. Frame 3 (2022): frames 1 and 2 each keep the three
+    // elements drawn in 2022. Frame 0 wraps to frames 8 and 9 (2023), which
+    // share three elements with 2021.
+    assert_eq!(count(3), 3 + 3 + 3);
+    assert_eq!(count(0), 4 + 3 + 3);
+    let no_wrap =
+        states_points(r#", "shadow": {"name": "wake", "wake_length": 0.2, "wrap": false}"#);
+    let animation = Animation::new(&no_wrap, &stalls()).unwrap();
+    assert_eq!(point_xs(&animation.output_scene(0).unwrap().nodes).len(), 4);
+    // Entering rows (frame 6) have no wake by default: frame 6 draws the
+    // three moving rows with their wake of frames 4 and 5, plus two entering.
+    let entering = states_points(
+        r#", "enter": [{"name": "fade"}], "shadow": {"name": "wake", "wake_length": 0.2}"#,
+    );
+    let animation = Animation::new(&entering, &stalls()).unwrap();
+    assert_eq!(
+        point_xs(&animation.output_scene(6).unwrap().nodes).len(),
+        3 + 3 + 3 + 2
+    );
+}
+
+#[test]
+fn shadow_mark_needs_whole_states() {
+    let spec = points(r#"{"name": "reveal", "along": "price"}"#, "");
+    let spec = PlotSpec {
+        animation: spec.animation.map(|mut value| {
+            value["shadow"] = serde_json::json!({"name": "mark"});
+            value
+        }),
+        ..spec
+    };
+    let error = Animation::new(&spec, &stalls()).err().unwrap().to_string();
+    assert!(error.contains("shadow_mark() needs frames"), "{error}");
+}

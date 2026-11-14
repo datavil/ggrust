@@ -172,6 +172,22 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 
 - Export: multi-page PDF (`save_as_pdf_pages`) [plotnine]
 
+## 7. Animation
+
+Dropped from the animation plan by the user, 2026-11-14 (see
+[plans/animation.md](plans/animation.md); an4 was built trimmed, an6 stays on request):
+
+- Other enter/exit effects: `enter_fly`/`exit_fly`, `enter_drift`/`exit_drift`,
+  `enter_recolor`/`exit_recolor`, explicit `enter_appear`/`exit_disappear`
+  (`early=`), `enter_manual`/`exit_manual`, `enter_reset`/`exit_reset`, and per-geom
+  overrides in the `...` of `enter_fade()` etc.
+- `shadow_trail`, and data expressions in `shadow_mark(...)` (ggrust takes constants).
+- Views (was an5): `view_follow(fixed_x, fixed_y)`, `view_step`, `view_zoom`
+  (per-frame position scales).
+- Transitions: `transition_filter`, `transition_layers`, `transition_events`,
+  `transition_components`, `transition_null`.
+- Tooltips inside the HTML player; MP4 / WebM output.
+
 ## Sources
 
 [lets-plot issues](https://github.com/JetBrains/lets-plot/issues),

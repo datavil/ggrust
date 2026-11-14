@@ -327,7 +327,7 @@ Draw a plot or grid inside another plot's area (R package patchwork, not in lets
 
 ## Animation (gganimate)
 
-One frame per value of a column, states that move smoothly into each other, marks moving through time, or lines revealed along a column, played as a GIF, APNG or HTML player.
+One frame per value of a column, or states that move smoothly into each other, played as a GIF, APNG or HTML player.
 
 | Name | Description |
 |---|---|
@@ -336,6 +336,12 @@ One frame per value of a column, states that move smoothly into each other, mark
 | [`transition_time()`](api/transition_time.md) | Animate over a time column: frames evenly spaced in time, marks moving between times. |
 | [`transition_reveal()`](api/transition_reveal.md) | Animate by revealing the data along a column: lines grow, points travel. |
 | [`ease_aes()`](api/ease_aes.md) | Set how values move between states (gganimate ``ease_aes``). |
+| [`enter_fade()`](api/enter_fade.md) | Fade marks in as they enter (gganimate ``enter_fade``). |
+| [`exit_fade()`](api/exit_fade.md) | Fade marks out as they exit (gganimate ``exit_fade``). |
+| [`enter_grow()`](api/enter_grow.md) | Grow marks from nothing as they enter (gganimate ``enter_grow``). |
+| [`exit_shrink()`](api/exit_shrink.md) | Shrink marks to nothing as they exit (gganimate ``exit_shrink``). |
+| [`shadow_wake()`](api/shadow_wake.md) | Leave a fading wake behind moving marks (gganimate ``shadow_wake``). |
+| [`shadow_mark()`](api/shadow_mark.md) | Keep the marks of earlier (or later) states in the background (gganimate ``shadow_mark``). |
 | [`animate()`](api/animate.md) | Plan the frames of a plot with a transition (gganimate ``animate()``). |
 | [`anim_save()`](api/anim_save.md) | Save an animation to a file; the extension picks the format (gganimate ``anim_save``). |
 | [`last_animation()`](api/last_animation.md) | Return the animation :func:`animate` made last (gganimate ``last_animation``). |

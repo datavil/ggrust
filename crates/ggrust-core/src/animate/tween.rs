@@ -6,7 +6,9 @@
 //! `<id>_<occurrence>` rule). Matched rows are drawn in the first state's order;
 //! rows without a partner are not drawn while the rows move (tweenr with no
 //! `enter`/`exit`: they show in the states themselves, so they appear and
-//! disappear at the state boundaries). Values move by their column's ease
+//! disappear at the state boundaries) unless the plot has an enter or exit
+//! effect ([`super::transmute`]): then they move in from, or out to, the
+//! effect's state. Values move by their column's ease
 //! ([`Easing`]): numbers linearly, colors in CIE Lab with alpha (tweenr via
 //! farver), anything discrete (categories, shapes, line types, texts) switches
 //! once the eased progress reaches one half. It does not plan frames
@@ -16,6 +18,8 @@ use std::collections::HashMap;
 
 use super::align::{Shape, align};
 use super::ease::Easing;
+use super::shadow::join_frames;
+use super::transmute::{self, Transmuters};
 use crate::build::frame::LayerFrame;
 use crate::data::{Column, ContinuousColumn, Variable};
 use crate::scene::{Color, PerItem};
@@ -24,6 +28,7 @@ use crate::{Error, Result};
 
 /// Row pairs `(from row, to row)` matched by group and occurrence, in the
 /// order of `from`.
+#[cfg(test)]
 pub(crate) fn match_rows(from: &LayerFrame, to: &LayerFrame) -> Vec<(u32, u32)> {
     let mut seen: HashMap<u32, u32> = HashMap::new();
     let mut to_rows: HashMap<(u32, u32), u32> = HashMap::new();
@@ -78,6 +83,7 @@ pub(crate) fn uneven_groups(from: &LayerFrame, to: &LayerFrame) -> Vec<(u32, usi
 ///
 /// An internal error when the two states do not have the same columns and
 /// styles (they come from one prepared layer, so they always do).
+#[cfg(test)]
 pub(crate) fn tween(
     from: &LayerFrame,
     to: &LayerFrame,
@@ -85,16 +91,174 @@ pub(crate) fn tween(
     easing: &Easing,
     shape: Shape,
 ) -> Result<LayerFrame> {
+    let none = Transmuters::default();
+    Ok(tween_rows(from, to, progress, easing, &none, "", shape)?.frame)
+}
+
+/// The identity of a drawn row across frames: its group and how many rows of
+/// the group come before it in its state (tweenr's `<id>_<occurrence>`, with
+/// gganimate's `group` as the id).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
+pub(crate) struct RowKey {
+    pub group: u32,
+    pub occurrence: u32,
+}
+
+/// What a drawn row is doing (tweenr's `.phase`): shown as it is on the last
+/// frame of its state (`Raw`) or on the frames before (`Static`), moving to its
+/// partner (`Transition`), entering or exiting.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Phase {
+    Raw,
+    Static,
+    Transition,
+    Enter,
+    Exit,
+}
+
+impl Phase {
+    /// Every phase by its gganimate name.
+    pub(crate) const NAMES: &[(&str, Phase)] = &[
+        ("enter", Phase::Enter),
+        ("exit", Phase::Exit),
+        ("raw", Phase::Raw),
+        ("static", Phase::Static),
+        ("transition", Phase::Transition),
+    ];
+}
+
+/// The [`RowKey`] of every row of `frame`, in row order.
+pub(crate) fn row_keys(frame: &LayerFrame) -> Vec<RowKey> {
+    let mut seen: HashMap<u32, u32> = HashMap::new();
+    (0..frame.data.row_count())
+        .map(|row| {
+            let group = frame.data.group_of(row);
+            let occurrence = seen.entry(group).or_insert(0);
+            let key = RowKey {
+                group,
+                occurrence: *occurrence,
+            };
+            *occurrence += 1;
+            key
+        })
+        .collect()
+}
+
+/// A drawn layer with the identity and phase of every row.
+pub(crate) struct Drawn {
+    pub frame: LayerFrame,
+    pub keys: Vec<RowKey>,
+    pub phases: Vec<Phase>,
+}
+
+impl Drawn {
+    /// Rows drawn as they are, every one in `phase`.
+    pub(crate) fn as_is(frame: LayerFrame, phase: Phase) -> Drawn {
+        let keys = row_keys(&frame);
+        let phases = vec![phase; keys.len()];
+        Drawn {
+            frame,
+            keys,
+            phases,
+        }
+    }
+}
+
+/// The rows of `from` moved `progress` (0 to 1, not eased) of the way to their
+/// partners in `to`, as tweenr's `tween_state` with
+/// gganimate's enter and exit effects: matched and (with an exit effect)
+/// exiting rows in the order of `from`, then (with an enter effect) entering
+/// rows in the order of `to`. An entering row moves from its enter state to
+/// itself, an exiting row from itself to its exit state. Without an effect,
+/// unmatched rows are not drawn. Lines and polygons (`shape`) are aligned
+/// first, so every point of a group present in both states has a partner
+/// ([`align`]).
+///
+/// # Errors
+///
+/// An internal error when a column or style cannot be rebuilt (never for one
+/// prepared layer).
+pub(crate) fn tween_rows(
+    from: &LayerFrame,
+    to: &LayerFrame,
+    progress: f64,
+    easing: &Easing,
+    transmuters: &Transmuters,
+    geom: &str,
+    shape: Shape,
+) -> Result<Drawn> {
     let aligned = align(from, to, shape)?;
     let (from, to) = match &aligned {
         Some((from, to)) => (from, to),
         None => (from, to),
     };
-    let pairs = match_rows(from, to);
-    let from_rows: Vec<u32> = pairs.iter().map(|(row, _)| *row).collect();
-    let to_rows: Vec<u32> = pairs.iter().map(|(_, row)| *row).collect();
-    let start = from.take(&from_rows);
-    let end = to.take(&to_rows);
+    // Both states in one frame, so rows of either can be taken together.
+    let all = join_frames(&[from, to])?;
+    let from_count = from.data.row_count() as u32;
+    let from_rows: Vec<u32> = (0..from_count).collect();
+    let to_rows: Vec<u32> = (from_count..from_count + to.data.row_count() as u32).collect();
+    let (from_rows, to_rows) = (from_rows.as_slice(), to_rows.as_slice());
+    let from_keys = row_keys(from);
+    let to_keys = row_keys(to);
+    let to_index: HashMap<RowKey, usize> = to_keys
+        .iter()
+        .enumerate()
+        .map(|(index, key)| (*key, index))
+        .collect();
+    let mut start_rows = Vec::new();
+    let mut end_rows = Vec::new();
+    let mut keys = Vec::new();
+    let mut phases = Vec::new();
+    let mut exits = Vec::new();
+    for (index, key) in from_keys.iter().enumerate() {
+        match to_index.get(key) {
+            Some(partner) => {
+                start_rows.push(from_rows[index]);
+                end_rows.push(to_rows[*partner]);
+                phases.push(Phase::Transition);
+            }
+            None if transmuters.has_exit() => {
+                exits.push(start_rows.len());
+                start_rows.push(from_rows[index]);
+                end_rows.push(from_rows[index]);
+                phases.push(Phase::Exit);
+            }
+            None => continue,
+        }
+        keys.push(*key);
+    }
+    let mut enters = Vec::new();
+    if transmuters.has_enter() {
+        let from_set: std::collections::HashSet<RowKey> = from_keys.into_iter().collect();
+        for (index, key) in to_keys.iter().enumerate() {
+            if !from_set.contains(key) {
+                enters.push(start_rows.len());
+                start_rows.push(to_rows[index]);
+                end_rows.push(to_rows[index]);
+                keys.push(*key);
+                phases.push(Phase::Enter);
+            }
+        }
+    }
+    let mut start = all.take(&start_rows);
+    let mut end = all.take(&end_rows);
+    transmute::apply(&mut start, &enters, &transmuters.enter, geom)?;
+    transmute::apply(&mut end, &exits, &transmuters.exit, geom)?;
+    Ok(Drawn {
+        frame: interpolate(&start, &end, progress, easing)?,
+        keys,
+        phases,
+    })
+}
+
+/// Every row of `start` moved `progress` (0 to 1, not eased) of the way to the
+/// same row of `end`.
+fn interpolate(
+    start: &LayerFrame,
+    end: &LayerFrame,
+    progress: f64,
+    easing: &Easing,
+) -> Result<LayerFrame> {
     let mut data = start.data.clone();
     for (variable, column) in start.data.columns() {
         let name = match variable {
@@ -545,6 +709,141 @@ mod tests {
         };
         assert_eq!(label(0.49).as_deref(), Some("a"));
         assert_eq!(label(0.5).as_deref(), Some("b"));
+    }
+
+    /// Hex `#RRGGBB` or `#RRGGBBAA` (R's format).
+    fn hex(text: &str) -> Color {
+        let byte = |at: usize| u8::from_str_radix(&text[at..at + 2], 16).unwrap();
+        let alpha = if text.len() == 9 { byte(7) } else { 255 };
+        Color::rgba(byte(1), byte(3), byte(5), alpha)
+    }
+
+    /// A layer frame from R data-frame rows (records): data columns `x`, `y`,
+    /// `ymin`, `ymax`; styles `size`, `stroke`, `alpha` (NA as NaN), `colour`.
+    fn records(rows: &[serde_json::Value]) -> LayerFrame {
+        let mut data = LayerData::new(rows.len());
+        let number = |row: &serde_json::Value, key: &str| row[key].as_f64().unwrap_or(f64::NAN);
+        for (key, aesthetic) in [
+            ("x", Aesthetic::X),
+            ("y", Aesthetic::Y),
+            ("ymin", Aesthetic::Ymin),
+            ("ymax", Aesthetic::Ymax),
+        ] {
+            if rows.iter().any(|row| row.get(key).is_some()) {
+                let values = rows.iter().map(|row| number(row, key)).collect();
+                data.insert(
+                    aesthetic,
+                    Column::Continuous(ContinuousColumn::from_values(values)),
+                )
+                .unwrap();
+            }
+        }
+        data.set_group_index(Some(
+            rows.iter().map(|row| number(row, "group") as u32).collect(),
+        ))
+        .unwrap();
+        let mut styles = Styles::default();
+        for (key, aesthetic) in [
+            ("size", Aesthetic::Size),
+            ("stroke", Aesthetic::Stroke),
+            ("alpha", Aesthetic::Alpha),
+        ] {
+            // An all-NA column is absent from R's JSON: present with size.
+            if rows
+                .iter()
+                .any(|row| row.get(key).is_some() || row.get("size").is_some())
+            {
+                let values = rows.iter().map(|row| number(row, key)).collect();
+                styles
+                    .insert(aesthetic, StyleValues::Numbers(PerItem::Varying(values)))
+                    .unwrap();
+            }
+        }
+        if rows.iter().any(|row| row.get("colour").is_some()) {
+            let colors = rows
+                .iter()
+                .map(|row| hex(row["colour"].as_str().unwrap()))
+                .collect();
+            styles
+                .insert(
+                    Aesthetic::Color,
+                    StyleValues::Colors(PerItem::Varying(colors)),
+                )
+                .unwrap();
+        }
+        LayerFrame { data, styles }
+    }
+
+    /// Enter and exit effects against tweenr's `.complete_states` and
+    /// gganimate's transmuters (`tests/fixtures/generate_animation_reference.R`).
+    #[test]
+    fn enter_and_exit_match_tweenr() {
+        let path = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../tests/fixtures/animation_reference.json"
+        );
+        let reference: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let cases = reference["enter_exit"].as_array().unwrap();
+        assert_eq!(cases.len(), 3);
+        for case in cases {
+            let from = case["from"].as_array().unwrap();
+            let to = case["to"].as_array().unwrap();
+            let transmuters =
+                Transmuters::parse(Some(&case["enter"]), Some(&case["exit"])).unwrap();
+            // Lines are matched row by row here: the fixture checks the
+            // effects, align.rs has its own transformr fixture.
+            let drawn = tween_rows(
+                &records(from),
+                &records(to),
+                case["progress"].as_f64().unwrap(),
+                &Easing::default(),
+                &transmuters,
+                case["geom"].as_str().unwrap(),
+                Shape::Points,
+            )
+            .unwrap();
+            let expected = records(case["frame"].as_array().unwrap());
+            let got = &drawn.frame;
+            assert_eq!(
+                got.data.group_index(),
+                expected.data.group_index(),
+                "{case}"
+            );
+            for (variable, column) in expected.data.columns() {
+                let (Column::Continuous(want), Some(Column::Continuous(have))) =
+                    (column, got.data.get(variable))
+                else {
+                    panic!("column {variable} missing: {case}");
+                };
+                for row in 0..want.len() {
+                    let (want, have) = (want.get(row).unwrap(), have.get(row).unwrap());
+                    assert!((want - have).abs() < 1e-12, "{variable} row {row}: {case}");
+                }
+            }
+            for (aesthetic, values) in expected.styles.iter() {
+                let rows = expected.data.row_count();
+                match values {
+                    StyleValues::Numbers(want) => {
+                        let have = got.styles.numbers(aesthetic).unwrap();
+                        for row in 0..rows {
+                            let (want, have) = (want.get(row), have.get(row));
+                            assert!(
+                                (want.is_nan() && have.is_nan()) || (want - have).abs() < 1e-12,
+                                "{aesthetic} row {row}: {want} vs {have}"
+                            );
+                        }
+                    }
+                    StyleValues::Colors(want) => {
+                        let have = got.styles.colors(aesthetic).unwrap();
+                        for row in 0..rows {
+                            assert_eq!(want.get(row), have.get(row), "{aesthetic} row {row}");
+                        }
+                    }
+                    _ => unreachable!(),
+                }
+            }
+        }
     }
 
     #[test]

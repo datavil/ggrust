@@ -24,6 +24,12 @@ pub struct AnimationSpec {
     /// `ease_aes()`: `{"default": ..., "aesthetics": {...}}`, parsed when the
     /// frames are planned.
     pub ease: Option<Value>,
+    /// `enter_*()` effects in the order added (`[{"name": "fade", ...}]`).
+    pub enter: Option<Value>,
+    /// `exit_*()` effects in the order added.
+    pub exit: Option<Value>,
+    /// `shadow_wake()` / `shadow_mark()` (`{"name": "wake", ...}`).
+    pub shadow: Option<Value>,
 }
 
 /// gganimate `animate()` arguments that shape the frames. Unset values take
@@ -46,7 +52,15 @@ pub struct AnimateOptions {
     pub rewind: Option<bool>,
 }
 
-const ANIMATION_KEYS: &[&str] = &["transition", "animate", "frame", "ease"];
+const ANIMATION_KEYS: &[&str] = &[
+    "transition",
+    "animate",
+    "frame",
+    "ease",
+    "enter",
+    "exit",
+    "shadow",
+];
 const OPTION_KEYS: &[&str] = &[
     "nframes",
     "fps",
@@ -98,12 +112,15 @@ impl AnimationSpec {
             Some(Value::Null) | None => None,
             Some(value) => Some(count(value, &format!("{PATH}.frame"))?),
         };
-        let ease = object.get("ease").filter(|value| !value.is_null()).cloned();
+        let given = |key: &str| object.get(key).filter(|value| !value.is_null()).cloned();
         Ok(AnimationSpec {
             transition: (name, transition),
             options,
             frame,
-            ease,
+            ease: given("ease"),
+            enter: given("enter"),
+            exit: given("exit"),
+            shadow: given("shadow"),
         })
     }
 }

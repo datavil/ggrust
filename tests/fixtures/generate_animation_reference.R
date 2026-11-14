@@ -22,6 +22,14 @@
 #   `make_polygons` and `as_clockwise` (R/aaa.R, R/tween_polygon.R) copied
 #   below, with `find_splits_c`, `insert_points_c` and `rotate_c`
 #   (src/align_rings.cpp) translated to R, because transformr is not installed.
+# - "enter_exit": one tweened frame between two states with enter and exit
+#   effects: tweenr's `.complete_states` (R/tween_state.R, MIT) and gganimate's
+#   `transmute_fade` / `transmute_grow` (R/transmuters.R, MIT), copied below
+#   with the id fixed to gganimate's group, then every column mixed linearly
+#   (colours in Lab with alpha, as above).
+# - "wake": shadow_wake's frames and the eased step values (gganimate
+#   R/shadow-wake.R `setup_params`, `get_frames`, `prepare_shadow`, MIT),
+#   with tweenr's cubic-in ease.
 
 suppressPackageStartupMessages({
   library(farver)
@@ -331,8 +339,171 @@ align <- lapply(align_cases, function(case) {
   )
 })
 
+# tweenr .complete_states with gganimate's id (group): rows matched by
+# <group>_<occurrence>; entering rows (enter(to rows)) appended to `from`,
+# exiting rows (exit(from rows)) appended to `to`, `to` reordered to `from`.
+count_occourance <- function(x) {
+  if (length(x) == 0) return(integer(0))
+  unsplit(lapply(split(x, x), seq_along), x)
+}
+complete_states <- function(from, to, enter, exit) {
+  from_id <- paste(from$group, count_occourance(from$group), sep = "_")
+  to_id <- paste(to$group, count_occourance(to$group), sep = "_")
+  entering <- !to_id %in% from_id
+  exiting <- !from_id %in% to_id
+  if (is.null(enter) || sum(entering) == 0) {
+    to <- to[!entering, , drop = FALSE]
+    to_id <- to_id[!entering]
+    enters <- to[0, , drop = FALSE]
+    enter_id <- to_id[0]
+  } else {
+    enters <- enter(to[entering, , drop = FALSE])
+    enter_id <- to_id[entering]
+  }
+  if (is.null(exit) || sum(exiting) == 0) {
+    from <- from[!exiting, , drop = FALSE]
+    from_id <- from_id[!exiting]
+    exits <- from[0, , drop = FALSE]
+    exit_id <- from_id[0]
+  } else {
+    exits <- exit(from[exiting, , drop = FALSE])
+    exit_id <- from_id[exiting]
+  }
+  from <- rbind(from, enters)
+  from_id <- c(from_id, enter_id)
+  to <- rbind(to, exits)
+  to_id <- c(to_id, exit_id)
+  list(from = from, to = to[match(from_id, to_id), , drop = FALSE])
+}
+# gganimate transmute_fade default, transmute_grow default / bar / path.
+fade <- function(alpha) function(x) {
+  no_alpha <- is.na(x$alpha)
+  x$alpha[!no_alpha] <- alpha
+  x$colour[no_alpha] <- scales::alpha(x$colour[no_alpha], alpha)
+  x
+}
+grow_point <- function(size) function(x) {
+  x$size <- size * x$size
+  x$stroke <- size * x$stroke
+  x
+}
+grow_bar <- function(size) function(x) {
+  x$y <- x$y * size
+  x$ymax <- x$ymax * size
+  x
+}
+shrink_multielement <- function(size) function(x) {
+  mean_x <- vapply(split(x$x, x$group), mean, numeric(1))
+  mean_y <- vapply(split(x$y, x$group), mean, numeric(1))
+  group <- match(x$group, names(mean_x))
+  if (size == 0) {
+    x$x <- mean_x[group]
+    x$y <- mean_y[group]
+  } else {
+    x$x <- mean_x[group] + size * (x$x - mean_x[group])
+    x$y <- mean_y[group] + size * (x$y - mean_y[group])
+  }
+  x
+}
+chain <- function(...) {
+  fs <- list(...)
+  if (length(fs) == 0) return(NULL)
+  function(x) Reduce(function(d, f) f(d), fs, x)
+}
+mix_frame <- function(from, to, p) {
+  out <- from
+  for (column in names(from)) {
+    if (column == "group") next
+    if (column == "colour") {
+      ends_from <- decode_colour(from$colour, alpha = TRUE, to = "lab")
+      ends_to <- decode_colour(to$colour, alpha = TRUE, to = "lab")
+      mixed <- ends_from + p * (ends_to - ends_from)
+      out$colour <- encode_colour(mixed[, 1:3, drop = FALSE], alpha = mixed[, 4], from = "lab")
+    } else {
+      out[[column]] <- from[[column]] + p * (to[[column]] - from[[column]])
+    }
+  }
+  out
+}
+enter_exit_cases <- list(
+  list(
+    geom = "point", progress = 0.25,
+    enter = list(list(name = "fade", alpha = 0), list(name = "grow", size = 0)),
+    exit = list(list(name = "fade", alpha = 0.2)),
+    from = data.frame(
+      group = c(1, 2, 3), x = c(1, 2, 3), y = c(1, 2, 3), size = c(3, 3, 4),
+      stroke = c(0.75, 0.75, 0.75), alpha = c(0.8, NA, NA),
+      colour = c("#FF0000", "#0000FF", "#00AA00")
+    ),
+    to = data.frame(
+      group = c(3, 2, 4), x = c(6, 5, 7), y = c(3, 1, 0), size = c(4, 5, 2),
+      stroke = c(0.75, 0.75, 1.5), alpha = c(NA, NA, NA),
+      colour = c("#00AA00", "#000000", "#808080")
+    ),
+    enter_fn = chain(fade(0), grow_point(0)), exit_fn = chain(fade(0.2))
+  ),
+  list(
+    geom = "bar", progress = 0.6,
+    enter = list(list(name = "grow", size = 0)),
+    exit = list(list(name = "shrink", size = 0.5)),
+    from = data.frame(group = c(0, 1), x = c(1, 2), y = c(4, 6), ymin = c(0, 0), ymax = c(4, 6)),
+    to = data.frame(group = c(1, 2), x = c(2, 3), y = c(8, 5), ymin = c(0, 0), ymax = c(8, 5)),
+    enter_fn = chain(grow_bar(0)), exit_fn = chain(grow_bar(0.5))
+  ),
+  list(
+    geom = "line", progress = 0.5,
+    enter = list(list(name = "grow", size = 0)),
+    exit = list(),
+    from = data.frame(group = c(0, 0), x = c(0, 1), y = c(0, 1)),
+    to = data.frame(group = c(0, 0, 1, 1, 1), x = c(0, 2, 0, 1, 5), y = c(1, 1, 3, 4, 8)),
+    enter_fn = chain(shrink_multielement(0)), exit_fn = NULL
+  )
+)
+enter_exit <- lapply(enter_exit_cases, function(case) {
+  full <- complete_states(case$from, case$to, case$enter_fn, case$exit_fn)
+  list(
+    geom = case$geom, progress = case$progress, enter = case$enter, exit = case$exit,
+    from = case$from, to = case$to,
+    frame = mix_frame(full$from, full$to, case$progress)
+  )
+})
+
+# gganimate shadow_wake: frames and steps; tweenr's cubic-in is t^3.
+wake_frames <- function(i, nframes, wake_length, wrap) {
+  wake_length <- round(nframes * wake_length)
+  frames <- rev(i - seq_len(wake_length))
+  if (wrap) {
+    frames <- frames %% nframes
+    frames[frames == 0] <- nframes
+  } else {
+    frames <- frames[frames > 0 & frames <= nframes]
+  }
+  at <- seq(0, 1, length = wake_length + 1)[seq_len(wake_length)]
+  list(frames = frames, at = at[seq_along(frames)])
+}
+wake <- lapply(list(
+  list(i = 1, nframes = 37, wake_length = 0.1, wrap = TRUE),
+  list(i = 3, nframes = 37, wake_length = 0.1, wrap = FALSE),
+  list(i = 20, nframes = 50, wake_length = 0.25, wrap = TRUE),
+  list(i = 5, nframes = 20, wake_length = 0.125, wrap = TRUE)
+), function(case) {
+  planned <- wake_frames(case$i, case$nframes, case$wake_length, case$wrap)
+  eased <- planned$at^3
+  colour <- "#3366CC80"
+  # mod_alpha: the colour's alpha tweened to 0; size tweened to 0.
+  alpha <- 0 + eased * (col2rgb(colour, TRUE)[4, ] / 255 - 0)
+  c(case, list(
+    frames = planned$frames, at = planned$at,
+    size = 0 + eased * (4 - 0),
+    colour = scales::alpha(rep(colour, length(eased)), alpha)
+  ))
+})
+
 write_json(
-  list(distribute = distribute, lab = lab, time = time, reveal = reveal, align = align),
+  list(
+    distribute = distribute, lab = lab, time = time, reveal = reveal,
+    align = align, enter_exit = enter_exit, wake = wake
+  ),
   "tests/fixtures/animation_reference.json",
   auto_unbox = TRUE, digits = NA, pretty = TRUE
 )

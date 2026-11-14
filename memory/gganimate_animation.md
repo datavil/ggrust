@@ -27,3 +27,9 @@ How animation is built, so an2/an3 extend it instead of re-deriving it.
   the column early (`_check_state_column`) for a did-you-mean over all columns.
 - For tweening (an2): extend the `Transition` trait (`frame_states` now returns whole
   states per scene frame) rather than adding a parallel path.
+- **an4 (enter/exit, shadows)**: build any frame's rows with `Animation::drawn` (rows +
+  `RowKey` + `Phase`, no shadow), then `shadowed` adds wake/mark parts via
+  `shadow::stack` (each part its own group numbers, or a line's wake joins the line).
+  Enter/exit live in `tween::tween_rows` (tweenr `.complete_states` order). Trap:
+  `FeatureSpec.as_dict()` drops `None` values, so an "off" option must be sent as
+  `false`, never `None`, or the Rust default (gganimate's) silently applies.

@@ -817,7 +817,12 @@ class PlotSpec(FeatureSpec):
                 # gganimate pieces (transition, animate() options) merge key by key.
                 earlier = plot.props().get("animation")
                 merged = dict(earlier.props()) if isinstance(earlier, FeatureSpec) else {}
-                merged.update(other.props())
+                for key, value in other.props().items():
+                    # Enter and exit effects accumulate (gganimate's factory list).
+                    if key in ("enter", "exit") and isinstance(merged.get(key), list):
+                        merged[key] = [*merged[key], *value]
+                    else:
+                        merged[key] = value
                 plot.props()["animation"] = FeatureSpec("animation", name=None, **merged)
                 return plot
             if isinstance(other, FeatureSpecArray):

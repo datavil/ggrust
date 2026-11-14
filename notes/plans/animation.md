@@ -109,17 +109,19 @@ deviations row, plan.md tick.
 - [x] **an3 `transition_time` and `transition_reveal`.** Time: frames spaced in time, rows
   tweened between observed times, `{frame_time}`. Reveal: paths/lines/areas grow along
   `along`, with the interpolated end point (gganimate's `keep_last`), `{frame_along}`.
-- [ ] **an4 (on request) Enter/exit and shadows.** `enter_fade`/`exit_fade`, `enter_grow`/`exit_shrink`,
-  `enter_appear`/`exit_disappear`, `enter_fly`/`exit_fly`, `enter_drift`/`exit_drift`,
-  `enter_recolor`/`exit_recolor`; `shadow_wake`, `shadow_trail`, `shadow_mark`.
-- [ ] **an5 (on request) Views.** `view_follow(fixed_x, fixed_y)`, `view_step`, `view_zoom`: per-frame
-  position scales (retrain per frame instead of once). Separate step because it changes
-  what is trained when.
+- [x] **an4 Enter/exit and shadows (trimmed by the user, 2026-11-14).** `enter_fade`/`exit_fade`,
+  `enter_grow`/`exit_shrink`, `shadow_wake`, `shadow_mark`, composed with `+`, gganimate's
+  arguments and defaults; with `transition_states` and `transition_time` at least. Parity
+  vs tweenr `.complete_states` and gganimate's transmuters and `shadow_wake` in the R
+  fixture script.
 - [ ] **an6 (on request) Performance pass.** Time box agreed with the user first. Reference: R
   gganimate + gifski on the same spec and frame count (report honestly, AGENTS rule 8).
-- [ ] **On request only:** `transition_filter`, `transition_layers`, `transition_events`,
-  `transition_components`, `transition_null`, facets inside animations if they need more
-  than an1 gives for free, tooltips inside the HTML player, MP4.
+
+Dropped from the animation plan by the user (2026-11-14), listed in
+[backlog.md](../backlog.md) ("Animation"): the other enter/exit effects (fly, drift,
+recolor, appear/disappear as explicit effects), `shadow_trail`, the views of an5
+(`view_follow`, `view_step`, `view_zoom`), `transition_filter`/`layers`/`events`/
+`components`/`null`, tooltips in the HTML player, MP4.
 
 ## Decisions (user, 2026-11-14)
 
@@ -130,6 +132,9 @@ deviations row, plan.md tick.
 3. HTML frames are SVG by default, PNG when the scene uses the canvas path (dense points).
 4. Scope: an0 to an3 are scheduled (plan.md Phase 13). an4, an5 and an6 move to
    "on request".
+5. (2026-11-14, later) an4 is built trimmed (fade, grow/shrink, shadow_wake,
+   shadow_mark); an5 and the rest of the optional features are dropped to the backlog;
+   an6 stays on request.
 
 ## Design note (an0)
 
@@ -352,3 +357,35 @@ fit the column's `TimeClass`; date, date-time and time-of-day states print with 
   checked). `range=` ends take part in choosing the date-time format. `geom_step` is
   aligned as a path, so a tweened step shows small stairs along its diagonal, as gganimate
   (`GeomStep` is a `GeomPath`).
+
+## Notes (an4, trimmed)
+
+Done 2026-11-14. Ported from gganimate 1.0 (`R/transmuters.R`, `R/shadow-wake.R`,
+`R/shadow-mark.R`, `R/scene.R`) and tweenr (`.complete_states`, `tween_at`), MIT. The R
+fixture script copies `.complete_states`, `transmute_fade`, `transmute_grow` and
+`shadow_wake`'s frame and step logic (`enter_exit`, `wake` sections).
+
+- **Enter/exit** (`animate/transmute.rs`, `tween::tween_rows`): tweenr's rule. Rows
+  match by `(group, occurrence)`; exiting rows stay in `from` order and move to their
+  exit state, entering rows follow in `to` order and move from their enter state. The
+  first and last frame of a move are the states as they are (exit rows are not drawn
+  on the arrival frame). Effects added with `+` apply in order (gganimate's factory
+  list; the Python `+` concatenates the `enter`/`exit` lists).
+- **Per geom** as `transmuters.R`: fade sets `alpha` where it is set, otherwise the
+  color/fill alpha (`geom_smooth`: color always); grow scales `size`/`stroke` only for
+  geoms whose ggrust `size` is ggplot2's `size` (`MARK_SIZE_GEOMS`); bars scale `y` and
+  `ymax`; paths/lines/steps/polygons/violins shrink to their group mean; boxplots close
+  on `middle`. gganimate's per-geom overrides (`...`) are not offered.
+- **Identity and phase** (`tween::Drawn`): each drawn row carries a `RowKey`
+  `(group, occurrence)` (gganimate's `.id`) and a `Phase` (raw, static, transition,
+  enter, exit). A states frame is `raw` on the last frame of its run (the frame before
+  moving on), `static` before; a time frame at a layer's own time is `raw`.
+- **Shadows** (`animate/shadow.rs`): `Animation::drawn` builds any frame's rows (no
+  shadow); `shadowed` adds them. Wake: frames and `at` as `get_frames`/`setup_params`,
+  values `end + ease(at) * (value - end)`, rows kept for keys drawn now outside
+  `exclude_phase`, reordered by first appearance of the key. Mark: raw rows precomputed
+  once per layer (`Animation::marks`), constants applied. Every shadow part gets its own
+  group numbers (`shadow::stack`), so a line's wake is separate lines. `shadow_mark`
+  with `transition_reveal` is a `SpecError` (no raw frames).
+- `None` values are dropped from `as_dict()`: `shadow_wake(size=False)` is sent as
+  `false`, an absent `size`/`alpha` means gganimate's default 0.

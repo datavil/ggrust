@@ -4608,8 +4608,17 @@ const GRADIENT_SEGMENTS: usize = 256;
 fn gradient_values(domain: (f64, f64), bins: usize) -> Vec<f64> {
     let count = bins.max(2);
     let step = (domain.1 - domain.0) / (count - 1) as f64;
+    // The last point is the domain's end exactly: `low + step * (count - 1)` can
+    // overshoot it by a rounding unit, and the scale then maps it to `na_value`
+    // (a grey top end and cap, depending on the platform's log10).
     (0..count)
-        .map(|index| domain.0 + step * index as f64)
+        .map(|index| {
+            if index == count - 1 {
+                domain.1
+            } else {
+                domain.0 + step * index as f64
+            }
+        })
         .collect()
 }
 
@@ -5820,6 +5829,18 @@ mod tests {
     use crate::scale::{ContinuousPositionScale, Transform};
     use crate::scene::Color;
     use crate::spec::Figure;
+
+    #[test]
+    fn gradient_values_end_exactly_on_the_domain() {
+        // 3.9 + (12.58 / 99) * 99 overshoots 16.48 by a rounding unit, which the
+        // scale would map to na_value (a grey colorbar end).
+        let domain = (3.9000000000000004, 16.48);
+        let values = gradient_values(domain, 100);
+        assert_eq!(values.len(), 100);
+        assert_eq!(values[0], domain.0);
+        assert_eq!(values[99], domain.1);
+        assert!(values.iter().all(|value| *value <= domain.1));
+    }
 
     fn prepare_with(
         spec: &PlotSpec,

@@ -10,6 +10,7 @@ from __future__ import annotations
 import datetime
 import numbers
 from collections.abc import Sequence
+from typing import Literal, cast
 
 from ggrust.errors import SpecError, did_you_mean
 from ggrust.plot.core import FeatureSpec
@@ -271,6 +272,51 @@ def _time_number_or_raise(value: object) -> float | None:
     return None
 
 
+RangeKind = Literal["number", "date", "datetime", "time"]
+"""The kind of a time transition's ``range``, checked against the column's type."""
+
+
+def _time_kind(value: object) -> RangeKind | None:
+    """Return the kind of one time value (``None`` when it is not one)."""
+    if _time_number(value) is None:
+        return None
+    if type(value).__name__ == "datetime64":
+        unit = str(getattr(value, "dtype", ""))
+        return (
+            "date"
+            if unit in ("datetime64[D]", "datetime64[W]", "datetime64[M]", "datetime64[Y]")
+            else "datetime"
+        )
+    if isinstance(value, datetime.datetime):
+        return "datetime"
+    if isinstance(value, datetime.date):
+        return "date"
+    if isinstance(value, datetime.time):
+        return "time"
+    to_python = getattr(value, "item", None)  # numpy scalars
+    if not isinstance(value, numbers.Real) and callable(to_python):
+        item = to_python()
+        return None if item is value else _time_kind(item)
+    return "number"
+
+
+def _range_kind(value: Sequence[TimeValue], function: str) -> RangeKind:
+    """Return the shared kind of the two ``range`` values, or raise ``SpecError``."""
+    shaped = not isinstance(value, str) and isinstance(value, Sequence) and len(value) == 2
+    kinds = {_time_kind(item) for item in value} if shaped else {None}
+    if None in kinds:
+        _time_range(value, function)  # raises the general message
+    if kinds <= {"date", "datetime"} and len(kinds) == 2:
+        return "datetime"
+    if len(kinds) == 1 and None not in kinds:
+        return cast("RangeKind", kinds.pop())
+    message = (
+        f"{function}(range={value!r}): give both ends as the same kind of value: "
+        "numbers, or dates/date-times, or times of day"
+    )
+    raise SpecError(message, path="animation.transition.range")
+
+
 def _time_range(value: Sequence[TimeValue] | None, function: str) -> list[float] | None:
     """Check ``range=(low, high)`` of a time transition; return it in engine units."""
     if value is None:
@@ -324,7 +370,9 @@ def transition_time(time: str, range: Sequence[TimeValue] | None = None) -> Feat
         The column of the times: numbers, dates, date-times or times of day.
     range : sequence of two values, optional
         The ``(low, high)`` times the frames cover, in the column's type (numbers,
-        ``datetime.date``, ``datetime.datetime``). Default: the data's range.
+        ``datetime.date``, ``datetime.datetime``, ``numpy.datetime64``). Default: the
+        data's range. A range of another kind than the column (numbers for a date
+        column) raises ``SpecError`` when the frames are planned.
 
     Returns
     -------
@@ -358,6 +406,7 @@ def transition_time(time: str, range: Sequence[TimeValue] | None = None) -> Feat
     transition: dict[str, object] = {
         "name": "time",
         "time": _column_name(time, "transition_time", "time"),
+        "range_kind": None if range is None else _range_kind(range, "transition_time"),
         "range": _time_range(range, "transition_time"),
     }
     return FeatureSpec("animation", name=None, transition=transition)
@@ -388,8 +437,10 @@ def transition_reveal(
     along : str
         The column to reveal along: numbers, dates, date-times or times of day.
     range : sequence of two values, optional
-        The ``(low, high)`` values the frames cover, in the column's type.
-        Default: the data's range.
+        The ``(low, high)`` values the frames cover, in the column's type
+        (numbers, dates, date-times or times of day). Default: the data's range.
+        A range of another kind than the column raises ``SpecError`` when the
+        frames are planned.
     keep_last : bool, default=True
         Keep a point (or another geom that does not join its rows) at the end
         of its group once the reveal has passed it. Lines always keep every
@@ -426,6 +477,7 @@ def transition_reveal(
     transition: dict[str, object] = {
         "name": "reveal",
         "along": _column_name(along, "transition_reveal", "along"),
+        "range_kind": None if range is None else _range_kind(range, "transition_reveal"),
         "range": _time_range(range, "transition_reveal"),
         "keep_last": keep_last,
     }

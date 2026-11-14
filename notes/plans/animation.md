@@ -329,3 +329,8 @@ are copied into `tests/fixtures/generate_animation_reference.R`.
 - Python: `transition_time(time, range=None)`, `transition_reveal(along, range=None,
   keep_last=True)`; `range` takes numbers, dates, date-times and times of day (sent as
   epoch or day milliseconds). The state column export knows `time` and `along`.
+
+Follow-up (user request, after an3): `range` carries `range_kind` (`number`, `date`,
+`datetime`, `time`, set by the Python API) and `along::plan` rejects a kind that does not
+fit the column's `TimeClass`; date, date-time and time-of-day states print with the
+`{frame_time}` formats in every label variable (`Animation::state_labels`).

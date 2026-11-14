@@ -10,19 +10,22 @@
 
 use serde_json::{Map, Value};
 
-use super::along::{AlongFrames, Rounding, parse_range, parse_variable, plan};
+use super::along::{
+    AlongFrames, RangeKind, Rounding, parse_range, parse_range_kind, parse_variable, plan,
+};
 use super::spec::check_keys;
 use super::transition::{FrameShow, StateSet, Transition};
 use crate::Result;
 use crate::build::StateVariable;
 
-const KEYS: &[&str] = &["name", "time", "range"];
+const KEYS: &[&str] = &["name", "time", "range", "range_kind"];
 const VARIABLES: &[&str] = &["frame_time"];
 
 /// A parsed `transition_time()`.
 pub(super) struct Time {
     variable: StateVariable,
     range: Option<[f64; 2]>,
+    range_kind: Option<RangeKind>,
     /// Planned by [`Transition::scene_frames`].
     frames: AlongFrames,
 }
@@ -33,6 +36,7 @@ pub(super) fn parse(options: &Map<String, Value>, path: &str) -> Result<Box<dyn 
     Ok(Box::new(Time {
         variable: parse_variable(options, path, "time", "transition_time")?,
         range: parse_range(options, path)?,
+        range_kind: parse_range_kind(options, path)?,
         frames: AlongFrames::default(),
     }))
 }
@@ -46,6 +50,7 @@ impl Transition for Time {
         self.frames = plan(
             states,
             self.range,
+            self.range_kind,
             requested,
             &self.variable,
             "transition_time",

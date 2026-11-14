@@ -55,6 +55,9 @@ pub struct Animation {
     /// [tile][layer]: what `transition_time` / `transition_reveal` read per
     /// frame; empty for the other transitions, `None` for a static layer.
     along_layers: Vec<Vec<Option<AlongLayer>>>,
+    /// How every state prints in labels (`{current_frame}`, `{closest_state}`,
+    /// ...): dates and date-times formatted as `{frame_time}` is.
+    state_labels: Vec<String>,
     /// Title, subtitle and caption templates (`None`: no such title).
     templates: [Option<Template>; 3],
     /// Things the user should know (from preparing the plot).
@@ -101,6 +104,7 @@ impl Animation {
             ));
         }
         let timeline = settings.plan(|requested| transition.scene_frames(&states, requested))?;
+        let state_labels = state_labels(&prepared, states.class);
         let names: Vec<&str> = FRAME_VARIABLES
             .iter()
             .chain(transition.variable_names())
@@ -136,8 +140,10 @@ impl Animation {
             &along_layers,
             &rows,
             &state_rows,
+            &state_labels,
         ));
         Ok(Animation {
+            state_labels,
             rows,
             state_rows,
             along_layers,
@@ -185,10 +191,7 @@ impl Animation {
             ("nframes", count.to_string()),
             ("progress", r_number((frame + 1) as f64 / count as f64)),
         ];
-        values.extend(
-            self.transition
-                .frame_variables(frame, self.prepared.state_labels()),
-        );
+        values.extend(self.transition.frame_variables(frame, &self.state_labels));
         values
     }
 
@@ -295,6 +298,18 @@ impl FrameSource for Animation {
 
     fn fps(&self) -> f64 {
         self.timeline.fps
+    }
+}
+
+/// How every state of `prepared` prints in labels: numeric states of a date,
+/// date-time or time-of-day column formatted as `{frame_time}` is, the
+/// prepared labels otherwise.
+fn state_labels(prepared: &PreparedPlot, class: TimeClass) -> Vec<String> {
+    match (prepared.state_values(), class) {
+        (Some(values), TimeClass::Date | TimeClass::DateTime | TimeClass::TimeOfDay) => {
+            values.iter().map(|value| class.label(*value)).collect()
+        }
+        _ => prepared.state_labels().to_vec(),
     }
 }
 
@@ -450,6 +465,7 @@ fn uneven_warnings(
     along_layers: &[Vec<Option<AlongLayer>>],
     rows: &[Vec<LayerFrame>],
     state_rows: &[Vec<Option<Vec<Vec<u32>>>>],
+    labels: &[String],
 ) -> Vec<String> {
     let mut pairs: Vec<(usize, usize)> = (0..timeline.scene_frames)
         .filter_map(|frame| match transition.frame_show(frame) {
@@ -468,7 +484,6 @@ fn uneven_warnings(
     pairs.dedup();
     pairs.sort_unstable();
     pairs.dedup();
-    let labels = prepared.state_labels();
     let mut warned: Vec<&str> = Vec::new();
     let mut warnings = Vec::new();
     for ((names, layers), layer_states) in prepared.layer_names().iter().zip(rows).zip(state_rows) {

@@ -19,6 +19,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Fixed
 
+- Animations of a date or date-time column label states as dates (`{current_frame}`, `{closest_state}`, ...), not epoch numbers, and `transition_time`/`transition_reveal` reject a `range` of the wrong kind for the column (numbers for a date column, dates for a numeric one) with a `SpecError`.
 - `ggsave(anim.frame(i), "x.png")` writes that one frame as a still PNG (it wrote the whole animation as APNG); SVG, PDF and the notebook display of a frame are still too, and `.gif` of a frame is an `ExportError`.
 - A continuous legend over a single value shows one key at that value, as ggplot2, not about five near-identical ones (lets-plot #1267).
 - Legend keys with the same label but different values no longer merge (lets-plot #1129): `scale_color_manual(labels=['A', 'A', 'C'])` shows three keys, as ggplot2.

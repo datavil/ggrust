@@ -15,20 +15,23 @@
 
 use serde_json::{Map, Value};
 
-use super::along::{AlongFrames, Rounding, parse_range, parse_variable, plan};
+use super::along::{
+    AlongFrames, RangeKind, Rounding, parse_range, parse_range_kind, parse_variable, plan,
+};
 use super::spec::{check_keys, shown};
 use super::transition::{FrameShow, StateSet, Transition};
 use crate::build::StateVariable;
 use crate::build::frame::LayerFrame;
 use crate::{Error, Result};
 
-const KEYS: &[&str] = &["name", "along", "range", "keep_last"];
+const KEYS: &[&str] = &["name", "along", "range", "range_kind", "keep_last"];
 const VARIABLES: &[&str] = &["frame_along"];
 
 /// A parsed `transition_reveal()`.
 pub(super) struct Reveal {
     variable: StateVariable,
     range: Option<[f64; 2]>,
+    range_kind: Option<RangeKind>,
     keep_last: bool,
     /// Planned by [`Transition::scene_frames`].
     frames: AlongFrames,
@@ -51,6 +54,7 @@ pub(super) fn parse(options: &Map<String, Value>, path: &str) -> Result<Box<dyn 
     Ok(Box::new(Reveal {
         variable: parse_variable(options, path, "along", "transition_reveal")?,
         range: parse_range(options, path)?,
+        range_kind: parse_range_kind(options, path)?,
         keep_last,
         frames: AlongFrames::default(),
     }))
@@ -65,6 +69,7 @@ impl Transition for Reveal {
         self.frames = plan(
             states,
             self.range,
+            self.range_kind,
             requested,
             &self.variable,
             "transition_reveal",
@@ -251,7 +256,16 @@ mod tests {
                 name: "along".to_owned(),
                 path: "along".to_owned(),
             };
-            let planned = plan(&states, None, frames, &variable, "f", Rounding::Reveal).unwrap();
+            let planned = plan(
+                &states,
+                None,
+                None,
+                frames,
+                &variable,
+                "f",
+                Rounding::Reveal,
+            )
+            .unwrap();
             let state_of = |value: f64| values.iter().position(|known| *known == value).unwrap();
             let positions: Vec<Option<f64>> = along
                 .iter()

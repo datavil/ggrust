@@ -27,7 +27,9 @@ from ggrust import (
     ggsize,
     ggtitle,
     theme,
+    transition_manual,
     transition_reveal,
+    transition_states,
     transition_time,
 )
 from ggrust._render import GgrustWarning
@@ -101,6 +103,7 @@ def test_spec_and_round_trip(tmp_path):
         "name": "reveal",
         "along": "day",
         "range": [1714521600000.0, 1715212800000.0],
+        "range_kind": "date",
         "keep_last": False,
     }
     for original in (plot, revealed):
@@ -252,6 +255,7 @@ def test_range_accepts_numpy_and_rejects_missing_values():
         range=(np.datetime64("2024-05-01T00:00:00.000000000"), np.datetime64("2024-05-09")),
     )
     assert plot.props()["transition"]["range"] == [1714521600000.0, 1715212800000.0]
+    assert plot.props()["transition"]["range_kind"] == "datetime"
     for bad in [
         (np.datetime64("NaT", "ns"), np.datetime64("2024-05-09")),
         (np.timedelta64(5, "D"), np.timedelta64(9, "D")),
@@ -259,3 +263,65 @@ def test_range_accepts_numpy_and_rejects_missing_values():
         with pytest.raises(SpecError) as error:
             transition_time("day", range=bad)
         assert error.value.path == "animation.transition.range"
+
+
+@pytest.mark.parametrize(
+    ("values", "kind"),
+    [
+        ((1, 5.5), "number"),
+        ((datetime.date(2024, 5, 1), datetime.date(2024, 5, 9)), "date"),
+        ((datetime.date(2024, 5, 1), datetime.datetime(2024, 5, 9, 12)), "datetime"),
+        ((datetime.time(9), datetime.time(17)), "time"),
+        ((pl.Series([datetime.date(2024, 5, 1)])[0], datetime.date(2024, 5, 9)), "date"),
+    ],
+)
+def test_range_kind_is_recorded(values, kind):
+    assert transition_reveal("day", range=values).props()["transition"]["range_kind"] == kind
+
+
+def test_range_must_match_the_column_type():
+    with pytest.raises(SpecError, match="same kind") as error:
+        transition_time("year", range=(2000, datetime.date(2020, 1, 1)))
+    with pytest.raises(SpecError, match="same kind"):
+        transition_time("year", range=(datetime.date(2020, 1, 1), datetime.time(3)))
+    assert error.value.path == "animation.transition.range"
+    dates = visits_plot() + transition_reveal("day", range=(1, 5))
+    with pytest.raises(SpecError, match="holds numbers") as error:
+        animate(dates).nframes  # noqa: B018
+    assert error.value.path == "animation.transition.range"
+    assert "column 'day' holds dates" in str(error.value)
+    years = cities_plot() + transition_time(
+        "year", range=(datetime.date(2000, 1, 1), datetime.date(2020, 1, 1))
+    )
+    with pytest.raises(
+        SpecError,
+        match=r"holds dates \(2000-01-01 to 2020-01-01\) but the column 'year' holds integers",
+    ):
+        animate(years).nframes  # noqa: B018
+    # Dates and date-times both fit a date column.
+    fitting = visits_plot() + transition_reveal(
+        "day", range=(datetime.datetime(2024, 5, 1), datetime.date(2024, 5, 9))
+    )
+    assert animate(fitting, nframes=5).nframes == 5
+
+
+def test_date_states_print_as_dates():
+    plot = (
+        ggplot(VISITS, aes("day", "visitors"))
+        + geom_point()
+        + transition_manual("day")
+        + ggtitle("{current_frame}|{previous_frame}")
+    )
+    animation = animate(plot)
+    assert "2024-05-02|2024-05-01" in titles(animation.frame(1))
+    stamps = pl.DataFrame(
+        {"at": [datetime.datetime(2024, 1, 1, hour) for hour in (0, 6)], "y": [1.0, 2.0]}
+    )
+    plot = (
+        ggplot(stamps, aes("y", "y"))
+        + geom_point()
+        + transition_states("at", wrap=False)
+        + ggtitle("{previous_state}>{next_state} {closest_state}")
+    )
+    texts = titles(animate(plot, nframes=10).frame(4))
+    assert any(text.startswith("2024-01-01&gt;2024-01-01 06:00:00 ") for text in texts), texts

@@ -102,6 +102,102 @@ pub(crate) fn parse_range(options: &Map<String, Value>, path: &str) -> Result<Op
     }
 }
 
+/// What `range` was given as (`range_kind`, set by the Python API).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RangeKind {
+    /// Numbers.
+    Number,
+    /// Dates.
+    Date,
+    /// Date-times (or dates mixed with date-times).
+    DateTime,
+    /// Times of day.
+    Time,
+}
+
+impl RangeKind {
+    /// `value` of a range of this kind as the user gave it.
+    fn shown(self, value: f64) -> String {
+        match self {
+            RangeKind::Number => r_number(value),
+            RangeKind::Date => TimeClass::Date.label(value),
+            RangeKind::DateTime => TimeClass::DateTime.label(value),
+            RangeKind::Time => TimeClass::TimeOfDay.label(value),
+        }
+    }
+
+    fn name(self) -> &'static str {
+        match self {
+            RangeKind::Number => "numbers",
+            RangeKind::Date => "dates",
+            RangeKind::DateTime => "date-times",
+            RangeKind::Time => "times of day",
+        }
+    }
+}
+
+/// `range_kind` of `transition_time()` / `transition_reveal()`; `None` when
+/// not given (a hand-written spec: the range is not checked).
+///
+/// # Errors
+///
+/// A spec error at `<path>.range_kind` for an unknown kind.
+pub(crate) fn parse_range_kind(
+    options: &Map<String, Value>,
+    path: &str,
+) -> Result<Option<RangeKind>> {
+    match options.get("range_kind") {
+        Some(Value::Null) | None => Ok(None),
+        Some(Value::String(kind)) if kind == "number" => Ok(Some(RangeKind::Number)),
+        Some(Value::String(kind)) if kind == "date" => Ok(Some(RangeKind::Date)),
+        Some(Value::String(kind)) if kind == "datetime" => Ok(Some(RangeKind::DateTime)),
+        Some(Value::String(kind)) if kind == "time" => Ok(Some(RangeKind::Time)),
+        other => Err(Error::spec(
+            format!("{path}.range_kind"),
+            format!(
+                "expected 'number', 'date', 'datetime' or 'time', got {}",
+                shown(other)
+            ),
+        )),
+    }
+}
+
+impl TimeClass {
+    /// What the column holds, in words, for errors.
+    fn name(self) -> &'static str {
+        match self {
+            TimeClass::Integer => "integers",
+            TimeClass::Numeric => "numbers",
+            TimeClass::Date => "dates",
+            TimeClass::DateTime => "date-times",
+            TimeClass::TimeOfDay => "times of day",
+        }
+    }
+
+    /// What `range` this column type accepts, in words.
+    fn accepted_range(self) -> &'static str {
+        match self {
+            TimeClass::Integer | TimeClass::Numeric => "numbers, e.g. range=(2000, 2020)",
+            TimeClass::Date | TimeClass::DateTime => {
+                "dates or date-times (datetime.date, datetime.datetime, numpy.datetime64, \
+                 polars or pandas values), e.g. range=(date(2020, 1, 1), date(2020, 12, 31))"
+            }
+            TimeClass::TimeOfDay => "times of day (datetime.time), e.g. range=(time(9), time(17))",
+        }
+    }
+
+    /// Whether a `range` of `kind` fits this column type.
+    fn accepts(self, kind: RangeKind) -> bool {
+        match self {
+            TimeClass::Integer | TimeClass::Numeric => kind == RangeKind::Number,
+            TimeClass::Date | TimeClass::DateTime => {
+                matches!(kind, RangeKind::Date | RangeKind::DateTime)
+            }
+            TimeClass::TimeOfDay => kind == RangeKind::Time,
+        }
+    }
+}
+
 /// The column name option (`time`, `along`) as a [`StateVariable`].
 ///
 /// # Errors
@@ -155,10 +251,13 @@ pub(crate) enum Rounding {
 /// # Errors
 ///
 /// A spec error at the variable's path when the column is categorical, or when
-/// its values span no time and no `range` is given.
+/// its values span no time and no `range` is given; at `range` when the range
+/// is not of the column's type (gganimate: "range must be given in the same
+/// class as time").
 pub(crate) fn plan(
     states: &StateSet,
     range: Option<[f64; 2]>,
+    range_kind: Option<RangeKind>,
     frames: usize,
     variable: &StateVariable,
     function: &str,
@@ -174,6 +273,27 @@ pub(crate) fn plan(
             ),
         ));
     };
+    if let (Some(kind), Some(range)) = (range_kind, range)
+        && !states.class.accepts(kind)
+    {
+        let path = variable
+            .path
+            .rsplit_once('.')
+            .map_or("range".to_owned(), |(parent, _)| format!("{parent}.range"));
+        return Err(Error::spec(
+            path,
+            format!(
+                "{function}(range=...) holds {} ({} to {}) but the column '{}' holds {}; \
+                 give the range as {}",
+                kind.name(),
+                kind.shown(range[0]),
+                kind.shown(range[1]),
+                variable.name,
+                states.class.name(),
+                states.class.accepted_range()
+            ),
+        ));
+    }
     let [low, high] = match range {
         Some(range) => range,
         None => match (values.first(), values.last()) {
@@ -252,6 +372,7 @@ pub(crate) mod tests {
         let planned = plan(
             &states,
             None,
+            None,
             100,
             &variable(),
             "transition_time",
@@ -272,6 +393,7 @@ pub(crate) mod tests {
         let planned = plan(
             &states,
             Some([1957.0, 1962.0]),
+            None,
             11,
             &variable(),
             "transition_time",
@@ -289,10 +411,10 @@ pub(crate) mod tests {
             values: Some(&values),
             class: TimeClass::Numeric,
         };
-        let time = plan(&states, None, 5, &variable(), "f", Rounding::Time).unwrap();
+        let time = plan(&states, None, None, 5, &variable(), "f", Rounding::Time).unwrap();
         // 1 + 4 * v / 4 = 1, 1.5 -> 2, 2.5 -> 2, 5.
         assert_eq!(time.positions, vec![1, 2, 2, 5]);
-        let reveal = plan(&states, None, 5, &variable(), "f", Rounding::Reveal).unwrap();
+        let reveal = plan(&states, None, None, 5, &variable(), "f", Rounding::Reveal).unwrap();
         // round(v) + 1: 1, round(0.5) = 0 -> 1, round(1.5) = 2 -> 3, 5.
         assert_eq!(reveal.positions, vec![1, 1, 3, 5]);
     }
@@ -307,6 +429,7 @@ pub(crate) mod tests {
         };
         let error = plan(
             &states,
+            None,
             None,
             10,
             &variable(),
@@ -324,6 +447,7 @@ pub(crate) mod tests {
         };
         let error = plan(
             &categories,
+            None,
             None,
             10,
             &variable(),
@@ -377,7 +501,16 @@ pub(crate) mod tests {
                 .as_array()
                 .map(|range| [range[0].as_f64().unwrap(), range[1].as_f64().unwrap()]);
             let frames = case["nframes"].as_u64().unwrap() as usize;
-            let planned = plan(&states, range, frames, &variable(), "f", Rounding::Time).unwrap();
+            let planned = plan(
+                &states,
+                range,
+                None,
+                frames,
+                &variable(),
+                "f",
+                Rounding::Time,
+            )
+            .unwrap();
             let kept =
                 super::super::time::kept_states(&vec![true; values.len()], &planned.positions);
             let positions: Vec<Option<f64>> = data
@@ -395,6 +528,83 @@ pub(crate) mod tests {
                 assert!((time - want.unwrap()).abs() < 1e-9, "{time} vs {want:?}");
             }
         }
+    }
+
+    #[test]
+    fn a_range_must_match_the_column_type() {
+        let days = [0.0, 86_400_000.0];
+        let dates = StateSet {
+            count: 2,
+            values: Some(&days),
+            class: TimeClass::Date,
+        };
+        let numbers = Some(RangeKind::Number);
+        let error = plan(
+            &dates,
+            Some([1.0, 5.0]),
+            numbers,
+            5,
+            &variable(),
+            "transition_time",
+            Rounding::Time,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(error.contains("animation.transition.range"), "{error}");
+        assert!(error.contains("holds numbers (1 to 5)"), "{error}");
+        assert!(error.contains("column 'year' holds dates"), "{error}");
+        assert!(error.contains("datetime.date"), "{error}");
+        for kind in [RangeKind::Date, RangeKind::DateTime] {
+            assert!(
+                plan(
+                    &dates,
+                    Some([0.0, 9e7]),
+                    Some(kind),
+                    5,
+                    &variable(),
+                    "f",
+                    Rounding::Time
+                )
+                .is_ok()
+            );
+        }
+        // A spec without a kind (written by hand) is not checked.
+        assert!(
+            plan(
+                &dates,
+                Some([1.0, 5.0]),
+                None,
+                5,
+                &variable(),
+                "f",
+                Rounding::Time
+            )
+            .is_ok()
+        );
+        let years = [2000.0, 2010.0];
+        let integers = StateSet {
+            count: 2,
+            values: Some(&years),
+            class: TimeClass::Integer,
+        };
+        let error = plan(
+            &integers,
+            Some([0.0, 9e7]),
+            Some(RangeKind::Date),
+            5,
+            &variable(),
+            "f",
+            Rounding::Time,
+        )
+        .unwrap_err()
+        .to_string();
+        assert!(
+            error.contains("holds dates (1970-01-01 to 1970-01-02)")
+                && error.contains("holds integers"),
+            "{error}"
+        );
+        let options = json!({"range_kind": "days"});
+        assert!(parse_range_kind(options.as_object().unwrap(), "animation.transition").is_err());
     }
 
     #[test]

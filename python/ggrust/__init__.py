@@ -12,6 +12,7 @@ from importlib.metadata import version as _distribution_version
 from ggrust._display import display as display
 from ggrust._ggrust import engine_version
 from ggrust._render import GgrustWarning
+from ggrust.animation import Animation, anim_save, animate, last_animation
 from ggrust.compare_means import compare_means
 from ggrust.density_outline import density_outline
 from ggrust.export import ggsave
@@ -404,6 +405,7 @@ from ggrust.plot import (
     theme_minimal2,
     theme_none,
     theme_void,
+    transition_manual,
     xlab,
     xlim,
     ylab,
@@ -416,6 +418,7 @@ from ggrust.velocity_grid import VelocityGrid, velocity_grid
 __version__ = _distribution_version("ggrust")
 
 __all__ = [
+    "Animation",
     "ClusterTree",
     "GGBunch",
     "GgrustWarning",
@@ -426,6 +429,8 @@ __all__ = [
     "__version__",
     "aes",
     "after_stat",
+    "anim_save",
+    "animate",
     "annotate",
     "annotation_logticks",
     "arrow",
@@ -583,6 +588,7 @@ __all__ = [
     "label_context",
     "label_value",
     "labs",
+    "last_animation",
     "layer",
     "layer_key",
     "layer_tooltips",
@@ -817,6 +823,7 @@ __all__ = [
     "theme_minimal2",
     "theme_none",
     "theme_void",
+    "transition_manual",
     "velocity_grid",
     "xlab",
     "xlim",

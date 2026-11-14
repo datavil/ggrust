@@ -15,6 +15,7 @@ arrow-schema.workspace = true
 arrow-select.workspace = true
 crc32fast.workspace = true
 flate2.workspace = true
+gif.workspace = true
 harfrust.workspace = true
 jpeg-encoder.workspace = true
 pdf-writer.workspace = true

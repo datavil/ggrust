@@ -1305,9 +1305,37 @@ def pubr_manual_brackets(m):
     )
 
 
+def _animated_penguins(m):
+    """Palmer penguins by year (gganimate transition_manual), title from the frame."""
+    from ggrust.data import penguins
+
+    return (
+        m.ggplot(penguins, m.aes("flipper_length_mm", "body_mass_g", color="species"))
+        + m.geom_point(size=3, alpha=0.8, na_rm=True)
+        + m.labs(
+            title="Palmer penguins, {current_frame}",
+            subtitle="frame {frame} of {nframes}",
+            x="Flipper length (mm)",
+            y="Body mass (g)",
+        )
+        + m.transition_manual("year")
+        + m.ggsize(520, 360)
+    )
+
+
+def animation_first_frame(m):
+    return m.animate(_animated_penguins(m)).frame(0)
+
+
+def animation_last_frame(m):
+    return m.animate(_animated_penguins(m)).frame(-1)
+
+
 EXTENSION_CASES = {
     case.__name__: case
     for case in [
+        animation_first_frame,
+        animation_last_frame,
         ggside_band_panels,
         nested_bottom_square,
         nested_top_opposite,

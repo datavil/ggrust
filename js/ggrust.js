@@ -16,7 +16,8 @@
 // Dense point batches (more than 5k markers) arrive as base64 typed arrays
 // and are stamped on a canvas inside their SVG placeholder: see "Canvas points".
 // Clicking a discrete legend key hides or shows its marks and their tooltips:
-// see "Interactive legend".
+// see "Interactive legend". Animations (gganimate transitions) get a player
+// instead of all that: see "Animation player".
 //
 // The file is one function expression; the renderer calls it with the engine
 // version. It is inlined in a script element, so it must never contain a
@@ -2156,6 +2157,102 @@
     applyLegend(plot);
   }
 
+  // ---- Animation player -----------------------------------------------------
+  // An animation (crates/ggrust-core/src/render/html.rs `to_html_animation`)
+  // ships its distinct frames as SVG strings or PNG data URLs, and a timeline:
+  // per output frame, the index of the frame it shows. The player plays the
+  // timeline at `fps`, looping, under a bar with play/pause, a slider and a
+  // frame counter. No tooltips or zoom in animations.
+  function attachAnimation(plot) {
+    var data = plot.root.querySelector('script[type="application/vnd.ggrust-animation+json"]');
+    if (data === null) {
+      return false;
+    }
+    var animation = JSON.parse(data.textContent);
+    var holder = plot.root.querySelector(".ggrust-frame");
+    var timeline = animation.timeline;
+    var count = timeline.length;
+    var delay = 1000 / animation.fps;
+    var current = 0;
+    var shown = timeline[0];
+    var timer = null;
+    var image = animation.kind === "png" ? holder.querySelector("img") : null;
+
+    var bar = document.createElement("div");
+    bar.className = "ggrust-player";
+    bar.style.cssText =
+      "display:flex;align-items:center;gap:8px;height:32px;line-height:normal;" +
+      "font:12px Lato, 'Helvetica Neue', Helvetica, Arial, sans-serif;color:" + TEXT + ";" +
+      "box-sizing:border-box;padding:4px 6px;width:" + animation.width + "px;max-width:100%";
+    var button = document.createElement("button");
+    button.type = "button";
+    button.style.cssText =
+      "width:26px;height:24px;padding:0;border:1px solid #c8c8c8;border-radius:3px;" +
+      "background:#fff;color:" + TEXT + ";cursor:pointer;font-size:12px;line-height:1";
+    var slider = document.createElement("input");
+    slider.type = "range";
+    slider.min = "0";
+    slider.max = String(count - 1);
+    slider.step = "1";
+    slider.value = "0";
+    slider.style.cssText = "flex:1;min-width:40px;margin:0";
+    slider.setAttribute("aria-label", "frame");
+    var counter = document.createElement("span");
+    counter.style.cssText = "min-width:64px;text-align:right;font-variant-numeric:tabular-nums";
+    bar.appendChild(button);
+    bar.appendChild(slider);
+    bar.appendChild(counter);
+    plot.root.appendChild(bar);
+
+    function show(index) {
+      current = index;
+      var frame = timeline[index];
+      if (frame !== shown) {
+        shown = frame;
+        if (image !== null) {
+          image.src = animation.frames[frame];
+        } else {
+          holder.innerHTML = animation.frames[frame];
+        }
+      }
+      slider.value = String(index);
+      counter.textContent = index + 1 + " / " + count;
+    }
+    function label() {
+      button.textContent = timer === null ? "\u25B6" : "\u275A\u275A";
+      button.setAttribute("aria-label", timer === null ? "play" : "pause");
+    }
+    function tick() {
+      show((current + 1) % count);
+      timer = window.setTimeout(tick, delay);
+    }
+    function play() {
+      if (timer === null && count > 1) {
+        timer = window.setTimeout(tick, delay);
+      }
+      label();
+    }
+    function pause() {
+      if (timer !== null) {
+        window.clearTimeout(timer);
+        timer = null;
+      }
+      label();
+    }
+    button.addEventListener("click", function () {
+      if (timer === null) play();
+      else pause();
+    });
+    slider.addEventListener("input", function () {
+      pause();
+      show(Number(slider.value));
+    });
+    plot.animation = { play: play, pause: pause, show: show };
+    show(0);
+    play();
+    return true;
+  }
+
   // Attach to the plot whose root element has id `id`. Mounting twice returns
   // the same object. The plot lives on its root element, so removing the output
   // from the page frees it (no page-wide registry).
@@ -2170,6 +2267,9 @@
     var plot = { id: id, root: root, svg: root.querySelector("svg"), layers: [] };
     root.ggrust = plot;
     root.setAttribute("data-ggrust-mounted", version);
+    if (attachAnimation(plot)) {
+      return plot;
+    }
     attachCanvas(plot);
     attach(plot);
     attachZoom(plot);

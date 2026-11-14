@@ -35,6 +35,9 @@ import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
+from ggrust import animate
+from ggrust._render import is_animated
+
 DOCS = Path(__file__).parent
 EXAMPLES = DOCS / "examples"
 DATA_URL = "https://raw.githubusercontent.com/datavil/ggrust/main/docs/data/"
@@ -91,7 +94,9 @@ def render(path: Path) -> Example:
         int(re.search(rf'{key}="(\d+)"', iframe).group(1)) for key in ("width", "height")
     )
     plot.to_html(DOCS / "plots" / f"{path.stem}.html")
-    plot.to_png(DOCS / "images" / "gallery" / f"{path.stem}.png")
+    # An animation's thumbnail is its first frame.
+    still = animate(plot).frame(0) if is_animated(plot) else plot
+    still.to_png(DOCS / "images" / "gallery" / f"{path.stem}.png")
     (EXAMPLES / "figures" / f"{path.stem}.html").write_text(figure(path.stem, title, width, height))
     return Example(path.stem, title.strip(), description.strip(), code, width, height)
 

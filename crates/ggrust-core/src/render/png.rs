@@ -155,17 +155,21 @@ const MAX_SIDE: f64 = 32_768.0;
 /// to fail fast instead of exhausting memory.
 const MAX_PIXELS: f64 = 400_000_000.0;
 
+/// Pixels of a `width` x `height` scene at `scale`. As lets-plot
+/// (`PlotImageExport`): the layout size rounded up to whole pixels, then scaled
+/// and rounded down; the epsilons keep 400.0000001 at 400 and 1199.9999 at 1200.
+pub(super) fn pixel_size(width: f64, height: f64, scale: f64) -> (f64, f64) {
+    let pixels = |side: f64| ((side - 1e-6).ceil() * scale + 1e-6).floor();
+    (pixels(width), pixels(height))
+}
+
 fn new_pixmap(width: f64, height: f64, scale: f64) -> Result<Pixmap> {
     if !(scale.is_finite() && scale > 0.0) {
         return Err(Error::render(format!(
             "scale must be positive, got {scale}"
         )));
     }
-    // As lets-plot (`PlotImageExport`): the layout size rounded up to whole pixels,
-    // then scaled and rounded down; the epsilons keep 400.0000001 at 400 and
-    // 1199.9999 at 1200.
-    let pixels = |side: f64| ((side - 1e-6).ceil() * scale + 1e-6).floor();
-    let (width, height) = (pixels(width), pixels(height));
+    let (width, height) = pixel_size(width, height, scale);
     if !(width >= 1.0 && height >= 1.0) {
         return Err(Error::render(format!(
             "image size {width} x {height} pixels is empty; width and height must be at least 1"

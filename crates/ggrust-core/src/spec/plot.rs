@@ -50,6 +50,10 @@ pub struct PlotSpec {
     /// ggside `ggside(x_pos=, y_pos=)`: where the side panels go (see
     /// [`super::side::SideOptions`]).
     pub ggside: Option<Value>,
+    /// gganimate: the transition (`transition_manual(...)`), `animate()` options and
+    /// the still frame to draw (see [`crate::animate::AnimationSpec`]). Parsed by
+    /// the animate module, so its errors carry `animation.*` paths.
+    pub animation: Option<Value>,
     /// lets-plot front-end metadata (`font_family_info`, ...). Not supported:
     /// every entry is reported by [`super::Figure::unsupported_options`].
     pub metainfo_list: Vec<Value>,

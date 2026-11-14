@@ -6,20 +6,14 @@
 //! from each prepared layer's `data` and `styles`; layout reads only the scales,
 //! legends and titles. So a frame is a copy of the plot whose layers hold other
 //! rows ([`PreparedPlot::with_layer_frames`]), laid out and drawn by the normal
-//! code. This module does not plan frames, tween values or render outputs: that
-//! is `animate/` (step an1 and later).
-
-#![cfg_attr(
-    not(test),
-    expect(
-        dead_code,
-        reason = "the animate module (step an1) is the first caller"
-    )
-)]
+//! code. An animated plot ([`super::prepare_plot_states`]) also knows the state of
+//! every row ([`PreparedPlot::state_rows`]). This module does not plan frames,
+//! tween values or render outputs: that is `crate::animate`.
 
 use super::PANEL_MIN_SIZE;
 use super::{PreparedLayer, PreparedPlot};
 use crate::data::LayerData;
+use crate::layout::Titles;
 use crate::scene::{Rect, Scene};
 use crate::style::Styles;
 use crate::{Error, Result};
@@ -114,8 +108,50 @@ impl PreparedPlot {
             tooltip_setups: self.tooltip_setups.clone(),
             space: self.space.clone(),
             polar: self.polar,
+            state_labels: self.state_labels.clone(),
             warnings: Vec::new(),
         })
+    }
+
+    /// An animation's states, labelled as `{current_frame}` shows them; empty
+    /// for a plot prepared without states.
+    pub(crate) fn state_labels(&self) -> &[String] {
+        self.state_labels.as_deref().unwrap_or_default()
+    }
+
+    /// Per tile and per layer, the rows of every state (indices into the
+    /// layer's prepared rows, see [`Self::layer_frames`]); `None` for a layer
+    /// without states, drawn whole in every frame.
+    pub(crate) fn state_rows(&self) -> Vec<Vec<Option<Vec<Vec<u32>>>>> {
+        let count = self.state_labels().len();
+        self.tiles
+            .iter()
+            .map(|(layers, _, _)| {
+                layers
+                    .iter()
+                    .map(|layer| {
+                        let states = layer.states.as_ref()?;
+                        let mut rows = vec![Vec::new(); count];
+                        for (row, state) in states.iter().enumerate() {
+                            if let Some(rows) = rows.get_mut(*state as usize) {
+                                rows.push(row as u32);
+                            }
+                        }
+                        Some(rows)
+                    })
+                    .collect()
+            })
+            .collect()
+    }
+
+    /// The plot's screen titles (title, subtitle, caption, axes).
+    pub(crate) fn titles(&self) -> &Titles {
+        &self.titles
+    }
+
+    /// Replace the titles (an animation frame's filled label templates).
+    pub(crate) fn set_titles(&mut self, titles: Titles) {
+        self.titles = titles;
     }
 
     /// Lay the plot out at its own size and draw it, as `build_plot` does for
@@ -183,6 +219,7 @@ impl PreparedLayer {
             show_legend: self.show_legend,
             companion: self.companion,
             keys: None,
+            states: None,
         }
     }
 }

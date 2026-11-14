@@ -159,6 +159,16 @@ impl PlotSpec {
         for layer in &self.layers {
             add_layer(layer, columns);
         }
+        // gganimate transition_manual(frames): the state column.
+        if let Some(frames) = self
+            .animation
+            .as_ref()
+            .and_then(|animation| animation.get("transition"))
+            .and_then(|transition| transition.get("frames"))
+            .and_then(|frames| frames.as_str())
+        {
+            columns.insert(frames.to_owned());
+        }
     }
 }
 

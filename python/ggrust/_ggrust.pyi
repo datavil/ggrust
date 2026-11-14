@@ -234,6 +234,53 @@ def render(
         If the spec or data is invalid; the message names the offending path.
     """
 
+def render_animation(
+    spec_json: str,
+    frames: list[Any],
+    output: str,
+    scale: float,
+    html_id: str | None = None,
+    dpi: float | None = None,
+    functions: list[Callable[..., object]] | None = None,
+    metadata: bool = True,
+) -> tuple[bytes, list[str]]:
+    """Plan and render an animated plot (``animate()``, ``anim_save()``).
+
+    Parameters
+    ----------
+    spec_json
+        Plot spec as for ``render``; its ``animation`` key holds the transition and
+        the ``animate()`` options (``animation.animate``).
+    frames
+        The referenced frames, each exporting ``__arrow_c_stream__``.
+    output
+        ``"gif"``, ``"apng"``, ``"html"`` (notebook fragment with the player),
+        ``"html_page"``, ``"html_iframe"`` or ``"info"`` (JSON: ``frames``, the output
+        frame count; ``fps``; ``nframes``, the transition's frame count; ``timeline``,
+        the scene frame of every output frame).
+    scale
+        GIF / APNG pixel scale.
+    html_id
+        Id of the root element of HTML outputs. Required for them.
+    dpi
+        APNG resolution (``pHYs``); 96 when None.
+    functions
+        Secondary axis transforms, as for ``render``.
+    metadata
+        Record ``ggrust vX.Y.Z`` in the output's metadata (never drawn).
+
+    Returns
+    -------
+    tuple[bytes, list[str]]
+        Encoded output and build warnings.
+
+    Raises
+    ------
+    ValueError
+        If the spec, the animation options or the data are invalid; the message
+        names the offending path.
+    """
+
 def inspect(
     spec_json: str,
     frames: list[Any],

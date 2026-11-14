@@ -766,6 +766,97 @@ mod _ggrust {
         Ok((PyBytes::new(python, &bytes), warnings))
     }
 
+    /// Plan and render an animated plot (`animate()`, `anim_save()`).
+    ///
+    /// Arguments as `render`. `output` is `"gif"`, `"apng"`, `"html"` (notebook
+    /// fragment), `"html_page"`, `"html_iframe"` or `"info"`: JSON with the output
+    /// frame count (`frames`), the final `fps`, the transition's scene frame count
+    /// (`nframes`) and the `timeline` (scene frame per output frame). The spec's
+    /// `animation` key holds the transition and the `animate()` options. Returns the
+    /// encoded output and the build warnings. The GIL is released while rendering.
+    #[pyfunction]
+    #[pyo3(signature = (spec_json, frames, output, scale, html_id=None, dpi=None, functions=None, metadata=true))]
+    #[allow(clippy::too_many_arguments)]
+    fn render_animation<'py>(
+        python: Python<'py>,
+        spec_json: &str,
+        frames: Vec<AnyRecordBatch>,
+        output: &str,
+        scale: f64,
+        html_id: Option<String>,
+        dpi: Option<f64>,
+        functions: Option<Vec<Py<PyAny>>>,
+        metadata: bool,
+    ) -> PyResult<(Bound<'py, PyBytes>, Vec<String>)> {
+        use ggrust_core::animate::Animation;
+        use ggrust_core::build::PlotData;
+        use ggrust_core::render::{FrameSource, to_apng, to_gif, to_html_animation};
+
+        let functions = axis_functions(functions);
+        let frames = frames
+            .into_iter()
+            .map(to_frame)
+            .collect::<PyResult<Vec<_>>>()?;
+        let spec_json = spec_json.to_owned();
+        let output = output.to_owned();
+        let (bytes, warnings) = python
+            .detach(move || -> ggrust_core::Result<(Vec<u8>, Vec<String>)> {
+                let document = match output.as_str() {
+                    "gif" | "apng" | "info" => None,
+                    "html" => Some(HtmlDocument::Fragment),
+                    "html_page" => Some(HtmlDocument::Page),
+                    "html_iframe" => Some(HtmlDocument::Iframe),
+                    other => {
+                        return Err(ggrust_core::Error::render(format!(
+                            "unknown animation output '{other}'; expected 'gif', 'apng', \
+                             'html', 'html_page', 'html_iframe' or 'info'"
+                        )));
+                    }
+                };
+                let spec = match figure_with_functions(&spec_json, &functions)? {
+                    Figure::Plot(spec) => spec,
+                    Figure::Subplots(_) => {
+                        return Err(ggrust_core::Error::spec(
+                            "animation",
+                            "gggrid() cannot be animated yet; animate a single plot",
+                        ));
+                    }
+                };
+                let data = PlotData::from_frames(&spec, &frames)?;
+                let mut animation = Animation::new(&spec, &data)?;
+                animation.metadata = metadata;
+                let bytes = match (output.as_str(), document) {
+                    ("gif", _) => to_gif(&animation, scale)?,
+                    ("apng", _) => to_apng(&animation, scale, dpi.unwrap_or(SCREEN_DPI))?,
+                    ("info", _) => {
+                        let timeline = animation.timeline();
+                        let order: Vec<String> =
+                            timeline.frames.iter().map(usize::to_string).collect();
+                        format!(
+                            "{{\"frames\":{},\"fps\":{},\"nframes\":{},\"timeline\":[{}]}}",
+                            timeline.frames.len(),
+                            FrameSource::fps(&animation),
+                            timeline.scene_frames,
+                            order.join(",")
+                        )
+                        .into_bytes()
+                    }
+                    (_, Some(document)) => {
+                        let Some(id) = html_id else {
+                            return Err(ggrust_core::Error::render(format!(
+                                "output '{output}' needs 'html_id' (unique per display)"
+                            )));
+                        };
+                        to_html_animation(&animation, &HtmlOptions { id, document })?.into_bytes()
+                    }
+                    (_, None) => unreachable!("every output was matched above"),
+                };
+                Ok((bytes, animation.warnings))
+            })
+            .map_err(to_python_error)?;
+        Ok((PyBytes::new(python, &bytes), warnings))
+    }
+
     /// What `inspect` returns: layer tables, panel scale dicts, warnings.
     type Inspection<'py> = (
         Vec<Bound<'py, PyAny>>,

@@ -330,6 +330,16 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
         "layouts and automatic tags to grids.",
         ["inset_element"],
     ),
+    "Animation (gganimate)": (
+        "One frame per value of a column, played as a GIF, APNG or HTML player.",
+        [
+            "transition_manual",
+            "animate",
+            "anim_save",
+            "last_animation",
+            "Animation",
+        ],
+    ),
     "Rasterized layers (ggrastr)": (
         "Draw a dense layer as a bitmap inside SVG and PDF output (R package ggrastr, "
         "not in lets-plot).",

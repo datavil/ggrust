@@ -13,6 +13,8 @@ import warnings
 from pathlib import Path
 
 import pytest
+from ggrust import animate
+from ggrust._render import is_animated
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "docs"))
 
@@ -41,4 +43,7 @@ def test_docstring_example_runs(path: str) -> None:
         result = runner.run(test, out=report.append, clear_globs=False)
         assert result.failed == 0, "".join(report)
         if build_examples.binds_plot(code):
-            assert test.globs["plot"].to_svg().startswith("<svg")
+            plot = test.globs["plot"]
+            # An animated plot renders as its first frame, as in the docs gallery.
+            still = animate(plot).frame(0) if is_animated(plot) else plot
+            assert still.to_svg().startswith("<svg")

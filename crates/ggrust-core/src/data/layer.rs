@@ -362,6 +362,81 @@ impl LayerData {
         }
     }
 
+    /// Parts of one layer computed apart (an animation's states), joined in order.
+    /// Each part comes with its input rows as indices into the whole layer's input,
+    /// so source rows keep pointing at the whole layer's rows. Every part must hold
+    /// the same variables; a missing group or panel index counts as all zeros.
+    ///
+    /// # Errors
+    ///
+    /// An internal error when the parts hold different variables or kinds.
+    pub fn concat(parts: &[(&LayerData, &[u32])]) -> Result<LayerData> {
+        let Some((first, _)) = parts.first() else {
+            return Ok(LayerData::default());
+        };
+        let row_count = parts.iter().map(|(part, _)| part.row_count).sum();
+        let mut columns = BTreeMap::new();
+        for variable in first.columns.keys() {
+            let pieces = parts
+                .iter()
+                .map(|(part, _)| {
+                    part.columns.get(variable).cloned().ok_or_else(|| {
+                        Error::data(format!(
+                            "internal: a state of the layer has no column '{variable}'"
+                        ))
+                    })
+                })
+                .collect::<Result<Vec<Column>>>()?;
+            columns.insert(*variable, Column::concat(&variable.to_string(), pieces)?);
+        }
+        if parts
+            .iter()
+            .any(|(part, _)| part.columns.len() != first.columns.len())
+        {
+            return Err(Error::data(
+                "internal: the states of a layer hold different columns",
+            ));
+        }
+        let index = |pick: fn(&LayerData) -> Option<&Vec<u32>>| -> Option<Vec<u32>> {
+            parts.iter().any(|(part, _)| pick(part).is_some()).then(|| {
+                parts
+                    .iter()
+                    .flat_map(|(part, _)| match pick(part) {
+                        Some(index) => index.clone(),
+                        None => vec![0; part.row_count],
+                    })
+                    .collect()
+            })
+        };
+        let source_rows = if parts
+            .iter()
+            .any(|(part, _)| part.source_rows == SourceRows::Aggregated)
+        {
+            SourceRows::Aggregated
+        } else {
+            SourceRows::Selected(
+                parts
+                    .iter()
+                    .flat_map(|(part, rows)| match &part.source_rows {
+                        SourceRows::Selected(sources) => sources
+                            .iter()
+                            .map(|&source| rows[source as usize])
+                            .collect::<Vec<_>>(),
+                        _ => rows.to_vec(),
+                    })
+                    .collect(),
+            )
+        };
+        Ok(LayerData {
+            row_count,
+            columns,
+            group_index: index(|part| part.group_index.as_ref()),
+            panel_index: index(|part| part.panel_index.as_ref()),
+            source_rows,
+            discrete_axes: first.discrete_axes,
+        })
+    }
+
     fn check_length(&self, what: &str, length: usize) -> Result<()> {
         if length == self.row_count {
             return Ok(());

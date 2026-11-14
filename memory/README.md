@@ -101,3 +101,4 @@ Add a line here for every new file. Format: `- [Title](file.md): one-line hook`.
 - [Infinite positions](infinite_positions.md): -inf/+inf mapped to the panel edges in the scale `map`, kept by transforms and limits, constants sent as `{"$float": "inf"}` (JSON has no infinity).
 - [Colorbar caps, minor ticks, title position](colorbar_caps_minor_title_position.md): arrange_title places every guide title (hjust/vjust as ggplot2), caps only add room labels lack, minor ticks need a tolerant domain filter.
 - [joint_plot and qq_plot follow lets-plot](letsplot_joint_qq_plot.md): joint as_dict equality, qq measured by SVG diff of a plain-layer candidate, margins over computed quantiles, two lets-plot bugs not copied.
+- [gganimate animation](gganimate_animation.md): one `animation` spec key, states carried like facets (scales once, stats per state), `Animation` frames via `with_layer_frames`, timeline ports `animate.gganim`, writers behind `FrameSource`.

@@ -813,6 +813,13 @@ class PlotSpec(FeatureSpec):
             if other.kind == "metainfo":
                 plot.__metainfo_list.append(other)
                 return plot
+            if other.kind == "animation":
+                # gganimate pieces (transition, animate() options) merge key by key.
+                earlier = plot.props().get("animation")
+                merged = dict(earlier.props()) if isinstance(earlier, FeatureSpec) else {}
+                merged.update(other.props())
+                plot.props()["animation"] = FeatureSpec("animation", name=None, **merged)
+                return plot
             if isinstance(other, FeatureSpecArray):
                 for element in other.elements():
                     added = plot.__add__(element)

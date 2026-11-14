@@ -1,13 +1,15 @@
 """``ggsave()``: write a plot to a file chosen by its extension.
 
 Ported from lets-plot's ``lets_plot/export/ggsave_.py`` (MIT, see THIRD_PARTY_NOTICES.md).
-Supported: svg, png, jpg/jpeg, tif/tiff, pdf (vector), html/htm, and ggrs (a plot file
-``ggload`` opens). JPEG and TIFF are ggplot2 formats lets-plot does not write.
+Supported: svg, png, jpg/jpeg, tif/tiff, pdf (vector), html/htm, gif, and ggrs (a plot
+file ``ggload`` opens). JPEG and TIFF are ggplot2 formats lets-plot does not write. A plot
+with a transition (gganimate) is animated in gif, png (APNG) and html.
 """
 
 from __future__ import annotations
 
 import os
+from typing import cast
 
 from ggrust.errors import ExportError, did_you_mean
 from ggrust.plot.core import PlotSpec
@@ -38,7 +40,7 @@ def ggsave(
         The figure.
     filename : str
         File name with extension: ``.svg``, ``.png``, ``.jpg`` / ``.jpeg``, ``.tif`` /
-        ``.tiff``, ``.pdf``, ``.html``, ``.htm``, or ``.ggrs`` for a plot file that
+        ``.tiff``, ``.pdf``, ``.html``, ``.htm``, ``.gif``, or ``.ggrs`` for a plot file that
         ``ggload`` opens again: the whole plot with its data and registered fonts, never
         code (a plot holding a Python function, such as a ``sec_axis`` transform, raises
         ``ExportError``).
@@ -66,6 +68,14 @@ def ggsave(
         SVG comment, the HTML ``generator`` meta tag. Never drawn, and nothing about
         you or your machine. Pass False to leave it out (not for ``.ggrs``). Not in
         lets_plot.
+
+    Notes
+    -----
+    A plot with a transition (``transition_manual()``) animates with ``animate()``'s
+    defaults in ``.gif``, ``.png`` (an animated PNG) and ``.html`` (the player), at a
+    pixel scale of 1 unless ``scale`` or ``dpi`` says otherwise. Other formats draw it
+    as a still plot with a warning. ``.gif`` needs a transition. Use ``animate()`` and
+    ``anim_save()`` for other frame counts or speeds.
 
     Raises
     ------
@@ -96,6 +106,7 @@ def ggsave(
         export_png,
         export_raster,
         export_svg,
+        is_animated,
     )
 
     if not isinstance(plot, PlotSpec | SupPlotsSpec):
@@ -126,7 +137,9 @@ def ggsave(
             "(they hold the plot, not an output); remove it"
         )
         raise ExportError(message)
-    if extension == "svg":
+    if extension == "gif" or (extension in ["png", "apng"] and is_animated(plot)):
+        _save_animation(plot, pathname, extension, scale, w, h, unit, dpi, metadata)
+    elif extension == "svg":
         export_svg(plot, pathname, w=w, h=h, unit=unit, metadata=metadata)
     elif extension in ["html", "htm"]:
         export_html(plot, pathname, iframe, metadata=metadata)
@@ -164,11 +177,55 @@ def ggsave(
 
         write_plot_file(plot, pathname)
     else:
-        extensions = ["svg", "png", "jpg", "jpeg", "tif", "tiff", "pdf", "html", "htm", "ggrs"]
+        extensions = [
+            "svg", "png", "jpg", "jpeg", "tif", "tiff", "pdf", "html", "htm", "ggrs", "gif",
+        ]  # fmt: skip
         message = (
             f"ggsave(): unsupported file extension {extension!r}; use one of 'svg', 'png', "
             f"'jpg', 'jpeg', 'tif', 'tiff', 'pdf', 'html', 'htm', "
-            f"'ggrs'{did_you_mean(extension, extensions)}"
+            f"'ggrs', 'gif'{did_you_mean(extension, extensions)}"
         )
         raise ExportError(message)
     return os.path.abspath(pathname)
+
+
+def _save_animation(
+    plot: PlotSpec | SupPlotsSpec,
+    pathname: str,
+    extension: str,
+    scale: float | None,
+    w: float | None,
+    h: float | None,
+    unit: str | None,
+    dpi: int | None,
+    metadata: bool,
+) -> None:
+    """Write a plot with a transition as GIF or APNG, with ``animate()``'s defaults.
+
+    Sizes follow ``PlotSpec.to_png`` except the default pixel scale, which is 1.
+    """
+    from ggrust._render import _raster_options, _write, is_animated, render_animation_bytes
+
+    if not is_animated(plot):
+        if not isinstance(plot, PlotSpec):
+            # A grid: an animated subplot fails here with the engine's own error.
+            plot.to_svg()
+        message = (
+            f"ggsave(): a .{extension} file needs an animated plot; add a transition, "
+            "e.g. + transition_manual('year'), or save as .png"
+        )
+        raise ExportError(message)
+    size, pixel_scale, resolution = _raster_options(
+        w, h, unit, dpi, 1.0 if scale is None else scale
+    )
+    output = "gif" if extension == "gif" else "apng"
+    encoded = render_animation_bytes(
+        cast("PlotSpec", plot),
+        output,
+        {},
+        scale=pixel_scale,
+        size=size,
+        dpi=resolution,
+        metadata=metadata,
+    )
+    _write(pathname, encoded)

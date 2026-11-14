@@ -53,6 +53,50 @@ pub fn build_figure(figure: &Figure, frames: &[DataFrame]) -> Result<BuiltPlot> 
     build_figure_with(figure, frames, false)
 }
 
+/// gganimate cannot animate patchwork either: a transition inside `gggrid` or
+/// an inset figure, or on a plot with insets, is a spec error (static output
+/// included, so the plot never silently loses its animation).
+fn reject_animation(figure: &Figure, path: &str) -> Result<()> {
+    match figure {
+        Figure::Plot(spec) => {
+            if spec.animation.is_some() {
+                let at = if path.is_empty() {
+                    "animation".to_owned()
+                } else {
+                    format!("{path}.animation")
+                };
+                return Err(Error::spec(
+                    at,
+                    "a transition inside gggrid() or with inset_element() is not supported \
+                     yet; animate a single plot",
+                ));
+            }
+            for (index, inset) in spec.insets.iter().enumerate() {
+                let prefix = if path.is_empty() {
+                    String::new()
+                } else {
+                    format!("{path}.")
+                };
+                reject_animation(&inset.figure, &format!("{prefix}insets[{index}].figure"))?;
+            }
+            Ok(())
+        }
+        Figure::Subplots(spec) => {
+            for (index, cell) in spec.figures.iter().enumerate() {
+                if let Some(cell) = cell {
+                    let prefix = if path.is_empty() {
+                        String::new()
+                    } else {
+                        format!("{path}.")
+                    };
+                    reject_animation(cell, &format!("{prefix}figures[{index}]"))?;
+                }
+            }
+            Ok(())
+        }
+    }
+}
+
 /// [`build_figure`], with the hover tooltips of every plot when `interactive`
 /// (HTML output).
 pub fn build_figure_with(
@@ -65,6 +109,7 @@ pub fn build_figure_with(
             build_plot_with(spec, &PlotData::from_frames(spec, frames)?, interactive)
         }
         _ => {
+            reject_animation(figure, "")?;
             let mut warnings = Vec::new();
             let context = GridContext {
                 frames,

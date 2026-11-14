@@ -12,13 +12,18 @@
 
 use std::fmt::Write as _;
 
+use rayon::prelude::*;
 use serde_json::{Value, json};
 
+use super::animation::FrameSource;
 use super::canvas::Batch;
-use super::svg::{SvgOptions, fragment, sanitize_id, to_svg_with_canvas};
+use super::png::{SCREEN_DPI, to_png};
+use super::raster::rasterize_layers;
+use super::svg::{SvgOptions, fragment, push_base64, sanitize_id, to_svg_with_canvas};
 use crate::layout::zoom::{Zoom, ZoomAxis};
 use crate::scene::{Node, Scene};
 use crate::tooltip::{HoverTargets, Interaction, WithCanvasTargets, write_script_json};
+use crate::{Error, Result};
 
 /// The runtime: one JavaScript function expression called with the engine version.
 const RUNTIME: &str = include_str!("../../../../js/ggrust.js");
@@ -276,6 +281,139 @@ fn page_start(extra_body_style: &str, metadata: bool) -> String {
          </head>\n<body>\n"
     )
 }
+
+/// Height of the animation player's controls under the plot, in pixels.
+const PLAYER_HEIGHT: f64 = 32.0;
+
+/// Render an animation to HTML: the first frame (the static view without
+/// JavaScript), every distinct frame in a
+/// `<script type="application/vnd.ggrust-animation+json">` payload and the runtime,
+/// which adds a player (play/pause, slider, frame counter) and plays the frames at
+/// the animation's fps, looping. Frames are SVG, or PNG (`data:` URLs at twice the
+/// size) when a frame has a dense point batch that HTML would draw on a canvas.
+/// No tooltips, zoom or interactive legend.
+///
+/// # Errors
+///
+/// A render error for an empty animation; any error of drawing a frame.
+pub fn to_html_animation(source: &dyn FrameSource, options: &HtmlOptions) -> Result<String> {
+    let id = sanitize_id(&options.id);
+    let timeline = source.timeline();
+    let mut distinct: Vec<usize> = timeline.to_vec();
+    distinct.sort_unstable();
+    distinct.dedup();
+    if distinct.is_empty() {
+        return Err(Error::render("the animation has no frames"));
+    }
+    let svg_options = SvgOptions {
+        id_prefix: Some(id.clone()),
+        zoomable: false,
+    };
+    let svg_frames: Vec<Result<SvgFrame>> = distinct
+        .par_iter()
+        .map(|frame| {
+            let scene = source.scene(*frame)?;
+            let scene = rasterize_layers(&scene, 1.0 / SCREEN_DPI)?;
+            let (svg, batches) = to_svg_with_canvas(&scene, &svg_options, String::new());
+            Ok((
+                svg,
+                !batches.is_empty(),
+                (scene.width, scene.height, scene.metadata),
+            ))
+        })
+        .collect();
+    let svg_frames = svg_frames.into_iter().collect::<Result<Vec<_>>>()?;
+    let (width, height, metadata) = svg_frames[0].2;
+    let uses_canvas = svg_frames.iter().any(|(_, canvas, _)| *canvas);
+    let (kind, frames): (&str, Vec<String>) = if uses_canvas {
+        drop(svg_frames);
+        let images: Vec<Result<String>> = distinct
+            .par_iter()
+            .map(|frame| {
+                let png = to_png(&source.scene(*frame)?, ANIMATION_PNG_SCALE)?;
+                let mut url = String::from("data:image/png;base64,");
+                push_base64(&mut url, &png);
+                Ok(url)
+            })
+            .collect();
+        ("png", images.into_iter().collect::<Result<Vec<_>>>()?)
+    } else {
+        (
+            "svg",
+            svg_frames.into_iter().map(|(svg, _, _)| svg).collect(),
+        )
+    };
+    let index_of = |frame: &usize| distinct.partition_point(|known| known < frame);
+    let payload = json!({
+        "fps": source.fps(),
+        "kind": kind,
+        "width": width,
+        "height": height,
+        "timeline": timeline.iter().map(index_of).collect::<Vec<_>>(),
+        "frames": frames,
+    });
+    let first = &frames[index_of(&timeline[0])];
+    let fragment = |output: String| {
+        let mut output = output;
+        let _ = writeln!(
+            output,
+            "<div id=\"{id}\" class=\"ggrust-plot ggrust-animation\" \
+             style=\"display:inline-block;position:relative;line-height:0;vertical-align:top;max-width:100%\">\n\
+             <style>#{id} svg,#{id} img{{max-width:100%;height:auto}}</style>\n\
+             <div class=\"ggrust-frame\">"
+        );
+        if kind == "png" {
+            let _ = write!(
+                output,
+                "<img src=\"{first}\" width=\"{width}\" height=\"{height}\" alt=\"\">"
+            );
+        } else {
+            output.push_str(first);
+        }
+        output.push_str("</div>\n");
+        let mut output = output.into_bytes();
+        script_element(&mut output, "ggrust-animation", &payload);
+        output.extend_from_slice(
+            format!(
+                "</div>\n\
+                 <script type=\"text/javascript\">\n\
+                 {RUNTIME}(\"{version}\");\n\
+                 window.ggrust.mount(\"{id}\");\n\
+                 </script>\n",
+                version = crate::VERSION,
+            )
+            .as_bytes(),
+        );
+        String::from_utf8(output)
+            .unwrap_or_else(|error| String::from_utf8_lossy(error.as_bytes()).into_owned())
+    };
+    Ok(match options.document {
+        HtmlDocument::Fragment => fragment(String::new()),
+        HtmlDocument::Page => {
+            let mut document = fragment(page_start("", metadata));
+            document.push_str(PAGE_END);
+            document
+        }
+        HtmlDocument::Iframe => {
+            let mut document = fragment(page_start(" overflow: hidden;", metadata));
+            document.push_str(PAGE_END);
+            format!(
+                "<iframe src=\"about:blank\" style=\"border:none !important;\" \
+                 width=\"{width}\" height=\"{height}\" srcdoc=\"{srcdoc}\"></iframe>\n",
+                width = width.ceil(),
+                height = (height + PLAYER_HEIGHT).ceil(),
+                srcdoc = escape_attribute(&document),
+            )
+        }
+    })
+}
+
+/// One animation frame as SVG: the markup, whether it has a canvas batch, and
+/// the scene's width, height and metadata flag.
+type SvgFrame = (String, bool, (f64, f64, bool));
+
+/// Pixel scale of PNG animation frames in HTML (sharp on high-density screens).
+const ANIMATION_PNG_SCALE: f64 = 2.0;
 
 /// The end of a [`page_start`] page.
 const PAGE_END: &str = "</body>\n</html>\n";

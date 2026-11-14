@@ -1,5 +1,5 @@
 //! Renderers: [`Scene`](crate::scene::Scene) -> SVG text, PNG / JPEG / TIFF bytes, vector PDF
-//! bytes or HTML.
+//! bytes or HTML; animations ([`FrameSource`]) -> GIF, APNG or an HTML player.
 //!
 //! Rasterized layers (`scene::Raster`) become images in SVG and PDF output through
 //! [`rasterize_layers`] (`to_pdf` calls it; call it before `to_svg`).
@@ -7,7 +7,10 @@
 //! Every format records which ggrust made it ([`GENERATOR`]) in its usual metadata
 //! slot when `Scene::metadata` is set. The tag is plain text, never drawn.
 
+mod animation;
+mod apng;
 mod canvas;
+mod gif;
 mod html;
 mod image;
 mod pdf;
@@ -21,7 +24,10 @@ mod webfont;
 /// The tag written into output metadata: `ggrust v` and the crate version.
 pub const GENERATOR: &str = concat!("ggrust v", env!("CARGO_PKG_VERSION"));
 
-pub use html::{HtmlDocument, HtmlOptions, to_html};
+pub use animation::FrameSource;
+pub use apng::to_apng;
+pub use gif::to_gif;
+pub use html::{HtmlDocument, HtmlOptions, to_html, to_html_animation};
 pub use image::{DEFAULT_JPEG_QUALITY, to_jpeg, to_tiff};
 pub use pdf::to_pdf;
 pub use png::{SCREEN_DPI, rgba_png_data_url, svg_to_png, to_png, to_png_with_dpi};

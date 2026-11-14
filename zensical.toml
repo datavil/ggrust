@@ -136,6 +136,7 @@ nav = [
       "reference/api/geom_shape.md",
       "reference/api/geom_surface.md",
       "reference/api/geom_rect.md",
+      "reference/api/geom_band.md",
       "reference/api/geom_bar.md",
       "reference/api/geom_col.md",
       "reference/api/geom_histogram.md",
@@ -166,6 +167,7 @@ nav = [
       "reference/api/geom_text_repel.md",
       "reference/api/geom_label_repel.md",
       "reference/api/geom_bracket.md",
+      "reference/api/geom_bracket_dodge.md",
       "reference/api/geom_blank.md",
       "reference/api/arrow.md",
     ] },
@@ -305,6 +307,7 @@ nav = [
       "reference/api/scale_gradientn.md",
       "reference/api/scale_hue.md",
       "reference/api/scale_grey.md",
+      "reference/api/scale_identity.md",
       "reference/api/scale_brewer.md",
       "reference/api/scale_viridis.md",
     ] },
@@ -337,6 +340,13 @@ nav = [
     ] },
     { "Insets (patchwork)" = [
       "reference/api/inset_element.md",
+    ] },
+    { "Animation (gganimate)" = [
+      "reference/api/transition_manual.md",
+      "reference/api/animate.md",
+      "reference/api/anim_save.md",
+      "reference/api/last_animation.md",
+      "reference/api/Animation.md",
     ] },
     { "Rasterized layers (ggrastr)" = [
       "reference/api/rasterize.md",

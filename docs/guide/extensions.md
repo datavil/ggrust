@@ -22,6 +22,7 @@ behavior in Rust; the R packages and their authors designed it.
 | [Raincloud plots](#raincloud-plots) | [`stat_halfeye`](../reference/api/stat_halfeye.md), `stat_slab`, `stat_interval`, `stat_pointinterval`, [`geom_half_violin`](../reference/api/geom_half_violin.md), `geom_half_boxplot`, `geom_half_point` | [ggdist](https://cran.r-project.org/package=ggdist), [gghalves](https://cran.r-project.org/package=gghalves) |
 | [Figure layouts](#figure-layouts) | `gggrid(design=, tag_levels=, axes=, axis_titles=)`, [`inset_element`](../reference/api/inset_element.md) | [patchwork](https://cran.r-project.org/package=patchwork) |
 | [Rasterized layers](#rasterized-layers) | [`rasterize`](../reference/api/rasterize.md) | [ggrastr](https://cran.r-project.org/package=ggrastr), [scattermore](https://cran.r-project.org/package=scattermore) |
+| [Animation](#animation) | [`transition_manual`](../reference/api/transition_manual.md), [`animate`](../reference/api/animate.md), [`anim_save`](../reference/api/anim_save.md) | [gganimate](https://cran.r-project.org/package=gganimate) |
 
 Two more, `geom_text_repel` / `geom_label_repel` ([ggrepel](https://cran.r-project.org/package=ggrepel))
 and `geom_area_ridges` ([ggridges](https://cran.r-project.org/package=ggridges)), come
@@ -193,3 +194,21 @@ still has sharp, selectable text.
 plot = ggplot(cells, aes("umap_1", "umap_2")) + rasterize(geom_point(size=0.5), dpi=300)
 ggsave(plot, "umap.pdf")
 ```
+
+## Animation
+
+`p + transition_manual("year")` draws one frame per value of `year`, after
+[gganimate](https://cran.r-project.org/package=gganimate) by Thomas Lin Pedersen and
+David Robinson. Scales are trained once over all the data, so the axes stay fixed;
+stats and positions run per frame. `animate(plot, nframes=, fps=, duration=,
+start_pause=, end_pause=, rewind=)` plans the frames as gganimate does, and
+`{current_frame}`, `{frame}`, `{nframes}` and `{progress}` in the title, subtitle or
+caption are filled in per frame. In a notebook the animation plays in a small player;
+`anim_save("year.gif")` or `ggsave(plot, "year.gif")` writes a GIF (`.png` writes an
+animated PNG, `.html` the player).
+
+```python
+--8<-- "animation.py:code"
+```
+
+--8<-- "figures/animation.html"

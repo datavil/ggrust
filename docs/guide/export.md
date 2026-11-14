@@ -16,6 +16,10 @@ ggsave(plot, "prices.png", path="figures")  # the extension picks the format
 
 Without a path, `to_svg()` and `to_html()` return the text instead of writing a file.
 
+A plot with a transition (`+ transition_manual("year")`) saves as an animation:
+`ggsave(plot, "years.gif")` writes a GIF, `.png` an animated PNG and `.html` a page
+with a player. See [Animation](extensions.md#animation).
+
 ## Size and resolution
 
 The plot's size comes from `ggsize(width, height)` in pixels (600 by 400 by default).

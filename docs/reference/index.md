@@ -70,6 +70,7 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_shape()`](api/geom_shape.md) | Draw polygons with rounded corners, optionally grown outwards. |
 | [`geom_surface()`](api/geom_surface.md) | Draw a filled surface over an x-y grid, under ``coord_3d()`` (ggrust only). |
 | [`geom_rect()`](api/geom_rect.md) | Rectangles from ``xmin``, ``xmax``, ``ymin``, ``ymax``. |
+| [`geom_band()`](api/geom_band.md) | Bands across the whole panel: between ``xmin`` and ``xmax``, or ``ymin`` and ``ymax``. |
 | [`geom_bar()`](api/geom_bar.md) | Bars, by default the count of rows per x (``stat="count"``), stacked. |
 | [`geom_col()`](api/geom_col.md) | Bars with heights taken from the data (ggplot2 ``geom_col``), stacked. |
 | [`geom_histogram()`](api/geom_histogram.md) | Histogram of binned x values (``stat="bin"``), stacked. |
@@ -100,6 +101,7 @@ Layers that draw data. Each one sets a geom, a default stat and a position.
 | [`geom_text_repel()`](api/geom_text_repel.md) | Text labels pushed apart so they do not overlap each other or the points. |
 | [`geom_label_repel()`](api/geom_label_repel.md) | Boxed text labels pushed apart so they do not overlap each other or the points. |
 | [`geom_bracket()`](api/geom_bracket.md) | Labelled brackets from ``xmin`` to ``xmax`` at height ``y`` (significance marks). |
+| [`geom_bracket_dodge()`](api/geom_bracket_dodge.md) | Labelled brackets between dodged groups inside each category. |
 | [`geom_blank()`](api/geom_blank.md) | Draw nothing; the mapped data still trains the scales. No tooltips (as lets_plot). |
 | [`arrow()`](api/arrow.md) | Describe the arrow heads of a line (``geom_segment``, ``geom_path``). |
 
@@ -269,6 +271,7 @@ Name the aesthetic, or a list of them (`['color', 'fill']`) to set one scale on 
 | [`scale_gradientn()`](api/scale_gradientn.md) | Map color aesthetics to an n-color gradient. |
 | [`scale_hue()`](api/scale_hue.md) | Qualitative colors around the HCL color wheel, for color aesthetics. |
 | [`scale_grey()`](api/scale_grey.md) | Greys from lightness ``start`` to ``end``, for color aesthetics. |
+| [`scale_identity()`](api/scale_identity.md) | Use the data as the aesthetic values (colors, sizes, shapes, ...); no legend by default. |
 | [`scale_brewer()`](api/scale_brewer.md) | Map color aesthetics with a ColorBrewer palette. |
 | [`scale_viridis()`](api/scale_viridis.md) | Map color aesthetics with a viridis-family color map. |
 
@@ -321,6 +324,18 @@ Draw a plot or grid inside another plot's area (R package patchwork, not in lets
 | Name | Description |
 |---|---|
 | [`inset_element()`](api/inset_element.md) | Draw a plot (or grid) inside the area of the plot it is added to. |
+
+## Animation (gganimate)
+
+One frame per value of a column, played as a GIF, APNG or HTML player.
+
+| Name | Description |
+|---|---|
+| [`transition_manual()`](api/transition_manual.md) | Animate by showing the rows of one value of ``frames`` per frame. |
+| [`animate()`](api/animate.md) | Plan the frames of a plot with a transition (gganimate ``animate()``). |
+| [`anim_save()`](api/anim_save.md) | Save an animation to a file; the extension picks the format (gganimate ``anim_save``). |
+| [`last_animation()`](api/last_animation.md) | Return the animation :func:`animate` made last (gganimate ``last_animation``). |
+| [`Animation`](api/Animation.md) | A planned animation of a plot: frames, speed and size, rendered on demand. |
 
 ## Rasterized layers (ggrastr)
 

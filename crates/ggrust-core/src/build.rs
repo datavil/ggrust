@@ -61,7 +61,7 @@ use crate::tooltip::content::{ContentSource, layer_content};
 use crate::tooltip::{Interaction, LayerInteraction};
 use crate::{Error, Result};
 
-mod frame;
+pub(crate) mod frame;
 pub mod inspect;
 mod side;
 mod space3d;
@@ -133,6 +133,26 @@ pub fn build_plot(spec: &PlotSpec, data: &PlotData) -> Result<BuiltPlot> {
 
 /// [`build_plot`], with the hover tooltips of HTML output when `interactive`.
 pub fn build_plot_with(spec: &PlotSpec, data: &PlotData, interactive: bool) -> Result<BuiltPlot> {
+    // An animated plot: `Animation.frame(i)` draws one frame; any other still
+    // output draws every state at once, with a note.
+    let mut animation_note = None;
+    if let Some(value) = &spec.animation {
+        let animation = crate::animate::AnimationSpec::parse(value)?;
+        if let Some(frame) = animation.frame {
+            let animated = crate::animate::Animation::new(spec, data)?;
+            return Ok(BuiltPlot {
+                scene: animated.output_scene(frame)?,
+                interaction: None,
+                warnings: animated.warnings,
+            });
+        }
+        animation_note = Some(format!(
+            "at 'animation': the plot has transition_{}(); this still output draws every \
+             frame at once. Animate it with animate(), anim_save() or ggsave() to .gif, \
+             .png or .html",
+            animation.transition.0
+        ));
+    }
     let plot = prepare_plot(spec, data)?;
     let (width, height) = plot.size;
     let area = Rect {
@@ -152,6 +172,7 @@ pub fn build_plot_with(spec: &PlotSpec, data: &PlotData, interactive: bool) -> R
     };
     scene.validate()?;
     let mut warnings = plot.warnings.clone();
+    warnings.extend(animation_note);
     let interaction = if interactive {
         let mut interaction = Interaction {
             zoom: Zoom::from_spec(spec.ggtoolbar.as_ref(), "ggtoolbar")?,
@@ -174,19 +195,49 @@ pub fn build_plot_with(spec: &PlotSpec, data: &PlotData, interactive: bool) -> R
 
 /// Map, compute and style a plot: everything but its layout (see [`PreparedPlot`]).
 pub fn prepare_plot(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
+    prepare_plot_states(spec, data, None)
+}
+
+/// [`prepare_plot`] for an animation: with `states` (the column of a transition's
+/// states, `transition_manual(frames)`), every layer that has the column runs its
+/// stat and position once per state (a stack or a bin never mixes states) and
+/// keeps the state of every computed row; scales and legends train once on all
+/// states. Layers without the column are static: drawn in every frame.
+pub(crate) fn prepare_plot_states(
+    spec: &PlotSpec,
+    data: &PlotData,
+    states: Option<&StateVariable>,
+) -> Result<PreparedPlot> {
     if let Some((spec, data, warning)) = side::without_side_layers(spec, data) {
-        let mut prepared = prepare_vectors(&spec, &data)?;
+        let mut prepared = prepare_vectors(&spec, &data, states)?;
         prepared.warnings.insert(0, warning);
         return Ok(prepared);
     }
-    prepare_vectors(spec, data)
+    prepare_vectors(spec, data, states)
 }
 
+/// The column whose values are an animation's states, and the spec path that
+/// names it (for errors).
+#[derive(Debug, Clone)]
+pub(crate) struct StateVariable {
+    /// Column name.
+    pub name: String,
+    /// Spec path of the option naming it, e.g. `animation.transition.frames`.
+    pub path: String,
+}
+
+/// Row state of a layer row without a state (missing value in the state column).
+const NO_STATE: u32 = u32::MAX;
+
 /// [`prepare_plot`] once the plot's side layers fit it.
-fn prepare_vectors(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
+fn prepare_vectors(
+    spec: &PlotSpec,
+    data: &PlotData,
+    states: Option<&StateVariable>,
+) -> Result<PreparedPlot> {
     match inline_mapping_vectors(spec, data)? {
-        Some((spec, data)) => prepare_columns(&spec, &data),
-        None => prepare_columns(spec, data),
+        Some((spec, data)) => prepare_columns(&spec, &data, states),
+        None => prepare_columns(spec, data, states),
     }
 }
 
@@ -245,7 +296,11 @@ fn inline_mapping_vectors(
 }
 
 /// [`prepare_plot`] once every mapping names columns.
-fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
+fn prepare_columns(
+    spec: &PlotSpec,
+    data: &PlotData,
+    state_variable: Option<&StateVariable>,
+) -> Result<PreparedPlot> {
     let mut warnings = Vec::new();
     report_unimplemented(spec, &mut warnings);
     let coord = resolve_coord(spec, &mut warnings)?;
@@ -308,7 +363,15 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     let mut mapped = Vec::with_capacity(spec.layers.len());
     for (index, layer) in spec.layers.iter().enumerate() {
         let band = layer_bands[index].map(|band| (band, band_setups[band].key));
-        match map_layer(index, layer, spec, data, &facet_variables, band) {
+        match map_layer(
+            index,
+            layer,
+            spec,
+            data,
+            &facet_variables,
+            state_variable,
+            band,
+        ) {
             Ok(mut layer) => {
                 warnings.append(&mut layer.warnings);
                 mapped.push(layer);
@@ -319,6 +382,13 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
             }
         }
     }
+    let state_labels = match state_variable {
+        Some(variable) => Some(
+            assign_states(&mut mapped, variable, data)
+                .map_err(|error| error.with_notes(&warnings))?,
+        ),
+        None => None,
+    };
     let facets = match &spec.facet {
         Some(facet) => {
             let layers: Vec<(&LayerFacetColumns, usize)> = mapped
@@ -676,7 +746,9 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
     // warnings and the first error are those of a sequential run.
     let results = parallel::ordered_map(tiles, parallel, |(layers, tile_x, tile_y, context)| {
         let results = parallel::ordered_map(layers, parallel, |layer| match layer.band {
-            None => compute_layer(layer, [&tile_x, &tile_y], &context),
+            None => compute_states(layer, |part| {
+                compute_layer(part, [&tile_x, &tile_y], &context)
+            }),
             Some(band) => {
                 let cross = &band_scales[band];
                 let scales = if band_setups[band].key.shares_x {
@@ -684,7 +756,9 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
                 } else {
                     [cross, &tile_y]
                 };
-                compute_layer(layer, scales, &band_contexts[band])
+                compute_states(layer, |part| {
+                    compute_layer(part, scales, &band_contexts[band])
+                })
             }
         });
         (results, tile_x, tile_y)
@@ -991,8 +1065,215 @@ fn prepare_columns(spec: &PlotSpec, data: &PlotData) -> Result<PreparedPlot> {
         tooltip_setups,
         space,
         polar,
+        state_labels,
         warnings,
     })
+}
+
+/// Give every mapped layer that has the state column the state of each row (an
+/// index into the returned labels, [`NO_STATE`] for a missing value). States are
+/// the column's levels joined over the layers in layer order (gganimate
+/// `combine_levels`): a discrete column keeps ggrust's level order, numbers are
+/// sorted. A layer without the column is static (no states).
+fn assign_states(
+    mapped: &mut [MappedLayer],
+    variable: &StateVariable,
+    data: &PlotData,
+) -> Result<Vec<String>> {
+    let columns: Vec<&Column> = mapped
+        .iter()
+        .filter_map(|layer| layer.state_column.as_ref())
+        .collect();
+    if columns.is_empty() && !mapped.is_empty() {
+        let available: BTreeSet<&str> = data
+            .plot
+            .iter()
+            .chain(data.layers.iter().flatten())
+            .flat_map(DataFrame::column_names)
+            .collect();
+        return Err(Error::spec(
+            &variable.path,
+            format!(
+                "no layer has the column '{}'{}; available columns: {}",
+                variable.name,
+                crate::suggest::did_you_mean(&variable.name, available.iter().copied()),
+                available.iter().copied().collect::<Vec<_>>().join(", ")
+            ),
+        ));
+    }
+    let discrete = columns
+        .iter()
+        .filter(|column| matches!(column, Column::Discrete(_)))
+        .count();
+    if discrete != 0 && discrete != columns.len() {
+        return Err(Error::spec(
+            &variable.path,
+            format!(
+                "the column '{}' is numeric in some layers and categorical in others; \
+                 give every layer the same kind of column",
+                variable.name
+            ),
+        ));
+    }
+    let labels: Vec<String>;
+    if discrete != 0 {
+        let mut known: BTreeMap<&str, u32> = BTreeMap::new();
+        let mut names: Vec<String> = Vec::new();
+        for column in &columns {
+            if let Column::Discrete(column) = column {
+                for level in column.levels() {
+                    if !known.contains_key(level.as_str()) {
+                        known.insert(level, names.len() as u32);
+                        names.push(level.clone());
+                    }
+                }
+            }
+        }
+        let codes: Vec<Option<Vec<u32>>> = mapped
+            .iter()
+            .map(|layer| match &layer.state_column {
+                Some(Column::Discrete(column)) => {
+                    let remap: Vec<u32> = column
+                        .levels()
+                        .iter()
+                        .map(|level| known.get(level.as_str()).copied().unwrap_or(NO_STATE))
+                        .collect();
+                    Some(
+                        (0..column.len())
+                            .map(|row| {
+                                column
+                                    .code(row)
+                                    .map_or(NO_STATE, |code| remap[code as usize])
+                            })
+                            .collect(),
+                    )
+                }
+                _ => None,
+            })
+            .collect();
+        for (layer, codes) in mapped.iter_mut().zip(codes) {
+            layer.states = codes;
+        }
+        labels = names;
+    } else {
+        let mut values: Vec<f64> = columns
+            .iter()
+            .flat_map(|column| match column {
+                Column::Continuous(column) => (0..column.len())
+                    // `+ 0.0` turns -0 into 0: one state, labelled "0".
+                    .filter_map(|row| column.get(row).filter(|value| value.is_finite()))
+                    .map(|value| value + 0.0)
+                    .collect::<Vec<_>>(),
+                Column::Discrete(_) => Vec::new(),
+            })
+            .collect();
+        values.sort_by(f64::total_cmp);
+        values.dedup();
+        for layer in mapped.iter_mut() {
+            layer.states = match &layer.state_column {
+                Some(Column::Continuous(column)) => Some(
+                    (0..column.len())
+                        .map(
+                            |row| match column.get(row).filter(|value| value.is_finite()) {
+                                Some(value) => values
+                                    .binary_search_by(|known| known.total_cmp(&(value + 0.0)))
+                                    .map_or(NO_STATE, |index| index as u32),
+                                None => NO_STATE,
+                            },
+                        )
+                        .collect(),
+                ),
+                _ => None,
+            };
+        }
+        labels = values
+            .iter()
+            .map(|&value| crate::animate::timeline::r_number(value))
+            .collect();
+    }
+    for layer in mapped.iter_mut() {
+        layer.state_column = None;
+    }
+    Ok(labels)
+}
+
+/// Stat and position of `layer` once per state (see [`prepare_plot_states`]),
+/// the parts joined back into one layer that records each row's state. A layer
+/// without states computes once.
+fn compute_states(
+    mut layer: MappedLayer,
+    compute: impl Fn(MappedLayer) -> Result<ComputedLayer>,
+) -> Result<ComputedLayer> {
+    let Some(states) = layer.states.take() else {
+        return compute(layer);
+    };
+    let count = states
+        .iter()
+        .filter(|state| **state != NO_STATE)
+        .max()
+        .map_or(0, |max| *max as usize + 1);
+    let mut rows_by_state: Vec<Vec<u32>> = vec![Vec::new(); count];
+    for (row, state) in states.iter().enumerate() {
+        if *state != NO_STATE {
+            rows_by_state[*state as usize].push(row as u32);
+        }
+    }
+    let mut parts = Vec::new();
+    for (state, rows) in rows_by_state.iter().enumerate() {
+        if rows.is_empty() {
+            continue;
+        }
+        parts.push((state as u32, rows, compute(split_layer(&layer, rows))?));
+    }
+    if parts.is_empty() {
+        let mut empty = compute(split_layer(&layer, &[]))?;
+        empty.states = Some(vec![NO_STATE; empty.data.row_count()]);
+        return Ok(empty);
+    }
+    let pieces: Vec<(&LayerData, &[u32])> = parts
+        .iter()
+        .map(|(_, rows, part)| (&part.data, rows.as_slice()))
+        .collect();
+    let data = LayerData::concat(&pieces)?;
+    let pieces: Vec<(&LayerData, &[u32])> = parts
+        .iter()
+        .map(|(_, rows, part)| (&part.unadjusted, rows.as_slice()))
+        .collect();
+    let unadjusted = LayerData::concat(&pieces)?;
+    let row_states: Vec<u32> = parts
+        .iter()
+        .flat_map(|(state, _, part)| std::iter::repeat_n(*state, part.data.row_count()))
+        .collect();
+    let union = |spans: Vec<Option<(f64, f64)>>| {
+        spans
+            .into_iter()
+            .flatten()
+            .reduce(|(low, high), (other_low, other_high)| {
+                (low.min(other_low), high.max(other_high))
+            })
+    };
+    let x_span = union(parts.iter().map(|(_, _, part)| part.x_span).collect());
+    let y_span = union(parts.iter().map(|(_, _, part)| part.y_span).collect());
+    let trains_unadjusted = parts.iter().any(|(_, _, part)| part.trains_unadjusted);
+    let mut warnings = Vec::new();
+    let mut parts = parts.into_iter().map(|(_, _, part)| part);
+    let Some(mut joined) = parts.next() else {
+        return Err(Error::data("internal: no computed state"));
+    };
+    warnings.append(&mut joined.warnings);
+    for mut part in parts {
+        warnings.append(&mut part.warnings);
+    }
+    joined.data = data;
+    joined.unadjusted = unadjusted;
+    // Animations have no tooltips.
+    joined.tooltip_columns = Vec::new();
+    joined.x_span = x_span;
+    joined.y_span = y_span;
+    joined.trains_unadjusted = trains_unadjusted;
+    joined.states = Some(row_states);
+    joined.warnings = merge_tile_warnings(warnings);
+    Ok(joined)
 }
 
 /// `coord_polar` bends vector marks: bitmap layers and side panels have no bent form.
@@ -1049,6 +1330,9 @@ pub struct PreparedPlot {
     space: Option<space3d::Space3d>,
     /// `coord_polar`: bends the drawn layers.
     polar: Option<PolarView>,
+    /// An animation's states (see [`prepare_plot_states`]), labelled as the
+    /// `{current_frame}` variable shows them; `None` for a still plot.
+    state_labels: Option<Vec<String>>,
     /// Things the user should know: ignored options, removed rows, ...
     pub warnings: Vec<String>,
 }
@@ -2176,7 +2460,15 @@ fn split_layer<'a>(layer: &MappedLayer<'a>, rows: &[u32]) -> MappedLayer<'a> {
                 .iter()
                 .map(|group| used.partition_point(|known| known < group) as u32)
                 .collect();
-            let ranks = used.iter().map(|group| rank_of[*group as usize]).collect();
+            // A part of a part (a state of a facet panel) keeps the ranks of
+            // the whole layer.
+            let ranks = used
+                .iter()
+                .map(|group| match &layer.group_rank {
+                    Some(parent) => parent[*group as usize],
+                    None => rank_of[*group as usize],
+                })
+                .collect();
             (Some(dense), Some(ranks))
         }
     };
@@ -2205,6 +2497,11 @@ fn split_layer<'a>(layer: &MappedLayer<'a>, rows: &[u32]) -> MappedLayer<'a> {
             .iter()
             .map(|(name, column)| (name.clone(), column.take(rows)))
             .collect(),
+        state_column: layer.state_column.as_ref().map(|column| column.take(rows)),
+        states: layer
+            .states
+            .as_ref()
+            .map(|states| rows.iter().map(|&row| states[row as usize]).collect()),
         warnings: Vec::new(),
     }
 }
@@ -2520,6 +2817,8 @@ struct PreparedLayer {
     /// Interactive legend (HTML only): the legend keys of the rows, set once the
     /// legends are known ([`assign_row_keys`]).
     keys: Option<RowKeys>,
+    /// See [`ComputedLayer::states`].
+    states: Option<Vec<u32>>,
 }
 
 /// Set the legend keys of every layer's rows (interactive legend). A companion
@@ -2592,6 +2891,7 @@ fn map_layer<'a>(
     plot: &PlotSpec,
     data: &PlotData,
     facet_variables: &[(String, &'static str)],
+    state_variable: Option<&StateVariable>,
     band: Option<(usize, BandKey)>,
 ) -> StageResult<MappedLayer<'a>> {
     let mut warnings = Vec::new();
@@ -2601,18 +2901,21 @@ fn map_layer<'a>(
         plot,
         data,
         facet_variables,
+        state_variable,
         band,
         &mut warnings,
     )
     .map_err(|error| (error, warnings))
 }
 
+#[allow(clippy::too_many_arguments)]
 fn map_layer_into<'a>(
     index: usize,
     spec: &'a LayerSpec,
     plot: &PlotSpec,
     data: &PlotData,
     facet_variables: &[(String, &'static str)],
+    state_variable: Option<&StateVariable>,
     band: Option<(usize, BandKey)>,
     warnings: &mut Vec<String>,
 ) -> Result<MappedLayer<'a>> {
@@ -2793,6 +3096,13 @@ fn map_layer_into<'a>(
             false => Ok(None),
         })
         .collect::<Result<LayerFacetColumns>>()?;
+    // A layer without the state column is static (drawn in every frame).
+    let state_column = match state_variable {
+        Some(variable) if frames.has(&variable.name) && !unbound => {
+            Some(frames.column(&variable.name, &variable.path)?)
+        }
+        _ => None,
+    };
     let group_index = if unbound {
         None
     } else {
@@ -2851,6 +3161,8 @@ fn map_layer_into<'a>(
         group_rank: None,
         facet_columns,
         tooltip_columns,
+        state_column,
+        states: None,
         warnings: std::mem::take(warnings),
     })
 }
@@ -2970,6 +3282,12 @@ struct MappedLayer<'a> {
     facet_columns: LayerFacetColumns,
     /// Unmapped columns `layer_tooltips()` reads, by name.
     tooltip_columns: Vec<(String, Column)>,
+    /// An animation's state column (see [`prepare_plot_states`]), until
+    /// [`assign_states`] turns it into [`Self::states`].
+    state_column: Option<Column>,
+    /// An animation's state of every row ([`NO_STATE`] when missing); `None` for
+    /// a static layer or a still plot.
+    states: Option<Vec<u32>>,
     /// Warnings of this stage.
     warnings: Vec<String>,
 }
@@ -3361,6 +3679,7 @@ fn compute_layer(
         rasterize: spec.rasterize.map(|rasterize| rasterize.dpi),
         show_legend: spec.show_legend.unwrap_or(geom.shows_legend()),
         companion: layer_stat(spec).is_some_and(|stat| stat.name() == "boxplot_outlier"),
+        states: None,
         warnings,
     })
 }
@@ -3399,6 +3718,9 @@ struct ComputedLayer {
     rasterize: Option<f64>,
     /// `show_legend` (default: the geom's).
     show_legend: bool,
+    /// An animation's state of every row (see [`compute_states`]); `None` for a
+    /// static layer or a still plot.
+    states: Option<Vec<u32>>,
     /// Warnings of this stage.
     warnings: Vec<String>,
 }
@@ -3466,6 +3788,7 @@ fn style_layer(
             show_legend: layer.show_legend,
             companion: layer.companion,
             keys: None,
+            states: layer.states,
         },
         warnings,
     ))
@@ -5892,8 +6215,8 @@ mod tests {
         [x_scale, y_scale]: [&PositionScale; 2],
         warnings: &mut Vec<String>,
     ) -> Result<PreparedLayer> {
-        let mut mapped =
-            map_layer(0, &spec.layers[0], spec, &cells(), &[], None).map_err(|(error, _)| error)?;
+        let mut mapped = map_layer(0, &spec.layers[0], spec, &cells(), &[], None, None)
+            .map_err(|(error, _)| error)?;
         warnings.append(&mut mapped.warnings);
         let mut computed = compute_layer(mapped, [x_scale, y_scale], &StatContext::default())?;
         warnings.append(&mut computed.warnings);
@@ -6230,8 +6553,8 @@ mod tests {
         };
         let numbers = |json: &str| {
             let spec = plot(json);
-            let mut mapped =
-                map_layer(0, &spec.layers[0], &spec, &data, &[], None).unwrap_or_else(|_| panic!());
+            let mut mapped = map_layer(0, &spec.layers[0], &spec, &data, &[], None, None)
+                .unwrap_or_else(|_| panic!());
             let scale = PositionScale::Continuous(ContinuousPositionScale::default());
             let mut warnings = std::mem::take(&mut mapped.warnings);
             let computed =

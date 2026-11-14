@@ -14,7 +14,13 @@ import warnings
 from typing import TYPE_CHECKING, Any, Literal, cast
 
 from ggrust._data import as_arrow
-from ggrust._ggrust import inspect, referenced_columns, render, tooltip_columns
+from ggrust._ggrust import (
+    inspect,
+    referenced_columns,
+    render,
+    render_animation,
+    tooltip_columns,
+)
 from ggrust.errors import DataError, ExportError, UnsupportedValueError, did_you_mean
 
 if TYPE_CHECKING:
@@ -84,21 +90,7 @@ def render_bytes(
     bytes
         SVG or HTML (UTF-8), or PNG / JPEG / TIFF / PDF bytes.
     """
-    spec, frames = split_data(plot.as_dict())
-    spec, functions = split_functions(spec)
-    if size is not None:
-        spec["ggsize"] = {"width": size[0], "height": size[1]}
-    spec_json = to_json(spec)
-    columns = set(referenced_columns(spec_json))
-    html = output.startswith("html")
-    extra = set(tooltip_columns(spec_json)) - columns if html else set()
-    exported = []
-    for data, path in frames:
-        arrow, dropped = _export_with_tooltips(data, columns, extra, path)
-        exported.append(arrow)
-        for name in dropped:
-            message = f"at '{path}': the tooltip column {name!r} could not be read and is not shown"
-            warnings.warn(message, GgrustWarning, stacklevel=3)
+    spec_json, exported, functions = _engine_input(plot, size, output.startswith("html"))
     encoded, messages = render(
         spec_json,
         exported,
@@ -113,6 +105,138 @@ def render_bytes(
     for message in messages:
         warnings.warn(message, GgrustWarning, stacklevel=4)
     return encoded
+
+
+def _engine_input(
+    plot: PlotSpec | SupPlotsSpec,
+    size: tuple | None,
+    tooltips: bool,
+    animation: dict[str, Any] | None = None,
+) -> tuple[str, list[ArrowStreamExportable], list[Callable[..., Any]]]:
+    """Return the spec JSON, the Arrow tables it refers to and its axis functions.
+
+    Parameters
+    ----------
+    plot : PlotSpec or SupPlotsSpec
+        The plot.
+    size : tuple of float, optional
+        ``(width, height)`` overriding ``ggsize``.
+    tooltips : bool
+        Also export the columns HTML tooltips read.
+    animation : dict, optional
+        Keys merged into the plot's ``"animation"`` (``animate()`` options).
+    """
+    spec, frames = split_data(plot.as_dict())
+    spec, functions = split_functions(spec)
+    if size is not None:
+        spec["ggsize"] = {"width": size[0], "height": size[1]}
+    if animation is not None:
+        spec["animation"] = {**spec.get("animation", {}), **animation}
+    if animation is not None:
+        _check_state_column(spec, frames)
+    spec_json = to_json(spec)
+    columns = set(referenced_columns(spec_json))
+    extra = set(tooltip_columns(spec_json)) - columns if tooltips else set()
+    exported = []
+    for data, path in frames:
+        arrow, dropped = _export_with_tooltips(data, columns, extra, path)
+        exported.append(arrow)
+        for name in dropped:
+            message = f"at '{path}': the tooltip column {name!r} could not be read and is not shown"
+            warnings.warn(message, GgrustWarning, stacklevel=4)
+    return spec_json, exported, functions
+
+
+def _check_state_column(spec: dict[str, Any], frames: list[tuple[Any, str]]) -> None:
+    """Fail early when no data of the plot has the transition's column.
+
+    Only referenced columns reach the engine, so its error could not list the others.
+    """
+    transition = spec.get("animation", {}).get("transition", {})
+    name = transition.get("frames") if isinstance(transition, dict) else None
+    if not isinstance(name, str) or not frames:
+        return
+    available: list[str] = []
+    for data, _ in frames:
+        names = _column_names(data)
+        if not names:
+            return  # a data kind whose columns are unknown here: the engine checks
+        available.extend(column for column in names if column not in available)
+    if name in available:
+        return
+    from ggrust.errors import SpecError
+
+    reason = (
+        f"no layer has the column {name!r}{did_you_mean(name, available)}; "
+        f"available columns: {', '.join(available)}"
+    )
+    path = "animation.transition.frames"
+    raise SpecError(f"at '{path}': {reason}", path=path, reason=reason)
+
+
+def render_animation_bytes(
+    plot: PlotSpec,
+    output: Literal["gif", "apng", "html", "html_page", "html_iframe", "info"],
+    options: dict[str, Any],
+    scale: float = 1.0,
+    size: tuple[float, float] | None = None,
+    dpi: float | None = None,
+    metadata: bool = True,
+) -> bytes:
+    """Plan and render the animation of ``plot`` in Rust.
+
+    Parameters
+    ----------
+    plot : PlotSpec
+        A plot with a transition.
+    output : {"gif", "apng", "html", "html_page", "html_iframe", "info"}
+        Output format; ``"info"`` is JSON describing the planned frames.
+    options : dict
+        ``animate()`` options (``nframes``, ``fps``, ...; None values left out).
+    scale : float, default=1.0
+        Pixel scale of GIF / APNG frames.
+    size : tuple of float, optional
+        ``(width, height)`` overriding ``ggsize``.
+    dpi : float, optional
+        APNG resolution metadata (96 when None).
+    metadata : bool, default=True
+        Record ``ggrust vX.Y.Z`` in the output.
+
+    Returns
+    -------
+    bytes
+        The encoded output (UTF-8 for HTML and ``"info"``).
+    """
+    animate = {key: value for key, value in options.items() if value is not None}
+    spec_json, exported, functions = _engine_input(
+        plot, size, False, animation={"animate": animate}
+    )
+    encoded, messages = render_animation(
+        spec_json,
+        exported,
+        output,
+        float(scale),
+        _display_id() if output.startswith("html") else None,
+        None if dpi is None else float(dpi),
+        functions,
+        metadata,
+    )
+    for message in messages:
+        warnings.warn(message, GgrustWarning, stacklevel=4)
+    return encoded
+
+
+def is_animated(plot: object) -> bool:
+    """Whether ``plot`` is a plot with a transition (gganimate).
+
+    Parameters
+    ----------
+    plot : object
+        Any figure.
+    """
+    from ggrust.plot.core import PlotSpec
+
+    return isinstance(plot, PlotSpec) and "animation" in plot.props()
 
 
 def build_plot(plot: PlotSpec) -> PlotBuild:
@@ -883,6 +1007,10 @@ def export_html(
         Record ``ggrust vX.Y.Z`` in the file's metadata (never drawn).
     """
     output = "html_iframe" if iframe else "html_page"
+    if is_animated(plot):
+        from ggrust.animation import animate
+
+        return animate(cast("PlotSpec", plot)).to_html(path, iframe=iframe, metadata=metadata)
     page = render_bytes(plot, output, metadata=metadata).decode()
     return page if path is None else _write(path, page)
 
@@ -897,6 +1025,10 @@ def render_notebook_html(plot: PlotSpec | SupPlotsSpec) -> str:
     """
     from ggrust._display import current_display
 
+    if is_animated(plot):
+        from ggrust.animation import animate
+
+        return animate(cast("PlotSpec", plot))._repr_html_()
     mode = current_display()
     if mode == "svg":
         return render_bytes(plot, "svg").decode()

@@ -36,6 +36,7 @@ const NARROW_LINE_LENGTHS: [usize; 3] = [20, 14, 10];
 const LABEL_MAX_LINES: usize = 5;
 
 /// One layer's part of a legend key.
+#[derive(Clone)]
 pub struct KeyLayer {
     /// The geom that draws it.
     pub geom: &'static dyn Geom,
@@ -44,6 +45,7 @@ pub struct KeyLayer {
 }
 
 /// One legend entry: a label and the keys of every layer showing it.
+#[derive(Clone)]
 pub struct LegendKey {
     /// Label next to the key.
     pub label: Label,
@@ -55,6 +57,7 @@ pub struct LegendKey {
 }
 
 /// A discrete legend.
+#[derive(Clone)]
 pub struct Legend {
     /// Title; empty takes no space.
     pub title: String,
@@ -220,6 +223,7 @@ pub struct LegendBudget {
 }
 
 /// A guide box: a key legend or a colorbar.
+#[derive(Clone)]
 pub enum LegendBox {
     /// Keys with labels.
     Keys(Legend),

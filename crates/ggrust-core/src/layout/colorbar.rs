@@ -33,6 +33,7 @@ const BAR_END_PADDING: f64 = 2.0;
 const BAR_LENGTH_IN_KEYS: f64 = 5.0;
 
 /// A colorbar.
+#[derive(Clone)]
 pub struct Colorbar {
     /// Title; empty takes no space.
     pub title: String,

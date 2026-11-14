@@ -61,6 +61,7 @@ use crate::tooltip::content::{ContentSource, layer_content};
 use crate::tooltip::{Interaction, LayerInteraction};
 use crate::{Error, Result};
 
+mod frame;
 pub mod inspect;
 mod side;
 mod space3d;
@@ -1053,6 +1054,7 @@ pub struct PreparedPlot {
 }
 
 /// What a layer's tooltips read from the spec (the same in every panel).
+#[derive(Clone)]
 struct LayerTooltipSetup {
     tooltips: Option<TooltipsSpec>,
     /// Variable bound to each aesthetic: a column name or `..stat..`.
@@ -2482,6 +2484,7 @@ fn is_title_only(options: &GuideOptions) -> bool {
 }
 
 /// One layer after stat and position, ready to draw.
+#[derive(Clone)]
 struct PreparedLayer {
     /// The side panel the layer draws in (see [`MappedLayer::band`]).
     band: Option<usize>,

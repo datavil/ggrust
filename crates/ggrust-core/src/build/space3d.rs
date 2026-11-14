@@ -24,6 +24,7 @@ use crate::theme::Theme;
 use crate::{Error, Result};
 
 /// What a `coord_3d` plot keeps beyond a 2D one.
+#[derive(Clone)]
 pub(super) struct Space3d {
     pub view: View,
     /// z scale, trained.

@@ -600,7 +600,7 @@ Items from [priorities.md](notes/priorities.md), one per step, each on its own b
 Detail: [notes/plans/animation.md](notes/plans/animation.md). Every step is a deviation
 (lets-plot has no animation); reference is R gganimate + tweenr.
 
-- [ ] an0 Spike: find the seam between computed layer data and drawing in `build.rs`.
+- [x] an0 Spike: find the seam between computed layer data and drawing in `build.rs`.
 - [ ] an1 `transition_manual`, `animate()`, `Animation`, `anim_save`, HTML player, GIF, APNG, frame labels.
 - [ ] an2 `transition_states` + tweening, `ease_aes`, state labels.
 - [ ] an3 `transition_time`, `transition_reveal`.

@@ -401,6 +401,17 @@ impl Styles {
         }
     }
 
+    /// Whether every varying aesthetic has exactly `rows` values.
+    pub fn fits(&self, rows: usize) -> bool {
+        self.values.values().all(|values| match values {
+            StyleValues::Colors(items) => items.fits(rows),
+            StyleValues::Numbers(items) => items.fits(rows),
+            StyleValues::Shapes(items) => items.fits(rows),
+            StyleValues::Linetypes(items) => items.fits(rows),
+            StyleValues::Texts(items) => items.fits(rows),
+        })
+    }
+
     /// Whether an aesthetic has one value for every item (absent counts as uniform).
     pub fn is_uniform(&self, aesthetic: Aesthetic) -> bool {
         match self.values.get(&aesthetic) {

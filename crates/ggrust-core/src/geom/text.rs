@@ -5,7 +5,9 @@
 //! label box pads the text by `label_padding` (0.25) x font size, has corner radius
 //! `label_r` (0.15) x box height and a `label_size` (1.0) px border in `color`, filled
 //! with `fill`. `hjust`/`vjust` 0..1 place the text relative to the point, `angle`
-//! turns it counter-clockwise, `nudge_x`/`nudge_y` shift it in data units.
+//! turns it counter-clockwise, `nudge_x`/`nudge_y` shift it in `nudge_unit`
+//! (data units, `px` or `size`, see `nudge.rs`). `geom_label(alpha_stroke=True)` fades
+//! the text and border by `alpha` too (lets-plot).
 //! `geom_text` draws a halo when `halo_width` > 0: the glyph outline,
 //! 2 x `halo_width` px wide, in `halo_color` (default: the panel background,
 //! else the plot background, else white) faded by `alpha`, under the text.
@@ -23,10 +25,12 @@
 //! `size_unit="x"`/`"y"` scales the font by one axis unit / 6 px (lets-plot's
 //! baseline text width), so `size=1` is a third of an axis unit tall.
 
+use super::nudge::Nudge;
 use super::size_unit::size_unit_ratio;
 use super::{DrawLayer, Geom};
 use crate::Result;
 use crate::coord::Panel;
+use crate::parameters::Parameters;
 use crate::scale::format::Label;
 use crate::scale::label_pattern::power_label;
 use crate::scene::{Color, Group, HorizontalAlign, Node, Path, Rect, Stroke, Text, VerticalAlign};
@@ -73,6 +77,7 @@ const LABEL_DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
 const TEXT_PARAMETERS: &[&str] = &[
     "nudge_x",
     "nudge_y",
+    "nudge_unit",
     "size_unit",
     "halo_width",
     "halo_color",
@@ -85,6 +90,8 @@ const TEXT_PARAMETERS: &[&str] = &[
 const PARAMETERS: &[&str] = &[
     "nudge_x",
     "nudge_y",
+    "nudge_unit",
+    "alpha_stroke",
     "label_padding",
     "label_r",
     "label_size",
@@ -209,7 +216,7 @@ pub(super) struct Look {
     pub(super) hjust: f64,
     pub(super) vjust: f64,
     fill: Color,
-    alpha: f64,
+    pub(crate) alpha: f64,
     /// Layer halo `(color, stroke width px)`, see [`halo`]; faded by `alpha`.
     pub(super) halo: Option<(Color, f64)>,
     /// Distance between line centres, in font sizes (`lineheight`).
@@ -296,6 +303,11 @@ pub(super) fn draw_key(styles: &Styles, cell: Rect, label: bool) -> Result<Vec<N
     ))
 }
 
+/// lets-plot `alpha_stroke` of labels: `alpha` also fades the text and the border.
+pub(crate) fn alpha_stroke(parameters: &Parameters) -> Result<bool> {
+    Ok(parameters.boolean("alpha_stroke")?.unwrap_or(false))
+}
+
 fn draw_texts(layer: &DrawLayer, panel: &Panel, label: bool) -> Result<Vec<Node>> {
     let (Some(x), Some(y)) = (
         layer.data.continuous(Aesthetic::X),
@@ -303,8 +315,7 @@ fn draw_texts(layer: &DrawLayer, panel: &Panel, label: bool) -> Result<Vec<Node>
     ) else {
         return Ok(Vec::new());
     };
-    let nudge_x = layer.parameters.number("nudge_x")?.unwrap_or(0.0);
-    let nudge_y = layer.parameters.number("nudge_y")?.unwrap_or(0.0);
+    let nudge = Nudge::parse(&layer.parameters)?;
     let padding = layer
         .parameters
         .number("label_padding")?
@@ -315,6 +326,7 @@ fn draw_texts(layer: &DrawLayer, panel: &Panel, label: bool) -> Result<Vec<Node>
         .number("label_size")?
         .unwrap_or(LABEL_BORDER);
     let halo = if label { None } else { halo(layer)? };
+    let alpha_stroke = label && alpha_stroke(&layer.parameters)?;
     let line_height = line_height(layer)?;
     let ratio = size_unit_ratio(&layer.parameters, panel, SIZE_UNIT_TEXT_WIDTH)?;
     let mut drawn_boxes = layer
@@ -324,14 +336,19 @@ fn draw_texts(layer: &DrawLayer, panel: &Panel, label: bool) -> Result<Vec<Node>
         .then(Vec::<TextBox>::new);
     let mut nodes = Vec::new();
     for row in 0..layer.data.row_count() {
-        let (px, py) = panel.map(
-            x.get(row).unwrap_or(f64::NAN) + nudge_x,
-            y.get(row).unwrap_or(f64::NAN) + nudge_y,
+        let anchor = nudge.anchor(
+            panel,
+            x.get(row).unwrap_or(f64::NAN),
+            y.get(row).unwrap_or(f64::NAN),
         );
+        let (px, py) = nudge.shift(anchor);
         if !px.is_finite() || !py.is_finite() {
             continue;
         }
         let mut look = look(layer.styles, row, label)?;
+        if alpha_stroke {
+            look.color = look.color.with_opacity(look.alpha);
+        }
         look.size *= ratio;
         if look.content.is_empty() || look.size <= 0.0 {
             continue;
@@ -345,12 +362,13 @@ fn draw_texts(layer: &DrawLayer, panel: &Panel, label: bool) -> Result<Vec<Node>
             }
             drawn.push(candidate);
         }
-        // Anchored, so interactive zoom moves each text with its point.
+        // Anchored at the point without the pixel nudge, so interactive zoom
+        // moves each text with its point and keeps a pixel nudge in pixels.
         nodes.push(Node::Group(Group {
             key: None,
             clip: None,
             role: None,
-            anchor: Some((px, py)),
+            anchor: Some(anchor),
             nodes: draw_one(&look, (px, py), label, border, padding, radius),
         }));
     }

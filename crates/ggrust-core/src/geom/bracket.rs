@@ -13,11 +13,12 @@
 //!
 //! What it does not do (yet): `orientation="y"` (vertical brackets from
 //! `ymin`/`ymax`), `geom_bracket_dodge`, `label_format`, `na_text`, `size_unit`,
-//! `nudge_unit`, `lineheight` (labels lift by one font size per line), mapping
+//! `lineheight` (labels lift by one font size per line), mapping
 //! columns to `segment_*` (warned; constants work). Mapped `lenstart`/`lenend`
 //! numbers are drawn as they are.
 
 use super::lines;
+use super::nudge::Nudge;
 use super::point::POINT_UNIT_SIZE;
 use super::text;
 use super::{DrawLayer, Geom};
@@ -82,6 +83,7 @@ impl Geom for BracketGeom {
         &[
             "nudge_x",
             "nudge_y",
+            "nudge_unit",
             "bracket_shorten",
             "tiplength_unit",
             "orientation",
@@ -101,11 +103,9 @@ impl Geom for BracketGeom {
         let mut brackets = Vec::new();
         let mut labels = Vec::new();
         for row in 0..layer.data.row_count() {
-            let (x_min, x_max) = (
-                value(x_min, row) + options.nudge_x,
-                value(x_max, row) + options.nudge_x,
-            );
-            let y = value(y, row) + options.nudge_y;
+            let (nudge_x, nudge_y) = options.nudge.data();
+            let (x_min, x_max) = (value(x_min, row) + nudge_x, value(x_max, row) + nudge_x);
+            let y = value(y, row) + nudge_y;
             if !(x_min.is_finite() && x_max.is_finite() && y.is_finite()) {
                 continue;
             }
@@ -113,7 +113,9 @@ impl Geom for BracketGeom {
             if let Some(bracket) = bracket(layer.styles, row, panel, &options, (x_min, x_max), y)? {
                 brackets.push(bracket);
             }
-            labels.extend(label(layer.styles, row, panel.map(middle, y), panel)?);
+            let anchor = panel.map(middle, y);
+            let point = options.nudge.shift(anchor);
+            labels.extend(label(layer.styles, row, (anchor, point), panel)?);
         }
         brackets.extend(labels);
         Ok(brackets)
@@ -141,8 +143,7 @@ impl Geom for BracketGeom {
 
 /// Layer options of a bracket.
 struct Options {
-    nudge_x: f64,
-    nudge_y: f64,
+    nudge: Nudge,
     shorten: f64,
     tip_unit: TipUnit,
     /// The y resolution, for `tiplength_unit="res"`.
@@ -188,8 +189,7 @@ impl Options {
             }
         }
         Ok(Options {
-            nudge_x: parameters.number("nudge_x")?.unwrap_or(0.0),
-            nudge_y: parameters.number("nudge_y")?.unwrap_or(0.0),
+            nudge: Nudge::parse(parameters)?,
             shorten: parameters.number("bracket_shorten")?.unwrap_or(0.0),
             tip_unit,
             y_resolution: if tip_unit == TipUnit::Resolution {
@@ -242,7 +242,10 @@ fn bracket(
         panel.map(start, y),
         panel.map(end, y),
         panel.map(end, y - tip_end * scale),
-    ];
+    ]
+    .into_iter()
+    .map(|point| options.nudge.shift(point))
+    .collect::<Vec<_>>();
     if points.iter().any(|(x, y)| !x.is_finite() || !y.is_finite()) {
         return Ok(None);
     }
@@ -255,8 +258,14 @@ fn bracket(
 }
 
 /// The label of one row at `point` (pixels), lifted by half its height in its
-/// own frame (lets-plot `BracketGeom.labelNudge`).
-fn label(styles: &Styles, row: usize, point: (f64, f64), panel: &Panel) -> Result<Vec<Node>> {
+/// own frame (lets-plot `BracketGeom.labelNudge`). Interactive zoom moves it
+/// with `anchor`, the bar's middle before a pixel nudge.
+fn label(
+    styles: &Styles,
+    row: usize,
+    (anchor, point): ((f64, f64), (f64, f64)),
+    panel: &Panel,
+) -> Result<Vec<Node>> {
     let mut look = text::look(styles, row, false)?;
     if look.content.is_empty() || look.size <= 0.0 {
         return Ok(Vec::new());
@@ -272,7 +281,7 @@ fn label(styles: &Styles, row: usize, point: (f64, f64), panel: &Panel) -> Resul
         key: None,
         clip: None,
         role: None,
-        anchor: Some(point),
+        anchor: Some(anchor),
         nodes: text::draw_one(&look, lifted, false, 0.0, 0.0, 0.0),
     })])
 }

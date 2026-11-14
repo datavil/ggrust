@@ -1449,6 +1449,7 @@ def geom_text(
     halo_color: Color | None = None,
     nudge_x: Number | None = None,
     nudge_y: Number | None = None,
+    nudge_unit: Literal["identity", "size", "px"] | None = None,
     check_overlap: bool | None = None,
     na_rm: bool | None = None,
     **other_args: Any,
@@ -1491,6 +1492,9 @@ def geom_text(
         Horizontal offset of the labels.
     nudge_y : float, optional
         Vertical offset of the labels.
+    nudge_unit : {"identity", "size", "px"}, default="identity"
+        Unit of ``nudge_x``/``nudge_y``: data units, point diameters of ``size=1``
+        (2.2 px), or pixels. A positive ``nudge_y`` in ``"size"``/``"px"`` moves up.
     check_overlap : bool, optional
         True skips labels that overlap labels drawn before them.
     na_rm : bool, optional
@@ -1528,6 +1532,7 @@ def geom_text(
         halo_color=halo_color,
         nudge_x=nudge_x,
         nudge_y=nudge_y,
+        nudge_unit=nudge_unit,
         check_overlap=check_overlap,
         na_rm=na_rm,
         **other_args,
@@ -1549,6 +1554,8 @@ def geom_label(
     na_text: str | None = None,
     nudge_x: Number | None = None,
     nudge_y: Number | None = None,
+    nudge_unit: Literal["identity", "size", "px"] | None = None,
+    alpha_stroke: bool | None = None,
     label_padding: Number | None = None,
     label_r: Number | None = None,
     label_size: Number | None = None,
@@ -1587,6 +1594,11 @@ def geom_label(
         Horizontal offset of the labels.
     nudge_y : float, optional
         Vertical offset of the labels.
+    nudge_unit : {"identity", "size", "px"}, default="identity"
+        Unit of ``nudge_x``/``nudge_y``: data units, point diameters of ``size=1``
+        (2.2 px), or pixels. A positive ``nudge_y`` in ``"size"``/``"px"`` moves up.
+    alpha_stroke : bool, default=False
+        True applies ``alpha`` to the text and the border too, not only the fill.
     label_padding : float, optional
         Space between the text and the label border.
     label_r : float, optional
@@ -1626,6 +1638,8 @@ def geom_label(
         na_text=na_text,
         nudge_x=nudge_x,
         nudge_y=nudge_y,
+        nudge_unit=nudge_unit,
+        alpha_stroke=alpha_stroke,
         label_padding=label_padding,
         label_r=label_r,
         label_size=label_size,
@@ -4770,8 +4784,8 @@ def geom_label_repel(
         Radius of the label corners.
     label_size : float, optional
         Width of the label border line.
-    alpha_stroke : bool, optional
-        True applies ``alpha`` to the label border too.
+    alpha_stroke : bool, default=False
+        True applies ``alpha`` to the text and the border too, not only the fill.
     size_unit : str, optional
         Relate ``size`` to an axis: ``"x"``, ``"y"``, ``"min"`` or ``"max"``.
     nudge_unit : str, optional

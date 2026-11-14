@@ -5,7 +5,7 @@
 //! Follows lets-plot `TextRepelGeom`: every point inside the panel repels labels
 //! with its marker radius (`point_size` 3, `point_stroke`, `shape`) plus
 //! `point_padding` x 2.2 px; labels keep `box_padding` x 2.2 px apart; a label
-//! starts at its point plus `nudge_x`/`nudge_y`. The segment runs from the
+//! starts at its point plus `nudge_x`/`nudge_y` (in `nudge_unit`). The segment runs from the
 //! marker's edge to the centre of the nearest box edge it can reach, styled by
 //! `segment_color` (`color` unless set), `segment_size` x 2.2 px, `segment_alpha`
 //! (`alpha` unless set), `linetype` and `arrow`; it is dropped when shorter than
@@ -21,6 +21,7 @@
 
 use super::bracket::{UNSET_SEGMENT_COLOR, segment_stroke};
 use super::lines::Arrow;
+use super::nudge::Nudge;
 use super::point::{POINT_UNIT_SIZE, shape_radius};
 use super::repel_layout::{
     self, Bounds, Circle, Direction, LabelInput, Options, Placement, Quad, Vector,
@@ -88,6 +89,7 @@ const LABEL_LEGEND_DEFAULTS: &[(Aesthetic, StyleDefault)] =
 const REPEL_PARAMETERS: &[&str] = &[
     "nudge_x",
     "nudge_y",
+    "nudge_unit",
     "halo_width",
     "halo_color",
     "seed",
@@ -104,6 +106,8 @@ const REPEL_PARAMETERS: &[&str] = &[
 const LABEL_REPEL_PARAMETERS: &[&str] = &[
     "nudge_x",
     "nudge_y",
+    "nudge_unit",
+    "alpha_stroke",
     "label_padding",
     "label_r",
     "label_size",
@@ -215,7 +219,7 @@ impl Geom for LabelRepelGeom {
 /// The layer's options besides the layout's own.
 struct Settings {
     layout: Options,
-    nudge: (f64, f64),
+    nudge: Nudge,
     point_padding: f64,
     box_padding: f64,
     min_segment_length: f64,
@@ -254,7 +258,7 @@ impl Settings {
                     .map_or(defaults.max_time, |seconds| seconds * 1000.0),
                 direction,
             },
-            nudge: (number("nudge_x", 0.0)?, number("nudge_y", 0.0)?),
+            nudge: Nudge::parse(parameters)?,
             point_padding: number("point_padding", 0.0)? * POINT_UNIT_SIZE,
             box_padding: number("box_padding", 0.0)? * POINT_UNIT_SIZE,
             min_segment_length: number("min_segment_length", 0.0)? * POINT_UNIT_SIZE,
@@ -281,6 +285,7 @@ fn place(
     label: bool,
     settings: &Settings,
 ) -> Result<Vec<Placed>> {
+    let alpha_stroke = label && text::alpha_stroke(&layer.parameters)?;
     let (Some(x), Some(y)) = (
         layer.data.continuous(Aesthetic::X),
         layer.data.continuous(Aesthetic::Y),
@@ -302,7 +307,7 @@ fn place(
         let (Some(value_x), Some(value_y)) = (x.get(row), y.get(row)) else {
             continue;
         };
-        let (start_x, start_y) = panel.map(value_x + settings.nudge.0, value_y + settings.nudge.1);
+        let (start_x, start_y) = settings.nudge.map(panel, value_x, value_y);
         let point = {
             let (pixel_x, pixel_y) = panel.map(value_x, value_y);
             Vector::new(pixel_x, pixel_y)
@@ -321,6 +326,9 @@ fn place(
         };
         points.push((row, circle));
         let mut look = text::look(styles, row, label)?;
+        if alpha_stroke {
+            look.color = look.color.with_opacity(look.alpha);
+        }
         // lets-plot `TextUtil.hAnchor`: hjust other than 0, 0.5 or 1 is the middle.
         if ![0.0, 0.5, 1.0].contains(&look.hjust) {
             look.hjust = 0.5;

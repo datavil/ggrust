@@ -30,6 +30,7 @@ mod logticks;
 mod mark;
 mod mark_label;
 mod mark_shape;
+mod nudge;
 mod pointinterval;
 mod quantile;
 mod slab;

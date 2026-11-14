@@ -327,11 +327,13 @@ Draw a plot or grid inside another plot's area (R package patchwork, not in lets
 
 ## Animation (gganimate)
 
-One frame per value of a column, played as a GIF, APNG or HTML player.
+One frame per value of a column, or states that move smoothly into each other, played as a GIF, APNG or HTML player.
 
 | Name | Description |
 |---|---|
 | [`transition_manual()`](api/transition_manual.md) | Animate by showing the rows of one value of ``frames`` per frame. |
+| [`transition_states()`](api/transition_states.md) | Animate by holding each value of ``states`` and moving smoothly to the next. |
+| [`ease_aes()`](api/ease_aes.md) | Set how values move between states (gganimate ``ease_aes``). |
 | [`animate()`](api/animate.md) | Plan the frames of a plot with a transition (gganimate ``animate()``). |
 | [`anim_save()`](api/anim_save.md) | Save an animation to a file; the extension picks the format (gganimate ``anim_save``). |
 | [`last_animation()`](api/last_animation.md) | Return the animation :func:`animate` made last (gganimate ``last_animation``). |

@@ -1331,11 +1331,27 @@ def animation_last_frame(m):
     return m.animate(_animated_penguins(m)).frame(-1)
 
 
+def animation_states_tween_frame(m):
+    """Penguins counted per year (gganimate transition_states), halfway from 2007 to 2008."""
+    from ggrust.data import penguins
+
+    plot = (
+        m.ggplot(penguins, m.aes("species", fill="species"))
+        + m.geom_bar(width=0.7)
+        + m.labs(title="Penguins counted in {closest_state}", x="", y="penguins")
+        + m.transition_states("year", transition_length=2, state_length=1)
+        + m.ease_aes("cubic-in-out")
+        + m.ggsize(420, 300)
+    )
+    return m.animate(plot, nframes=60).frame(12)
+
+
 EXTENSION_CASES = {
     case.__name__: case
     for case in [
         animation_first_frame,
         animation_last_frame,
+        animation_states_tween_frame,
         ggside_band_panels,
         nested_bottom_square,
         nested_top_opposite,

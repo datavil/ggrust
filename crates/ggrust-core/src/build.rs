@@ -136,7 +136,13 @@ pub fn build_plot_with(spec: &PlotSpec, data: &PlotData, interactive: bool) -> R
     // An animated plot: `Animation.frame(i)` draws one frame; any other still
     // output draws every state at once, with a note.
     let mut animation_note = None;
-    if let Some(value) = &spec.animation {
+    // `ease_aes()` alone (no transition) draws the plot as usual, as in gganimate.
+    let has_transition = spec
+        .animation
+        .as_ref()
+        .and_then(|value| value.get("transition"))
+        .is_some_and(|transition| !transition.is_null());
+    if let Some(value) = spec.animation.as_ref().filter(|_| has_transition) {
         let animation = crate::animate::AnimationSpec::parse(value)?;
         if let Some(frame) = animation.frame {
             let animated = crate::animate::Animation::new(spec, data)?;
@@ -1223,7 +1229,9 @@ fn compute_states(
         if rows.is_empty() {
             continue;
         }
-        parts.push((state as u32, rows, compute(split_layer(&layer, rows))?));
+        let mut part = compute(split_layer(&layer, rows))?;
+        number_groups_by_rank(&mut part)?;
+        parts.push((state as u32, rows, part));
     }
     if parts.is_empty() {
         let mut empty = compute(split_layer(&layer, &[]))?;
@@ -2506,6 +2514,27 @@ fn split_layer<'a>(layer: &MappedLayer<'a>, rows: &[u32]) -> MappedLayer<'a> {
     }
 }
 
+/// Number a computed part's groups by their rank in the whole layer
+/// ([`ComputedLayer::group_ranks`]), so that one group has one number in every
+/// part.
+fn number_groups_by_rank(part: &mut ComputedLayer) -> Result<()> {
+    let (Some(ranks), Some(groups)) = (&part.group_ranks, part.data.group_index()) else {
+        return Ok(());
+    };
+    // A group without a rank (not expected) gets a number past every rank.
+    let renumbered = groups
+        .iter()
+        .map(|group| {
+            ranks
+                .get(*group as usize)
+                .copied()
+                .filter(|rank| *rank != u32::MAX)
+                .unwrap_or(ranks.len() as u32 + group)
+        })
+        .collect();
+    part.data.set_group_index(Some(renumbered))
+}
+
 /// Stat output groups (numbered in the order the stat visited its input groups,
 /// first appearance in the panel) renumbered by their input group's `rank`.
 fn regroup_by_rank(data: &mut LayerData, visited: &[u32], rank: &[u32]) -> Result<()> {
@@ -3531,6 +3560,21 @@ fn compute_layer(
     if let (Some(visited), Some(rank)) = (&visited, &group_rank) {
         regroup_by_rank(&mut layer_data, visited, rank)?;
     }
+    // The layer-wide rank of every output group: a stat's groups are renumbered
+    // by rank above, an identity stat keeps the part's input groups.
+    let group_ranks = match (&visited, &group_rank) {
+        (Some(visited), Some(rank)) => {
+            let mut order: Vec<u32> = visited
+                .iter()
+                .map(|group| rank.get(*group as usize).copied().unwrap_or(u32::MAX))
+                .collect();
+            order.sort_unstable();
+            order.dedup();
+            Some(order)
+        }
+        (None, Some(rank)) => Some(rank.clone()),
+        _ => None,
+    };
     // `sampling=`: on the stat output of this panel, as lets-plot samples.
     let sampled_rows = match &spec.sampling {
         Some(value) => {
@@ -3680,6 +3724,7 @@ fn compute_layer(
         show_legend: spec.show_legend.unwrap_or(geom.shows_legend()),
         companion: layer_stat(spec).is_some_and(|stat| stat.name() == "boxplot_outlier"),
         states: None,
+        group_ranks,
         warnings,
     })
 }
@@ -3721,6 +3766,11 @@ struct ComputedLayer {
     /// An animation's state of every row (see [`compute_states`]); `None` for a
     /// static layer or a still plot.
     states: Option<Vec<u32>>,
+    /// For a part of a layer (a facet panel, an animation state): per output
+    /// group, the rank of its group in the whole layer (see [`split_layer`]).
+    /// [`compute_states`] numbers groups by it so that a group is the same
+    /// number in every state (animations match rows by group).
+    group_ranks: Option<Vec<u32>>,
     /// Warnings of this stage.
     warnings: Vec<String>,
 }

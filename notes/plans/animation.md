@@ -101,7 +101,7 @@ deviations row, plan.md tick.
   HTML player, GIF + APNG writers, `{frame}`/`{nframes}`/`{progress}`/`{current_frame}`
   labels, `start_pause`/`end_pause`/`rewind`. Frames rendered in parallel.
   Goldens: frames 0 and last; GIF decoded and compared per frame (not bytes).
-- [ ] **an2 `transition_states` + tweening.** `transition_length`, `state_length`, `wrap`;
+- [x] **an2 `transition_states` + tweening.** `transition_length`, `state_length`, `wrap`;
   `ease_aes()` with gganimate's easing names (linear, quadratic, cubic, quartic, quintic,
   sine, circular, exponential, elastic, back, bounce; `-in`, `-out`, `-in-out`), per
   aesthetic (`ease_aes(y="bounce-out")`). State label variables. Tween parity vs tweenr
@@ -261,3 +261,37 @@ and stacks would still mix states at the layer level).
   optimisation, since title templates can change the heading height.
 - Plot warnings come from `prepare_plot` once; frame copies carry none.
 - `with_layer_frames` drops tooltips and legend keys: call `draw(.., false)` only.
+
+## Notes (an2)
+
+Done 2026-11-14. Ported from gganimate 1.0 / tweenr source (MIT), checked against R
+for what is installed here (gganimate and tweenr are not: `distribute_frames` is copied
+into `tests/fixtures/generate_animation_reference.R`, colours come from farver).
+
+- `animate/states.rs`: `distribute_frames` (round robin of ceilings, the zero-move
+  fix-up with R's recycling), then the frames of `expand_panel`: a hold of `s` frames
+  and a move of `t` frames each add their count, each run replaces the last frame of
+  the one before, the last frame of a move is the next state. Labels follow
+  `get_frame_info` (closest state switches at linear position `j / t >= 0.5` within
+  the move). With `wrap`, `nframes + 1` scene frames are planned and the timeline
+  samples `nframes` of them, as gganimate (its trim to `nframes` is a no-op).
+- `Transition` trait: `scene_frames(&mut self, states, requested) -> Result<usize>`
+  plans once; `frame_show(frame) -> FrameShow::{States, Tween{from, to, progress}}`.
+  an3's transitions return `Tween` too (time: between observed times).
+- `animate/tween.rs`: rows matched by `(group, occurrence)` (tweenr's id rule),
+  matched rows in `from` order; unmatched rows are not drawn while moving (no
+  `enter`/`exit`, an4). Continuous columns and number styles linear by their ease,
+  colours in Lab D65 + alpha (matches farver exactly on the fixtures), discrete
+  columns and other styles switch at eased 0.5. Discrete positions are numbers
+  after the stat, so a row changing category slides, as in gganimate.
+- **Groups across states.** Per-state stats renumber groups densely per part, so the
+  same number meant different groups in different states (a Gentoo bar flew into
+  the Chinstrap one). `compute_layer` now records each output group's layer-wide rank
+  (`ComputedLayer::group_ranks`) and `compute_states` renumbers each state's groups
+  by it (`number_groups_by_rank`). Group numbers of animated layers are therefore
+  ranks (not dense); every reader of `group_index` copes (they bucket by value).
+- `animate/ease.rs`: tweenr's 31 easing formulas; `ease_aes(x=)`/`(y=)` fill the
+  x-like/y-like names not given, as gganimate.
+- Lines/polygons with uneven point counts: matched in order with a warning (transformr
+  inserts points; deviation row). If a user asks, port `find_splits_c` and
+  `insert_points_c` (transformr `align_rings.cpp`) per matched group.

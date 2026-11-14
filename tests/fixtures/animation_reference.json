@@ -1,0 +1,99 @@
+{
+  "distribute": [
+    {
+      "statics": [1, 1, 1],
+      "transitions": [1, 1, 1],
+      "frames": 101,
+      "holds": [17, 17, 17],
+      "moves": [17, 17, 16]
+    },
+    {
+      "statics": [1, 1, 1],
+      "transitions": [1, 1, 0],
+      "frames": 100,
+      "holds": [20, 20, 20],
+      "moves": [20, 20, 0]
+    },
+    {
+      "statics": [2, 2],
+      "transitions": [1, 0],
+      "frames": 10,
+      "holds": [4, 4],
+      "moves": [2, 0]
+    },
+    {
+      "statics": [1, 1, 1],
+      "transitions": [0, 0, 0],
+      "frames": 9,
+      "holds": [3, 2, 2],
+      "moves": [1, 1, 0]
+    },
+    {
+      "statics": [1, 3, 2, 1],
+      "transitions": [2, 1, 1, 0.5],
+      "frames": 51,
+      "holds": [5, 10, 9, 5],
+      "moves": [9, 5, 5, 3]
+    },
+    {
+      "statics": [1, 1, 1, 1, 1, 1, 1, 1],
+      "transitions": [1, 1, 1, 1, 1, 1, 1, 1],
+      "frames": 6,
+      "holds": [1, 1, 1, 1, 1, 1, 1, 1],
+      "moves": [1, 1, 1, 1, 1, 1, 1, 1]
+    },
+    {
+      "statics": [0, 0, 0],
+      "transitions": [1, 1, 1],
+      "frames": 31,
+      "holds": [0, 0, 0],
+      "moves": [11, 10, 10]
+    },
+    {
+      "statics": [1, 1, 1, 1],
+      "transitions": [0, 2, 0, 0],
+      "frames": 20,
+      "holds": [4, 3, 4, 4, "NA"],
+      "moves": [1, 4, 0, 1]
+    },
+    {
+      "statics": [1, 2, 1],
+      "transitions": [3, 1, 2],
+      "frames": 7,
+      "holds": [1, 2, 1],
+      "moves": [1, 1, 1]
+    }
+  ],
+  "lab": [
+    {
+      "from": "#FF0000",
+      "to": "#0000FF",
+      "share": 0.5,
+      "colour": "#CA0088FF"
+    },
+    {
+      "from": "#1B9E77",
+      "to": "#D95F02",
+      "share": 0.3,
+      "colour": "#7C9059FF"
+    },
+    {
+      "from": "#FFFFFF",
+      "to": "#000000",
+      "share": 0.25,
+      "colour": "#B9B9B9FF"
+    },
+    {
+      "from": "#F8766D",
+      "to": "#00BFC4",
+      "share": 0.8,
+      "colour": "#77B4B2FF"
+    },
+    {
+      "from": "#FF000000",
+      "to": "#0000FFFF",
+      "share": 0.5,
+      "colour": "#CA008880"
+    }
+  ]
+}

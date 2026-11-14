@@ -274,6 +274,13 @@ pub struct Styles {
 }
 
 impl Styles {
+    /// Every aesthetic's values, in aesthetic order.
+    pub fn iter(&self) -> impl Iterator<Item = (Aesthetic, &StyleValues)> + '_ {
+        self.values
+            .iter()
+            .map(|(aesthetic, values)| (*aesthetic, values))
+    }
+
     /// Set the values of an aesthetic. Their kind must match the aesthetic's.
     pub fn insert(&mut self, aesthetic: Aesthetic, values: StyleValues) -> Result<()> {
         if aesthetic.kind().style() != Some(values.kind()) {

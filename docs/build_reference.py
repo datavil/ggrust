@@ -331,9 +331,12 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
         ["inset_element"],
     ),
     "Animation (gganimate)": (
-        "One frame per value of a column, played as a GIF, APNG or HTML player.",
+        "One frame per value of a column, or states that move smoothly into each "
+        "other, played as a GIF, APNG or HTML player.",
         [
             "transition_manual",
+            "transition_states",
+            "ease_aes",
             "animate",
             "anim_save",
             "last_animation",

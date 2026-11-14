@@ -349,3 +349,125 @@ fn writers_decode_to_the_frames() {
     assert!(html.contains("\"kind\":\"svg\""));
     assert!(html.contains("\"timeline\":[0,1,2]"));
 }
+
+/// x pixel positions of the points drawn in the panels, in drawing order.
+fn point_xs(nodes: &[Node]) -> Vec<f64> {
+    fn collect(nodes: &[Node], in_panel: bool, xs: &mut Vec<f64>) {
+        for node in nodes {
+            match node {
+                Node::Points(points) if in_panel => xs.extend(points.x.iter().copied()),
+                Node::Group(group) => {
+                    collect(&group.nodes, in_panel || group.role == Some("panel"), xs)
+                }
+                _ => {}
+            }
+        }
+    }
+    let mut xs = Vec::new();
+    collect(nodes, false, &mut xs);
+    xs
+}
+
+/// transition_states over the three years, 10 frames, no wrap: holds of 2
+/// frames, moves of 2 frames: states 0 0 | tween 1 | 1 1 1 | tween | 2 2 2.
+fn states_points(extra: &str) -> PlotSpec {
+    plot(&format!(
+        r#"{{"kind": "plot",
+            "mapping": {{"x": "price", "y": "sold", "color": "fruit"}},
+            "ggsize": {{"width": 400, "height": 300}},
+            "layers": [{{"geom": "point"}}],
+            "animation": {{
+                "transition": {{"name": "states", "states": "year", "wrap": false}},
+                "animate": {{"nframes": 10}}{extra}}}}}"#
+    ))
+}
+
+#[test]
+fn states_hold_then_tween_matched_rows() {
+    let spec = states_points("");
+    let animation = Animation::new(&spec, &stalls()).unwrap();
+    assert_eq!(animation.timeline().frames, (0..10).collect::<Vec<_>>());
+    let xs = |frame: usize| point_xs(&animation.output_scene(frame).unwrap().nodes);
+    let counts: Vec<usize> = (0..10).map(|frame| xs(frame).len()).collect();
+    // The second 2021 apple has no 2022 partner: not drawn while moving.
+    assert_eq!(counts, vec![4, 4, 3, 3, 3, 3, 3, 5, 5, 5]);
+    let (start, middle, end) = (xs(0), xs(2), xs(3));
+    // Rows in drawing order: apple, pear, plum (matched, 2021 order).
+    for (index, start_row) in [(0, 0), (1, 1), (2, 3)] {
+        let expected = (start[start_row] + end[index]) / 2.0;
+        assert!(
+            (middle[index] - expected).abs() < 1e-6,
+            "row {index}: {} vs {expected}",
+            middle[index]
+        );
+    }
+    let variables = animation.frame_variables(2);
+    let value = |name: &str| {
+        variables
+            .iter()
+            .find(|(known, _)| *known == name)
+            .map(|(_, value)| value.clone())
+            .unwrap()
+    };
+    assert_eq!(value("transitioning"), "TRUE");
+    assert_eq!(value("previous_state"), "2021");
+    assert_eq!(value("closest_state"), "2021");
+    assert_eq!(value("next_state"), "2022");
+    assert_eq!(
+        animation
+            .frame_variables(3)
+            .iter()
+            .find(|(name, _)| *name == "closest_state")
+            .unwrap()
+            .1,
+        "2022"
+    );
+}
+
+#[test]
+fn ease_aes_changes_the_tweened_position() {
+    let linear = Animation::new(&states_points(""), &stalls()).unwrap();
+    let eased = Animation::new(
+        &states_points(r#", "ease": {"default": "cubic-in"}"#),
+        &stalls(),
+    )
+    .unwrap();
+    let xs = |animation: &Animation, frame: usize| {
+        point_xs(&animation.output_scene(frame).unwrap().nodes)
+    };
+    let (start, end) = (xs(&linear, 0)[0], xs(&linear, 3)[0]);
+    let cubic = xs(&eased, 2)[0];
+    // cubic-in at 0.5 moves an eighth of the way.
+    assert!((cubic - (start + 0.125 * (end - start))).abs() < 1e-6);
+    let error = Animation::new(
+        &states_points(r#", "ease": {"default": "cubic-inout"}"#),
+        &stalls(),
+    )
+    .err()
+    .unwrap()
+    .to_string();
+    assert!(error.contains("animation.ease.default"), "{error}");
+    assert!(error.contains("did you mean 'cubic-in-out'"), "{error}");
+}
+
+#[test]
+fn lines_with_uneven_points_warn() {
+    let spec = plot(
+        r#"{"kind": "plot",
+            "mapping": {"x": "price", "y": "sold"},
+            "layers": [{"geom": "line"}],
+            "animation": {"transition": {"name": "states", "states": "year"}, "animate": {"nframes": 12}}}"#,
+    );
+    let animation = Animation::new(&spec, &stalls()).unwrap();
+    assert!(
+        animation
+            .warnings
+            .iter()
+            .any(|warning| warning.contains("geom_line") && warning.contains("'2021'")),
+        "{:?}",
+        animation.warnings
+    );
+    for frame in 0..animation.timeline().frames.len() {
+        animation.output_scene(frame).unwrap();
+    }
+}

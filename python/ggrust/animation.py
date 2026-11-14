@@ -323,7 +323,11 @@ def animate(
         A plot with a transition, e.g. ``+ transition_manual("year")``.
     nframes : int, default=100
         Frames to show, pauses and rewind included. A transition with fewer frames
-        shows those and lowers ``fps`` so the duration stays.
+        shows those and lowers ``fps`` so the duration stays, as gganimate does:
+        ``fps * shown / (nframes - start_pause - end_pause)``, and the pauses play
+        at that lowered rate. For example ``transition_manual()`` over 49 values with
+        ``fps=8, end_pause=16`` plays 65 frames at about 4.7 fps (13.9 s). Pass a
+        smaller ``nframes`` (here 65) or ``duration=`` to keep it faster.
     fps : float, default=10
         Frames per second.
     duration : float, optional

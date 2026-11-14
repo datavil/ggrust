@@ -49,7 +49,7 @@ from ggrust.plot.aliases import (
     stat_density_2d,
     stat_function,
 )
-from ggrust.plot.animation import transition_manual
+from ggrust.plot.animation import ease_aes, transition_manual, transition_states
 from ggrust.plot.annotate import annotate
 from ggrust.plot.annotation_logticks import annotation_logticks
 from ggrust.plot.coord import (
@@ -412,6 +412,7 @@ __all__ = [
     "coord_transform",
     "derive",
     "dup_axis",
+    "ease_aes",
     "element_blank",
     "element_geom",
     "element_line",
@@ -778,6 +779,7 @@ __all__ = [
     "theme_none",
     "theme_void",
     "transition_manual",
+    "transition_states",
     "xlab",
     "xlim",
     "ylab",

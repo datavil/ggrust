@@ -100,7 +100,10 @@ impl Settings {
     /// # Errors
     ///
     /// A spec error when the pauses leave no frame, or the transition has none.
-    pub(crate) fn plan(&self, scene_frames: impl FnOnce(usize) -> usize) -> Result<Timeline> {
+    pub(crate) fn plan(
+        &self,
+        scene_frames: impl FnOnce(usize) -> Result<usize>,
+    ) -> Result<Timeline> {
         let requested = self.nframes as i64;
         let mut shown = requested - self.start_pause as i64 - self.end_pause as i64;
         let mut end_pause = self.end_pause;
@@ -136,7 +139,7 @@ impl Settings {
                     ),
                 )
             })?;
-        let total = scene_frames(asked);
+        let total = scene_frames(asked)?;
         if total == 0 {
             return Err(Error::spec(
                 format!("{PATH}.transition"),
@@ -216,7 +219,7 @@ mod tests {
     }
 
     fn manual(states: usize, options: AnimateOptions) -> Timeline {
-        settings(options).plan(|_| states).unwrap()
+        settings(options).plan(|_| Ok(states)).unwrap()
     }
 
     #[test]
@@ -270,7 +273,7 @@ mod tests {
         })
         .plan(|asked| {
             assert_eq!(asked, 4);
-            10
+            Ok(10)
         })
         .unwrap();
         assert_eq!(timeline.frames, vec![0, 3, 6, 9]);
@@ -281,10 +284,31 @@ mod tests {
             nframes: Some(5.0),
             ..AnimateOptions::default()
         })
-        .plan(|_| 3)
+        .plan(|_| Ok(3))
         .unwrap();
         assert_eq!(timeline.frames, vec![0, 1, 2]);
         assert!((timeline.fps - 6.0).abs() < 1e-12);
+    }
+
+    /// gganimate parity (user decision 2026-11-14): `animate.gganim` lowers fps
+    /// when the transition has fewer frames, and the pauses play at that rate:
+    /// `args$nframes <- nframes - start_pause - end_pause` (100 - 16 = 84),
+    /// `frame_ind <- unique(round(seq(1, 49, length.out = 84)))` (49 frames),
+    /// `args$fps <- args$fps * length(frame_ind) / args$nframes` (8 * 49 / 84).
+    #[test]
+    fn fewer_transition_frames_lower_fps_for_the_pauses_too() {
+        let timeline = manual(
+            49,
+            AnimateOptions {
+                fps: Some(8.0),
+                end_pause: Some(16.0),
+                ..AnimateOptions::default()
+            },
+        );
+        assert_eq!(timeline.frames.len(), 65);
+        assert!((timeline.fps - 8.0 * 49.0 / 84.0).abs() < 1e-12);
+        let seconds = timeline.frames.len() as f64 / timeline.fps;
+        assert!((seconds - 13.93).abs() < 0.01, "{seconds}");
     }
 
     #[test]
@@ -297,7 +321,7 @@ mod tests {
         })
         .plan(|count| {
             asked = count;
-            count
+            Ok(count)
         })
         .unwrap();
         assert_eq!(asked, 28);
@@ -311,7 +335,7 @@ mod tests {
             end_pause: Some(3.0),
             ..AnimateOptions::default()
         })
-        .plan(|count| count)
+        .plan(Ok)
         .unwrap();
         assert_eq!(timeline.frames, vec![0, 0, 0, 1, 2, 3, 4, 4, 4, 4]);
         assert_eq!(timeline.scene_frames, 5);
@@ -325,7 +349,7 @@ mod tests {
             rewind: Some(true),
             ..AnimateOptions::default()
         })
-        .plan(|count| count)
+        .plan(Ok)
         .unwrap();
         assert_eq!(timeline.frames, vec![0, 1, 2, 3, 4, 4, 3, 2, 1, 0]);
         // Odd count: 6 forwards, 5 back (gganimate drops the repeated last frame).
@@ -334,7 +358,7 @@ mod tests {
             rewind: Some(true),
             ..AnimateOptions::default()
         })
-        .plan(|count| count)
+        .plan(Ok)
         .unwrap();
         assert_eq!(timeline.frames, vec![0, 1, 2, 3, 4, 5, 4, 3, 2, 1, 0]);
         // A transition with fewer frames: all of them back.
@@ -361,7 +385,7 @@ mod tests {
             rewind: Some(true),
             ..AnimateOptions::default()
         })
-        .plan(|count| count)
+        .plan(Ok)
         .unwrap();
         let forwards = vec![0, 0, 0, 1, 2, 3, 4, 5, 5, 5];
         let mut expected = forwards.clone();
@@ -395,7 +419,7 @@ mod tests {
             end_pause: Some(2.0),
             ..AnimateOptions::default()
         })
-        .plan(|count| count)
+        .plan(Ok)
         .unwrap_err();
         assert!(error.to_string().contains("leave no frame"), "{error}");
     }
@@ -414,12 +438,12 @@ mod tests {
             nframes: Some(4e9),
             ..AnimateOptions::default()
         };
-        let error = settings(options).plan(|_| 3).unwrap_err().to_string();
+        let error = settings(options).plan(|_| Ok(3)).unwrap_err().to_string();
         assert!(error.contains("animation.animate.nframes"), "{error}");
         let options = AnimateOptions {
             detail: Some(2f64.powi(62)),
             ..AnimateOptions::default()
         };
-        assert!(settings(options).plan(|_| 3).is_err());
+        assert!(settings(options).plan(|_| Ok(3)).is_err());
     }
 }

@@ -149,6 +149,20 @@ impl PreparedPlot {
         &self.titles
     }
 
+    /// Per tile and per layer, the geom name (`"line"`) and the spec path of
+    /// the layer (`"layers[0]"`), for messages about the layer.
+    pub(crate) fn layer_names(&self) -> Vec<Vec<(&'static str, &str)>> {
+        self.tiles
+            .iter()
+            .map(|(layers, _, _)| {
+                layers
+                    .iter()
+                    .map(|layer| (layer.geom.name(), layer.path.as_str()))
+                    .collect()
+            })
+            .collect()
+    }
+
     /// Replace the titles (an animation frame's filled label templates).
     pub(crate) fn set_titles(&mut self, titles: Titles) {
         self.titles = titles;

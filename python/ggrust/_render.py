@@ -153,8 +153,12 @@ def _check_state_column(spec: dict[str, Any], frames: list[tuple[Any, str]]) -> 
     Only referenced columns reach the engine, so its error could not list the others.
     """
     transition = spec.get("animation", {}).get("transition", {})
-    name = transition.get("frames") if isinstance(transition, dict) else None
-    if not isinstance(name, str) or not frames:
+    if not isinstance(transition, dict) or not frames:
+        return
+    # The state column's option: transition_manual(frames), transition_states(states).
+    key = next((key for key in ("frames", "states") if key in transition), "frames")
+    name = transition.get(key)
+    if not isinstance(name, str):
         return
     available: list[str] = []
     for data, _ in frames:
@@ -170,7 +174,7 @@ def _check_state_column(spec: dict[str, Any], frames: list[tuple[Any, str]]) -> 
         f"no layer has the column {name!r}{did_you_mean(name, available)}; "
         f"available columns: {', '.join(available)}"
     )
-    path = "animation.transition.frames"
+    path = f"animation.transition.{key}"
     raise SpecError(f"at '{path}': {reason}", path=path, reason=reason)
 
 
@@ -236,7 +240,12 @@ def is_animated(plot: object) -> bool:
     """
     from ggrust.plot.core import PlotSpec
 
-    return isinstance(plot, PlotSpec) and "animation" in plot.props()
+    if not isinstance(plot, PlotSpec):
+        return False
+    animation = plot.props().get("animation")
+    # ``ease_aes()`` alone sets the easing but no transition: a still plot.
+    props = animation.props() if hasattr(animation, "props") else animation
+    return isinstance(props, dict) and props.get("transition") is not None
 
 
 def build_plot(plot: PlotSpec) -> PlotBuild:

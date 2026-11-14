@@ -6,7 +6,7 @@
 use serde_json::{Map, Value};
 
 use super::spec::{check_keys, shown};
-use super::transition::Transition;
+use super::transition::{FrameShow, Transition};
 use crate::build::StateVariable;
 use crate::{Error, Result};
 
@@ -17,6 +17,8 @@ const VARIABLES: &[&str] = &["previous_frame", "current_frame", "next_frame"];
 pub(super) struct Manual {
     variable: StateVariable,
     cumulative: bool,
+    /// The number of states, set by [`Transition::scene_frames`].
+    states: usize,
 }
 
 /// Parse `{"name": "manual", "frames": "<column>", "cumulative": false}`.
@@ -51,6 +53,7 @@ pub(super) fn parse(options: &Map<String, Value>, path: &str) -> Result<Box<dyn 
             path: frames_path,
         },
         cumulative,
+        states: 0,
     }))
 }
 
@@ -59,15 +62,16 @@ impl Transition for Manual {
         &self.variable
     }
 
-    fn scene_frames(&self, states: usize, _requested: usize) -> usize {
-        states
+    fn scene_frames(&mut self, states: usize, _requested: usize) -> Result<usize> {
+        self.states = states;
+        Ok(states)
     }
 
-    fn frame_states(&self, frame: usize, states: usize) -> Vec<usize> {
-        match self.cumulative {
-            true => (0..=frame.min(states.saturating_sub(1))).collect(),
+    fn frame_show(&self, frame: usize) -> FrameShow {
+        FrameShow::States(match self.cumulative {
+            true => (0..=frame.min(self.states.saturating_sub(1))).collect(),
             false => vec![frame],
-        }
+        })
     }
 
     fn frame_variables(&self, frame: usize, labels: &[String]) -> Vec<(&'static str, String)> {
@@ -101,12 +105,13 @@ mod tests {
 
     #[test]
     fn one_frame_per_state_or_all_states_so_far() {
-        let plain = manual(json!({"name": "manual", "frames": "year"})).unwrap();
-        assert_eq!(plain.scene_frames(4, 100), 4);
-        assert_eq!(plain.frame_states(2, 4), vec![2]);
-        let cumulative =
+        let mut plain = manual(json!({"name": "manual", "frames": "year"})).unwrap();
+        assert_eq!(plain.scene_frames(4, 100).unwrap(), 4);
+        assert_eq!(plain.frame_show(2), FrameShow::States(vec![2]));
+        let mut cumulative =
             manual(json!({"name": "manual", "frames": "year", "cumulative": true})).unwrap();
-        assert_eq!(cumulative.frame_states(2, 4), vec![0, 1, 2]);
+        cumulative.scene_frames(4, 100).unwrap();
+        assert_eq!(cumulative.frame_show(2), FrameShow::States(vec![0, 1, 2]));
     }
 
     #[test]

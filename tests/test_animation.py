@@ -266,3 +266,36 @@ def test_cumulative_keeps_earlier_states():
 def test_gif_of_a_grid_names_the_grid_limit(tmp_path):
     with pytest.raises(SpecError, match="not supported"):
         ggsave(gggrid([sales_plot(), sales_plot()]), "grid.gif", path=str(tmp_path))
+
+
+def test_fewer_transition_frames_keep_gganimates_timing():
+    """gganimate parity (user decision 2026-11-14), from ``animate.gganim``:
+    ``nframes - start_pause - end_pause`` = 84 frames asked, 49 levels shown, so
+    ``fps * 49 / 84`` = 4.67 fps for every frame, the 16 pause frames included:
+    65 frames, about 13.9 s.
+    """
+    frame = pl.DataFrame({"year": list(range(49)), "value": [float(i) for i in range(49)]})
+    plot = (
+        ggplot(frame, aes("year", "value"))
+        + geom_point()
+        + transition_manual("year", cumulative=True)
+        + ggsize(120, 90)
+    )
+    animation = animate(plot, fps=8, end_pause=16)
+    assert animation.nframes == 65
+    assert animation.fps == pytest.approx(8 * 49 / 84)
+    for encoded in (animation.to_gif(), animation.to_apng()):
+        delays = [duration for _, duration in decoded_frames(encoded)]
+        total = sum(delays)
+        assert total == pytest.approx(65 / (8 * 49 / 84) * 1000, abs=20)
+        # 49 shown frames at 0.21-0.22 s; the 16-frame end pause merged into one hold.
+        assert all(200 <= delay <= 230 for delay in delays[:48])
+        assert delays[-1] == pytest.approx(17 * 1000 / (8 * 49 / 84), abs=20)
+    html = animation._repr_html_()
+    payload = re.search(
+        r'<script type="application/vnd.ggrust-animation\+json"[^>]*>(.*?)</script>', html, re.S
+    )
+    assert payload is not None
+    data = json.loads(payload.group(1))
+    assert len(data["timeline"]) == 65
+    assert data["fps"] == pytest.approx(8 * 49 / 84)

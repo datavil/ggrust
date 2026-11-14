@@ -1,12 +1,12 @@
 //! The `Transition` trait and its registry. A transition says which column holds
 //! the states, how many scene frames there are, which states each scene frame
-//! draws and which label variables it has. One file per transition; add it to
+//! draws (or which two it tweens) and which label variables it has. One file per transition; add it to
 //! [`TRANSITIONS`]. Transitions do not draw or plan output frames.
 
 use serde_json::{Map, Value};
 
-use super::manual;
 use super::spec::PATH;
+use super::{manual, states};
 use crate::build::StateVariable;
 use crate::suggest::did_you_mean;
 use crate::{Error, Result};
@@ -15,11 +15,16 @@ use crate::{Error, Result};
 pub(crate) trait Transition: Send + Sync {
     /// The column whose values are the states.
     fn state_variable(&self) -> &StateVariable;
-    /// gganimate `adjust_nframes`: scene frames for `states` states when
-    /// `requested` were asked for.
-    fn scene_frames(&self, states: usize, requested: usize) -> usize;
-    /// States (0-based, in drawing order) whose rows scene frame `frame` draws.
-    fn frame_states(&self, frame: usize, states: usize) -> Vec<usize>;
+    /// Plan the scene frames for `states` states when `requested` were asked
+    /// for (gganimate `setup_params` and `adjust_nframes`) and return how many
+    /// there are. Called once, before the other frame methods.
+    ///
+    /// # Errors
+    ///
+    /// A spec error when the transition's options cannot plan any frame.
+    fn scene_frames(&mut self, states: usize, requested: usize) -> Result<usize>;
+    /// What scene frame `frame` draws.
+    fn frame_show(&self, frame: usize) -> FrameShow;
     /// The transition's label variables of scene frame `frame`, by name, given
     /// the state labels.
     fn frame_variables(&self, frame: usize, labels: &[String]) -> Vec<(&'static str, String)>;
@@ -27,14 +32,28 @@ pub(crate) trait Transition: Send + Sync {
     fn variable_names(&self) -> &'static [&'static str];
 }
 
+/// What one scene frame draws of the layers that have states.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) enum FrameShow {
+    /// The rows of these states (0-based, in drawing order).
+    States(Vec<usize>),
+    /// The rows of `from` moved toward the matching rows of `to`; `progress`
+    /// (0 to 1, not eased) is the share of the way.
+    Tween {
+        from: usize,
+        to: usize,
+        progress: f64,
+    },
+}
+
 /// Parses a transition's spec (`animation.transition`) at `path`.
 type Parse = fn(&Map<String, Value>, &str) -> Result<Box<dyn Transition>>;
 
 /// Every transition by gganimate name (`transition_<name>`).
-const TRANSITIONS: &[(&str, Parse)] = &[("manual", manual::parse)];
+const TRANSITIONS: &[(&str, Parse)] = &[("manual", manual::parse), ("states", states::parse)];
 
 /// gganimate transitions scheduled for later steps (plan.md Phase 13).
-const PLANNED: &[&str] = &["states", "time", "reveal"];
+const PLANNED: &[&str] = &["time", "reveal"];
 
 /// The transition named in `animation.transition`.
 ///
@@ -83,7 +102,7 @@ mod tests {
         let error = transition("manul", &options).err().unwrap().to_string();
         assert!(error.contains("animation.transition.name"), "{error}");
         assert!(error.contains("did you mean 'manual'"), "{error}");
-        let error = transition("states", &options).err().unwrap().to_string();
+        let error = transition("time", &options).err().unwrap().to_string();
         assert!(error.contains("not available yet"), "{error}");
         let options = json!({"name": "manual", "frames": "year"});
         assert!(transition("manual", options.as_object().unwrap()).is_ok());

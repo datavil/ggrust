@@ -602,7 +602,7 @@ Detail: [notes/plans/animation.md](notes/plans/animation.md). Every step is a de
 
 - [x] an0 Spike: find the seam between computed layer data and drawing in `build.rs`.
 - [x] an1 `transition_manual`, `animate()`, `Animation`, `anim_save`, HTML player, GIF, APNG, frame labels.
-- [ ] an2 `transition_states` + tweening, `ease_aes`, state labels.
+- [x] an2 `transition_states` + tweening, `ease_aes`, state labels.
 - [ ] an3 `transition_time`, `transition_reveal`.
 
 ## Performance strategy (honest)

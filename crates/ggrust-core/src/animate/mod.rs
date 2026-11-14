@@ -8,14 +8,18 @@
 //! is then a copy of the prepared plot holding the rows of the states it shows
 //! ([`crate::build::PreparedPlot::with_layer_frames`]), with its titles filled in.
 //! Writers (`render::to_gif`, `render::to_apng`, `render::to_html_animation`)
-//! draw frames through [`FrameSource`]. No tweening yet (step an2): frames show
-//! whole states.
+//! draw frames through [`FrameSource`]. A frame shows whole states, or two
+//! states tweened ([`tween`]) at the frame's progress with the plot's
+//! `ease_aes()` ([`ease`]).
 
+mod ease;
 mod labels;
 mod manual;
 mod spec;
+mod states;
 pub(crate) mod timeline;
 mod transition;
+mod tween;
 
 pub use spec::{AnimateOptions, AnimationSpec};
 pub use timeline::Timeline;
@@ -27,14 +31,16 @@ use crate::render::FrameSource;
 use crate::scene::Scene;
 use crate::spec::PlotSpec;
 use crate::{Error, Result};
+use ease::Easing;
 use labels::{FRAME_VARIABLES, Template};
 use timeline::{Settings, r_number};
-use transition::Transition;
+use transition::{FrameShow, Transition};
 
 /// A planned animation of one plot.
 pub struct Animation {
     prepared: PreparedPlot,
     transition: Box<dyn Transition>,
+    easing: Easing,
     timeline: Timeline,
     /// [tile][layer]: every prepared row.
     rows: Vec<Vec<LayerFrame>>,
@@ -66,7 +72,8 @@ impl Animation {
             ));
         }
         let (name, options) = &animation.transition;
-        let transition = transition::transition(name, options)?;
+        let mut transition = transition::transition(name, options)?;
+        let easing = Easing::parse(animation.ease.as_ref())?;
         let settings = Settings::resolve(&animation.options)?;
         let prepared = prepare_plot_states(spec, data, Some(transition.state_variable()))?;
         let states = prepared.state_labels().len();
@@ -97,10 +104,21 @@ impl Animation {
             template(&titles.subtitle, "ggtitle.subtitle")?,
             template(&titles.caption, "caption.text")?,
         ];
+        let rows = prepared.layer_frames();
+        let state_rows = prepared.state_rows();
+        let mut warnings = prepared.warnings.clone();
+        warnings.extend(uneven_warnings(
+            &prepared,
+            transition.as_ref(),
+            &timeline,
+            &rows,
+            &state_rows,
+        ));
         Ok(Animation {
-            rows: prepared.layer_frames(),
-            state_rows: prepared.state_rows(),
-            warnings: prepared.warnings.clone(),
+            rows,
+            state_rows,
+            warnings,
+            easing,
             prepared,
             transition,
             timeline,
@@ -152,32 +170,37 @@ impl Animation {
 
     /// Draw scene frame `frame` (0-based).
     fn scene_frame(&self, frame: usize) -> Result<Scene> {
-        let states = self
-            .transition
-            .frame_states(frame, self.prepared.state_labels().len());
-        let frames = self
-            .rows
-            .iter()
-            .zip(&self.state_rows)
-            .map(|(layers, layer_states)| {
-                layers
-                    .iter()
-                    .zip(layer_states)
-                    .map(|(all, by_state)| match by_state {
-                        None => all.clone(),
-                        Some(by_state) => {
-                            let rows: Vec<u32> = states
-                                .iter()
-                                .filter_map(|state| by_state.get(*state))
-                                .flatten()
-                                .copied()
-                                .collect();
-                            all.take(&rows)
-                        }
-                    })
-                    .collect()
-            })
-            .collect();
+        let show = self.transition.frame_show(frame);
+        let mut frames = Vec::with_capacity(self.rows.len());
+        for (layers, layer_states) in self.rows.iter().zip(&self.state_rows) {
+            let mut tile = Vec::with_capacity(layers.len());
+            for (all, by_state) in layers.iter().zip(layer_states) {
+                let rows_of = |state: usize| -> &[u32] {
+                    by_state
+                        .as_ref()
+                        .and_then(|by_state| by_state.get(state))
+                        .map_or(&[], Vec::as_slice)
+                };
+                tile.push(match (by_state, &show) {
+                    (None, _) => all.clone(),
+                    (Some(_), FrameShow::States(states)) => {
+                        let rows: Vec<u32> = states
+                            .iter()
+                            .flat_map(|state| rows_of(*state))
+                            .copied()
+                            .collect();
+                        all.take(&rows)
+                    }
+                    (Some(_), FrameShow::Tween { from, to, progress }) => tween::tween(
+                        &all.take(rows_of(*from)),
+                        &all.take(rows_of(*to)),
+                        *progress,
+                        &self.easing,
+                    )?,
+                });
+            }
+            frames.push(tile);
+        }
         let mut plot = self.prepared.with_layer_frames(frames)?;
         if self.templates.iter().any(Option::is_some) {
             let values = self.frame_variables(frame);
@@ -212,6 +235,76 @@ impl FrameSource for Animation {
     fn fps(&self) -> f64 {
         self.timeline.fps
     }
+}
+
+/// Geoms that join their rows into one mark per group.
+const CONNECTED_GEOMS: &[&str] = &[
+    "line",
+    "path",
+    "step",
+    "polygon",
+    "area",
+    "ribbon",
+    "density",
+    "area_ridges",
+    "freqpoly",
+    "violin",
+    "half_violin",
+    "smooth",
+    "band",
+    "slab",
+    "streamline",
+];
+
+/// One warning per layer that joins its rows (lines, polygons) and has a group
+/// whose point count differs between two states it tweens: its points are
+/// matched in order, so the extra ones appear or disappear at a state boundary.
+fn uneven_warnings(
+    prepared: &PreparedPlot,
+    transition: &dyn Transition,
+    timeline: &Timeline,
+    rows: &[Vec<LayerFrame>],
+    state_rows: &[Vec<Option<Vec<Vec<u32>>>>],
+) -> Vec<String> {
+    let mut pairs: Vec<(usize, usize)> = (0..timeline.scene_frames)
+        .filter_map(|frame| match transition.frame_show(frame) {
+            FrameShow::Tween { from, to, .. } => Some((from, to)),
+            FrameShow::States(_) => None,
+        })
+        .collect();
+    pairs.dedup();
+    pairs.sort_unstable();
+    pairs.dedup();
+    let labels = prepared.state_labels();
+    let mut warned: Vec<&str> = Vec::new();
+    let mut warnings = Vec::new();
+    for ((names, layers), layer_states) in prepared.layer_names().iter().zip(rows).zip(state_rows) {
+        for ((geom, path), (all, by_state)) in names.iter().zip(layers.iter().zip(layer_states)) {
+            let Some(by_state) = by_state else { continue };
+            if !CONNECTED_GEOMS.contains(geom) || warned.contains(path) {
+                continue;
+            }
+            let rows_of = |state: usize| by_state.get(state).map_or(&[][..], Vec::as_slice);
+            for (from, to) in &pairs {
+                let uneven =
+                    tween::uneven_groups(&all.take(rows_of(*from)), &all.take(rows_of(*to)));
+                if let Some((_, from_count, to_count)) = uneven.first() {
+                    let label = |state: usize| labels.get(state).map_or("", String::as_str);
+                    warnings.push(format!(
+                        "{path} (geom_{geom}): a group has {from_count} points in state '{}' \
+                         and {to_count} in state '{}'; points are matched in order and the \
+                         extra ones appear or disappear at the state boundary (gganimate \
+                         adds points to match the shapes; ggrust does not yet)",
+                        label(*from),
+                        label(*to)
+                    ));
+                    warned.push(path);
+                    break;
+                }
+            }
+        }
+    }
+    warnings
 }
 
 /// The parsed `animation` key of `spec`.

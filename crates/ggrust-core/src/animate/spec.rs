@@ -21,6 +21,9 @@ pub struct AnimationSpec {
     pub options: AnimateOptions,
     /// Draw only this output frame (0-based), as a still plot.
     pub frame: Option<usize>,
+    /// `ease_aes()`: `{"default": ..., "aesthetics": {...}}`, parsed when the
+    /// frames are planned.
+    pub ease: Option<Value>,
 }
 
 /// gganimate `animate()` arguments that shape the frames. Unset values take
@@ -43,7 +46,7 @@ pub struct AnimateOptions {
     pub rewind: Option<bool>,
 }
 
-const ANIMATION_KEYS: &[&str] = &["transition", "animate", "frame"];
+const ANIMATION_KEYS: &[&str] = &["transition", "animate", "frame", "ease"];
 const OPTION_KEYS: &[&str] = &[
     "nframes",
     "fps",
@@ -95,10 +98,12 @@ impl AnimationSpec {
             Some(Value::Null) | None => None,
             Some(value) => Some(count(value, &format!("{PATH}.frame"))?),
         };
+        let ease = object.get("ease").filter(|value| !value.is_null()).cloned();
         Ok(AnimationSpec {
             transition: (name, transition),
             options,
             frame,
+            ease,
         })
     }
 }

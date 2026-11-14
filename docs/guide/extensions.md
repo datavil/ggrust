@@ -22,7 +22,7 @@ behavior in Rust; the R packages and their authors designed it.
 | [Raincloud plots](#raincloud-plots) | [`stat_halfeye`](../reference/api/stat_halfeye.md), `stat_slab`, `stat_interval`, `stat_pointinterval`, [`geom_half_violin`](../reference/api/geom_half_violin.md), `geom_half_boxplot`, `geom_half_point` | [ggdist](https://cran.r-project.org/package=ggdist), [gghalves](https://cran.r-project.org/package=gghalves) |
 | [Figure layouts](#figure-layouts) | `gggrid(design=, tag_levels=, axes=, axis_titles=)`, [`inset_element`](../reference/api/inset_element.md) | [patchwork](https://cran.r-project.org/package=patchwork) |
 | [Rasterized layers](#rasterized-layers) | [`rasterize`](../reference/api/rasterize.md) | [ggrastr](https://cran.r-project.org/package=ggrastr), [scattermore](https://cran.r-project.org/package=scattermore) |
-| [Animation](#animation) | [`transition_manual`](../reference/api/transition_manual.md), [`animate`](../reference/api/animate.md), [`anim_save`](../reference/api/anim_save.md) | [gganimate](https://cran.r-project.org/package=gganimate) |
+| [Animation](#animation) | [`transition_manual`](../reference/api/transition_manual.md), [`transition_states`](../reference/api/transition_states.md), [`ease_aes`](../reference/api/ease_aes.md), [`animate`](../reference/api/animate.md), [`anim_save`](../reference/api/anim_save.md) | [gganimate](https://cran.r-project.org/package=gganimate) |
 
 Two more, `geom_text_repel` / `geom_label_repel` ([ggrepel](https://cran.r-project.org/package=ggrepel))
 and `geom_area_ridges` ([ggridges](https://cran.r-project.org/package=ggridges)), come
@@ -212,3 +212,19 @@ animated PNG, `.html` the player).
 ```
 
 --8<-- "figures/animation.html"
+
+`p + transition_states("year", transition_length=2, state_length=1)` holds each
+state, then moves the marks smoothly into the next one, and with `wrap=True` (the
+default) from the last state back to the first. Rows are matched by group (set it
+with `aes(group=...)`; discrete mappings such as `fill` split groups too), numbers
+and sizes move by the plot's `ease_aes("cubic-in-out", y="bounce-out")`, colours
+through CIE Lab as gganimate's tweenr does, and categories switch halfway. Rows
+without a partner in the next state show only in their own state.
+`{closest_state}`, `{previous_state}`, `{next_state}` and `{transitioning}` fill the
+labels.
+
+```python
+--8<-- "animation_states.py:code"
+```
+
+--8<-- "figures/animation_states.html"

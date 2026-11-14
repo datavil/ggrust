@@ -167,5 +167,6 @@ above when a user asks for it, with the date and who asked:
 
 - Tier 2 not chosen: ggbreak (broken axes), ggmagnify (zoom insets), geomtextpath (text
   along curves), ggtext geoms (`geom_richtext`, `geom_textbox`).
+- Moved: gganimate, asked by the user 2026-11-14, see [animation.md](animation.md).
 - Tier 3: ggupset, ggVennDiagram, treemapify, waffle, ggstream, ggbump, ggpattern,
-  ggraph, gganimate, maps (sf / ggspatial, already out of scope in plan.md).
+  ggraph, maps (sf / ggspatial, already out of scope in plan.md).

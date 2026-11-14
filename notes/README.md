@@ -17,6 +17,7 @@ Status: **live** = still drives work, **done** = finished, kept for the record,
 | [plans/plan-letsplot-gaps.md](plans/plan-letsplot-gaps.md) | Gap analysis of ggrust vs lets-plot 4.11.0 (2026-10-31); source of plan.md Phase 8 | live |
 | [plans/plan-lp5.md](plans/plan-lp5.md) | Detail for the `lp5.N` steps (lets-plot gaps, score 3) | live |
 | [plans/extensions.md](plans/extensions.md) | Plan for ggplot2 extension features (19 steps done, 5 open) | live |
+| [plans/animation.md](plans/animation.md) | Plan for gganimate-style animation (`transition_*`, `animate`, GIF/APNG/HTML), agreed 2026-11-14, steps an0-an3 scheduled | live |
 | [plans/accessors.md](plans/accessors.md) | Spec for read-only plot accessors; the agreed part is built | done |
 | [plans/coord-polar-design.md](plans/coord-polar-design.md) | Design of `coord_polar`: bend the finished scene (option B, chosen) | done |
 | [cellestial/cellestial_workarounds.md](cellestial/cellestial_workarounds.md) | Maps ggrust features to cellestial workarounds they replace; add a row whenever a step removes one | live |

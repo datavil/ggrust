@@ -61,6 +61,7 @@ All other docs (backlog, audits, cellestial notes): index in [notes/README.md](n
 | Transformed axis padding | Log, sqrt, symlog and other transformed position axes pad in transformed units, as ggplot2, not in data units as lets-plot (which leaves end points half cut on the panel edge). Decided by the user 2026-11-11 |
 | No `position_dodgev()` | Not ported (2026-11-14, user, lp6.2): deprecated in lets-plot 4.11; `position_dodge` stays the dodge. |
 | Single-value continuous legends | One key at the value, as ggplot2, not lets-plot's ~5 near-identical keys (#1267; 2026-11-14, user, lp6.2). See deviations.md. |
+| Animation (gganimate) | Agreed with the user (2026-11-14): gganimate's API (`transition_*`, `ease_aes`, `animate`, `anim_save`) composed with `+`; outputs HTML player, GIF (`gif` + `color_quant` crates) and APNG, no MP4; a plot with a transition animates when displayed, as gganimate's `print`; HTML frames are SVG, PNG when the scene uses the canvas path; scope an0 to an3, the rest on request. See `notes/plans/animation.md`. |
 
 ## Scope: what cellestial actually uses
 
@@ -593,6 +594,16 @@ Items from [priorities.md](notes/priorities.md), one per step, each on its own b
   all drawn by `geom_bracket`. Rows equal ggpubr 0.6.3's `ggplot_build` / `compare_means`
   (`tests/fixtures/generate_pubr_helpers_reference.R`), goldens `pubr_pairwise_brackets`,
   `pubr_manual_brackets`; deviations rows (default dodge 0.95). See `memory/ggpubr_statistics.md`.
+
+### Phase 13: animation (gganimate, 2026-11-14)
+
+Detail: [notes/plans/animation.md](notes/plans/animation.md). Every step is a deviation
+(lets-plot has no animation); reference is R gganimate + tweenr.
+
+- [ ] an0 Spike: find the seam between computed layer data and drawing in `build.rs`.
+- [ ] an1 `transition_manual`, `animate()`, `Animation`, `anim_save`, HTML player, GIF, APNG, frame labels.
+- [ ] an2 `transition_states` + tweening, `ease_aes`, state labels.
+- [ ] an3 `transition_time`, `transition_reveal`.
 
 ## Performance strategy (honest)
 

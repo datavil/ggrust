@@ -12,6 +12,7 @@
 //! states tweened ([`tween`]) at the frame's progress with the plot's
 //! `ease_aes()` ([`ease`]).
 
+mod align;
 mod along;
 mod ease;
 mod labels;
@@ -34,6 +35,7 @@ use crate::render::FrameSource;
 use crate::scene::Scene;
 use crate::spec::PlotSpec;
 use crate::{Error, Result};
+use align::Shape;
 use along::TimeClass;
 use ease::Easing;
 use labels::{FRAME_VARIABLES, Template};
@@ -58,6 +60,8 @@ pub struct Animation {
     /// How every state prints in labels (`{current_frame}`, `{closest_state}`,
     /// ...): dates and date-times formatted as `{frame_time}` is.
     state_labels: Vec<String>,
+    /// [tile][layer]: how the layer's rows move between states.
+    shapes: Vec<Vec<Shape>>,
     /// Title, subtitle and caption templates (`None`: no such title).
     templates: [Option<Template>; 3],
     /// Things the user should know (from preparing the plot).
@@ -91,7 +95,8 @@ impl Animation {
         let states = StateSet {
             count: prepared.state_labels().len(),
             values: prepared.state_values(),
-            class: TimeClass::of(spec, &transition.state_variable().name),
+            class: TimeClass::of(spec, &transition.state_variable().name)
+                .settled(&settle_values(prepared.state_values(), options)),
         };
         if states.count == 0 {
             let variable = transition.state_variable();
@@ -142,8 +147,14 @@ impl Animation {
             &state_rows,
             &state_labels,
         ));
+        let shapes = prepared
+            .layer_names()
+            .iter()
+            .map(|names| names.iter().map(|(geom, _)| Shape::of(geom)).collect())
+            .collect();
         Ok(Animation {
             state_labels,
+            shapes,
             rows,
             state_rows,
             along_layers,
@@ -209,6 +220,12 @@ impl Animation {
                     .get(tile_index)
                     .and_then(|layers| layers.get(layer_index))
                     .and_then(Option::as_ref);
+                let shape = self
+                    .shapes
+                    .get(tile_index)
+                    .and_then(|shapes| shapes.get(layer_index))
+                    .copied()
+                    .unwrap_or(Shape::Points);
                 let rows_of = |state: usize| -> &[u32] {
                     by_state
                         .as_ref()
@@ -230,6 +247,7 @@ impl Animation {
                         &all.take(rows_of(*to)),
                         *progress,
                         &self.easing,
+                        shape,
                     )?,
                     (Some(_), FrameShow::Time { position }) => {
                         let anchors = match along {
@@ -244,6 +262,7 @@ impl Animation {
                                 &all.take(rows_of(to)),
                                 progress,
                                 &self.easing,
+                                shape,
                             )?,
                         }
                     }
@@ -306,7 +325,7 @@ impl FrameSource for Animation {
 /// prepared labels otherwise.
 fn state_labels(prepared: &PreparedPlot, class: TimeClass) -> Vec<String> {
     match (prepared.state_values(), class) {
-        (Some(values), TimeClass::Date | TimeClass::DateTime | TimeClass::TimeOfDay) => {
+        (Some(values), TimeClass::Date | TimeClass::DateTime { .. } | TimeClass::TimeOfDay) => {
             values.iter().map(|value| class.label(*value)).collect()
         }
         _ => prepared.state_labels().to_vec(),
@@ -455,9 +474,10 @@ const CONNECTED_GEOMS: &[&str] = &[
     "streamline",
 ];
 
-/// One warning per layer that joins its rows (lines, polygons) and has a group
-/// whose point count differs between two states it tweens: its points are
-/// matched in order, so the extra ones appear or disappear at a state boundary.
+/// One warning per layer that joins its rows but is not aligned as a path or
+/// polygon ([`Shape`]: areas, ribbons, densities, ...) and has a group whose
+/// point count differs between two states it tweens: its points are matched in
+/// order, so the extra ones appear or disappear at a state boundary.
 fn uneven_warnings(
     prepared: &PreparedPlot,
     transition: &dyn Transition,
@@ -489,7 +509,10 @@ fn uneven_warnings(
     for ((names, layers), layer_states) in prepared.layer_names().iter().zip(rows).zip(state_rows) {
         for ((geom, path), (all, by_state)) in names.iter().zip(layers.iter().zip(layer_states)) {
             let Some(by_state) = by_state else { continue };
-            if !CONNECTED_GEOMS.contains(geom) || warned.contains(path) {
+            if !CONNECTED_GEOMS.contains(geom)
+                || Shape::of(geom) != Shape::Points
+                || warned.contains(path)
+            {
                 continue;
             }
             let rows_of = |state: usize| by_state.get(state).map_or(&[][..], Vec::as_slice);
@@ -501,8 +524,8 @@ fn uneven_warnings(
                     warnings.push(format!(
                         "{path} (geom_{geom}): a group has {from_count} points in state '{}' \
                          and {to_count} in state '{}'; points are matched in order and the \
-                         extra ones appear or disappear at the state boundary (gganimate \
-                         adds points to match the shapes; ggrust does not yet)",
+                         extra ones appear or disappear at the state boundary (ggrust adds points \
+                         to lines and polygons only)",
                         label(*from),
                         label(*to)
                     ));
@@ -513,6 +536,19 @@ fn uneven_warnings(
         }
     }
     warnings
+}
+
+/// The values that choose a date-time column's label format: the states and
+/// the ends of `range=` (a range end with a time shows the time in labels).
+fn settle_values(
+    states: Option<&[f64]>,
+    options: &serde_json::Map<String, serde_json::Value>,
+) -> Vec<f64> {
+    let range = along::parse_range(options, "animation.transition")
+        .ok()
+        .flatten()
+        .unwrap_or([f64::NAN; 2]);
+    states.unwrap_or(&[]).iter().copied().chain(range).collect()
 }
 
 /// The parsed `animation` key of `spec`.

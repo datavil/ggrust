@@ -450,8 +450,30 @@ fn ease_aes_changes_the_tweened_position() {
     assert!(error.contains("did you mean 'cubic-in-out'"), "{error}");
 }
 
+/// The point counts of the paths in the panels of `nodes`.
+fn path_lengths(nodes: &[Node]) -> Vec<usize> {
+    fn collect(nodes: &[Node], in_panel: bool, lengths: &mut Vec<usize>) {
+        for node in nodes {
+            match node {
+                Node::Path(path) if in_panel => lengths.push(path.points.len()),
+                Node::Group(group) => collect(
+                    &group.nodes,
+                    in_panel || group.role == Some("panel"),
+                    lengths,
+                ),
+                _ => {}
+            }
+        }
+    }
+    let mut lengths = Vec::new();
+    collect(nodes, false, &mut lengths);
+    lengths
+}
+
 #[test]
-fn lines_with_uneven_points_warn() {
+fn lines_with_uneven_points_get_points_inserted() {
+    // A line of 4 points in 2021 and 3 in 2022: transformr aligns both to 50
+    // points, so tweened frames draw 50 and the states their own rows.
     let spec = plot(
         r#"{"kind": "plot",
             "mapping": {"x": "price", "y": "sold"},
@@ -459,15 +481,14 @@ fn lines_with_uneven_points_warn() {
             "animation": {"transition": {"name": "states", "states": "year"}, "animate": {"nframes": 12}}}"#,
     );
     let animation = Animation::new(&spec, &stalls()).unwrap();
-    assert!(
-        animation
-            .warnings
-            .iter()
-            .any(|warning| warning.contains("geom_line") && warning.contains("'2021'")),
-        "{:?}",
-        animation.warnings
-    );
-    for frame in 0..animation.timeline().frames.len() {
-        animation.output_scene(frame).unwrap();
+    assert!(animation.warnings.is_empty(), "{:?}", animation.warnings);
+    let mut seen = std::collections::BTreeSet::new();
+    for frame in 0..animation.timeline().scene_frames {
+        let scene = animation.scene_frame(frame).unwrap();
+        seen.extend(path_lengths(&scene.nodes));
     }
+    assert!(
+        seen.contains(&50) && seen.contains(&4) && seen.contains(&3),
+        "{seen:?}"
+    );
 }

@@ -19,6 +19,7 @@ from ggrust import (
     aes,
     animate,
     ease_aes,
+    geom_area,
     geom_line,
     geom_point,
     ggload,
@@ -151,16 +152,31 @@ def test_ease_aes_changes_only_the_moving_frames():
     assert not np.array_equal(pixels(linear.frame(2)), pixels(eased.frame(2)))
 
 
-def test_lines_with_uneven_points_warn():
+def test_lines_with_uneven_points_get_points_inserted():
     frame = pl.DataFrame(
         {"step": [1, 1, 1, 2, 2], "x": [0.0, 1.0, 2.0, 0.0, 2.0], "y": [0.0, 1.0, 0.0, 1.0, 1.0]}
     )
     plot = ggplot(frame, aes("x", "y")) + geom_line() + transition_states("step")
     with warnings.catch_warnings(record=True) as caught:
         warnings.simplefilter("always")
+        animation = animate(plot, nframes=6)
+        moving = animation.frame(2).to_svg()
+    assert not [warning for warning in caught if warning.category is GgrustWarning]
+    # transformr aligns both lines to 50 points before tweening.
+    paths = re.findall(r'<path[^>]* d="([^"]+)"', moving)
+    assert any(len(re.findall(r"[ML]", path)) == 50 for path in paths), paths
+
+
+def test_areas_with_uneven_points_still_warn():
+    frame = pl.DataFrame(
+        {"step": [1, 1, 1, 2, 2], "x": [0.0, 1.0, 2.0, 0.0, 2.0], "y": [0.0, 1.0, 0.0, 1.0, 1.0]}
+    )
+    plot = ggplot(frame, aes("x", "y")) + geom_area() + transition_states("step")
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
         animate(plot, nframes=6).frame(2).to_svg()
     messages = [str(warning.message) for warning in caught if warning.category is GgrustWarning]
-    assert any("geom_line" in message and "matched in order" in message for message in messages)
+    assert any("geom_area" in message and "matched in order" in message for message in messages)
 
 
 def test_plot_files_keep_the_easing(tmp_path):

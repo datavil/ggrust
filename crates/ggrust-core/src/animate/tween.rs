@@ -14,6 +14,7 @@
 
 use std::collections::HashMap;
 
+use super::align::{Shape, align};
 use super::ease::Easing;
 use crate::build::frame::LayerFrame;
 use crate::data::{Column, ContinuousColumn, Variable};
@@ -70,7 +71,8 @@ pub(crate) fn uneven_groups(from: &LayerFrame, to: &LayerFrame) -> Vec<(u32, usi
 }
 
 /// The rows of `from` moved `progress` (0 to 1, not eased) of the way to their
-/// partners in `to`.
+/// partners in `to`. Lines and polygons (`shape`) are aligned first, so every
+/// point of a group present in both states has a partner ([`align`]).
 ///
 /// # Errors
 ///
@@ -81,7 +83,13 @@ pub(crate) fn tween(
     to: &LayerFrame,
     progress: f64,
     easing: &Easing,
+    shape: Shape,
 ) -> Result<LayerFrame> {
+    let aligned = align(from, to, shape)?;
+    let (from, to) = match &aligned {
+        Some((from, to)) => (from, to),
+        None => (from, to),
+    };
     let pairs = match_rows(from, to);
     let from_rows: Vec<u32> = pairs.iter().map(|(row, _)| *row).collect();
     let to_rows: Vec<u32> = pairs.iter().map(|(_, row)| *row).collect();
@@ -425,7 +433,7 @@ mod tests {
         // Group 0: rows 0 -> 1 (first), row 2 has no second partner; group 1:
         // row 1 -> 0; group 2 only in `to`.
         assert_eq!(match_rows(&from, &to), vec![(0, 1), (1, 0)]);
-        let tweened = tween(&from, &to, 0.5, &Easing::default()).unwrap();
+        let tweened = tween(&from, &to, 0.5, &Easing::default(), Shape::Points).unwrap();
         let x = tweened
             .data
             .continuous(Aesthetic::X)
@@ -446,7 +454,7 @@ mod tests {
                 .unwrap(),
         )
         .unwrap();
-        let tweened = tween(&from, &to, 0.5, &easing).unwrap();
+        let tweened = tween(&from, &to, 0.5, &easing, Shape::Points).unwrap();
         assert_eq!(
             tweened.data.continuous(Aesthetic::X).unwrap().values(),
             &[5.0]
@@ -472,7 +480,7 @@ mod tests {
     fn equal_infinite_values_stay_infinite() {
         let from = frame(&[(0, f64::NEG_INFINITY, 1.0, RED)]);
         let to = frame(&[(0, f64::NEG_INFINITY, 3.0, RED)]);
-        let tweened = tween(&from, &to, 0.5, &Easing::default()).unwrap();
+        let tweened = tween(&from, &to, 0.5, &Easing::default(), Shape::Points).unwrap();
         let x = tweened.data.continuous(Aesthetic::X).unwrap().values()[0];
         assert_eq!(x, f64::NEG_INFINITY);
     }
@@ -529,7 +537,7 @@ mod tests {
         from.data.insert(Aesthetic::Label, column(0)).unwrap();
         to.data.insert(Aesthetic::Label, column(1)).unwrap();
         let label = |progress: f64| {
-            let tweened = tween(&from, &to, progress, &Easing::default()).unwrap();
+            let tweened = tween(&from, &to, progress, &Easing::default(), Shape::Points).unwrap();
             match tweened.data.get(Aesthetic::Label) {
                 Some(Column::Discrete(column)) => column.label(0).map(str::to_owned),
                 _ => None,

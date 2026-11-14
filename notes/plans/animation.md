@@ -293,8 +293,7 @@ into `tests/fixtures/generate_animation_reference.R`, colours come from farver).
 - `animate/ease.rs`: tweenr's 31 easing formulas; `ease_aes(x=)`/`(y=)` fill the
   x-like/y-like names not given, as gganimate.
 - Lines/polygons with uneven point counts: matched in order with a warning (transformr
-  inserts points; deviation row). If a user asks, port `find_splits_c` and
-  `insert_points_c` (transformr `align_rings.cpp`) per matched group.
+  inserts points; deviation row). Ported after an3, see "Fixes after an3".
 
 ## Notes (an3)
 
@@ -334,3 +333,22 @@ Follow-up (user request, after an3): `range` carries `range_kind` (`number`, `da
 `datetime`, `time`, set by the Python API) and `along::plan` rejects a kind that does not
 fit the column's `TimeClass`; date, date-time and time-of-day states print with the
 `{frame_time}` formats in every label variable (`Animation::state_labels`).
+
+## Fixes after an3 (user request, 2026-11-14)
+
+- **transformr alignment** (`animate/align.rs`): `tween::tween` takes a `Shape` per layer
+  (`Shape::of(geom)`, gganimate's `layer_type`). For paths and polygons every group in
+  both states gets `max(50, n_from, n_to)` points (transformr `min_n`), even when the counts
+  match, via `add_points`/`find_splits_c`/`insert_points_c`; inserted rows copy the vertex
+  before them; polygons are padded to 4 points, made clockwise and the second ring rotated
+  (`rotate_c`). Line geoms that sort by x are sorted before inserting. The R translation in
+  the fixture script ("align") proves the coordinates. Not ported: NA-separated
+  multi-paths/holes (those groups match row by row) and `match = FALSE` cutting.
+- **Labels**: years padded to 4 digits (negatives as ISO `-0001`); `TimeClass::DateTime
+  { with_time }` is settled once from the state values (`TimeClass::settled`), so every
+  label of a date-time column uses one format (user's choice, deviation row).
+- Bug hunt: the old uneven-points warning stays for joined geoms that are not aligned
+  (area, ribbon, density, violin, smooth, ...; gganimate's `layer_type` for them was not
+  checked). `range=` ends take part in choosing the date-time format. `geom_step` is
+  aligned as a path, so a tweened step shows small stairs along its diagonal, as gganimate
+  (`GeomStep` is a `GeomPath`).

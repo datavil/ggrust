@@ -235,7 +235,8 @@ def test_datetime_and_time_of_day_labels():
         + ggtitle("{frame_along}")
     )
     animation = animate(plot, nframes=5)
-    assert "2024-01-01" in titles(animation.frame(0))
+    # One format for the whole column: midnight shows its time too.
+    assert "2024-01-01 00:00:00" in titles(animation.frame(0))
     assert "2024-01-01 03:00:00" in titles(animation.frame(1))
     times = pl.DataFrame({"at": [datetime.time(9), datetime.time(17)], "y": [1.0, 2.0]})
     plot = (
@@ -324,4 +325,54 @@ def test_date_states_print_as_dates():
         + ggtitle("{previous_state}>{next_state} {closest_state}")
     )
     texts = titles(animate(plot, nframes=10).frame(4))
-    assert any(text.startswith("2024-01-01&gt;2024-01-01 06:00:00 ") for text in texts), texts
+    assert any(text.startswith("2024-01-01 00:00:00&gt;2024-01-01 06:00:00 ") for text in texts), (
+        texts
+    )
+
+
+def test_midnight_date_times_print_the_date_in_every_frame():
+    days = pl.DataFrame(
+        {"at": [datetime.datetime(2024, 1, day) for day in (1, 2, 3)], "y": [1.0, 2.0, 3.0]}
+    )
+    plot = (
+        ggplot(days, aes("y", "y"))
+        + geom_point()
+        + transition_time("at")
+        + ggtitle("{frame_time}|{frame}")
+    )
+    animation = animate(plot, nframes=5)
+    # Frame 2 stands for 2024-01-01 12:00, still printed as a date.
+    assert "2024-01-01|2" in titles(animation.frame(1))
+    assert "2024-01-03|5" in titles(animation.frame(4))
+
+
+def test_a_range_with_a_time_shows_the_time():
+    days = pl.DataFrame(
+        {"at": [datetime.datetime(2024, 1, 1), datetime.datetime(2024, 1, 3)], "y": [1.0, 2.0]}
+    )
+    plot = (
+        ggplot(days, aes("y", "y"))
+        + geom_point()
+        + transition_time(
+            "at", range=(datetime.datetime(2024, 1, 1, 6), datetime.datetime(2024, 1, 3))
+        )
+        + ggtitle("{frame_time}")
+    )
+    animation = animate(plot, nframes=3)
+    assert "2024-01-01 06:00:00" in titles(animation.frame(0))
+    assert "2024-01-02 03:00:00" in titles(animation.frame(1))
+
+
+def test_years_before_1000_pad_to_four_digits():
+    early = pl.DataFrame(
+        {"day": [datetime.date(1, 1, 1), datetime.date(99, 5, 1)], "y": [1.0, 2.0]}
+    )
+    plot = (
+        ggplot(early, aes("y", "y"))
+        + geom_point()
+        + transition_states("day")
+        + ggtitle("{closest_state}")
+    )
+    animation = animate(plot, nframes=4)
+    assert "0001-01-01" in titles(animation.frame(0))
+    assert "0099-05-01" in titles(animation.frame(3))

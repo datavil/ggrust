@@ -11,7 +11,7 @@ use super::spec::shown;
 use super::timeline::r_number;
 use super::transition::StateSet;
 use crate::build::StateVariable;
-use crate::scale::datetime::DatePattern;
+use crate::scale::datetime::{DatePattern, civil_from_days};
 use crate::spec::PlotSpec;
 use crate::{Error, Result};
 
@@ -26,7 +26,9 @@ pub(crate) enum TimeClass {
     /// Days (R `Date`), in epoch milliseconds.
     Date,
     /// Instants (R `POSIXct`), in epoch milliseconds, printed in UTC.
-    DateTime,
+    /// `with_time` is false when every value of the column is at midnight:
+    /// every label then shows the date only (see [`TimeClass::settled`]).
+    DateTime { with_time: bool },
     /// Times of day (R `hms`), in milliseconds since midnight.
     TimeOfDay,
 }
@@ -45,17 +47,35 @@ impl TimeClass {
             .and_then(|annotation| match annotation.series_type.as_deref() {
                 Some("int") => Some(TimeClass::Integer),
                 Some("date") => Some(TimeClass::Date),
-                Some("datetime") => Some(TimeClass::DateTime),
+                Some("datetime") => Some(TimeClass::DateTime { with_time: true }),
                 Some("time") => Some(TimeClass::TimeOfDay),
                 _ => None,
             })
             .unwrap_or(TimeClass::Numeric)
     }
 
+    /// The class with the label format chosen once for the whole column:
+    /// a date-time column shows the time in every label when any of `values`
+    /// is not at midnight, and the date alone otherwise. gganimate formats
+    /// each frame's value alone, so one animation can mix both formats
+    /// (deviation, decided by the user).
+    pub(crate) fn settled(self, values: &[f64]) -> TimeClass {
+        match self {
+            TimeClass::DateTime { .. } => TimeClass::DateTime {
+                with_time: values
+                    .iter()
+                    .any(|value| value.is_finite() && !is_midnight(*value)),
+            },
+            class => class,
+        }
+    }
+
     /// `value` as gganimate's label shows it: integers rounded, dates as
     /// `YYYY-MM-DD` (the day it falls in), date-times as
-    /// `YYYY-MM-DD HH:MM:SS` (the date alone at midnight), times of day as
-    /// `HH:MM:SS`.
+    /// `YYYY-MM-DD HH:MM:SS` (the date alone when the column has no time,
+    /// see [`TimeClass::settled`]), times of day as `HH:MM:SS`. Years are
+    /// padded to 4 digits as R prints them (`0001-01-01`); years before 1
+    /// print as ISO 8601 does (`-0001-01-01`, R prints `-001-01-01`).
     pub(crate) fn label(self, value: f64) -> String {
         if !value.is_finite() {
             return "NA".to_owned();
@@ -64,11 +84,32 @@ impl TimeClass {
         match self {
             TimeClass::Integer => r_number(value.round_ties_even()),
             TimeClass::Numeric => r_number(value),
-            TimeClass::Date => pattern("%Y-%m-%d"),
-            TimeClass::DateTime if value.rem_euclid(86_400_000.0) < 1000.0 => pattern("%Y-%m-%d"),
-            TimeClass::DateTime => pattern("%Y-%m-%d %H:%M:%S"),
+            TimeClass::Date | TimeClass::DateTime { with_time: false } => {
+                padded_year(value) + &pattern("-%m-%d")
+            }
+            TimeClass::DateTime { with_time: true } => {
+                padded_year(value) + &pattern("-%m-%d %H:%M:%S")
+            }
             TimeClass::TimeOfDay => pattern("%H:%M:%S"),
         }
+    }
+}
+
+/// Whether epoch milliseconds `value` falls in the first second of its day
+/// (fractions of a second never print).
+fn is_midnight(value: f64) -> bool {
+    value.rem_euclid(86_400_000.0) < 1000.0
+}
+
+/// The year of epoch milliseconds `value` (UTC, proleptic Gregorian, year 0 =
+/// 1 BC), padded to 4 digits: `0001`, `2024`, `-0001`, `12345`.
+fn padded_year(value: f64) -> String {
+    let days = (value.floor() as i64).div_euclid(86_400_000);
+    let year = civil_from_days(days).0;
+    if year < 0 {
+        format!("-{:04}", year.unsigned_abs())
+    } else {
+        format!("{year:04}")
     }
 }
 
@@ -121,7 +162,10 @@ impl RangeKind {
         match self {
             RangeKind::Number => r_number(value),
             RangeKind::Date => TimeClass::Date.label(value),
-            RangeKind::DateTime => TimeClass::DateTime.label(value),
+            RangeKind::DateTime => TimeClass::DateTime {
+                with_time: !is_midnight(value),
+            }
+            .label(value),
             RangeKind::Time => TimeClass::TimeOfDay.label(value),
         }
     }
@@ -169,7 +213,7 @@ impl TimeClass {
             TimeClass::Integer => "integers",
             TimeClass::Numeric => "numbers",
             TimeClass::Date => "dates",
-            TimeClass::DateTime => "date-times",
+            TimeClass::DateTime { .. } => "date-times",
             TimeClass::TimeOfDay => "times of day",
         }
     }
@@ -178,7 +222,7 @@ impl TimeClass {
     fn accepted_range(self) -> &'static str {
         match self {
             TimeClass::Integer | TimeClass::Numeric => "numbers, e.g. range=(2000, 2020)",
-            TimeClass::Date | TimeClass::DateTime => {
+            TimeClass::Date | TimeClass::DateTime { .. } => {
                 "dates or date-times (datetime.date, datetime.datetime, numpy.datetime64, \
                  polars or pandas values), e.g. range=(date(2020, 1, 1), date(2020, 12, 31))"
             }
@@ -190,7 +234,7 @@ impl TimeClass {
     fn accepts(self, kind: RangeKind) -> bool {
         match self {
             TimeClass::Integer | TimeClass::Numeric => kind == RangeKind::Number,
-            TimeClass::Date | TimeClass::DateTime => {
+            TimeClass::Date | TimeClass::DateTime { .. } => {
                 matches!(kind, RangeKind::Date | RangeKind::DateTime)
             }
             TimeClass::TimeOfDay => kind == RangeKind::Time,
@@ -612,11 +656,46 @@ pub(crate) mod tests {
         // 2001-03-17 05:12:33 UTC.
         let instant = 984_805_953_000.0;
         assert_eq!(TimeClass::Date.label(instant), "2001-03-17");
-        assert_eq!(TimeClass::DateTime.label(instant), "2001-03-17 05:12:33");
-        assert_eq!(TimeClass::DateTime.label(984_787_200_000.0), "2001-03-17");
+        let with_time = TimeClass::DateTime { with_time: true };
+        let date_only = TimeClass::DateTime { with_time: false };
+        assert_eq!(with_time.label(instant), "2001-03-17 05:12:33");
+        assert_eq!(date_only.label(984_787_200_000.0), "2001-03-17");
         assert_eq!(TimeClass::TimeOfDay.label(3_723_000.0), "01:02:03");
         assert_eq!(TimeClass::Integer.label(2.5), "2");
         assert_eq!(TimeClass::Numeric.label(2.5), "2.5");
         assert_eq!(r_sequence(0.0, 1.0, 3), vec![0.0, 0.5, 1.0]);
+    }
+
+    #[test]
+    fn years_pad_to_four_digits() {
+        // R: format(as.Date(c("0001-01-01", "0099-05-01"))), and as.Date(-719528 - 365)
+        // prints "-001-01-01" (ggrust follows ISO 8601: "-0001-01-01").
+        let year_one = -62_135_596_800_000.0;
+        let day = 86_400_000.0;
+        assert_eq!(TimeClass::Date.label(year_one), "0001-01-01");
+        assert_eq!(TimeClass::Date.label(-59_032_627_200_000.0), "0099-05-01");
+        assert_eq!(TimeClass::Date.label(year_one - 366.0 * day), "0000-01-01");
+        assert_eq!(TimeClass::Date.label(year_one - 731.0 * day), "-0001-01-01");
+        assert_eq!(
+            TimeClass::DateTime { with_time: true }.label(year_one + 3_600_000.0),
+            "0001-01-01 01:00:00"
+        );
+        assert_eq!(
+            TimeClass::DateTime { with_time: false }.label(year_one),
+            "0001-01-01"
+        );
+        assert_eq!(TimeClass::Date.label(253_402_300_800_000.0), "10000-01-01");
+    }
+
+    #[test]
+    fn date_times_show_the_time_when_any_value_has_one() {
+        let midnight = 984_787_200_000.0;
+        let unsettled = TimeClass::DateTime { with_time: true };
+        let all_midnight = unsettled.settled(&[midnight, midnight + 86_400_000.0]);
+        assert_eq!(all_midnight, TimeClass::DateTime { with_time: false });
+        assert_eq!(all_midnight.label(midnight + 3_600_000.0), "2001-03-17");
+        let mixed = unsettled.settled(&[midnight, midnight + 3_600_000.0]);
+        assert_eq!(mixed.label(midnight), "2001-03-17 00:00:00");
+        assert_eq!(TimeClass::Date.settled(&[1.5]), TimeClass::Date);
     }
 }

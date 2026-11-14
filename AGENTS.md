@@ -126,12 +126,14 @@ Errors are part of the API, Rust style: typed, informative and solution-oriented
   Fail early, at spec-building time, when the problem is detectable in Python.
 - Tests assert on the error type and the key parts of the message.
 
-**Order of work:** implement and verify the feature first. Type hints, docstrings and
-error polish may follow after the implementation is complete (see the polish step in
-`plan.md`), but new code must not make that pass larger: write hints and clear errors
-as you go where it is cheap.
+**Order of work:** implement and verify the feature first, then finish its type hints,
+docstrings and errors in the same step. The one-time code-quality pass (plan.md step
+7.0) is done, so nothing later will catch what a step leaves out.
 
 ## Architecture (keep it this way)
+
+The tree shows the layering and the main modules, not every file; run
+`ls crates/ggrust-core/src` for the full list.
 
 ```
 ggrust/
@@ -142,7 +144,7 @@ ggrust/
     src/geom/              one file per geom     (trait Geom)
     src/position/          one file per position (trait Position)
     src/scale/             continuous / discrete / color scales, transforms, breaks
-    src/coord/             cartesian, fixed, flip
+    src/coord/             cartesian, fixed, flip, polar, transforms
     src/theme/             theme model + defaults (classic, bw, void, grey)
     src/layout/            panels, facets, axes, legends, titles, subplot grid
     src/scene/             backend-agnostic drawing primitives in pixel space

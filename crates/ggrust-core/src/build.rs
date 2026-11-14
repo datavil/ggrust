@@ -3238,7 +3238,14 @@ fn compute_layer(
         }
     }
     for (aesthetic, computed) in stat.default_mapping() {
+        // A style aesthetic the layer maps to a data column keeps it (ggplot2: a
+        // mapping beats the default `fill = after_stat(level)`); positions are
+        // still replaced, as lets-plot does.
+        let maps_style_column = !aesthetic.is_x_position()
+            && !aesthetic.is_y_position()
+            && mapping_paths.contains_key(aesthetic);
         if sets_constant(spec, oriented(*aesthetic))
+            || maps_style_column
             || stat_mappings
                 .iter()
                 .any(|(mapped, _, _)| oriented(*mapped) == *aesthetic)

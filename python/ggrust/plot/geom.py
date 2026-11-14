@@ -4629,6 +4629,139 @@ def geom_bracket(
     )
 
 
+def geom_bracket_dodge(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    orientation: str | None = None,
+    label_format: str | None = None,
+    na_text: str | None = None,
+    nudge_x: Number | None = None,
+    nudge_y: Number | None = None,
+    nudge_unit: str | None = None,
+    size_unit: str | None = None,
+    bracket_shorten: Number | None = None,
+    tiplength_unit: str | None = None,
+    dodge_width: Number | None = None,
+    ngroup: int | None = None,
+    color_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Labelled brackets between dodged groups inside each category.
+
+    Each row joins the dodged groups in slots ``istart`` and ``iend`` (0-based)
+    of category ``x``, at height ``y``. Use it beside a dodged layer, such as
+    boxplots with a ``fill`` group. As with ``geom_bracket``, the plot mapping is
+    not inherited and no legend is shown unless ``show_legend=True``.
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``: ``x``, ``y``, ``istart``, ``iend``,
+        ``label``, ``color``/``alpha``, and tip lengths (``lenstart``, ``lenend``).
+        The bracket line (``segment_color``, ``segment_size``, ``segment_alpha``)
+        takes constants only in ggrust yet.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    orientation : str, optional
+        Only ``"x"`` (horizontal brackets) is drawn by ggrust yet.
+    nudge_x, nudge_y : float, optional
+        Shift of the whole bracket.
+    nudge_unit : str, optional
+        Unit of the nudge: ``"identity"`` (data units), ``"size"``, ``"px"``.
+    bracket_shorten : float, default 0
+        Pull both ends toward the middle: 0 keeps the full width, 1 collapses it.
+    tiplength_unit : {"size", "res", "identity", "px"}, default "size"
+        Unit of ``lenstart``/``lenend``: point size units (2.2 px), the y resolution,
+        data units, or pixels.
+    dodge_width : float, default 0.95
+        Width the groups are dodged in, as a share of the category spacing; match
+        the dodge width of the layer the brackets annotate.
+    ngroup : int, optional
+        Number of dodged groups per category. Default: the largest ``istart`` or
+        ``iend`` plus one.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        True shows this layer in the legend.
+    manual_key : str or FeatureSpec, optional
+        This layer's key in a manual legend: a label, or ``layer_key()``.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
+    label_format : str, optional
+        Format pattern of the label text, e.g. ``".2f"`` or ``"{d} %"``.
+    na_text : str, optional
+        Text shown for missing values.
+    size_unit : str, optional
+        Relate ``size`` to an axis: ``"x"``, ``"y"``, ``"min"`` or ``"max"``.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Constant aesthetics such as ``color="red"`` or ``segment_size=1``, and the
+        geom's options. As in lets_plot; options ggrust does not read yet are
+        reported as not supported.
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {
+    ...     "day": ["Sat", "Sat", "Sat", "Sat", "Sun", "Sun", "Sun", "Sun"],
+    ...     "shop": ["north", "north", "south", "south"] * 2,
+    ...     "sales": [12, 14, 18, 21, 9, 11, 10, 12],
+    ... }
+    >>> marks = {"day": ["Sat", "Sun"], "y": [23, 14], "label": ["*", "ns"]}
+    >>> plot = (
+    ...     ggplot(data, aes("day", "sales", fill="shop"))
+    ...     + geom_boxplot()
+    ...     + geom_bracket_dodge(
+    ...         aes(x="day", y="y", label="label"), data=marks, istart=0, iend=1
+    ...     )
+    ... )
+    """
+    return _geom(
+        "bracket_dodge",
+        mapping=mapping,
+        data=data,
+        stat=stat,
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=None,
+        manual_key=manual_key,
+        sampling=sampling,
+        tooltips=None,
+        orientation=orientation,
+        label_format=label_format,
+        na_text=na_text,
+        nudge_x=nudge_x,
+        nudge_y=nudge_y,
+        nudge_unit=nudge_unit,
+        size_unit=size_unit,
+        bracket_shorten=bracket_shorten,
+        tiplength_unit=tiplength_unit,
+        dodge_width=dodge_width,
+        ngroup=ngroup,
+        color_by=color_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
 def geom_text_repel(
     mapping: FeatureSpec | None = None,
     *,

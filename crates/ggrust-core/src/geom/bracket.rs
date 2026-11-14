@@ -11,8 +11,11 @@
 //! does not inherit the plot mapping and has no legend unless asked
 //! (`inherit_aes`, `show_legend`). All brackets are drawn before all labels.
 //!
+//! `geom_bracket_dodge` (`BracketDodgeGeom`) places the bracket ends on dodge
+//! slots inside a category instead of `xmin`/`xmax`.
+//!
 //! What it does not do (yet): `orientation="y"` (vertical brackets from
-//! `ymin`/`ymax`), `geom_bracket_dodge`, `label_format`, `na_text`, `size_unit`,
+//! `ymin`/`ymax`), `label_format`, `na_text`, `size_unit`,
 //! `lineheight` (labels lift by one font size per line), mapping
 //! columns to `segment_*` (warned; constants work). Mapped `lenstart`/`lenend`
 //! numbers are drawn as they are.
@@ -34,26 +37,43 @@ use crate::{Error, Result};
 /// 0.999)`, whose alpha rounds to 255. So an explicit opaque white also means `color`.
 pub(super) const UNSET_SEGMENT_COLOR: Color = Color::rgb(255, 255, 255);
 
-const DEFAULTS: &[(Aesthetic, StyleDefault)] = &[
+/// The bracket style defaults, plus `extra` ones.
+macro_rules! bracket_defaults {
+    ($($extra:expr),* $(,)?) => {
+        &[
     (Aesthetic::Label, StyleDefault::Text("")),
-    (Aesthetic::Color, StyleDefault::PEN),
-    (Aesthetic::Alpha, StyleDefault::Number(f64::NAN)),
-    (Aesthetic::Size, StyleDefault::Number(7.0)),
-    (Aesthetic::Family, StyleDefault::Text("sans")),
-    (Aesthetic::Fontface, StyleDefault::Text("plain")),
-    (Aesthetic::Angle, StyleDefault::Number(0.0)),
-    (Aesthetic::Hjust, StyleDefault::Number(0.5)),
-    (Aesthetic::Vjust, StyleDefault::Number(0.5)),
-    (Aesthetic::Linetype, StyleDefault::Linetype(&[])),
-    (Aesthetic::Lenstart, StyleDefault::Number(5.0)),
-    (Aesthetic::Lenend, StyleDefault::Number(5.0)),
-    (
-        Aesthetic::SegmentColor,
-        StyleDefault::Color(UNSET_SEGMENT_COLOR),
-    ),
-    (Aesthetic::SegmentSize, StyleDefault::Number(0.75)),
-    (Aesthetic::SegmentAlpha, StyleDefault::Number(f64::NAN)),
-];
+            (Aesthetic::Color, StyleDefault::PEN),
+            (Aesthetic::Alpha, StyleDefault::Number(f64::NAN)),
+            (Aesthetic::Size, StyleDefault::Number(7.0)),
+            (Aesthetic::Family, StyleDefault::Text("sans")),
+            (Aesthetic::Fontface, StyleDefault::Text("plain")),
+            (Aesthetic::Angle, StyleDefault::Number(0.0)),
+            (Aesthetic::Hjust, StyleDefault::Number(0.5)),
+            (Aesthetic::Vjust, StyleDefault::Number(0.5)),
+            (Aesthetic::Linetype, StyleDefault::Linetype(&[])),
+            (Aesthetic::Lenstart, StyleDefault::Number(5.0)),
+            (Aesthetic::Lenend, StyleDefault::Number(5.0)),
+            (
+                Aesthetic::SegmentColor,
+                StyleDefault::Color(UNSET_SEGMENT_COLOR),
+            ),
+            (Aesthetic::SegmentSize, StyleDefault::Number(0.75)),
+            (Aesthetic::SegmentAlpha, StyleDefault::Number(f64::NAN)),
+            $($extra,)*
+        ]
+    };
+}
+
+const DEFAULTS: &[(Aesthetic, StyleDefault)] = bracket_defaults!();
+
+/// `geom_bracket_dodge` also takes the dodge slots `istart` and `iend`.
+const DODGE_DEFAULTS: &[(Aesthetic, StyleDefault)] = bracket_defaults!(
+    (Aesthetic::Istart, StyleDefault::Number(f64::NAN)),
+    (Aesthetic::Iend, StyleDefault::Number(f64::NAN)),
+);
+
+/// lets-plot `DEF_DODGE_WIDTH` of `geom_bracket_dodge`.
+const DEFAULT_DODGE_WIDTH: f64 = 0.95;
 
 /// Labelled brackets.
 pub struct BracketGeom;
@@ -91,34 +111,16 @@ impl Geom for BracketGeom {
     }
 
     fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
-        let (Some(x_min), Some(x_max), Some(y)) = (
+        let (Some(x_min), Some(x_max)) = (
             layer.data.continuous(Aesthetic::Xmin),
             layer.data.continuous(Aesthetic::Xmax),
-            layer.data.continuous(Aesthetic::Y),
         ) else {
             return Ok(Vec::new());
         };
-        let options = Options::parse(&layer.parameters, layer.data)?;
         let value = |column: &ContinuousColumn, row: usize| column.get(row).unwrap_or(f64::NAN);
-        let mut brackets = Vec::new();
-        let mut labels = Vec::new();
-        for row in 0..layer.data.row_count() {
-            let (nudge_x, nudge_y) = options.nudge.data();
-            let (x_min, x_max) = (value(x_min, row) + nudge_x, value(x_max, row) + nudge_x);
-            let y = value(y, row) + nudge_y;
-            if !(x_min.is_finite() && x_max.is_finite() && y.is_finite()) {
-                continue;
-            }
-            let middle = (x_min + x_max) / 2.0;
-            if let Some(bracket) = bracket(layer.styles, row, panel, &options, (x_min, x_max), y)? {
-                brackets.push(bracket);
-            }
-            let anchor = panel.map(middle, y);
-            let point = options.nudge.shift(anchor);
-            labels.extend(label(layer.styles, row, (anchor, point), panel)?);
-        }
-        brackets.extend(labels);
-        Ok(brackets)
+        draw_brackets(layer, panel, |row| {
+            Ok(Some((value(x_min, row), value(x_max, row))))
+        })
     }
 
     fn minimum_key_size(&self, styles: &Styles) -> Result<(f64, f64)> {
@@ -139,6 +141,145 @@ impl Geom for BracketGeom {
             stroke: Some(stroke),
         })])
     }
+}
+
+/// Draw one bracket per row from the row's `limits` (data x, before nudging) at
+/// height `y`; all bars first, then all labels.
+fn draw_brackets(
+    layer: &DrawLayer,
+    panel: &Panel,
+    limits: impl Fn(usize) -> Result<Option<(f64, f64)>>,
+) -> Result<Vec<Node>> {
+    let Some(y) = layer.data.continuous(Aesthetic::Y) else {
+        return Ok(Vec::new());
+    };
+    let options = Options::parse(&layer.parameters, layer.data)?;
+    let mut brackets = Vec::new();
+    let mut labels = Vec::new();
+    for row in 0..layer.data.row_count() {
+        let Some((x_min, x_max)) = limits(row)? else {
+            continue;
+        };
+        let (nudge_x, nudge_y) = options.nudge.data();
+        let (x_min, x_max) = (x_min + nudge_x, x_max + nudge_x);
+        let y = y.get(row).unwrap_or(f64::NAN) + nudge_y;
+        if !(x_min.is_finite() && x_max.is_finite() && y.is_finite()) {
+            continue;
+        }
+        let middle = (x_min + x_max) / 2.0;
+        if let Some(bracket) = bracket(layer.styles, row, panel, &options, (x_min, x_max), y)? {
+            brackets.push(bracket);
+        }
+        let anchor = panel.map(middle, y);
+        let point = options.nudge.shift(anchor);
+        labels.extend(label(layer.styles, row, (anchor, point), panel)?);
+    }
+    brackets.extend(labels);
+    Ok(brackets)
+}
+
+/// Brackets between dodged groups inside each category: lets-plot
+/// `BracketDodgeGeom`. Row `x` is the category; `istart`/`iend` are the slots
+/// (0-based) of the dodged groups the bracket joins, out of `ngroup` slots (by
+/// default the largest slot plus one, over the panel's rows, as lets-plot) in
+/// `dodge_width`. Slots mapped to a text column draw nothing (a gap).
+pub struct BracketDodgeGeom;
+
+impl Geom for BracketDodgeGeom {
+    fn name(&self) -> &'static str {
+        "bracket_dodge"
+    }
+
+    fn inherits_aes(&self) -> bool {
+        false
+    }
+
+    fn shows_legend(&self) -> bool {
+        false
+    }
+
+    fn required_aesthetics(&self) -> &'static [Aesthetic] {
+        &[Aesthetic::X, Aesthetic::Y]
+    }
+
+    fn style_defaults(&self) -> &'static [(Aesthetic, StyleDefault)] {
+        DODGE_DEFAULTS
+    }
+
+    fn parameters(&self) -> &'static [&'static str] {
+        &[
+            "nudge_x",
+            "nudge_y",
+            "nudge_unit",
+            "bracket_shorten",
+            "tiplength_unit",
+            "orientation",
+            "dodge_width",
+            "ngroup",
+        ]
+    }
+
+    fn draw(&self, layer: &DrawLayer, panel: &Panel) -> Result<Vec<Node>> {
+        let Some(x) = layer.data.continuous(Aesthetic::X) else {
+            return Ok(Vec::new());
+        };
+        let starts = layer.styles.numbers(Aesthetic::Istart)?;
+        let ends = layer.styles.numbers(Aesthetic::Iend)?;
+        let slots = |row: usize| {
+            let (start, end) = (starts.get(row), ends.get(row));
+            (start.is_finite() && end.is_finite()).then(|| (start.round(), end.round()))
+        };
+        let width = layer
+            .parameters
+            .number("dodge_width")?
+            .unwrap_or(DEFAULT_DODGE_WIDTH);
+        let groups = match layer.parameters.number("ngroup")? {
+            Some(groups) if groups >= 1.0 && groups.fract() == 0.0 => Some(groups),
+            Some(groups) => {
+                return Err(Error::spec(
+                    layer.parameters.path_of("ngroup"),
+                    format!(
+                        "ngroup={groups} is not a group count; expected a whole number \
+                         >= 1 (the number of dodged groups per category), or leave it \
+                         unset to count the slots in istart/iend"
+                    ),
+                ));
+            }
+            None => (0..layer.data.row_count())
+                .filter_map(slots)
+                .map(|(start, end)| start.max(end))
+                .reduce(f64::max)
+                .map(|largest| largest + 1.0),
+        };
+        let Some(groups) = groups else {
+            return Ok(Vec::new());
+        };
+        if !width.is_finite() {
+            return Ok(Vec::new());
+        }
+        let resolution = layer.data.resolution(Aesthetic::X);
+        draw_brackets(layer, panel, |row| {
+            let center = x.get(row).unwrap_or(f64::NAN);
+            Ok(slots(row).map(|(start, end)| {
+                let slot = |index: f64| dodge(center, index, groups, width, resolution);
+                (slot(start), slot(end))
+            }))
+        })
+    }
+
+    fn minimum_key_size(&self, styles: &Styles) -> Result<(f64, f64)> {
+        BracketGeom.minimum_key_size(styles)
+    }
+
+    fn draw_key(&self, styles: &Styles, cell: Rect) -> Result<Vec<Node>> {
+        BracketGeom.draw_key(styles, cell)
+    }
+}
+
+/// The center of dodge slot `slot` of `groups` at category `center`: lets-plot
+/// `BaseDodgePos.position` with the coordinate at the category center.
+fn dodge(center: f64, slot: f64, groups: f64, width: f64, resolution: f64) -> f64 {
+    center + (slot - (groups - 1.0) / 2.0) * resolution * width / groups
 }
 
 /// Layer options of a bracket.
@@ -303,4 +444,19 @@ pub(super) fn segment_stroke(styles: &Styles, row: usize) -> Result<Option<Strok
     let width = styles.numbers(Aesthetic::SegmentSize)?.get(row) * POINT_UNIT_SIZE;
     let linetype = styles.linetypes(Aesthetic::Linetype)?.get_ref(row);
     Ok(lines::stroke(color.with_opacity(alpha), width, linetype))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::dodge;
+
+    #[test]
+    fn dodge_slots_match_lets_plot() {
+        // Two groups in 0.95 at category 1: centers at 1 -/+ 0.2375 (BaseDodgePos).
+        assert!((dodge(1.0, 0.0, 2.0, 0.95, 1.0) - 0.7625).abs() < 1e-12);
+        assert!((dodge(1.0, 1.0, 2.0, 0.95, 1.0) - 1.2375).abs() < 1e-12);
+        // The middle of three slots is the category; resolution scales the spread.
+        assert_eq!(dodge(3.0, 1.0, 3.0, 0.9, 2.0), 3.0);
+        assert!((dodge(3.0, 2.0, 3.0, 0.9, 2.0) - 3.6).abs() < 1e-12);
+    }
 }

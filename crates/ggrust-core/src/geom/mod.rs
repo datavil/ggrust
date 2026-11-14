@@ -72,7 +72,7 @@ pub use beeswarm::{BEESWARM_GEOM, QUASIRANDOM_GEOM, SwarmGeom};
 pub use bin2d::Bin2dGeom;
 pub use blank::BlankGeom;
 pub use boxplot::BoxplotGeom;
-pub use bracket::BracketGeom;
+pub use bracket::{BracketDodgeGeom, BracketGeom};
 pub use contour::{ContourFilledGeom, ContourGeom, ContourfGeom, Density2dGeom, Density2dfGeom};
 pub use curve::CurveGeom;
 pub use dotplot::{DotplotGeom, YDotplotGeom};
@@ -307,6 +307,7 @@ pub static GEOMS: &[&dyn Geom] = &[
     &SmoothGeom,
     &AreaRidgesGeom,
     &BracketGeom,
+    &BracketDodgeGeom,
     &TileGeom,
     &Bin2dGeom,
     &HexGeom,

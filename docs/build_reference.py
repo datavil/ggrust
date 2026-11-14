@@ -131,6 +131,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "geom_text_repel",
             "geom_label_repel",
             "geom_bracket",
+            "geom_bracket_dodge",
             "geom_blank",
             "arrow",
         ],

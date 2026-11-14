@@ -120,7 +120,9 @@ impl Aesthetic {
             | Violinwidth | Thickness | Weight | U | V | Intercept | Slope | Quantile
             | Lineheight | Angle | Hjust | Vjust | Radius | Slice | Explode | SizeStart
             | SizeEnd | StrokeStart | StrokeEnd | PointSize | PointStroke | SegmentSize
-            | SegmentAlpha | Lenstart | Lenend => AestheticKind::Style(ValueKind::Number),
+            | SegmentAlpha | Lenstart | Lenend | Istart | Iend => {
+                AestheticKind::Style(ValueKind::Number)
+            }
             Group => AestheticKind::Group,
             _ => AestheticKind::Other,
         }

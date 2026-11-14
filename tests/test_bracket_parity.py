@@ -27,6 +27,14 @@ BRACKETS = {
 }
 NUMERIC = {"lo": [1.0, 2.5], "hi": [2.0, 4.0], "at": [3.0, 4.5], "text": ["p = 0.01", "x"]}
 MAPPING = {"xmin": "xmin", "xmax": "xmax", "y": "y", "label": "label"}
+DODGED = {
+    "x": ["a", "b", "c", "c"],
+    "y": [4.5, 5.0, 5.5, 6.2],
+    "start": [0, 0, 1, 0],
+    "end": [1, 2, 2, 2],
+    "label": ["*", "**", "ns", "***"],
+}
+DODGE_MAPPING = {"x": "x", "y": "y", "istart": "start", "iend": "end", "label": "label"}
 
 
 def _boxes(m, *layers, flip=False):
@@ -104,6 +112,32 @@ CASES = {
             data={**BRACKETS, "label": ["*\np=0.04", "**", "ns"]},
             angle=20,
         ),
+    ),
+    # geom_bracket_dodge: slots inferred (3 groups), or set with ngroup / dodge_width.
+    "dodge": lambda m: _boxes(m, m.geom_bracket_dodge(m.aes(**DODGE_MAPPING), data=DODGED)),
+    "dodge_ngroup_width": lambda m: _boxes(
+        m,
+        m.geom_bracket_dodge(
+            m.aes(x="x", y="y", label="label"),
+            data=DODGED,
+            istart=1,
+            iend=3,
+            ngroup=4,
+            dodge_width=0.6,
+            bracket_shorten=0.2,
+        ),
+    ),
+    "dodge_numeric": lambda m: (
+        m.ggplot({"x": [1.0, 3.0], "y": [0.0, 1.0]}, m.aes("x", "y"))
+        + m.geom_point()
+        + m.geom_bracket_dodge(
+            m.aes(x="at", y="y", istart="s", iend="e", label="t"),
+            data={"at": [1.0, 3.0], "y": [1.2, 1.4], "s": [0, 1], "e": [1, 2], "t": ["a", "b"]},
+        )
+        + m.ggsize(400, 300)
+    ),
+    "dodge_flipped": lambda m: _boxes(
+        m, m.geom_bracket_dodge(m.aes(**DODGE_MAPPING), data=DODGED), flip=True
     ),
     "flipped": lambda m: _boxes(m, m.geom_bracket(m.aes(**MAPPING), data=BRACKETS), flip=True),
 }
@@ -220,3 +254,14 @@ def test_vertical_brackets_are_reported():
     plot = gg.ggplot(BRACKETS) + gg.geom_bracket(gg.aes(**MAPPING), data=BRACKETS, orientation="y")
     with pytest.raises(Exception, match="orientation 'y' is not supported by ggrust yet"):
         plot.to_svg()
+
+
+def test_bracket_dodge_errors():
+    plot = _boxes(gg, gg.geom_bracket_dodge(gg.aes(**DODGE_MAPPING), data=DODGED, ngroup=0))
+    with pytest.raises(Exception, match=r"ngroup=0 is not a group count.*whole number >= 1"):
+        plot.to_svg()
+
+
+def test_bracket_dodge_without_slots_draws_nothing():
+    svg = _boxes(gg, gg.geom_bracket_dodge(gg.aes(x="x", y="y"), data=DODGED)).to_svg()
+    assert not [shape for shape in _ggrust_shapes(svg) if len(shape[1]) == 4]

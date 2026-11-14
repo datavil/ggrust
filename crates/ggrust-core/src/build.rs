@@ -5438,8 +5438,8 @@ fn resolve_styles(
             (Some(column), Some(scale)) => scale
                 .map(column)
                 .map_err(|message| Error::spec(format!("{path}.mapping.{aesthetic}"), message))?,
-            // Line coefficients and bracket tip lengths are drawn as they are
-            // (lets-plot has no scale for them).
+            // Line coefficients, bracket tip lengths and dodge slots are drawn as
+            // they are (lets-plot has no scale for them).
             (Some(Column::Continuous(column)), None)
                 if matches!(
                     aesthetic,
@@ -5447,6 +5447,8 @@ fn resolve_styles(
                         | Aesthetic::Slope
                         | Aesthetic::Lenstart
                         | Aesthetic::Lenend
+                        | Aesthetic::Istart
+                        | Aesthetic::Iend
                 ) =>
             {
                 let values = (0..column.len())

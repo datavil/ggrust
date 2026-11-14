@@ -20,6 +20,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Fixed
 
+- Animated GIFs are 2.5x to 22x smaller and about 3x faster to write: frames that come out pixel-identical are merged into one longer frame, and each later frame holds only the rectangle that changed, with unchanged pixels transparent (as gifski does). Frames of at most 255 colours keep their exact colours.
 - Animated lines and polygons whose point count changes between states now morph smoothly: points are inserted along the shape as gganimate (transformr) does, every shape gets at least 50 points, polygons are drawn clockwise and rotated for the least travel. The warning about points matched in order is gone.
 - Animation labels pad years to 4 digits (`0001-01-01`, as R), and a date-time column uses one label format for the whole animation: the time shows in every frame when any value has one, so midnight no longer prints the date alone next to frames with times (gganimate formats each frame alone; decided by the user).
 - Animations of a date or date-time column label states as dates (`{current_frame}`, `{closest_state}`, ...), not epoch numbers, and `transition_time`/`transition_reveal` reject a `range` of the wrong kind for the column (numbers for a date column, dates for a numeric one) with a `SpecError`.

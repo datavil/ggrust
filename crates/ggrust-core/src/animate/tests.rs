@@ -330,10 +330,15 @@ fn writers_decode_to_the_frames() {
     let mut options = gif::DecodeOptions::new();
     options.set_color_output(gif::ColorOutput::RGBA);
     let mut decoder = options.read_info(gif.as_slice()).unwrap();
+    assert_eq!((decoder.width(), decoder.height()), (400, 300));
     let mut delays = Vec::new();
     while let Some(frame) = decoder.read_next_frame().unwrap() {
         delays.push(frame.delay);
-        assert_eq!((frame.width, frame.height), (400, 300));
+        // The first frame is full; later ones hold only the changed rectangle.
+        if delays.len() == 1 {
+            assert_eq!((frame.width, frame.height), (400, 300));
+        }
+        assert!(frame.left + frame.width <= 400 && frame.top + frame.height <= 300);
     }
     // 0.3 fps: 3.33 s per frame, rounded from the frame start times.
     assert_eq!(delays, vec![333, 334, 333]);

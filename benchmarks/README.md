@@ -26,25 +26,33 @@ Run: `uv run python benchmarks/run.py` (raw results land in `benchmarks/results/
 renderer on identical data and options: 100 frames at 10 fps, a 480 x 480 GIF written to
 a file. Each library runs in a fresh process; time is the warm median of 3 renders
 (cold within a few percent); memory is peak RSS above the level after loading. `rows`
-is the total data row count (states: points x 3 states).
-Raw: [results/animation-20261114-221447.md](results/animation-20261114-221447.md).
+is the total data row count (states: points x 3 states). Both sides write 480 x 480 GIFs
+that play for 10 s.
+
+After the GIF encoder writes only what changes
+([results/animation-20261114-222441.md](results/animation-20261114-222441.md)):
 
 | scenario | rows | ggrust | gganimate | speed-up | ggrust memory | gganimate memory | ggrust GIF | gganimate GIF |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|
-| `transition_states` points | 3,000 | 0.19 s | 5.84 s | 31x | 60 MB | 380 MB | 2.1 MB | 1.2 MB |
-| `transition_states` points | 30,000 | 0.22 s | 13.37 s | 60x | 88 MB | 1,829 MB | 4.3 MB | 2.1 MB |
-| states + `enter_fade`/`exit_fade` | 2,394 | 0.19 s | 5.53 s | 29x | 56 MB | 374 MB | 1.9 MB | 1.2 MB |
-| states + `enter_fade`/`exit_fade` | 23,963 | 0.23 s | 12.40 s | 54x | 93 MB | 1,755 MB | 4.7 MB | 2.6 MB |
-| `transition_time` points | 1,000 | 0.16 s | 4.93 s | 30x | 55 MB | 279 MB | 1.1 MB | 0.2 MB |
-| `transition_time` points | 10,000 | 0.17 s | 5.16 s | 31x | 54 MB | 365 MB | 1.1 MB | 0.9 MB |
-| `transition_reveal` lines | 996 | 0.18 s | 5.12 s | 29x | 55 MB | 359 MB | 1.4 MB | 0.1 MB |
-| `transition_reveal` lines | 9,996 | 0.22 s | 6.76 s | 31x | 79 MB | 809 MB | 1.7 MB | 0.1 MB |
+| `transition_states` points | 3,000 | 0.07 s | 5.45 s | 83x | 55 MB | 433 MB | 0.8 MB | 1.2 MB |
+| `transition_states` points | 30,000 | 0.11 s | 12.84 s | 115x | 72 MB | 1,710 MB | 1.7 MB | 2.1 MB |
+| states + `enter_fade`/`exit_fade` | 2,394 | 0.08 s | 5.15 s | 65x | 55 MB | 436 MB | 0.8 MB | 1.2 MB |
+| states + `enter_fade`/`exit_fade` | 23,963 | 0.12 s | 11.54 s | 95x | 75 MB | 1,802 MB | 2.2 MB | 2.6 MB |
+| `transition_time` points | 1,000 | 0.04 s | 4.64 s | 109x | 51 MB | 279 MB | 0.14 MB | 0.23 MB |
+| `transition_time` points | 10,000 | 0.05 s | 4.84 s | 88x | 52 MB | 404 MB | 0.5 MB | 0.9 MB |
+| `transition_reveal` lines | 996 | 0.04 s | 4.83 s | 130x | 54 MB | 366 MB | 0.06 MB | 0.12 MB |
+| `transition_reveal` lines | 9,996 | 0.10 s | 6.38 s | 66x | 71 MB | 1,051 MB | 0.08 MB | 0.15 MB |
 
-Both sides write 480 x 480 GIFs that play for 10 s. gifski merges identical consecutive
-frames (the state pauses), so gganimate's states GIFs hold 55 frames against ggrust's 100.
-**ggrust's GIFs are 1.3x to 11x larger**: every frame is written in full with its own
-NeuQuant palette, while gifski writes only the pixels that changed. That is the main
-gap; reveal and time animations, where little changes per frame, show it most.
+ggrust's GIFs are now 0.5x to 0.8x the size of gifski's. Like gifski, the encoder
+merges frames that come out pixel-identical (state pauses: 51 frames against gifski's
+55) and writes each later frame as the changed rectangle with unchanged pixels
+transparent; frames of at most 255 colours keep exact colours, others use NeuQuant.
+Decoded frames differ from the lossless APNG by 0.25 / 255 on average per channel.
+
+Before (full frames, each with its own NeuQuant palette;
+[results/animation-20261114-221447.md](results/animation-20261114-221447.md)): ggrust took
+0.16 to 0.23 s (29x to 60x faster than gganimate) and its GIFs were 1.3x to 11x larger
+than gifski's (reveal 1.7 MB against 0.15 MB).
 
 ## Results: 2026-10-25, Linux x86-64, 4 cores, Python 3.13, lets-plot 4.11
 

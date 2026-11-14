@@ -19,6 +19,7 @@ crc32fast = "1.5"
 flate2 = "1.1"
 ggrust-core = { path = "crates/ggrust-core" }
 gif = "0.14"
+color_quant = "1.1"
 harfrust = "0.12"
 jpeg-encoder = { version = "0.6.1", default-features = false, features = ["std"] }
 pdf-writer = "0.15"

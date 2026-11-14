@@ -207,8 +207,8 @@ def main() -> None:
         "100 frames, 10 fps, 480 x 480 GIF. Time = warm median (cold in brackets).",
         "",
         "| scenario | rows | ggrust | gganimate | speed-up | ggrust memory "
-        "| gganimate memory | frames | pixels |",
-        "|---|---:|---:|---:|---:|---:|---:|---|---|",
+        "| gganimate memory | ggrust GIF | gganimate GIF | frames | pixels |",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---|---|",
     ]
     for scenario in arguments.scenarios:
         for size in arguments.sizes:
@@ -226,6 +226,7 @@ def main() -> None:
                 f"| {scenario} | {ours['rows']:,} | {ours_s:.2f} s ({ours['cold_s']:.2f}) "
                 f"| {theirs_s:.2f} s ({theirs['cold_s']:.2f}) | {theirs_s / ours_s:.0f}x "
                 f"| {ours['memory_mb']:.0f} MB | {theirs['memory_mb']:.0f} MB "
+                f"| {ours['gif_kb']:,.0f} KB | {theirs['gif_kb']:,.0f} KB "
                 f"| {ours['frames']} / {theirs['frames']} | {ours['pixels']} / {theirs['pixels']} |"
             )
     (RESULTS / f"animation-{stamp}.json").write_text(json.dumps(rows, indent=2))

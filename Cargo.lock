@@ -461,6 +461,7 @@ dependencies = [
  "arrow-cast",
  "arrow-schema",
  "arrow-select",
+ "color_quant",
  "crc32fast",
  "flate2",
  "gif",

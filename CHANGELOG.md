@@ -4,6 +4,8 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-11-15
+
 ### Added
 
 - `geom_band`, as lets-plot: a band across the whole panel between `xmin` and `xmax` (vertical) or `ymin` and `ymax` (horizontal), mapped or constant (`geom_band(xmin=1, xmax=2)`), with edge lines and `alpha` on the fill only.

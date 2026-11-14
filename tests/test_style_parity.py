@@ -143,6 +143,7 @@ CASES = {
 
 
 REPEATED_LABEL_CASES = {"discrete_then_continuous", "signed_zeros_are_categories"}
+SINGLE_VALUE_CASES = {"size_near_constant"}
 
 
 @pytest.mark.parametrize("name", CASES)
@@ -161,6 +162,11 @@ def test_mapped_styles_match_lets_plot(name):
         # two layers of N points; test_legend_parity checks the keys.
         assert len(ours) > len(theirs)
         ours, theirs = ours[: 2 * N], theirs[: 2 * N]
+    if name in SINGLE_VALUE_CASES:
+        # One value: ggrust shows one legend key, lets-plot about five (#1267,
+        # deviations.md). Compare the data marks; the key follows them.
+        assert len(ours) == N + 1 and len(theirs) > N + 1
+        ours, theirs = ours[:N], theirs[:N]
     assert len(theirs) >= len(ours) > 0
     for index, (their, our) in enumerate(zip(theirs, ours, strict=False)):
         assert our[0] == their[0], f"point {index}: {our} vs {their}"

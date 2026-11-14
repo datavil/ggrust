@@ -48,7 +48,7 @@ pub use numeric::{
 };
 pub use shape::{ALL_SHAPES, HIDDEN_SHAPE, HOLLOW_SHAPES, NA_SHAPE, ShapeMapper};
 
-use super::breaks::linear_breaks;
+use super::breaks::{is_degenerate_range, linear_breaks};
 use super::format::{Label, cut_label, format_breaks};
 use super::label_pattern::{LabelPattern, PatternValue};
 use super::number_format::ExponentFormat;
@@ -897,8 +897,14 @@ impl StyleScale {
     /// limits, widened to the limits (lets-plot `rangeWithLimitsAfterTransform`),
     /// then made applicable (never zero-width).
     fn trained_domain(&self) -> (f64, f64) {
+        applicable_domain(self.trained_range())
+    }
+
+    /// The data range within the limits, widened to the limits, in transformed
+    /// units; may be zero-width. `None` without data or limits.
+    fn trained_range(&self) -> Option<(f64, f64)> {
         let Trained::Continuous(range) = self.trained else {
-            return (-0.5, 0.5);
+            return None;
         };
         let limits = self
             .continuous
@@ -915,7 +921,7 @@ impl StyleScale {
         }
         let low = ends.iter().copied().fold(f64::INFINITY, f64::min);
         let high = ends.iter().copied().fold(f64::NEG_INFINITY, f64::max);
-        applicable_domain((low <= high).then_some((low, high)))
+        (low <= high).then_some((low, high))
     }
 
     /// Breaks of a continuous scale for its guide (`None` if discrete): the given
@@ -984,6 +990,17 @@ impl StyleScale {
                         .collect();
                     let labels = format_breaks(&kept, self.exponent_format);
                     (positions, labelled(&kept, labels))
+                }
+                // One value (no limits widening it): one key at that value, as
+                // ggplot2 (lets-plot lists 5 near-identical breaks, #1267).
+                None if self
+                    .trained_range()
+                    .is_some_and(|(low, high)| is_degenerate_range(low, high)) =>
+                {
+                    let position = self.trained_range().map_or(domain.0, |(_, high)| high);
+                    let value = transform.inverse(position);
+                    let labels = labelled(&[value], format_breaks(&[value], self.exponent_format));
+                    (vec![position], labels)
                 }
                 None if transform == Transform::Identity => {
                     let values = linear_breaks(domain.0, domain.1, 5);

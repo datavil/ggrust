@@ -16,6 +16,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Fixed
 
+- A continuous legend over a single value shows one key at that value, as ggplot2, not about five near-identical ones (lets-plot #1267).
 - Legend keys with the same label but different values no longer merge (lets-plot #1129): `scale_color_manual(labels=['A', 'A', 'C'])` shows three keys, as ggplot2.
 
 ## [0.8.2] - 2026-11-14

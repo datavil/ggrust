@@ -4426,6 +4426,93 @@ def geom_rect(
     )
 
 
+def geom_band(
+    mapping: FeatureSpec | None = None,
+    *,
+    data: PlotData | None = None,
+    stat: str | None = None,
+    position: Position | None = None,
+    show_legend: bool | None = None,
+    inherit_aes: bool | None = None,
+    manual_key: ManualKey | None = None,
+    sampling: Sampling | None = None,
+    tooltips: Tooltips | None = None,
+    color_by: str | None = None,
+    fill_by: str | None = None,
+    na_rm: bool | None = None,
+    **other_args: Any,
+) -> LayerSpec:
+    """Bands across the whole panel: between ``xmin`` and ``xmax``, or ``ymin`` and ``ymax``.
+
+    Give ``xmin``/``xmax`` for vertical bands or ``ymin``/``ymax`` for horizontal
+    ones (not both; ``geom_rect`` draws rectangles). The fill has no outline; the
+    two edges are lines in ``color``, ``size`` and ``linetype``, and ``alpha`` fades
+    the fill only.
+
+    Parameters
+    ----------
+    mapping : FeatureSpec, optional
+        Aesthetic mapping from ``aes()``.
+    data : DataFrame or dict, optional
+        Layer data; inherits the plot data when None.
+    stat : str, optional
+        Statistical transformation, by name.
+    position : str or FeatureSpec, optional
+        Position adjustment: a name such as ``"dodge"`` or a ``position_*()`` spec.
+    show_legend : bool, optional
+        False hides this layer from the legend.
+    inherit_aes : bool, optional
+        False ignores the plot's default mapping for this layer.
+    manual_key : str or FeatureSpec, optional
+        This layer's key in a manual legend: a label, or ``layer_key()``.
+    sampling : str, int or FeatureSpec, optional
+        Rows to draw: a ``sampling_*()`` spec, an int ``n`` (``sampling_random(n)``)
+        or ``"none"``. Default: every row.
+    tooltips : FeatureSpec or list of str, optional
+        Tooltip content (lets_plot); ggrust draws no band tooltips yet.
+    color_by : str, optional
+        Aesthetic the ``color`` scale applies to (``"color"`` or ``"fill"``).
+    fill_by : str, optional
+        Aesthetic the ``fill`` scale applies to (``"fill"`` or ``"color"``).
+    na_rm : bool, optional
+        True removes rows with missing values silently; otherwise they are removed with a warning.
+    **other_args
+        Constant aesthetics such as ``xmin=1``, ``fill="gold"`` or ``alpha=0.2``, and
+        the geom's options, as in lets_plot.
+
+    Returns
+    -------
+    LayerSpec
+        The layer.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> visits = [5, 7, 6, 9, 14, 15, 8, 6, 7, 8, 10, 16, 17, 9]
+    >>> data = {"day": list(range(1, 15)), "visits": visits}
+    >>> weekends = {"start": [4.5, 11.5], "end": [6.5, 13.5]}
+    >>> plot = ggplot(data, aes("day", "visits")) + geom_band(
+    ...     aes(xmin="start", xmax="end"), data=weekends, fill="gold", alpha=0.3, size=0
+    ... ) + geom_line()
+    """
+    return _geom(
+        "band",
+        mapping=mapping,
+        data=data,
+        stat=stat,
+        position=position,
+        show_legend=show_legend,
+        inherit_aes=inherit_aes,
+        manual_key=manual_key,
+        sampling=sampling,
+        tooltips=tooltips,
+        color_by=color_by,
+        fill_by=fill_by,
+        na_rm=na_rm,
+        **other_args,
+    )
+
+
 def geom_bracket(
     mapping: FeatureSpec | None = None,
     *,

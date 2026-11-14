@@ -8,6 +8,7 @@
 mod abline;
 mod area;
 mod area_ridges;
+mod band;
 mod bar;
 mod beeswarm;
 mod bin2d;
@@ -65,6 +66,7 @@ mod violin;
 pub use abline::AbLineGeom;
 pub use area::{AreaGeom, DensityGeom, RibbonGeom};
 pub use area_ridges::AreaRidgesGeom;
+pub use band::BandGeom;
 pub use bar::{BAR_GEOM, BarGeom, COL_GEOM, HistogramGeom};
 pub use beeswarm::{BEESWARM_GEOM, QUASIRANDOM_GEOM, SwarmGeom};
 pub use bin2d::Bin2dGeom;
@@ -171,6 +173,12 @@ pub trait Geom: Sync {
 
     /// Position aesthetics the geom accepts but does not need (`geom_blank`).
     fn optional_aesthetics(&self) -> &'static [Aesthetic] {
+        &[]
+    }
+
+    /// Optional position aesthetics that may also be given as constants
+    /// (`geom_band(xmin=1, xmax=2)`), like the required ones.
+    fn constant_positions(&self) -> &'static [Aesthetic] {
         &[]
     }
 
@@ -310,6 +318,7 @@ pub static GEOMS: &[&dyn Geom] = &[
     &QuantileGeom,
     &LogticksGeom,
     &RectGeom,
+    &BandGeom,
     &RasterGeom,
     &ImageGeom,
     &HalfViolinGeom,

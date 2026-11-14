@@ -6,6 +6,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Added
 
+- `geom_band`, as lets-plot: a band across the whole panel between `xmin` and `xmax` (vertical) or `ymin` and `ymax` (horizontal), mapped or constant (`geom_band(xmin=1, xmax=2)`), with edge lines and `alpha` on the fill only.
 - `residual_plot` (bistro), as lets_plot: `from ggrust.bistro import residual_plot` plots the residuals of a polynomial (`method="lm"`, `deg=`) or local (`"loess"`, needs statsmodels and scipy) fit of y on x, with a dashed line at zero and marginal densities; `as_dict()` matches lets_plot's.
 - `nudge_unit="size"`/`"px"` on `geom_text`, `geom_label`, `geom_text_repel`, `geom_label_repel` and `geom_bracket`: the nudge is added in point diameters (2.2 px) or pixels after the coord, as lets-plot. `alpha_stroke=True` on `geom_label` and `geom_label_repel` fades the text and border by `alpha` too.
 - `scale_identity(aesthetic, ...)`, the generic identity scale of lets-plot: a name or a list (`scale_identity(['color', 'fill'])`). The module of the per-aesthetic identity scales is now `ggrust.plot.scale_identity_` (lets-plot's name), so `ggrust.plot.scale_identity` is the function.

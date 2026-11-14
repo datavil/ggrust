@@ -3128,7 +3128,12 @@ fn compute_layer(
         .optional_aesthetics()
         .iter()
         .filter(|aesthetic| **aesthetic == Aesthetic::Z);
-    for &aesthetic in geom.required_aesthetics().iter().chain(constant_z) {
+    for &aesthetic in geom
+        .required_aesthetics()
+        .iter()
+        .chain(constant_z)
+        .chain(geom.constant_positions())
+    {
         if layer_data.contains(aesthetic) {
             continue;
         }
@@ -4094,6 +4099,11 @@ fn validate_parameters(
             geom.optional_aesthetics()
                 .iter()
                 .filter(|aesthetic| **aesthetic == Aesthetic::Z)
+                .map(|aesthetic| aesthetic.as_str()),
+        )
+        .chain(
+            geom.constant_positions()
+                .iter()
                 .map(|aesthetic| aesthetic.as_str()),
         )
         .chain(

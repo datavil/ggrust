@@ -116,6 +116,10 @@ deviations row, plan.md tick.
   fixture script.
 - [ ] **an6 (on request) Performance pass.** Time box agreed with the user first. Reference: R
   gganimate + gifski on the same spec and frame count (report honestly, AGENTS rule 8).
+  Baseline measured 2026-11-15 (`benchmarks/animation.py`, see `benchmarks/README.md`):
+  ggrust renders 29x to 60x faster with 4x to 20x less memory, but writes GIFs 1.3x to 11x
+  larger (every frame in full with its own palette; gifski merges identical frames and
+  writes only changed pixels). The GIF size is the first target if an6 is requested.
 
 Dropped from the animation plan by the user (2026-11-14), listed in
 [backlog.md](../backlog.md) ("Animation"): the other enter/exit effects (fly, drift,

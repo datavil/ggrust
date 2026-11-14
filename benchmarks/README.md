@@ -20,6 +20,32 @@ Results index: [results/README.md](results/README.md).
 
 Run: `uv run python benchmarks/run.py` (raw results land in `benchmarks/results/`).
 
+## Animation: 2026-11-15, macOS arm64 (Apple M4 Pro, 12 cores), Python 3.14, gganimate 1.0.11, gifski 1.32
+
+`benchmarks/animation.py` (+ `animation.R`): ggrust against R gganimate with the gifski
+renderer on identical data and options: 100 frames at 10 fps, a 480 x 480 GIF written to
+a file. Each library runs in a fresh process; time is the warm median of 3 renders
+(cold within a few percent); memory is peak RSS above the level after loading. `rows`
+is the total data row count (states: points x 3 states).
+Raw: [results/animation-20261114-221447.md](results/animation-20261114-221447.md).
+
+| scenario | rows | ggrust | gganimate | speed-up | ggrust memory | gganimate memory | ggrust GIF | gganimate GIF |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| `transition_states` points | 3,000 | 0.19 s | 5.84 s | 31x | 60 MB | 380 MB | 2.1 MB | 1.2 MB |
+| `transition_states` points | 30,000 | 0.22 s | 13.37 s | 60x | 88 MB | 1,829 MB | 4.3 MB | 2.1 MB |
+| states + `enter_fade`/`exit_fade` | 2,394 | 0.19 s | 5.53 s | 29x | 56 MB | 374 MB | 1.9 MB | 1.2 MB |
+| states + `enter_fade`/`exit_fade` | 23,963 | 0.23 s | 12.40 s | 54x | 93 MB | 1,755 MB | 4.7 MB | 2.6 MB |
+| `transition_time` points | 1,000 | 0.16 s | 4.93 s | 30x | 55 MB | 279 MB | 1.1 MB | 0.2 MB |
+| `transition_time` points | 10,000 | 0.17 s | 5.16 s | 31x | 54 MB | 365 MB | 1.1 MB | 0.9 MB |
+| `transition_reveal` lines | 996 | 0.18 s | 5.12 s | 29x | 55 MB | 359 MB | 1.4 MB | 0.1 MB |
+| `transition_reveal` lines | 9,996 | 0.22 s | 6.76 s | 31x | 79 MB | 809 MB | 1.7 MB | 0.1 MB |
+
+Both sides write 480 x 480 GIFs that play for 10 s. gifski merges identical consecutive
+frames (the state pauses), so gganimate's states GIFs hold 55 frames against ggrust's 100.
+**ggrust's GIFs are 1.3x to 11x larger**: every frame is written in full with its own
+NeuQuant palette, while gifski writes only the pixels that changed. That is the main
+gap; reveal and time animations, where little changes per frame, show it most.
+
 ## Results: 2026-10-25, Linux x86-64, 4 cores, Python 3.13, lets-plot 4.11
 
 | output | points | ggrust warm | lets-plot warm | speed-up | ggrust memory | lets-plot memory |

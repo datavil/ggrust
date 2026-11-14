@@ -26,6 +26,7 @@ nav = [
     { "Interactivity" = "guide/interactivity.md" },
     { "Export" = "guide/export.md" },
     { "Migrating from lets-plot" = "migration.md" },
+    { "Stability" = "guide/stability.md" },
   ] },
   { "Gallery" = [
     "gallery/index.md",

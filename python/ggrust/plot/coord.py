@@ -47,6 +47,7 @@ def coord_cartesian(
     xlim: Sequence[Number | None] | None = None,
     ylim: Sequence[Number | None] | None = None,
     flip: bool = False,
+    *,
     expand: bool | None = None,
 ) -> FeatureSpec:
     """Cartesian coordinates; limits zoom without dropping data.
@@ -82,6 +83,7 @@ def coord_fixed(
     xlim: Sequence[Number | None] | None = None,
     ylim: Sequence[Number | None] | None = None,
     flip: bool = False,
+    *,
     expand: bool | None = None,
 ) -> FeatureSpec:
     """Cartesian coordinates with a fixed aspect ratio.
@@ -252,6 +254,7 @@ def coord_3d(
 def coord_transform(
     x: Transform | None = None,
     y: Transform | None = None,
+    *,
     xlim: Sequence[Number | None] | None = None,
     ylim: Sequence[Number | None] | None = None,
     expand: bool | None = None,
@@ -306,6 +309,7 @@ def coord_transform(
 def coord_trans(
     x: Transform | None = None,
     y: Transform | None = None,
+    *,
     xlim: Sequence[Number | None] | None = None,
     ylim: Sequence[Number | None] | None = None,
     expand: bool | None = None,

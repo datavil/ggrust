@@ -241,6 +241,7 @@ def _color(value: str | None, argument: str) -> str | None:
 
 def shadow_wake(
     wake_length: float,
+    *,
     size: bool | float = True,
     alpha: bool | float = True,
     colour: str | None = None,
@@ -249,7 +250,6 @@ def shadow_wake(
     wrap: bool = True,
     exclude_layer: int | Sequence[int] | None = None,
     exclude_phase: Phase | Sequence[Phase] | None = ("enter", "exit"),
-    *,
     color: str | None = None,
 ) -> FeatureSpec:
     """Leave a fading wake behind moving marks (gganimate ``shadow_wake``).
@@ -380,6 +380,7 @@ _MARK_STYLES = (
 def shadow_mark(
     past: bool = True,
     future: bool = False,
+    *,
     exclude_layer: int | Sequence[int] | None = None,
     **aesthetics: str | float,
 ) -> FeatureSpec:

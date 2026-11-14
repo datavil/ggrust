@@ -50,6 +50,7 @@ def inset_element(
     bottom: float,
     right: float,
     top: float,
+    *,
     align_to: Literal["panel", "plot", "full"] = "panel",
     on_top: bool = True,
     clip: bool = True,

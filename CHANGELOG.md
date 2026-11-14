@@ -4,6 +4,18 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ## [Unreleased]
 
+### Breaking
+
+Signature clean-up before 1.0. Every affected argument still works by name; only passing it by position changes.
+
+- `oob` and `rescaler` on `scale_color_*` / `scale_fill_*` (`gradient`, `gradient2`, `gradientn`, `viridis`, `continuous`, `brewer`, `grey`, `distiller`) are keyword-only and come after lets_plot's parameters. They sat before `na_value`, `guide` and `trans`, so a lets_plot call passing those by position bound the wrong parameter; positional parameters now match lets_plot on every shared function.
+- ggrust-only parameters on lets_plot functions are keyword-only: `coord_cartesian(expand=)`, `coord_fixed(expand=)`, `element_line(arrow=, extent=)`, `ggtb(layers=)`, `position_dodge(preserve=)`, `position_stack(reverse=)`, `position_fill(reverse=)`.
+- ggrust-only functions take only their main arguments by position: `animate(plot)`, `annotate(geom, x, y)`, `annotation_logticks(base, sides)`, `as_labeller(x, default)`, `coord_trans(x, y)`, `inset_element(plot, left, bottom, right, top)`, `position_dodge2(width)`, `shadow_wake(wake_length)`, `shadow_mark(past, future)`, `stat_pvalue_manual(data)`, `transition_manual(frames)`, `transition_states(states)`, `transition_time(time)`, `transition_reveal(along)`. Everything after is keyword-only.
+
+### Added
+
+- A stability policy ([docs](https://ggrust.datavil.org/guide/stability/)): what 1.0 freezes (names, signatures, error classes, public import paths, plot files), what may still change in a minor release (pixels, ggrust-only spec keys, other module paths, the Rust crates), and that animation is provisional.
+
 ## [0.9.0] - 2026-11-15
 
 ### Added

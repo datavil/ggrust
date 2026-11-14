@@ -299,6 +299,7 @@ class Animation:
 
 def animate(
     plot: PlotSpec,
+    *,
     nframes: int | None = None,
     fps: float | None = None,
     duration: float | None = None,

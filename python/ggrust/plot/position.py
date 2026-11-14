@@ -29,7 +29,9 @@ __all__ = [
 
 
 def position_dodge(
-    width: Number | None = None, preserve: Literal["total", "single"] | None = None
+    width: Number | None = None,
+    *,
+    preserve: Literal["total", "single"] | None = None,
 ) -> FeatureSpec:
     """Place overlapping objects side by side.
 
@@ -67,6 +69,7 @@ def position_dodge(
 
 def position_dodge2(
     width: Number | None = None,
+    *,
     preserve: Literal["total", "single"] = "total",
     padding: Number = 0.1,
     reverse: bool = False,
@@ -250,7 +253,10 @@ def position_jitterdodge(
 
 
 def position_stack(
-    vjust: Number | None = None, mode: str | None = None, reverse: bool | None = None
+    vjust: Number | None = None,
+    mode: str | None = None,
+    *,
+    reverse: bool | None = None,
 ) -> FeatureSpec:
     """Stack overlapping objects on top of each other.
 
@@ -286,7 +292,10 @@ def position_stack(
 
 
 def position_fill(
-    vjust: Number | None = None, mode: str | None = None, reverse: bool | None = None
+    vjust: Number | None = None,
+    mode: str | None = None,
+    *,
+    reverse: bool | None = None,
 ) -> FeatureSpec:
     """Stack overlapping objects and normalise each stack to height 1.
 

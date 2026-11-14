@@ -295,12 +295,12 @@ def geom_pwc(
 
 def stat_pvalue_manual(
     data: PlotData,
+    *,
     label: str | None = None,
     y_position: str | Number | Sequence[Number] = "y.position",
     xmin: str = "group1",
     xmax: str | None = "group2",
     x: str | None = None,
-    *,
     tip_length: Number = 0.03,
     step_increase: Number = 0,
     step_group_by: str | None = None,

@@ -375,12 +375,13 @@ def scale_color_gradient(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
-    oob: Oob | None = None,
-    rescaler: Rescaler | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
     format: str | None = None,
+    *,
+    oob: Oob | None = None,
+    rescaler: Rescaler | None = None,
 ) -> FeatureSpec:
     """Map ``color`` to a two-color gradient (in LAB space).
 
@@ -448,12 +449,13 @@ def scale_fill_gradient(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
-    oob: Oob | None = None,
-    rescaler: Rescaler | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
     format: str | None = None,
+    *,
+    oob: Oob | None = None,
+    rescaler: Rescaler | None = None,
 ) -> FeatureSpec:
     """Map ``fill`` to a two-color gradient. See ``scale_color_gradient``.
 
@@ -523,11 +525,12 @@ def scale_color_gradient2(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
-    oob: Oob | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
     format: str | None = None,
+    *,
+    oob: Oob | None = None,
 ) -> FeatureSpec:
     """Map ``color`` to a diverging gradient around ``midpoint`` (continuous data only).
 
@@ -593,11 +596,12 @@ def scale_fill_gradient2(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
-    oob: Oob | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
     format: str | None = None,
+    *,
+    oob: Oob | None = None,
 ) -> FeatureSpec:
     """Map ``fill`` to a diverging gradient. See ``scale_color_gradient2``.
 
@@ -660,12 +664,13 @@ def scale_color_gradientn(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
-    oob: Oob | None = None,
-    rescaler: Rescaler | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
     format: str | None = None,
+    *,
+    oob: Oob | None = None,
+    rescaler: Rescaler | None = None,
 ) -> FeatureSpec:
     """Map ``color`` to a gradient through several colors, evenly spaced over the data.
 
@@ -732,12 +737,13 @@ def scale_fill_gradientn(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
-    oob: Oob | None = None,
-    rescaler: Rescaler | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
     format: str | None = None,
+    *,
+    oob: Oob | None = None,
+    rescaler: Rescaler | None = None,
 ) -> FeatureSpec:
     """Map ``fill`` to a gradient through several colors. See ``scale_color_gradientn``.
 
@@ -808,12 +814,13 @@ def scale_color_viridis(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
-    oob: Oob | None = None,
-    rescaler: Rescaler | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
     format: str | None = None,
+    *,
+    oob: Oob | None = None,
+    rescaler: Rescaler | None = None,
 ) -> FeatureSpec:
     """Map ``color`` with a viridis-family color map.
 
@@ -891,12 +898,13 @@ def scale_fill_viridis(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
-    oob: Oob | None = None,
-    rescaler: Rescaler | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
     format: str | None = None,
+    *,
+    oob: Oob | None = None,
+    rescaler: Rescaler | None = None,
 ) -> FeatureSpec:
     """Map ``fill`` with a viridis-family color map. See ``scale_color_viridis``.
 
@@ -969,13 +977,14 @@ def scale_color_continuous(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
-    oob: Oob | None = None,
-    rescaler: Rescaler | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
     format: str | None = None,
     scale_mapper_kind: str | None = None,
+    *,
+    oob: Oob | None = None,
+    rescaler: Rescaler | None = None,
     **kwargs: object,
 ) -> FeatureSpec:
     """Map ``color`` continuously: a gradient unless ``scale_mapper_kind`` says otherwise.
@@ -1044,13 +1053,14 @@ def scale_fill_continuous(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
-    oob: Oob | None = None,
-    rescaler: Rescaler | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
     format: str | None = None,
     scale_mapper_kind: str | None = None,
+    *,
+    oob: Oob | None = None,
+    rescaler: Rescaler | None = None,
     **kwargs: object,
 ) -> FeatureSpec:
     """Map ``fill`` continuously. See ``scale_color_continuous``.
@@ -1132,11 +1142,12 @@ def scale_color_brewer(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
-    oob: Oob | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
     format: str | None = None,
+    *,
+    oob: Oob | None = None,
 ) -> FeatureSpec:
     """Map ``color`` with a ColorBrewer palette.
 
@@ -1208,11 +1219,12 @@ def scale_fill_brewer(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
-    oob: Oob | None = None,
     na_value: Color | Number | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
     format: str | None = None,
+    *,
+    oob: Oob | None = None,
 ) -> FeatureSpec:
     """Map ``fill`` with a ColorBrewer palette. See ``scale_color_brewer``.
 
@@ -1394,11 +1406,12 @@ def scale_color_grey(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
-    oob: Oob | None = None,
     na_value: Color | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
     format: str | None = None,
+    *,
+    oob: Oob | None = None,
 ) -> FeatureSpec:
     """Map ``color`` to greys, from lightness ``start`` to ``end``.
 
@@ -1469,11 +1482,12 @@ def scale_fill_grey(
     labels: Labels | None = None,
     lablim: int | None = None,
     limits: Limits | None = None,
-    oob: Oob | None = None,
     na_value: Color | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
     format: str | None = None,
+    *,
+    oob: Oob | None = None,
 ) -> FeatureSpec:
     """Map ``fill`` to greys, from lightness ``start`` to ``end``.
 

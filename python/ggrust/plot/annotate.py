@@ -41,6 +41,7 @@ def annotate(
     geom: str,
     x: _Position | None = None,
     y: _Position | None = None,
+    *,
     xmin: _Position | None = None,
     xmax: _Position | None = None,
     ymin: _Position | None = None,

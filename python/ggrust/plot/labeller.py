@@ -171,6 +171,7 @@ label_context: Labeller = _named(
 def as_labeller(
     x: Mapping[str | int | float | bool, str] | Callable[[str], str] | Labeller | LabellerName,
     default: Labeller | LabellerName = label_value,
+    *,
     multi_line: bool = True,
 ) -> Labeller:
     """Build a labeller from a lookup table or a function (ggplot2 ``as_labeller``).

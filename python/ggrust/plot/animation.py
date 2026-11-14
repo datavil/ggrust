@@ -45,7 +45,11 @@ EASES: tuple[str, ...] = (
 """Every ease name ``ease_aes()`` accepts (tweenr's ``validEase``)."""
 
 
-def transition_manual(frames: str, cumulative: bool = False) -> FeatureSpec:
+def transition_manual(
+    frames: str,
+    *,
+    cumulative: bool = False,
+) -> FeatureSpec:
     """Animate by showing the rows of one value of ``frames`` per frame.
 
     Each frame draws the rows whose ``frames`` column has one value, in the
@@ -141,6 +145,7 @@ def _lengths(value: float | Sequence[float], name: str) -> float | list[float]:
 
 def transition_states(
     states: str,
+    *,
     transition_length: float | Sequence[float] = 1,
     state_length: float | Sequence[float] = 1,
     wrap: bool = True,
@@ -347,7 +352,11 @@ def _column_name(value: object, function: str, argument: str) -> str:
     raise SpecError(message, path=f"animation.transition.{argument}")
 
 
-def transition_time(time: str, range: Sequence[TimeValue] | None = None) -> FeatureSpec:
+def transition_time(
+    time: str,
+    *,
+    range: Sequence[TimeValue] | None = None,
+) -> FeatureSpec:
     """Animate over a time column: frames evenly spaced in time, marks moving between times.
 
     The frames cover the range of ``time`` in equal steps (gganimate
@@ -415,6 +424,7 @@ def transition_time(time: str, range: Sequence[TimeValue] | None = None) -> Feat
 
 def transition_reveal(
     along: str,
+    *,
     range: Sequence[TimeValue] | None = None,
     keep_last: bool = True,
 ) -> FeatureSpec:

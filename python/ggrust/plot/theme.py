@@ -523,6 +523,7 @@ def element_line(
     size: Number | None = None,
     linetype: int | str | None = None,
     blank: bool = False,
+    *,
     arrow: FeatureSpec | None = None,
     extent: Number | None = None,
 ) -> dict[str, Any]:

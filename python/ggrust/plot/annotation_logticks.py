@@ -20,6 +20,7 @@ __all__ = ["annotation_logticks"]
 def annotation_logticks(
     base: Number = 10,
     sides: str = "bl",
+    *,
     outside: bool = False,
     scaled: bool = True,
     short: Number | None = None,

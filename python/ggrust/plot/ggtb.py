@@ -21,6 +21,7 @@ SIZE_BASES = ("x", "y", "min", "max")
 def ggtb(
     size_basis: Literal["x", "y", "min", "max"] | None = None,
     size_zoomin: int | float | None = None,
+    *,
     layers: bool | Mapping[str, int] | None = None,
 ) -> FeatureSpec:
     """Add the zoom/pan toolbar to an HTML plot.

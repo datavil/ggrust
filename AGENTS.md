@@ -67,6 +67,21 @@ ask the user first. The backlog's "Not worth it" list (`notes/backlog.md`) has w
 user has ruled out, such as the `frame >> ggplot()` pipe, `qplot()`, method chaining and
 patchwork-style operators.
 
+## API stability
+
+The public Python API is a promise: [docs/guide/stability.md](docs/guide/stability.md)
+says what is frozen (names, signatures, error classes, public import paths, plot files)
+and what is not (pixels, ggrust-only spec keys, other module paths, the Rust crates).
+Animation is provisional.
+
+- Never remove, rename or reorder a stable name or parameter. Deprecate first
+  (`DeprecationWarning` naming the replacement); removal waits for a major version.
+- New parameters go at the end or keyword-only. A parameter lets_plot does not have is
+  always keyword-only, after lets_plot's, so positional calls stay lets_plot-compatible.
+- New ggrust-only functions take only their main arguments by position.
+- `tests/test_public_api.py` guards this with a snapshot (`tests/fixtures/public_api.txt`).
+  Re-bless it (`GGRUST_BLESS=1`) only for additions, and say so in the commit message.
+
 ## Golden rules
 
 1. **Test everything before handing over. Not just smoke tests.** You have computer

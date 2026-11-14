@@ -65,12 +65,13 @@ def scale_color_distiller(
     breaks: Breaks | None = None,
     labels: Labels | None = None,
     limits: Limits | None = None,
-    oob: Oob | None = None,
-    rescaler: Rescaler | None = None,
     na_value: Color | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
     format: str | None = None,
+    *,
+    oob: Oob | None = None,
+    rescaler: Rescaler | None = None,
 ) -> FeatureSpec:
     """Map continuous ``color`` with a ColorBrewer palette as a smooth gradient.
 
@@ -151,12 +152,13 @@ def scale_fill_distiller(
     breaks: Breaks | None = None,
     labels: Labels | None = None,
     limits: Limits | None = None,
-    oob: Oob | None = None,
-    rescaler: Rescaler | None = None,
     na_value: Color | None = None,
     guide: Guide | None = None,
     trans: Transform | None = None,
     format: str | None = None,
+    *,
+    oob: Oob | None = None,
+    rescaler: Rescaler | None = None,
 ) -> FeatureSpec:
     """Map continuous ``fill`` with a ColorBrewer palette as a smooth gradient.
 

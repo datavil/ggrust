@@ -4,8 +4,12 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ## [Unreleased]
 
+## [0.8.2] - 2026-11-14
+
 ### Added
 
+- Infinite positions, as ggplot2: `-inf` / `inf` in x, y (and xmin, xmax, ymin, ymax, xend, yend) are drawn at the panel's edges instead of being dropped, for every geom, and do not train scales. `annotate("text", x=float("inf"), y=float("-inf"), label="N = 82", hjust=1, vjust=0)` puts text in the bottom-right corner.
+- `geom_shape(radius=, expand=)`, as ggforce: polygons with rounded corners, grown or shrunk by `expand` (lengths in mm); a large radius turns a rectangle into a stadium.
 - `gggrid(tag_level="unit")`: a grid nested in a tagged grid takes one tag, drawn once at its corner and styled by `theme(plot_tag=, plot_tag_position=, ...)`, and leaves its plots untagged (patchwork's `wrap_elements(full=)` around a nested patchwork). One letter per column of stacked plots: `gggrid([gggrid(column_a, ncol=1, tag_level="unit"), gggrid(column_b, ncol=1, tag_level="unit")], ncol=2, tag_levels="A")`.
 - `stat_poly_eq(label=["R", "slope"])`: the signed Pearson r and the slope of a line per group, with `r_digits`, `slope_digits`, `slope_name` and `small_r` (`"r = 0.58, m = 0.5"`). Text computed variables for `after_stat`: `stat_cor(aes(label=after_stat("r.label")))` drops the p-value (also `rr.label`, `p.label`; `eq.label`, `rr.label`, `adj.rr.label`, `p.value.label`, `n.label` on `stat_poly_eq`), as ggpubr and ggpmisc.
 - `theme(legend_title_position="top" | "right" | "bottom" | "left")`, as ggplot2 3.5, also per guide (`guide_colorbar(theme=theme(legend_title_position="bottom"))`); `legend_title` hjust and vjust justify the title and keys.

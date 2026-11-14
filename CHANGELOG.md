@@ -14,6 +14,7 @@ Signature clean-up before 1.0. Every affected argument still works by name; only
 
 ### Added
 
+- Package metadata: `Development Status :: 5 - Production/Stable` and `Typing :: Typed` classifiers.
 - A stability policy ([docs](https://ggrust.datavil.org/guide/stability/)): what 1.0 freezes (names, signatures, error classes, public import paths, plot files), what may still change in a minor release (pixels, ggrust-only spec keys, other module paths, the Rust crates), and that animation is provisional.
 
 ## [0.9.0] - 2026-11-15

@@ -206,7 +206,7 @@ ggrust is a __subset__ of Lets-Plot, not all of it. Features follow what Cellest
 
 ## Status
 
-Early, but usable: the full Cellestial test suite passes on ggrust. Expect rough edges and API gaps; issues are welcome.
+Stable from 1.0: names, signatures and error classes are frozen under semantic versioning, while the drawn output can still improve between minor releases (see the [stability policy](https://ggrust.datavil.org/guide/stability/)). Animation is provisional. The full Cellestial test suite passes on ggrust. It is a subset of Lets-Plot, so expect gaps; issues are welcome.
 
 ## Development
 

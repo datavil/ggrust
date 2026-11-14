@@ -6,6 +6,8 @@ edition.workspace = true
 license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
+# Internal: only the Python package is a stable API (docs/guide/stability.md).
+publish = false
 
 [dependencies]
 ahash.workspace = true

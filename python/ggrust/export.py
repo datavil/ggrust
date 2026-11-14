@@ -204,8 +204,21 @@ def _save_animation(
 
     Sizes follow ``PlotSpec.to_png`` except the default pixel scale, which is 1.
     """
-    from ggrust._render import _raster_options, _write, is_animated, render_animation_bytes
+    from ggrust._render import (
+        _raster_options,
+        _write,
+        is_animated,
+        is_animation_frame,
+        render_animation_bytes,
+    )
 
+    if is_animation_frame(plot):
+        message = (
+            f"ggsave(): one frame of an animation is a still plot; a .{extension} file "
+            "needs the whole animation: save the Animation (anim.save(...)), or save the "
+            "frame as .png, .svg or .pdf"
+        )
+        raise ExportError(message)
     if not is_animated(plot):
         if not isinstance(plot, PlotSpec):
             # A grid: an animated subplot fails here with the engine's own error.

@@ -299,3 +299,21 @@ def test_fewer_transition_frames_keep_gganimates_timing():
     data = json.loads(payload.group(1))
     assert len(data["timeline"]) == 65
     assert data["fps"] == pytest.approx(8 * 49 / 84)
+
+
+def test_ggsave_of_one_frame_writes_a_still_file(tmp_path):
+    """``ggsave(anim.frame(i), "x.png")`` writes that frame, not the whole APNG."""
+    frame = animate(sales_plot(), nframes=4).frame(1)
+    path = ggsave(frame, "frame.png", path=str(tmp_path), scale=1)
+    with Image.open(path) as image:
+        assert not getattr(image, "is_animated", False)
+        assert getattr(image, "n_frames", 1) == 1
+        still = np.asarray(image.convert("RGB"), dtype=np.int16)
+    assert np.array_equal(still, png_pixels(frame))
+    svg = Path(ggsave(frame, "frame.svg", path=str(tmp_path))).read_text()
+    assert svg == frame.to_svg()
+    pdf = Path(ggsave(frame, "frame.pdf", path=str(tmp_path))).read_bytes()
+    assert pdf.startswith(b"%PDF")
+    assert '<script type="application/vnd.ggrust-animation+json"' not in frame._repr_html_()
+    with pytest.raises(ExportError, match="one frame of an animation"):
+        ggsave(frame, "frame.gif", path=str(tmp_path))

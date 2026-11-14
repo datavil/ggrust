@@ -231,21 +231,39 @@ def render_animation_bytes(
 
 
 def is_animated(plot: object) -> bool:
-    """Whether ``plot`` is a plot with a transition (gganimate).
+    """Whether ``plot`` is a plot with a transition (gganimate) that draws frames.
+
+    One frame of an animation (``Animation.frame(i)``) is a still plot.
 
     Parameters
     ----------
     plot : object
         Any figure.
     """
+    return _animation_props(plot).get("transition") is not None and not is_animation_frame(plot)
+
+
+def is_animation_frame(plot: object) -> bool:
+    """Whether ``plot`` is one frame of an animation (``Animation.frame(i)``).
+
+    Parameters
+    ----------
+    plot : object
+        Any figure.
+    """
+    return _animation_props(plot).get("frame") is not None
+
+
+def _animation_props(plot: object) -> dict[str, Any]:
+    """Return the ``"animation"`` options of ``plot``; empty when it has none."""
     from ggrust.plot.core import PlotSpec
 
     if not isinstance(plot, PlotSpec):
-        return False
+        return {}
     animation = plot.props().get("animation")
     # ``ease_aes()`` alone sets the easing but no transition: a still plot.
     props = animation.props() if hasattr(animation, "props") else animation
-    return isinstance(props, dict) and props.get("transition") is not None
+    return props if isinstance(props, dict) else {}
 
 
 def build_plot(plot: PlotSpec) -> PlotBuild:

@@ -96,7 +96,7 @@ deviations row, plan.md tick.
   can be drawn from modified computed layer data with fixed scales (throwaway test).
   Output: a short design note in this file (data model of a "state", where tweening
   plugs in). Stop and show the user if the seam is not clean.
-- [ ] **an1 Frames without tweening (80 percent of the value).** `transition_manual(frames,
+- [x] **an1 Frames without tweening (80 percent of the value).** `transition_manual(frames,
   cumulative=False)`, `animate()`, `Animation`, `anim_save`, `ggsave(".gif"/".png")`,
   HTML player, GIF + APNG writers, `{frame}`/`{nframes}`/`{progress}`/`{current_frame}`
   labels, `start_pause`/`end_pause`/`rewind`. Frames rendered in parallel.

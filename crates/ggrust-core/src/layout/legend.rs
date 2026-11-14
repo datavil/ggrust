@@ -47,6 +47,9 @@ pub struct KeyLayer {
 pub struct LegendKey {
     /// Label next to the key.
     pub label: Label,
+    /// How many earlier keys of the legend carry the same label (repeated
+    /// labels with other values keep their own keys).
+    pub occurrence: usize,
     /// Keys drawn on top of each other, in layer order.
     pub layers: Vec<KeyLayer>,
 }
@@ -1404,6 +1407,7 @@ fn group_key(legend: &Legend, key: &LegendKey, start: usize, theme: &Theme, node
         key: Some(key_tag(&[legend_key_id(
             &legend.title,
             &key.label.to_string(),
+            key.occurrence,
         )])),
         nodes: grouped,
     }));

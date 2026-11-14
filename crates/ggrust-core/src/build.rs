@@ -19,7 +19,9 @@ use crate::data::{
 };
 use crate::facet::{Facets, LayerFacetColumns, grid_variables};
 use crate::geom::{self, DrawLayer, Geom};
-use crate::interactive_legend::{LayerLegends, RowKeys, row_keys, same_shape, tag_marks};
+use crate::interactive_legend::{
+    KeySlot, LayerLegends, RowKeys, key_slots, row_keys, same_shape, tag_marks,
+};
 use crate::layout::facet::{FacetGrid, FacetLayout, FacetPanel, draw_strips, layout_facets};
 use crate::layout::polar::{draw_polar_tile, layout_theme as polar_layout_theme};
 use crate::layout::side_panel::{
@@ -4525,22 +4527,30 @@ fn assemble_legends(
                 legends[index].bin_edges = None;
             }
             let mut keys = Vec::new();
-            // lets-plot `applyOverrideAesLists`: labels of every aesthetic, distinct;
-            // per label, each aesthetic's last value with that label.
-            let mut labels: Vec<&Label> = Vec::new();
-            for (_, entries) in &group {
-                for entry in entries {
-                    if !labels.contains(&&entry.label) {
-                        labels.push(&entry.label);
+            // lets-plot `applyOverrideAesLists`: labels of every aesthetic, distinct,
+            // each aesthetic's value per label. Entries that repeat a label with a
+            // different value keep their own key (ggplot2; lets-plot #1129 drops
+            // them): a key is a label and its occurrence among the aesthetic's keys.
+            let slots: Vec<(Aesthetic, Vec<KeySlot>)> = group
+                .iter()
+                .map(|(aesthetic, entries)| (*aesthetic, key_slots(entries)))
+                .collect();
+            let mut labels: Vec<(&Label, usize)> = Vec::new();
+            for (_, aesthetic_slots) in &slots {
+                for slot in aesthetic_slots {
+                    if !labels.contains(&(slot.label, slot.occurrence)) {
+                        labels.push((slot.label, slot.occurrence));
                     }
                 }
             }
-            for label in labels {
-                let values: Vec<(Aesthetic, &StyleValues)> = group
+            for (label, occurrence) in labels {
+                let values: Vec<(Aesthetic, &StyleValues)> = slots
                     .iter()
-                    .filter_map(|(aesthetic, entries)| {
-                        let entry = entries.iter().rev().find(|entry| entry.label == *label)?;
-                        Some((*aesthetic, &entry.value))
+                    .filter_map(|(aesthetic, aesthetic_slots)| {
+                        let slot = aesthetic_slots
+                            .iter()
+                            .find(|slot| slot.label == label && slot.occurrence == occurrence)?;
+                        Some((*aesthetic, slot.value))
                     })
                     .collect();
                 let key_layer = KeyLayer {
@@ -4564,13 +4574,26 @@ fn assemble_legends(
     }
     for (legend, mut layer_keys) in legends.iter_mut().zip(contributions) {
         layer_keys.sort_by_key(|(index, _)| (index.is_none(), *index));
-        for (label, key_layer) in layer_keys.into_iter().flat_map(|(_, keys)| keys) {
-            match legend.keys.iter_mut().find(|key| key.label == label) {
-                Some(key) => key.layers.push(key_layer),
-                None => legend.keys.push(LegendKey {
-                    label,
-                    layers: vec![key_layer],
-                }),
+        for (_, keys) in layer_keys {
+            // The n-th key of a layer with a label joins the legend's n-th key
+            // with that label (repeated labels keep their own keys, #1129).
+            let mut seen: Vec<Label> = Vec::new();
+            for (label, key_layer) in keys {
+                let occurrence = seen.iter().filter(|known| **known == label).count();
+                seen.push(label.clone());
+                let existing = legend
+                    .keys
+                    .iter_mut()
+                    .filter(|key| key.label == label)
+                    .nth(occurrence);
+                match existing {
+                    Some(key) => key.layers.push(key_layer),
+                    None => legend.keys.push(LegendKey {
+                        label,
+                        occurrence,
+                        layers: vec![key_layer],
+                    }),
+                }
             }
         }
     }

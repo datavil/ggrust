@@ -142,6 +142,9 @@ CASES = {
 }
 
 
+REPEATED_LABEL_CASES = {"discrete_then_continuous", "signed_zeros_are_categories"}
+
+
 @pytest.mark.parametrize("name", CASES)
 def test_mapped_styles_match_lets_plot(name):
     with warnings.catch_warnings():
@@ -152,6 +155,12 @@ def test_mapped_styles_match_lets_plot(name):
         # ggrust's extra "NA" legend key, drawn last (deviations.md, ua.8).
         assert ours[-1][0] == "#ffa500"
         ours = ours[:-1]
+    if name in REPEATED_LABEL_CASES:
+        # Two levels share a label ("0"/"-0", "1"/1): lets-plot merges their legend
+        # keys (#1129), ggrust keeps both (deviations.md). Compare the data marks,
+        # two layers of N points; test_legend_parity checks the keys.
+        assert len(ours) > len(theirs)
+        ours, theirs = ours[: 2 * N], theirs[: 2 * N]
     assert len(theirs) >= len(ours) > 0
     for index, (their, our) in enumerate(zip(theirs, ours, strict=False)):
         assert our[0] == their[0], f"point {index}: {our} vs {their}"

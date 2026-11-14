@@ -18,10 +18,11 @@
 
 use serde::Serialize;
 
+use crate::scale::format::Label;
 use crate::scale::style::LegendEntry;
 use crate::scene::{Color, Group, KEYED_ROLE, KeyedItems, Node, PerItem, Points, Rects};
 use crate::spec::Aesthetic;
-use crate::style::{Styles, probe_color};
+use crate::style::{StyleValues, Styles, probe_color};
 
 /// Layers with more key combinations than this are not interactive: each
 /// combination is a group of its own (and a canvas for dense points).
@@ -29,9 +30,45 @@ pub const MAX_COMBINATIONS: usize = 64;
 
 /// The id of the key labelled `label` in the legend titled `title`, shared by
 /// the legend key and the marks it stands for (interactive legend, HTML only).
-/// Legends merge by title and keys by label, so the pair names one key.
-pub fn legend_key_id(title: &str, label: &str) -> String {
-    format!("{title}\u{1f}{label}")
+/// Legends merge by title and keys by label and its occurrence (a repeated
+/// label with another value is a key of its own, see [`key_slots`]), so these
+/// name one key. The occurrence is written only when it is not 0.
+pub fn legend_key_id(title: &str, label: &str, occurrence: usize) -> String {
+    match occurrence {
+        0 => format!("{title}\u{1f}{label}"),
+        _ => format!("{title}\u{1f}{label}\u{1f}{occurrence}"),
+    }
+}
+
+/// One key of an aesthetic's legend entries: its label, how many earlier keys
+/// carry the same label, and its value.
+pub struct KeySlot<'a> {
+    /// The entry's label.
+    pub label: &'a Label,
+    /// How many earlier keys of the aesthetic carry the same label.
+    pub occurrence: usize,
+    /// The entry's value.
+    pub value: &'a StyleValues,
+}
+
+/// The keys of one aesthetic's entries. An entry that repeats an earlier label
+/// with the same value is the same key (signed zeros, `-0` and `0`); with a
+/// different value it is a key of its own (ggplot2, lets-plot #1129 merges them).
+pub fn key_slots(entries: &[LegendEntry]) -> Vec<KeySlot<'_>> {
+    let mut slots: Vec<KeySlot> = Vec::new();
+    for entry in entries {
+        let same_label = slots.iter().filter(|slot| *slot.label == entry.label);
+        if same_label.clone().any(|slot| *slot.value == entry.value) {
+            continue;
+        }
+        let occurrence = same_label.count();
+        slots.push(KeySlot {
+            label: &entry.label,
+            occurrence,
+            value: &entry.value,
+        });
+    }
+    slots
 }
 
 /// [`Group::key`] for marks or a legend key belonging to the keys `ids`.
@@ -44,7 +81,7 @@ pub fn key_tag(ids: &[String]) -> String {
 pub type LayerLegends = Vec<(String, Vec<(Aesthetic, Vec<LegendEntry>)>)>;
 
 /// A key id with, per aesthetic of its legend, the entry it matches.
-type KeyValues<'a> = (String, Vec<(Aesthetic, &'a LegendEntry)>);
+type KeyValues<'a> = (String, Vec<(Aesthetic, &'a StyleValues)>);
 
 /// The legend keys of a layer's rows.
 #[derive(Debug, Clone, PartialEq, Serialize)]
@@ -81,25 +118,31 @@ pub fn row_keys(styles: &Styles, row_count: usize, legends: &LayerLegends) -> Op
     let keyed: Vec<Vec<KeyValues>> = legends
         .iter()
         .map(|(title, aesthetics)| {
-            let mut labels: Vec<&crate::scale::format::Label> = Vec::new();
-            for (_, entries) in aesthetics {
-                for entry in entries {
-                    if !labels.contains(&&entry.label) {
-                        labels.push(&entry.label);
+            let slots: Vec<(Aesthetic, Vec<KeySlot>)> = aesthetics
+                .iter()
+                .map(|(aesthetic, entries)| (*aesthetic, key_slots(entries)))
+                .collect();
+            let mut labels: Vec<(&Label, usize)> = Vec::new();
+            for (_, aesthetic_slots) in &slots {
+                for slot in aesthetic_slots {
+                    if !labels.contains(&(slot.label, slot.occurrence)) {
+                        labels.push((slot.label, slot.occurrence));
                     }
                 }
             }
             labels
                 .into_iter()
-                .map(|label| {
-                    let values = aesthetics
+                .map(|(label, occurrence)| {
+                    let values = slots
                         .iter()
-                        .filter_map(|(aesthetic, entries)| {
-                            let entry = entries.iter().rev().find(|entry| entry.label == *label)?;
-                            Some((*aesthetic, entry))
+                        .filter_map(|(aesthetic, aesthetic_slots)| {
+                            let slot = aesthetic_slots.iter().find(|slot| {
+                                slot.label == label && slot.occurrence == occurrence
+                            })?;
+                            Some((*aesthetic, slot.value))
                         })
                         .collect();
-                    (legend_key_id(title, &label.to_string()), values)
+                    (legend_key_id(title, &label.to_string(), occurrence), values)
                 })
                 .collect()
         })
@@ -113,7 +156,7 @@ pub fn row_keys(styles: &Styles, row_count: usize, legends: &LayerLegends) -> Op
             let found = keys.iter().find(|(_, values)| {
                 values
                     .iter()
-                    .all(|(aesthetic, entry)| styles.row_equals(*aesthetic, row, &entry.value))
+                    .all(|(aesthetic, value)| styles.row_equals(*aesthetic, row, value))
             });
             if let Some((id, _)) = found {
                 ids.push(id.clone());
@@ -322,8 +365,8 @@ mod tests {
         assert_eq!(
             keys.combinations,
             vec![
-                vec![legend_key_id("kind", "b")],
-                vec![legend_key_id("kind", "a")],
+                vec![legend_key_id("kind", "b", 0)],
+                vec![legend_key_id("kind", "a", 0)],
                 vec![]
             ]
         );

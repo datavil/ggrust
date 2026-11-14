@@ -6,7 +6,8 @@ ua.9 (2026-11-05). HTML only; static output never sees the tags.
   `override_aes`), not by re-reading data columns: works after any stat, with merged
   legends (all aesthetics of a title must match) and manual scales. First key wins on ties.
   Boxplot outliers (companion layer, grey) take their box's key by group.
-- **Ids are `title + U+001F + label`**, shared by `g.legend-key` and `g.keyed`
+- **Ids are `title + U+001F + label`** (plus `U+001F + n` for the n-th repeat of a label
+  with another value, `key_slots`), shared by `g.legend-key` and `g.keyed`
   (`data-key` = JSON array). A gggrid toggles every plot showing that title/label.
 - **Do not draw a layer per key subset.** Tried first: it reorders stacking, splits canvas
   batches and breaks geoms that use all rows at draw time (raster grid step, half_point

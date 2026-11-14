@@ -220,6 +220,13 @@ CASES = {
 # Cases with an explicit na_value and values mapped to it: ggrust's extra NA key.
 NA_KEY_CASES = {"name_and_na": [("#ffc0cb", 5.5, 255)]}
 
+# Cases where two levels share a label: lets-plot merges them into one key (#1129),
+# ggrust keeps one key per drawn color, as ggplot2 (deviations.md). Index and key
+# of the extra ggrust key.
+REPEATED_LABEL_CASES = {
+    "mixed_with_signed_zeros": (3, ("0", [("#984ea3", 5.5, 255), ("#984ea3", 5.5, 255)]))
+}
+
 
 @pytest.mark.parametrize("name", CASES)
 def test_legends_match_lets_plot(name):
@@ -232,6 +239,11 @@ def test_legends_match_lets_plot(name):
         title, keys = ours[-1]
         assert keys[-1] == ("NA", NA_KEY_CASES[name])
         ours = [*ours[:-1], (title, keys[:-1])]
+    if name in REPEATED_LABEL_CASES:
+        index, extra = REPEATED_LABEL_CASES[name]
+        title, keys = ours[0]
+        assert keys[index] == extra
+        ours = [(title, keys[:index] + keys[index + 1 :]), *ours[1:]]
     assert ours == theirs
 
 
@@ -254,3 +266,52 @@ def test_a_legend_never_covers_the_panel():
     legend = svg[svg.find('<g class="legend">') :]
     legend_left = float(regex.search(r'<rect x="([\d.-]+)"', legend).group(1))
     assert legend_left >= panel_right
+
+
+def repeated_label_keys(plot) -> list:
+    return [
+        (label, [style[0] for style in styles])
+        for label, styles in legends(plot.to_svg(), ours=True)[0][1]
+    ]
+
+
+def test_repeated_labels_keep_their_own_keys():
+    """lets-plot #1129: two levels labelled alike merge and a color vanishes;
+    ggrust keeps one key per level, as ggplot2."""
+    frame = {"x": [1, 2, 3], "y": [1, 2, 3], "g": ["a", "b", "c"]}
+    plot = (
+        gg.ggplot(frame, gg.aes("x", "y", color="g"))
+        + gg.geom_point()
+        + gg.scale_color_manual(values=["red", "green", "blue"], labels=["A", "A", "C"])
+    )
+    assert repeated_label_keys(plot) == [
+        ("A", ["#ff0000"]),
+        ("A", ["#008000"]),
+        ("C", ["#0000ff"]),
+    ]
+    # A second layer joins the keys by label and occurrence.
+    assert repeated_label_keys(plot + gg.geom_point(size=1)) == [
+        ("A", ["#ff0000", "#ff0000"]),
+        ("A", ["#008000", "#008000"]),
+        ("C", ["#0000ff", "#0000ff"]),
+    ]
+
+
+def test_repeated_labels_toggle_on_their_own_in_html():
+    """Interactive legend ids tell repeated labels apart: clicking one key hides
+    only its own marks."""
+    frame = {"x": [1.0, 2.0, 3.0, 4.0], "y": [1.0, 2.0, 3.0, 4.0], "g": ["a", "b", "c", "d"]}
+    plot = (
+        gg.ggplot(frame, gg.aes("x", "y", color="g"))
+        + gg.geom_point()
+        + gg.scale_color_manual(
+            values=["red", "blue", "green", "black"], labels=["z", "z", "y", "y"]
+        )
+    )
+    html = plot.to_html()
+    key_ids = re.findall(r'data-key="([^"]*)"', html)
+    legend_ids = [key for key in key_ids if "z" in key or "y" in key]
+    assert len(set(legend_ids)) == 4, legend_ids
+    for key in set(legend_ids):
+        # Every legend key's id names marks too (the batch's key table).
+        assert html.count(key.split("&quot;")[1]) >= 2

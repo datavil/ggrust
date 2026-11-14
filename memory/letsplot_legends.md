@@ -10,8 +10,10 @@ Kotlin sources: `plot-builder/.../assemble/LegendAssembler.kt`, `PlotAssemblerUt
 - **Manual dict values** (Python): keys become `breaks`, so the dict order is the legend order.
 - **Legends group by scale name** (title: `labs()` > scale `name` > default scale name, which
   joins several columns with ", "); every layer mapping the aesthetic adds a key part for
-  *every* label of the shared scale (not only its own values). Keys merge by label, so
-  -0.0 and 0.0 (both "0") share a key.
+  *every* label of the shared scale (not only its own values). Keys merge by label and value:
+  the same label with the same value is one key; a repeated label with another value keeps
+  its own key (ggplot2; lets-plot #1129 merges them, deviations.md), keys joined by
+  (label, occurrence) across aesthetics and layers.
 - **Order** follows the geom's rendered aesthetics (`GeomMeta`: point = size, color, alpha):
   a size legend comes before a color legend.
 - **Key styles**: legend values, else layer constants for shape/color/fill only (a constant

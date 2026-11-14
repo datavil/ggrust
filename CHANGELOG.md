@@ -6,6 +6,7 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 ### Added
 
+- `scale_identity(aesthetic, ...)`, the generic identity scale of lets-plot: a name or a list (`scale_identity(['color', 'fill'])`). The module of the per-aesthetic identity scales is now `ggrust.plot.scale_identity_` (lets-plot's name), so `ggrust.plot.scale_identity` is the function.
 - `joint_plot` and `qq_plot` (bistro), as lets_plot: `from ggrust.bistro.joint import joint_plot` draws points, 2D bins or a 2D density with a dashed regression line and marginal histograms, densities or boxplots; `from ggrust.bistro.qq import qq_plot` draws a sample against a theoretical distribution (or two samples against each other) with the fitted line and marginal densities of the quantiles. `joint_plot`'s `as_dict()` matches lets_plot's.
 
 ## [0.8.2] - 2026-11-14

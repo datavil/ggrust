@@ -21,6 +21,7 @@ FRAME = {
     "y": [3.0, 1.0, 4.0, 1.0, 5.0, 9.0],
     "group": ["a", "b", "c", "a", "b", "c"],
     "value": [-2.0, -1.0, 0.0, 1.0, 2.0, 3.0],
+    "paint": ["tomato", "gold", "teal", "tomato", "gold", "teal"],
 }
 
 # name -> (generic call, color-specific call, fill-specific call), each a function
@@ -91,9 +92,23 @@ CONTINUOUS: dict[str, Case] = {
         lambda m: m.scale_fill_brewer(palette="YlGn"),
     ),
 }
-CASES = [(name, "group", case) for name, case in DISCRETE.items()] + [
-    (name, "value", case) for name, case in CONTINUOUS.items()
-]
+IDENTITY: dict[str, Case] = {
+    "identity": (
+        lambda m, a: m.scale_identity(a),
+        lambda m: m.scale_color_identity(),
+        lambda m: m.scale_fill_identity(),
+    ),
+    "identity_legend": (
+        lambda m, a: m.scale_identity(a, guide="legend", name="Paint"),
+        lambda m: m.scale_color_identity(guide="legend", name="Paint"),
+        lambda m: m.scale_fill_identity(guide="legend", name="Paint"),
+    ),
+}
+CASES = (
+    [(name, "group", case) for name, case in DISCRETE.items()]
+    + [(name, "value", case) for name, case in CONTINUOUS.items()]
+    + [(name, "paint", case) for name, case in IDENTITY.items()]
+)
 IDS = [f"{name}-{column}" for name, column, _ in CASES]
 
 
@@ -208,3 +223,15 @@ def test_new_scale_tags_every_aesthetic() -> None:
         "fill": None,
     }
     plot.to_svg()
+
+
+def test_identity_draws_the_data_colors() -> None:
+    svg = (points(gg, "paint") + gg.scale_identity(["color", "fill"])).to_svg()
+    assert {"#ff6347", "#ffd700", "#008080"} <= {color.lower() for color in fills(svg)}
+
+
+def test_identity_on_size() -> None:
+    frame = {"x": [1, 2], "y": [1, 2], "s": [2.0, 9.0]}
+    plot = gg.ggplot(frame, gg.aes("x", "y", size="s")) + gg.geom_point()
+    generic = (plot + gg.scale_identity("size")).to_svg()
+    assert generic == (plot + gg.scale_size_identity()).to_svg()

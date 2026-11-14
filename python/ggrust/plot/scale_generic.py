@@ -42,6 +42,7 @@ __all__ = [
     "scale_gradientn",
     "scale_grey",
     "scale_hue",
+    "scale_identity",
     "scale_manual",
     "scale_viridis",
 ]
@@ -1019,4 +1020,73 @@ def scale_viridis(
         trans=trans,
         format=format,
         scale_mapper_kind="color_cmap",
+    )
+
+
+def scale_identity(
+    aesthetic: str | Sequence[str],
+    *,
+    name: str | None = None,
+    breaks: Breaks | None = None,
+    labels: Labels | None = None,
+    lablim: int | None = None,
+    limits: Limits | None = None,
+    na_value: Color | Number | None = None,
+    guide: Guide = "none",
+    format: str | None = None,
+) -> FeatureSpec:
+    """Use the data as the aesthetic values (colors, sizes, shapes, ...); no legend by default.
+
+    Parameters
+    ----------
+    aesthetic : str or list of str
+        The aesthetic(s), e.g. ``"fill"`` or ``["color", "fill"]``.
+    name : str, optional
+        Title of the scale, shown on the legend.
+    breaks : list or dict, optional
+        Values that get a legend key (a dict maps labels to breaks).
+    labels : list of str or dict, optional
+        One label per break (a dict maps breaks to labels).
+    lablim : int, optional
+        Maximum label length in characters; longer labels are cut.
+    limits : list, optional
+        The values (and their order) the scale keeps.
+    na_value : str or float, optional
+        Value drawn for missing data.
+    guide : str or FeatureSpec, default="none"
+        ``"legend"`` to show a legend (give ``breaks`` and ``labels`` too).
+    format : str, optional
+        Label format, e.g. ``".1f"``. ``labels`` take precedence.
+
+    Returns
+    -------
+    FeatureSpec
+        The scale, or a ``FeatureSpecArray`` of one scale per aesthetic for a list.
+
+    Raises
+    ------
+    UnsupportedValueError
+        If ``aesthetic`` is not a string or a list of strings.
+    SpecError
+        If ``aesthetic`` is an empty list.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"x": [1, 2, 3], "y": [3, 1, 2], "paint": ["tomato", "gold", "teal"]}
+    >>> plot = ggplot(data, aes("x", "y", color="paint", fill="paint"))
+    >>> plot = plot + geom_point(shape=21, size=10, alpha=0.5)
+    >>> plot = plot + scale_identity(["color", "fill"])
+    """
+    return _scale(
+        _aesthetics(aesthetic, "scale_identity"),
+        name=name,
+        breaks=breaks,
+        labels=labels,
+        lablim=lablim,
+        limits=limits,
+        na_value=na_value,
+        guide=guide,
+        format=format,
+        scale_mapper_kind="identity",
     )

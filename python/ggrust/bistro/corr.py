@@ -31,7 +31,7 @@ from ggrust.plot.scale_color import (
     scale_fill_brewer,
     scale_fill_gradient2,
 )
-from ggrust.plot.scale_identity import scale_size_identity
+from ggrust.plot.scale_identity_ import scale_size_identity
 from ggrust.plot.theme import element_blank, element_line, theme
 from ggrust.plot.tooltip import layer_tooltips
 

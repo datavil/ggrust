@@ -43,7 +43,7 @@ from ggrust.plot.scale_ggsci import (
     scale_color_nejm,
     scale_color_npg,
 )
-from ggrust.plot.scale_identity import scale_color_identity
+from ggrust.plot.scale_identity_ import scale_color_identity
 from ggrust.plot.scale_shape import scale_linetype, scale_shape
 from ggrust.plot.scale_size import scale_alpha, scale_linewidth, scale_size, scale_stroke
 from ggrust.plot.scale_steps import (

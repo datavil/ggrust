@@ -37,7 +37,7 @@ from ggrust.plot.coord import coord_fixed
 from ggrust.plot.core import aes
 from ggrust.plot.geom import _geom, geom_polygon, geom_rect, geom_segment, geom_text
 from ggrust.plot.plot import MAX_HEIGHT, MAX_WIDTH, ggplot, ggsize
-from ggrust.plot.scale_identity import scale_color_identity, scale_fill_identity
+from ggrust.plot.scale_identity_ import scale_color_identity, scale_fill_identity
 from ggrust.plot.theme import theme, theme_void
 
 if TYPE_CHECKING:

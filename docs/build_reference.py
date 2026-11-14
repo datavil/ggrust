@@ -287,6 +287,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "scale_gradientn",
             "scale_hue",
             "scale_grey",
+            "scale_identity",
             "scale_brewer",
             "scale_viridis",
         ],

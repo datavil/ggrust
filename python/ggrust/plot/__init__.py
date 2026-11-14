@@ -252,6 +252,7 @@ from ggrust.plot.scale_generic import (
     scale_gradientn,
     scale_grey,
     scale_hue,
+    scale_identity,
     scale_manual,
     scale_viridis,
 )
@@ -273,7 +274,7 @@ from ggrust.plot.scale_ggsci import (
     scale_fill_nejm,
     scale_fill_npg,
 )
-from ggrust.plot.scale_identity import (
+from ggrust.plot.scale_identity_ import (
     scale_alpha_identity,
     scale_color_identity,
     scale_fill_identity,
@@ -665,6 +666,7 @@ __all__ = [
     "scale_gradientn",
     "scale_grey",
     "scale_hue",
+    "scale_identity",
     "scale_linetype",
     "scale_linetype_discrete",
     "scale_linetype_identity",

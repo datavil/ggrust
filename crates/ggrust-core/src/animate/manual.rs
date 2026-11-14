@@ -6,7 +6,7 @@
 use serde_json::{Map, Value};
 
 use super::spec::{check_keys, shown};
-use super::transition::{FrameShow, Transition};
+use super::transition::{FrameShow, StateSet, Transition};
 use crate::build::StateVariable;
 use crate::{Error, Result};
 
@@ -62,9 +62,9 @@ impl Transition for Manual {
         &self.variable
     }
 
-    fn scene_frames(&mut self, states: usize, _requested: usize) -> Result<usize> {
-        self.states = states;
-        Ok(states)
+    fn scene_frames(&mut self, states: &StateSet, _requested: usize) -> Result<usize> {
+        self.states = states.count;
+        Ok(states.count)
     }
 
     fn frame_show(&self, frame: usize) -> FrameShow {
@@ -106,11 +106,11 @@ mod tests {
     #[test]
     fn one_frame_per_state_or_all_states_so_far() {
         let mut plain = manual(json!({"name": "manual", "frames": "year"})).unwrap();
-        assert_eq!(plain.scene_frames(4, 100).unwrap(), 4);
+        assert_eq!(plain.scene_frames(&StateSet::counted(4), 100).unwrap(), 4);
         assert_eq!(plain.frame_show(2), FrameShow::States(vec![2]));
         let mut cumulative =
             manual(json!({"name": "manual", "frames": "year", "cumulative": true})).unwrap();
-        cumulative.scene_frames(4, 100).unwrap();
+        cumulative.scene_frames(&StateSet::counted(4), 100).unwrap();
         assert_eq!(cumulative.frame_show(2), FrameShow::States(vec![0, 1, 2]));
     }
 

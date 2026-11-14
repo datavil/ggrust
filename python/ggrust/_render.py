@@ -155,8 +155,10 @@ def _check_state_column(spec: dict[str, Any], frames: list[tuple[Any, str]]) -> 
     transition = spec.get("animation", {}).get("transition", {})
     if not isinstance(transition, dict) or not frames:
         return
-    # The state column's option: transition_manual(frames), transition_states(states).
-    key = next((key for key in ("frames", "states") if key in transition), "frames")
+    # The state column's option: transition_manual(frames), transition_states(states),
+    # transition_time(time), transition_reveal(along).
+    keys = ("frames", "states", "time", "along")
+    key = next((key for key in keys if key in transition), "frames")
     name = transition.get(key)
     if not isinstance(name, str):
         return

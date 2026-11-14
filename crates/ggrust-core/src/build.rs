@@ -388,12 +388,13 @@ fn prepare_columns(
             }
         }
     }
-    let state_labels = match state_variable {
-        Some(variable) => Some(
-            assign_states(&mut mapped, variable, data)
-                .map_err(|error| error.with_notes(&warnings))?,
-        ),
-        None => None,
+    let (state_labels, state_values) = match state_variable {
+        Some(variable) => {
+            let (labels, values) = assign_states(&mut mapped, variable, data)
+                .map_err(|error| error.with_notes(&warnings))?;
+            (Some(labels), values)
+        }
+        None => (None, None),
     };
     let facets = match &spec.facet {
         Some(facet) => {
@@ -1072,6 +1073,7 @@ fn prepare_columns(
         space,
         polar,
         state_labels,
+        state_values,
         warnings,
     })
 }
@@ -1085,7 +1087,7 @@ fn assign_states(
     mapped: &mut [MappedLayer],
     variable: &StateVariable,
     data: &PlotData,
-) -> Result<Vec<String>> {
+) -> Result<(Vec<String>, Option<Vec<f64>>)> {
     let columns: Vec<&Column> = mapped
         .iter()
         .filter_map(|layer| layer.state_column.as_ref())
@@ -1122,6 +1124,7 @@ fn assign_states(
         ));
     }
     let labels: Vec<String>;
+    let mut numbers = None;
     if discrete != 0 {
         let mut known: BTreeMap<&str, u32> = BTreeMap::new();
         let mut names: Vec<String> = Vec::new();
@@ -1196,11 +1199,12 @@ fn assign_states(
             .iter()
             .map(|&value| crate::animate::timeline::r_number(value))
             .collect();
+        numbers = Some(values);
     }
     for layer in mapped.iter_mut() {
         layer.state_column = None;
     }
-    Ok(labels)
+    Ok((labels, numbers))
 }
 
 /// Stat and position of `layer` once per state (see [`prepare_plot_states`]),
@@ -1341,6 +1345,9 @@ pub struct PreparedPlot {
     /// An animation's states (see [`prepare_plot_states`]), labelled as the
     /// `{current_frame}` variable shows them; `None` for a still plot.
     state_labels: Option<Vec<String>>,
+    /// The number of every state when the state column is numeric (dates and
+    /// date-times in epoch milliseconds); `None` for categories or a still plot.
+    state_values: Option<Vec<f64>>,
     /// Things the user should know: ignored options, removed rows, ...
     pub warnings: Vec<String>,
 }

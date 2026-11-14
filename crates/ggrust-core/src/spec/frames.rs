@@ -160,13 +160,13 @@ impl PlotSpec {
             add_layer(layer, columns);
         }
         // gganimate transitions: the state column (`transition_manual(frames)`,
-        // `transition_states(states)`).
+        // `transition_states(states)`, `transition_time(time)`, `transition_reveal(along)`).
         if let Some(transition) = self
             .animation
             .as_ref()
             .and_then(|animation| animation.get("transition"))
         {
-            for key in ["frames", "states"] {
+            for key in ["frames", "states", "time", "along"] {
                 if let Some(name) = transition.get(key).and_then(|name| name.as_str()) {
                     columns.insert(name.to_owned());
                 }

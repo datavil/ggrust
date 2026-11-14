@@ -5,8 +5,9 @@
 
 use serde_json::{Map, Value};
 
+use super::along::TimeClass;
 use super::spec::PATH;
-use super::{manual, states};
+use super::{manual, reveal, states, time};
 use crate::build::StateVariable;
 use crate::suggest::did_you_mean;
 use crate::{Error, Result};
@@ -22,9 +23,15 @@ pub(crate) trait Transition: Send + Sync {
     /// # Errors
     ///
     /// A spec error when the transition's options cannot plan any frame.
-    fn scene_frames(&mut self, states: usize, requested: usize) -> Result<usize>;
+    fn scene_frames(&mut self, states: &StateSet, requested: usize) -> Result<usize>;
     /// What scene frame `frame` draws.
     fn frame_show(&self, frame: usize) -> FrameShow;
+    /// The frame position (1-based, gganimate's numbering, may lie outside the
+    /// frames) of every state, for [`FrameShow::Time`] and
+    /// [`FrameShow::Reveal`]; empty for transitions that show whole states.
+    fn state_positions(&self) -> &[i64] {
+        &[]
+    }
     /// The transition's label variables of scene frame `frame`, by name, given
     /// the state labels.
     fn frame_variables(&self, frame: usize, labels: &[String]) -> Vec<(&'static str, String)>;
@@ -44,16 +51,52 @@ pub(crate) enum FrameShow {
         to: usize,
         progress: f64,
     },
+    /// `transition_time`: every layer moves between its own two observed
+    /// states around frame position `position` (see
+    /// [`Transition::state_positions`]) and draws nothing outside them.
+    Time { position: i64 },
+    /// `transition_reveal`: every group shows its rows up to frame position
+    /// `position`, plus a row interpolated at `position`.
+    Reveal { position: i64, keep_last: bool },
+}
+
+/// What a transition knows of the states when it plans its frames.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct StateSet<'a> {
+    /// The number of states.
+    pub count: usize,
+    /// The number of every state, ascending, when the column is numeric
+    /// (dates in epoch milliseconds); `None` for a categorical column.
+    pub values: Option<&'a [f64]>,
+    /// How the column's numbers print in labels (`{frame_time}`).
+    pub class: TimeClass,
+}
+
+#[cfg(test)]
+impl StateSet<'static> {
+    /// `count` categorical states (tests of transitions that need no numbers).
+    pub(crate) fn counted(count: usize) -> StateSet<'static> {
+        StateSet {
+            count,
+            values: None,
+            class: TimeClass::Numeric,
+        }
+    }
 }
 
 /// Parses a transition's spec (`animation.transition`) at `path`.
 type Parse = fn(&Map<String, Value>, &str) -> Result<Box<dyn Transition>>;
 
 /// Every transition by gganimate name (`transition_<name>`).
-const TRANSITIONS: &[(&str, Parse)] = &[("manual", manual::parse), ("states", states::parse)];
+const TRANSITIONS: &[(&str, Parse)] = &[
+    ("manual", manual::parse),
+    ("states", states::parse),
+    ("time", time::parse),
+    ("reveal", reveal::parse),
+];
 
-/// gganimate transitions scheduled for later steps (plan.md Phase 13).
-const PLANNED: &[&str] = &["time", "reveal"];
+/// gganimate transitions not available (yet): plan.md Phase 13, on request.
+const PLANNED: &[&str] = &["filter", "layers", "events", "components", "null"];
 
 /// The transition named in `animation.transition`.
 ///
@@ -102,7 +145,7 @@ mod tests {
         let error = transition("manul", &options).err().unwrap().to_string();
         assert!(error.contains("animation.transition.name"), "{error}");
         assert!(error.contains("did you mean 'manual'"), "{error}");
-        let error = transition("time", &options).err().unwrap().to_string();
+        let error = transition("filter", &options).err().unwrap().to_string();
         assert!(error.contains("not available yet"), "{error}");
         let options = json!({"name": "manual", "frames": "year"});
         assert!(transition("manual", options.as_object().unwrap()).is_ok());

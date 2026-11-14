@@ -109,6 +109,7 @@ impl PreparedPlot {
             space: self.space.clone(),
             polar: self.polar,
             state_labels: self.state_labels.clone(),
+            state_values: self.state_values.clone(),
             warnings: Vec::new(),
         })
     }
@@ -117,6 +118,12 @@ impl PreparedPlot {
     /// for a plot prepared without states.
     pub(crate) fn state_labels(&self) -> &[String] {
         self.state_labels.as_deref().unwrap_or_default()
+    }
+
+    /// The number of every state (see [`Self::state_labels`]) when the state
+    /// column is numeric; `None` for categories or a plot without states.
+    pub(crate) fn state_values(&self) -> Option<&[f64]> {
+        self.state_values.as_deref()
     }
 
     /// Per tile and per layer, the rows of every state (indices into the

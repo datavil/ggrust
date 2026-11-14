@@ -12,11 +12,14 @@
 //! states tweened ([`tween`]) at the frame's progress with the plot's
 //! `ease_aes()` ([`ease`]).
 
+mod along;
 mod ease;
 mod labels;
 mod manual;
+mod reveal;
 mod spec;
 mod states;
+mod time;
 pub(crate) mod timeline;
 mod transition;
 mod tween;
@@ -31,10 +34,13 @@ use crate::render::FrameSource;
 use crate::scene::Scene;
 use crate::spec::PlotSpec;
 use crate::{Error, Result};
+use along::TimeClass;
 use ease::Easing;
 use labels::{FRAME_VARIABLES, Template};
+use reveal::RevealRows;
+use time::{TimeShow, kept_states, time_show};
 use timeline::{Settings, r_number};
-use transition::{FrameShow, Transition};
+use transition::{FrameShow, StateSet, Transition};
 
 /// A planned animation of one plot.
 pub struct Animation {
@@ -46,6 +52,9 @@ pub struct Animation {
     rows: Vec<Vec<LayerFrame>>,
     /// [tile][layer]: rows per state, `None` for a static layer.
     state_rows: Vec<Vec<Option<Vec<Vec<u32>>>>>,
+    /// [tile][layer]: what `transition_time` / `transition_reveal` read per
+    /// frame; empty for the other transitions, `None` for a static layer.
+    along_layers: Vec<Vec<Option<AlongLayer>>>,
     /// Title, subtitle and caption templates (`None`: no such title).
     templates: [Option<Template>; 3],
     /// Things the user should know (from preparing the plot).
@@ -76,8 +85,12 @@ impl Animation {
         let easing = Easing::parse(animation.ease.as_ref())?;
         let settings = Settings::resolve(&animation.options)?;
         let prepared = prepare_plot_states(spec, data, Some(transition.state_variable()))?;
-        let states = prepared.state_labels().len();
-        if states == 0 {
+        let states = StateSet {
+            count: prepared.state_labels().len(),
+            values: prepared.state_values(),
+            class: TimeClass::of(spec, &transition.state_variable().name),
+        };
+        if states.count == 0 {
             let variable = transition.state_variable();
             return Err(Error::spec(
                 &variable.path,
@@ -87,7 +100,7 @@ impl Animation {
                 ),
             ));
         }
-        let timeline = settings.plan(|requested| transition.scene_frames(states, requested))?;
+        let timeline = settings.plan(|requested| transition.scene_frames(&states, requested))?;
         let names: Vec<&str> = FRAME_VARIABLES
             .iter()
             .chain(transition.variable_names())
@@ -107,16 +120,27 @@ impl Animation {
         let rows = prepared.layer_frames();
         let state_rows = prepared.state_rows();
         let mut warnings = prepared.warnings.clone();
+        let along_layers = along_layers(&prepared, transition.as_ref(), &rows, &state_rows);
+        if let FrameShow::Time { .. } = transition.frame_show(0) {
+            warnings.extend(time_warnings(
+                &prepared,
+                transition.as_ref(),
+                &along_layers,
+                &state_rows,
+            ));
+        }
         warnings.extend(uneven_warnings(
             &prepared,
             transition.as_ref(),
             &timeline,
+            &along_layers,
             &rows,
             &state_rows,
         ));
         Ok(Animation {
             rows,
             state_rows,
+            along_layers,
             warnings,
             easing,
             prepared,
@@ -172,9 +196,16 @@ impl Animation {
     fn scene_frame(&self, frame: usize) -> Result<Scene> {
         let show = self.transition.frame_show(frame);
         let mut frames = Vec::with_capacity(self.rows.len());
-        for (layers, layer_states) in self.rows.iter().zip(&self.state_rows) {
+        for (tile_index, (layers, layer_states)) in
+            self.rows.iter().zip(&self.state_rows).enumerate()
+        {
             let mut tile = Vec::with_capacity(layers.len());
-            for (all, by_state) in layers.iter().zip(layer_states) {
+            for (layer_index, (all, by_state)) in layers.iter().zip(layer_states).enumerate() {
+                let along = self
+                    .along_layers
+                    .get(tile_index)
+                    .and_then(|layers| layers.get(layer_index))
+                    .and_then(Option::as_ref);
                 let rows_of = |state: usize| -> &[u32] {
                     by_state
                         .as_ref()
@@ -197,6 +228,36 @@ impl Animation {
                         *progress,
                         &self.easing,
                     )?,
+                    (Some(_), FrameShow::Time { position }) => {
+                        let anchors = match along {
+                            Some(AlongLayer::Time(anchors)) => anchors.as_slice(),
+                            _ => &[],
+                        };
+                        match time_show(anchors, *position) {
+                            TimeShow::Nothing => all.take(&[]),
+                            TimeShow::State(state) => all.take(rows_of(state)),
+                            TimeShow::Tween { from, to, progress } => tween::tween(
+                                &all.take(rows_of(from)),
+                                &all.take(rows_of(to)),
+                                progress,
+                                &self.easing,
+                            )?,
+                        }
+                    }
+                    (
+                        Some(_),
+                        FrameShow::Reveal {
+                            position,
+                            keep_last,
+                        },
+                    ) => match along {
+                        Some(AlongLayer::Reveal { rows, connected }) => tween::mix_rows(
+                            all,
+                            &rows.frame(*position, *keep_last, *connected),
+                            &self.easing,
+                        )?,
+                        _ => all.take(&[]),
+                    },
                 });
             }
             frames.push(tile);
@@ -237,6 +298,129 @@ impl FrameSource for Animation {
     }
 }
 
+/// Per-layer data of the time-based transitions, planned once.
+enum AlongLayer {
+    /// `transition_time`: `(frame position, state)` of the layer's kept states
+    /// with rows in the tile, in time order (see [`time::kept_states`]).
+    Time(Vec<(i64, usize)>),
+    /// `transition_reveal`: the rows in reveal order, and whether the geom joins
+    /// its rows (lines keep the rows already revealed).
+    Reveal { rows: RevealRows, connected: bool },
+}
+
+/// [tile][layer] [`AlongLayer`]s for `transition_time` and
+/// `transition_reveal`; empty for the other transitions.
+fn along_layers(
+    prepared: &PreparedPlot,
+    transition: &dyn Transition,
+    rows: &[Vec<LayerFrame>],
+    state_rows: &[Vec<Option<Vec<Vec<u32>>>>],
+) -> Vec<Vec<Option<AlongLayer>>> {
+    let positions = transition.state_positions();
+    match transition.frame_show(0) {
+        FrameShow::Time { .. } => {
+            let layer_count = state_rows.first().map_or(0, Vec::len);
+            let kept: Vec<Vec<bool>> = (0..layer_count)
+                .map(|layer| {
+                    let present: Vec<bool> = (0..positions.len())
+                        .map(|state| {
+                            state_rows.iter().any(|tile| {
+                                tile.get(layer)
+                                    .and_then(Option::as_ref)
+                                    .and_then(|by_state| by_state.get(state))
+                                    .is_some_and(|rows| !rows.is_empty())
+                            })
+                        })
+                        .collect();
+                    kept_states(&present, positions)
+                })
+                .collect();
+            state_rows
+                .iter()
+                .map(|tile| {
+                    tile.iter()
+                        .zip(&kept)
+                        .map(|(by_state, kept)| {
+                            let by_state = by_state.as_ref()?;
+                            let anchors = by_state
+                                .iter()
+                                .enumerate()
+                                .filter(|(state, rows)| kept[*state] && !rows.is_empty())
+                                .map(|(state, _)| (positions[state], state))
+                                .collect();
+                            Some(AlongLayer::Time(anchors))
+                        })
+                        .collect()
+                })
+                .collect()
+        }
+        FrameShow::Reveal { .. } => prepared
+            .layer_names()
+            .iter()
+            .zip(rows)
+            .zip(state_rows)
+            .map(|((names, layers), tile)| {
+                names
+                    .iter()
+                    .zip(layers)
+                    .zip(tile)
+                    .map(|(((geom, _), all), by_state)| {
+                        Some(AlongLayer::Reveal {
+                            rows: RevealRows::new(all, by_state.as_ref()?, positions),
+                            connected: CONNECTED_GEOMS.contains(geom),
+                        })
+                    })
+                    .collect()
+            })
+            .collect(),
+        FrameShow::States(_) | FrameShow::Tween { .. } => Vec::new(),
+    }
+}
+
+/// `transition_time`: one warning per layer with times that round to a frame
+/// an earlier time of the layer holds (their rows are never drawn).
+fn time_warnings(
+    prepared: &PreparedPlot,
+    transition: &dyn Transition,
+    along_layers: &[Vec<Option<AlongLayer>>],
+    state_rows: &[Vec<Option<Vec<Vec<u32>>>>],
+) -> Vec<String> {
+    let names = prepared.layer_names();
+    let Some(first) = names.first() else {
+        return Vec::new();
+    };
+    let variable = &transition.state_variable().name;
+    let mut warnings = Vec::new();
+    for (layer, (geom, path)) in first.iter().enumerate() {
+        let mut times = std::collections::BTreeSet::new();
+        let mut drawn = std::collections::BTreeSet::new();
+        for (tile, along) in state_rows.iter().zip(along_layers) {
+            if let Some(Some(by_state)) = tile.get(layer) {
+                times.extend(
+                    by_state
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, rows)| !rows.is_empty())
+                        .map(|(state, _)| state),
+                );
+            }
+            if let Some(Some(AlongLayer::Time(anchors))) = along.get(layer) {
+                drawn.extend(anchors.iter().map(|(_, state)| *state));
+            }
+        }
+        let dropped = times.len() - drawn.len().min(times.len());
+        if dropped > 0 {
+            warnings.push(format!(
+                "{path} (geom_{geom}): {dropped} of {} values of '{variable}' round to a \
+                 frame an earlier value already holds and are not drawn (as in \
+                 gganimate); raise nframes to draw more of them",
+                times.len()
+            ));
+        }
+    }
+    warnings
+}
+
 /// Geoms that join their rows into one mark per group.
 const CONNECTED_GEOMS: &[&str] = &[
     "line",
@@ -263,15 +447,24 @@ fn uneven_warnings(
     prepared: &PreparedPlot,
     transition: &dyn Transition,
     timeline: &Timeline,
+    along_layers: &[Vec<Option<AlongLayer>>],
     rows: &[Vec<LayerFrame>],
     state_rows: &[Vec<Option<Vec<Vec<u32>>>>],
 ) -> Vec<String> {
     let mut pairs: Vec<(usize, usize)> = (0..timeline.scene_frames)
         .filter_map(|frame| match transition.frame_show(frame) {
             FrameShow::Tween { from, to, .. } => Some((from, to)),
-            FrameShow::States(_) => None,
+            FrameShow::States(_) | FrameShow::Time { .. } | FrameShow::Reveal { .. } => None,
         })
         .collect();
+    // transition_time tweens each layer between its consecutive times.
+    for tile in along_layers {
+        for layer in tile.iter().flatten() {
+            if let AlongLayer::Time(anchors) = layer {
+                pairs.extend(anchors.windows(2).map(|pair| (pair[0].1, pair[1].1)));
+            }
+        }
+    }
     pairs.dedup();
     pairs.sort_unstable();
     pairs.dedup();

@@ -49,7 +49,13 @@ from ggrust.plot.aliases import (
     stat_density_2d,
     stat_function,
 )
-from ggrust.plot.animation import ease_aes, transition_manual, transition_states
+from ggrust.plot.animation import (
+    ease_aes,
+    transition_manual,
+    transition_reveal,
+    transition_states,
+    transition_time,
+)
 from ggrust.plot.annotate import annotate
 from ggrust.plot.annotation_logticks import annotation_logticks
 from ggrust.plot.coord import (
@@ -779,7 +785,9 @@ __all__ = [
     "theme_none",
     "theme_void",
     "transition_manual",
+    "transition_reveal",
     "transition_states",
+    "transition_time",
     "xlab",
     "xlim",
     "ylab",

@@ -336,6 +336,8 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
         [
             "transition_manual",
             "transition_states",
+            "transition_time",
+            "transition_reveal",
             "ease_aes",
             "animate",
             "anim_save",

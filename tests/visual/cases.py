@@ -1346,12 +1346,28 @@ def animation_states_tween_frame(m):
     return m.animate(plot, nframes=60).frame(12)
 
 
+def animation_reveal_frame(m):
+    """US unemployment revealed along date (gganimate transition_reveal), frame 40 of 60."""
+    from ggrust.data import economics
+
+    plot = (
+        m.ggplot(economics, m.aes("date", "unemploy"))
+        + m.geom_line()
+        + m.geom_point(color="#d62728", size=4)
+        + m.labs(title="Unemployment, {frame_along}", x="", y="unemployed (thousands)")
+        + m.transition_reveal("date")
+        + m.ggsize(420, 300)
+    )
+    return m.animate(plot, nframes=60).frame(40)
+
+
 EXTENSION_CASES = {
     case.__name__: case
     for case in [
         animation_first_frame,
         animation_last_frame,
         animation_states_tween_frame,
+        animation_reveal_frame,
         ggside_band_panels,
         nested_bottom_square,
         nested_top_opposite,

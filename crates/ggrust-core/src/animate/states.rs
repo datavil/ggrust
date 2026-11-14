@@ -11,7 +11,7 @@
 use serde_json::{Map, Value};
 
 use super::spec::{check_keys, shown};
-use super::transition::{FrameShow, Transition};
+use super::transition::{FrameShow, StateSet, Transition};
 use crate::build::StateVariable;
 use crate::{Error, Result};
 
@@ -295,7 +295,8 @@ impl Transition for States {
         &self.variable
     }
 
-    fn scene_frames(&mut self, states: usize, requested: usize) -> Result<usize> {
+    fn scene_frames(&mut self, states: &StateSet, requested: usize) -> Result<usize> {
+        let states = states.count;
         let mut transitions = recycled(&self.transition_length, states);
         if !self.wrap {
             if let Some(last) = transitions.last_mut() {
@@ -494,7 +495,10 @@ mod tests {
         let mut transition = states(json!({"name": "states", "states": "year"})).unwrap();
         // 3 states, 100 frames asked: 101 planned (gganimate plans nframes + 1
         // with wrap; the timeline samples 100 of them).
-        assert_eq!(transition.scene_frames(3, 100).unwrap(), 101);
+        assert_eq!(
+            transition.scene_frames(&StateSet::counted(3), 100).unwrap(),
+            101
+        );
         let labels: Vec<String> = ["a", "b", "c"].map(String::from).to_vec();
         let last = transition.frame_variables(100, &labels);
         assert_eq!(last[0], ("transitioning", "TRUE".to_owned()));
@@ -508,7 +512,10 @@ mod tests {
         assert_eq!(transition.frame_show(100), FrameShow::States(vec![0]));
         let mut no_wrap =
             states(json!({"name": "states", "states": "year", "wrap": false})).unwrap();
-        assert_eq!(no_wrap.scene_frames(3, 100).unwrap(), 100);
+        assert_eq!(
+            no_wrap.scene_frames(&StateSet::counted(3), 100).unwrap(),
+            100
+        );
         assert_eq!(no_wrap.frame_show(99), FrameShow::States(vec![2]));
     }
 
@@ -529,11 +536,14 @@ mod tests {
         let mut zero = states(json!({"name": "states", "states": "s",
             "state_length": 0, "transition_length": [0, 2], "wrap": false}))
         .unwrap();
-        let error = zero.scene_frames(2, 10).unwrap_err().to_string();
+        let error = zero
+            .scene_frames(&StateSet::counted(2), 10)
+            .unwrap_err()
+            .to_string();
         assert!(error.contains("no length"), "{error}");
         let mut per_state = states(json!({"name": "states", "states": "s",
             "state_length": [1, 3], "transition_length": 1}))
         .unwrap();
-        assert!(per_state.scene_frames(2, 10).is_ok());
+        assert!(per_state.scene_frames(&StateSet::counted(2), 10).is_ok());
     }
 }

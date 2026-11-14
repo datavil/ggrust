@@ -146,6 +146,119 @@ pub(crate) fn tween(
     Ok(LayerFrame { data, styles })
 }
 
+/// Rows of `all`, each `(from, to, progress)` drawn as row `from` moved
+/// `progress` (0 to 1, not eased) of the way to row `to`, by the same rules as
+/// [`tween`] (`transition_reveal` moves every group by its own progress). A
+/// row as it is is `(row, row, 0)`.
+///
+/// # Errors
+///
+/// An internal error when a style cannot be rebuilt (never for one layer).
+pub(crate) fn mix_rows(
+    all: &LayerFrame,
+    rows: &[(u32, u32, f64)],
+    easing: &Easing,
+) -> Result<LayerFrame> {
+    let from_rows: Vec<u32> = rows.iter().map(|(row, _, _)| *row).collect();
+    let to_rows: Vec<u32> = rows.iter().map(|(_, row, _)| *row).collect();
+    let start = all.take(&from_rows);
+    let end = all.take(&to_rows);
+    let moving = rows
+        .iter()
+        .any(|(from, to, progress)| from != to && *progress > 0.0);
+    if !moving {
+        return Ok(start);
+    }
+    let eased = |name: &str| -> Vec<f64> {
+        let ease = easing.ease(name);
+        rows.iter()
+            .map(|(_, _, progress)| ease.apply(*progress))
+            .collect()
+    };
+    // Per row, the row whose discrete values show: `to` from eased 0.5 on.
+    let switched = |shares: &[f64]| -> Vec<u32> {
+        rows.iter()
+            .zip(shares)
+            .map(|((from, to, _), share)| if *share >= 0.5 { *to } else { *from })
+            .collect()
+    };
+    let mut data = start.data.clone();
+    for (variable, column) in start.data.columns() {
+        let name = match variable {
+            Variable::Aesthetic(aesthetic) => aesthetic.as_str(),
+            Variable::Computed(computed) => computed.as_str(),
+        };
+        let shares = eased(name);
+        let mixed = match (column, end.data.get(variable)) {
+            (Column::Continuous(start), Some(Column::Continuous(end))) => {
+                Column::Continuous(ContinuousColumn::from_options(
+                    (0..start.len())
+                        .map(|row| match (start.get(row), end.get(row)) {
+                            (Some(start), Some(end)) => Some(mix_number(start, end, shares[row])),
+                            _ => None,
+                        })
+                        .collect(),
+                ))
+            }
+            (Column::Discrete(_), _) => match all.data.take(&switched(&shares)).get(variable) {
+                Some(column) => column.clone(),
+                None => continue,
+            },
+            _ => continue,
+        };
+        data.insert(variable, mixed)?;
+    }
+    let mut styles = Styles::default();
+    for (aesthetic, values) in start.styles.iter() {
+        let shares = eased(aesthetic.as_str());
+        let other = end.styles.iter().find(|(other, _)| *other == aesthetic);
+        let mixed = match (values, other.map(|(_, values)| values)) {
+            (StyleValues::Numbers(start), Some(StyleValues::Numbers(end))) => {
+                StyleValues::Numbers(between_rows(start, end, &shares, mix_number))
+            }
+            (StyleValues::Colors(start), Some(StyleValues::Colors(end))) => {
+                StyleValues::Colors(between_rows(start, end, &shares, mix_lab))
+            }
+            (values, _) => {
+                let chosen = all.styles.take(&switched(&shares));
+                match chosen.iter().find(|(other, _)| *other == aesthetic) {
+                    Some((_, chosen)) => chosen.clone(),
+                    None => values.clone(),
+                }
+            }
+        };
+        styles.insert(aesthetic, mixed)?;
+    }
+    Ok(LayerFrame { data, styles })
+}
+
+/// Per row `mix(start, end, share)`; one shared value stays shared.
+fn between_rows<T: Clone + PartialEq>(
+    start: &PerItem<T>,
+    end: &PerItem<T>,
+    shares: &[f64],
+    mix: impl Fn(T, T, f64) -> T,
+) -> PerItem<T> {
+    match (start, end) {
+        (PerItem::Uniform(start), PerItem::Uniform(end)) if start == end => {
+            PerItem::Uniform(start.clone())
+        }
+        _ => {
+            let at = |items: &PerItem<T>, row: usize| match items {
+                PerItem::Uniform(value) => value.clone(),
+                PerItem::Varying(values) => values[row].clone(),
+            };
+            PerItem::Varying(
+                shares
+                    .iter()
+                    .enumerate()
+                    .map(|(row, share)| mix(at(start, row), at(end, row), *share))
+                    .collect(),
+            )
+        }
+    }
+}
+
 /// `start` moved `share` of the way to `end`. Equal ends stay as they are, so
 /// an infinite bound (`xmin=-Inf` in both states) does not become NaN (R's
 /// `-Inf + p * (Inf - Inf)` is NaN and drops the row).

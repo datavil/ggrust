@@ -22,7 +22,7 @@ behavior in Rust; the R packages and their authors designed it.
 | [Raincloud plots](#raincloud-plots) | [`stat_halfeye`](../reference/api/stat_halfeye.md), `stat_slab`, `stat_interval`, `stat_pointinterval`, [`geom_half_violin`](../reference/api/geom_half_violin.md), `geom_half_boxplot`, `geom_half_point` | [ggdist](https://cran.r-project.org/package=ggdist), [gghalves](https://cran.r-project.org/package=gghalves) |
 | [Figure layouts](#figure-layouts) | `gggrid(design=, tag_levels=, axes=, axis_titles=)`, [`inset_element`](../reference/api/inset_element.md) | [patchwork](https://cran.r-project.org/package=patchwork) |
 | [Rasterized layers](#rasterized-layers) | [`rasterize`](../reference/api/rasterize.md) | [ggrastr](https://cran.r-project.org/package=ggrastr), [scattermore](https://cran.r-project.org/package=scattermore) |
-| [Animation](#animation) | [`transition_manual`](../reference/api/transition_manual.md), [`transition_states`](../reference/api/transition_states.md), [`ease_aes`](../reference/api/ease_aes.md), [`animate`](../reference/api/animate.md), [`anim_save`](../reference/api/anim_save.md) | [gganimate](https://cran.r-project.org/package=gganimate) |
+| [Animation](#animation) | [`transition_manual`](../reference/api/transition_manual.md), [`transition_states`](../reference/api/transition_states.md), [`transition_time`](../reference/api/transition_time.md), [`transition_reveal`](../reference/api/transition_reveal.md), [`ease_aes`](../reference/api/ease_aes.md), [`animate`](../reference/api/animate.md), [`anim_save`](../reference/api/anim_save.md) | [gganimate](https://cran.r-project.org/package=gganimate) |
 
 Two more, `geom_text_repel` / `geom_label_repel` ([ggrepel](https://cran.r-project.org/package=ggrepel))
 and `geom_area_ridges` ([ggridges](https://cran.r-project.org/package=ggridges)), come
@@ -228,3 +228,26 @@ labels.
 ```
 
 --8<-- "figures/animation_states.html"
+
+`p + transition_time("year")` spaces the frames evenly over the range of a time column
+(numbers, dates, date-times) and moves the marks from each time to the next, matched by
+group as above. Each time is drawn at its nearest frame; when two times fall on the
+same frame only the earlier one is drawn and a warning says so (raise `nframes`).
+`{frame_time}` fills the labels.
+
+```python
+--8<-- "animation_time.py:code"
+```
+
+--8<-- "figures/animation_time.html"
+
+`p + transition_reveal("date")` reveals the data along a column: lines, areas and
+polygons keep the rows reached and end at a point interpolated at the frame, other
+geoms (points, texts) show only that moving point, kept at the end of its group with
+`keep_last=True` (the default). `{frame_along}` fills the labels.
+
+```python
+--8<-- "animation_reveal.py:code"
+```
+
+--8<-- "figures/animation_reveal.html"

@@ -106,7 +106,7 @@ deviations row, plan.md tick.
   sine, circular, exponential, elastic, back, bounce; `-in`, `-out`, `-in-out`), per
   aesthetic (`ease_aes(y="bounce-out")`). State label variables. Tween parity vs tweenr
   fixtures.
-- [ ] **an3 `transition_time` and `transition_reveal`.** Time: frames spaced in time, rows
+- [x] **an3 `transition_time` and `transition_reveal`.** Time: frames spaced in time, rows
   tweened between observed times, `{frame_time}`. Reveal: paths/lines/areas grow along
   `along`, with the interpolated end point (gganimate's `keep_last`), `{frame_along}`.
 - [ ] **an4 (on request) Enter/exit and shadows.** `enter_fade`/`exit_fade`, `enter_grow`/`exit_shrink`,
@@ -295,3 +295,37 @@ into `tests/fixtures/generate_animation_reference.R`, colours come from farver).
 - Lines/polygons with uneven point counts: matched in order with a warning (transformr
   inserts points; deviation row). If a user asks, port `find_splits_c` and
   `insert_points_c` (transformr `align_rings.cpp`) per matched group.
+
+## Notes (an3)
+
+Done 2026-11-14. Ported from gganimate 1.0 (`R/transition-time.R`, `R/transition_reveal.R`)
+and tweenr (`tween_along`, `src/along.cpp`), MIT. gganimate and tweenr are still not
+installed here: `get_times`, `get_row_along` and `numeric_along_interpolator` (as R)
+are copied into `tests/fixtures/generate_animation_reference.R`.
+
+- **Frame positions are rounded.** Both transitions map each value to a frame
+  position (`round(1 + (n-1)(v-low)/(high-low))` for time, `round((n-1)(v-low)/(high-low)) + 1`
+  for reveal, R's half-even rounding) and the frames stand for `seq(low, high, length.out = n)`.
+  So reveal's "interpolated end point" is interpolated between rounded positions, as in
+  gganimate. `animate/along.rs` holds this plus `{frame_time}`/`{frame_along}` formats
+  by column type (series annotation `int`, `date`, `datetime`, `time`).
+- **States carry numbers.** `assign_states` returns the sorted numeric value of every
+  state (`PreparedPlot::state_values`); categorical columns are a `SpecError` for these
+  transitions. Stats run per value (gganimate's pre-stat transition pastes the value
+  into the group, which also splits stats).
+- **Trait additions.** `scene_frames(&StateSet, requested)` (count, numbers, class);
+  `state_positions()`; `FrameShow::Time { position }` and `FrameShow::Reveal { position,
+  keep_last }`. `Animation::new` plans per tile and layer once (`AlongLayer`): time keeps
+  `(position, state)` anchors (a layer's times that round to an earlier time's frame are
+  dropped, with a warning); reveal keeps the rows sorted by `(group, position)`.
+- **Time frames.** At an anchor the state's rows as they are; between two anchors
+  `tween::tween` at `(f - a)/(b - a)`; outside a layer's anchors nothing. gganimate's
+  first move is off by one when a layer's first time is not frame 1 (deviation row).
+- **Reveal frames.** `RevealRows::frame` returns `(from, to, progress)` per drawn row;
+  `tween::mix_rows` mixes rows of one layer with a progress per row (raw rows are
+  `(row, row, 0)`). Connected geoms (`CONNECTED_GEOMS`) keep the rows reached plus the
+  moving end; others show the moving row, the last row when `keep_last`. A raw row equal
+  to the moving row is drawn once (gganimate's repeat removal).
+- Python: `transition_time(time, range=None)`, `transition_reveal(along, range=None,
+  keep_last=True)`; `range` takes numbers, dates, date-times and times of day (sent as
+  epoch or day milliseconds). The state column export knows `time` and `along`.

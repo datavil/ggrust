@@ -7,13 +7,23 @@ Names and arguments follow R gganimate (MIT). The transition goes into the plot'
 
 from __future__ import annotations
 
+import datetime
 import numbers
 from collections.abc import Sequence
 
 from ggrust.errors import SpecError, did_you_mean
 from ggrust.plot.core import FeatureSpec
 
-__all__ = ["ease_aes", "transition_manual", "transition_states"]
+__all__ = [
+    "ease_aes",
+    "transition_manual",
+    "transition_reveal",
+    "transition_states",
+    "transition_time",
+]
+
+TimeValue = float | datetime.date | datetime.datetime | datetime.time
+"""A value of a time column: a number, a date, a date-time or a time of day."""
 
 _EASE_FAMILIES = (
     "quadratic",
@@ -213,6 +223,211 @@ def transition_states(
         "transition_length": _lengths(transition_length, "transition_length"),
         "state_length": _lengths(state_length, "state_length"),
         "wrap": wrap,
+    }
+    return FeatureSpec("animation", name=None, transition=transition)
+
+
+def _time_number(value: object) -> float | None:
+    """Return a time value in the engine's units, or ``None`` if it is not one.
+
+    Numbers stay as they are, dates and date-times become epoch milliseconds
+    (naive ones as UTC), times of day milliseconds since midnight.
+    """
+    try:
+        return _time_number_or_raise(value)
+    except (ArithmeticError, TypeError, ValueError):
+        return None  # pandas NaT, out-of-range dates, ...
+
+
+def _time_number_or_raise(value: object) -> float | None:
+    """Return :func:`_time_number` of ``value``; conversions may raise."""
+    if isinstance(value, bool | datetime.timedelta):
+        return None
+    if type(value).__name__ in ("datetime64", "timedelta64"):
+        if type(value).__name__ == "timedelta64":
+            return None
+        # numpy: nanoseconds would come back from item() as a plain int.
+        if value != value:  # NaT
+            return None
+        astype = getattr(value, "astype")  # noqa: B009
+        return float(astype("datetime64[us]").astype("int64")) / 1000.0
+    if isinstance(value, numbers.Real):
+        number = float(value)
+        return number if number == number and abs(number) != float("inf") else None
+    if isinstance(value, datetime.datetime):
+        aware = value if value.tzinfo else value.replace(tzinfo=datetime.UTC)
+        return aware.timestamp() * 1000.0
+    if isinstance(value, datetime.date):
+        epoch = datetime.date(1970, 1, 1)
+        return float((value - epoch).days) * 86_400_000.0
+    if isinstance(value, datetime.time):
+        return (
+            (value.hour * 60 + value.minute) * 60 + value.second
+        ) * 1000.0 + value.microsecond / 1000.0
+    to_python = getattr(value, "item", None)  # numpy scalars
+    if callable(to_python):
+        item = to_python()
+        return None if item is value else _time_number_or_raise(item)
+    return None
+
+
+def _time_range(value: Sequence[TimeValue] | None, function: str) -> list[float] | None:
+    """Check ``range=(low, high)`` of a time transition; return it in engine units."""
+    if value is None:
+        return None
+    path = "animation.transition.range"
+    text = repr(value)
+    shown = text if len(text) <= 60 and "\n" not in text else type(value).__name__
+    message = (
+        f"{function}(range={shown}): expected two increasing values (low, high) of the "
+        "time column: numbers, dates or date-times"
+    )
+    if isinstance(value, str) or not isinstance(value, Sequence) or len(value) != 2:
+        raise SpecError(message, path=path)
+    low, high = (_time_number(item) for item in value)
+    if low is None or high is None or not low < high:
+        raise SpecError(message, path=path)
+    return [low, high]
+
+
+def _column_name(value: object, function: str, argument: str) -> str:
+    """Return ``value`` if it names a column, else raise ``SpecError``."""
+    if isinstance(value, str) and value:
+        return value
+    message = (
+        f"{function}({argument}={value!r}): expected the name of a column, e.g. {function}('year')"
+    )
+    raise SpecError(message, path=f"animation.transition.{argument}")
+
+
+def transition_time(time: str, range: Sequence[TimeValue] | None = None) -> FeatureSpec:
+    """Animate over a time column: frames evenly spaced in time, marks moving between times.
+
+    The frames cover the range of ``time`` in equal steps (gganimate
+    ``transition_time``); each time in the data is drawn at its nearest frame,
+    and between two times the marks move from one to the next, matched by group
+    (as ``transition_states``; set groups with ``aes(group=...)``). Numbers and
+    sizes move by the plot's ``ease_aes()``, colors through CIE Lab. Each layer
+    uses its own times: before its first time and after its last it draws
+    nothing. When two times fall on the same frame, only the earlier one is
+    drawn (a warning says how many; raise ``nframes`` to draw more). Stats and
+    positions run per time; axes and legends cover every frame. Layers without
+    the ``time`` column are drawn in every frame.
+
+    Titles, subtitles and captions can show ``{frame_time}``, the time the frame
+    stands for (whole numbers for integer columns, ``YYYY-MM-DD`` for dates,
+    date-times in UTC), plus ``{frame}``, ``{nframes}`` and ``{progress}``.
+
+    Parameters
+    ----------
+    time : str
+        The column of the times: numbers, dates, date-times or times of day.
+    range : sequence of two values, optional
+        The ``(low, high)`` times the frames cover, in the column's type (numbers,
+        ``datetime.date``, ``datetime.datetime``). Default: the data's range.
+
+    Returns
+    -------
+    FeatureSpec
+        The transition (kind ``"animation"``), added to a plot with ``+``.
+
+    Raises
+    ------
+    SpecError
+        If ``time`` is not a non-empty string, or ``range`` is not two
+        increasing time values.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {
+    ...     "year": [2000, 2000, 2010, 2010, 2020, 2020],
+    ...     "city": ["Oslo", "Lima"] * 3,
+    ...     "income": [30, 8, 42, 11, 55, 15],
+    ...     "life": [79, 72, 81, 75, 83, 77],
+    ... }
+    >>> plot = (
+    ...     ggplot(data, aes("income", "life", color="city"))
+    ...     + geom_point(size=5)
+    ...     + transition_time("year")
+    ...     + ggtitle("Year: {frame_time}")
+    ... )
+    >>> animate(plot, nframes=21).nframes
+    21
+    """
+    transition: dict[str, object] = {
+        "name": "time",
+        "time": _column_name(time, "transition_time", "time"),
+        "range": _time_range(range, "transition_time"),
+    }
+    return FeatureSpec("animation", name=None, transition=transition)
+
+
+def transition_reveal(
+    along: str,
+    range: Sequence[TimeValue] | None = None,
+    keep_last: bool = True,
+) -> FeatureSpec:
+    """Animate by revealing the data along a column: lines grow, points travel.
+
+    The frames cover the range of ``along`` in equal steps (gganimate
+    ``transition_reveal``). In each group (sorted by ``along``), lines, paths,
+    areas and polygons show every row up to the frame plus an end point
+    interpolated at the frame, so they grow smoothly. Other geoms (points,
+    texts) show only the interpolated row: a mark that travels along its group.
+    Each row's ``along`` is rounded to its nearest frame first, as gganimate
+    does. Axes and legends cover the whole data. Layers without the ``along``
+    column are drawn in every frame.
+
+    Titles, subtitles and captions can show ``{frame_along}``, the ``along``
+    value the frame stands for, plus ``{frame}``, ``{nframes}`` and
+    ``{progress}``.
+
+    Parameters
+    ----------
+    along : str
+        The column to reveal along: numbers, dates, date-times or times of day.
+    range : sequence of two values, optional
+        The ``(low, high)`` values the frames cover, in the column's type.
+        Default: the data's range.
+    keep_last : bool, default=True
+        Keep a point (or another geom that does not join its rows) at the end
+        of its group once the reveal has passed it. Lines always keep every
+        row reached.
+
+    Returns
+    -------
+    FeatureSpec
+        The transition (kind ``"animation"``), added to a plot with ``+``.
+
+    Raises
+    ------
+    SpecError
+        If ``along`` is not a non-empty string, ``range`` is not two increasing
+        values, or ``keep_last`` is not a bool.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"day": [1, 2, 3, 4, 5], "visitors": [120, 180, 150, 210, 260]}
+    >>> plot = (
+    ...     ggplot(data, aes("day", "visitors"))
+    ...     + geom_line()
+    ...     + geom_point(size=4)
+    ...     + transition_reveal("day")
+    ...     + ggtitle("Day {frame_along}")
+    ... )
+    >>> animate(plot, nframes=9).nframes
+    9
+    """
+    if not isinstance(keep_last, bool):
+        message = f"transition_reveal(keep_last={keep_last!r}): expected True or False"
+        raise SpecError(message, path="animation.transition.keep_last")
+    transition: dict[str, object] = {
+        "name": "reveal",
+        "along": _column_name(along, "transition_reveal", "along"),
+        "range": _time_range(range, "transition_reveal"),
+        "keep_last": keep_last,
     }
     return FeatureSpec("animation", name=None, transition=transition)
 

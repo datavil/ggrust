@@ -1,0 +1,8 @@
+# One Rust version for local `make check`, CI, docs and release builds. Clippy runs
+# with `-D warnings`, so an unpinned `stable` in CI picks up new lints every six weeks
+# that local toolchains do not have yet, and CI fails on code that passed locally.
+# Bump on purpose: change the version, run `make check`, fix new lints, commit.
+[toolchain]
+channel = "1.100.0"
+components = ["rustfmt", "clippy"]
+profile = "minimal"

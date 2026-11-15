@@ -7,13 +7,14 @@ from its docstring. The API part of the nav in ``zensical.toml`` is rewritten be
 its marker comments.
 
 The output is deterministic and committed. Run after adding a public name or changing
-a summary line: ``uv run python docs/build_reference.py``. CI fails when the committed
-pages are out of date.
+a summary line: ``uv run python docs/build_reference.py``. ``--check`` writes nothing
+and fails when the committed pages are out of date (``make check`` and CI run it).
 """
 
 import importlib
 import inspect
 import shutil
+import sys
 from pathlib import Path
 
 import build_examples
@@ -691,21 +692,48 @@ def check_coverage() -> None:
         raise SystemExit(f"public names missing from SECTIONS: {', '.join(missing)}")
 
 
-def main() -> None:
-    """Write the overview, one page per object, and the nav."""
+def render() -> dict[Path, str]:
+    """Return every generated file (overview, object pages, config) with its text."""
     check_coverage()
-    shutil.rmtree(REFERENCE, ignore_errors=True)
-    (REFERENCE / "api").mkdir(parents=True)
-    (REFERENCE / "index.md").write_text(overview_page())
+    pages = {REFERENCE / "index.md": overview_page()}
     for _, paths in SECTIONS.values():
         for path in paths:
             name = path.rpartition(".")[2]
-            (REFERENCE / "api" / f"{name}.md").write_text(object_page(path))
+            pages[REFERENCE / "api" / f"{name}.md"] = object_page(path)
     config = CONFIG.read_text()
     before, rest = config.split(NAV_START, 1)
     after = rest.split(NAV_END, 1)[1]
-    CONFIG.write_text(before + NAV_START + nav() + NAV_END + after)
+    pages[CONFIG] = before + NAV_START + nav() + NAV_END + after
+    return pages
+
+
+def stale(pages: dict[Path, str]) -> list[Path]:
+    """Return the files that differ from ``pages``, plus reference files not in it."""
+    existing = set(REFERENCE.rglob("*.md")) if REFERENCE.exists() else set()
+    differing = [
+        path for path, text in pages.items() if not path.exists() or path.read_text() != text
+    ]
+    return sorted(differing + [path for path in existing - pages.keys()])
+
+
+def main(argv: list[str]) -> None:
+    """Write the overview, one page per object, and the nav; ``--check`` only compares."""
+    pages = render()
+    if "--check" in argv:
+        outdated = stale(pages)
+        if outdated:
+            names = "\n  ".join(str(path.relative_to(DOCS.parent)) for path in outdated)
+            raise SystemExit(
+                f"API reference pages are out of date:\n  {names}\n"
+                "Regenerate them with `uv run --group docs python docs/build_reference.py`"
+                " and commit."
+            )
+        return
+    shutil.rmtree(REFERENCE, ignore_errors=True)
+    (REFERENCE / "api").mkdir(parents=True)
+    for path, text in pages.items():
+        path.write_text(text)
 
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])

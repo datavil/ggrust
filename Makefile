@@ -1,6 +1,6 @@
 # Single build path: uv builds and installs the extension (maturin backend).
 # `uv run` rebuilds automatically when Rust sources change (see [tool.uv] cache-keys).
-.PHONY: venv develop format lint test check check-docs docs docs-serve
+.PHONY: venv develop format lint test check check-docs check-reference docs docs-serve
 
 # cargo (clippy/test) must use the project interpreter, not the system python3.
 export PYO3_PYTHON := $(CURDIR)/.venv/bin/python
@@ -30,10 +30,14 @@ test: venv
 check-docs:  ## every markdown file under notes/ must be listed in notes/README.md
 	@python3 scripts/check_docs.py
 
+check-reference: venv  ## the generated API reference pages must match the docstrings
+	uv run --group docs python docs/build_reference.py --check
+
 check:  ## everything an agent must run before committing (sequential, -j safe)
 	$(MAKE) check-docs
 	$(MAKE) lint
 	$(MAKE) test
+	$(MAKE) check-reference
 
 docs: venv  ## render the example plots and build the site into site/
 	uv run --group docs python docs/build_examples.py

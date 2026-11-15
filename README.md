@@ -98,7 +98,7 @@ From 3D surfaces to album covers, all drawn with the same `+` grammar.
 `geom_surface` under `coord_3d`. Neither Lets-Plot nor ggplot2 draws 3D.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/surface.png" alt="3D surface" width="600">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/surface.png" alt="3D surface" width="600">
 </p>
 
 <details>
@@ -131,7 +131,7 @@ plot
 The scib single-cell integration benchmark, rebuilt from tiles, points, icons and labels.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/funky_heatmap.png" alt="Funky heatmap" width="800">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/funky_heatmap.png" alt="Funky heatmap" width="800">
 </p>
 
 <details>
@@ -345,7 +345,7 @@ plot
 Tiles, text and a hand-placed legend: one `ggplot`, no images.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/periodic_table.png" alt="Periodic table" width="800">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/periodic_table.png" alt="Periodic table" width="800">
 </p>
 
 <details>
@@ -512,7 +512,7 @@ plot
 Pulsar CP 1919 as stacked ridgelines, on a black theme.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/unknown_pleasures.png" alt="Unknown Pleasures" width="450">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/unknown_pleasures.png" alt="Unknown Pleasures" width="450">
 </p>
 
 <details>
@@ -558,7 +558,7 @@ plot
 Netflix movie durations by genre, filled by the genre mean on a log scale.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/netflix_ridges.png" alt="Ridgelines" width="640">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/netflix_ridges.png" alt="Ridgelines" width="640">
 </p>
 
 <details>
@@ -601,7 +601,7 @@ plot
 Half violins, sina points and boxplots, on a solarized dark flavor.
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/raincloud.png" alt="Raincloud" width="640">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/raincloud.png" alt="Raincloud" width="640">
 </p>
 
 <details>

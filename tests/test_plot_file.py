@@ -463,3 +463,16 @@ def test_bad_float_message_is_not_nested() -> None:
     with pytest.raises(PlotFileError) as error:
         read_plot(_with_tree(tree))
     assert str(error.value).count("invalid") == 1
+
+
+def test_ggload_warns_when_saved_by_another_version() -> None:
+    plot = gg.ggplot({"x": [1, 2]}, gg.aes("x", "x")) + gg.geom_point()
+    content = dump_plot(plot)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", GgrustWarning)
+        read_plot(content)
+    manifest = json.loads(zipfile.ZipFile(io.BytesIO(content)).read("manifest.json"))
+    manifest["ggrust_version"] = "0.0.1"
+    older = _rewrite(content, {"manifest.json": json.dumps(manifest).encode()})
+    with pytest.warns(GgrustWarning, match=r"saved by ggrust 0\.0\.1, drawn by ggrust"):
+        read_plot(older)

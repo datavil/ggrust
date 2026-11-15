@@ -26,7 +26,8 @@ A change that breaks any of these needs a new major version.
   and their attributes (`path`, `column`, ...). An input that raises keeps raising the
   same class (or a subclass of it), unless the input starts to work.
 - **Plot files.** A `.ggrs` file written by any 1.x opens in every later 1.y as the
-  same plot (drawn with that version's pixels, see below).
+  same plot. It is drawn by the ggrust that opens it, so pixels may differ (see
+  below); `ggload` warns when the file was saved by another version.
 
 ## What may change in a minor release
 

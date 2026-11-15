@@ -430,6 +430,15 @@ class _Reader:
                 f"ggrust ({_ggrust.engine_version()}) reads up to version {FORMAT_VERSION}. "
                 "Upgrade ggrust to open it"
             )
+        saved_by = manifest.get("ggrust_version")
+        current = _ggrust.engine_version()
+        if isinstance(saved_by, str) and saved_by != current:
+            warnings.warn(
+                f"{self.source}: saved by ggrust {saved_by}, drawn by ggrust {current}; "
+                "the plot may look slightly different",
+                GgrustWarning,
+                stacklevel=4,
+            )
         entries = manifest.get("entries")
         if not isinstance(entries, dict):
             self._fail("manifest.json has no 'entries' table")

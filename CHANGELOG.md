@@ -14,6 +14,8 @@ Signature clean-up before 1.0. Every affected argument still works by name; only
 
 ### Added
 
+- `ggload` warns when a `.ggrs` file was saved by another ggrust version (the plot is drawn by the current one, so it may look slightly different).
+
 - Package metadata: `Development Status :: 5 - Production/Stable` and `Typing :: Typed` classifiers.
 - A stability policy ([docs](https://ggrust.datavil.org/guide/stability/)): what 1.0 freezes (names, signatures, error classes, public import paths, plot files), what may still change in a minor release (pixels, ggrust-only spec keys, other module paths, the Rust crates), and that animation is provisional.
 

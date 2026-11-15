@@ -140,6 +140,16 @@ def streamplot(
     ...     )
     ...     + coord_fixed()
     ... )
+
+    Lines seeded at chosen points and followed along the field only:
+
+    >>> seeds = [[radius, 0] for radius in (0.4, 0.8, 1.2, 1.6)]
+    >>> streams = streamplot(x, y, u, v, start_points=seeds, integration_direction="forward")
+    >>> plot = (
+    ...     ggplot()
+    ...     + geom_path(aes("x", "y", group="group"), data=streams.lines, color="#1f77b4")
+    ...     + coord_fixed()
+    ... )
     """
     if integration_direction not in ("both", "forward", "backward"):
         raise _spec_error(

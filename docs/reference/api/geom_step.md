@@ -7,3 +7,7 @@ title: geom_step
       heading_level: 1
 
 --8<-- "figures/reference/geom_step.html"
+
+**The two other directions: `"hv"` steps across first, `"vh"` steps up or down first**
+
+--8<-- "figures/reference/geom_step_2.html"

@@ -277,6 +277,17 @@ def stat_compare_means(
     ...                    65, 68, 71, 64, 70, 66]}
     >>> plot = (ggplot(data, aes("diet", "weight")) + geom_boxplot()
     ...         + stat_compare_means(comparisons=[("veg", "meat"), ("veg", "fish")]))
+
+    Two groups: one test, its method and p-value written at the top:
+
+    >>> pair = {"diet": data["diet"][:12], "weight": data["weight"][:12]}
+    >>> plot = (ggplot(pair, aes("diet", "weight")) + geom_boxplot()
+    ...         + stat_compare_means(method="t.test"))
+
+    Several groups without ``comparisons``: one global test across all of them:
+
+    >>> plot = (ggplot(data, aes("diet", "weight")) + geom_boxplot()
+    ...         + stat_compare_means(method="anova", label_y=90))
     """
     function = "stat_compare_means"
     _check_choice(function, "method", method, _COMPARE_METHODS)

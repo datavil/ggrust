@@ -146,6 +146,14 @@ default="point"
     >>> rng = np.random.default_rng(42)
     >>> data = {"height": rng.normal(170, 8, 200), "weight": rng.normal(70, 10, 200)}
     >>> plot = joint_plot(data, "height", "weight")
+
+    2D bins, with histograms on the margins:
+
+    >>> plot = joint_plot(data, "height", "weight", geom="tile", bins=[12, 12])
+
+    A filled 2D density, with boxplots on the top and right:
+
+    >>> plot = joint_plot(data, "height", "weight", geom="density2df", marginal="box:tr")
     """
     geom_kind = geom or "point"
     if geom_kind not in _GEOMS:

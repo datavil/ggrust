@@ -7,3 +7,7 @@ title: coord_3d
       heading_level: 1
 
 --8<-- "figures/reference/coord_3d.html"
+
+**Another view angle, with perspective**
+
+--8<-- "figures/reference/coord_3d_2.html"

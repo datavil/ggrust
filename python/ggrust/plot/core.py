@@ -914,6 +914,15 @@ class PlotSpec(FeatureSpec):
         dict
             Keys as lets_plot's ``PlotSpec.as_dict()``: ``data`` (the frame object
             itself), ``mapping``, ``kind``, ``scales``, ``layers``, ``metainfo_list``, ...
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+        >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
+        >>> spec = plot.as_dict()
+        >>> spec["kind"], spec["mapping"], spec["layers"][0]["geom"]
+        ('plot', {'x': 'weight', 'y': 'mpg'}, 'point')
         """
         result = super().as_dict()
         result["kind"] = self.kind
@@ -998,6 +1007,16 @@ class PlotSpec(FeatureSpec):
         -------
         str or None
             The SVG text, the absolute path written to, or None for a file-like target.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+        >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
+        >>> plot.to_svg()[:4]
+        '<svg'
+        >>> plot.to_svg(w=800, h=300, unit="px")[:51]
+        '<svg xmlns="http://www.w3.org/2000/svg" width="800"'
         """
         from ggrust._render import export_svg
 
@@ -1041,6 +1060,35 @@ class PlotSpec(FeatureSpec):
         ValueError
             On an unknown ``unit``, only one of ``w`` / ``h``, a unitless size of 20 or
             more (looks like pixels), or a non-positive ``dpi`` / ``scale``.
+
+        Examples
+        --------
+        To a file, here in a temporary folder:
+
+        >>> import os
+        >>> import tempfile
+        >>> from ggrust import *
+        >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+        >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
+        >>> with tempfile.TemporaryDirectory() as folder:
+        ...     written = plot.to_png(os.path.join(folder, "cars.png"))
+        ...     os.path.basename(written), os.path.exists(written)
+        ('cars.png', True)
+
+        To bytes, through a buffer:
+
+        >>> import io
+        >>> buffer = io.BytesIO()
+        >>> plot.to_png(buffer)
+        >>> buffer.getvalue()[1:4]
+        b'PNG'
+
+        A physical size and a resolution, as for a journal figure (6 in x 150 dpi = 900 px):
+
+        >>> buffer = io.BytesIO()
+        >>> plot.to_png(buffer, w=6, h=4, unit="in", dpi=150)
+        >>> int.from_bytes(buffer.getvalue()[16:20]), int.from_bytes(buffer.getvalue()[20:24])
+        (900, 600)
         """
         from ggrust._render import export_png
 
@@ -1074,6 +1122,17 @@ class PlotSpec(FeatureSpec):
         ------
         ValueError
             As ``to_png``.
+
+        Examples
+        --------
+        >>> import io
+        >>> from ggrust import *
+        >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+        >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
+        >>> buffer = io.BytesIO()
+        >>> plot.to_pdf(buffer, w=180, h=120, unit="mm")
+        >>> buffer.getvalue()[:5]
+        b'%PDF-'
         """
         from ggrust._render import export_pdf
 
@@ -1094,6 +1153,16 @@ class PlotSpec(FeatureSpec):
         -------
         str or None
             The HTML text, the absolute path written to, or None for a file-like target.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+        >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
+        >>> plot.to_html()[:15]
+        '<!DOCTYPE html>'
+        >>> plot.to_html(iframe=True)[:7]
+        '<iframe'
         """
         from ggrust._render import export_html
 

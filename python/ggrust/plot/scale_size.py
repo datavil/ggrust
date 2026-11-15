@@ -83,6 +83,11 @@ def scale_size(
     ...         "people": [0.38, 5.5, 48, 124, 1430], "area": [103, 385, 506, 378, 3287]}
     >>> plot = ggplot(data, aes("area", "people", size="people")) + geom_point()
     >>> plot = plot + scale_size(range=[2, 12])
+
+    A log scale with its own breaks keeps the small countries visible:
+
+    >>> base = ggplot(data, aes("area", "people", size="people")) + geom_point()
+    >>> plot = base + scale_size(range=[2, 12], trans="log10", breaks=[1, 10, 100, 1000])
     """
     return _scale("size", **locals())
 
@@ -269,6 +274,13 @@ def scale_size_area(
     ...         "people": [0.38, 5.5, 48, 124, 1430], "area": [103, 385, 506, 378, 3287]}
     >>> plot = ggplot(data, aes("area", "people", size="people")) + geom_point()
     >>> plot = plot + scale_size_area(max_size=15)
+
+    Name the legend and choose its keys:
+
+    >>> base = ggplot(data, aes("area", "people", size="people")) + geom_point()
+    >>> plot = base + scale_size_area(
+    ...     max_size=15, name="People (millions)", breaks=[100, 500, 1000]
+    ... )
     """
     return _scale("size", scale_mapper_kind="size_area", **locals())
 
@@ -328,6 +340,13 @@ def scale_alpha(
     ...         "people": [0.38, 5.5, 48, 124, 1430], "area": [103, 385, 506, 378, 3287]}
     >>> plot = ggplot(data, aes("area", "people", alpha="people")) + geom_point(size=8)
     >>> plot = plot + scale_alpha(range=[0.2, 1])
+
+    Choose the legend keys and their labels:
+
+    >>> base = ggplot(data, aes("area", "people", alpha="people")) + geom_point(size=8)
+    >>> plot = base + scale_alpha(
+    ...     range=[0.2, 1], breaks=[100, 700, 1400], labels=["100 M", "700 M", "1.4 B"]
+    ... )
     """
     return _scale("alpha", **locals())
 

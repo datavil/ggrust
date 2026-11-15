@@ -88,6 +88,13 @@ def geom_function(
     >>> from ggrust import *
     >>> import math
     >>> plot = ggplot() + geom_function(fun=math.sin, xlim=[0, 2 * math.pi], n=100)
+
+    A model curve over the data it describes, evaluated over the range of the data:
+
+    >>> from ggrust.data import mpg
+    >>> plot = (ggplot(mpg, aes("displ", "hwy")) + geom_point(alpha=0.4)
+    ...         + geom_function(fun=lambda displ: 15 + 40 * math.exp(-0.5 * displ),
+    ...                         xlim=[1.6, 7], color="#d62728", size=1.5))
     """
     return _geom(
         geom if geom is not None else "line",

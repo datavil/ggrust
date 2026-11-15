@@ -7,3 +7,7 @@ title: geom_errorbar
       heading_level: 1
 
 --8<-- "figures/reference/geom_errorbar.html"
+
+**Horizontal error bars**
+
+--8<-- "figures/reference/geom_errorbar_2.html"

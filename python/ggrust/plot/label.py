@@ -111,6 +111,11 @@ def labs(
     >>> plot = plot + labs(
     ...     title="Fuel use", subtitle="Six cars", x="Weight (1000 lb)", y="Miles per gallon"
     ... )
+
+    Legend titles go by aesthetic name; ``caption`` and ``tag`` annotate the figure:
+
+    >>> plot = ggplot(data, aes("weight", "mpg", color="mpg")) + geom_point(size=4)
+    >>> plot = plot + labs(color="Miles per gallon", caption="Source: road tests", tag="A")
     """
     specs = []
     if title is not None or subtitle is not None:

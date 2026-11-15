@@ -448,6 +448,34 @@ def theme(
     ...     axis_title=element_text(size=15, face="bold"),
     ...     panel_grid_minor=element_blank(),
     ... )
+
+    Title, subtitle and axis text:
+
+    >>> base = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = base + ggtitle("Pets", "weight by age") + theme(
+    ...     plot_title=element_text(size=20, face="bold", hjust=0.5),
+    ...     plot_subtitle=element_text(color="grey", hjust=0.5),
+    ...     axis_text=element_text(size=12, color="black"),
+    ... )
+
+    The legend inside the panel, in its top left corner:
+
+    >>> plot = base + theme(
+    ...     legend_position=[0.02, 0.98],
+    ...     legend_justification=[0, 1],
+    ...     legend_background=element_rect(fill="white", color="grey", size=1),
+    ... )
+
+    Panel, grid and axis lines:
+
+    >>> plot = base + theme(
+    ...     panel_background=element_rect(fill="aliceblue", color="aliceblue"),
+    ...     panel_grid=element_line(color="white", size=1.5),
+    ...     axis_line_x=element_line(color="black", size=1),
+    ...     axis_line_y=element_line(color="black", size=1),
+    ...     axis_ticks=element_line(color="black"),
+    ...     axis_ticks_length=8,
+    ... )
     """
     return FeatureSpec("theme", name=None, **_filter_none(locals()))
 
@@ -514,6 +542,16 @@ def element_rect(
     ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
     >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
     >>> plot = plot + theme(panel_background=element_rect(fill="ivory", color="tan", size=2))
+
+    A dashed frame around the legend, on a tinted plot background:
+
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + theme(
+    ...     plot_background=element_rect(fill="whitesmoke"),
+    ...     legend_background=element_rect(
+    ...         fill="white", color="black", size=1, linetype="dashed"
+    ...     ),
+    ... )
     """
     return locals()
 
@@ -575,6 +613,12 @@ def element_line(
     ...     axis_title_x=element_text(hjust=0),
     ...     axis_title_y=element_text(hjust=0),
     ... )
+
+    Dashed grid lines:
+
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+    >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point(size=4)
+    >>> plot = plot + theme(panel_grid=element_line(color="grey", size=0.8, linetype="dashed"))
     """
     if arrow is not None and not (isinstance(arrow, FeatureSpec) and arrow.kind == "arrow"):
         path = "element_line.arrow"
@@ -639,6 +683,13 @@ def element_text(
     ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
     >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
     >>> plot = plot + theme(axis_text=element_text(size=14, color="darkred", angle=30))
+
+    A right-aligned italic title with space below it:
+
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + ggtitle("Weight by age") + theme(
+    ...     plot_title=element_text(face="italic", hjust=1, margin=[0, 0, 20, 0])
+    ... )
     """
     return locals()
 
@@ -687,6 +738,10 @@ def element_markdown(
     >>> from ggrust import *
     >>> title = ggtitle("Fuel use: **heavier** cars go *less* far")
     >>> style = theme(plot_title=element_markdown())  # not drawn yet: warns
+
+    It takes the styling of ``element_text``, here for the axis titles:
+
+    >>> style = theme(axis_title=element_markdown(size=14, color="navy"))
     """
     return {"markdown": True, **locals()}
 
@@ -725,6 +780,11 @@ def margin(
     >>> plot = plot + theme(
     ...     plot_margin=margin(t=30, r=60, b=30, l=60), plot_background=element_rect(fill="linen")
     ... )
+
+    One side only, as the margin of a text element: space above the x axis title:
+
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + theme(axis_title_x=element_text(margin=margin(t=25)))
     """
     return [t, r, b, l]
 

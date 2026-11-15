@@ -17,9 +17,12 @@ For each example this writes:
 It also writes ``docs/gallery/index.md``.
 
 It also runs the ``Examples`` section of every API reference docstring (see
-``build_reference.SECTIONS``). An example that binds ``plot`` is rendered to
-``docs/plots/reference/<name>.html`` with its iframe markup in
-``docs/examples/figures/reference/<name>.html``, which the reference page includes.
+``build_reference.SECTIONS``). A docstring can hold several examples: the section is
+one doctest, and each further example starts with a sentence that introduces it.
+Every example that binds ``plot`` is rendered to ``docs/plots/reference/<name>.html``
+(``<name>_2.html``, ``<name>_3.html``, ... for the later ones) with its iframe markup
+under the same name in ``docs/examples/figures/reference/``, which the reference page
+includes in order, each later figure under its introducing sentence.
 
 Run after changing an example or a docstring example:
 ``uv run python docs/build_examples.py``.
@@ -32,6 +35,7 @@ import inspect
 import io
 import re
 import warnings
+from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -124,15 +128,51 @@ def figure(name: str, title: str, width: int, height: int, prefix: str = "../") 
     )
 
 
+@dataclass(frozen=True)
+class ExampleBlock:
+    """One example of a docstring: a run of ``>>>`` lines and the text that introduces it."""
+
+    label: str
+    code: str
+
+
+def example_blocks(item: object) -> list[ExampleBlock]:
+    """Return the examples of an object's docstring, in order.
+
+    A block is a run of ``>>>`` lines with no prose in between. Its label is the
+    paragraph right before it, on one line and without the final colon; the first
+    block has none (the text before it is the docstring itself). Lines marked
+    ``# doctest: +SKIP`` are left out, and so is a block left empty by that.
+    """
+    blocks: list[ExampleBlock] = []
+    text, sources = "", []
+
+    def close() -> None:
+        if sources:
+            label = "" if not blocks else " ".join(text.strip().split("\n\n")[-1].split())
+            blocks.append(
+                ExampleBlock(label.removesuffix(":").replace("``", "`"), "".join(sources))
+            )
+            sources.clear()
+
+    for part in doctest.DocTestParser().parse(inspect.getdoc(item) or ""):
+        if isinstance(part, str):
+            if part.strip():
+                close()
+                text = part
+        elif not part.options.get(doctest.SKIP):
+            sources.append(part.source)
+    close()
+    return blocks
+
+
 def docstring_example(item: object) -> str:
     """Return the runnable code of an object's docstring ``Examples`` section.
 
     Lines marked ``# doctest: +SKIP`` are left out. The result is empty when the
     docstring has no examples.
     """
-    parser = doctest.DocTestParser()
-    examples = parser.get_examples(inspect.getdoc(item) or "")
-    return "".join(example.source for example in examples if not example.options.get(doctest.SKIP))
+    return "".join(block.code for block in example_blocks(item))
 
 
 def binds_plot(code: str) -> bool:
@@ -145,23 +185,43 @@ def binds_plot(code: str) -> bool:
     )
 
 
-def render_reference(name: str, item: object) -> None:
-    """Run one docstring example and, if it binds ``plot``, write its plot and iframe."""
-    code = docstring_example(item)
+def reference_figures(name: str, item: object) -> list[tuple[str, str]]:
+    """Return the (file stem, label) of each figure on an object's reference page.
+
+    One figure per example block that binds ``plot``: ``<name>`` for the first,
+    ``<name>_2``, ``<name>_3``, ... for the later ones. Nothing is run.
+    """
+    labels = [block.label for block in example_blocks(item) if binds_plot(block.code)]
+    return [
+        (name if index == 0 else f"{name}_{index + 1}", label) for index, label in enumerate(labels)
+    ]
+
+
+def example_plots(item: object) -> Iterator[object]:
+    """Run an object's docstring examples and yield the ``plot`` of each block that binds it.
+
+    The blocks run in order in one namespace, as the doctest does, so a later block
+    can use names from an earlier one.
+    """
     namespace: dict[str, object] = {}
-    with contextlib.redirect_stdout(io.StringIO()):  # examples may print
-        exec(code, namespace)
-    if not binds_plot(code):
-        return
-    plot = namespace["plot"]
-    iframe = plot.to_html(iframe=True)
-    width, height = (
-        int(re.search(rf'{key}="(\d+)"', iframe).group(1)) for key in ("width", "height")
-    )
-    plot.to_html(DOCS / "plots" / "reference" / f"{name}.html")
-    (EXAMPLES / "figures" / "reference" / f"{name}.html").write_text(
-        figure(f"reference/{name}", f"{name} example", width, height, prefix="../../")
-    )
+    for block in example_blocks(item):
+        with contextlib.redirect_stdout(io.StringIO()):  # examples may print
+            exec(block.code, namespace)
+        if binds_plot(block.code):
+            yield namespace["plot"]
+
+
+def render_reference(name: str, item: object) -> None:
+    """Run one docstring's examples and write the plot and iframe of each that binds ``plot``."""
+    for (stem, _), plot in zip(reference_figures(name, item), example_plots(item), strict=True):
+        iframe = plot.to_html(iframe=True)
+        width, height = (
+            int(re.search(rf'{key}="(\d+)"', iframe).group(1)) for key in ("width", "height")
+        )
+        plot.to_html(DOCS / "plots" / "reference" / f"{stem}.html")
+        (EXAMPLES / "figures" / "reference" / f"{stem}.html").write_text(
+            figure(f"reference/{stem}", f"{name} example", width, height, prefix="../../")
+        )
 
 
 def gallery_page(example: Example) -> str:

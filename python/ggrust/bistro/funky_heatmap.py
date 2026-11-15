@@ -2072,6 +2072,26 @@ def funky_heatmap(
     ...     column_groups=column_groups,
     ...     palettes={"scores": "Blues", "black": ["black", "black"]},
     ... )
+
+    The defaults, from the data alone (geoms are guessed from the column types):
+
+    >>> plot = funky_heatmap(scores)
+
+    One geom for every score, without column groups and with the legend on the right:
+
+    >>> from ggrust.bistro import position_arguments
+    >>> bars = [
+    ...     {"id": "id", "name": "Method", "geom": "text", "options": {"hjust": 0, "width": 3}},
+    ...     {"id": "speed", "geom": "bar", "palette": "scores", "options": {"width": 4}},
+    ...     {"id": "accuracy", "geom": "bar", "palette": "scores", "options": {"width": 4}},
+    ...     {"id": "memory", "geom": "bar", "palette": "scores", "options": {"width": 4}},
+    ... ]
+    >>> plot = funky_heatmap(
+    ...     scores,
+    ...     column_info=bars,
+    ...     palettes={"scores": "Greens"},
+    ...     position_args=position_arguments(legend_position="right"),
+    ... )
     """
     positions = position_args if position_args is not None else position_arguments()
     if not isinstance(positions, PositionArguments):

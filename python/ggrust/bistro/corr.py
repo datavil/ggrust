@@ -105,6 +105,14 @@ class corr_plot:  # noqa: N801  (lets_plot's name)
     >>> rng = np.random.default_rng(42)
     >>> data = {name: rng.normal(size=10) for name in "abcd"}
     >>> plot = corr_plot(data).tiles().labels().palette_RdBu().build()
+
+    Points sized by the correlation, with the values on top:
+
+    >>> plot = corr_plot(data).points().labels().palette_PiYG().build()
+
+    Only the lower triangle, without the weakest correlations:
+
+    >>> plot = corr_plot(data, threshold=0.2).tiles(type="lower").labels(type="lower").build()
     """
 
     def __init__(

@@ -147,6 +147,13 @@ def stat_slab(
     >>> data = {"diet": ["veg"] * 6 + ["meat"] * 6,
     ...         "weight": [61, 58, 66, 70, 63, 59, 72, 80, 77, 69, 85, 74]}
     >>> plot = ggplot(data, aes("diet", "weight", fill="diet")) + stat_slab()
+
+    Slabs on both sides (a violin), each scaled to its own maximum:
+
+    >>> from ggrust.data import iris
+    >>> plot = ggplot(iris, aes("species", "sepal_length", fill="species")) + stat_slab(
+    ...     side="both", normalize="groups", scale=0.7
+    ... )
     """
     _reject_stat("stat_slab", other_args)
     _check_slab("stat_slab", density, bandwidth, adjust, n, normalize, scale, side)
@@ -254,6 +261,13 @@ def stat_pointinterval(
     >>> data = {"diet": ["veg"] * 6 + ["meat"] * 6,
     ...         "weight": [61, 58, 66, 70, 63, 59, 72, 80, 77, 69, 85, 74]}
     >>> plot = ggplot(data, aes("diet", "weight")) + stat_pointinterval(widths=[0.5, 0.9])
+
+    The mean with 80% and 99% intervals, horizontal:
+
+    >>> from ggrust.data import iris
+    >>> plot = ggplot(iris, aes("sepal_length", "species")) + stat_pointinterval(
+    ...     point_interval="mean_qi", widths=[0.8, 0.99]
+    ... )
     """
     function = "stat_pointinterval"
     _reject_stat(function, other_args)
@@ -353,6 +367,13 @@ def stat_interval(
     >>> data = {"diet": ["veg"] * 6 + ["meat"] * 6,
     ...         "weight": [61, 58, 66, 70, 63, 59, 72, 80, 77, 69, 85, 74]}
     >>> plot = (ggplot(data, aes("diet", "weight")) + stat_interval()
+    ...         + scale_color_brewer(palette="Blues"))
+
+    Three interval levels, horizontal:
+
+    >>> from ggrust.data import iris
+    >>> plot = (ggplot(iris, aes("sepal_length", "species"))
+    ...         + stat_interval(widths=[0.5, 0.8, 0.95])
     ...         + scale_color_brewer(palette="Blues"))
     """
     _reject_stat("stat_interval", other_args)
@@ -455,6 +476,13 @@ def stat_halfeye(
     >>> data = {"diet": ["veg"] * 6 + ["meat"] * 6,
     ...         "weight": [61, 58, 66, 70, 63, 59, 72, 80, 77, 69, 85, 74]}
     >>> plot = ggplot(data, aes("diet", "weight")) + stat_halfeye()
+
+    Horizontal, colored by group, with 50% and 95% intervals:
+
+    >>> from ggrust.data import iris
+    >>> plot = ggplot(iris, aes("sepal_length", "species", fill="species")) + stat_halfeye(
+    ...     widths=[0.5, 0.95], alpha=0.6
+    ... )
     """
     function = "stat_halfeye"
     _check_slab(function, density, bandwidth, adjust, n, normalize, scale, side)

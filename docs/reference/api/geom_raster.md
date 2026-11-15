@@ -7,3 +7,7 @@ title: geom_raster
       heading_level: 1
 
 --8<-- "figures/reference/geom_raster.html"
+
+**Colors blended between the cell centers**
+
+--8<-- "figures/reference/geom_raster_2.html"

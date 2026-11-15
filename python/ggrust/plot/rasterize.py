@@ -72,6 +72,14 @@ def rasterize(
     >>> from ggrust import *
     >>> data = {"x": [1, 2, 3, 4], "y": [2, 4, 3, 5]}
     >>> plot = ggplot(data, aes("x", "y")) + rasterize(geom_point(size=4), dpi=300)
+
+    Rasterize only the dense layer; the line on top and the axes stay vector:
+
+    >>> import numpy as np
+    >>> generator = np.random.default_rng(1)
+    >>> cloud = {"x": generator.normal(0, 1, 5000), "y": generator.normal(0, 1, 5000)}
+    >>> plot = (ggplot(cloud, aes("x", "y")) + rasterize(geom_point(alpha=0.3), dpi=150)
+    ...         + geom_smooth(method="lm"))
     """
     if isinstance(dpi, bool) or not isinstance(dpi, Real):
         reason = f"rasterize() dpi must be a number of dots per inch, got {type(dpi).__name__}"

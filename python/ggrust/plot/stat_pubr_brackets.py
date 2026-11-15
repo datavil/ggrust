@@ -224,6 +224,18 @@ def geom_pwc(
     ...                    65, 68, 71, 64, 70, 66]}
     >>> plot = (ggplot(data, aes("diet", "weight")) + geom_boxplot()
     ...         + geom_pwc(label="p.adj.signif"))
+
+    Adjusted p-values of t tests in a label template:
+
+    >>> plot = (ggplot(data, aes("diet", "weight")) + geom_boxplot()
+    ...         + geom_pwc(method="t_test", label="p = {p.adj.format}",
+    ...                    p_adjust_method="bonferroni"))
+
+    With groups within each x, the dodged groups are compared:
+
+    >>> from ggrust.data import penguins
+    >>> plot = (ggplot(penguins.drop_nulls(), aes("species", "body_mass_g", fill="sex"))
+    ...         + geom_boxplot() + geom_pwc(label="p.signif"))
     """
     function = "geom_pwc"
     if isinstance(method, str) and method.replace(".", "_") in _OTHER_METHODS:
@@ -396,6 +408,13 @@ def stat_pvalue_manual(
     >>> plot = (ggplot(data, aes("diet", "weight")) + geom_boxplot()
     ...         + stat_pvalue_manual(table, label="p = {p.adj}", y_position=88,
     ...                              step_increase=0.1))
+
+    A table written by hand, one row per bracket:
+
+    >>> brackets = {"group1": ["veg", "meat"], "group2": ["meat", "fish"],
+    ...             "label": ["p = 0.004", "not tested"], "y.position": [88, 93]}
+    >>> plot = (ggplot(data, aes("diet", "weight")) + geom_boxplot()
+    ...         + stat_pvalue_manual(brackets, label="label", tip_length=0.01))
     """
     function = "stat_pvalue_manual"
     frame = _frame(data)

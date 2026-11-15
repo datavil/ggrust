@@ -7,3 +7,7 @@ title: geom_dotplot
       heading_level: 1
 
 --8<-- "figures/reference/geom_dotplot.html"
+
+**Groups stacked on top of each other in equal bins**
+
+--8<-- "figures/reference/geom_dotplot_2.html"

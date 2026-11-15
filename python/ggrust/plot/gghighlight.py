@@ -225,6 +225,25 @@ def gghighlight(
     ... )
     >>> plot = ggplot(data, aes("day", "sales")) + geom_point(size=4)
     >>> plot = plot + gghighlight("sales > 4", label_key="shop")
+
+    Plain text labels for the two shops with the highest sales, styled with
+    ``label_params``:
+
+    >>> lines = ggplot(data, aes("day", "sales", color="shop")) + geom_line(size=1.5)
+    >>> plot = lines + gghighlight(
+    ...     pl.col("sales").max(),
+    ...     max_highlight=2,
+    ...     line_label_type="ggrepel_text",
+    ...     label_params={"size": 9, "fontface": "bold"},
+    ... )
+
+    A legend in place of the labels, and thin dashed lines for the other shops:
+
+    >>> plot = lines + gghighlight(
+    ...     pl.col("sales").max() > 8,
+    ...     use_direct_label=False,
+    ...     unhighlighted_params={"color": "lightblue", "size": 0.7, "linetype": "dashed"},
+    ... )
     """
     options = HighlightOptions(
         predicates=tuple(_predicate(index, value) for index, value in enumerate(predicates)),

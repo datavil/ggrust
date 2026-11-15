@@ -140,6 +140,11 @@ def qq_plot(
     >>> rng = np.random.default_rng(42)
     >>> data = {"waiting": rng.exponential(10, 150), "group": rng.choice(["a", "b"], 150)}
     >>> plot = qq_plot(data, "waiting", distribution="exp", group="group")
+
+    Two samples against each other, by ``x`` and ``y``:
+
+    >>> pair = {"monday": rng.normal(20, 4, 150), "friday": rng.normal(24, 6, 150)}
+    >>> plot = qq_plot(pair, x="monday", y="friday", marginal="hist:tr")
     """
     two_samples = _check_columns(sample, x, y)
     points_mapping: dict[str, Any] = {"sample": sample} if sample is not None else {}

@@ -188,6 +188,75 @@ Dropped from the animation plan by the user, 2026-11-14 (see
   `transition_components`, `transition_null`.
 - Tooltips inside the HTML player; MP4 / WebM output.
 
+## 8. Oddities found while writing docs examples (2026-11-15)
+
+Found by the sessions that wrote the 0.8.2/0.9.0 docs and the extra docstring examples.
+None is fixed; the examples were chosen to avoid them. Not yet triaged: each needs a
+check against lets-plot and ggplot2 before it becomes a fix or a `deviations.md` row.
+
+### Likely bugs
+
+- **Dodge order on an Enum column.** With a polars Enum (`penguins["sex"]`), `geom_boxplot`,
+  `geom_violin` and `position_dodge` dodge in first-appearance order (male, female), while
+  the legend, `position_jitterdodge` and `geom_beeswarm(dodge_width=)` use Enum order.
+  Jittered points land on the wrong box. Related to the "discrete x order with groups" gap
+  in `deviations.md`.
+- **`geom_bracket(label_format=)`** is in the signature and documented, but the engine
+  warns "not supported" and ignores it (`deviations.md` lists it for repel and bracket geoms).
+- **`geom_violin` / `geom_sina` `scale`** is typed `Number` and documented as a pixel-size
+  multiplier, but the engine only accepts `"area"`, `"count"` or `"width"`.
+- **`geom_density(kernel="triangular" | "cosine")`** draws a far spikier curve than gaussian
+  on the same data; the bandwidth looks unscaled per kernel.
+- **Axis titles from secondary positions.** `geom_segment` / `geom_curve` with `x`, `y`,
+  `xend`, `yend` mapped title the axes `xend` and `yend`. `geom_mark_*` with
+  `expand_limits(x=, y=)` title them `x1` and `y1`. `stat_pvalue_manual` on a boxplot
+  titles the y axis `y` instead of the column name.
+- **`geom_mark_*` callouts dropped silently.** With long descriptions one group's callout
+  is drawn and the other omitted, without a warning.
+- **Legend frame needs `size`.** `legend_background=element_rect(color=...)` draws no
+  border unless `size` is given.
+- **Panel frame from a fill.** `panel_background=element_rect(fill=...)` alone also draws
+  a dark frame around the panel.
+- **`coord_3d` title clipped.** A long z axis title (`petal_length` at `azimuth=30`) is cut
+  off at the left edge of the figure.
+- **Stray pie axis.** The `coord_polar` pie example shows a short leftover vertical axis
+  line with a tick, left of the pie.
+- **`funky_heatmap` legend labels overlap** at small sizes (`0 0.20.40.60.8 1`).
+- **Two shadows.** `shadow_mark` added after `shadow_wake` silently drops the wake.
+- **Static layers in animations.** A layer whose own data lacks the transition column is
+  not drawn at all, so a static background layer is not possible.
+
+### Rough edges, possibly intended
+
+- **Labels clipped at the panel edge.** `geom_text`, `geom_label` and repel labels pushed
+  with `nudge_x` are cut at the data extremes; examples widen the limits.
+- **`geom_function` range.** It evaluates over `[0, 1]` even when the plot maps `x`; pass
+  `xlim`.
+- **Small mapped sizes.** Mapping `size` to a column with few low values (`mpg["cyl"]`)
+  makes the smallest points nearly invisible.
+- **White `mid` on a white panel.** `scale_*_gradient2` / `steps2` points at the midpoint
+  disappear with the default panel.
+- **Secondary-axis label at the edge.** A `sec_axis` break near the top of the range draws
+  its label right on the panel edge.
+- **`scale_*_manual` with a dict.** A level missing from the `values` dict recycles the
+  colours instead of taking `na_value` (as lets_plot); only levels left out of `limits` do.
+- **`coord_polar(start=, direction=-1)`.** The offset is mirrored with the direction
+  (`start=pi/2` starts at 9 o'clock); probably as ggplot2, but the docstring only says
+  "offset from 12 o'clock".
+- **Log `coord_trans` breaks** bunch up at the top end with wide limits (100, 200, 400, 700).
+- **`animate(fps=1, end_pause=2)`** on a 3-frame manual transition reports an `fps` of
+  about 0.03: it follows the documented formula but reads oddly.
+- **`element_markdown`** cannot be shown in a rendered example: drawing it raises the
+  "unsupported option" warning.
+
+### Docs build
+
+- **Embedded animation players ignore `animate()` settings.** `docs/build_examples.py`
+  renders animated examples at the default 100 frames and 10 fps, not the `nframes`/`fps`
+  in the example code.
+- **Gallery thumbnails of animations** are the first frame, which can be nearly empty
+  (`animation_shadow` is a single dot).
+
 ## Sources
 
 [lets-plot issues](https://github.com/JetBrains/lets-plot/issues),

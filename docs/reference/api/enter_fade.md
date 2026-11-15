@@ -7,3 +7,7 @@ title: enter_fade
       heading_level: 1
 
 --8<-- "figures/reference/enter_fade.html"
+
+**Bars that start half transparent**
+
+--8<-- "figures/reference/enter_fade_2.html"

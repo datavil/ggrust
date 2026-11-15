@@ -7,3 +7,7 @@ title: coord_cartesian
       heading_level: 1
 
 --8<-- "figures/reference/coord_cartesian.html"
+
+**No padding around the data, so the area touches the axes**
+
+--8<-- "figures/reference/coord_cartesian_2.html"

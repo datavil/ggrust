@@ -136,6 +136,13 @@ def scale_shape_manual(
     ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
     >>> plot = ggplot(data, aes("age", "weight", shape="pet")) + geom_point(size=5)
     >>> plot = plot + scale_shape_manual(values=[15, 17, 8])
+
+    A dict gives the shape of each level by name:
+
+    >>> base = ggplot(data, aes("age", "weight", shape="pet")) + geom_point(size=5)
+    >>> plot = base + scale_shape_manual(
+    ...     values={"cat": 16, "dog": 17, "rabbit": 0}, labels=["Cat", "Dog", "Rabbit"]
+    ... )
     """
     return _manual("shape", **locals())
 
@@ -239,6 +246,13 @@ def scale_linetype_manual(
     >>> data = {"t": [1, 2, 3, 1, 2, 3], "v": [1, 3, 2, 2, 1, 3], "g": list("aaabbb")}
     >>> plot = ggplot(data, aes("t", "v", linetype="g")) + geom_line() + scale_linetype_manual(
     ...     values=["solid", "dotted"]
+    ... )
+
+    A dict gives the line type of each level by name:
+
+    >>> base = ggplot(data, aes("t", "v", linetype="g")) + geom_line()
+    >>> plot = base + scale_linetype_manual(
+    ...     values={"a": "dashed", "b": "solid"}, labels=["forecast", "actual"]
     ... )
     """
     return _manual("linetype", **locals())

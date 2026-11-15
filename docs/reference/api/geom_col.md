@@ -7,3 +7,7 @@ title: geom_col
       heading_level: 1
 
 --8<-- "figures/reference/geom_col.html"
+
+**Horizontal, narrower bars**
+
+--8<-- "figures/reference/geom_col_2.html"

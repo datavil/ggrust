@@ -218,6 +218,22 @@ def geom_mark_hull(
     ...         + geom_mark_hull(aes(fill="cluster", label="cluster"))
     ...         + geom_point(aes(color="cluster"), size=1.5)
     ...         + expand_limits(x=[-6, 11], y=[-5, 9]))
+
+    A label and a wrapped description per group:
+
+    >>> data["note"] = ["Dense, near the origin"] * 150 + ["Up and to the right"] * 150
+    >>> plot = (ggplot(data, aes("x", "y"))
+    ...         + geom_mark_hull(aes(fill="cluster", label="cluster", description="note"),
+    ...                          label_fontsize=9)
+    ...         + geom_point(aes(color="cluster"), size=1.5)
+    ...         + expand_limits(x=[-6, 11], y=[-5, 9]))
+
+    A tight, more concave outline, styled with constant aesthetics:
+
+    >>> plot = (ggplot(data, aes("x", "y"))
+    ...         + geom_mark_hull(aes(color="cluster"), concavity=1.5, expand=2, radius=1,
+    ...                          linetype="dashed")
+    ...         + geom_point(size=1.5))
     """
     _check_positive("geom_mark_hull", "concavity", concavity)
     return _mark(
@@ -334,6 +350,20 @@ def geom_mark_ellipse(
     ...         "group": ["a"] * 4 + ["b"] * 4}
     >>> plot = (ggplot(data, aes("x", "y")) + geom_mark_ellipse(aes(fill="group"))
     ...         + geom_point())
+
+    A label and a wrapped description per group:
+
+    >>> data["note"] = ["Low on both axes"] * 4 + ["High on both axes"] * 4
+    >>> plot = (ggplot(data, aes("x", "y"))
+    ...         + geom_mark_ellipse(aes(fill="group", label="group", description="note"))
+    ...         + geom_point() + expand_limits(x=[-4, 13], y=[-4, 10]))
+
+    Mark only the rows a boolean column selects, with a dashed outline:
+
+    >>> data["high"] = [value > 3 for value in data["y"]]
+    >>> plot = (ggplot(data, aes("x", "y"))
+    ...         + geom_mark_ellipse(aes(filter="high"), color="#d62728", linetype="dashed")
+    ...         + geom_point() + xlim(0, 10) + ylim(-1, 8))
     """
     _check_positive("geom_mark_ellipse", "tol", tol)
     return _mark(
@@ -445,6 +475,20 @@ def geom_mark_rect(
     >>> plot = (ggplot(data, aes("x", "y"))
     ...         + geom_mark_rect(aes(color="group", label="group")) + geom_point()
     ...         + expand_limits(x=[-4, 13], y=[-4, 10]))
+
+    A wrapped description under each label:
+
+    >>> data["note"] = ["Low on both axes"] * 3 + ["High on both axes"] * 3
+    >>> plot = (ggplot(data, aes("x", "y"))
+    ...         + geom_mark_rect(aes(fill="group", label="group", description="note"))
+    ...         + geom_point() + expand_limits(x=[-4, 13], y=[-4, 10]))
+
+    Mark only the rows a boolean column selects, with more room and rounder corners:
+
+    >>> data["high"] = [value > 3 for value in data["y"]]
+    >>> plot = (ggplot(data, aes("x", "y"))
+    ...         + geom_mark_rect(aes(filter="high"), expand=8, radius=8, fill="#ff7f0e")
+    ...         + geom_point() + xlim(0, 10) + ylim(0, 8))
     """
     return _mark(
         "geom_mark_rect",

@@ -149,6 +149,12 @@ def geom_beeswarm(
     >>> data = {"day": ["Mon"] * 8 + ["Tue"] * 8,
     ...         "minutes": [31, 35, 35, 36, 38, 40, 41, 47, 25, 28, 30, 30, 30, 33, 37, 45]}
     >>> plot = ggplot(data, aes("day", "minutes")) + geom_beeswarm(cex=3)
+
+    Groups within each x are swarmed side by side:
+
+    >>> from ggrust.data import penguins
+    >>> plot = (ggplot(penguins.drop_nulls(), aes("species", "body_mass_g", color="sex"))
+    ...         + geom_beeswarm(dodge_width=0.8, cex=1.2))
     """
     function = "geom_beeswarm"
     _check_choice(function, "method", method, _BEESWARM_METHODS)
@@ -288,6 +294,12 @@ default="quasirandom"
     >>> data = {"day": ["Mon"] * 8 + ["Tue"] * 8,
     ...         "minutes": [31, 35, 35, 36, 38, 40, 41, 47, 25, 28, 30, 30, 30, 33, 37, 45]}
     >>> plot = ggplot(data, aes("day", "minutes")) + geom_violin() + geom_quasirandom()
+
+    Groups within each x are spread side by side:
+
+    >>> from ggrust.data import penguins
+    >>> plot = (ggplot(penguins.drop_nulls(), aes("species", "body_mass_g", color="sex"))
+    ...         + geom_quasirandom(dodge_width=0.8))
     """
     function = "geom_quasirandom"
     if method in ("tukey", "tukeyDense"):

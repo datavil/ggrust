@@ -115,6 +115,11 @@ def geom_pointdensity(
     ...         "weight": generator.normal(70, 10, 2000)}
     >>> plot = (ggplot(data, aes("height", "weight")) + geom_pointdensity(size=1.5)
     ...         + scale_color_viridis())
+
+    A smaller ``adjust`` counts neighbours in a smaller window, showing finer structure:
+
+    >>> plot = (ggplot(data, aes("height", "weight"))
+    ...         + geom_pointdensity(adjust=0.25, size=1.5) + scale_color_viridis())
     """
     _check("geom_pointdensity", method, adjust)
     return _geom(

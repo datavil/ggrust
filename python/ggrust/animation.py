@@ -177,6 +177,19 @@ class Animation:
         ------
         ExportError
             If the extension is missing or not an animation format.
+
+        Examples
+        --------
+        >>> import os
+        >>> import tempfile
+        >>> from ggrust import *
+        >>> data = {"year": [2021, 2022, 2023], "sold": [10, 12, 15]}
+        >>> plot = ggplot(data, aes("year", "sold")) + geom_point() + transition_manual("year")
+        >>> animation = animate(plot, fps=1)
+        >>> with tempfile.TemporaryDirectory() as folder:
+        ...     written = animation.save("sales.gif", path=folder)
+        ...     os.path.basename(written), os.path.exists(written)
+        ('sales.gif', True)
         """
         pathname = os.fspath(filename) if path is None else os.path.join(path, filename)
         extension = os.path.splitext(pathname)[1][1:].lower()
@@ -206,6 +219,14 @@ class Animation:
         -------
         bytes or str
             The GIF when ``path`` is None, else the written path (empty for a file object).
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> data = {"year": [2021, 2022, 2023], "sold": [10, 12, 15]}
+        >>> plot = ggplot(data, aes("year", "sold")) + geom_point() + transition_manual("year")
+        >>> animate(plot, fps=1).to_gif()[:6]
+        b'GIF89a'
         """
         return self._write(path, "gif")
 
@@ -221,6 +242,18 @@ class Animation:
         -------
         bytes or str
             The APNG when ``path`` is None, else the written path (empty for a file object).
+
+        Examples
+        --------
+        >>> import io
+        >>> from ggrust import *
+        >>> data = {"year": [2021, 2022, 2023], "sold": [10, 12, 15]}
+        >>> plot = ggplot(data, aes("year", "sold")) + geom_point() + transition_manual("year")
+        >>> buffer = io.BytesIO()
+        >>> animate(plot, fps=1).to_apng(buffer)
+        ''
+        >>> buffer.getvalue()[1:4]
+        b'PNG'
         """
         return self._write(path, "apng")
 
@@ -242,6 +275,17 @@ class Animation:
         -------
         str or None
             The page when ``path`` is None, else the written path (None for a file object).
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> data = {"year": [2021, 2022, 2023], "sold": [10, 12, 15]}
+        >>> plot = ggplot(data, aes("year", "sold")) + geom_point() + transition_manual("year")
+        >>> animation = animate(plot, fps=1)
+        >>> animation.to_html()[:15]
+        '<!DOCTYPE html>'
+        >>> animation.to_html(iframe=True)[:7]
+        '<iframe'
         """
         from ggrust._render import _write, render_animation_bytes
 
@@ -371,6 +415,24 @@ def animate(
     >>> animation = animate(plot, fps=1, end_pause=2)
     >>> animation.nframes
     5
+
+    Pauses on the first and last frame, then a rewind back to the start:
+
+    >>> animation = animate(plot, nframes=10, fps=2, start_pause=2, end_pause=3, rewind=True)
+    >>> animation.nframes, animation.fps
+    (10, 2)
+
+    A size in pixels and a resolution for the saved file:
+
+    >>> animation = animate(plot, width=400, height=300, dpi=144)
+    >>> animation.to_gif()[:6]
+    b'GIF89a'
+
+    Three frames computed for each one shown, for a smoother move between states:
+
+    >>> plot = ggplot(data, aes("fruit", "sold")) + geom_col() + transition_states("year")
+    >>> animate(plot, nframes=20, detail=3).nframes
+    20
     """
     if not isinstance(plot, PlotSpec):
         message = f"animate(): 'plot' must be a PlotSpec (from ggplot()), got {type(plot).__name__}"

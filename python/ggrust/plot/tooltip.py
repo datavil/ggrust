@@ -44,6 +44,20 @@ def layer_tooltips(variables: Sequence[str] | None = None) -> LayerTooltipsSpec:
     ...     .line("sun|@sun hours")
     ... )
     >>> plot = ggplot(data, aes("sun", "rain")) + geom_point(size=6, tooltips=tooltips)
+
+    Columns listed as ``name: value`` lines, with a format per column:
+
+    >>> tooltips = (
+    ...     layer_tooltips(["city", "rain", "sun"])
+    ...     .format("@rain", "{d} mm")
+    ...     .format("@sun", "{,d} h")
+    ... )
+    >>> plot = ggplot(data, aes("sun", "rain")) + geom_point(size=6, tooltips=tooltips)
+
+    A title only, in a wider box fixed to the top right corner of the panel:
+
+    >>> tooltips = layer_tooltips().title("@city").anchor("top_right").min_width(150)
+    >>> plot = ggplot(data, aes("sun", "rain")) + geom_point(size=6, tooltips=tooltips)
     """
     return LayerTooltipsSpec(variables=variables)
 

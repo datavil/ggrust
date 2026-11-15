@@ -74,6 +74,11 @@ def coord_cartesian(
     >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
     >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
     >>> plot = plot + coord_cartesian(xlim=[3, 4], ylim=[15, 25])
+
+    No padding around the data, so the area touches the axes:
+
+    >>> plot = ggplot(data, aes("weight", "mpg")) + geom_area(alpha=0.5)
+    >>> plot = plot + coord_cartesian(expand=False)
     """
     return FeatureSpec("coord", name="cartesian", xlim=xlim, ylim=ylim, flip=flip, expand=expand)
 
@@ -110,6 +115,11 @@ def coord_fixed(
     >>> from ggrust import *
     >>> data = {"x": [0, 1, 2, 3, 4], "y": [0, 1, 4, 9, 16]}
     >>> plot = ggplot(data, aes("x", "y")) + geom_line() + coord_fixed(ratio=0.25)
+
+    A square panel: the same limits on both axes, one unit as long on each:
+
+    >>> plot = ggplot(data, aes("x", "y")) + geom_line()
+    >>> plot = plot + coord_fixed(xlim=[0, 16], ylim=[0, 16], expand=False)
     """
     return FeatureSpec(
         "coord", name="fixed", ratio=ratio, xlim=xlim, ylim=ylim, flip=flip, expand=expand
@@ -137,6 +147,12 @@ def coord_flip(
     >>> data = {"size": ["S", "M", "L", "XL"], "sold": [40, 65, 52, 18]}
     >>> plot = ggplot(data, aes("size", "sold")) + geom_bar(stat="identity")
     >>> plot = plot + coord_flip()
+
+    Horizontal boxplots, zoomed to a range of the value axis:
+
+    >>> from ggrust.data import mpg
+    >>> plot = ggplot(mpg, aes("class", "hwy")) + geom_boxplot()
+    >>> plot = plot + coord_flip(ylim=[15, 40])
     """
     return FeatureSpec("coord", name="flip", xlim=xlim, ylim=ylim, flip=True)
 
@@ -180,6 +196,18 @@ def coord_polar(
     >>> data = {"part": ["a", "b", "c"], "share": [50, 30, 20], "all": ["", "", ""]}
     >>> plot = ggplot(data, aes("all", "share", fill="part")) + geom_bar(stat="identity", width=1)
     >>> plot = plot + coord_polar(theta="y")
+
+    A rose chart: one bar per category around the circle, its value as the radius:
+
+    >>> rain = {"month": ["Jan", "Mar", "May", "Jul", "Sep", "Nov"],
+    ...         "mm": [80, 55, 40, 20, 60, 95]}
+    >>> plot = ggplot(rain, aes("month", "mm", fill="mm")) + geom_bar(stat="identity", width=1)
+    >>> plot = plot + coord_polar()
+
+    The pie again, starting at 6 o'clock and running counter-clockwise:
+
+    >>> pie = ggplot(data, aes("all", "share", fill="part")) + geom_bar(stat="identity", width=1)
+    >>> plot = pie + coord_polar(theta="y", start=3.1416, direction=-1)
     """
     return FeatureSpec(
         "coord",
@@ -236,6 +264,11 @@ def coord_3d(
     ... }
     >>> plot = ggplot(data, aes("length", "width", z="petal", color="species")) + geom_point()
     >>> plot = plot + coord_3d(azimuth=-50, elevation=20)
+
+    Another view angle, with perspective:
+
+    >>> plot = ggplot(data, aes("length", "width", z="petal", color="species"))
+    >>> plot = plot + geom_point(size=4) + coord_3d(azimuth=30, elevation=15, perspective=True)
     """
     for key, angle in (("azimuth", azimuth), ("elevation", elevation)):
         if (
@@ -340,5 +373,12 @@ def coord_trans(
     >>> from ggrust import *
     >>> data = {"area": [1, 3, 10, 40, 120, 900], "people": [2, 5, 9, 30, 70, 500]}
     >>> plot = ggplot(data, aes("area", "people")) + geom_point() + coord_trans(y="sqrt")
+
+    Square root axes, with limits in data units and no padding:
+
+    >>> plot = ggplot(data, aes("area", "people")) + geom_point()
+    >>> plot = plot + coord_trans(
+    ...     x="sqrt", y="sqrt", xlim=[0, 1000], ylim=[0, 600], expand=False
+    ... )
     """
     return coord_transform(x=x, y=y, xlim=xlim, ylim=ylim, expand=expand)

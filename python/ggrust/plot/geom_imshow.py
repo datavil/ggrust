@@ -215,6 +215,16 @@ def geom_imshow(
     >>> from ggrust import *
     >>> image = np.random.default_rng(0).random((20, 30))
     >>> plot = ggplot() + geom_imshow(image, cmap=["#000000", "#ff8800"])
+
+    An RGB image (height x width x 3) is drawn with its own colors:
+
+    >>> rows, columns = np.mgrid[0:20, 0:30]
+    >>> rgb = np.stack([columns / 29, rows / 19, np.full((20, 30), 0.5)], axis=-1)
+    >>> plot = ggplot() + geom_imshow(rgb)
+
+    Place the image in data units and clip the color range:
+
+    >>> plot = ggplot() + geom_imshow(image, extent=[0, 3, 0, 2], vmin=0.25, vmax=0.75)
     """
     import numpy
 

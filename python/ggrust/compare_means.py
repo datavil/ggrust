@@ -131,6 +131,14 @@ def compare_means(
     [('veg', 'meat', '0.0043'), ('veg', 'fish', '0.092'), ('meat', 'fish', '0.0087')]
     >>> plot = (ggplot(data, aes("diet", "weight")) + geom_boxplot()
     ...         + stat_pvalue_manual(table, label="p.signif", y_position=88, step_increase=0.1))
+
+    Welch's t tests of every other group against a reference group:
+
+    >>> table = compare_means("weight ~ diet", data, method="t.test", ref_group="veg")
+    >>> table.select("group1", "group2", "p.signif").rows()
+    [('veg', 'meat', '**'), ('veg', 'fish', 'ns')]
+    >>> plot = (ggplot(data, aes("diet", "weight")) + geom_boxplot()
+    ...         + stat_pvalue_manual(table, label="p.adj", y_position=88, step_increase=0.1))
     """
     function = "compare_means"
     response, group = _parse_formula(formula)

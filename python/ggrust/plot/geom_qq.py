@@ -91,6 +91,13 @@ def geom_qq(
     >>> from ggrust import *
     >>> data = {"height": [160.0, 172.0, 181.0, 168.0, 175.0], "other": [2.0, 4.0, 3.0, 6.0, 5.0]}
     >>> plot = ggplot(data, aes(sample="height")) + geom_qq()
+
+    One Q-Q plot per group against a Student t distribution, with reference lines:
+
+    >>> from ggrust.data import iris
+    >>> plot = (ggplot(iris, aes(sample="sepal_length", color="species"))
+    ...         + geom_qq(distribution="t", dparams=[5])
+    ...         + geom_qq_line(distribution="t", dparams=[5]))
     """
     return _geom(
         "qq",

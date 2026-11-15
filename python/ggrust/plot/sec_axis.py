@@ -200,6 +200,12 @@ def sec_axis(
     ...         "Temperature (°C)", sec_axis=sec_axis(lambda c: c * 1.8 + 32, name="°F")
     ...     )
     ... )
+
+    Choose the secondary breaks and format their labels:
+
+    >>> base = ggplot(data, aes("month", "celsius")) + geom_line()
+    >>> fahrenheit = sec_axis(lambda c: c * 1.8 + 32, breaks=[40, 50, 60], labels="{.0f} °F")
+    >>> plot = base + scale_y_continuous("Temperature (°C)", sec_axis=fahrenheit)
     """
     return _secondary_axis("sec_axis", transform, name, breaks, labels, guide)
 

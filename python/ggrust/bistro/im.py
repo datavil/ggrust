@@ -82,6 +82,13 @@ def image_matrix(
     ...     for column in range(3):
     ...         matrix[row, column] = rng.integers(256, size=(32, 32, 3))
     >>> plot = image_matrix(matrix, scale=2)
+
+    Greyscale images in a color map, over a fixed value range:
+
+    >>> grey = np.empty((1, 3), dtype=object)
+    >>> for column in range(3):
+    ...     grey[0, column] = rng.random((32, 32)) * (column + 1) / 3
+    >>> plot = image_matrix(grey, cmap="magma", vmin=0, vmax=1, scale=3, spacer=6)
     """
     _check_number(scale, "scale", positive=True)
     _check_number(spacer, "spacer", positive=False)

@@ -7,3 +7,7 @@ title: geom_beeswarm
       heading_level: 1
 
 --8<-- "figures/reference/geom_beeswarm.html"
+
+**Groups within each x are swarmed side by side**
+
+--8<-- "figures/reference/geom_beeswarm_2.html"

@@ -624,8 +624,10 @@ def display_name(path: str) -> str:
 def object_page(path: str) -> str:
     """Return the Markdown of one object's page.
 
-    When the docstring example binds ``plot``, the page ends with that plot, rendered
-    by ``build_examples.py`` into ``docs/examples/figures/reference/<name>.html``.
+    The page ends with one plot per docstring example that binds ``plot``, rendered
+    by ``build_examples.py`` into ``docs/examples/figures/reference/``. The first is
+    shown as is; each later one follows the sentence that introduces it in the
+    docstring.
     """
     name = path.rpartition(".")[2]
     if name in ALIASES:
@@ -638,8 +640,10 @@ def object_page(path: str) -> str:
     page = (
         f"---\ntitle: {name}\n---\n\n::: {full_path(path)}\n    options:\n      heading_level: 1\n"
     )
-    if build_examples.binds_plot(build_examples.docstring_example(resolve(path))):
-        page += f'\n--8<-- "figures/reference/{name}.html"\n'
+    for stem, label in build_examples.reference_figures(name, resolve(path)):
+        if label:
+            page += f"\n**{label}**\n"
+        page += f'\n--8<-- "figures/reference/{stem}.html"\n'
     return page
 
 

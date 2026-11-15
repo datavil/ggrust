@@ -100,6 +100,16 @@ def inset_element(
     >>> main = ggplot(data, aes("weight", "mpg")) + geom_point()
     >>> detail = ggplot(data, aes("mpg")) + geom_histogram(bins=4)
     >>> plot = main + inset_element(detail, 0.55, 0.55, 1, 1)
+
+    Placed in the whole figure, so the inset may cover the axes:
+
+    >>> plot = main + inset_element(detail, 0, 0, 0.45, 0.45, align_to="full")
+
+    Several insets, one of them drawn under the points:
+
+    >>> label = ggplot() + annotate("text", x=0, y=0, label="draft", size=30, color="grey")
+    >>> plot = main + inset_element(detail, 0.55, 0.55, 1, 1)
+    >>> plot = plot + inset_element(label + theme_void(), 0, 0, 0.6, 0.5, on_top=False)
     """
     from ggrust.plot.subplots import SupPlotsSpec
 

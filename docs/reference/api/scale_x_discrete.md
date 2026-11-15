@@ -7,3 +7,7 @@ title: scale_x_discrete
       heading_level: 1
 
 --8<-- "figures/reference/scale_x_discrete.html"
+
+**Reverse the order and draw the axis on the opposite side**
+
+--8<-- "figures/reference/scale_x_discrete_2.html"

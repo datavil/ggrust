@@ -132,6 +132,18 @@ def geom_point(
     >>> from ggrust import *
     >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
     >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point(color="steelblue", size=4)
+
+    Color and shape mapped to a column, with transparency against overplotting:
+
+    >>> from ggrust.data import mpg
+    >>> plot = ggplot(mpg, aes("displ", "hwy", color="drv", shape="drv"))
+    >>> plot = plot + geom_point(size=4, alpha=0.5)
+
+    Filled shapes (21 to 25) take ``fill`` inside and ``color`` and ``stroke`` on the outline:
+
+    >>> plot = ggplot(mpg, aes("displ", "hwy", fill="drv")) + geom_point(
+    ...     shape=21, size=5, color="black", stroke=1.5
+    ... )
     """
     return _geom(
         "point",
@@ -208,6 +220,14 @@ def geom_path(
     >>> from ggrust import *
     >>> data = {"east": [0, 2, 3, 2, 4, 5], "north": [0, 1, 3, 4, 4, 2]}
     >>> plot = ggplot(data, aes("east", "north")) + geom_path() + geom_point()
+
+    One path per group, styled by color and line type:
+
+    >>> data = {"east": [0, 2, 3, 2, 0, 1, 3, 4], "north": [0, 1, 3, 4, 2, 4, 1, 3],
+    ...         "walker": ["Ann"] * 4 + ["Bo"] * 4}
+    >>> plot = ggplot(data, aes("east", "north", color="walker")) + geom_path(
+    ...     aes(linetype="walker"), size=1.5
+    ... )
     """
     return _geom(
         "path",
@@ -285,6 +305,14 @@ def geom_line(
     >>> data = {"day": [1, 2, 3, 4, 5, 6, 7],
     ...         "temperature": [14.2, 15.1, 13.8, 16.4, 18.0, 17.2, 19.5]}
     >>> plot = ggplot(data, aes("day", "temperature")) + geom_line(size=1.5)
+
+    One line per group, styled by color and line type:
+
+    >>> data = {"day": [1, 2, 3, 4] * 2, "city": ["Oslo"] * 4 + ["Rome"] * 4,
+    ...         "temperature": [14.2, 15.1, 13.8, 16.4, 22.5, 24.0, 23.1, 25.3]}
+    >>> plot = ggplot(data, aes("day", "temperature", color="city")) + geom_line(
+    ...     aes(linetype="city"), size=1.5
+    ... )
     """
     return _geom(
         "line",
@@ -364,6 +392,12 @@ def geom_step(
     >>> from ggrust import *
     >>> data = {"day": [1, 2, 3, 4, 5], "stock": [10, 7, 7, 4, 9]}
     >>> plot = ggplot(data, aes("day", "stock")) + geom_step(direction="mid")
+
+    The two other directions: ``"hv"`` steps across first, ``"vh"`` steps up or down first:
+
+    >>> plot = ggplot(data, aes("day", "stock")) + geom_point(size=3)
+    >>> plot = plot + geom_step(direction="hv", color="steelblue")
+    >>> plot = plot + geom_step(direction="vh", color="orange", linetype="dashed")
     """
     return _geom(
         "step",
@@ -683,6 +717,14 @@ def geom_abline(
     >>> data = {"predicted": [1.0, 2.1, 2.9, 4.2, 5.1], "observed": [1.2, 1.9, 3.1, 3.8, 5.4]}
     >>> plot = ggplot(data, aes("predicted", "observed")) + geom_point()
     >>> plot = plot + geom_abline(slope=1, intercept=0)
+
+    Several lines, with the slope and the intercept mapped from a table:
+
+    >>> bounds = {"slope": [1, 1], "intercept": [-0.5, 0.5], "bound": ["lower", "upper"]}
+    >>> plot = ggplot(data, aes("predicted", "observed")) + geom_point()
+    >>> plot = plot + geom_abline(
+    ...     aes(slope="slope", intercept="intercept", color="bound"), data=bounds, size=1
+    ... )
     """
     return _geom(
         "abline",
@@ -766,6 +808,12 @@ def geom_hline(
     ...         "temperature": [14.2, 15.1, 13.8, 16.4, 18.0, 17.2, 19.5]}
     >>> plot = ggplot(data, aes("day", "temperature")) + geom_line()
     >>> plot = plot + geom_hline(yintercept=16, linetype="dashed")
+
+    Several lines, with the intercept and the color mapped from a table:
+
+    >>> limits = {"temperature": [14, 18], "limit": ["cold", "warm"]}
+    >>> plot = ggplot(data, aes("day", "temperature")) + geom_line()
+    >>> plot = plot + geom_hline(aes(yintercept="temperature", color="limit"), data=limits, size=1)
     """
     return _geom(
         "hline",
@@ -848,6 +896,12 @@ def geom_vline(
     ...         "temperature": [14.2, 15.1, 13.8, 16.4, 18.0, 17.2, 19.5]}
     >>> plot = ggplot(data, aes("day", "temperature")) + geom_line()
     >>> plot = plot + geom_vline(xintercept=4, color="red")
+
+    Several lines, with the intercept and the color mapped from a table:
+
+    >>> events = {"day": [2, 5], "event": ["rain", "heat wave"]}
+    >>> plot = ggplot(data, aes("day", "temperature")) + geom_line()
+    >>> plot = plot + geom_vline(aes(xintercept="day", color="event"), data=events, size=1)
     """
     return _geom(
         "vline",
@@ -1053,6 +1107,12 @@ def geom_crossbar(
     >>> from ggrust import *
     >>> data = {"x": ["a", "b"], "y": [2.0, 3.0], "low": [1.0, 2.5], "high": [3.0, 4.0]}
     >>> plot = ggplot(data, aes(x="x", y="y", ymin="low", ymax="high")) + geom_crossbar()
+
+    Horizontal bars (``xmin``/``xmax`` over a discrete ``y``), filled, with a thicker midline:
+
+    >>> plot = ggplot(data, aes(y="x", x="y", xmin="low", xmax="high")) + geom_crossbar(
+    ...     fill="lightblue", width=0.5, fatten=5
+    ... )
     """
     return _geom(
         "crossbar",
@@ -1143,6 +1203,11 @@ def geom_pointrange(
     >>> from ggrust import *
     >>> data = {"x": ["a", "b"], "y": [2.0, 3.0], "low": [1.0, 2.5], "high": [3.0, 4.0]}
     >>> plot = ggplot(data, aes(x="x", y="y", ymin="low", ymax="high")) + geom_pointrange()
+
+    Horizontal ranges (``xmin``/``xmax`` over a discrete ``y``), colored, with a bigger point:
+
+    >>> plot = ggplot(data, aes(y="x", x="y", xmin="low", xmax="high", color="x"))
+    >>> plot = plot + geom_pointrange(size=1, fatten=6)
     """
     return _geom(
         "pointrange",
@@ -1223,6 +1288,11 @@ def geom_linerange(
     >>> from ggrust import *
     >>> data = {"x": ["a", "b"], "y": [2.0, 3.0], "low": [1.0, 2.5], "high": [3.0, 4.0]}
     >>> plot = ggplot(data, aes(x="x", y="y", ymin="low", ymax="high")) + geom_linerange()
+
+    Horizontal ranges (``xmin``/``xmax`` over a discrete ``y``), colored by group:
+
+    >>> plot = ggplot(data, aes(y="x", xmin="low", xmax="high", color="x"))
+    >>> plot = plot + geom_linerange(size=4)
     """
     return _geom(
         "linerange",
@@ -1309,6 +1379,24 @@ def geom_segment(
     >>> data = {"task": ["plan", "build", "test"], "start": [1, 3, 7], "end": [3, 8, 10]}
     >>> plot = ggplot(data) + geom_segment(
     ...     aes(x="start", xend="end", y="task", yend="task"), size=3
+    ... )
+
+    Arrows on the segment ends:
+
+    >>> plot = ggplot(data) + geom_segment(
+    ...     aes(x="start", xend="end", y="task", yend="task"),
+    ...     arrow=arrow(type="closed", length=12, ends="both"),
+    ... )
+
+    Segments that stop short of the points they connect: ``size_start`` and ``size_end``
+    take the point size, ``spacer`` adds a gap in pixels:
+
+    >>> flights = {"x": [1, 4], "y": [1, 2], "xend": [3, 6], "yend": [2, 1]}
+    >>> plot = ggplot(flights, aes(x="x", y="y", xend="xend", yend="yend"))
+    >>> plot = plot + geom_point(size=10, shape=1)
+    >>> plot = plot + geom_point(aes("xend", "yend"), size=10, shape=1)
+    >>> plot = plot + geom_segment(
+    ...     size_start=10, size_end=10, spacer=4, arrow=arrow(length=10),
     ... )
     """
     return _geom(
@@ -1408,6 +1496,23 @@ def geom_curve(
     >>> from ggrust import *
     >>> plot = ggplot() + geom_curve(
     ...     x=0, y=0, xend=1, yend=1, curvature=-0.3, arrow=arrow(type="closed")
+    ... )
+
+    Curves from a table; ``curvature`` sets how far they bend and to which side:
+
+    >>> flights = {"x": [1, 4], "y": [1, 2], "xend": [3, 6], "yend": [2, 1]}
+    >>> plot = ggplot(flights, aes(x="x", y="y", xend="xend", yend="yend"))
+    >>> plot = plot + geom_curve(curvature=0.5, color="steelblue", size=1)
+    >>> plot = plot + geom_curve(curvature=-0.5, color="orange", size=1)
+
+    Curves that stop short of the points they connect: ``size_start`` and ``size_end``
+    take the point size, ``spacer`` adds a gap in pixels:
+
+    >>> plot = ggplot(flights, aes(x="x", y="y", xend="xend", yend="yend"))
+    >>> plot = plot + geom_point(size=10, shape=1)
+    >>> plot = plot + geom_point(aes("xend", "yend"), size=10, shape=1)
+    >>> plot = plot + geom_curve(
+    ...     size_start=10, size_end=10, spacer=4, arrow=arrow(length=10),
     ... )
     """
     return _geom(
@@ -1514,6 +1619,17 @@ def geom_text(
     >>> from ggrust import *
     >>> data = {"city": ["Oslo", "Rome", "Lima"], "rain": [763, 798, 16], "sun": [1668, 2473, 1230]}
     >>> plot = ggplot(data, aes("sun", "rain", label="city")) + geom_text(size=8)
+
+    Bar values formatted with ``label_format``, nudged above the bar tops by a pixel distance:
+
+    >>> plot = ggplot(data, aes("city", "sun")) + geom_col() + geom_text(
+    ...     aes(label="sun"), label_format="{d} h", nudge_y=10, nudge_unit="px"
+    ... )
+
+    Many labels: ``check_overlap`` skips those that would cover an earlier one:
+
+    >>> from ggrust.data import mpg
+    >>> plot = ggplot(mpg, aes("displ", "hwy", label="model")) + geom_text(check_overlap=True)
     """
     return _geom(
         "text",
@@ -1622,6 +1738,19 @@ def geom_label(
     >>> from ggrust import *
     >>> data = {"city": ["Oslo", "Rome", "Lima"], "rain": [763, 798, 16], "sun": [1668, 2473, 1230]}
     >>> plot = ggplot(data, aes("sun", "rain", label="city")) + geom_label(fill="lightyellow")
+
+    Bar values formatted with ``label_format``, nudged below the bar tops by a pixel distance:
+
+    >>> plot = ggplot(data, aes("city", "sun")) + geom_col() + geom_label(
+    ...     aes(label="sun"), label_format="{d} h", nudge_y=-16, nudge_unit="px"
+    ... )
+
+    ``alpha`` fades only the fill; ``alpha_stroke=True`` fades the text and the border too:
+
+    >>> faded = {"alpha": 0.3, "size": 10, "nudge_unit": "px"}
+    >>> plot = ggplot(data, aes("city", "sun")) + geom_col()
+    >>> plot = plot + geom_label(aes(label="city"), nudge_y=-20, **faded)
+    >>> plot = plot + geom_label(aes(label="city"), nudge_y=-60, alpha_stroke=True, **faded)
     """
     return _geom(
         "label",
@@ -1809,6 +1938,16 @@ def geom_bar(
     >>> from ggrust import *
     >>> data = {"fruit": ["apple", "banana", "cherry", "apple", "banana", "apple"]}
     >>> plot = ggplot(data, aes("fruit")) + geom_bar(fill="seagreen")
+
+    Counts split by a second column, side by side:
+
+    >>> from ggrust.data import mpg
+    >>> plot = ggplot(mpg, aes("class", fill="drv")) + geom_bar(position="dodge")
+
+    Horizontal bars showing shares (``position="fill"``), each row weighted by a column:
+
+    >>> plot = ggplot(mpg, aes(y="class", fill="drv", weight="displ"))
+    >>> plot = plot + geom_bar(position="fill", orientation="y")
     """
     return _geom(
         "bar",
@@ -1903,6 +2042,10 @@ def geom_col(
     >>> from ggrust import *
     >>> data = {"fruit": ["apple", "banana", "cherry"], "sold": [12, 7, 9]}
     >>> plot = ggplot(data, aes("fruit", "sold")) + geom_col(fill="seagreen")
+
+    Horizontal, narrower bars:
+
+    >>> plot = ggplot(data, aes("sold", "fruit")) + geom_col(orientation="y", width=0.5)
     """
     return _geom(
         "col",
@@ -2008,6 +2151,16 @@ def geom_histogram(
     >>> from ggrust import *
     >>> data = {"minutes": [12, 15, 17, 18, 21, 22, 22, 24, 25, 27, 29, 31, 34, 38, 45]}
     >>> plot = ggplot(data, aes("minutes")) + geom_histogram(bins=6, color="white")
+
+    A fixed bin width instead of a bin count, stacked by group:
+
+    >>> from ggrust.data import mpg
+    >>> plot = ggplot(mpg, aes("hwy", fill="drv")) + geom_histogram(binwidth=2, color="white")
+
+    Density instead of counts on y, so a density curve fits on top:
+
+    >>> plot = ggplot(mpg, aes("hwy")) + geom_histogram(aes(y="..density.."), bins=20)
+    >>> plot = plot + geom_density(color="red", size=1)
     """
     return _geom(
         "histogram",
@@ -2136,6 +2289,17 @@ def geom_boxplot(
     >>> data = {"team": ["red"] * 6 + ["blue"] * 6,
     ...         "height": [168, 172, 175, 169, 181, 177, 160, 165, 171, 158, 166, 163]}
     >>> plot = ggplot(data, aes("team", "height")) + geom_boxplot()
+
+    Boxes dodged by a second column:
+
+    >>> from ggrust.data import mpg
+    >>> plot = ggplot(mpg, aes("drv", "hwy", fill=as_discrete("year"))) + geom_boxplot()
+
+    Box widths that follow the group sizes, and restyled outliers:
+
+    >>> plot = ggplot(mpg, aes("class", "hwy")) + geom_boxplot(
+    ...     varwidth=True, outlier_color="red", outlier_shape=4, outlier_size=3
+    ... )
     """
     boxplot_layer = _geom(
         "boxplot",
@@ -2428,6 +2592,18 @@ def geom_violin(
     >>> data = {"team": ["red"] * 6 + ["blue"] * 6,
     ...         "height": [168, 172, 175, 169, 181, 177, 160, 165, 171, 158, 166, 163]}
     >>> plot = ggplot(data, aes("team", "height", fill="team")) + geom_violin()
+
+    Quartile lines, and violins of equal width:
+
+    >>> from ggrust.data import iris
+    >>> plot = ggplot(iris, aes("species", "sepal_length")) + geom_violin(
+    ...     quantiles=[0.25, 0.5, 0.75], quantile_lines=True, scale="width"
+    ... )
+
+    Half violins with untrimmed tails, next to a narrow box plot:
+
+    >>> plot = ggplot(iris, aes("species", "sepal_length", fill="species"))
+    >>> plot = plot + geom_violin(show_half=1, trim=False) + geom_boxplot(width=0.1)
     """
     if "draw_quantiles" in other_args:
         message = (
@@ -2561,6 +2737,12 @@ def geom_sina(
     >>> data = {"team": ["red"] * 6 + ["blue"] * 6,
     ...         "height": [168, 172, 175, 169, 181, 177, 160, 165, 171, 158, 166, 163]}
     >>> plot = ggplot(data, aes("team", "height")) + geom_violin() + geom_sina()
+
+    Points colored by group, on the right half only, next to a half violin:
+
+    >>> from ggrust.data import iris
+    >>> plot = ggplot(iris, aes("species", "sepal_length", color="species"))
+    >>> plot = plot + geom_violin(show_half=-1) + geom_sina(show_half=1, seed=7)
     """
     return _geom(
         "sina",
@@ -2691,6 +2873,18 @@ def geom_density(
     >>> from ggrust import *
     >>> frame = {"height": [160, 165, 170, 172, 175, 180, 185], "sex": list("FFFMMMM")}
     >>> plot = ggplot(frame, aes("height", fill="sex")) + geom_density(alpha=0.4)
+
+    ``adjust`` scales the bandwidth: under 1 follows the data closely, over 1 smooths more:
+
+    >>> from ggrust.data import mpg
+    >>> plot = ggplot(mpg, aes("hwy")) + geom_density(adjust=0.5, color="red")
+    >>> plot = plot + geom_density(adjust=2, color="blue")
+
+    Each curve cut at the data range of its own group:
+
+    >>> from ggrust.data import iris
+    >>> plot = ggplot(iris, aes("sepal_length", fill="species"))
+    >>> plot = plot + geom_density(trim=True, alpha=0.5)
     """
     return _geom(
         "density",
@@ -2829,6 +3023,22 @@ def geom_smooth(
     >>> from ggrust import *
     >>> frame = {"hours": [1, 2, 3, 4, 5, 6], "score": [52, 55, 61, 64, 70, 71]}
     >>> plot = ggplot(frame, aes("hours", "score")) + geom_point() + geom_smooth()
+
+    A loess curve; a smaller ``span`` follows the points more closely:
+
+    >>> from ggrust.data import mpg
+    >>> plot = ggplot(mpg, aes("displ", "hwy")) + geom_point(alpha=0.3)
+    >>> plot = plot + geom_smooth(method="loess", span=0.3)
+
+    A quadratic fit (``deg=2``) without the confidence band:
+
+    >>> plot = ggplot(mpg, aes("displ", "hwy")) + geom_point(alpha=0.3)
+    >>> plot = plot + geom_smooth(deg=2, se=False, color="red")
+
+    One straight line per group:
+
+    >>> plot = ggplot(mpg, aes("displ", "hwy", color="drv")) + geom_point(alpha=0.3)
+    >>> plot = plot + geom_smooth(method="lm")
     """
     return _geom(
         "smooth",
@@ -2919,6 +3129,12 @@ def geom_area(
     >>> from ggrust import *
     >>> data = {"day": [1, 2, 3, 1, 2, 3], "sales": [3, 5, 4, 1, 2, 2], "shop": list("aaabbb")}
     >>> plot = ggplot(data, aes(x="day", y="sales", fill="shop")) + geom_area()
+
+    Overlapping instead of stacked areas:
+
+    >>> plot = ggplot(data, aes(x="day", y="sales", fill="shop")) + geom_area(
+    ...     position="identity", alpha=0.5
+    ... )
     """
     return _geom(
         "area",
@@ -3015,6 +3231,12 @@ def geom_rug(
     >>> from ggrust import *
     >>> data = {"height": [150, 162, 171, 158, 180, 166], "weight": [52, 60, 72, 55, 85, 63]}
     >>> plot = ggplot(data, aes("height", "weight")) + geom_point() + geom_rug()
+
+    Longer, colored ticks on the top and right edges:
+
+    >>> plot = ggplot(data, aes("height", "weight")) + geom_point() + geom_rug(
+    ...     sides="tr", length=0.06, color="red", alpha=0.6
+    ... )
     """
     if sides is not None:
         unknown = sorted({letter for letter in str(sides) if letter not in "trbl"})
@@ -3116,6 +3338,14 @@ def geom_ribbon(
     >>> from ggrust import *
     >>> data = {"day": [1, 2, 3], "low": [1.0, 2.0, 1.5], "high": [3.0, 4.0, 3.5]}
     >>> plot = ggplot(data, aes(x="day", ymin="low", ymax="high")) + geom_ribbon()
+
+    A styled band behind a line:
+
+    >>> data = {"day": [1, 2, 3], "sales": [2.0, 3.0, 2.5],
+    ...         "low": [1.0, 2.0, 1.5], "high": [3.0, 4.0, 3.5]}
+    >>> plot = ggplot(data, aes(x="day")) + geom_ribbon(
+    ...     aes(ymin="low", ymax="high"), fill="steelblue", alpha=0.3
+    ... ) + geom_line(aes(y="sales"))
     """
     return _geom(
         "ribbon",
@@ -3227,6 +3457,18 @@ def geom_area_ridges(
     >>> data = {"season": ["winter"] * 6 + ["summer"] * 6,
     ...         "temperature": [-2, 0, 1, 3, 2, -1, 22, 25, 27, 24, 29, 26]}
     >>> plot = ggplot(data, aes("temperature", "season")) + geom_area_ridges()
+
+    Taller ridges that overlap (``scale`` over 1), made see-through:
+
+    >>> from ggrust.data import iris
+    >>> plot = ggplot(iris, aes("sepal_length", "species", fill="species"))
+    >>> plot = plot + geom_area_ridges(scale=2.5, alpha=0.6)
+
+    Quartile lines, with the bands between them filled by quantile:
+
+    >>> plot = ggplot(iris, aes("sepal_length", "species")) + geom_area_ridges(
+    ...     aes(fill="..quantile.."), quantiles=[0.25, 0.5, 0.75], quantile_lines=True
+    ... )
     """
     return _geom(
         "area_ridges",
@@ -3406,6 +3648,13 @@ def geom_jitter(
     >>> from ggrust import *
     >>> data = {"rating": [1, 2, 2, 3, 3, 3, 4, 4, 5] * 2, "app": ["web"] * 9 + ["mobile"] * 9}
     >>> plot = ggplot(data, aes("app", "rating")) + geom_jitter(width=0.2, height=0.1)
+
+    Jitter along x only, colored by group, reproducible with ``seed``:
+
+    >>> from ggrust.data import mpg
+    >>> plot = ggplot(mpg, aes("drv", "hwy", color="drv")) + geom_jitter(
+    ...     width=0.25, height=0, seed=3, alpha=0.6
+    ... )
     """
     return _geom(
         "jitter",
@@ -3494,6 +3743,12 @@ def geom_tile(
     >>> data = {"day": ["Mon", "Tue", "Wed"] * 2, "time": ["am"] * 3 + ["pm"] * 3,
     ...         "visitors": [12, 18, 9, 30, 25, 21]}
     >>> plot = ggplot(data, aes("day", "time", fill="visitors")) + geom_tile()
+
+    Smaller tiles with an outline, leaving gaps:
+
+    >>> plot = ggplot(data, aes("day", "time", fill="visitors")) + geom_tile(
+    ...     width=0.9, height=0.8, color="black", size=1
+    ... )
     """
     return _geom(
         "tile",
@@ -3590,6 +3845,11 @@ def geom_bin2d(
     >>> from ggrust import *
     >>> data = {"height": [160, 172, 181, 165, 170, 158], "weight": [55, 70, 82, 61, 68, 52]}
     >>> plot = ggplot(data, aes("height", "weight")) + geom_bin2d(bins=[4, 3])
+
+    Bin sizes in data units instead of bin counts, with outlined tiles:
+
+    >>> from ggrust.data import mpg
+    >>> plot = ggplot(mpg, aes("displ", "hwy")) + geom_bin2d(binwidth=[0.5, 4], color="white")
     """
     return _geom(
         "bin2d",
@@ -3693,6 +3953,11 @@ def geom_hex(
     >>> from ggrust import *
     >>> data = {"height": [160, 172, 181, 165, 170, 158], "weight": [55, 70, 82, 61, 68, 52]}
     >>> plot = ggplot(data, aes("height", "weight")) + geom_hex(bins=[4, 3])
+
+    Hexagon sizes in data units instead of bin counts:
+
+    >>> from ggrust.data import mpg
+    >>> plot = ggplot(mpg, aes("displ", "hwy")) + geom_hex(binwidth=[0.5, 4], color="white")
     """
     return _geom(
         "hex",
@@ -3789,6 +4054,12 @@ def geom_contour(
     >>> x, y = np.meshgrid(np.linspace(-2, 2, 40), np.linspace(-2, 2, 40))
     >>> data = {"x": x.ravel(), "y": y.ravel(), "z": np.exp(-(x**2 + y**2)).ravel()}
     >>> plot = ggplot(data, aes("x", "y", z="z")) + geom_contour(aes(color="..level.."), bins=6)
+
+    Lines at chosen levels, in one color:
+
+    >>> plot = ggplot(data, aes("x", "y", z="z")) + geom_contour(
+    ...     breaks=[0.1, 0.5, 0.9], color="black", size=1
+    ... )
     """
     return _geom(
         "contour",
@@ -3888,6 +4159,12 @@ def geom_contourf(
     >>> x, y = np.meshgrid(np.linspace(-2, 2, 40), np.linspace(-2, 2, 40))
     >>> data = {"x": x.ravel(), "y": y.ravel(), "z": np.exp(-(x**2 + y**2)).ravel()}
     >>> plot = ggplot(data, aes("x", "y", z="z")) + geom_contourf()
+
+    Bands of a fixed height, filled by level:
+
+    >>> plot = ggplot(data, aes("x", "y", z="z")) + geom_contourf(
+    ...     aes(fill="..level.."), binwidth=0.1
+    ... )
     """
     return _geom(
         "contourf",
@@ -4102,6 +4379,12 @@ def geom_density2d(
     >>> rng = np.random.default_rng(1)
     >>> data = {"duration": rng.normal(3, 1, 300), "wait": rng.normal(70, 12, 300)}
     >>> plot = ggplot(data, aes("duration", "wait")) + geom_point() + geom_density2d()
+
+    Fewer lines, colored by density level:
+
+    >>> plot = ggplot(data, aes("duration", "wait")) + geom_density2d(
+    ...     aes(color="..level.."), bins=5, size=1
+    ... )
     """
     return _geom(
         "density2d",
@@ -4226,6 +4509,12 @@ def geom_density2df(
     >>> rng = np.random.default_rng(1)
     >>> data = {"duration": rng.normal(3, 1, 300), "wait": rng.normal(70, 12, 300)}
     >>> plot = ggplot(data, aes("duration", "wait")) + geom_density2df()
+
+    Fewer bands, filled by density level:
+
+    >>> plot = ggplot(data, aes("duration", "wait")) + geom_density2df(
+    ...     aes(fill="..level.."), bins=5
+    ... )
     """
     return _geom(
         "density2df",
@@ -4317,6 +4606,10 @@ def geom_raster(
     >>> data = {"x": [1, 2, 3] * 3, "y": [1] * 3 + [2] * 3 + [3] * 3,
     ...         "height": [1, 2, 1, 2, 4, 2, 1, 2, 1]}
     >>> plot = ggplot(data, aes("x", "y", fill="height")) + geom_raster()
+
+    Colors blended between the cell centers:
+
+    >>> plot = ggplot(data, aes("x", "y", fill="height")) + geom_raster(interpolate=True)
     """
     return _geom(
         "raster",
@@ -4404,6 +4697,13 @@ def geom_rect(
     >>> plot = ggplot(data) + geom_rect(
     ...     aes(xmin="left", xmax="right", ymin="bottom", ymax="top", fill="room"), color="white"
     ... )
+
+    One rectangle from constants, highlighting a region behind the points:
+
+    >>> from ggrust.data import mpg
+    >>> plot = ggplot(mpg, aes("displ", "hwy")) + geom_rect(
+    ...     xmin=5, xmax=7.2, ymin=22, ymax=27, fill="gold", alpha=0.4
+    ... ) + geom_point()
     """
     return _geom(
         "rect",
@@ -4493,6 +4793,12 @@ def geom_band(
     >>> weekends = {"start": [4.5, 11.5], "end": [6.5, 13.5]}
     >>> plot = ggplot(data, aes("day", "visits")) + geom_band(
     ...     aes(xmin="start", xmax="end"), data=weekends, fill="gold", alpha=0.3, size=0
+    ... ) + geom_line()
+
+    A horizontal band from constants:
+
+    >>> plot = ggplot(data, aes("day", "visits")) + geom_band(
+    ...     ymin=6, ymax=9, fill="seagreen", alpha=0.2, size=0
     ... ) + geom_line()
     """
     return _geom(
@@ -4601,6 +4907,23 @@ def geom_bracket(
     ...     ggplot(data, aes("team", "height"))
     ...     + geom_boxplot()
     ...     + geom_bracket(aes(xmin="xmin", xmax="xmax", y="y", label="label"), data=marks)
+    ... )
+
+    A styled label and bracket line:
+
+    >>> plot = ggplot(data, aes("team", "height")) + geom_boxplot() + geom_bracket(
+    ...     aes(xmin="xmin", xmax="xmax", y="y", label="label"), data=marks,
+    ...     color="firebrick", fontface="italic", segment_color="grey", segment_size=1.5,
+    ... )
+
+    Several brackets at different heights, with longer tips and a gap between neighbours:
+
+    >>> from ggrust.data import iris
+    >>> marks = {"xmin": ["setosa", "versicolor", "setosa"], "label": ["***", "**", "***"],
+    ...          "xmax": ["versicolor", "virginica", "virginica"], "y": [8.2, 8.2, 8.7]}
+    >>> plot = ggplot(iris, aes("species", "sepal_length")) + geom_boxplot() + geom_bracket(
+    ...     aes(xmin="xmin", xmax="xmax", y="y", label="label"), data=marks,
+    ...     lenstart=8, lenend=8, bracket_shorten=0.1,
     ... )
     """
     return _geom(
@@ -4882,6 +5205,26 @@ def geom_text_repel(
     >>> data = {"city": ["Oslo", "Bergen", "Rome", "Milan", "Lima"],
     ...         "rain": [763, 2250, 798, 1000, 16], "sun": [1668, 1270, 2473, 1900, 1230]}
     >>> plot = ggplot(data, aes("sun", "rain")) + geom_point() + geom_text_repel(aes(label="city"))
+
+    Label only some points, by giving the layer its own rows:
+
+    >>> from ggrust.data import mpg
+    >>> best = mpg.filter(mpg["hwy"] > 34)
+    >>> plot = ggplot(mpg, aes("displ", "hwy")) + geom_point(color="grey")
+    >>> plot = plot + geom_text_repel(aes(label="model"), data=best, seed=1)
+
+    Styled text and connecting segments, with arrows and more room around each label:
+
+    >>> plot = ggplot(data, aes("sun", "rain")) + geom_point() + geom_text_repel(
+    ...     aes(label="city"), color="firebrick", segment_color="grey", segment_size=1,
+    ...     box_padding=20, min_segment_length=0, arrow=arrow(length=6), seed=1,
+    ... )
+
+    Labels moved to the right of their points and pushed apart vertically only:
+
+    >>> plot = ggplot(data, aes("sun", "rain")) + geom_point() + geom_text_repel(
+    ...     aes(label="city"), nudge_x=150, direction="y", seed=1
+    ... ) + xlim(1100, 2900)
     """
     return _geom(
         "text_repel",
@@ -5050,6 +5393,26 @@ def geom_label_repel(
     >>> data = {"city": ["Oslo", "Bergen", "Rome", "Milan", "Lima"],
     ...         "rain": [763, 2250, 798, 1000, 16], "sun": [1668, 1270, 2473, 1900, 1230]}
     >>> plot = ggplot(data, aes("sun", "rain")) + geom_point() + geom_label_repel(aes(label="city"))
+
+    Label only some points, by giving the layer its own rows:
+
+    >>> from ggrust.data import mpg
+    >>> best = mpg.filter(mpg["hwy"] > 34)
+    >>> plot = ggplot(mpg, aes("displ", "hwy")) + geom_point(color="grey")
+    >>> plot = plot + geom_label_repel(aes(label="model"), data=best, seed=1)
+
+    Styled boxes and connecting segments, with arrows and more room around each label:
+
+    >>> plot = ggplot(data, aes("sun", "rain")) + geom_point() + geom_label_repel(
+    ...     aes(label="city"), fill="lightyellow", label_r=0, segment_color="grey", segment_size=1,
+    ...     box_padding=20, min_segment_length=0, arrow=arrow(length=6), seed=1,
+    ... )
+
+    Labels moved to the right of their points and pushed apart vertically only:
+
+    >>> plot = ggplot(data, aes("sun", "rain")) + geom_point() + geom_label_repel(
+    ...     aes(label="city"), nudge_x=150, direction="y", seed=1
+    ... ) + xlim(1100, 2900)
     """
     return _geom(
         "label_repel",

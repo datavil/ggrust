@@ -125,6 +125,11 @@ def scale_color_distiller(
     >>> data = {"x": [1, 2, 3, 4], "y": [3, 1, 4, 2], "speed": [10, 20, 30, 40]}
     >>> plot = ggplot(data, aes("x", "y", color="speed")) + geom_point(size=6)
     >>> plot = plot + scale_color_distiller(palette="Spectral")
+
+    Light to dark with ``direction=1``, over wider ``limits``:
+
+    >>> base = ggplot(data, aes("x", "y", color="speed")) + geom_point(size=6)
+    >>> plot = base + scale_color_distiller(palette="Greens", direction=1, limits=[0, 60])
     """
     return _distiller(
         "color",
@@ -206,6 +211,11 @@ def scale_fill_distiller(
     >>> data = {"x": [1, 2, 1, 2], "y": [1, 1, 2, 2], "rain": [3, 8, 12, 20]}
     >>> plot = ggplot(data, aes("x", "y", fill="rain")) + geom_tile()
     >>> plot = plot + scale_fill_distiller(palette="YlGnBu", direction=1)
+
+    Dark to light (the default direction), over wider ``limits``:
+
+    >>> base = ggplot(data, aes("x", "y", fill="rain")) + geom_tile()
+    >>> plot = base + scale_fill_distiller(palette="Greens", limits=[0, 30])
     """
     return _distiller(
         "fill",

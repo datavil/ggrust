@@ -103,6 +103,13 @@ def scale_color_steps(
     ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
     >>> plot = ggplot(data, aes("x", "y", color="change")) + geom_point(size=12)
     >>> plot = plot + scale_color_steps(low="lightyellow", high="firebrick")
+
+    Set the bin edges with ``breaks`` and label the ends with ``show_limits``:
+
+    >>> base = ggplot(data, aes("x", "y", color="change")) + geom_point(size=12)
+    >>> plot = base + scale_color_steps(
+    ...     low="lightyellow", high="firebrick", breaks=[-2, 0, 2], show_limits=True
+    ... )
     """
     return _scale(
         "color",
@@ -204,6 +211,13 @@ def scale_color_steps2(
     ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
     >>> plot = ggplot(data, aes("x", "y", color="change")) + geom_point(size=12)
     >>> plot = plot + scale_color_steps2(midpoint=0)
+
+    Choose the three colors and the bin edges:
+
+    >>> base = ggplot(data, aes("x", "y", color="change")) + geom_point(size=12)
+    >>> plot = base + scale_color_steps2(
+    ...     low="darkorange", mid="lightgrey", high="purple", breaks=[-2, -1, 1, 2]
+    ... )
     """
     return _scale(
         "color",
@@ -302,6 +316,11 @@ def scale_color_stepsn(
     ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
     >>> plot = ggplot(data, aes("x", "y", color="change")) + geom_point(size=12)
     >>> plot = plot + scale_color_stepsn(colors=["navy", "gold", "darkred"])
+
+    Ask for more bins with ``n_breaks``:
+
+    >>> base = ggplot(data, aes("x", "y", color="change")) + geom_point(size=12)
+    >>> plot = base + scale_color_stepsn(colors=["navy", "gold", "darkred"], n_breaks=8)
     """
     return _scale(
         "color",
@@ -398,6 +417,11 @@ def scale_color_binned(
     ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
     >>> plot = ggplot(data, aes("x", "y", color="change")) + geom_point(size=12)
     >>> plot = plot + scale_color_binned()
+
+    Widen the ``limits`` and choose the end colors:
+
+    >>> base = ggplot(data, aes("x", "y", color="change")) + geom_point(size=12)
+    >>> plot = base + scale_color_binned(low="white", high="darkgreen", limits=[-6, 6])
     """
     return _scale(
         "color",
@@ -496,6 +520,13 @@ def scale_fill_steps(
     ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
     >>> plot = ggplot(data, aes("x", "y", fill="change")) + geom_tile()
     >>> plot = plot + scale_fill_steps(low="lightyellow", high="firebrick")
+
+    Set the bin edges with ``breaks`` and label the ends with ``show_limits``:
+
+    >>> base = ggplot(data, aes("x", "y", fill="change")) + geom_tile()
+    >>> plot = base + scale_fill_steps(
+    ...     low="lightyellow", high="firebrick", breaks=[-2, 0, 2], show_limits=True
+    ... )
     """
     return _scale(
         "fill",
@@ -597,6 +628,13 @@ def scale_fill_steps2(
     ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
     >>> plot = ggplot(data, aes("x", "y", fill="change")) + geom_tile()
     >>> plot = plot + scale_fill_steps2(midpoint=0)
+
+    Choose the three colors and the bin edges:
+
+    >>> base = ggplot(data, aes("x", "y", fill="change")) + geom_tile()
+    >>> plot = base + scale_fill_steps2(
+    ...     low="darkorange", mid="lightgrey", high="purple", breaks=[-2, -1, 1, 2]
+    ... )
     """
     return _scale(
         "fill",
@@ -695,6 +733,11 @@ def scale_fill_stepsn(
     ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
     >>> plot = ggplot(data, aes("x", "y", fill="change")) + geom_tile()
     >>> plot = plot + scale_fill_stepsn(colors=["navy", "gold", "darkred"])
+
+    Ask for more bins with ``n_breaks``:
+
+    >>> base = ggplot(data, aes("x", "y", fill="change")) + geom_tile()
+    >>> plot = base + scale_fill_stepsn(colors=["navy", "gold", "darkred"], n_breaks=8)
     """
     return _scale(
         "fill",
@@ -791,6 +834,11 @@ def scale_fill_binned(
     ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
     >>> plot = ggplot(data, aes("x", "y", fill="change")) + geom_tile()
     >>> plot = plot + scale_fill_binned()
+
+    Widen the ``limits`` and choose the end colors:
+
+    >>> base = ggplot(data, aes("x", "y", fill="change")) + geom_tile()
+    >>> plot = base + scale_fill_binned(low="white", high="darkgreen", limits=[-6, 6])
     """
     return _scale(
         "fill",

@@ -100,6 +100,13 @@ def geom_dotplot(
     >>> from ggrust import *
     >>> data = {"height": [1.2, 1.3, 1.3, 1.7, 2.0, 2.1]}
     >>> plot = ggplot(data, aes(x="height")) + geom_dotplot(binwidth=0.2)
+
+    Groups stacked on top of each other in equal bins:
+
+    >>> from ggrust.data import iris
+    >>> plot = ggplot(iris, aes("sepal_length", fill="species")) + geom_dotplot(
+    ...     binwidth=0.2, method="histodot", stackgroups=True
+    ... )
     """
     return _geom(
         "dotplot",
@@ -212,6 +219,13 @@ def geom_ydotplot(
     >>> from ggrust import *
     >>> data = {"group": ["a", "a", "b"], "height": [1.2, 1.3, 1.7]}
     >>> plot = ggplot(data, aes("group", "height")) + geom_ydotplot(binwidth=0.2)
+
+    Dots stacked from the middle of each group, like a violin of dots:
+
+    >>> from ggrust.data import iris
+    >>> plot = ggplot(iris, aes("species", "sepal_length", fill="species")) + geom_ydotplot(
+    ...     binwidth=0.1, stackdir="center"
+    ... )
     """
     return _geom(
         "ydotplot",

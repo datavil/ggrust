@@ -73,6 +73,11 @@ def ggsize(width: Number, height: Number) -> FeatureSpec:
     >>> from ggrust import *
     >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
     >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point() + ggsize(400, 250)
+
+    Added to a grid, it sets the size of the whole figure:
+
+    >>> points = ggplot(data, aes("weight", "mpg")) + geom_point()
+    >>> plot = gggrid([points, points + geom_line()]) + ggsize(700, 250)
     """
     # Same checks and exception type (AssertionError) as lets_plot.
     if not isinstance(width, numbers.Number):

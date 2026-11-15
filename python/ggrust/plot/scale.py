@@ -331,6 +331,19 @@ def scale_x_continuous(
     >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
     >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
     >>> plot = plot + scale_x_continuous("Weight (1000 lb)", breaks=[3, 3.5, 4])
+
+    Fix the range with ``limits``; ``expand=[0, 0]`` drops the padding around it:
+
+    >>> base = ggplot(data, aes("weight", "mpg")) + geom_point()
+    >>> plot = base + scale_x_continuous(limits=[2, 5], expand=[0, 0])
+
+    Format the labels and show a second unit on the opposite side:
+
+    >>> plot = base + scale_x_continuous(
+    ...     "Weight (1000 lb)",
+    ...     format=".1f",
+    ...     sec_axis=sec_axis(lambda pounds: pounds * 0.4536, name="Weight (tonnes)"),
+    ... )
     """
     return _scale(
         "x",
@@ -425,6 +438,19 @@ def scale_y_continuous(
     >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
     >>> plot = ggplot(data, aes("weight", "mpg")) + geom_point()
     >>> plot = plot + scale_y_continuous("Miles per gallon", limits=[0, 35])
+
+    Choose the breaks and name them with ``labels``:
+
+    >>> base = ggplot(data, aes("weight", "mpg")) + geom_point()
+    >>> plot = base + scale_y_continuous(breaks=[15, 23, 31], labels=["thirsty", "fair", "frugal"])
+
+    Format the labels and show a second unit on the opposite side:
+
+    >>> plot = base + scale_y_continuous(
+    ...     "Miles per gallon",
+    ...     format=".1f",
+    ...     sec_axis=sec_axis(lambda miles: miles * 0.4251, name="Kilometres per litre"),
+    ... )
     """
     return _scale(
         "y",
@@ -609,6 +635,27 @@ def _transformed(scale: FunctionType, trans: Transform) -> Callable[..., Feature
         '...         "people": [0.38, 5.5, 48, 124, 1430], "area": [103, 385, 506, 378, 3287]}\n'
         f">>> plot = ggplot(data, aes({mapping})) + geom_point() + scale_{axis}_{trans}()\n"
     )
+    side = "top" if axis == "x" else "right"
+    second_example = {
+        "log10": (
+            "Name the axis and choose its breaks and labels:\n\n"
+            f">>> base = ggplot(data, aes({mapping})) + geom_point()\n"
+            f">>> plot = base + scale_{axis}_log10(\n"
+            '...     "People (millions)",\n'
+            "...     breaks=[1, 10, 100, 1000],\n"
+            '...     labels=["1 M", "10 M", "100 M", "1 B"],\n'
+            "... )\n"
+        ),
+        "reverse": (
+            "Name the axis, choose its breaks and draw it on the opposite side:\n\n"
+            f">>> base = ggplot(data, aes({mapping})) + geom_point()\n"
+            f">>> plot = base + scale_{axis}_reverse(\n"
+            f'...     "People (millions)", breaks=[0, 500, 1000, 1500], position="{side}"\n'
+            "... )\n"
+        ),
+    }.get(trans)
+    if second_example is not None:
+        scale_function.__doc__ += f"\n{second_example}"
     return scale_function
 
 
@@ -692,6 +739,18 @@ def scale_x_datetime(
     ...     + geom_line()
     ...     + scale_x_datetime(break_width="2 weeks", format="%d %b")
     ... )
+
+    Give the breaks as dates:
+
+    >>> base = ggplot(data, aes("day", "visitors")) + geom_line()
+    >>> starts = [datetime.date(2024, month, 1) for month in (1, 2, 3)]
+    >>> plot = base + scale_x_datetime(breaks=starts, format="%B")
+
+    Widen the axis with ``limits``:
+
+    >>> plot = base + scale_x_datetime(
+    ...     limits=[datetime.date(2023, 12, 1), datetime.date(2024, 4, 1)], format="%b %Y"
+    ... )
     """
     return _scale(
         "x",
@@ -739,6 +798,17 @@ def scale_y_datetime(
     ... }
     >>> plot = ggplot(data, aes("steps", "day")) + geom_point(size=4)
     >>> plot = plot + scale_y_datetime(format="%a %d")
+
+    Space the breaks with ``break_width``:
+
+    >>> base = ggplot(data, aes("steps", "day")) + geom_point(size=4)
+    >>> plot = base + scale_y_datetime(break_width="2 days", format="%d %b")
+
+    Widen the axis with ``limits``:
+
+    >>> plot = base + scale_y_datetime(
+    ...     limits=[datetime(2026, 2, 26), datetime(2026, 3, 12)], format="%d %b"
+    ... )
     """
     return _scale(
         "y",
@@ -939,6 +1009,11 @@ def scale_x_discrete(
     >>> data = {"size": ["S", "M", "L", "XL"], "sold": [40, 65, 52, 18]}
     >>> plot = ggplot(data, aes("size", "sold")) + geom_bar(stat="identity")
     >>> plot = plot + scale_x_discrete(limits=["XL", "L", "M", "S"])
+
+    Reverse the order and draw the axis on the opposite side:
+
+    >>> base = ggplot(data, aes("size", "sold")) + geom_bar(stat="identity")
+    >>> plot = base + scale_x_discrete("Shirt size", reverse=True, position="top")
     """
     return _scale(
         "x",
@@ -1016,6 +1091,11 @@ def scale_y_discrete(
     >>> data = {"size": ["S", "M", "L", "XL"], "sold": [40, 65, 52, 18]}
     >>> plot = ggplot(data, aes("sold", "size")) + geom_point(size=5)
     >>> plot = plot + scale_y_discrete(labels=["small", "medium", "large", "extra large"])
+
+    Reverse the order and draw the axis on the opposite side:
+
+    >>> base = ggplot(data, aes("sold", "size")) + geom_point(size=5)
+    >>> plot = base + scale_y_discrete("Shirt size", reverse=True, position="right")
     """
     return _scale(
         "y",

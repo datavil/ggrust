@@ -7,3 +7,7 @@ title: stat_interval
       heading_level: 1
 
 --8<-- "figures/reference/stat_interval.html"
+
+**Three interval levels, horizontal**
+
+--8<-- "figures/reference/stat_interval_2.html"

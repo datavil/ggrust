@@ -94,6 +94,15 @@ def guide_axis(
     ...     + theme_classic()
     ...     + guides(x=guide_axis(cap="both"), y=guide_axis(cap="upper"))
     ... )
+
+    A guide can also carry the axis title:
+
+    >>> plot = (
+    ...     ggplot(data, aes("age", "weight"))
+    ...     + geom_point()
+    ...     + theme_classic()
+    ...     + guides(x=guide_axis("Age (years)", cap="lower"), y=guide_axis("Weight", cap=True))
+    ... )
     """
     if cap is not None and not isinstance(cap, bool):
         listing = ", ".join(map(repr, _CAPS))
@@ -505,6 +514,11 @@ def guides(**kwargs: object) -> FeatureSpec:
     ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
     >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
     >>> plot = plot + guides(color=guide_legend(title="Animal", ncol=3))
+
+    Set several guides at once; ``"none"`` hides one:
+
+    >>> base = ggplot(data, aes("age", "weight", color="pet", size="weight")) + geom_point()
+    >>> plot = base + guides(color=guide_legend(reverse=True), size="none")
     """
     return FeatureSpec("guides", name=None, **kwargs)
 
@@ -571,6 +585,19 @@ def guide_legend(
     >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
     >>> plot = plot + guides(color=guide_legend(nrow=1, override_aes={"size": 8}))
     >>> plot = plot + guides(color=guide_legend(reverse=True, order=1))
+
+    ``override_aes`` draws the keys opaque although the points are not:
+
+    >>> base = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5, alpha=0.3)
+    >>> plot = base + guides(color=guide_legend(override_aes={"alpha": 1}))
+
+    Title each legend and send it to its own side with ``position``:
+
+    >>> base = ggplot(data, aes("age", "weight", color="pet", size="weight")) + geom_point()
+    >>> plot = base + guides(
+    ...     color=guide_legend("Animal", position="top"),
+    ...     size=guide_legend("Weight (kg)", position="right"),
+    ... )
     """
     _check_common("guide_legend", reverse, direction, order, position)
     return _guide("legend", **_with_theme(locals(), "guide_legend"))
@@ -680,6 +707,34 @@ def guide_colorbar(
     ...         shape="triangle",
     ...         minor_ticks=True,
     ...         theme=theme(legend_title_position="bottom"),
+    ...     )
+    ... )
+
+    A long, thin bar under the plot, with its title on top:
+
+    >>> from ggrust.data import mpg
+    >>> base = ggplot(mpg, aes("displ", "hwy", color="cty")) + geom_point()
+    >>> plot = base + guides(
+    ...     color=guide_colorbar(
+    ...         "City miles per gallon",
+    ...         barwidth=300,
+    ...         barheight=10,
+    ...         position="bottom",
+    ...         theme=theme(legend_title_position="top"),
+    ...     )
+    ... )
+
+    Triangle caps show that values beyond the limits are squished into the end colors:
+
+    >>> plot = base + scale_color_viridis(
+    ...     limits=[12, 25], oob="squish", guide=guide_colorbar(shape="triangle")
+    ... )
+
+    Minor ticks between the breaks, and an outline from ``theme(legend_frame=...)``:
+
+    >>> plot = base + guides(
+    ...     color=guide_colorbar(
+    ...         minor_ticks=True, theme=theme(legend_frame=element_rect(color="black"))
     ...     )
     ... )
     """
@@ -807,6 +862,13 @@ def guide_bins(
     >>> data = {"x": [1, 2, 3, 4, 5], "y": [2, 4, 3, 5, 1], "score": [3, 18, 41, 66, 97]}
     >>> plot = ggplot(data, aes("x", "y", size="score")) + geom_point()
     >>> plot = plot + scale_size_binned(guide=guide_bins(show_limits=True))
+
+    Title the legend and lay its keys out in a row under the plot:
+
+    >>> base = ggplot(data, aes("x", "y", size="score")) + geom_point()
+    >>> plot = base + scale_size_binned(
+    ...     guide=guide_bins("Score", direction="horizontal", position="bottom")
+    ... )
     """
     _check_common("guide_bins", reverse, direction, order, position)
     if show_limits is not None and not isinstance(show_limits, bool):
@@ -976,6 +1038,15 @@ def layer_key(
     ...     + geom_line(color="grey", manual_key=layer_key("trend", linetype="solid"))
     ...     + geom_point(color="firebrick", size=4, manual_key=layer_key("measured"))
     ...     + labs(manual="Steps (thousands)")
+    ... )
+
+    Keys with the same ``group`` share a legend; ``index`` orders them:
+
+    >>> plot = (
+    ...     ggplot(data, aes("day", "steps"))
+    ...     + geom_line(color="grey", manual_key=layer_key("trend", "Steps", index=2))
+    ...     + geom_point(color="firebrick", manual_key=layer_key("measured", "Steps", index=1))
+    ...     + geom_hline(yintercept=8, linetype="dashed", manual_key=layer_key("goal", "Target"))
     ... )
     """
     if not isinstance(label, str):

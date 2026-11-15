@@ -7,3 +7,7 @@ title: geom_half_boxplot
       heading_level: 1
 
 --8<-- "figures/reference/geom_half_boxplot.html"
+
+**A half box next to a half violin of the same data**
+
+--8<-- "figures/reference/geom_half_boxplot_2.html"

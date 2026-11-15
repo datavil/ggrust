@@ -7,3 +7,11 @@ title: geom_bracket
       heading_level: 1
 
 --8<-- "figures/reference/geom_bracket.html"
+
+**A styled label and bracket line**
+
+--8<-- "figures/reference/geom_bracket_2.html"
+
+**Several brackets at different heights, with longer tips and a gap between neighbours**
+
+--8<-- "figures/reference/geom_bracket_3.html"

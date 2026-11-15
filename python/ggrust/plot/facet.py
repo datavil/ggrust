@@ -88,6 +88,20 @@ def facet_grid(
     ...         "subject": (["math"] * 4 + ["art"] * 4) * 2, "year": [1] * 8 + [2] * 8}
     >>> plot = ggplot(data, aes("hours", "score")) + geom_line()
     >>> plot = plot + facet_grid(x="subject", y="year")
+
+    Free x scales, with each column as wide as its range:
+
+    >>> from ggrust.data import mpg
+    >>> cars = ggplot(mpg, aes("displ", "hwy")) + geom_point()
+    >>> plot = cars + facet_grid(x="cyl", scales="free_x", space="free_x")
+
+    Strip labels that name their variable:
+
+    >>> plot = cars + facet_grid(x="drv", y="year", labeller="label_both")
+
+    Margin panels with every row, and the highest row level at the top:
+
+    >>> plot = cars + facet_grid(x="drv", y="year", margins=True, as_table=False)
     """
     return FeatureSpec(
         "facet",
@@ -170,6 +184,17 @@ def facet_wrap(
     ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
     >>> plot = ggplot(data, aes("age", "weight")) + geom_point()
     >>> plot = plot + facet_wrap(facets="pet", ncol=3)
+
+    Each panel with its own axis ranges:
+
+    >>> plot = ggplot(data, aes("age", "weight")) + geom_point()
+    >>> plot = plot + facet_wrap(facets="pet", scales="free")
+
+    Two columns, levels in descending order, strips that name the variable:
+
+    >>> from ggrust.data import mpg
+    >>> plot = ggplot(mpg, aes("displ", "hwy")) + geom_point()
+    >>> plot = plot + facet_wrap(facets="cyl", ncol=2, order=-1, labeller="label_both")
     """
     return FeatureSpec(
         "facet",

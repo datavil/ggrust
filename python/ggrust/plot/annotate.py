@@ -84,6 +84,21 @@ def annotate(
     >>> plot = ggplot(data, aes("day", "sales")) + geom_line()
     >>> plot = plot + annotate("rect", xmin=2, xmax=3, ymin=8, ymax=18, alpha=0.2)
     >>> plot = plot + annotate("text", x=4, y=17, label="record", vjust=-1)
+
+    An arrow that points at a value, with its label:
+
+    >>> base = ggplot(data, aes("day", "sales")) + geom_line()
+    >>> plot = base + annotate(
+    ...     "segment", x=2.2, y=10, xend=2.9, yend=9.1, arrow=arrow(length=8), color="red"
+    ... )
+    >>> plot = plot + annotate("text", x=2.2, y=10, label="dip", hjust=1.2, color="red")
+
+    A label just inside the top left corner of the panel, whatever the data range:
+
+    >>> plot = base + annotate(
+    ...     "text", x=float("-inf"), y=float("inf"), label="store 12",
+    ...     hjust=-0.1, vjust=1.5, size=10,
+    ... )
     """
     import ggrust.plot as plot_module
 

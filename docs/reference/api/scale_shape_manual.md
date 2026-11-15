@@ -7,3 +7,7 @@ title: scale_shape_manual
       heading_level: 1
 
 --8<-- "figures/reference/scale_shape_manual.html"
+
+**A dict gives the shape of each level by name**
+
+--8<-- "figures/reference/scale_shape_manual_2.html"

@@ -118,6 +118,11 @@ def scale_color_hue(
     ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
     >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
     >>> plot = plot + scale_color_hue(l=40)
+
+    Keep the hues within a part of the color wheel and relabel the levels:
+
+    >>> base = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = base + scale_color_hue(h=[200, 320], labels=["Cat", "Dog", "Rabbit"])
     """
     return _hue("color", **locals())
 
@@ -192,6 +197,11 @@ def scale_fill_hue(
     ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
     >>> plot = ggplot(data, aes("age", "weight", fill="pet")) + geom_point(shape=21, size=6)
     >>> plot = plot + scale_fill_hue(c=60)
+
+    Keep the hues within a part of the color wheel and relabel the levels:
+
+    >>> base = ggplot(data, aes("age", "weight", fill="pet")) + geom_point(shape=21, size=6)
+    >>> plot = base + scale_fill_hue(h=[200, 320], labels=["Cat", "Dog", "Rabbit"])
     """
     return _hue("fill", **locals())
 
@@ -249,6 +259,20 @@ def scale_color_manual(
     >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
     >>> plot = plot + scale_color_manual(
     ...     values={"cat": "orange", "dog": "saddlebrown", "rabbit": "grey"}
+    ... )
+
+    A list gives the colors in the order of the levels:
+
+    >>> base = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = base + scale_color_manual(values=["orange", "saddlebrown", "grey"])
+
+    Levels left out of ``limits`` take ``na_value``; ``labels`` rename the legend keys:
+
+    >>> plot = base + scale_color_manual(
+    ...     values={"cat": "orange", "dog": "saddlebrown"},
+    ...     limits=["dog", "cat"],
+    ...     labels=["Dog", "Cat"],
+    ...     na_value="lightgrey",
     ... )
     """
     return _manual("color", **locals())
@@ -308,6 +332,22 @@ def scale_fill_manual(
     ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
     >>> plot = ggplot(data, aes("age", "weight", fill="pet")) + geom_point(shape=21, size=6)
     >>> plot = plot + scale_fill_manual(values=["orange", "saddlebrown", "grey"])
+
+    A dict gives the color of each level by name:
+
+    >>> base = ggplot(data, aes("age", "weight", fill="pet")) + geom_point(shape=21, size=6)
+    >>> plot = base + scale_fill_manual(
+    ...     values={"cat": "orange", "dog": "saddlebrown", "rabbit": "grey"}
+    ... )
+
+    Levels left out of ``limits`` take ``na_value``; ``labels`` rename the legend keys:
+
+    >>> plot = base + scale_fill_manual(
+    ...     values={"cat": "orange", "dog": "saddlebrown"},
+    ...     limits=["dog", "cat"],
+    ...     labels=["Dog", "Cat"],
+    ...     na_value="lightgrey",
+    ... )
     """
     return _manual("fill", **locals())
 
@@ -437,6 +477,13 @@ def scale_color_gradient(
     ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
     >>> plot = ggplot(data, aes("x", "y", color="change")) + geom_point(size=12)
     >>> plot = plot + scale_color_gradient(low="lightyellow", high="firebrick")
+
+    Values outside ``limits`` take the nearest end color with ``oob="squish"``:
+
+    >>> base = ggplot(data, aes("x", "y", color="change")) + geom_point(size=12)
+    >>> plot = base + scale_color_gradient(
+    ...     low="lightyellow", high="firebrick", limits=[-2, 2], oob="squish"
+    ... )
     """
     return _scale("color", **locals(), scale_mapper_kind="color_gradient")
 
@@ -511,6 +558,13 @@ def scale_fill_gradient(
     ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
     >>> plot = ggplot(data, aes("x", "y", fill="change")) + geom_tile()
     >>> plot = plot + scale_fill_gradient(low="lightyellow", high="firebrick")
+
+    Values outside ``limits`` take the nearest end color with ``oob="squish"``:
+
+    >>> base = ggplot(data, aes("x", "y", fill="change")) + geom_tile()
+    >>> plot = base + scale_fill_gradient(
+    ...     low="lightyellow", high="firebrick", limits=[-2, 2], oob="squish"
+    ... )
     """
     return _scale("fill", **locals(), scale_mapper_kind="color_gradient")
 
@@ -582,6 +636,17 @@ def scale_color_gradient2(
     ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
     >>> plot = ggplot(data, aes("x", "y", color="change")) + geom_point(size=12)
     >>> plot = plot + scale_color_gradient2(low="blue", mid="white", high="red")
+
+    Put the middle color on another value with ``midpoint``:
+
+    >>> base = ggplot(data, aes("x", "y", color="change")) + geom_point(size=12)
+    >>> plot = base + scale_color_gradient2(low="blue", mid="white", high="red", midpoint=1.5)
+
+    Narrow the ``limits`` and squish the values beyond them with ``oob="squish"``:
+
+    >>> plot = base + scale_color_gradient2(
+    ...     low="darkorange", mid="lightgrey", high="purple", limits=[-2, 2], oob="squish"
+    ... )
     """
     return _scale("color", **locals(), scale_mapper_kind="color_gradient2")
 
@@ -653,6 +718,17 @@ def scale_fill_gradient2(
     ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
     >>> plot = ggplot(data, aes("x", "y", fill="change")) + geom_tile()
     >>> plot = plot + scale_fill_gradient2(low="blue", mid="white", high="red")
+
+    Put the middle color on another value with ``midpoint``:
+
+    >>> base = ggplot(data, aes("x", "y", fill="change")) + geom_tile()
+    >>> plot = base + scale_fill_gradient2(low="blue", mid="white", high="red", midpoint=1.5)
+
+    Narrow the ``limits`` and squish the values beyond them with ``oob="squish"``:
+
+    >>> plot = base + scale_fill_gradient2(
+    ...     low="darkorange", mid="lightgrey", high="purple", limits=[-2, 2], oob="squish"
+    ... )
     """
     return _scale("fill", **locals(), scale_mapper_kind="color_gradient2")
 
@@ -726,6 +802,15 @@ def scale_color_gradientn(
     ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
     >>> plot = ggplot(data, aes("x", "y", color="change")) + geom_point(size=12)
     >>> plot = plot + scale_color_gradientn(colors=["navy", "gold", "darkred"])
+
+    Choose the breaks of the colorbar and their labels:
+
+    >>> base = ggplot(data, aes("x", "y", color="change")) + geom_point(size=12)
+    >>> plot = base + scale_color_gradientn(
+    ...     colors=["navy", "gold", "darkred"],
+    ...     breaks=[-3, 0, 4],
+    ...     labels=["lowest", "no change", "highest"],
+    ... )
     """
     return _scale("color", **locals(), scale_mapper_kind="color_gradientn")
 
@@ -799,6 +884,15 @@ def scale_fill_gradientn(
     ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
     >>> plot = ggplot(data, aes("x", "y", fill="change")) + geom_tile()
     >>> plot = plot + scale_fill_gradientn(colors=["navy", "gold", "darkred"])
+
+    Choose the breaks of the colorbar and their labels:
+
+    >>> base = ggplot(data, aes("x", "y", fill="change")) + geom_tile()
+    >>> plot = base + scale_fill_gradientn(
+    ...     colors=["navy", "gold", "darkred"],
+    ...     breaks=[-3, 0, 4],
+    ...     labels=["lowest", "no change", "highest"],
+    ... )
     """
     return _scale("fill", **locals(), scale_mapper_kind="color_gradientn")
 
@@ -883,6 +977,17 @@ def scale_color_viridis(
     ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
     >>> plot = ggplot(data, aes("x", "y", color="change")) + geom_point(size=12)
     >>> plot = plot + scale_color_viridis(option="magma")
+
+    Use a part of the palette, reversed, with ``begin``, ``end`` and ``direction``:
+
+    >>> base = ggplot(data, aes("x", "y", color="change")) + geom_point(size=12)
+    >>> plot = base + scale_color_viridis(option="plasma", begin=0.2, end=0.9, direction=-1)
+
+    A log scale spreads the colors over skewed values with ``trans``:
+
+    >>> sales = {"shop": [1, 2, 3, 4, 5, 6], "row": [1] * 6, "sold": [1, 3, 10, 30, 100, 1000]}
+    >>> plot = ggplot(sales, aes("shop", "row", color="sold")) + geom_point(size=12)
+    >>> plot = plot + scale_color_viridis(trans="log10")
     """
     return _scale("color", **locals(), scale_mapper_kind="color_cmap")
 
@@ -967,6 +1072,17 @@ def scale_fill_viridis(
     ...         "change": [-3, -1, 0, -2, 0, 2, 0, 1, 4]}
     >>> plot = ggplot(data, aes("x", "y", fill="change")) + geom_tile()
     >>> plot = plot + scale_fill_viridis(option="magma")
+
+    Use a part of the palette, reversed, with ``begin``, ``end`` and ``direction``:
+
+    >>> base = ggplot(data, aes("x", "y", fill="change")) + geom_tile()
+    >>> plot = base + scale_fill_viridis(option="plasma", begin=0.2, end=0.9, direction=-1)
+
+    A log scale spreads the colors over skewed values with ``trans``:
+
+    >>> sales = {"shop": [1, 2, 3, 4, 5, 6], "row": [1] * 6, "sold": [1, 3, 10, 30, 100, 1000]}
+    >>> plot = ggplot(sales, aes("shop", "row", fill="sold")) + geom_tile()
+    >>> plot = plot + scale_fill_viridis(trans="log10")
     """
     return _scale("fill", **locals(), scale_mapper_kind="color_cmap")
 
@@ -1205,6 +1321,16 @@ def scale_color_brewer(
     ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
     >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
     >>> plot = plot + scale_color_brewer(palette="Dark2")
+
+    A sequential palette for a continuous variable:
+
+    >>> from ggrust.data import mpg
+    >>> cars = ggplot(mpg, aes("displ", "hwy", color="cty")) + geom_point(size=3)
+    >>> plot = cars + scale_color_brewer(type="seq", palette="YlGnBu")
+
+    A diverging palette, reversed with ``direction``:
+
+    >>> plot = cars + scale_color_brewer(type="div", palette="RdBu", direction=-1)
     """
     return _scale("color", **locals(), scale_mapper_kind="color_brewer")
 
@@ -1282,6 +1408,16 @@ def scale_fill_brewer(
     ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
     >>> plot = ggplot(data, aes("age", "weight", fill="pet")) + geom_point(shape=21, size=6)
     >>> plot = plot + scale_fill_brewer(palette="Pastel1")
+
+    A sequential palette for a continuous variable:
+
+    >>> from ggrust.data import mpg
+    >>> cars = ggplot(mpg, aes("displ", "hwy", fill="cty")) + geom_point(shape=21, size=3)
+    >>> plot = cars + scale_fill_brewer(type="seq", palette="YlGnBu")
+
+    A diverging palette, reversed with ``direction``:
+
+    >>> plot = cars + scale_fill_brewer(type="div", palette="RdBu", direction=-1)
     """
     return _scale("fill", **locals(), scale_mapper_kind="color_brewer")
 
@@ -1469,6 +1605,11 @@ def scale_color_grey(
     ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
     >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
     >>> plot = plot + scale_color_grey(start=0.1, end=0.7)
+
+    ``limits`` sets the order of the levels, so the rabbits get the darkest grey:
+
+    >>> base = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = base + scale_color_grey(limits=["rabbit", "dog", "cat"])
     """
     start, end = _grey_ends(start, end)
     return _scale("color", **locals(), scale_mapper_kind="color_grey")
@@ -1545,6 +1686,11 @@ def scale_fill_grey(
     ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
     >>> plot = ggplot(data, aes("age", "weight", fill="pet")) + geom_point(shape=21, size=6)
     >>> plot = plot + scale_fill_grey(start=0.1, end=0.7)
+
+    ``limits`` sets the order of the levels, so the rabbits get the darkest grey:
+
+    >>> base = ggplot(data, aes("age", "weight", fill="pet")) + geom_point(shape=21, size=6)
+    >>> plot = base + scale_fill_grey(limits=["rabbit", "dog", "cat"])
     """
     start, end = _grey_ends(start, end)
     return _scale("fill", **locals(), scale_mapper_kind="color_grey")

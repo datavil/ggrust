@@ -112,6 +112,18 @@ def new_scale_color() -> FeatureSpec:
     ...     + geom_text(aes(label="group", color="group"), nudge_y=0.3)
     ...     + scale_color_brewer(palette="Set1")
     ... )
+
+    A continuous color scale for the points and a discrete one for the lines:
+
+    >>> from ggrust.data import mpg
+    >>> plot = (
+    ...     ggplot(mpg, aes("displ", "hwy"))
+    ...     + geom_point(aes(color="cty"))
+    ...     + scale_color_viridis()
+    ...     + new_scale_color()
+    ...     + geom_smooth(aes(color="drv"), method="lm", se=False)
+    ...     + scale_color_brewer(palette="Set1")
+    ... )
     """
     return new_scale("color")
 

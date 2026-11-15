@@ -147,6 +147,13 @@ def geom_half_violin(
     ...         "weight": [61, 58, 66, 70, 63, 59, 72, 80, 77, 69, 85, 74]}
     >>> plot = (ggplot(data, aes("diet", "weight", fill="diet"))
     ...         + geom_half_violin() + geom_half_point())
+
+    Right halves with quartile lines, not trimmed to the data range:
+
+    >>> from ggrust.data import iris
+    >>> plot = ggplot(iris, aes("species", "sepal_length", fill="species")) + geom_half_violin(
+    ...     side="r", draw_quantiles=[0.25, 0.5, 0.75], trim=False
+    ... )
     """
     function = "geom_half_violin"
     _check_side(function, side)
@@ -294,6 +301,12 @@ def geom_half_boxplot(
     ...         "weight": [61, 58, 66, 70, 63, 59, 72, 80, 77, 69, 85, 74]}
     >>> plot = (ggplot(data, aes("diet", "weight"))
     ...         + geom_half_boxplot(side="r") + geom_half_point(side="l"))
+
+    A half box next to a half violin of the same data:
+
+    >>> from ggrust.data import iris
+    >>> plot = (ggplot(iris, aes("species", "sepal_length", fill="species"))
+    ...         + geom_half_boxplot(side="l") + geom_half_violin(side="r"))
     """
     function = "geom_half_boxplot"
     _check_side(function, side)
@@ -455,6 +468,14 @@ def geom_half_point(
     ...         "weight": [61, 58, 66, 70, 63, 59, 72, 80, 77, 69, 85, 74]}
     >>> plot = (ggplot(data, aes("diet", "weight"))
     ...         + geom_half_point(transformation=position_jitter(width=0.05, seed=1)))
+
+    A raincloud plot: half violin, narrow box and the points on the other side:
+
+    >>> from ggrust.data import iris
+    >>> plot = (ggplot(iris, aes("species", "sepal_length", fill="species"))
+    ...         + geom_half_violin(side="r", nudge=0.05)
+    ...         + geom_boxplot(width=0.08, outlier_shape=None, show_legend=False)
+    ...         + geom_half_point(side="l", shape=21, alpha=0.6))
     """
     function = "geom_half_point"
     _check_side(function, side)

@@ -142,6 +142,10 @@ default="point"
     >>> hours = rng.uniform(0, 10, 150)
     >>> data = {"hours": hours, "score": 50 + 4 * hours + rng.normal(0, 6, 150)}
     >>> plot = residual_plot(data, "hours", "score")
+
+    The residuals of a quadratic fit, with a histogram on the margin:
+
+    >>> plot = residual_plot(data, "hours", "score", deg=2, color="#1f4e79", marginal="hist:r")
     """
     if method not in _METHODS:
         message = (

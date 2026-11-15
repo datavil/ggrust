@@ -90,6 +90,13 @@ def kernel_density(
     >>> density["x"][density["density"].arg_max()]
     80.0
     >>> plot = ggplot(density, aes("x", "density")) + geom_area(alpha=0.4) + geom_line()
+
+    A number as ``bandwidth`` multiplies the data standard deviation; a small one
+    follows the data closely:
+
+    >>> narrow = kernel_density(waiting, grid, bandwidth=0.15)
+    >>> plot = (ggplot(density, aes("x", "density")) + geom_line()
+    ...         + geom_line(data=narrow, color="#d62728"))
     """
     factor = _bandwidth(bandwidth)
     value_list = _to_list(values)

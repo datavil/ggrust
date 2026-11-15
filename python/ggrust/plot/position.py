@@ -63,6 +63,13 @@ def position_dodge(
     >>> plot = ggplot(data, aes("month", "sales", fill="shop")) + geom_bar(
     ...     stat="identity", position=position_dodge(width=0.8), width=0.7
     ... )
+
+    Other geoms dodge the same way, here the mean and its standard error per group:
+
+    >>> from ggrust.data import mpg
+    >>> plot = ggplot(mpg, aes("drv", "hwy", color=as_discrete("year"))) + stat_summary(
+    ...     fun_data="mean_se", position=position_dodge(width=0.5)
+    ... )
     """
     return _position("dodge", width=width, preserve=_preserve("position_dodge", preserve))
 
@@ -114,6 +121,15 @@ def position_dodge2(
     ...         "minutes": [31, 40, 28, 45, 35, 38, 22, 25, 30]}
     >>> plot = ggplot(data, aes("day", "minutes", fill="shift")) + geom_boxplot(
     ...     position=position_dodge2(preserve="single")
+    ... )
+
+    Bars with more padding between them:
+
+    >>> sales = {"month": ["Jan", "Jan", "Feb", "Feb", "Mar", "Mar"],
+    ...          "shop": ["north", "south"] * 3,
+    ...          "sales": [12, 9, 15, 11, 14, 16]}
+    >>> plot = ggplot(sales, aes("month", "sales", fill="shop")) + geom_bar(
+    ...     stat="identity", position=position_dodge2(padding=0.4)
     ... )
     """
     _preserve("position_dodge2", preserve)
@@ -206,6 +222,14 @@ def position_nudge(
     ...     + geom_bar(stat="identity")
     ...     + geom_text(aes(label="sold"), position=position_nudge(y=3))
     ... )
+
+    Labels moved to the right of their points:
+
+    >>> plot = (
+    ...     ggplot(data, aes("size", "sold"))
+    ...     + geom_point(size=4)
+    ...     + geom_text(aes(label="sold"), position=position_nudge(x=0.25))
+    ... )
     """
     return _position("nudge", x=x, y=y, unit=unit)
 
@@ -241,6 +265,18 @@ def position_jitterdodge(
     ...     ggplot(data, aes("team", "height", color="sex"))
     ...     + geom_boxplot()
     ...     + geom_point(position=position_jitterdodge(jitter_width=0.2, seed=1))
+    ... )
+
+    Less jitter, sideways only, on dodged violins:
+
+    >>> from ggrust.data import mpg
+    >>> plot = (
+    ...     ggplot(mpg, aes("drv", "hwy", fill=as_discrete("year")))
+    ...     + geom_violin(alpha=0.4)
+    ...     + geom_point(
+    ...         position=position_jitterdodge(jitter_width=0.1, jitter_height=0, seed=1),
+    ...         shape=21,
+    ...     )
     ... )
     """
     return _position(
@@ -286,6 +322,14 @@ def position_stack(
     ...         "sales": [12, 9, 15, 11, 14, 16]}
     >>> plot = ggplot(data, aes("month", "sales", fill="shop")) + geom_bar(
     ...     stat="identity", position=position_stack()
+    ... )
+
+    ``vjust=0.5`` puts a label in the middle of each stacked bar:
+
+    >>> plot = (
+    ...     ggplot(data, aes("month", "sales", group="shop"))
+    ...     + geom_bar(aes(fill="shop"), stat="identity")
+    ...     + geom_text(aes(label="sales"), position=position_stack(vjust=0.5))
     ... )
     """
     return _position("stack", vjust=vjust, mode=mode, reverse=reverse)

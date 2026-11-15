@@ -210,6 +210,12 @@ def as_labeller(
     >>> names = as_labeller({"cat": "Cats", "dog": "Dogs"})
     >>> plot = ggplot(data, aes("age", "weight")) + geom_point()
     >>> plot = plot + facet_wrap("pet", labeller=names)
+
+    A function of the level text, then ``label_both`` to put the variable in front:
+
+    >>> shout = as_labeller(str.upper, default=label_both)
+    >>> plot = ggplot(data, aes("age", "weight")) + geom_point()
+    >>> plot = plot + facet_wrap("pet", labeller=shout)
     """
     base = _resolve(default, "default")
     if isinstance(x, Labeller | str):

@@ -124,6 +124,12 @@ def geom_quantile(
     >>> engine = rng.uniform(1, 6, 200)
     >>> data = {"engine": engine, "mpg": 40 - 4 * engine + rng.normal(0, 1, 200) * engine}
     >>> plot = ggplot(data, aes("engine", "mpg")) + geom_point() + geom_quantile()
+
+    The median and the 5% and 95% quantile lines, one set per group:
+
+    >>> from ggrust.data import mpg
+    >>> plot = (ggplot(mpg, aes("displ", "hwy", color="drv")) + geom_point(alpha=0.4)
+    ...         + geom_quantile(quantiles=[0.05, 0.5, 0.95]))
     """
     _check_model("geom_quantile", formula, method)
     return _geom(

@@ -116,6 +116,21 @@ def stat_summary(
     >>> from ggrust import *
     >>> data = {"day": ["mon", "mon", "tue", "tue", "tue"], "sales": [3, 5, 2, 6, 7]}
     >>> plot = ggplot(data, aes("day", "sales")) + stat_summary(fun_data="mean_se")
+
+    A custom summary: the median, with the quartiles as the range:
+
+    >>> from ggrust.data import mpg
+    >>> plot = ggplot(mpg, aes("class", "hwy")) + stat_summary(
+    ...     fun="median", fun_min="lq", fun_max="uq"
+    ... )
+
+    Other geoms draw the summary too, here bars of the mean with error bars:
+
+    >>> plot = (
+    ...     ggplot(mpg, aes("class", "hwy"))
+    ...     + stat_summary(fun="mean", geom="bar", fill="#9ecae1")
+    ...     + stat_summary(fun_data="mean_se", geom="errorbar", width=0.3)
+    ... )
     """
     return _geom(
         geom if geom is not None else "pointrange",
@@ -233,6 +248,16 @@ def stat_summary_bin(
     >>> from ggrust import *
     >>> data = {"age": [21, 25, 33, 38, 41, 47, 52, 58], "income": [20, 28, 35, 40, 44, 47, 50, 49]}
     >>> plot = ggplot(data, aes("age", "income")) + stat_summary_bin(binwidth=10)
+
+    The mean and its standard error in five bins, joined by a line, over the points:
+
+    >>> from ggrust.data import mpg
+    >>> plot = (
+    ...     ggplot(mpg, aes("displ", "hwy"))
+    ...     + geom_point(alpha=0.3)
+    ...     + stat_summary_bin(fun_data="mean_se", bins=5, color="#d62728")
+    ...     + stat_summary_bin(fun="mean", geom="line", bins=5, color="#d62728")
+    ... )
     """
     return _geom(
         geom if geom is not None else "pointrange",
@@ -327,6 +352,13 @@ def stat_ecdf(
     >>> from ggrust import *
     >>> data = {"minutes": [12, 15, 15, 21, 30, 34, 41], "team": list("aabbaba")}
     >>> plot = ggplot(data, aes("minutes", color="team")) + stat_ecdf()
+
+    Without the padding to the panel edges, drawn as points:
+
+    >>> from ggrust.data import iris
+    >>> plot = ggplot(iris, aes("sepal_length", color="species")) + stat_ecdf(
+    ...     geom="point", pad=False
+    ... )
     """
     return _geom(
         geom if geom is not None else "step",
@@ -425,6 +457,14 @@ def stat_ellipse(
     ...     ggplot(data, aes("height", "weight", color="group"))
     ...     + geom_point()
     ...     + stat_ellipse(type="norm")
+    ... )
+
+    Filled ellipses that cover half of each group:
+
+    >>> plot = (
+    ...     ggplot(data, aes("height", "weight", color="group", fill="group"))
+    ...     + geom_point()
+    ...     + stat_ellipse(geom="polygon", level=0.5, alpha=0.2)
     ... )
     """
     if type is not None and type not in ("t", "norm", "euclid"):

@@ -1153,6 +1153,12 @@ def ggside(
     >>> data = {"x": [1.0, 2.0, 2.5, 3.0, 4.0], "y": [2.0, 1.0, 3.0, 2.5, 4.0]}
     >>> plot = ggplot(data, aes("x", "y")) + geom_point() + geom_xsidehistogram(bins=4)
     >>> plot = plot + ggside(x_pos="bottom")
+
+    Both side panels, the y one moved to the left:
+
+    >>> from ggrust.data import iris
+    >>> plot = ggplot(iris, aes("sepal_length", "sepal_width", color="species")) + geom_point()
+    >>> plot = plot + geom_xsidedensity() + geom_ysidedensity() + ggside(y_pos="left")
     """
     for key, value in (("x_pos", x_pos), ("y_pos", y_pos)):
         accepted = _POSITIONS[key]
@@ -1250,6 +1256,12 @@ def ggmarginal(
     >>> data = {"x": [1.0, 2.0, 2.5, 3.0, 4.0], "y": [2.0, 1.0, 3.0, 2.5, 4.0]}
     >>> plot = ggplot(data, aes("x", "y")) + geom_point()
     >>> plot = plot + ggmarginal("tr", layer=geom_density(fill="grey"))
+
+    Boxplots per group in two margins of different sizes:
+
+    >>> from ggrust.data import iris
+    >>> plot = ggplot(iris, aes("sepal_length", "sepal_width", color="species")) + geom_point()
+    >>> plot = plot + ggmarginal("tr", size=[0.25, 0.15], layer=geom_boxplot())
     """
     if not isinstance(sides, str):
         raise TypeError(f"ggmarginal(sides=...): expected a string, got {type(sides).__name__}")

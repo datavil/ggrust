@@ -519,6 +519,16 @@ class SupPlotsSpec(FeatureSpec):
         dict
             Keys as lets_plot's ``SupPlotsSpec.as_dict()``: ``kind``, ``layout``,
             ``figures`` (each ``as_dict()`` or None for an empty cell), ...
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+        >>> points = ggplot(data, aes("weight", "mpg")) + geom_point()
+        >>> grid = gggrid([points, points + geom_line()], ncol=2)
+        >>> spec = grid.as_dict()
+        >>> spec["kind"], spec["layout"]["ncol"], len(spec["figures"])
+        ('subplots', 2, 2)
         """
         result = super().as_dict()
         result["kind"] = self.kind
@@ -575,6 +585,17 @@ class SupPlotsSpec(FeatureSpec):
             Height.
         unit : str, optional
             Unit of ``w`` and ``h``: ``"in"``, ``"cm"``, ``"mm"`` or ``"px"``.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+        >>> points = ggplot(data, aes("weight", "mpg")) + geom_point()
+        >>> grid = gggrid([points, points + geom_line()], ncol=2)
+        >>> grid.to_svg()[:4]
+        '<svg'
+        >>> grid.to_svg(w=800, h=300, unit="px")[:51]
+        '<svg xmlns="http://www.w3.org/2000/svg" width="800"'
         """
         from ggrust._render import export_svg
 
@@ -605,6 +626,36 @@ class SupPlotsSpec(FeatureSpec):
             Unit of ``w`` and ``h``: ``"in"``, ``"cm"``, ``"mm"`` or ``"px"``.
         dpi : float, optional
             Resolution in dots per inch.
+
+        Examples
+        --------
+        To a file, here in a temporary folder:
+
+        >>> import os
+        >>> import tempfile
+        >>> from ggrust import *
+        >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+        >>> points = ggplot(data, aes("weight", "mpg")) + geom_point()
+        >>> grid = gggrid([points, points + geom_line()], ncol=2)
+        >>> with tempfile.TemporaryDirectory() as folder:
+        ...     written = grid.to_png(os.path.join(folder, "cars.png"))
+        ...     os.path.basename(written), os.path.exists(written)
+        ('cars.png', True)
+
+        To bytes, through a buffer:
+
+        >>> import io
+        >>> buffer = io.BytesIO()
+        >>> grid.to_png(buffer)
+        >>> buffer.getvalue()[1:4]
+        b'PNG'
+
+        A physical size and a resolution, as for a journal figure (6 in x 150 dpi = 900 px):
+
+        >>> buffer = io.BytesIO()
+        >>> grid.to_png(buffer, w=6, h=4, unit="in", dpi=150)
+        >>> int.from_bytes(buffer.getvalue()[16:20]), int.from_bytes(buffer.getvalue()[20:24])
+        (900, 600)
         """
         from ggrust._render import export_png
 
@@ -635,6 +686,18 @@ class SupPlotsSpec(FeatureSpec):
             Unit of ``w`` and ``h``: ``"in"``, ``"cm"``, ``"mm"`` or ``"px"``.
         dpi : float, optional
             Resolution in dots per inch.
+
+        Examples
+        --------
+        >>> import io
+        >>> from ggrust import *
+        >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+        >>> points = ggplot(data, aes("weight", "mpg")) + geom_point()
+        >>> grid = gggrid([points, points + geom_line()], ncol=2)
+        >>> buffer = io.BytesIO()
+        >>> grid.to_pdf(buffer, w=180, h=120, unit="mm")
+        >>> buffer.getvalue()[:5]
+        b'%PDF-'
         """
         from ggrust._render import export_pdf
 
@@ -649,6 +712,17 @@ class SupPlotsSpec(FeatureSpec):
             Where to write: a file path or a binary file-like object.
         iframe : bool, optional
             Return an ``<iframe srcdoc>`` sized to the plot instead of a page.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> data = {"weight": [2.6, 2.9, 3.2, 3.4, 3.6, 4.1], "mpg": [31, 28, 24, 22, 19, 15]}
+        >>> points = ggplot(data, aes("weight", "mpg")) + geom_point()
+        >>> grid = gggrid([points, points + geom_line()], ncol=2)
+        >>> grid.to_html()[:15]
+        '<!DOCTYPE html>'
+        >>> grid.to_html(iframe=True)[:7]
+        '<iframe'
         """
         from ggrust._render import export_html
 

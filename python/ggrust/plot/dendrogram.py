@@ -324,6 +324,15 @@ def hclust(
     >>> frame = {"gene": ["CD3E", "CD8A", "MS4A1"], "t": [5.0, 4.5, 0.1], "b": [0.2, 0.1, 6.0]}
     >>> hclust(frame, labels="gene", method="average").ordered_labels
     ('MS4A1', 'CD3E', 'CD8A')
+
+    Cluster the columns of a frame and draw the tree:
+
+    >>> from ggrust import *
+    >>> tree = hclust({"t": [5.0, 4.5, 0.1], "nk": [4.0, 4.8, 0.3], "b": [0.2, 0.1, 6.0]},
+    ...               axis="columns", method="average")
+    >>> tree.ordered_labels
+    ('b', 't', 'nk')
+    >>> plot = ggplot() + geom_dendrogram(tree)
     """
     _check_choice("hclust", "axis", axis, _AXES)
     _check_choice("hclust", "method", method, _LINKAGES)
@@ -400,6 +409,12 @@ def geom_dendrogram(
     >>> frame = {"car": ["a", "b", "c", "d"], "mpg": [21.0, 22.8, 18.7, 14.3]}
     >>> tree = hclust(frame, labels="car")
     >>> plot = ggplot() + geom_dendrogram(tree)
+
+    Straight links, with the leaves along y:
+
+    >>> plot = ggplot() + geom_dendrogram(
+    ...     tree, type="triangle", orientation="y", color="#1f77b4", size=1
+    ... )
     """
     tree = _check_tree("geom_dendrogram", tree)
     _check_choice("geom_dendrogram", "type", type, _TYPES)

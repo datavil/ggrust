@@ -105,6 +105,14 @@ def geom_shape(
     ...                      color="black")
     ...         + geom_point(aes("x", "y"), data=spots, color="#d62728")
     ...         + coord_fixed())
+
+    ``expand`` grows a polygon beyond its vertices, here around a group of points:
+
+    >>> corners = {"x": [1, 5, 3], "y": [1, 1, 4]}
+    >>> plot = (ggplot(corners, aes("x", "y"))
+    ...         + geom_shape(expand=8, radius=8, fill="#aec7e8", alpha=0.6)
+    ...         + geom_polygon(fill="white", color="black")
+    ...         + geom_point(size=4) + xlim(0, 6) + ylim(0, 5))
     """
     for name, value in (("expand", expand), ("radius", radius)):
         _check_length("geom_shape", name, value)

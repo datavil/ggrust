@@ -99,6 +99,14 @@ def transition_manual(
     ... )
     >>> animate(plot).nframes
     3
+
+    Each frame keeps the years before it:
+
+    >>> plot = (
+    ...     ggplot(data, aes("fruit", "sold", color=as_discrete("year")))
+    ...     + geom_point(size=6)
+    ...     + transition_manual("year", cumulative=True)
+    ... )
     """
     if not isinstance(frames, str) or not frames:
         message = (
@@ -214,6 +222,23 @@ def transition_states(
     ... )
     >>> animate(plot, nframes=30).nframes
     30
+
+    A short hold, a long move, and no move from the last state back to the first:
+
+    >>> plot = (
+    ...     ggplot(data, aes("fruit", "sold"))
+    ...     + geom_col()
+    ...     + transition_states("year", transition_length=3, state_length=1, wrap=False)
+    ... )
+
+    The states around the frame, in the title and subtitle:
+
+    >>> plot = (
+    ...     ggplot(data, aes("fruit", "sold"))
+    ...     + geom_col()
+    ...     + transition_states("year")
+    ...     + labs(title="{closest_state}", subtitle="from {previous_state} to {next_state}")
+    ... )
     """
     if not isinstance(states, str) or not states:
         message = (
@@ -412,6 +437,14 @@ def transition_time(
     ... )
     >>> animate(plot, nframes=21).nframes
     21
+
+    Only the first ten years, by ``range``:
+
+    >>> plot = (
+    ...     ggplot(data, aes("income", "life", color="city"))
+    ...     + geom_point(size=5)
+    ...     + transition_time("year", range=[2000, 2010])
+    ... )
     """
     transition: dict[str, object] = {
         "name": "time",
@@ -481,6 +514,15 @@ def transition_reveal(
     ... )
     >>> animate(plot, nframes=9).nframes
     9
+
+    An area that grows, without the point kept at its end:
+
+    >>> plot = (
+    ...     ggplot(data, aes("day", "visitors"))
+    ...     + geom_area(alpha=0.4)
+    ...     + geom_point(size=4)
+    ...     + transition_reveal("day", keep_last=False)
+    ... )
     """
     if not isinstance(keep_last, bool):
         message = f"transition_reveal(keep_last={keep_last!r}): expected True or False"
@@ -549,6 +591,15 @@ def ease_aes(default: str = "linear", **aesthetics: str) -> FeatureSpec:
     ... )
     >>> plot.as_dict()["animation"]["ease"]["aesthetics"]
     {'y': 'bounce-out'}
+
+    An elastic move for the positions, an even one for the color:
+
+    >>> plot = (
+    ...     ggplot(data, aes("year", "sold", color="sold"))
+    ...     + geom_point(size=6)
+    ...     + transition_states("year")
+    ...     + ease_aes("elastic-out", color="linear")
+    ... )
     """
     checked_default = _check_ease(default, "animation.ease.default", "default")
     checked = {

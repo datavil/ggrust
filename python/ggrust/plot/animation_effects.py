@@ -92,6 +92,15 @@ def enter_fade(alpha: float = 0) -> FeatureSpec:
     ... )
     >>> plot.as_dict()["animation"]["enter"]
     [{'name': 'fade', 'alpha': 0.0}]
+
+    Bars that start half transparent:
+
+    >>> plot = (
+    ...     ggplot(data, aes("fruit", "sold"))
+    ...     + geom_col()
+    ...     + transition_states("year")
+    ...     + enter_fade(alpha=0.5)
+    ... )
     """
     checked = _number(alpha, "enter_fade", "alpha", "animation.enter.alpha", 1)
     return _effect("enter", {"name": "fade", "alpha": checked})
@@ -124,6 +133,16 @@ def exit_fade(alpha: float = 0) -> FeatureSpec:
     >>> from ggrust import *
     >>> exit_fade(alpha=0.2).props()["exit"]
     [{'name': 'fade', 'alpha': 0.2}]
+
+    A bar that fades out when its fruit is no longer sold:
+
+    >>> data = {"year": [2021, 2021, 2022], "fruit": ["apple", "pear", "apple"], "sold": [3, 2, 4]}
+    >>> plot = (
+    ...     ggplot(data, aes("fruit", "sold"))
+    ...     + geom_col()
+    ...     + transition_states("year")
+    ...     + exit_fade()
+    ... )
     """
     checked = _number(alpha, "exit_fade", "alpha", "animation.exit.alpha", 1)
     return _effect("exit", {"name": "fade", "alpha": checked})
@@ -315,6 +334,25 @@ def shadow_wake(
     ... )
     >>> plot.as_dict()["animation"]["shadow"]["wake_length"]
     0.1
+
+    A longer trail that keeps its size and fades evenly:
+
+    >>> plot = (
+    ...     ggplot(data, aes("x", "y"))
+    ...     + geom_point(size=5)
+    ...     + transition_time("time")
+    ...     + shadow_wake(0.3, size=False, falloff="linear")
+    ... )
+
+    A trail behind the second layer only (layers are counted from 1):
+
+    >>> plot = (
+    ...     ggplot(data, aes("x", "y"))
+    ...     + geom_point(size=9, shape=1)
+    ...     + geom_point(size=4)
+    ...     + transition_time("time")
+    ...     + shadow_wake(0.3, exclude_layer=1)
+    ... )
     """
     if (
         isinstance(wake_length, bool)
@@ -423,6 +461,16 @@ def shadow_mark(
     >>> from ggrust import *
     >>> shadow_mark(alpha=0.3, color="grey").props()["shadow"]["aesthetics"]
     {'alpha': 0.3, 'color': 'grey'}
+
+    Earlier points stay, small and faded:
+
+    >>> data = {"time": [1, 2, 3], "x": [1.0, 2.0, 3.0], "y": [1.0, 4.0, 9.0]}
+    >>> plot = (
+    ...     ggplot(data, aes("x", "y"))
+    ...     + geom_point(size=5)
+    ...     + transition_time("time")
+    ...     + shadow_mark(alpha=0.3, size=2)
+    ... )
     """
     for name, value in (("past", past), ("future", future)):
         if not isinstance(value, bool):

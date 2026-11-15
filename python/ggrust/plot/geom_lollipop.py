@@ -94,6 +94,12 @@ def geom_lollipop(
     >>> from ggrust import *
     >>> data = {"city": ["a", "b", "c"], "rain": [12, 30, 21]}
     >>> plot = ggplot(data, aes("city", "rain")) + geom_lollipop(fatten=3)
+
+    Sticks from a baseline at the mean, so each one shows a deviation:
+
+    >>> plot = (ggplot(data, aes("city", "rain"))
+    ...         + geom_hline(yintercept=21, linetype="dashed")
+    ...         + geom_lollipop(intercept=21, fatten=3, color="#1f77b4"))
     """
     return _geom(
         "lollipop",

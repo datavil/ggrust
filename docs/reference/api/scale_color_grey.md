@@ -7,3 +7,7 @@ title: scale_color_grey
       heading_level: 1
 
 --8<-- "figures/reference/scale_color_grey.html"
+
+**`limits` sets the order of the levels, so the rabbits get the darkest grey**
+
+--8<-- "figures/reference/scale_color_grey_2.html"

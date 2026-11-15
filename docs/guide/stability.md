@@ -15,14 +15,18 @@ A change that breaks any of these needs a new major version.
   lets_plot submodules `corr`, `im`, `joint`, `qq`, `residual`), `ggrust.plot.core`
   (`PlotSpec`, `LayerSpec`, `FeatureSpec`, `FeatureSpecArray`, `aes`, `layer`) and
   `ggrust.plot.subplots` (`SupPlotsSpec`).
-- **Signatures.** Parameter names, the order of positional parameters, and which
-  parameters are keyword-only. New parameters are added at the end or as keyword-only,
-  with a default that keeps the old behavior.
+- **Calls.** A call that works keeps working: parameter names and the order of
+  positional parameters stay. New parameters come at the end or as keyword-only, with a
+  default that keeps the old behavior. A parameter may come to accept more values.
 - **Objects.** The public methods and properties of `PlotSpec`, `LayerSpec`,
-  `SupPlotsSpec` and the other exported classes, their return types, and `+` composition.
+  `SupPlotsSpec` and the other exported classes, and `+` composition. Return values
+  keep working the way they are documented (a dict stays usable as a dict, a polars
+  frame as a polars frame), though they may gain fields.
 - **Errors.** The exception classes, what they subclass (`ValueError`, `TypeError`, ...)
-  and their attributes (`path`, `column`, ...).
-- **Plot files.** A `.ggrs` file written by any 1.x is read by every later 1.y.
+  and their attributes (`path`, `column`, ...). An input that raises keeps raising the
+  same class (or a subclass of it), unless the input starts to work.
+- **Plot files.** A `.ggrs` file written by any 1.x opens in every later 1.y as the
+  same plot (drawn with that version's pixels, see below).
 
 ## What may change in a minor release
 
@@ -31,8 +35,9 @@ A change that breaks any of these needs a new major version.
   lets-plot or ggplot2. Every such change is listed in the changelog under *Changed*
   or *Fixed*. The known differences still open are in
   [deviations.md](https://github.com/datavil/ggrust/blob/main/deviations.md).
-- **The spec dictionary.** `as_dict()` matches lets_plot for lets_plot features; keys
-  for ggrust-only features can change.
+- **The spec dictionary.** `as_dict()` is for inspection and debugging, not a stable
+  format. It follows lets_plot's layout where that is convenient, but its keys and
+  shape can change. To save and reopen plots, use `.ggrs` files.
 - **Output bytes.** SVG, HTML, PNG and PDF files are not byte-stable, and the embedded
   JavaScript runtime is private.
 - **Messages.** The wording of errors and warnings. Catch the class, not the text.

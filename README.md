@@ -59,51 +59,585 @@ uv add ggrust
 ## Quickstart
 
 ```python
-import polars as pl
 from ggrust import *
-
-frame = pl.DataFrame(
-    {
-        "height": [150, 162, 171, 180, 168, 175],
-        "weight": [52, 60, 68, 82, 65, 74],
-        "group": ["a", "a", "b", "b", "c", "c"],
-    }
-)
+from ggrust.data import penguins
 
 plot = (
-    ggplot(frame, aes(x="height", y="weight", color="group"))
-    + geom_point(size=4)
-    + labs(title="Height vs weight")
-    + ggsize(600, 400)
+    ggplot(penguins.drop_nulls(), aes("bill_length_mm", "bill_depth_mm"))
+    + geom_smooth(method="lm", color="grey", linetype="dashed", se=False)
+    + geom_point(aes(color="species"), size=2.5, alpha=0.7)
+    + geom_smooth(aes(color="species", fill="species"), method="lm")
+    + stat_cor(aes(color="species"), label_x_npc="right", label_y_npc="bottom")
+    + scale_color_npg()
+    + scale_fill_npg()
+    + labs(
+        title="Simpson's paradox in Palmer penguins",
+        subtitle="Overall, longer bills look shallower (dashed). Within every species, the opposite.",
+        x="bill length (mm)",
+        y="bill depth (mm)",
+    )
+    + theme_classic()
+    + ggsize(760, 500)
 )
 
 plot.to_png("plot.png")
 ```
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/quickstart.png" alt="Scatter plot coloured by group" width="600">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/quickstart.png" alt="Penguin bill length vs depth: per-species fits slope up while the overall fit slopes down" width="700">
 </p>
 
 In a notebook the plot shows as interactive HTML (tooltips, zoom and pan with `ggtb()`).
 
 ## Showcase
 
-From 3D surfaces to album covers, all drawn with the same `+` grammar. Click a figure for its code.
+From 3D surfaces to album covers, all drawn with the same `+` grammar.
+
+### 3D surface
+
+`geom_surface` under `coord_3d`. Neither Lets-Plot nor ggplot2 draws 3D.
 
 <p align="center">
-  <a href="https://ggrust.datavil.org/gallery/surface/"><img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/surface.png" alt="3D surface of sin(sqrt(x² + y²)) under coord_3d" width="49%"></a>
-  <a href="https://ggrust.datavil.org/gallery/unknown_pleasures/"><img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/unknown_pleasures.png" alt="Pulsar ridgelines in white on black" width="39%"></a>
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/surface.png" alt="3D surface" width="600">
 </p>
+
+<details>
+<summary><b>Show code</b></summary>
+
+```python
+import numpy as np
+from ggrust import *
+
+axis = np.linspace(-10, 10, 40)
+x, y = np.meshgrid(axis, axis)
+z = np.sin(np.sqrt(x**2 + y**2))
+data = {"x": x.ravel(), "y": y.ravel(), "z": z.ravel()}
+
+plot = (
+    ggplot(data, aes("x", "y", z="z", fill="z"))
+    + geom_surface(alpha=0.8)
+    + scale_fill_gradient(low="#00FFFF", high="#FF00FF")
+    + coord_3d()
+    + ggtitle("3D Contour Plot")
+    + ggsize(700, 560)
+)
+plot
+```
+
+</details>
+
+### Funky heatmap
+
+The scib single-cell integration benchmark, rebuilt from tiles, points, icons and labels.
+
 <p align="center">
-  <a href="https://ggrust.datavil.org/gallery/funky_heatmap/"><img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/funky_heatmap.png" alt="Funky heatmap of single-cell integration benchmark scores" width="90%"></a>
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/funky_heatmap.png" alt="Funky heatmap" width="800">
 </p>
+
+<details>
+<summary><b>Show code</b></summary>
+
+```python
+import polars as pl
+from ggrust import *
+from ggrust.bistro import funky_heatmap, position_arguments
+
+DATA = "https://raw.githubusercontent.com/datavil/ggrust/main/docs/data/"
+runs = pl.read_csv(DATA + "scib_immune.csv")
+
+batch = {
+    "PCR_batch": "PCR batch",
+    "ASW_label/batch": "Batch ASW",
+    "iLISI": "Graph iLISI",
+    "graph_conn": "Graph connectivity",
+    "kBET": "kBET",
+}
+bio = {
+    "NMI_cluster/label": "NMI cluster/label",
+    "ARI_cluster/label": "ARI cluster/label",
+    "ASW_label": "Cell type ASW",
+    "isolated_label_F1": "Isolated label F1",
+    "isolated_label_silhouette": "Isolated label silhouette",
+    "cLISI": "Graph cLISI",
+    "cell_cycle_conservation": "Cell cycle conservation",
+    "hvg_overlap": "HVG conservation",
+    "trajectory": "Trajectory conservation",
+}
+methods = {
+    "scanorama": "Scanorama",
+    "fastmnn": "fastMNN",
+    "scanvi": "scANVI*",
+    "harmony": "Harmony",
+    "scgen": "scGen*",
+    "saucie": "SAUCIE",
+}
+icons = {"full": "genes", "embed": "embedding", "knn": "graph"}
+
+
+def rank_color(column: str) -> pl.Expr:
+    """Rank 1 (best) -> 1.0 (lightest color), last -> 0.0."""
+    rank = pl.col(column).rank("min", descending=True)
+    return 1 - (rank - 1) / (rank.max() - 1)
+
+
+scores = (
+    runs.with_columns(
+        (pl.col(name) - pl.col(name).min()) / (pl.col(name).max() - pl.col(name).min())
+        for name in [*batch, *bio]
+    )
+    .with_columns(batch=pl.mean_horizontal(*batch), bio=pl.mean_horizontal(*bio))
+    .with_columns(overall=0.4 * pl.col("batch") + 0.6 * pl.col("bio"))
+    .with_columns(
+        rank_color(name).alias(f"{name}_rank") for name in ["overall", "batch", "bio", *batch, *bio]
+    )
+    .sort("overall", descending=True)
+    .with_columns(
+        id=pl.int_range(pl.len()).cast(pl.String),
+        name=pl.col("method").replace(methods),
+        icon=DATA + "scib_icons/" + pl.col("output").replace_strict(icons) + ".png",
+        features=pl.col("features").replace({"full_feature": "FULL", "hvg": "HVG"}),
+        scaling=pl.col("scaling").replace({"scaled": "+", "unscaled": "\u2013"}),
+    )
+)
+shown = pl.concat([scores.head(7), scores.tail(7)])
+separator = pl.DataFrame({"id": ["hidden"]})
+table = pl.concat([shown.head(7), separator, shown.tail(7)], how="diagonal_relaxed")
+
+
+def score(column: str, name: str, geom: str, group: str) -> dict:
+    """Describe a score column: its size from ``column``, its color from the rank."""
+    width = 2.5 if group == "overall" else 1.5 if geom == "bar" else 1
+    return {
+        "id": column,
+        "id_color": f"{column}_rank",
+        "name": name,
+        "geom": geom,
+        "group": group,
+        "palette": group,
+        "draw_outline": False,
+        "options": {"width": width},
+    }
+
+
+def method(column: str, name: str, geom: str, width: float, **options: object) -> dict:
+    """Describe a method column."""
+    return {
+        "id": column,
+        "name": name,
+        "geom": geom,
+        "group": "method",
+        "options": {"width": width, **options},
+    }
+
+
+column_info = [
+    method("name", "Name", "text", 4.5, hjust=0),
+    method("icon", "Output", "image", 1.5),
+    {**method("features", "Features", "text", 2), "palette": "features", "id_color": "features"},
+    method("scaling", "Scaling", "text", 1.5),
+    score("overall", "Overall score", "bar", "overall"),
+    score("batch", "Overall score", "bar", "batch"),
+    *[score(column, name, "circle", "batch") for column, name in batch.items()],
+    score("bio", "Overall score", "bar", "bio"),
+    *[score(column, name, "circle", "bio") for column, name in bio.items()],
+]
+column_groups = [
+    {"header": "Method", "group": "method", "palette": "black"},
+    {"header": "Overall", "group": "overall", "palette": "overall"},
+    {"header": "Batch correction", "group": "batch", "palette": "batch"},
+    {"header": "Bio conservation", "group": "bio", "palette": "bio"},
+]
+
+
+def brewer(codes: str) -> list[str]:
+    """Colors from dark (rank 69) to light (rank 1)."""
+    return ["#" + code for code in reversed(codes.split())]
+
+
+palettes = {
+    "black": ["black", "black"],
+    "features": {"FULL": "#808080", "HVG": "#008000"},
+    "overall": brewer("FFFFD9 EDF8B1 C7E9B4 7FCDBB 41B6C4 1D91C0 225EA8 253494 081D58"),
+    "batch": brewer("F7FCFD E0ECF4 BFD3E6 9EBCDA 8C96C6 8C6BB1 88419D 810F7C 4D004B"),
+    "bio": brewer("FFF7F3 FDE0DD FCC5C0 FA9FB5 F768A1 DD3497 AE017E 7A0177 49006A"),
+}
+ranks = ["69", "", "", "", "1"]
+legends = [
+    {
+        "title": "Output",
+        "geom": "image",
+        "labels": [DATA + f"scib_icons/{icon}.png" for icon in icons.values()],
+        "values": ["Genes", "Embedding", "Graph"],
+    },
+    {
+        "title": "Scaling",
+        "geom": "text",
+        "labels": ["+", "\u2013"],
+        "values": ["Scaled", "Unscaled"],
+    },
+    {"title": "Overall rank", "palette": "overall", "geom": "rect", "labels": ranks, "size": 1},
+    {
+        "title": "Batch correction rank",
+        "palette": "batch",
+        "geom": "rect",
+        "labels": ranks,
+        "size": 1,
+    },
+    {
+        "title": "Bio conservation rank",
+        "palette": "bio",
+        "geom": "rect",
+        "labels": ranks,
+        "size": 1,
+    },
+    {"title": "Score", "geom": "circle", "labels": ["0%", "", "", "", "100%"], "color": "white"},
+]
+
+heatmap = funky_heatmap(
+    table,
+    column_info=column_info,
+    column_groups=column_groups,
+    palettes=palettes,
+    legends=legends,
+    position_args=position_arguments(
+        col_annot_position="bottom",
+        col_annot_angle=90,
+        col_annot_offset=6,
+        col_group_radius=0.5,
+        legend_position="right",
+        expand_xmax=1,
+    ),
+    scale_column=False,
+    add_abc=False,
+)
+
+# The hidden runs: a dark band on the separator row (row 8 is centred at y = -8 x 1.1).
+# Its x range is the row background: 0.25 past the first and last column (0.1, 32.3).
+hidden = len(scores) - len(shown)
+band = pl.DataFrame(
+    {
+        "xmin": [-0.15],
+        "xmax": [32.55],
+        "ymin": [-9.35],
+        "ymax": [-8.25],
+        "x": [0.2],
+        "y": [-8.8],
+        "label": [f"{hidden} additional rows not shown"],
+    }
+)
+plot = (
+    heatmap
+    + geom_rect(
+        aes(xmin="xmin", xmax="xmax", ymin="ymin", ymax="ymax"),
+        data=band,
+        fill="#555555",
+        color=None,
+    )
+    + geom_text(aes(x="x", y="y", label="label"), data=band, color="white", hjust=0, size=7.6)
+)
+plot
+```
+
+</details>
+
+### Periodic table
+
+Tiles, text and a hand-placed legend: one `ggplot`, no images.
+
 <p align="center">
-  <a href="https://ggrust.datavil.org/gallery/periodic_table/"><img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/periodic_table.png" alt="Periodic table of chemical elements" width="90%"></a>
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/periodic_table.png" alt="Periodic table" width="800">
 </p>
+
+<details>
+<summary><b>Show code</b></summary>
+
+```python
+import polars as pl
+from ggrust import *
+
+DATA = "https://raw.githubusercontent.com/datavil/ggrust/main/docs/data/"
+elements = pl.read_csv(DATA + "elements.csv")
+
+side = 0.95  # tile side, in table cells
+key_ratio = 1.5  # the key tile is this much larger
+key_x, key_y = 10.25, 1.25
+
+# Lanthanides and actinides go in two rows below the table.
+f_block = pl.col("type").is_in(["Lanthanide", "Actinide"])
+main = elements.filter(~f_block).with_columns(x=pl.col("group"), y=pl.col("period"))
+below = elements.filter(f_block).with_columns(
+    x=pl.int_range(pl.len()) % 15 + 3, y=pl.col("period") + 2.5
+)
+table = pl.concat([main, below], how="vertical_relaxed")
+placeholders = pl.DataFrame(
+    {"x": [3, 3], "y": [6, 7], "type": ["Lanthanide", "Actinide"], "range": ["57-71", "89-103"]}
+)
+key = elements.filter(pl.col("atomic_number") == 78).with_columns(x=key_x, y=key_y)
+groups = main.group_by("group").agg(y=pl.col("period").min())
+periods = pl.DataFrame({"x": [0] * 7, "period": range(1, 8)})
+notes = pl.DataFrame(
+    {
+        "x": [key_x + 0.8, key_x + 1, key_x + 0.4],
+        "y": [key_y - 0.9, key_y + 0.1, key_y + 1],
+        "label": ["Atomic Number", "Symbol", "Atomic Mass"],
+    }
+)
+hover = (
+    layer_tooltips()
+    .title("@element\n(@type)")
+    .line("Atomic number|@atomic_number")
+    .line("Atomic mass|@atomic_mass")
+    .line("Electrons|@electron_configuration")
+)
+head = arrow(angle=30, length=4, type="closed")
+
+plot = (
+    ggplot(mapping=aes("x", "y"))
+    # The table: atomic number, symbol and mass on each tile.
+    + geom_tile(
+        aes(fill="type"),
+        data=table,
+        color="black",
+        size=0.25,
+        width=side,
+        height=side,
+        tooltips=hover,
+    )
+    + geom_text(
+        aes(label="atomic_number"),
+        data=table,
+        nudge_x=-0.37,
+        nudge_y=0.37,
+        hjust="left",
+        vjust="top",
+        size=5,
+    )
+    + geom_text(aes(label="symbol"), data=table, nudge_y=0.05, size=7, fontface="bold")
+    + geom_text(aes(label="atomic_mass"), data=table, nudge_y=-0.2, size=4, label_format=".3~f")
+    # Where the lanthanides and actinides belong.
+    + geom_tile(
+        aes(fill="type"),
+        data=placeholders,
+        color="black",
+        size=0.25,
+        width=side,
+        height=side,
+        tooltips="none",
+    )
+    + geom_text(aes(label="range"), data=placeholders, nudge_y=0.05, size=5, fontface="bold")
+    + geom_text(aes(label="type"), data=placeholders, nudge_y=-0.2, size=4)
+    # The key: one larger tile with notes and arrows.
+    + geom_tile(
+        aes(fill="type"),
+        data=key,
+        color="black",
+        size=0.25,
+        width=key_ratio * side,
+        height=key_ratio * side,
+        tooltips="none",
+    )
+    + geom_text(
+        aes(label="atomic_number"),
+        data=key,
+        nudge_x=-0.37 * key_ratio,
+        nudge_y=0.37 * key_ratio,
+        hjust="left",
+        vjust="top",
+        size=5 * key_ratio,
+    )
+    + geom_text(
+        aes(label="symbol"), data=key, nudge_y=0.05 * key_ratio, size=7 * key_ratio, fontface="bold"
+    )
+    + geom_text(
+        aes(label="atomic_mass"),
+        data=key,
+        nudge_y=-0.2 * key_ratio,
+        size=4 * key_ratio,
+        label_format=".3~f",
+    )
+    # Group and period numbers.
+    + geom_text(
+        aes("group", "y", label="group"),
+        data=groups,
+        color="gray",
+        nudge_y=0.525,
+        vjust="bottom",
+        size=6,
+    )
+    + geom_text(
+        aes("x", "period", label="period"), data=periods, color="gray", nudge_x=0.375, size=6
+    )
+    # Notes on the key.
+    + geom_text(aes(label="label"), data=notes, hjust=0)
+    + geom_curve(
+        x=key_x + 0.7,
+        y=key_y - 0.9,
+        xend=key_x - 0.3,
+        yend=key_y - 0.6,
+        curvature=0.4,
+        ncp=1,
+        arrow=head,
+    )
+    + geom_segment(x=key_x + 0.9, y=key_y + 0.1, xend=key_x + 0.3, yend=key_y - 0.1, arrow=head)
+    + geom_curve(
+        x=key_x + 0.3,
+        y=key_y + 1,
+        xend=key_x,
+        yend=key_y + 0.5,
+        curvature=-0.4,
+        ncp=1,
+        arrow=head,
+    )
+    + scale_y_reverse()
+    + scale_fill_brewer(name="", type="qual", palette="Set2", guide=guide_legend(ncol=2))
+    + coord_fixed(ratio=1.2)
+    + labs(title="Periodic Table of Chemical Elements", caption="© 1869, Dmitri Mendeleev")
+    + theme_void()
+    + theme(
+        plot_title=element_text(size=26, face="bold", hjust=0.5, margin=[30, 0, 5, 0]),
+        plot_caption=element_text(size=18),
+        plot_background=element_rect(color="black", size=3),
+        legend_position=[0.36, 0.85],
+        legend_background="blank",
+    )
+    + ggsize(1000, 700)
+)
+plot
+```
+
+</details>
+
+### Unknown Pleasures
+
+Pulsar CP 1919 as stacked ridgelines, on a black theme.
+
 <p align="center">
-  <a href="https://ggrust.datavil.org/gallery/netflix_ridges/"><img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/netflix_ridges.png" alt="Ridgeline plot of Netflix movie durations by genre" width="49%"></a>
-  <a href="https://ggrust.datavil.org/gallery/raincloud/"><img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/raincloud.png" alt="Raincloud plot of penguin bill depth on a dark theme" width="49%"></a>
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/unknown_pleasures.png" alt="Unknown Pleasures" width="450">
 </p>
+
+<details>
+<summary><b>Show code</b></summary>
+
+```python
+import polars as pl
+from ggrust import *
+
+DATA = "https://raw.githubusercontent.com/datavil/ggrust/main/docs/data/"
+pulses = pl.read_csv(DATA + "pulsar.csv", has_header=False)
+signal = (
+    pulses.with_row_index("pulse")
+    .unpivot(index="pulse", variable_name="column", value_name="height")
+    .with_columns(
+        time=pl.col("column").str.strip_prefix("column_").cast(pl.Int64),
+        height=pl.col("height") - pl.col("height").min(),
+    )
+)
+
+plot = (
+    ggplot(signal)
+    + geom_area_ridges(
+        aes("time", "pulse", height="height"),
+        stat="identity",
+        scale=0.25,
+        color="white",
+        fill="black",
+    )
+    + scale_y_reverse()
+    + theme_minimal()
+    + theme(axis="blank", panel_grid="blank")
+    + flavor_high_contrast_dark()
+    + ggsize(600, 600)
+)
+plot
+```
+
+</details>
+
+### Ridgelines
+
+Netflix movie durations by genre, filled by the genre mean on a log scale.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/netflix_ridges.png" alt="Ridgelines" width="640">
+</p>
+
+<details>
+<summary><b>Show code</b></summary>
+
+```python
+import polars as pl
+from ggrust import *
+
+DATA = "https://raw.githubusercontent.com/datavil/ggrust/main/docs/data/"
+movies = (
+    pl.read_csv(DATA + "netflix.csv")
+    .filter(pl.col("genres") != "Movies")
+    .with_columns(genre=pl.col("genres").str.split(", "))
+    .explode("genre", empty_as_null=True)
+    .with_columns(mean_minutes=pl.col("minutes").mean().over("genre"))
+    .sort("mean_minutes", descending=True)
+)
+
+plot = (
+    ggplot(movies, aes("minutes", "genre"))
+    + geom_area_ridges(
+        aes(group="genre", fill="mean_minutes"),
+        scale=4,
+        tooltips=layer_tooltips().title("@genre").line("duration|@minutes min"),
+    )
+    + scale_x_log10("duration (minutes)")
+    + scale_fill_viridis(name="mean duration", option="plasma")
+    + ggtitle("Mean Netflix movie duration")
+    + theme(axis_line_x="blank")
+    + ggsize(800, 600)
+)
+plot
+```
+
+</details>
+
+### Raincloud
+
+Half violins, sina points and boxplots, on a solarized dark flavor.
+
+<p align="center">
+  <img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/raincloud.png" alt="Raincloud" width="640">
+</p>
+
+<details>
+<summary><b>Show code</b></summary>
+
+```python
+import polars as pl
+from ggrust import *
+
+DATA = "https://raw.githubusercontent.com/datavil/ggrust/main/docs/data/"
+penguins = pl.read_csv(DATA + "penguins.csv").drop_nulls("bill_depth_mm")
+
+plot = (
+    ggplot(penguins, aes("species", "bill_depth_mm", color="species", fill="species"))
+    + geom_violin(show_half=1, alpha=0.75, trim=False, position=position_nudge(x=0.07))
+    + geom_sina(
+        show_half=-1,
+        fill="white",
+        shape=21,
+        seed=42,
+        show_legend=False,
+        position=position_nudge(x=-0.07),
+    )
+    + geom_boxplot(width=0.1, outlier_alpha=0, show_legend=False)
+    + scale_color_brewer(palette="Set2")
+    + scale_fill_brewer(palette="Pastel2")
+    + coord_flip()
+    + ylab("bill depth (mm)")
+    + theme_light()
+    + flavor_solarized_dark()
+    + ggsize(800, 600)
+)
+plot
+```
+
+</details>
 
 <p align="center"><i>Over 40 more in the <a href="https://ggrust.datavil.org/gallery/">gallery</a>, including animations.</i></p>
 

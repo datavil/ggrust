@@ -77,7 +77,18 @@ _CORNER_VERTICES = 12
 
 @dataclass(frozen=True)
 class PositionArguments:
-    """Spacing and placement settings of a ``funky_heatmap``; see ``position_arguments``."""
+    """Spacing and placement settings of a ``funky_heatmap``; see ``position_arguments``.
+
+    Build one with ``position_arguments()``, which checks the values and documents
+    each field.
+
+    Examples
+    --------
+    >>> from ggrust.bistro import position_arguments
+    >>> positions = position_arguments(row_height=1.2, legend_position="right")
+    >>> positions.row_height, positions.legend_position
+    (1.2, 'right')
+    """
 
     row_height: float = 1.0
     row_space: float = 0.1

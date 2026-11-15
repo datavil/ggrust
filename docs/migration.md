@@ -27,19 +27,19 @@ HTML output embeds its own small runtime. For static notebook output (lets-plot'
 
 | Area | Supported |
 |---|---|
-| Geoms | point, jitter, sina, line, path, segment, hline, vline, rect, polygon, tile, raster, imshow, bar, histogram, boxplot, violin, area, ribbon, area_ridges, errorbar, crossbar, linerange, pointrange, text, label, text_repel, label_repel, bracket, function, blank |
+| Geoms | point, jitter, sina, count, dotplot, ydotplot, qq, qq_line, qq2, qq2_line, line, path, step, segment, curve, spoke, lollipop, hline, vline, abline, smooth, rect, band, polygon, tile, raster, imshow, bin2d, hex, contour, contourf, density2d, density2df, bar, histogram, freqpoly, density, boxplot, violin, area, ribbon, area_ridges, errorbar, crossbar, linerange, pointrange, text, label, text_repel, label_repel, bracket, bracket_dodge, function, blank |
 | Positions | identity, dodge, jitter, jitterdodge, nudge, stack, fill |
-| Scales | x/y continuous and discrete, log2, log10, reverse; color/fill continuous, gradient, gradient2, gradientn, viridis, brewer, hue, manual, identity; size, shape, alpha |
-| Coordinates and facets | `coord_cartesian`, `coord_fixed`, `coord_flip`, `facet_wrap`, `facet_grid` |
+| Scales | x/y continuous and discrete, log2, log10, reverse; color/fill continuous, gradient, gradient2, gradientn, viridis, brewer, hue, manual, identity; size, shape, alpha; the generic `scale_manual(aesthetic, ...)`, `scale_identity(aesthetic)` and their kin |
+| Coordinates and facets | `coord_cartesian`, `coord_fixed`, `coord_flip`, `coord_polar`, `facet_wrap`, `facet_grid` |
+| Prebuilt plots (`bistro`) | `corr_plot`, `joint_plot`, `qq_plot`, `residual_plot`, `image_matrix` |
 | Layout | `theme` and its elements, theme presets, flavors, `labs`, `guides`, `ggsize`, `gggrid` |
 | Interactivity | `layer_tooltips` (lines, format, title), `ggtb` zoom/pan toolbar |
 | Output | `_repr_html_`, `to_svg`, `to_png`, `to_html`, `to_pdf`, `ggsave` |
 
 ## What is not supported
 
-These lets-plot features are out of scope: maps (livemap, GIS, geocoding), `bistro`
-(`corr_plot`, `qq_plot`, ...), smoothing and regression, contour and 2D density, polar
-coordinates, pie and waterfall charts, and frontends other than Jupyter and standalone
+These lets-plot features are out of scope: maps (livemap, GIS, geocoding), `geom_pie`,
+`waterfall_plot`, and frontends other than Jupyter and standalone
 HTML. `GGBunch` is exported so code that names it still imports, but creating one raises
 `NotImplementedError`. Use `gggrid` for a grid, or for plots placed freely (overlap
 allowed) add `inset_element(plot, left, bottom, right, top, align_to="full")` to an

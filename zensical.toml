@@ -23,6 +23,7 @@ nav = [
     { "Facets and grids" = "guide/facets.md" },
     { "Themes" = "guide/themes.md" },
     { "ggplot2 extensions" = "guide/extensions.md" },
+    { "Animation" = "guide/animation.md" },
     { "Interactivity" = "guide/interactivity.md" },
     { "Export" = "guide/export.md" },
     { "Migrating from lets-plot" = "migration.md" },
@@ -61,8 +62,24 @@ nav = [
     ] },
     { "Labels, facets and grids" = [
       "gallery/text_repel.md",
+      "gallery/annotations.md",
       "gallery/facets.md",
       "gallery/grid.md",
+    ] },
+    { "Legends" = [
+      "gallery/legends.md",
+      "gallery/colorbar.md",
+    ] },
+    { "Prebuilt plots" = [
+      "gallery/joint_plot.md",
+      "gallery/residual_plot.md",
+    ] },
+    { "Animation" = [
+      "gallery/animation_states.md",
+      "gallery/animation_time.md",
+      "gallery/animation_reveal.md",
+      "gallery/animation_enter_exit.md",
+      "gallery/animation_shadow.md",
     ] },
     { "Interactivity" = [
       "gallery/tooltips.md",
@@ -74,6 +91,7 @@ nav = [
     { "ggplot2 extensions" = [
       "gallery/beeswarm.md",
       "gallery/compare_means.md",
+      "gallery/pairwise_tests.md",
       "gallery/cluster_marks.md",
       "gallery/highlight.md",
       "gallery/point_density.md",
@@ -358,6 +376,16 @@ nav = [
       "reference/api/anim_save.md",
       "reference/api/last_animation.md",
       "reference/api/Animation.md",
+    ] },
+    { "Prebuilt plots (bistro)" = [
+      "reference/api/corr_plot.md",
+      "reference/api/joint_plot.md",
+      "reference/api/qq_plot.md",
+      "reference/api/residual_plot.md",
+      "reference/api/image_matrix.md",
+      "reference/api/funky_heatmap.md",
+      "reference/api/position_arguments.md",
+      "reference/api/PositionArguments.md",
     ] },
     { "Rasterized layers (ggrastr)" = [
       "reference/api/rasterize.md",

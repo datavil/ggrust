@@ -34,6 +34,9 @@ A plot has three parts: **data**, a **mapping** from columns to visual propertie
 
 The parts are joined with `+`. Each `+` returns a new plot, so a base plot can be reused.
 
+To try things without a file at hand, `ggrust.data` has four small datasets as polars
+DataFrames: `from ggrust.data import penguins, mpg, economics, iris`.
+
 ## Mapped and constant aesthetics
 
 Inside `aes()`, an aesthetic follows a column, and a scale and a legend are made for

@@ -72,6 +72,34 @@ each x, with Holm-adjusted p-values, as ggpubr's `geom_pwc`. To draw your own
 comparisons, `compare_means()` returns them as a table (ggpubr's `compare_means`)
 and `stat_pvalue_manual` draws a table's rows as brackets.
 
+```python
+--8<-- "pairwise_tests.py:code"
+```
+
+--8<-- "figures/pairwise_tests.html"
+
+```python
+from ggrust import *
+from ggrust.data import penguins
+
+known = penguins.drop_nulls("body_mass_g")
+tests = compare_means("body_mass_g ~ species", known, method="t.test")
+(
+    ggplot(known, aes("species", "body_mass_g"))
+    + geom_boxplot()
+    + stat_pvalue_manual(tests, label="p.signif", y_position=[6400, 6700, 7000])
+)
+```
+
+`stat_cor` and `stat_poly_eq` compute their label as text variables, so
+`after_stat` picks the part to show: `stat_cor(aes(label=after_stat("r.label")))`
+drops the p-value (also `rr.label` and `p.label`; `eq.label`, `adj.rr.label`,
+`p.value.label` and `n.label` on `stat_poly_eq`).
+`stat_poly_eq(label=["R", "slope"])` writes the signed correlation and the slope of a
+line. For brackets you place yourself, lets-plot's `geom_bracket` and
+`geom_bracket_dodge` (between the dodged groups `istart` and `iend` of one `x`) are
+covered in the [API reference](../reference/api/geom_bracket_dodge.md).
+
 ## Cluster marks
 
 `geom_mark_hull`, `geom_mark_ellipse` and `geom_mark_rect` outline each group and can
@@ -197,72 +225,15 @@ ggsave(plot, "umap.pdf")
 
 ## Animation
 
-`p + transition_manual("year")` draws one frame per value of `year`, after
+`p + transition_states("year")` turns a plot into an animation: one frame per value
+of a column, with the marks moving smoothly from state to state, after
 [gganimate](https://cran.r-project.org/package=gganimate) by Thomas Lin Pedersen and
-David Robinson. Scales are trained once over all the data, so the axes stay fixed;
-stats and positions run per frame. `animate(plot, nframes=, fps=, duration=,
-start_pause=, end_pause=, rewind=)` plans the frames as gganimate does, and
-`{current_frame}`, `{frame}`, `{nframes}` and `{progress}` in the title, subtitle or
-caption are filled in per frame. In a notebook the animation plays in a small player;
-`anim_save("year.gif")` or `ggsave(plot, "year.gif")` writes a GIF (`.png` writes an
-animated PNG, `.html` the player).
-
-```python
---8<-- "animation.py:code"
-```
-
---8<-- "figures/animation.html"
-
-`p + transition_states("year", transition_length=2, state_length=1)` holds each
-state, then moves the marks smoothly into the next one, and with `wrap=True` (the
-default) from the last state back to the first. Rows are matched by group (set it
-with `aes(group=...)`; discrete mappings such as `fill` split groups too), numbers
-and sizes move by the plot's `ease_aes("cubic-in-out", y="bounce-out")`, colours
-through CIE Lab as gganimate's tweenr does, and categories switch halfway. Rows
-without a partner in the next state show only in their own state, unless the plot
-has enter and exit effects (see below).
-`{closest_state}`, `{previous_state}`, `{next_state}` and `{transitioning}` fill the
-labels.
+David Robinson. It plays in a notebook and saves as a GIF, an animated PNG or an HTML
+player. The [Animation](animation.md) page covers transitions, easing, enter and
+exit effects, shadows, labels and saving.
 
 ```python
 --8<-- "animation_states.py:code"
 ```
 
 --8<-- "figures/animation_states.html"
-
-`p + transition_time("year")` spaces the frames evenly over the range of a time column
-(numbers, dates, date-times) and moves the marks from each time to the next, matched by
-group as above. Each time is drawn at its nearest frame; when two times fall on the
-same frame only the earlier one is drawn and a warning says so (raise `nframes`).
-`{frame_time}` fills the labels.
-
-```python
---8<-- "animation_time.py:code"
-```
-
---8<-- "figures/animation_time.html"
-
-`p + transition_reveal("date")` reveals the data along a column: lines, areas and
-polygons keep the rows reached and end at a point interpolated at the frame, other
-geoms (points, texts) show only that moving point, kept at the end of its group with
-`keep_last=True` (the default). `{frame_along}` fills the labels.
-
-```python
---8<-- "animation_reveal.py:code"
-```
-
---8<-- "figures/animation_reveal.html"
-
-Marks that appear or leave between two states can move in and out instead of popping:
-`enter_fade(alpha=0)` / `exit_fade(alpha=0)` fade them, `enter_grow(size=0)` /
-`exit_shrink(size=0)` grow points and texts from nothing, bars from the axis, lines and
-polygons from their centre. Effects added with `+` apply one after the other, and they
-work with `transition_states` and `transition_time`. `shadow_wake(0.1)` leaves a fading
-trail of the last tenth of the frames behind moving marks, and `shadow_mark(alpha=0.3)`
-keeps the marks of the states already shown in the background.
-
-```python
---8<-- "animation_enter_exit.py:code"
-```
-
---8<-- "figures/animation_enter_exit.html"

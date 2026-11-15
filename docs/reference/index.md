@@ -327,7 +327,7 @@ Draw a plot or grid inside another plot's area (R package patchwork, not in lets
 
 ## Animation (gganimate)
 
-One frame per value of a column, or states that move smoothly into each other, played as a GIF, APNG or HTML player.
+One frame per value of a column, or states that move smoothly into each other, played as a GIF, APNG or HTML player. Provisional: names and parameters may still change in a minor release (see the [Animation guide](../guide/animation.md)).
 
 | Name | Description |
 |---|---|
@@ -346,6 +346,21 @@ One frame per value of a column, or states that move smoothly into each other, p
 | [`anim_save()`](api/anim_save.md) | Save an animation to a file; the extension picks the format (gganimate ``anim_save``). |
 | [`last_animation()`](api/last_animation.md) | Return the animation :func:`animate` made last (gganimate ``last_animation``). |
 | [`Animation`](api/Animation.md) | A planned animation of a plot: frames, speed and size, rendered on demand. |
+
+## Prebuilt plots (bistro)
+
+Whole plots from one call, as `lets_plot.bistro`, plus a port of the R package funkyheatmap. Import them from `ggrust.bistro`: `from ggrust.bistro import joint_plot`.
+
+| Name | Description |
+|---|---|
+| [`corr_plot`](api/corr_plot.md) | Build a correlation matrix plot of tiles, points and/or labels. |
+| [`joint_plot()`](api/joint_plot.md) | Draw a bivariate plot of ``x`` and ``y`` with their distributions in the margins. |
+| [`qq_plot()`](api/qq_plot.md) | Draw a Q-Q plot: sample quantiles against theoretical (or other sample) quantiles. |
+| [`residual_plot()`](api/residual_plot.md) | Plot the residuals of ``y`` after a fit on ``x``, against ``x``. |
+| [`image_matrix()`](api/image_matrix.md) | Show a grid of images, one per cell of a 2D object array. |
+| [`funky_heatmap()`](api/funky_heatmap.md) | Draw a funky heatmap: a table of bars, circles, rounded squares, pies, text and images. |
+| [`position_arguments()`](api/position_arguments.md) | Spacing and placement settings for ``funky_heatmap``, in data units (0.25 inch). |
+| [`PositionArguments`](api/PositionArguments.md) | Spacing and placement settings of a ``funky_heatmap``; see ``position_arguments``. |
 
 ## Rasterized layers (ggrastr)
 

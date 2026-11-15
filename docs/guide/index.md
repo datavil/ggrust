@@ -35,6 +35,10 @@ paste it into a notebook and run it.
     Beeswarms, significance tests, cluster marks, side panels, dendrograms and more,
     from R's extension packages, built in.
 
+-   [:lucide-clapperboard: **Animation**](animation.md)
+
+    Transitions, easing, shadows and saving a GIF, after gganimate.
+
 -   [:lucide-image-down: **Export**](export.md)
 
     SVG, PNG, PDF and HTML files at the size you need.

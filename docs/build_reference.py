@@ -332,7 +332,9 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
     ),
     "Animation (gganimate)": (
         "One frame per value of a column, or states that move smoothly into each "
-        "other, played as a GIF, APNG or HTML player.",
+        "other, played as a GIF, APNG or HTML player. Provisional: names and "
+        "parameters may still change in a minor release (see the "
+        "[Animation guide](../guide/animation.md)).",
         [
             "transition_manual",
             "transition_states",
@@ -349,6 +351,21 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "anim_save",
             "last_animation",
             "Animation",
+        ],
+    ),
+    "Prebuilt plots (bistro)": (
+        "Whole plots from one call, as `lets_plot.bistro`, plus a port of the R package "
+        "funkyheatmap. Import them from `ggrust.bistro`: "
+        "`from ggrust.bistro import joint_plot`.",
+        [
+            "ggrust.bistro.corr_plot",
+            "ggrust.bistro.joint_plot",
+            "ggrust.bistro.qq_plot",
+            "ggrust.bistro.residual_plot",
+            "ggrust.bistro.image_matrix",
+            "ggrust.bistro.funky_heatmap",
+            "ggrust.bistro.position_arguments",
+            "ggrust.bistro.PositionArguments",
         ],
     ),
     "Rasterized layers (ggrastr)": (

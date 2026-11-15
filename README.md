@@ -86,6 +86,27 @@ plot.to_png("plot.png")
 
 In a notebook the plot shows as interactive HTML (tooltips, zoom and pan with `ggtb()`).
 
+## Showcase
+
+From 3D surfaces to album covers, all drawn with the same `+` grammar. Click a figure for its code.
+
+<p align="center">
+  <a href="https://ggrust.datavil.org/gallery/surface/"><img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/surface.png" alt="3D surface of sin(sqrt(x² + y²)) under coord_3d" width="49%"></a>
+  <a href="https://ggrust.datavil.org/gallery/unknown_pleasures/"><img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/unknown_pleasures.png" alt="Pulsar ridgelines in white on black" width="39%"></a>
+</p>
+<p align="center">
+  <a href="https://ggrust.datavil.org/gallery/funky_heatmap/"><img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/funky_heatmap.png" alt="Funky heatmap of single-cell integration benchmark scores" width="90%"></a>
+</p>
+<p align="center">
+  <a href="https://ggrust.datavil.org/gallery/periodic_table/"><img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/periodic_table.png" alt="Periodic table of chemical elements" width="90%"></a>
+</p>
+<p align="center">
+  <a href="https://ggrust.datavil.org/gallery/netflix_ridges/"><img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/netflix_ridges.png" alt="Ridgeline plot of Netflix movie durations by genre" width="49%"></a>
+  <a href="https://ggrust.datavil.org/gallery/raincloud/"><img src="https://raw.githubusercontent.com/datavil/ggrust/main/docs/images/gallery/raincloud.png" alt="Raincloud plot of penguin bill depth on a dark theme" width="49%"></a>
+</p>
+
+<p align="center"><i>Over 40 more in the <a href="https://ggrust.datavil.org/gallery/">gallery</a>, including animations.</i></p>
+
 ## ggplot2 extensions, built in
 
 Many popular ggplot2 extension packages from R are built into ggrust, under their R function names. Nothing extra to install; Lets-Plot has none of them.
@@ -200,6 +221,7 @@ temperature = pl.DataFrame(
 - __Geoms__: point, line, path, bar, col, histogram, boxplot, violin, area ridges, tile, raster, rect, text, label, text/label repel, segment, curve, polygon, rug, imshow, brackets and more.
 - __Stats__: count, bin, density, smooth, summary, ecdf, contours, 2D bins, ellipses.
 - __Scales__: continuous, discrete, log, reversed, datetime, hue, manual, gradients, viridis, brewer, secondary axes, axes on any side.
+- __3D__: `coord_3d` with `geom_surface`, beyond both Lets-Plot and ggplot2.
 - __Layout__: `facet_wrap`, `facet_grid`, `gggrid` with collected legends, `coord_fixed`, `coord_flip`, themes (`theme_classic`, `theme_bw`, `theme_minimal`, `theme_void`, ...).
 - __Outputs__: SVG, PNG, vector PDF, and interactive HTML through `ggsave`, with your own fonts (`register_font`). Dense scatter layers are drawn on a canvas in HTML.
 

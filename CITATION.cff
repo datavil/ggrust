@@ -6,6 +6,7 @@ authors:
   - family-names: Kosar
     given-names: Zafer
     orcid: "https://orcid.org/0000-0002-9275-4998"
+doi: "10.5281/zenodo.24247772"
 license: MIT
 repository-code: "https://github.com/datavil/ggrust"
 url: "https://ggrust.datavil.org"

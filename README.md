@@ -10,6 +10,7 @@
 [![GitHub](https://img.shields.io/badge/GitHub-100000?style=flat&logo=github&logoColor=white)](https://github.com/datavil/ggrust)
 [![License: MIT](https://img.shields.io/badge/License-MIT-ff0000)](https://opensource.org/licenses/MIT)
 [![Docs](https://img.shields.io/badge/Docs-ggrust.datavil.org-377eb8)](https://ggrust.datavil.org/)
+[![DOI](https://zenodo.org/badge/1433487558.svg)](https://doi.org/10.5281/zenodo.24247772)
 
 The __Grammar of Graphics__, written in Rust, used from Python.
 

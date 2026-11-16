@@ -8,6 +8,7 @@ from pathlib import Path
 import ggrust as gg
 import polars as pl
 import pytest
+from ggrust._ggrust import text_width
 from ggrust.errors import SpecError
 
 FRAME = pl.DataFrame(
@@ -54,6 +55,31 @@ def test_box_shows_three_axis_titles_and_z_labels() -> None:
         assert title in found
     for label in ["10", "25", "40"]:
         assert label in found
+
+
+@pytest.mark.parametrize("azimuth", [-120, -50, 30, 120, 210])
+@pytest.mark.parametrize("elevation", [-30, 15, 60])
+def test_long_axis_titles_stay_on_the_canvas(azimuth: int, elevation: int) -> None:
+    title = "a_rather_long_axis_title"
+    names = {f"{title}_{axis}": FRAME[axis] for axis in ["x", "y", "z"]}
+    plot = (
+        gg.ggplot(pl.DataFrame(names), gg.aes(f"{title}_x", f"{title}_y", z=f"{title}_z"))
+        + gg.geom_point()
+        + gg.coord_3d(azimuth=azimuth, elevation=elevation)
+        + gg.ggsize(500, 400)
+    )
+    titles = 0
+    for attributes, content in re.findall(r"<text([^>]*)>([^<]*)</text>", plot.to_svg()):
+        found = dict(re.findall(r'([a-z-]+)="([^"]*)"', attributes))
+        width = text_width(content, float(found["font-size"]))
+        anchor = found.get("text-anchor", "start")
+        shift = {"start": 0.0, "middle": width / 2, "end": width}[anchor]
+        left = float(found["x"]) - shift
+        assert left >= -0.5 and left + width <= 500.5, (
+            f"{content!r} spans {left:.0f}..{left + width:.0f}"
+        )
+        titles += content.startswith(title)
+    assert titles == 3
 
 
 def test_labs_names_the_z_axis() -> None:

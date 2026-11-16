@@ -9,10 +9,15 @@
 //! ticks, labels and title (`axis_text_*`, `axis_ticks_*`, `axis_title_*`, x
 //! elements for x, y elements for y and z), all pointing away from the box.
 //!
-//! What it does not do: minor grid lines, label overlap removal, secondary axes.
+//! [`fit`] places the box: fitted into the panel shrunk by [`label_room`], then
+//! shrunk again on each side where tick labels or titles (long titles, wide
+//! labels) would leave the panel.
+//!
+//! What it does not do: minor grid lines, label overlap removal, secondary axes,
+//! titles wider than the whole panel (they still overflow).
 
 use super::text_node;
-use crate::coord3d::{Projector, Scales3d};
+use crate::coord3d::{Projector, Scales3d, View};
 use crate::scale::PositionScale;
 use crate::scale::format::Label;
 use crate::scene::{HorizontalAlign, Node, Path, Rect, Text, VerticalAlign};
@@ -25,6 +30,10 @@ const TARGET_BREAKS: usize = 5;
 const PIXELS_PER_BREAK: f64 = 30.0;
 /// Gap between parts (labels, title) in pixels.
 const GAP: f64 = 4.0;
+/// Refits of the box at most, each shrinking it by what still overflows.
+const FIT_ROUNDS: usize = 12;
+/// Overflow (pixels, all sides together) small enough to stop refitting.
+const FIT_TOLERANCE: f64 = 0.5;
 
 /// Axis titles of a 3D panel (`None`: no title).
 #[derive(Debug, Clone, Default, PartialEq)]
@@ -267,6 +276,96 @@ fn alignment((dx, dy): (f64, f64)) -> (HorizontalAlign, VerticalAlign) {
     (horizontal, vertical)
 }
 
+/// Pixel bounds of the parts drawn by [`draw_front`].
+#[derive(Debug, Clone, Copy, PartialEq)]
+struct Bounds {
+    left: f64,
+    top: f64,
+    right: f64,
+    bottom: f64,
+}
+
+impl Bounds {
+    const EMPTY: Bounds = Bounds {
+        left: f64::INFINITY,
+        top: f64::INFINITY,
+        right: f64::NEG_INFINITY,
+        bottom: f64::NEG_INFINITY,
+    };
+
+    fn include_point(&mut self, (x, y): (f64, f64)) {
+        if x.is_finite() && y.is_finite() {
+            self.left = self.left.min(x);
+            self.right = self.right.max(x);
+            self.top = self.top.min(y);
+            self.bottom = self.bottom.max(y);
+        }
+    }
+
+    /// Include a text of `width` x `height` anchored at `anchor` with the given
+    /// alignment.
+    fn include_text(
+        &mut self,
+        anchor: (f64, f64),
+        (width, height): (f64, f64),
+        (horizontal, vertical): (HorizontalAlign, VerticalAlign),
+    ) {
+        let left = match horizontal {
+            HorizontalAlign::Start => anchor.0,
+            HorizontalAlign::Middle => anchor.0 - width / 2.0,
+            HorizontalAlign::End => anchor.0 - width,
+        };
+        let top = match vertical {
+            VerticalAlign::Top => anchor.1,
+            VerticalAlign::Middle => anchor.1 - height / 2.0,
+            // Baseline (not used here) counted as bottom: the larger extent.
+            VerticalAlign::Bottom | VerticalAlign::Baseline => anchor.1 - height,
+        };
+        self.include_point((left, top));
+        self.include_point((left + width, top + height));
+    }
+}
+
+/// The box of a 3D panel fitted into `panel` with its labels and titles inside:
+/// first into the panel shrunk by [`label_room`], then shrunk on each side by
+/// what the drawn labels and titles still overflow, a few rounds (shrinking moves
+/// the labels inwards too).
+pub fn fit(
+    view: View,
+    panel: Rect,
+    scales: &Scales3d,
+    theme: &Theme,
+    titles: &Titles3d,
+) -> Projector {
+    let mut rect = box_rect(panel, label_room(scales, theme, titles));
+    let mut projector = Projector::fit(view, rect);
+    for _ in 0..FIT_ROUNDS {
+        let (_, bounds) = front(&projector, scales, theme, titles);
+        let left = (panel.x - bounds.left).max(0.0);
+        let top = (panel.y - bounds.top).max(0.0);
+        let right = (bounds.right - (panel.x + panel.width)).max(0.0);
+        let bottom = (bounds.bottom - (panel.y + panel.height)).max(0.0);
+        if left + top + right + bottom < FIT_TOLERANCE {
+            break;
+        }
+        // Never below 1 px: a title wider than the panel cannot fit.
+        let width = (rect.width - left - right).max(1.0);
+        let height = (rect.height - top - bottom).max(1.0);
+        let shrunk = Rect {
+            x: (rect.x + left).min(rect.x + rect.width - width),
+            y: (rect.y + top).min(rect.y + rect.height - height),
+            width,
+            height,
+        };
+        if shrunk == rect {
+            break;
+        }
+        rect = shrunk;
+        projector = Projector::fit(view, rect);
+    }
+    projector
+}
+
 /// Edges, ticks, labels and titles, drawn over the data.
 pub fn draw_front(
     projector: &Projector,
@@ -274,6 +373,16 @@ pub fn draw_front(
     theme: &Theme,
     titles: &Titles3d,
 ) -> Vec<Node> {
+    front(projector, scales, theme, titles).0
+}
+
+/// [`draw_front`]'s nodes and their pixel bounds.
+fn front(
+    projector: &Projector,
+    scales: &Scales3d,
+    theme: &Theme,
+    titles: &Titles3d,
+) -> (Vec<Node>, Bounds) {
     let title_of = [&titles.x, &titles.y, &titles.z];
     let x_elements = (
         theme.axis_line_x.map(|line| line.style),
@@ -292,6 +401,7 @@ pub fn draw_front(
     let fallback = [(0.0, 1.0), (0.0, 1.0), (-1.0, 0.0)];
     let axis_breaks = axis_breaks(projector, scales);
     let mut nodes = Vec::new();
+    let mut bounds = Bounds::EMPTY;
     for (index, (edge, outward)) in edges(projector).into_iter().enumerate() {
         let (axis_line, ticks, text, title_style, grid) =
             if index == 0 { x_elements } else { y_elements };
@@ -313,6 +423,7 @@ pub fn draw_front(
             let value = *value;
             let (x, y) = projector.pixel(edge.position(value));
             if let Some(style) = ticks {
+                bounds.include_point((x + direction.0 * tick, y + direction.1 * tick));
                 nodes.push(Node::Path(Path {
                     points: vec![(x, y), (x + direction.0 * tick, y + direction.1 * tick)],
                     closed: false,
@@ -337,6 +448,7 @@ pub fn draw_front(
             }
             nodes.push(node);
             let (width, height) = (label_width(label, style), line_height(style));
+            bounds.include_text(anchor, (width, height), (horizontal, vertical));
             label_extent = label_extent.max(direction.0.abs() * width + direction.1.abs() * height);
         }
         let (Some(style), Some(title)) = (
@@ -353,8 +465,10 @@ pub fn draw_front(
             text.vertical = vertical;
         }
         nodes.push(node);
+        let width = measure(title, style.size, style.font).width;
+        bounds.include_text(anchor, (width, line_height(style)), (horizontal, vertical));
     }
-    nodes
+    (nodes, bounds)
 }
 
 /// The panel rectangle shrunk by [`label_room`] (never below 1 px).
@@ -437,5 +551,75 @@ mod tests {
         let found = breaks(&scale, 5);
         assert!(!found.is_empty());
         assert!(found.iter().all(|(at, _)| (0.0..=1.0).contains(at)));
+    }
+
+    #[test]
+    fn long_titles_stay_inside_the_panel_at_every_angle() {
+        let mut scale = ContinuousPositionScale::default();
+        scale.train_range(0.0, 10.0);
+        let scale = PositionScale::Continuous(scale);
+        let scales = Scales3d {
+            x: &scale,
+            y: &scale,
+            z: &scale,
+        };
+        let title = Some("a rather long axis title".to_owned());
+        let titles = Titles3d {
+            x: title.clone(),
+            y: title.clone(),
+            z: title,
+        };
+        let theme = Theme::default();
+        let panel = Rect {
+            x: 10.0,
+            y: 20.0,
+            width: 500.0,
+            height: 400.0,
+        };
+        for azimuth in [-120.0, -60.0, 0.0, 30.0, 120.0, 210.0] {
+            for elevation in [-30.0, 0.0, 15.0, 60.0] {
+                let view = projector(azimuth, elevation).view();
+                let fitted = fit(view, panel, &scales, &theme, &titles);
+                let (_, bounds) = front(&fitted, &scales, &theme, &titles);
+                let slack = 1.0;
+                assert!(
+                    bounds.left >= panel.x - slack
+                        && bounds.top >= panel.y - slack
+                        && bounds.right <= panel.x + panel.width + slack
+                        && bounds.bottom <= panel.y + panel.height + slack,
+                    "azimuth {azimuth}, elevation {elevation}: {bounds:?} leaves {panel:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn short_titles_keep_the_label_room_fit() {
+        let mut scale = ContinuousPositionScale::default();
+        scale.train_range(0.0, 10.0);
+        let scale = PositionScale::Continuous(scale);
+        let scales = Scales3d {
+            x: &scale,
+            y: &scale,
+            z: &scale,
+        };
+        let titles = Titles3d {
+            x: Some("x".into()),
+            y: Some("y".into()),
+            z: Some("z".into()),
+        };
+        let theme = Theme::default();
+        let panel = Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 600.0,
+            height: 450.0,
+        };
+        let view = projector(-60.0, 30.0).view();
+        let room = label_room(&scales, &theme, &titles);
+        assert_eq!(
+            fit(view, panel, &scales, &theme, &titles),
+            Projector::fit(view, box_rect(panel, room))
+        );
     }
 }

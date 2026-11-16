@@ -22,6 +22,7 @@ Signature clean-up before 1.0. Every affected argument still works by name; only
 ### Fixed
 
 - Stat layers (`geom_boxplot`, `geom_violin`, `geom_bar`, `stat_summary`, ...) dodge and stack their groups in level order for a polars Enum, an ordered pandas categorical or `as_discrete(order=)`, as lets-plot does. They used first appearance, so `position_jitterdodge` points could land on the wrong box. Plain string columns keep first appearance.
+- `coord_3d` keeps its axis titles and tick labels inside the plot: the box shrinks on the sides where they would stick out. Titles longer than about six characters were cut off at the left edge.
 
 ## [0.9.0] - 2026-11-15
 

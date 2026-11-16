@@ -10,7 +10,7 @@
 
 use super::{PreparedLayer, axis_title, layer_stat, merged_mapping};
 use crate::coord::{Cartesian, Panel};
-use crate::coord3d::{self, Projector, Scales3d, View, identity_scale};
+use crate::coord3d::{self, Scales3d, View, identity_scale};
 use crate::data::Column;
 use crate::geom::{DrawLayer, surface};
 use crate::layout::Titles;
@@ -200,8 +200,7 @@ pub(super) fn draw_tile(
         y: tile_y,
         z: &space.z,
     };
-    let room = box3d::label_room(&scales, theme, &space.titles);
-    let projector = Projector::fit(space.view, box3d::box_rect(panel, room));
+    let projector = box3d::fit(space.view, panel, &scales, theme, &space.titles);
     let mut nodes = box3d::draw_back(&projector, &scales, theme);
     let identity = identity_scale();
     let flat = Panel {

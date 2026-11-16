@@ -2713,6 +2713,8 @@ fn default_scale_name(
     orientations: &[bool],
 ) -> String {
     let mut labels: Vec<String> = Vec::new();
+    // The plot's own mapping, for an axis only placement layers draw on.
+    let mut plot_name: Option<String> = None;
     for (index, layer) in spec.layers.iter().enumerate() {
         if layer.scale_group(aesthetic) != group {
             continue;
@@ -2726,10 +2728,21 @@ fn default_scale_name(
         {
             continue;
         }
-        // Placement columns (`stat_pvalue_manual`'s `y.position`) do not name axes.
+        // Placement columns (`stat_pvalue_manual`'s `y.position`) do not name axes:
+        // the plot's mapping does, when no other layer names the axis.
         if (aesthetic.is_x_position() || aesthetic.is_y_position())
             && layer_stat(layer).is_some_and(|stat| !stat.names_axes())
         {
+            if plot_name.is_none() {
+                plot_name = discrete_annotation(spec, layer, aesthetic, true)
+                    .and_then(|annotation| annotation.parameters.label.clone())
+                    .or_else(|| {
+                        spec.mapping
+                            .get(&aesthetic)
+                            .and_then(|value| value.as_column())
+                            .map(str::to_owned)
+                    });
+            }
             continue;
         }
         // A y-oriented layer's stat maps its variables to the swapped aesthetic.
@@ -2766,7 +2779,7 @@ fn default_scale_name(
         }
     }
     match labels.as_slice() {
-        [] => aesthetic.as_str().to_owned(),
+        [] => plot_name.unwrap_or_else(|| aesthetic.as_str().to_owned()),
         [_, _, ..] if matches!(aesthetic, Aesthetic::X | Aesthetic::Y) => {
             aesthetic.as_str().to_owned()
         }

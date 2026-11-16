@@ -181,6 +181,24 @@ def test_stat_pvalue_manual_leaves_the_axis_titles_to_the_data(first: bool) -> N
     assert "y" not in found
 
 
+def test_stat_pvalue_manual_alone_titles_from_the_plot_mapping() -> None:
+    table = gg.compare_means("len ~ dose", TOOTH)
+    manual = gg.stat_pvalue_manual(table, label="p.signif", y_position=36)
+    found = texts((gg.ggplot(TOOTH, gg.aes("dose", "len")) + manual).to_svg())
+    # ggpubr titles xmin / y.position here (deviations.md).
+    assert "len" in found and "dose" in found
+    assert not {"x", "y", "xmin", "y.position"} & set(found)
+    labelled = gg.aes(gg.as_discrete("dose", label="Dose (mg)"), "len")
+    assert "Dose (mg)" in texts((gg.ggplot(TOOTH, labelled) + manual).to_svg())
+
+
+def test_stat_pvalue_manual_alone_without_a_mapping_keeps_x_and_y() -> None:
+    table = gg.compare_means("len ~ dose", TOOTH)
+    manual = gg.stat_pvalue_manual(table, label="p.signif", y_position=36)
+    found = texts((gg.ggplot(TOOTH) + manual).to_svg())
+    assert "x" in found and "y" in found
+
+
 def test_geom_bracket_still_titles_y_as_lets_plot() -> None:
     brackets = pl.DataFrame({"from": ["0.5"], "to": ["1"], "top": [36.0], "text": ["*"]})
     mapping = gg.aes(xmin="from", xmax="to", y="top", label="text")

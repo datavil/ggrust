@@ -15,8 +15,10 @@ Static 3D (tier 1) without touching the 2D `Coord` trait or any renderer.
   `Space3d.titles`; the box keeps `box3d::label_room` around itself inside the panel.
 - **Fit the box by measured overflow, not by a uniform room:** horizontal titles stick
   out by their full width on the left/right edges, so `box3d::fit` draws the front
-  parts, shrinks the fit rectangle by what each side overflows and refits (up to 12
-  rounds; anchors move in by less than the shrink, 4 rounds left ~5 px).
+  parts, shrinks the fit rectangle by what each side overflows and refits (up to 16
+  rounds; anchors move in by less than the shrink, 4 rounds left ~5 px). Floor at 15%
+  of the first fit, and when titles cannot fit (they need more than the panel) keep the
+  first fit: shrinking without a floor collapsed the box to a dot.
 - **View convention** = matplotlib: eye `(cos e cos a, cos e sin a, sin e)`; screen
   right `(-sin a, cos a, 0)`; right x up = eye (right-handed). Far pane of an axis is
   at 0 when the eye component is >= 0. Defaults -60/30 look from +x, -y, +z.

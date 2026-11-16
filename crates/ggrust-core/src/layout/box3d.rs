@@ -14,7 +14,7 @@
 //! labels) would leave the panel.
 //!
 //! What it does not do: minor grid lines, label overlap removal, secondary axes,
-//! titles wider than the whole panel (they still overflow).
+//! titles too long for the panel (the box keeps its first fit and they overflow).
 
 use super::text_node;
 use crate::coord3d::{Projector, Scales3d, View};
@@ -31,7 +31,10 @@ const PIXELS_PER_BREAK: f64 = 30.0;
 /// Gap between parts (labels, title) in pixels.
 const GAP: f64 = 4.0;
 /// Refits of the box at most, each shrinking it by what still overflows.
-const FIT_ROUNDS: usize = 12;
+const FIT_ROUNDS: usize = 16;
+/// The refitted box keeps at least this share of the first fit's width and
+/// height; when the labels still do not fit, the first fit is kept.
+const MIN_SHARE: f64 = 0.15;
 /// Overflow (pixels, all sides together) small enough to stop refitting.
 const FIT_TOLERANCE: f64 = 0.5;
 
@@ -329,7 +332,8 @@ impl Bounds {
 /// The box of a 3D panel fitted into `panel` with its labels and titles inside:
 /// first into the panel shrunk by [`label_room`], then shrunk on each side by
 /// what the drawn labels and titles still overflow, a few rounds (shrinking moves
-/// the labels inwards too).
+/// the labels inwards too), down to [`MIN_SHARE`] of the first fit. When they
+/// cannot all fit, the first fit is kept (they overflow, the box stays large).
 pub fn fit(
     view: View,
     panel: Rect,
@@ -337,8 +341,10 @@ pub fn fit(
     theme: &Theme,
     titles: &Titles3d,
 ) -> Projector {
-    let mut rect = box_rect(panel, label_room(scales, theme, titles));
-    let mut projector = Projector::fit(view, rect);
+    let start = box_rect(panel, label_room(scales, theme, titles));
+    let (min_width, min_height) = (start.width * MIN_SHARE, start.height * MIN_SHARE);
+    let first = Projector::fit(view, start);
+    let (mut rect, mut projector) = (start, first);
     for _ in 0..FIT_ROUNDS {
         let (_, bounds) = front(&projector, scales, theme, titles);
         let left = (panel.x - bounds.left).max(0.0);
@@ -346,24 +352,37 @@ pub fn fit(
         let right = (bounds.right - (panel.x + panel.width)).max(0.0);
         let bottom = (bounds.bottom - (panel.y + panel.height)).max(0.0);
         if left + top + right + bottom < FIT_TOLERANCE {
-            break;
+            return projector;
         }
-        // Never below 1 px: a title wider than the panel cannot fit.
-        let width = (rect.width - left - right).max(1.0);
-        let height = (rect.height - top - bottom).max(1.0);
+        let (x, width) = shrink(rect.x, rect.width, left, right, min_width);
+        let (y, height) = shrink(rect.y, rect.height, top, bottom, min_height);
+        if width <= min_width || height <= min_height {
+            // Titles too long to fit: keep the first fit rather than squash the box.
+            return first;
+        }
         let shrunk = Rect {
-            x: (rect.x + left).min(rect.x + rect.width - width),
-            y: (rect.y + top).min(rect.y + rect.height - height),
+            x,
+            y,
             width,
             height,
         };
-        if shrunk == rect {
-            break;
-        }
         rect = shrunk;
         projector = Projector::fit(view, rect);
     }
+    // Out of rounds: what is left overflows by less than a pixel or two.
     projector
+}
+
+/// Cut `before` and `after` off a span `(start, length)`, never below `minimum`
+/// (both cuts reduced in proportion).
+fn shrink(start: f64, length: f64, before: f64, after: f64, minimum: f64) -> (f64, f64) {
+    let cut = before + after;
+    let allowed = (length - minimum).max(0.0);
+    if cut <= allowed {
+        return (start + before, length - cut);
+    }
+    let share = if cut > 0.0 { allowed / cut } else { 0.0 };
+    (start + before * share, length - allowed)
 }
 
 /// Edges, ticks, labels and titles, drawn over the data.
@@ -621,5 +640,58 @@ mod tests {
             fit(view, panel, &scales, &theme, &titles),
             Projector::fit(view, box_rect(panel, room))
         );
+    }
+
+    #[test]
+    fn titles_too_long_to_fit_do_not_squash_the_box() {
+        let mut scale = ContinuousPositionScale::default();
+        scale.train_range(0.0, 10.0);
+        let scale = PositionScale::Continuous(scale);
+        let scales = Scales3d {
+            x: &scale,
+            y: &scale,
+            z: &scale,
+        };
+        let title = Some("a rather long axis title that cannot fit".to_owned());
+        let titles = Titles3d {
+            x: title.clone(),
+            y: title.clone(),
+            z: title,
+        };
+        let theme = Theme::default();
+        let panel = Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 300.0,
+            height: 300.0,
+        };
+        let view = projector(-60.0, 30.0).view();
+        let width = |projector: &Projector| {
+            let xs: Vec<f64> = (0..8)
+                .map(|corner| {
+                    let at = [0, 1, 2].map(|axis| f64::from((corner >> axis) & 1));
+                    projector.pixel(at).0
+                })
+                .collect();
+            xs.iter().copied().fold(f64::NEG_INFINITY, f64::max)
+                - xs.iter().copied().fold(f64::INFINITY, f64::min)
+        };
+        let first = Projector::fit(view, box_rect(panel, label_room(&scales, &theme, &titles)));
+        let fitted = fit(view, panel, &scales, &theme, &titles);
+        assert_eq!(
+            fitted,
+            first,
+            "box squashed to {} of {}",
+            width(&fitted),
+            width(&first)
+        );
+    }
+
+    #[test]
+    fn shrink_keeps_the_minimum_and_the_cut_proportions() {
+        assert_eq!(shrink(10.0, 100.0, 5.0, 15.0, 50.0), (15.0, 80.0));
+        // A cut of 80 on a span of 100 kept at 50: 50 cut, 1:3 before and after.
+        assert_eq!(shrink(0.0, 100.0, 20.0, 60.0, 50.0), (12.5, 50.0));
+        assert_eq!(shrink(0.0, 40.0, 10.0, 10.0, 50.0), (0.0, 40.0));
     }
 }

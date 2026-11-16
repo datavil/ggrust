@@ -35,10 +35,14 @@ def test_every_scale_mode_renders(layer: Callable[..., Any], mode: str) -> None:
     assert plot.to_svg().startswith("<svg")
 
 
-def test_a_number_is_rejected_with_the_parameter_path() -> None:
-    plot = gg.ggplot(DATA, gg.aes("g", "v")) + gg.geom_violin(scale=1.5)  # type: ignore[arg-type]
-    with pytest.raises(SpecError, match=r"layers\[0\]\.scale"):
+@pytest.mark.parametrize("layer", VIOLINS, ids=lambda layer: layer.__name__)
+def test_a_number_is_rejected_with_the_path_and_the_modes(layer: Callable[..., Any]) -> None:
+    plot = gg.ggplot(DATA, gg.aes("g", "v")) + gg.geom_point() + layer(scale=1.5)
+    with pytest.raises(SpecError) as caught:
         plot.to_svg()
+    assert caught.value.path == "layers[1].scale"
+    assert 'expected "area", "count" or "width", got 1.5' in str(caught.value)
+    assert "not a size factor" in str(caught.value)
 
 
 def test_ridges_scale_stays_a_height_factor() -> None:

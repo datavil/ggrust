@@ -108,11 +108,21 @@ pub(super) enum ViolinScale {
 
 impl ViolinScale {
     pub(super) fn from_parameters(parameters: &Parameters) -> Result<Self> {
-        match parameters
-            .string("scale")?
-            .map(str::to_lowercase)
-            .as_deref()
-        {
+        let text = match parameters.value("scale") {
+            None | Some(Value::Null) => None,
+            Some(Value::String(text)) => Some(text.to_lowercase()),
+            // A number is `geom_area_ridges`' height factor, not a violin mode.
+            Some(value) => {
+                return Err(Error::spec(
+                    parameters.path_of("scale"),
+                    format!(
+                        "expected \"area\", \"count\" or \"width\", got {value}; \
+                         scale picks how violin widths compare, it is not a size factor"
+                    ),
+                ));
+            }
+        };
+        match text.as_deref() {
             None | Some("area") => Ok(ViolinScale::Area),
             Some("count") => Ok(ViolinScale::Count),
             Some("width") => Ok(ViolinScale::Width),
@@ -224,6 +234,19 @@ mod tests {
             bands
                 .windows(2)
                 .all(|pair| pair[0] <= pair[1] || pair[1] == 0.25)
+        );
+    }
+
+    #[test]
+    fn a_number_as_scale_names_the_accepted_modes() {
+        let options: Options = serde_json::from_str(r#"{"scale": 1.5}"#).unwrap();
+        let message = ViolinScale::from_parameters(&Parameters::new(&options, "layers[2]"))
+            .unwrap_err()
+            .to_string();
+        assert!(message.contains("'layers[2].scale'"), "{message}");
+        assert!(
+            message.contains(r#""area", "count" or "width", got 1.5"#),
+            "{message}"
         );
     }
 

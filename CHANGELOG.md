@@ -28,7 +28,7 @@ Signature clean-up before 1.0. Every affected argument still works by name; only
 - Stat layers (`geom_boxplot`, `geom_violin`, `geom_bar`, `stat_summary`, ...) dodge and stack their groups in level order for a polars Enum, an ordered pandas categorical or `as_discrete(order=)`, as lets-plot does. They used first appearance, so `position_jitterdodge` points could land on the wrong box. Plain string columns keep first appearance.
 - `coord_3d` keeps its axis titles and tick labels inside the plot: the box shrinks on the sides where they would stick out. Titles longer than about six characters were cut off at the left edge.
 - `stat_pvalue_manual` no longer names the y axis `y`: its `y.position` only places the brackets, so the plotted data names the axes, as in ggpubr. A plot whose only layer is `stat_pvalue_manual` takes its axis titles from the plot's mapping (`species`, `body_mass_g`) instead of `x` and `y`.
-- `geom_violin`, `geom_sina`, `stat_ydensity` and `stat_sina` type and document `scale` as `"area"`, `"count"` or `"width"` (it was typed as a number, which the engine rejects). `geom_area_ridges(scale=)` is documented as the height factor it is.
+- `geom_violin`, `geom_sina`, `stat_ydensity` and `stat_sina` type and document `scale` as `"area"`, `"count"` or `"width"` (it was typed as a number, which the engine rejects). A number now fails with an error that names `layers[i].scale` and the accepted `"area"`, `"count"` and `"width"`. `geom_area_ridges(scale=)` is documented as the height factor it is.
 - `animate()` and `Animation.fps` document how a transition with fewer frames than `nframes` lowers `fps` (three states at `fps=1` play at about 0.03 fps) and how to keep it (`nframes` equal to the number of states).
 
 ## [0.9.0] - 2026-11-15

@@ -2451,22 +2451,13 @@ fn train_positions<'a>(
 
 /// One facet panel's part of a mapped layer: its rows of every column. Groups
 /// stay the layer's (renumbered 0, 1, ... in their order), with each group's rank
-/// by first appearance in the whole layer, so a panel's stat keeps the plot's
-/// group order (lets-plot groups the merged stat output, not each panel's).
+/// in the whole layer (its group index: level order or first appearance), so a
+/// panel's stat keeps the plot's group order (lets-plot groups the merged stat
+/// output, not each panel's).
 fn split_layer<'a>(layer: &MappedLayer<'a>, rows: &[u32]) -> MappedLayer<'a> {
     let (group_index, group_rank) = match &layer.group_index {
         None => (None, None),
         Some(groups) => {
-            // Rank of every layer group by its first row.
-            let count = groups.iter().max().map_or(0, |max| *max as usize + 1);
-            let mut rank_of = vec![u32::MAX; count];
-            let mut next = 0;
-            for &group in groups {
-                if rank_of[group as usize] == u32::MAX {
-                    rank_of[group as usize] = next;
-                    next += 1;
-                }
-            }
             let taken: Vec<u32> = rows.iter().map(|&row| groups[row as usize]).collect();
             let mut used = taken.clone();
             used.sort_unstable();
@@ -2481,7 +2472,7 @@ fn split_layer<'a>(layer: &MappedLayer<'a>, rows: &[u32]) -> MappedLayer<'a> {
                 .iter()
                 .map(|group| match &layer.group_rank {
                     Some(parent) => parent[*group as usize],
-                    None => rank_of[*group as usize],
+                    None => *group,
                 })
                 .collect();
             (Some(dense), Some(ranks))
@@ -2543,7 +2534,7 @@ fn number_groups_by_rank(part: &mut ComputedLayer) -> Result<()> {
 }
 
 /// Stat output groups (numbered in the order the stat visited its input groups,
-/// first appearance in the panel) renumbered by their input group's `rank`.
+/// group index order in the panel) renumbered by their input group's `rank`.
 fn regroup_by_rank(data: &mut LayerData, visited: &[u32], rank: &[u32]) -> Result<()> {
     let Some(groups) = data.group_index() else {
         return Ok(());

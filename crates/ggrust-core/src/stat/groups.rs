@@ -1,6 +1,8 @@
 //! Runs a stat once per group, as lets-plot's `DataProcessing.buildStatData`.
 //!
-//! Groups are visited in order of first appearance. Each group's stat rows get the
+//! Groups are visited in group index order: level order for one discrete variable
+//! (a polars Enum's categories), first appearance otherwise, as lets-plot orders
+//! the merged groups by `factor_levels`. Each group's stat rows get the
 //! group's other columns as one value: the mean of a continuous column, the first
 //! present value of a discrete one. Output groups are numbered in visiting order.
 //!
@@ -15,19 +17,13 @@ use crate::data::{Column, ContinuousColumn, LayerData, SourceRows, Variable};
 /// Stat columns of one group: every column has the same number of rows.
 pub type GroupColumns = Vec<(Variable, Vec<f64>)>;
 
-/// Input rows of every group, groups in first-appearance order.
+/// Input rows of every non-empty group, groups in group index order (see the
+/// module doc).
 pub fn rows_by_group(data: &LayerData) -> Vec<Vec<usize>> {
-    let mut slot_of_group: Vec<Option<usize>> = vec![None; data.group_count()];
-    let mut groups: Vec<Vec<usize>> = Vec::new();
-    for row in 0..data.row_count() {
-        let group = data.group_of(row) as usize;
-        let slot = *slot_of_group[group].get_or_insert_with(|| {
-            groups.push(Vec::new());
-            groups.len() - 1
-        });
-        groups[slot].push(row);
-    }
-    groups
+    rows_by_group_id(data)
+        .into_iter()
+        .filter(|rows| !rows.is_empty())
+        .collect()
 }
 
 /// Input rows of every group, groups in group index order (lets-plot positions
@@ -157,7 +153,7 @@ mod tests {
     use crate::spec::Aesthetic;
 
     #[test]
-    fn groups_in_first_appearance_with_carried_columns() {
+    fn groups_in_group_index_order_with_carried_columns() {
         let mut data = LayerData::new(4);
         data.insert(
             Aesthetic::X,
@@ -178,9 +174,9 @@ mod tests {
         })
         .unwrap();
         assert_eq!(result.row_count(), 2);
-        // Group 1 is met first.
+        // Group 1 is met first, group 0 is visited first (level order).
         let size = result.continuous(Aesthetic::Size).unwrap();
-        assert_eq!((size.get(0), size.get(1)), (Some(2.0), Some(15.0)));
+        assert_eq!((size.get(0), size.get(1)), (Some(15.0), Some(2.0)));
         assert_eq!(result.group_index(), Some(&[0, 1][..]));
         assert_eq!(result.source_rows(), &SourceRows::Aggregated);
     }

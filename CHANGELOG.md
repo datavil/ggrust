@@ -19,6 +19,10 @@ Signature clean-up before 1.0. Every affected argument still works by name; only
 - Package metadata: `Development Status :: 5 - Production/Stable` and `Typing :: Typed` classifiers.
 - A stability policy ([docs](https://ggrust.datavil.org/guide/stability/)): what 1.0 freezes (names, signatures, error classes, public import paths, plot files), what may still change in a minor release (pixels, ggrust-only spec keys, other module paths, the Rust crates), and that animation is provisional.
 
+### Fixed
+
+- Stat layers (`geom_boxplot`, `geom_violin`, `geom_bar`, `stat_summary`, ...) dodge and stack their groups in level order for a polars Enum, an ordered pandas categorical or `as_discrete(order=)`, as lets-plot does. They used first appearance, so `position_jitterdodge` points could land on the wrong box. Plain string columns keep first appearance.
+
 ## [0.9.0] - 2026-11-15
 
 ### Added

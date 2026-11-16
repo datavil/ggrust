@@ -119,6 +119,11 @@ and `quantile_lines`, `geom_text(adjust_text=)` is `geom_text_repel`, `format_st
 - `gggrid` `sharex` / `sharey` with discrete scales (lets-plot #1015) [users]
 - Corner-aware legend and tag layout [gaps]
 - Rich text in labels: bold, italic, color spans (ggtext style) [gaps]
+- `element_markdown()` rendering, lets-plot's subset: emphasis (`*`, `**`, `***`, `_`, `__`,
+  `___`), `<span style='color:...'>` colours, `<a href=...>` links (HTML output), line
+  breaks from two spaces and a newline; for titles, subtitles, captions, axis titles,
+  strips and legend titles. Today it warns "unsupported option" and draws plain text
+  (deviations row; decided by the user 2026-11-16: record the gap, plan later)
 - Complete themes with `ink=` and `paper=` (ggplot2 4.0: `theme_grey(ink="white",
   paper="black")` draws a whole plot dark from two colors); today a dark plot is a
   dark flavor (`flavor_darcula`, `flavor_high_contrast_dark`) and `theme_dark` darkens

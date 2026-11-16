@@ -198,7 +198,9 @@ Dropped from the animation plan by the user, 2026-11-14 (see
 Found by the sessions that wrote the 0.8.2/0.9.0 docs and the extra docstring examples.
 The examples were chosen to avoid them. Triaged against lets-plot 4.11 and ggplot2
 4.0.1 on 2026-11-16: four were ggrust bugs and are fixed (struck through below); the
-other entries keep their wording until their verdicts are recorded.
+other entries keep their wording until their verdicts are recorded. Decided by the user
+on 2026-11-16: an unused plot-level mapping no longer warns, only a layer's own
+(follows ggplot2, `ee4cb75`, `deviations.md` row).
 
 ### Likely bugs
 
@@ -251,10 +253,11 @@ other entries keep their wording until their verdicts are recorded.
   (`start=pi/2` starts at 9 o'clock); probably as ggplot2, but the docstring only says
   "offset from 12 o'clock".
 - **Log `coord_trans` breaks** bunch up at the top end with wide limits (100, 200, 400, 700).
-- **`animate(fps=1, end_pause=2)`** on a 3-frame manual transition reports an `fps` of
-  about 0.03: it follows the documented formula but reads oddly.
-- **`element_markdown`** cannot be shown in a rendered example: drawing it raises the
-  "unsupported option" warning.
+- ~~**`animate(fps=1, end_pause=2)`**~~ Decided 2026-11-16 (user, `1262527`): expected
+  (gganimate's `fps * frames / nframes`); documented in `animate()` and `Animation.fps`,
+  no warning.
+- ~~**`element_markdown`**~~ Decided 2026-11-16 (user, `a703e9a`): recorded as a gap in
+  `deviations.md`; rendering is planned in section 4.
 
 ### Docs build
 

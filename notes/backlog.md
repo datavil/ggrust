@@ -191,34 +191,36 @@ Dropped from the animation plan by the user, 2026-11-14 (see
 ## 8. Oddities found while writing docs examples (2026-11-15)
 
 Found by the sessions that wrote the 0.8.2/0.9.0 docs and the extra docstring examples.
-None is fixed; the examples were chosen to avoid them. Not yet triaged: each needs a
-check against lets-plot and ggplot2 before it becomes a fix or a `deviations.md` row.
+The examples were chosen to avoid them. Triaged against lets-plot 4.11 and ggplot2
+4.0.1 on 2026-11-16: four were ggrust bugs and are fixed (struck through below); the
+other entries keep their wording until their verdicts are recorded.
 
 ### Likely bugs
 
-- **Dodge order on an Enum column.** With a polars Enum (`penguins["sex"]`), `geom_boxplot`,
-  `geom_violin` and `position_dodge` dodge in first-appearance order (male, female), while
-  the legend, `position_jitterdodge` and `geom_beeswarm(dodge_width=)` use Enum order.
-  Jittered points land on the wrong box. Related to the "discrete x order with groups" gap
-  in `deviations.md`.
+- ~~**Dodge order on an Enum column.**~~ Fixed 2026-11-16 (`6f1ec1b`): stat layers order
+  groups by level (Enum, ordered pandas, `as_discrete(order=)`) as lets-plot does; strings
+  keep first appearance.
 - **`geom_bracket(label_format=)`** is in the signature and documented, but the engine
   warns "not supported" and ignores it (`deviations.md` lists it for repel and bracket geoms).
-- **`geom_violin` / `geom_sina` `scale`** is typed `Number` and documented as a pixel-size
-  multiplier, but the engine only accepts `"area"`, `"count"` or `"width"`.
+- ~~**`geom_violin` / `geom_sina` `scale`**~~ Fixed 2026-11-16 (`ce03842`): typed and
+  documented as `"area"`, `"count"`, `"width"` (also `stat_ydensity`, `stat_sina`); the
+  `geom_area_ridges` height factor got its real description.
 - **`geom_density(kernel="triangular" | "cosine")`** draws a far spikier curve than gaussian
   on the same data; the bandwidth looks unscaled per kernel.
-- **Axis titles from secondary positions.** `geom_segment` / `geom_curve` with `x`, `y`,
-  `xend`, `yend` mapped title the axes `xend` and `yend`. `geom_mark_*` with
-  `expand_limits(x=, y=)` title them `x1` and `y1`. `stat_pvalue_manual` on a boxplot
-  titles the y axis `y` instead of the column name.
+- **Axis titles from secondary positions.** Triaged 2026-11-16: the `xend`/`yend` titles
+  come from a later layer remapping x (`geom_point(aes("xend", "yend"))`), as lets-plot
+  (ggplot2 uses the plot's mapping; not yet in `deviations.md`); `x1`/`y1` from
+  `expand_limits` is lets-plot (deviations row). ~~`stat_pvalue_manual` titles y `y`~~ fixed
+  (`fc3024e`); plain `geom_bracket` keeps lets-plot's `y`.
 - **`geom_mark_*` callouts dropped silently.** With long descriptions one group's callout
   is drawn and the other omitted, without a warning.
 - **Legend frame needs `size`.** `legend_background=element_rect(color=...)` draws no
   border unless `size` is given.
 - **Panel frame from a fill.** `panel_background=element_rect(fill=...)` alone also draws
   a dark frame around the panel.
-- **`coord_3d` title clipped.** A long z axis title (`petal_length` at `azimuth=30`) is cut
-  off at the left edge of the figure.
+- ~~**`coord_3d` title clipped.**~~ Fixed 2026-11-16 (`60a2afc`): the box is refitted by the
+  measured overflow, so x, y and z titles stay inside (a title wider than the panel still
+  overflows).
 - **Stray pie axis.** The `coord_polar` pie example shows a short leftover vertical axis
   line with a tick, left of the pie.
 - **`funky_heatmap` legend labels overlap** at small sizes (`0 0.20.40.60.8 1`).

@@ -129,6 +129,14 @@ pub trait Stat: Sync {
         &[]
     }
 
+    /// Whether the layer's own x and y mappings name the position axes (the
+    /// default axis titles). `false` for annotation stats whose positions are
+    /// placement columns (`stat_pvalue_manual`'s `y.position`): the other layers
+    /// name the axes, as in ggpubr.
+    fn names_axes(&self) -> bool {
+        true
+    }
+
     /// Position for layers that name none, over the geom's (lets-plot gives the
     /// outlier points of a boxplot the boxes' dodge).
     fn default_position(&self) -> Option<crate::position::DefaultPosition> {

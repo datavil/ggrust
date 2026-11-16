@@ -44,6 +44,11 @@ impl Stat for PvalueManualStat {
         &[Aesthetic::Xmin, Aesthetic::Xmax, Aesthetic::Y]
     }
 
+    /// `y.position` places the brackets; the plotted data names the y axis.
+    fn names_axes(&self) -> bool {
+        false
+    }
+
     fn compute(
         &self,
         mut data: LayerData,

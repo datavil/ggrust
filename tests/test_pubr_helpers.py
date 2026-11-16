@@ -169,6 +169,29 @@ def test_stat_pvalue_manual_keeps_facet_columns() -> None:
     assert data.group_by("panel").len().sort("panel")["len"].to_list() == [3, 3]
 
 
+@pytest.mark.parametrize("first", [True, False], ids=["manual_first", "manual_last"])
+def test_stat_pvalue_manual_leaves_the_axis_titles_to_the_data(first: bool) -> None:
+    table = gg.compare_means("len ~ dose", TOOTH)
+    manual = gg.stat_pvalue_manual(table, label="p.signif", y_position=36, step_increase=0.1)
+    plot = gg.ggplot(TOOTH, gg.aes("dose", "len"))
+    plot = plot + manual + gg.geom_boxplot() if first else plot + gg.geom_boxplot() + manual
+    found = texts(plot.to_svg())
+    # ggpubr: the boxplot's columns; y.position only places the brackets.
+    assert "len" in found and "dose" in found
+    assert "y" not in found
+
+
+def test_geom_bracket_still_titles_y_as_lets_plot() -> None:
+    brackets = pl.DataFrame({"from": ["0.5"], "to": ["1"], "top": [36.0], "text": ["*"]})
+    mapping = gg.aes(xmin="from", xmax="to", y="top", label="text")
+    plot = (
+        gg.ggplot(TOOTH, gg.aes("dose", "len"))
+        + gg.geom_boxplot()
+        + gg.geom_bracket(mapping, data=brackets)
+    )
+    assert "y" in texts(plot.to_svg())
+
+
 def test_geom_pwc_default_dodge_matches_the_boxes() -> None:
     plot = gg.ggplot(TOOTH, gg.aes("dose", "len", color="supp")) + gg.geom_boxplot()
     boxes = plot.layer_data(0)

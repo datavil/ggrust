@@ -2726,6 +2726,12 @@ fn default_scale_name(
         {
             continue;
         }
+        // Placement columns (`stat_pvalue_manual`'s `y.position`) do not name axes.
+        if (aesthetic.is_x_position() || aesthetic.is_y_position())
+            && layer_stat(layer).is_some_and(|stat| !stat.names_axes())
+        {
+            continue;
+        }
         // A y-oriented layer's stat maps its variables to the swapped aesthetic.
         let stat_aesthetic = match orientations.get(index).copied().unwrap_or(false) {
             true => aesthetic.flip_orientation(),

@@ -109,7 +109,13 @@ class Animation:
 
     @property
     def fps(self) -> float:
-        """Frames per second, lowered as gganimate when the transition has fewer frames."""
+        """Frames per second the animation plays at.
+
+        As gganimate, a transition with fewer frames than ``nframes`` lowers the
+        ``fps`` asked to ``fps * frames / nframes`` so the duration stays: three
+        states with ``fps=1`` and the default 100 frames give about 0.03. Pass
+        ``nframes`` equal to the number of states to keep the ``fps`` asked.
+        """
         return self._info()["fps"]
 
     def frame(self, index: int) -> PlotSpec:
@@ -374,7 +380,11 @@ def animate(
         ``fps=8, end_pause=16`` plays 65 frames at about 4.7 fps (13.9 s). Pass a
         smaller ``nframes`` (here 65) or ``duration=`` to keep it faster.
     fps : float, default=10
-        Frames per second.
+        Frames per second asked. A transition with fewer frames than ``nframes``
+        lowers it by gganimate's rule, ``fps * frames / nframes`` (see
+        ``nframes``): three states with ``fps=1`` and the default 100 frames play at
+        about 0.03 fps (each state about 33 s). Pass ``nframes`` equal to the
+        number of states (``nframes=3``) to keep the ``fps`` asked.
     duration : float, optional
         Length in seconds.
     detail : int, default=1

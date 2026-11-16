@@ -108,6 +108,13 @@ def test_manual_has_one_frame_per_state_and_keeps_the_duration():
     assert (animation.nframes, animation.fps) == (6, 2.0)
 
 
+def test_documented_fps_rule_for_few_states():
+    # The animate()/Animation.fps docs: 3 states at fps=1 give about 0.03 fps,
+    # nframes equal to the number of states keeps the fps asked.
+    assert animate(sales_plot(), fps=1).fps == pytest.approx(0.03)
+    assert animate(sales_plot(), fps=1, nframes=3).fps == 1.0
+
+
 def test_rewind_plays_back():
     animation = animate(sales_plot(), nframes=6, fps=1, rewind=True)
     titles = [

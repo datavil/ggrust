@@ -3044,11 +3044,10 @@ fn map_layer_into<'a>(
             false => *aesthetic,
         };
         if !geom_uses(geom, stat, layer_aesthetic) {
-            // Plot-level x/y are meant for the layers that read them (a
-            // `geom_hline` over `ggplot(aes(x, y))` is the usual case): no warning.
-            if inherited.contains(aesthetic)
-                && (aesthetic.is_x_position() || aesthetic.is_y_position())
-            {
+            // Plot-level mappings are meant for the layers that read them
+            // (`ggplot(aes(x, y, label=)) + geom_point() + geom_text()`): as
+            // ggplot2, only a layer's own mappings warn.
+            if inherited.contains(aesthetic) {
                 continue;
             }
             warnings.push(format!(

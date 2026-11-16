@@ -308,6 +308,20 @@ def test_unsupported_options_warn():
         plot.to_svg()
 
 
+def test_only_layer_mappings_warn_when_unused():
+    labelled = FRAME.with_columns(name=pl.lit("a"))
+    # As ggplot2: a plot-level mapping is for the layers that read it.
+    shared = gg.ggplot(labelled, gg.aes("x", "y", label="name")) + gg.geom_point() + gg.geom_text()
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", gg.GgrustWarning)
+        shared.to_svg()
+    own = gg.ggplot(labelled, gg.aes("x", "y")) + gg.geom_point(gg.aes(label="name"))
+    with pytest.warns(
+        gg.GgrustWarning, match=r"layers\[0\]\.mapping\.label': geom_point does not use"
+    ):
+        own.to_svg()
+
+
 def test_errors_name_the_path():
     plot = gg.ggplot(FRAME, gg.aes("x", "missing")) + gg.geom_point()
     with pytest.raises(ValueError, match=r"at 'mapping.y': column 'missing' not found"):

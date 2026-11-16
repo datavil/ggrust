@@ -206,19 +206,34 @@ fn unknown_position_options_warn() {
 }
 
 #[test]
-fn unused_mapped_aesthetics_warn() {
+fn unused_layer_mappings_warn() {
     let built = build(
-        r#"{"kind": "plot", "mapping": {"x": "a", "y": "b", "linetype": "a", "group": "a"},
-            "layers": [{"geom": "point"}]}"#,
+        r#"{"kind": "plot", "mapping": {"x": "a", "y": "b"},
+            "layers": [{"geom": "point", "mapping": {"linetype": "a", "group": "a"}}]}"#,
         Some(frame(&[("a", vec![1.0]), ("b", vec![1.0])])),
         vec![],
     );
     let joined = built.warnings.join("\n");
     assert!(
-        joined.contains("at 'mapping.linetype': geom_point does not use aesthetic 'linetype'"),
+        joined.contains(
+            "at 'layers[0].mapping.linetype': geom_point does not use aesthetic 'linetype'"
+        ),
         "{joined}"
     );
     assert!(!joined.contains("'group'"), "{joined}");
+}
+
+#[test]
+fn unused_plot_mappings_pass_silently() {
+    // As ggplot2: a plot-level mapping is for the layers that read it.
+    let built = build(
+        r#"{"kind": "plot", "mapping": {"x": "a", "y": "b", "linetype": "a", "label": "a"},
+            "layers": [{"geom": "point"}, {"geom": "text"}]}"#,
+        Some(frame(&[("a", vec![1.0]), ("b", vec![1.0])])),
+        vec![],
+    );
+    let joined = built.warnings.join("\n");
+    assert!(!joined.contains("does not use aesthetic"), "{joined}");
 }
 
 #[test]

@@ -755,7 +755,7 @@ def stat_sina(
     orientation: str | None = None,
     seed: int | None = None,
     quantiles: Sequence[float] | None = None,
-    scale: Number | None = None,
+    scale: Literal["area", "count", "width"] | None = None,
     trim: bool | None = None,
     tails_cutoff: Number | None = None,
     kernel: str | None = None,
@@ -796,8 +796,10 @@ def stat_sina(
         Random seed, for reproducible results.
     quantiles : list of float, optional
         Quantiles to draw lines at, each in [0, 1].
-    scale : float, optional
-        Multiplier of the pixel size.
+    scale : {"area", "count", "width"}, default="area"
+        If "area", all groups have the same area. If "count", areas are scaled
+        proportionally to the number of observations. If "width", all groups have
+        the same maximum width.
     trim : bool, optional
         True trims the density to the data range.
     tails_cutoff : float, optional
@@ -1000,7 +1002,7 @@ def stat_ydensity(
     tooltips: Tooltips | None = None,
     orientation: str | None = None,
     quantiles: Sequence[float] | None = None,
-    scale: Number | None = None,
+    scale: Literal["area", "count", "width"] | None = None,
     trim: bool | None = None,
     tails_cutoff: Number | None = None,
     kernel: str | None = None,
@@ -1041,8 +1043,10 @@ def stat_ydensity(
         ``"y"`` draws along the y axis; a discrete y with a continuous x picks it by default.
     quantiles : list of float, optional
         Quantiles to draw lines at, each in [0, 1].
-    scale : float, optional
-        Multiplier of the pixel size.
+    scale : {"area", "count", "width"}, default="area"
+        If "area", all violins have the same area. If "count", areas are scaled
+        proportionally to the number of observations. If "width", all violins have
+        the same maximum width.
     trim : bool, optional
         True trims the density to the data range.
     tails_cutoff : float, optional

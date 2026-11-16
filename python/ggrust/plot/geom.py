@@ -2510,7 +2510,7 @@ def geom_violin(
     show_half: Number | None = None,
     quantiles: Sequence[float] | None = None,
     quantile_lines: bool | None = None,
-    scale: Number | None = None,
+    scale: Literal["area", "count", "width"] | None = None,
     trim: bool | None = None,
     tails_cutoff: Number | None = None,
     kernel: str | None = None,
@@ -2555,8 +2555,10 @@ def geom_violin(
         Quantiles to draw lines at, each in [0, 1].
     quantile_lines : bool, optional
         True draws the quantile lines.
-    scale : float, optional
-        Multiplier of the pixel size.
+    scale : {"area", "count", "width"}, default="area"
+        If "area", all violins have the same area. If "count", areas are scaled
+        proportionally to the number of observations. If "width", all violins have
+        the same maximum width.
     trim : bool, optional
         True trims the density to the data range.
     tails_cutoff : float, optional
@@ -2656,7 +2658,7 @@ def geom_sina(
     seed: int | None = None,
     show_half: Number | None = None,
     quantiles: Sequence[float] | None = None,
-    scale: Number | None = None,
+    scale: Literal["area", "count", "width"] | None = None,
     trim: bool | None = None,
     tails_cutoff: Number | None = None,
     kernel: str | None = None,
@@ -2701,8 +2703,10 @@ def geom_sina(
         Draw only half of each violin: ``-1`` left, ``1`` right, ``0`` both.
     quantiles : list of float, optional
         Quantiles to draw lines at, each in [0, 1].
-    scale : float, optional
-        Multiplier of the pixel size.
+    scale : {"area", "count", "width"}, default="area"
+        If "area", all groups have the same area. If "count", areas are scaled
+        proportionally to the number of observations. If "width", all groups have
+        the same maximum width.
     trim : bool, optional
         True trims the density to the data range.
     tails_cutoff : float, optional
@@ -3431,8 +3435,10 @@ def geom_area_ridges(
         Number of points the density is evaluated at.
     min_height : float, optional
         Ridges lower than this are not drawn.
-    scale : float, optional
-        Multiplier of the pixel size.
+    scale : float, default=1.0
+        A multiplicative factor applied to the height aesthetic. With
+        ``scale=1.0`` the heights are scaled so that the ridge with ``height=1.0``
+        just touches the one above.
     quantiles : list of float, optional
         Quantiles to draw lines at, each in [0, 1].
     quantile_lines : bool, optional

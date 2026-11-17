@@ -231,7 +231,9 @@ on 2026-11-16: an unused plot-level mapping no longer warns, only a layer's own
 - **Stray pie axis.** The `coord_polar` pie example shows a short leftover vertical axis
   line with a tick, left of the pie.
 - **`funky_heatmap` legend labels overlap** at small sizes (`0 0.20.40.60.8 1`).
-- **Two shadows.** `shadow_mark` added after `shadow_wake` silently drops the wake.
+- **Two shadows.** Checked 2026-11-17: not a bug. A plot has one shadow and the last one
+  added wins, in either order, as in gganimate (`ggplot_add.Shadow` sets `plot$shadow`).
+  A warning on replacement would go beyond gganimate; open only if users trip on it.
 - **Static layers in animations.** A layer whose own data lacks the transition column is
   not drawn at all, so a static background layer is not possible.
 

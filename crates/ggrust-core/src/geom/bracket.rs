@@ -14,8 +14,11 @@
 //! `geom_bracket_dodge` (`BracketDodgeGeom`) places the bracket ends on dodge
 //! slots inside a category instead of `xmin`/`xmax`.
 //!
+//! Label texts follow `label_format` and `na_text`, as on `geom_text` (resolved
+//! with the styles, in `build`).
+//!
 //! What it does not do (yet): `orientation="y"` (vertical brackets from
-//! `ymin`/`ymax`), `label_format`, `na_text`, `size_unit`,
+//! `ymin`/`ymax`), `size_unit`,
 //! `lineheight` (labels lift by one font size per line), mapping
 //! columns to `segment_*` (warned; constants work). Mapped `lenstart`/`lenend`
 //! numbers are drawn as they are.
@@ -107,6 +110,8 @@ impl Geom for BracketGeom {
             "bracket_shorten",
             "tiplength_unit",
             "orientation",
+            "label_format",
+            "na_text",
         ]
     }
 
@@ -214,6 +219,8 @@ impl Geom for BracketDodgeGeom {
             "bracket_shorten",
             "tiplength_unit",
             "orientation",
+            "label_format",
+            "na_text",
             "dodge_width",
             "ngroup",
         ]

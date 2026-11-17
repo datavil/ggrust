@@ -265,3 +265,65 @@ def test_bracket_dodge_errors():
 def test_bracket_dodge_without_slots_draws_nothing():
     svg = _boxes(gg, gg.geom_bracket_dodge(gg.aes(x="x", y="y"), data=DODGED)).to_svg()
     assert not [shape for shape in _ggrust_shapes(svg) if len(shape[1]) == 4]
+
+
+def _label_texts(svg: str, axis_labels: set[str]) -> list[str]:
+    """Bracket label texts: the visible texts minus the axis labels and titles."""
+    return [text for text in _texts(svg) if text not in axis_labels]
+
+
+@pytest.mark.parametrize(
+    ("label", "options"),
+    [
+        ("p", {"label_format": "p = {.3f}", "na_text": "none"}),
+        ("p", {"label_format": ".1%"}),
+        ("s", {"label_format": "[{}]", "na_text": "-"}),
+        (None, {"label": 0.5, "label_format": "{.2f} kg"}),
+    ],
+)
+def test_bracket_label_format_and_na_text_match_lets_plot(
+    label: str | None, options: dict[str, object]
+) -> None:
+    data = {
+        "lo": [0.0, 1.0, 2.0],
+        "hi": [1.0, 2.0, 3.0],
+        "at": [1.0, 2.0, 3.0],
+        "p": [0.012345, None, 0.5],
+        "s": ["a", None, "b"],
+    }
+    mapping = {"xmin": "lo", "xmax": "hi", "y": "at"} | ({"label": label} if label else {})
+    rendered = []
+    for m in (lp, gg):
+        plot = m.ggplot() + m.geom_bracket(m.aes(**mapping), data=data, **options)
+        plain = m.ggplot() + m.geom_bracket(m.aes(xmin="lo", xmax="hi", y="at"), data=data)
+        rendered.append(_label_texts(plot.to_svg(), set(_texts(plain.to_svg()))))
+    lets_plot_labels, ggrust_labels = rendered
+    assert len(ggrust_labels) == 3
+    assert ggrust_labels == lets_plot_labels
+
+
+def test_bracket_dodge_label_format_and_na_text_match_lets_plot() -> None:
+    data = DODGED | {"p": [0.5, None, 0.25, 0.125]}
+    mapping = DODGE_MAPPING | {"label": "p"}
+    rendered = []
+    for m in (lp, gg):
+        layer = m.geom_bracket_dodge(m.aes(**mapping), data=data, label_format=".0%", na_text="-")
+        rendered.append(_texts(_boxes(m, layer).to_svg()))
+    lets_plot_texts, ggrust_texts = rendered
+    for text in ("50%", "-", "25%", "13%"):
+        assert text in ggrust_texts
+        assert ggrust_texts.count(text) == lets_plot_texts.count(text)
+
+
+def test_bracket_label_format_is_not_reported_as_ignored() -> None:
+    plot = gg.ggplot() + gg.geom_bracket(
+        gg.aes(xmin="lo", xmax="hi", y="at", label="at"),
+        data=NUMERIC,
+        label_format="{.2f} u",
+        na_text="-",
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        svg = plot.to_svg()
+    assert "3.00 u" in _texts(svg)
+    assert "4.50 u" in _texts(svg)

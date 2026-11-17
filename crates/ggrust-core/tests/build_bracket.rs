@@ -36,6 +36,10 @@ fn brackets() -> DataFrame {
             "text",
             Arc::new(StringArray::from(vec!["*", "ns"])) as ArrayRef,
         ),
+        (
+            "p",
+            Arc::new(Float64Array::from(vec![Some(0.012345), None])) as ArrayRef,
+        ),
     ])
     .unwrap();
     DataFrame::new(batch.schema(), vec![batch]).unwrap()
@@ -213,4 +217,66 @@ fn unknown_tip_unit_and_vertical_orientation_are_errors() {
         .unwrap()
         .to_string();
     assert!(error.contains("not supported by ggrust yet"), "{error}");
+}
+
+/// Label texts of a bracket layer (`geom`) with `label` mapped to `column`.
+fn label_texts(geom: &str, mapping: &str, layer_options: &str) -> (Vec<String>, Vec<String>) {
+    let json = format!(
+        r#"{{"kind": "plot", "layers": [{{"geom": "{geom}",
+            "mapping": {{{mapping}}}{layer_options}}}]}}"#
+    );
+    let built = build_plot(
+        &spec(&json),
+        &PlotData {
+            plot: Some(brackets()),
+            layers: vec![],
+        },
+    )
+    .unwrap();
+    let contents = texts(&built)
+        .into_iter()
+        .map(|text| text.content.clone())
+        .collect();
+    (contents, built.warnings)
+}
+
+#[test]
+fn label_format_and_na_text_shape_the_labels_as_lets_plot() {
+    let mapping = r#""xmin": "lo", "xmax": "hi", "y": "at""#;
+    // Mapped numbers, with a missing value (lets-plot: `p = 0.012`, `none`).
+    let (labels, warnings) = label_texts(
+        "bracket",
+        &format!(r#"{mapping}, "label": "p""#),
+        r#", "label_format": "p = {.3f}", "na_text": "none""#,
+    );
+    assert_eq!(labels, ["p = 0.012", "none"]);
+    assert!(warnings.is_empty(), "{warnings:?}");
+    // Mapped strings go through a template.
+    let (labels, _) = label_texts(
+        "bracket",
+        &format!(r#"{mapping}, "label": "text""#),
+        r#", "label_format": "[{}]""#,
+    );
+    assert_eq!(labels, ["[*]", "[ns]"]);
+    // A constant label is formatted too.
+    let (labels, _) = label_texts(
+        "bracket",
+        mapping,
+        r#", "label": 0.5, "label_format": ".1%""#,
+    );
+    assert_eq!(labels, ["50.0%", "50.0%"]);
+    // Without the options, the defaults stay (`,~g`, `n/a`).
+    let (labels, _) = label_texts("bracket", &format!(r#"{mapping}, "label": "p""#), "");
+    assert_eq!(labels, ["0.012345", "n/a"]);
+}
+
+#[test]
+fn bracket_dodge_takes_label_format_and_na_text() {
+    let (labels, warnings) = label_texts(
+        "bracket_dodge",
+        r#""x": "lo", "y": "at", "label": "p", "group": "text""#,
+        r#", "istart": 0, "iend": 1, "label_format": ".0%", "na_text": "-""#,
+    );
+    assert_eq!(labels, ["1%", "-"]);
+    assert!(warnings.is_empty(), "{warnings:?}");
 }

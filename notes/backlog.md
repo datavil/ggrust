@@ -267,6 +267,23 @@ on 2026-11-16: an unused plot-level mapping no longer warns, only a layer's own
 - **Gallery thumbnails of animations** are the first frame, which can be nearly empty
   (`animation_shadow` is a single dot).
 
+## 9. Rust code health (2026-11-17, not v1 blockers)
+
+Found in a best-practice check. Clippy is clean, `unsafe` is forbidden, and there is no
+`unwrap()` in library code. None of these items is user-facing: the Rust crates are
+outside the API promise (`docs/guide/stability.md`).
+
+- **Split large files.** `crates/ggrust-core/src/build.rs` (~6.7k lines) and
+  `crates/ggrust-core/src/layout/mod.rs` (~2.3k lines) go against "small files, one
+  concept each". `scale/style/brewer_data.rs` is data and can stay.
+- **Reduce `#[allow(...)]` attributes (20).** Mostly `clippy::too_many_arguments` (13)
+  and `clippy::type_complexity` (6). Group arguments into structs or add type aliases.
+- **Turn the 6 library `.expect()` calls into typed errors,** so a logic bug reaches
+  Python as an exception rather than a panic. These are internal invariants and cannot be
+  triggered by user input: `geom/area_ridges.rs` (2), `grid.rs`, `stat/density.rs`,
+  `theme/mod.rs`, `tooltip/content.rs` (list them with
+  `cargo clippy --lib -- -W clippy::expect_used`). Then consider denying `expect_used`.
+
 ## Sources
 
 [lets-plot issues](https://github.com/JetBrains/lets-plot/issues),

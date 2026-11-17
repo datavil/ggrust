@@ -7,7 +7,12 @@ name = "ggrust"
 description = "Grammar-of-graphics plotting engine in Rust with a lets_plot-compatible Python API"
 readme = "README.md"
 license = "MIT"
-license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
+license-files = [
+    "LICENSE",
+    "THIRD_PARTY_NOTICES.md",
+    "crates/ggrust-core/fonts/OFL.txt",
+    "licenses/rust-dependencies.txt",
+]
 requires-python = ">=3.11"
 authors = [{ name = "Zaf4", email = "zafermolbio@gmail.com" }]
 classifiers = [

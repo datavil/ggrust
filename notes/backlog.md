@@ -207,8 +207,8 @@ on 2026-11-16: an unused plot-level mapping no longer warns, only a layer's own
 - ~~**Dodge order on an Enum column.**~~ Fixed 2026-11-16 (`6f1ec1b`): stat layers order
   groups by level (Enum, ordered pandas, `as_discrete(order=)`) as lets-plot does; strings
   keep first appearance.
-- **`geom_bracket(label_format=)`** is in the signature and documented, but the engine
-  warns "not supported" and ignores it (`deviations.md` lists it for repel and bracket geoms).
+- ~~**`geom_bracket(label_format=)`**~~ Fixed 2026-11-17 (`02dcba3`): `geom_bracket` and
+  `geom_bracket_dodge` honour `label_format` and `na_text` as lets-plot (ggpubr has neither).
 - ~~**`geom_violin` / `geom_sina` `scale`**~~ Fixed 2026-11-16 (`ce03842`): typed and
   documented as `"area"`, `"count"`, `"width"` (also `stat_ydensity`, `stat_sina`); the
   `geom_area_ridges` height factor got its real description.

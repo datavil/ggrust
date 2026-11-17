@@ -41,7 +41,7 @@ nav = [
     ] },
     { "Time series" = [
       "gallery/unemployment.md",
-      "gallery/bitcoin.md",
+      "gallery/oil_price.md",
     ] },
     { "Bars and tiles" = [
       "gallery/stacked_bars.md",

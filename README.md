@@ -509,7 +509,7 @@ plot
 
 ### Unknown Pleasures
 
-Pulsar CP 1919 as stacked ridgelines, on a black theme.
+Simulated pulsar pulses as stacked ridgelines, on a black theme.
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/datavil/ggrust/main/assets/unknown_pleasures.png" alt="Unknown Pleasures" width="450">

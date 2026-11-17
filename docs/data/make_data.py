@@ -5,7 +5,9 @@ The random datasets are seeded, so the CSV files only change on purpose.
 Climate and fruit numbers are rounded, approximate public figures.
 The chemical elements come from the lets-plot docs (CC BY-SA 4.0, see ``ELEMENTS_URL``).
 The datasets of the lets-plot gallery remakes are downloaded from their sources (see
-``LETS_PLOT_DATA`` and ``NETFLIX_URL``) and trimmed to the columns the examples use.
+``LETS_PLOT_DATA``, ``NETFLIX_URL`` and ``OIL_URL``) and trimmed to the columns the
+examples use. The pulsar pulses are simulated, so no non-commercial data is needed.
+Every source and license is listed in ``THIRD_PARTY_NOTICES.md``.
 """
 
 import io
@@ -34,6 +36,12 @@ SCIB_URL = (
 NETFLIX_URL = (
     "https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/"
     "data/2021/2021-04-20/netflix_titles.csv"
+)
+
+# Daily WTI crude oil spot price, 2024: U.S. Energy Information Administration data
+# (public domain), served by FRED (series DCOILWTICO).
+OIL_URL = (
+    "https://fred.stlouisfed.org/graph/fredgraph.csv?id=DCOILWTICO&cosd=2024-01-01&coed=2024-12-31"
 )
 
 # Names, symbols and types that changed after the source was written.
@@ -236,9 +244,24 @@ def penguins() -> pl.DataFrame:
     return pl.read_csv(io.BytesIO(download(LETS_PLOT_DATA + "penguins.csv")), null_values="NA")
 
 
-def pulsar() -> pl.DataFrame:
-    """Return the radio pulses of pulsar CP 1919, one row per pulse, as on the album cover."""
-    return pl.read_csv(io.BytesIO(download(LETS_PLOT_DATA + "pulsar.csv")), has_header=False)
+def pulsar(generator: np.random.Generator) -> pl.DataFrame:
+    """Return eighty simulated radio pulses of a pulsar, one row of 300 samples per pulse.
+
+    Each pulse is a few Gaussian bumps near the middle over smoothed noise that grows
+    toward the pulse, the look of the chart on Joy Division's *Unknown Pleasures*.
+    """
+    time = np.arange(300)
+    envelope = np.exp(-0.5 * ((time - 150) / 40) ** 2)
+    rows = []
+    for _ in range(80):
+        noise = np.convolve(generator.normal(0, 1.2, 302), np.ones(3) / 3, mode="valid")
+        pulse = np.zeros(300)
+        for _ in range(generator.integers(3, 7)):
+            center = generator.normal(150, 10)
+            width = generator.uniform(6, 16)
+            pulse += generator.uniform(3, 14) * np.exp(-0.5 * ((time - center) / width) ** 2)
+        rows.append(np.round(noise * (1 + 2 * envelope) + pulse, 2))
+    return pl.DataFrame(np.array(rows), schema=[f"column_{index + 1}" for index in time])
 
 
 def unemployment() -> pl.DataFrame:
@@ -255,16 +278,12 @@ def presidents() -> pl.DataFrame:
     return presidential.select("name", "start", "end", "party")
 
 
-def bitcoin() -> pl.DataFrame:
-    """Return the daily Bitcoin close price in US dollars on Bitstamp, 2024."""
-    prices = pl.read_csv(
-        io.BytesIO(download(LETS_PLOT_DATA + "Bitstamp_BTCUSD_d.csv")), infer_schema_length=None
-    )
-    return (
-        prices.select(pl.col("date").str.slice(0, 10), pl.col("close"))
-        .filter(pl.col("date").str.starts_with("2024"))
-        .sort("date")
-    )
+def oil() -> pl.DataFrame:
+    """Return the daily WTI crude oil spot price in US dollars per barrel, 2024."""
+    prices = pl.read_csv(io.BytesIO(download(OIL_URL)), null_values=".", infer_schema_length=None)
+    return prices.select(
+        date=pl.col("observation_date"), price=pl.col("DCOILWTICO").cast(pl.Float64)
+    ).drop_nulls()
 
 
 def scib_immune() -> pl.DataFrame:
@@ -303,8 +322,8 @@ if __name__ == "__main__":
     elements().write_csv(DATA / "elements.csv")
     netflix().write_csv(DATA / "netflix.csv")
     penguins().write_csv(DATA / "penguins.csv")
-    pulsar().write_csv(DATA / "pulsar.csv", include_header=False)
+    pulsar(np.random.default_rng(1919)).write_csv(DATA / "pulsar.csv", include_header=False)
     unemployment().write_csv(DATA / "unemployment.csv")
     presidents().write_csv(DATA / "presidents.csv")
-    bitcoin().write_csv(DATA / "bitcoin.csv")
+    oil().write_csv(DATA / "oil.csv")
     scib_immune().write_csv(DATA / "scib_immune.csv")

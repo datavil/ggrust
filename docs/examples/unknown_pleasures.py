@@ -1,7 +1,8 @@
 """Pulsar ridges
 
-Eighty successive radio pulses of pulsar CP 1919, stacked as white ridges on
-black: the chart on the cover of Joy Division's *Unknown Pleasures*. A remake of
+Eighty simulated radio pulses of a pulsar, stacked as white ridges on black, in
+the style of the chart of pulsar CP 1919 on the cover of Joy Division's
+*Unknown Pleasures*. A remake of
 lets-plot's post-punk demo, with `stat="identity"` ridges drawn from heights.
 """
 

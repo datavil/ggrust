@@ -999,10 +999,18 @@ class PlotSpec(FeatureSpec):
 
         Examples
         --------
+        Show the plot as a static image, for example in a notebook shared on GitHub,
+        where scripts do not run:
+
         >>> from ggrust import *
-        >>> plot = ggplot({"x": [1, 2, 3], "y": [3, 1, 2]}, aes("x", "y")) + geom_point()
-        >>> plot.svg[:4]
-        '<svg'
+        >>> from ggrust.data import mpg
+        >>> plot = ggplot(mpg, aes("displ", "hwy", color="drv")) + geom_point(size=3)
+        >>> plot.svg  # doctest: +SKIP
+
+        It is also the SVG text, ready to save:
+
+        >>> from pathlib import Path
+        >>> Path("highway.svg").write_text(plot.svg)  # doctest: +SKIP
         """
         from ggrust._render import render_bytes
         from ggrust._rendered import SVG
@@ -1023,10 +1031,17 @@ class PlotSpec(FeatureSpec):
 
         Examples
         --------
+        Show the plot as a picture you can drag into slides or a document:
+
         >>> from ggrust import *
-        >>> plot = ggplot({"x": [1, 2, 3], "y": [3, 1, 2]}, aes("x", "y")) + geom_point()
-        >>> plot.png[1:4]
-        b'PNG'
+        >>> from ggrust.data import mpg
+        >>> plot = ggplot(mpg, aes("displ", "hwy", color="drv")) + geom_point(size=3)
+        >>> plot.png  # doctest: +SKIP
+
+        It is also the PNG bytes, ready to save:
+
+        >>> from pathlib import Path
+        >>> Path("highway.png").write_bytes(plot.png)  # doctest: +SKIP
         """
         from ggrust._render import render_bytes
         from ggrust._rendered import PNG
@@ -1048,10 +1063,19 @@ class PlotSpec(FeatureSpec):
 
         Examples
         --------
+        Keep one plot interactive while the rest of the notebook shows PNG images:
+
+        >>> import ggrust
         >>> from ggrust import *
-        >>> plot = ggplot({"x": [1, 2, 3], "y": [3, 1, 2]}, aes("x", "y")) + geom_point()
-        >>> plot.html[:15]
-        '<!DOCTYPE html>'
+        >>> from ggrust.data import mpg
+        >>> plot = ggplot(mpg, aes("displ", "hwy", color="drv")) + geom_point(size=3)
+        >>> ggrust.display("png")
+        >>> plot.html  # doctest: +SKIP
+
+        Every other plot now shows as a PNG; ``plot.html`` keeps its tooltips and
+        zoom/pan. ``ggrust.display("html")`` goes back to the default:
+
+        >>> ggrust.display("html")
         """
         from ggrust._render import export_html
         from ggrust._rendered import HTML

@@ -581,10 +581,20 @@ class SupPlotsSpec(FeatureSpec):
 
         Examples
         --------
+        Show the figure as a static image, for example in a notebook shared on GitHub,
+        where scripts do not run:
+
         >>> from ggrust import *
-        >>> plot = ggplot({"x": [1, 2, 3], "y": [3, 1, 2]}, aes("x", "y")) + geom_point()
-        >>> plot.svg[:4]
-        '<svg'
+        >>> from ggrust.data import mpg
+        >>> scatter = ggplot(mpg, aes("displ", "hwy", color="drv")) + geom_point(size=3)
+        >>> bars = ggplot(mpg, aes("drv", fill="drv")) + geom_bar()
+        >>> grid = gggrid([scatter, bars], ncol=2)
+        >>> grid.svg  # doctest: +SKIP
+
+        It is also the SVG text, ready to save:
+
+        >>> from pathlib import Path
+        >>> Path("cars.svg").write_text(grid.svg)  # doctest: +SKIP
         """
         from ggrust._render import render_bytes
         from ggrust._rendered import SVG
@@ -605,10 +615,19 @@ class SupPlotsSpec(FeatureSpec):
 
         Examples
         --------
+        Show the figure as a picture you can drag into slides or a document:
+
         >>> from ggrust import *
-        >>> plot = ggplot({"x": [1, 2, 3], "y": [3, 1, 2]}, aes("x", "y")) + geom_point()
-        >>> plot.png[1:4]
-        b'PNG'
+        >>> from ggrust.data import mpg
+        >>> scatter = ggplot(mpg, aes("displ", "hwy", color="drv")) + geom_point(size=3)
+        >>> bars = ggplot(mpg, aes("drv", fill="drv")) + geom_bar()
+        >>> grid = gggrid([scatter, bars], ncol=2)
+        >>> grid.png  # doctest: +SKIP
+
+        It is also the PNG bytes, ready to save:
+
+        >>> from pathlib import Path
+        >>> Path("cars.png").write_bytes(grid.png)  # doctest: +SKIP
         """
         from ggrust._render import render_bytes
         from ggrust._rendered import PNG
@@ -630,10 +649,21 @@ class SupPlotsSpec(FeatureSpec):
 
         Examples
         --------
+        Keep one figure interactive while the rest of the notebook shows PNG images:
+
+        >>> import ggrust
         >>> from ggrust import *
-        >>> plot = ggplot({"x": [1, 2, 3], "y": [3, 1, 2]}, aes("x", "y")) + geom_point()
-        >>> plot.html[:15]
-        '<!DOCTYPE html>'
+        >>> from ggrust.data import mpg
+        >>> scatter = ggplot(mpg, aes("displ", "hwy", color="drv")) + geom_point(size=3)
+        >>> bars = ggplot(mpg, aes("drv", fill="drv")) + geom_bar()
+        >>> grid = gggrid([scatter, bars], ncol=2)
+        >>> ggrust.display("png")
+        >>> grid.html  # doctest: +SKIP
+
+        Every other plot now shows as a PNG; ``grid.html`` keeps its tooltips and
+        zoom/pan. ``ggrust.display("html")`` goes back to the default:
+
+        >>> ggrust.display("html")
         """
         from ggrust._render import export_html
         from ggrust._rendered import HTML

@@ -24,10 +24,12 @@ class SVG(str):
 
     Examples
     --------
+    End a notebook cell with ``plot.svg`` to show the static image:
+
     >>> from ggrust import *
-    >>> plot = ggplot({"x": [1, 2, 3], "y": [3, 1, 2]}, aes("x", "y")) + geom_point()
-    >>> plot.svg[:4]
-    '<svg'
+    >>> from ggrust.data import mpg
+    >>> plot = ggplot(mpg, aes("displ", "hwy", color="drv")) + geom_point(size=3)
+    >>> plot.svg  # doctest: +SKIP
     """
 
     __slots__ = ()
@@ -49,10 +51,12 @@ class PNG(bytes):
 
     Examples
     --------
+    End a notebook cell with ``plot.png`` to show the picture:
+
     >>> from ggrust import *
-    >>> plot = ggplot({"x": [1, 2, 3], "y": [3, 1, 2]}, aes("x", "y")) + geom_point()
-    >>> plot.png[1:4]
-    b'PNG'
+    >>> from ggrust.data import mpg
+    >>> plot = ggplot(mpg, aes("displ", "hwy", color="drv")) + geom_point(size=3)
+    >>> plot.png  # doctest: +SKIP
     """
 
     __slots__ = ()
@@ -75,10 +79,12 @@ class HTML(str):
 
     Examples
     --------
+    End a notebook cell with ``plot.html`` to show the interactive plot:
+
     >>> from ggrust import *
-    >>> plot = ggplot({"x": [1, 2, 3], "y": [3, 1, 2]}, aes("x", "y")) + geom_point()
-    >>> plot.html[:15]
-    '<!DOCTYPE html>'
+    >>> from ggrust.data import mpg
+    >>> plot = ggplot(mpg, aes("displ", "hwy", color="drv")) + geom_point(size=3)
+    >>> plot.html  # doctest: +SKIP
     """
 
     _plot: PlotSpec | SupPlotsSpec

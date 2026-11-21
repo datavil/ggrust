@@ -26,6 +26,7 @@ from ggrust.plot.core import (
 if TYPE_CHECKING:
     from typing import Any
 
+    from ggrust._rendered import HTML, PNG, SVG
     from ggrust._typing import Number, Target
 
 Figure: TypeAlias = "PlotSpec | SupPlotsSpec | None"
@@ -565,6 +566,79 @@ class SupPlotsSpec(FeatureSpec):
         from ggrust._render import show
 
         show(self)
+
+    @property
+    def svg(self) -> SVG:
+        """The plot as a static SVG, drawn inline when it ends a notebook cell.
+
+        A ``str`` with the same text as ``to_svg()``. Rendered on each access; it
+        does not change the session's display mode (``ggrust.display``).
+
+        Returns
+        -------
+        SVG
+            The SVG document, a ``str`` subclass Jupyter shows as an image.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> plot = ggplot({"x": [1, 2, 3], "y": [3, 1, 2]}, aes("x", "y")) + geom_point()
+        >>> plot.svg[:4]
+        '<svg'
+        """
+        from ggrust._render import render_bytes
+        from ggrust._rendered import SVG
+
+        return SVG(render_bytes(self, "svg").decode())
+
+    @property
+    def png(self) -> PNG:
+        """The plot as a PNG image, drawn inline when it ends a notebook cell.
+
+        ``bytes`` holding the same image ``ggrust.display("png")`` shows. Use
+        ``to_png()`` for another size or resolution.
+
+        Returns
+        -------
+        PNG
+            The encoded PNG, a ``bytes`` subclass Jupyter shows as an image.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> plot = ggplot({"x": [1, 2, 3], "y": [3, 1, 2]}, aes("x", "y")) + geom_point()
+        >>> plot.png[1:4]
+        b'PNG'
+        """
+        from ggrust._render import render_bytes
+        from ggrust._rendered import PNG
+
+        return PNG(render_bytes(self, "png"))
+
+    @property
+    def html(self) -> HTML:
+        """The plot as an interactive HTML page, shown interactively in a notebook.
+
+        A ``str`` with the same page as ``to_html()``. When it ends a notebook cell
+        it shows with tooltips and the zoom/pan toolbar, whatever ``ggrust.display``
+        is set to.
+
+        Returns
+        -------
+        HTML
+            The standalone page, a ``str`` subclass Jupyter shows interactively.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> plot = ggplot({"x": [1, 2, 3], "y": [3, 1, 2]}, aes("x", "y")) + geom_point()
+        >>> plot.html[:15]
+        '<!DOCTYPE html>'
+        """
+        from ggrust._render import export_html
+        from ggrust._rendered import HTML
+
+        return HTML._from_plot(cast("str", export_html(self)), self)
 
     def to_svg(
         self,

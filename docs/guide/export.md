@@ -73,3 +73,17 @@ with pickle's usual rule: only unpickle data you trust).
 
 In Jupyter, a plot as the last expression of a cell renders inline. `plot.show()` does
 the same from code, and outside a notebook it opens the plot in the default browser.
+
+`display("svg")` (or `"png"`, `"html"`) picks how every plot shows for the rest of the
+session. For a single plot, end the cell with one of these properties instead:
+
+```python
+plot.svg   # static vector image
+plot.png   # PNG image
+plot.html  # interactive, even when the session shows static images
+```
+
+Each is also the rendered text or bytes (`plot.svg` is the same string as `to_svg()`,
+`plot.html` the same page as `to_html()`, `plot.png` the image `display("png")` shows),
+so `Path("prices.svg").write_text(plot.svg)` works too. They are rendered on each
+access and leave the session's display mode as it is.

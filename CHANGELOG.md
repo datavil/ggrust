@@ -2,6 +2,12 @@
 
 All notable changes to ggrust. Each version is also a [GitHub Release](https://github.com/datavil/ggrust/releases).
 
+## [Unreleased]
+
+### Added
+
+- `plot.svg`, `plot.png` and `plot.html` properties on plots and `gggrid` figures. Ending a notebook cell with one shows that plot as a static SVG, a PNG, or interactive HTML, without changing the session's `display()` mode. Each is also the rendered `str` (SVG text, HTML page) or `bytes` (PNG), so it can be written to a file as is.
+
 ## [1.0.0] - 2026-11-17
 
 ### Breaking

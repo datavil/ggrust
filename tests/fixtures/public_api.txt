@@ -26,15 +26,18 @@ class SupPlotsSpec(figures, layout) [FeatureSpec]
 SupPlotsSpec.as_dict()
 SupPlotsSpec.duplicate(other)
 SupPlotsSpec.figures
+SupPlotsSpec.html
 SupPlotsSpec.labels
 SupPlotsSpec.layout
 SupPlotsSpec.ncol
 SupPlotsSpec.nrow
 SupPlotsSpec.plot_paths()
 SupPlotsSpec.plots()
+SupPlotsSpec.png
 SupPlotsSpec.props()
 SupPlotsSpec.show()
 SupPlotsSpec.size
+SupPlotsSpec.svg
 SupPlotsSpec.theme
 SupPlotsSpec.to_html(path=, iframe=)
 SupPlotsSpec.to_pdf(path, scale=, w=, h=, unit=, dpi=)
@@ -307,16 +310,19 @@ plot.core.PlotSpec.get_plot_shared_data()
 plot.core.PlotSpec.guide_data(aesthetic=, scale_group=)
 plot.core.PlotSpec.guides
 plot.core.PlotSpec.has_layers()
+plot.core.PlotSpec.html
 plot.core.PlotSpec.labels
 plot.core.PlotSpec.layer_data(index=)
 plot.core.PlotSpec.layers
 plot.core.PlotSpec.mapping
 plot.core.PlotSpec.panels()
+plot.core.PlotSpec.png
 plot.core.PlotSpec.props()
 plot.core.PlotSpec.scale_info(aesthetic=)
 plot.core.PlotSpec.scales
 plot.core.PlotSpec.show()
 plot.core.PlotSpec.size
+plot.core.PlotSpec.svg
 plot.core.PlotSpec.theme
 plot.core.PlotSpec.to_html(path=, iframe=)
 plot.core.PlotSpec.to_pdf(path, scale=, w=, h=, unit=, dpi=)

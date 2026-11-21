@@ -1054,11 +1054,9 @@ def render_notebook_html(plot: PlotSpec | SupPlotsSpec) -> str:
     """
     from ggrust._display import current_display
 
-    if is_animated(plot):
-        from ggrust.animation import animate
-
-        return animate(cast("PlotSpec", plot))._repr_html_()
     mode = current_display()
+    if mode == "html" or is_animated(plot):
+        return render_interactive_html(plot)
     if mode == "svg":
         return render_bytes(plot, "svg").decode()
     if mode == "png":
@@ -1066,6 +1064,23 @@ def render_notebook_html(plot: PlotSpec | SupPlotsSpec) -> str:
 
         encoded = base64.b64encode(render_bytes(plot, "png")).decode()
         return f'<img src="data:image/png;base64,{encoded}">'
+    return render_interactive_html(plot)
+
+
+def render_interactive_html(plot: PlotSpec | SupPlotsSpec) -> str:
+    """Return the interactive notebook HTML (tooltips, zoom/pan), whatever the display mode.
+
+    Animated plots get the animation player.
+
+    Parameters
+    ----------
+    plot : PlotSpec or SupPlotsSpec
+        The plot or grid of plots.
+    """
+    if is_animated(plot):
+        from ggrust.animation import animate
+
+        return animate(cast("PlotSpec", plot))._repr_html_()
     return render_bytes(plot, "html").decode()
 
 

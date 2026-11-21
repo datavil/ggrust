@@ -538,6 +538,7 @@ Complete themes, and `theme()` to change single elements.
 | [`theme()`](api/theme.md) | Set theme options: element_*() values, numbers or names per theme element. |
 | [`theme_grey()`](api/theme_grey.md) | Use the grey background theme. |
 | [`theme_gray()`](api/theme_gray.md) | Use the grey background theme (alias of ``theme_grey``). |
+| [`theme_ggplot2()`](api/theme_ggplot2.md) | Use ggplot2's default look: the grey theme and the hue color palette. |
 | [`theme_classic()`](api/theme_classic.md) | Use the classic theme: axis lines, no grid. |
 | [`theme_minimal()`](api/theme_minimal.md) | Use the minimal theme. |
 | [`theme_minimal2()`](api/theme_minimal2.md) | Use lets-plot's default theme. |

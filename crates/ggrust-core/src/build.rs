@@ -795,8 +795,10 @@ fn prepare_columns(
         .iter()
         .flat_map(|(layers, _, _)| layers)
         .collect();
-    let mut style_scales = train_style_scales(&all_computed, &style_specs, &mut warnings)
-        .map_err(|error| error.with_notes(&warnings))?;
+    let discrete_hue = crate::theme::discrete_hue(spec.theme.as_ref());
+    let mut style_scales =
+        train_style_scales(&all_computed, &style_specs, discrete_hue, &mut warnings)
+            .map_err(|error| error.with_notes(&warnings))?;
     for scale in style_scales.values_mut() {
         scale.set_exponent_format(exponent_format);
     }
@@ -4553,6 +4555,7 @@ fn check_scale_groups(spec: &PlotSpec) -> Result<()> {
 fn train_style_scales(
     layers: &[&ComputedLayer],
     specs: &BTreeMap<ScaleKey, StyleScaleSpec>,
+    discrete_hue: bool,
     warnings: &mut Vec<String>,
 ) -> Result<BTreeMap<ScaleKey, StyleScale>> {
     // Every (scale key, column, path) after stat and position, in layer order.
@@ -4602,7 +4605,15 @@ fn train_style_scales(
                     &default_spec
                 };
                 let spec = specs.get(&key).unwrap_or(fallback);
-                let mapper = spec.mapper(key.aesthetic, warnings)?;
+                let theme_hue = if discrete_hue && discrete.contains(&key) {
+                    spec.theme_hue(key.aesthetic)?
+                } else {
+                    None
+                };
+                let mapper = match theme_hue {
+                    Some(mapper) => mapper,
+                    None => spec.mapper(key.aesthetic, warnings)?,
+                };
                 let domain = spec.discrete_domain()?;
                 // Fail early on a bad `oob`, also when the data turns out discrete.
                 spec.oob()?;

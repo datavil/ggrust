@@ -22,6 +22,9 @@ pub struct HueMapper {
     pub reversed: bool,
     /// Color of missing and out-of-domain values.
     pub na: Color,
+    /// One category takes the first hue (ggplot2 `scales::hue_pal()`), not the
+    /// middle of the range (lets-plot). Set by `theme_ggplot2()`.
+    pub single_level_first_hue: bool,
 }
 
 impl HueMapper {
@@ -34,6 +37,7 @@ impl HueMapper {
             start_hue: 0.0,
             reversed: false,
             na,
+            single_level_first_hue: false,
         }
     }
 
@@ -95,7 +99,14 @@ impl StyleMapper for HueMapper {
         let step = (high - low) / (n - 1.0);
         let last = level_count.saturating_sub(1) as f64;
         // lets-plot `ensureApplicableRange`: one category spans -0.5..0.5.
-        let domain = if last > 0.0 { (0.0, last) } else { (-0.5, 0.5) };
+        // ggplot2 puts it at the first hue instead.
+        let domain = if last > 0.0 {
+            (0.0, last)
+        } else if self.single_level_first_hue {
+            (0.0, 1.0)
+        } else {
+            (-0.5, 0.5)
+        };
         let color = self.gradient(domain, low, low + step * (n - 1.0));
         let colors = indices
             .iter()
@@ -133,6 +144,20 @@ mod tests {
         for (color, hex) in found.iter().zip(expected) {
             assert_eq!(*color, Color::from_hex(hex).unwrap(), "{hex}");
         }
+    }
+
+    #[test]
+    fn one_level_takes_the_middle_hue_or_the_first_like_ggplot2() {
+        let lets_plot = HueMapper::default_with(NA_COLOR);
+        let ggplot2 = HueMapper {
+            single_level_first_hue: true,
+            ..HueMapper::default_with(NA_COLOR)
+        };
+        let middle = colors(lets_plot.map_discrete(&[Some(0)], 1));
+        let first = colors(ggplot2.map_discrete(&[Some(0)], 1));
+        assert_eq!(middle[0], Color::from_hex("#7cae00").unwrap());
+        // R: scales::hue_pal()(1)
+        assert_eq!(first[0], Color::from_hex("#f8766d").unwrap());
     }
 
     #[test]

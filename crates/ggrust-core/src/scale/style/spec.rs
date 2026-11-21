@@ -910,6 +910,23 @@ impl StyleScaleSpec {
         }
     }
 
+    /// The hue palette a theme asks for (`theme_ggplot2()`) on a discrete color
+    /// scale that names no palette of its own: no scale call, or
+    /// `scale_*_discrete()`. `None` for other aesthetics, other kinds and manual
+    /// `values`, which keep their own colors.
+    pub fn theme_hue(&self, aesthetic: Aesthetic) -> Result<Option<Arc<dyn StyleMapper>>> {
+        let is_color = default_mapper(aesthetic)
+            .is_some_and(|default| default.value_kind() == ValueKind::Color);
+        if !is_color || self.kind.is_some() || self.options.contains_key("values") {
+            return Ok(None);
+        }
+        let mapper = HueMapper {
+            single_level_first_hue: true,
+            ..self.hue()?
+        };
+        Ok(Some(Arc::new(mapper)))
+    }
+
     fn hue(&self) -> Result<HueMapper> {
         let mut mapper = HueMapper::default_with(self.na_color()?);
         if let Some((value, path)) = self.options.get("h") {

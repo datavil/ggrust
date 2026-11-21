@@ -233,8 +233,8 @@ const LIGHT_GREY: Color = Color::rgb(0xE9, 0xE9, 0xE9);
 const GREY85: Color = Color::rgb(0xD9, 0xD9, 0xD9);
 
 /// Named theme names, for error messages.
-pub const THEME_NAMES: &str =
-    "'minimal2', 'classic', 'bw', 'grey' ('gray'), 'light', 'dark', 'linedraw', 'minimal', 'none'";
+pub const THEME_NAMES: &str = "'minimal2', 'classic', 'bw', 'grey' ('gray'), 'light', 'dark', 'linedraw', 'minimal', 'none', \
+     'ggplot2'";
 
 /// Flavor names, for error messages.
 pub const FLAVOR_NAMES: &str = "'standard', 'darcula', 'solarized_light', 'solarized_dark', \
@@ -522,7 +522,7 @@ fn named(name: &str) -> Option<(Values, Option<Flavor>)> {
                 Color::rgb(0x33, 0x33, 0x33),
             ))
         }
-        "grey" | "gray" => {
+        "grey" | "gray" | "ggplot2" => {
             values.element(
                 "panel_background",
                 Props {

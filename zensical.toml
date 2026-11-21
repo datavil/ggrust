@@ -503,6 +503,7 @@ nav = [
       "reference/api/theme.md",
       "reference/api/theme_grey.md",
       "reference/api/theme_gray.md",
+      "reference/api/theme_ggplot2.md",
       "reference/api/theme_classic.md",
       "reference/api/theme_minimal.md",
       "reference/api/theme_minimal2.md",

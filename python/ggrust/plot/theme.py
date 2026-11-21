@@ -828,7 +828,17 @@ def _named(name: str) -> FeatureSpec:
 
 def theme_defaults(
     name: Literal[
-        "minimal2", "classic", "bw", "grey", "gray", "light", "dark", "linedraw", "minimal", "none"
+        "minimal2",
+        "classic",
+        "bw",
+        "grey",
+        "gray",
+        "light",
+        "dark",
+        "linedraw",
+        "minimal",
+        "none",
+        "ggplot2",
     ] = "minimal2",
     flavor: Literal[
         "standard",
@@ -931,6 +941,38 @@ def theme_gray() -> FeatureSpec:
     >>> plot = plot + theme_gray()
     """
     return _named("gray")
+
+
+def theme_ggplot2() -> FeatureSpec:
+    """Use ggplot2's default look: the grey theme and the hue color palette.
+
+    The theme of ``theme_grey()`` (grey panel, white grid lines, no axis lines,
+    grey ticks), with discrete color and fill scales defaulting to ggplot2's hue
+    palette (``scale_color_hue()``) instead of lets-plot's ColorBrewer ``Set1``.
+    The hue palette applies to discrete scales without a palette of their own:
+    no ``scale_*()`` call, or ``scale_color_discrete()`` /
+    ``scale_fill_discrete()``. Other scales (manual, brewer, viridis) and
+    continuous scales (the blue gradient, the same in lets-plot and ggplot2) are
+    unchanged. ggrust-only: lets_plot has no such theme.
+
+    Adding another complete theme afterwards (``+ theme_bw()``) replaces it,
+    palette included; ``+ theme(...)`` changes single elements and keeps it.
+
+    Returns
+    -------
+    FeatureSpec
+        The theme.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + theme_ggplot2()
+    """
+    return _named("ggplot2")
 
 
 def theme_light() -> FeatureSpec:

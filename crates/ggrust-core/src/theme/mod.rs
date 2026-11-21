@@ -694,6 +694,12 @@ impl Theme {
     }
 }
 
+/// Whether discrete color and fill scales default to ggplot2's hue palette instead
+/// of lets-plot's Set1: true for the `ggplot2` theme (`theme_ggplot2()`).
+pub fn discrete_hue(spec: Option<&ThemeSpec>) -> bool {
+    spec.and_then(|spec| spec.name.as_deref()) == Some("ggplot2")
+}
+
 /// The geom colors of a spec's theme (lets-plot `ThemeFlavor` and `element_geom`):
 /// pen is the flavor's ink, paper its background, brush lets-plot's blue; each one
 /// `theme(geom=element_geom(...))` sets wins.

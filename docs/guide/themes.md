@@ -18,6 +18,21 @@ ggrust has `theme_grey` (the default), `theme_classic`, `theme_minimal`,
 them. `theme_defaults("classic")` returns what a named theme sets, as a dict in
 `theme()` vocabulary.
 
+## ggplot2's look
+
+`theme_ggplot2()` gives a plot ggplot2's default look: the `theme_grey` theme, and
+ggplot2's hue palette for discrete colors and fills instead of lets-plot's ColorBrewer
+`Set1`:
+
+```python
+ggplot(data, aes("age", "weight", color="pet")) + geom_point() + theme_ggplot2()
+```
+
+The palette applies to discrete color and fill scales that do not pick one themselves
+(no `scale_*()` call, or `scale_color_discrete()`); manual, brewer and viridis scales
+keep their colors, and continuous scales already use ggplot2's blue gradient. Another
+complete theme added afterwards replaces it, palette included.
+
 ## Changing details with `theme()`
 
 `theme()` sets single elements. Add it after a built-in theme to adjust it:

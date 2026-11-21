@@ -517,6 +517,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "theme",
             "theme_grey",
             "theme_gray",
+            "theme_ggplot2",
             "theme_classic",
             "theme_minimal",
             "theme_minimal2",

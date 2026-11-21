@@ -7,6 +7,11 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 ### Added
 
 - `plot.svg`, `plot.png` and `plot.html` properties on plots and `gggrid` figures. Ending a notebook cell with one shows that plot as a static SVG, a PNG, or interactive HTML, without changing the session's `display()` mode. Each is also the rendered `str` (SVG text, HTML page) or `bytes` (PNG), so it can be written to a file as is.
+- `theme_ggplot2()`, a complete theme with ggplot2's default look: the grey theme with ggplot2's text sizes and colors and its ticks (11 pt titles, 8.8 pt grey30 axis labels, grey20 ticks), and ggplot2's hue palette (`scales::hue_pal()`) on discrete color and fill scales that do not pick a palette themselves, instead of lets-plot's Set1. Continuous, manual and named palettes and geom defaults are unchanged; a `flavor_*()` afterwards mixes the greys from its own ink and paper. ggrust-only.
+
+### Fixed
+
+- The themes guide named `theme_grey` as the default theme; it is `theme_minimal2`, as in lets-plot.
 
 ## [1.0.0] - 2026-11-17
 

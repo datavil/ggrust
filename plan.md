@@ -607,6 +607,18 @@ Detail: [notes/plans/animation.md](notes/plans/animation.md). Every step is a de
 - [x] an4 (trimmed by the user, 2026-11-14) `enter_fade`/`exit_fade`, `enter_grow`/`exit_shrink`, `shadow_wake`, `shadow_mark`.
 - [ ] an6 (on request) Performance pass, time box agreed with the user first.
 
+### Phase 14: grid conveniences (2026-11-21)
+
+- [x] 14.1 **Grid slices: `grid[:] += feature`.** Detail and costs: [notes/plans/grid-slices.md](notes/plans/grid-slices.md).
+  Extends `grid[i] += feature` to slices (`grid[:]`, `grid[0, :]`, `grid[:, 1]`, `grid[1:3]`):
+  `__getitem__` returns a `GridCells` view whose `+` adds the feature to every non-empty cell,
+  `__setitem__` writes it back. Python only, about 50 lines. Before coding, agree with the user:
+  nested grids (recurse or not), figure-level features through a slice (per plot or refuse),
+  design areas spanning cells (dedupe), iterable view, stepped slices. Main cost is freezing
+  these semantics under the stability promise; also `@overload`s for type checkers, a second
+  meaning of `+ theme()`, and code that no longer runs on lets_plot. Update the deviations.md
+  row "Changing one cell of a grid" (today: "No add-to-all-plots operator").
+
 ## Performance strategy (honest)
 
 - Biggest structural win: lets-plot serializes data to JSON in Python, then parses it in Kotlin/JS.

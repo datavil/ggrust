@@ -22,6 +22,7 @@ from ggrust.mapping import after_stat, as_discrete
 from ggrust.plot import (
     ClusterTree,
     GGBunch,
+    GridCells,
     Labeller,
     SupPlotsSpec,
     aes,
@@ -433,6 +434,7 @@ __all__ = [
     "ClusterTree",
     "GGBunch",
     "GgrustWarning",
+    "GridCells",
     "Labeller",
     "StreamplotSet",
     "SupPlotsSpec",

@@ -550,7 +550,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
     ),
     "Grids and interactivity": (
         "Combine plots into one figure, and configure tooltips and the zoom/pan toolbar.",
-        ["gggrid", "SupPlotsSpec", "GGBunch", "layer_tooltips", "ggtb"],
+        ["gggrid", "SupPlotsSpec", "GridCells", "GGBunch", "layer_tooltips", "ggtb"],
     ),
     "Export and setup": (
         "Write files, and choose how plots show in notebooks.",

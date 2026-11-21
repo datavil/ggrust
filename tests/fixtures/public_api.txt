@@ -18,6 +18,7 @@ class GGBunch() [FeatureSpec]
 GGBunch.as_dict()
 GGBunch.props()
 class GgrustWarning(...) [UserWarning, Warning, Exception, BaseException]
+class GridCells(grid, selection, positions, figures, taken) []
 class Labeller(base, *, multi_line=, sep=, lookup=, function=) [FeatureSpec]
 Labeller.as_dict()
 Labeller.props()

@@ -93,11 +93,32 @@ def test_html_stays_interactive_in_static_display_modes(mode: str, restore_displ
     assert 'class="ggrust-plot"' in plot.html._repr_html_()
 
 
-def test_properties_leave_the_display_mode_alone(restore_display: None) -> None:
-    display("svg")
-    plot = _plot()
-    _ = plot.png, plot.html
-    assert current_display() == "svg"
+def _shown_kind(plot: PlotSpec | SupPlotsSpec) -> str:
+    """Which display mode ``plot._repr_html_()`` used."""
+    shown = plot._repr_html_()
+    if shown.startswith("<svg"):
+        return "svg"
+    if shown.startswith('<img src="data:image/png;base64,'):
+        return "png"
+    assert 'class="ggrust-plot"' in shown
+    return "html"
+
+
+@pytest.mark.parametrize("mode", ["html", "svg", "png"])
+@pytest.mark.parametrize("plot", _plots(), ids=["plot", "grid"])
+def test_properties_leave_the_display_of_later_plots_alone(
+    mode: str, plot: PlotSpec | SupPlotsSpec, restore_display: None
+) -> None:
+    display(mode)  # ty: ignore[invalid-argument-type]
+    later = _plot()
+    assert _shown_kind(later) == mode
+    # Read and display every property, as notebook cells ending in them would.
+    for value in (plot.svg, plot.png, plot.html):
+        DisplayFormatter().format(value)
+    assert current_display() == mode
+    assert _shown_kind(plot) == mode
+    assert _shown_kind(later) == mode
+    assert _shown_kind(gggrid([later])) == mode
 
 
 def test_properties_follow_the_plot_they_were_read_from() -> None:

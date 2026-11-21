@@ -8,10 +8,12 @@ All notable changes to ggrust. Each version is also a [GitHub Release](https://g
 
 - `plot.svg`, `plot.png` and `plot.html` properties on plots and `gggrid` figures. Ending a notebook cell with one shows that plot as a static SVG, a PNG, or interactive HTML, without changing the session's `display()` mode. Each is also the rendered `str` (SVG text, HTML page) or `bytes` (PNG), so it can be written to a file as is.
 - `theme_ggplot2()`, a complete theme with ggplot2's default look: the grey theme with ggplot2's text sizes and colors and its ticks (11 pt titles, 8.8 pt grey30 axis labels, grey20 ticks), and ggplot2's hue palette (`scales::hue_pal()`) on discrete color and fill scales that do not pick a palette themselves, instead of lets-plot's Set1. Continuous, manual and named palettes and geom defaults are unchanged; a `flavor_*()` afterwards mixes the greys from its own ink and paper. ggrust-only.
+- Grid slices: `grid[:] += feature` adds a layer, scale, labels or theme to every plot of a `gggrid`, and `grid[0, :]`, `grid[:, 1]`, `grid[1:3]` or `grid[::2]` to a row, a column or a range of cells. The slice returns a `GridCells` view (read-only, with `len()` and iteration); nested grids get the feature on every plot inside them, empty cells stay empty, and a `design=` area spanning several selected cells gets it once. Figure-level features go to each plot: `grid[:] += theme(...)` themes every plot, while `grid + theme(...)` still themes the figure. Changes the grid in place, like `grid[i] += feature`. ggrust-only.
 
 ### Fixed
 
 - The themes guide named `theme_grey` as the default theme; it is `theme_minimal2`, as in lets-plot.
+- `gggrid()` rejects an entry that is not a plot, a grid or None with `UnsupportedValueError` (a `TypeError`) when the grid is built. A nested list was accepted and failed only when drawn, with `AttributeError: 'list' object has no attribute 'as_dict'`; the error now says to wrap it in `gggrid([...])` to nest a grid, or to flatten it and set `ncol=` for rows.
 
 ## [1.0.0] - 2026-11-17
 

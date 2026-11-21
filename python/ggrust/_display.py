@@ -15,6 +15,9 @@ _current: list[DisplayMode] = ["html"]
 def display(mode: DisplayMode) -> None:
     """Choose how plots show in notebooks, for the rest of the session.
 
+    To show a single plot another way, end the cell with ``plot.svg``,
+    ``plot.png`` or ``plot.html`` instead; those leave this mode as it is.
+
     Parameters
     ----------
     mode : {"html", "svg", "png"}

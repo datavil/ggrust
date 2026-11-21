@@ -21,7 +21,9 @@ Spec objects behave like lets-plot's: `PlotSpec`, `LayerSpec`, `FeatureSpec`,
 same layout, so code that inspects or edits specs keeps working.
 Delete `LetsPlot.setup_html()`: ggrust has no `LetsPlot` and needs no setup, since every
 HTML output embeds its own small runtime. For static notebook output (lets-plot's
-`no_js=True`), call `ggrust.display("svg")` or `ggrust.display("png")`.
+`no_js=True`), call `ggrust.display("svg")` or `ggrust.display("png")`. To show one
+plot differently without changing that, end the cell with `plot.svg`, `plot.png` or
+`plot.html` (ggrust only).
 
 ## What is supported
 
@@ -34,7 +36,7 @@ HTML output embeds its own small runtime. For static notebook output (lets-plot'
 | Prebuilt plots (`bistro`) | `corr_plot`, `joint_plot`, `qq_plot`, `residual_plot`, `image_matrix` |
 | Layout | `theme` and its elements, theme presets, flavors, `labs`, `guides`, `ggsize`, `gggrid` |
 | Interactivity | `layer_tooltips` (lines, format, title), `ggtb` zoom/pan toolbar |
-| Output | `_repr_html_`, `to_svg`, `to_png`, `to_html`, `to_pdf`, `ggsave` |
+| Output | `_repr_html_`, `to_svg`, `to_png`, `to_html`, `to_pdf`, `ggsave`; ggrust also adds `plot.svg`, `plot.png`, `plot.html` |
 
 ## What is not supported
 

@@ -74,8 +74,25 @@ with pickle's usual rule: only unpickle data you trust).
 In Jupyter, a plot as the last expression of a cell renders inline. `plot.show()` does
 the same from code, and outside a notebook it opens the plot in the default browser.
 
-`display("svg")` (or `"png"`, `"html"`) picks how every plot shows for the rest of the
-session. For a single plot, end the cell with one of these properties instead:
+### Display mode for the session
+
+`ggrust.display()` picks how every plot shows for the rest of the session:
+
+| Mode | Shows | Use it for |
+|---|---|---|
+| `"html"` (default) | interactive plot: tooltips, zoom/pan toolbar | everyday work |
+| `"svg"` | static vector image, no JavaScript | viewers that block scripts (GitHub previews, some exporters) |
+| `"png"` | static image | small notebooks, pasting into slides |
+
+```python
+import ggrust
+
+ggrust.display("svg")  # every plot from now on is a static SVG
+```
+
+### One plot in another format
+
+To show a single plot another way, end the cell with one of these properties:
 
 ```python
 plot.svg   # static vector image
@@ -83,7 +100,19 @@ plot.png   # PNG image
 plot.html  # interactive, even when the session shows static images
 ```
 
-Each is also the rendered text or bytes (`plot.svg` is the same string as `to_svg()`,
-`plot.html` the same page as `to_html()`, `plot.png` the image `display("png")` shows),
-so `Path("prices.svg").write_text(plot.svg)` works too. They are rendered on each
-access and leave the session's display mode as it is.
+They change only that cell. The session's display mode stays as it was, so the plots
+after it still show in that mode:
+
+```python
+ggrust.display("png")
+plot        # PNG (the session mode)
+plot.html   # interactive, just this once
+plot        # PNG again
+```
+
+Each property is also the rendered text or bytes: `plot.svg` is the same string as
+`to_svg()`, `plot.html` the same page as `to_html()`, and `plot.png` the image
+`display("png")` shows. So `Path("prices.svg").write_text(plot.svg)` works too. They
+are rendered on each access, so read them again after adding to a plot. For another
+size or resolution, use `to_svg(w=, h=)` or `to_png(scale=, dpi=)`. They work on
+`gggrid` figures as well.

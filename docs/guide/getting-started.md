@@ -7,7 +7,9 @@ pip install ggrust
 ```
 
 ggrust works in Jupyter, VS Code notebooks and plain Python scripts. In a notebook, a
-plot shows itself when it is the last expression of a cell. In a script, call
+plot shows itself when it is the last expression of a cell, as an interactive plot;
+end the cell with `plot.svg` or `plot.png` for a static image instead (see
+[Notebooks and scripts](export.md#notebooks-and-scripts)). In a script, call
 `plot.show()` to open it in the browser, or [export it](export.md) to a file.
 
 Import everything, as with lets-plot:

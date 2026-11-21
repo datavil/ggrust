@@ -181,6 +181,23 @@ def test_python_side_spec_errors() -> None:
         gg.ggtb(size_basis="mni")
 
 
+@pytest.mark.parametrize("nested", [[gg.ggplot(), gg.ggplot()], (gg.ggplot(),)])
+def test_gggrid_rejects_a_nested_list_with_a_nesting_hint(nested: object) -> None:
+    with pytest.raises(UnsupportedValueError) as caught:
+        gg.gggrid([gg.ggplot(), nested])
+    message = str(caught.value)
+    assert isinstance(caught.value, TypeError)
+    assert caught.value.path == "figures[1]"
+    assert f"plots[1] is a {type(nested).__name__}" in message
+    assert "wrap it in gggrid([...])" in message
+    assert "set ncol= for rows" in message
+
+
+def test_gggrid_rejects_a_value_that_is_not_a_figure() -> None:
+    with pytest.raises(UnsupportedValueError, match=r"plots\[0\] must be a plot .* got str"):
+        gg.gggrid(["points", None])
+
+
 def test_did_you_mean_follows_the_engine_rule() -> None:
     assert did_you_mean("sgv", ["svg", "png"]) == "; did you mean 'svg'?"
     assert did_you_mean("PNG", ["svg", "png"]) == "; did you mean 'png'?"

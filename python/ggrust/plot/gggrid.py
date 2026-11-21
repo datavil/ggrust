@@ -8,7 +8,8 @@ from __future__ import annotations
 
 from typing import Literal
 
-from ggrust.errors import SpecError, did_you_mean
+from ggrust.errors import SpecError, UnsupportedValueError, did_you_mean
+from ggrust.plot.core import PlotSpec
 from ggrust.plot.subplots import SupPlotsLayoutSpec, SupPlotsSpec
 
 __all__ = ["gggrid"]
@@ -125,6 +126,14 @@ def gggrid(
     SupPlotsSpec
         The grid.
 
+    Raises
+    ------
+    UnsupportedValueError
+        If an entry of ``plots`` is not a plot, a grid or None (a nested list
+        included: wrap it in ``gggrid([...])``). Also a ``TypeError``.
+    SpecError
+        If ``plots`` is empty or a layout option is invalid.
+
     Examples
     --------
     >>> from ggrust import *
@@ -156,6 +165,8 @@ def gggrid(
     if not len(plots):
         message = "gggrid(): 'plots' is empty; pass a list of plots (None leaves a cell empty)"
         raise SpecError(message)
+    for index, figure in enumerate(plots):
+        _check_figure(index, figure)
     levels = _tag_levels(tag_levels)
     if tag_level is not None and tag_level not in TAG_LEVEL_VALUES:
         message = (
@@ -231,6 +242,31 @@ def _extension_options(
     if tag_level is not None:
         options["tag_level"] = tag_level
     return options
+
+
+def _check_figure(index: int, figure: object) -> None:
+    """Check that ``plots[index]`` is a plot, a grid or None.
+
+    Raises
+    ------
+    UnsupportedValueError
+        If it is anything else; a list or tuple gets a hint on nesting and rows.
+    """
+    if figure is None or isinstance(figure, PlotSpec | SupPlotsSpec):
+        return
+    path = f"figures[{index}]"
+    if isinstance(figure, list | tuple):
+        reason = (
+            f"plots[{index}] is a {type(figure).__name__}; wrap it in gggrid([...]) to nest "
+            "a grid, or flatten it and set ncol= for rows"
+        )
+    else:
+        reason = (
+            f"plots[{index}] must be a plot (ggplot()), a grid (gggrid()) or None, "
+            f"got {type(figure).__name__}"
+        )
+    message = f"gggrid(): {reason}"
+    raise UnsupportedValueError(message, path=path, reason=reason)
 
 
 def _check_collect(key: str, value: object) -> None:

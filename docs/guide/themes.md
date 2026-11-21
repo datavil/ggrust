@@ -20,9 +20,9 @@ them. `theme_defaults("classic")` returns what a named theme sets, as a dict in
 
 ## ggplot2's look
 
-`theme_ggplot2()` gives a plot ggplot2's default look: the `theme_grey` theme, and
-ggplot2's hue palette for discrete colors and fills instead of lets-plot's ColorBrewer
-`Set1`:
+`theme_ggplot2()` gives a plot ggplot2's default look: the `theme_grey` theme with
+ggplot2's text sizes and colors and its ticks, and ggplot2's hue palette for discrete
+colors and fills instead of lets-plot's ColorBrewer `Set1`:
 
 ```python
 ggplot(data, aes("age", "weight", color="pet")) + geom_point() + theme_ggplot2()
@@ -32,6 +32,9 @@ The palette applies to discrete color and fill scales that do not pick one thems
 (no `scale_*()` call, or `scale_color_discrete()`); manual, brewer and viridis scales
 keep their colors, and continuous scales already use ggplot2's blue gradient. Another
 complete theme added afterwards replaces it, palette included.
+
+Geom defaults stay lets-plot's (point and legend key sizes, boxplot whisker caps, bar
+outlines, the dark grey ink of lines and outlines), and so do the axis breaks.
 
 ## Changing details with `theme()`
 

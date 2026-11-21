@@ -946,9 +946,12 @@ def theme_gray() -> FeatureSpec:
 def theme_ggplot2() -> FeatureSpec:
     """Use ggplot2's default look: the grey theme and the hue color palette.
 
-    The theme of ``theme_grey()`` (grey panel, white grid lines, no axis lines,
-    grey ticks), with discrete color and fill scales defaulting to ggplot2's hue
-    palette (``scale_color_hue()``) instead of lets-plot's ColorBrewer ``Set1``.
+    The theme of ``theme_grey()`` (grey panel, white grid lines, no axis lines)
+    with ggplot2's text and ticks (``theme_grey(base_size = 11)`` at 96 dpi:
+    11 pt black text, 8.8 pt grey30 axis and legend labels, grey20 ticks
+    2.75 pt long; after a ``flavor_*()`` the greys are mixed from the flavor's ink
+    and paper, as ggplot2 does), and discrete color and fill scales defaulting to
+    ggplot2's hue palette (``scale_color_hue()``) instead of lets-plot's ColorBrewer ``Set1``.
     The hue palette applies to discrete scales without a palette of their own:
     no ``scale_*()`` call, or ``scale_color_discrete()`` /
     ``scale_fill_discrete()``. Other scales (manual, brewer, viridis) and

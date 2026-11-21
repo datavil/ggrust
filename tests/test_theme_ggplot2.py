@@ -85,10 +85,49 @@ def test_theme_after_keeps_and_complete_theme_after_replaces():
     assert colors(replaced)[:4] == SET1_4
 
 
-def test_looks_like_theme_grey_apart_from_colors():
-    plain = gg.ggplot(DATA, gg.aes("x", "y")) + gg.geom_point()
-    assert (plain + gg.theme_ggplot2()).to_svg() == (plain + gg.theme_grey()).to_svg()
-    assert gg.theme_defaults("ggplot2") == gg.theme_defaults("grey")
+def test_elements_are_theme_grey_with_ggplot2_text_and_ticks():
+    ggplot2 = gg.theme_defaults("ggplot2")
+    grey = gg.theme_defaults("grey")
+    # ggplot2 4.0.1 theme_grey(base_size=11): points at 96 dpi, fixed colors.
+    # `text` is the small-label size (axis, legend and strip text inherit it).
+    assert ggplot2["text"]["size"] == pytest.approx(8.8 * 96 / 72)
+    assert ggplot2["text"]["color"] == "#000000"
+    assert ggplot2["axis_title"]["size"] == pytest.approx(11 * 96 / 72)
+    assert ggplot2["legend_title"]["size"] == pytest.approx(11 * 96 / 72)
+    assert ggplot2["axis_text"]["color"] == "#4d4d4d"
+    assert ggplot2["plot_title"]["size"] == pytest.approx(13.2 * 96 / 72)
+    assert ggplot2["strip_text"]["color"] == "#1a1a1a"
+    assert ggplot2["axis_ticks"]["color"] == "#333333"
+    assert ggplot2["axis_ticks_length"] == pytest.approx(2.75 * 96 / 72)
+    # Everything else (panel, grid, strips, legend keys) is the grey theme.
+    changed = {
+        "text",
+        "title",
+        "axis_text",
+        "axis_title",
+        "axis_ticks",
+        "axis_ticks_length",
+        "legend_text",
+        "legend_title",
+        "plot_title",
+        "plot_subtitle",
+        "plot_caption",
+        "plot_tag",
+        "strip_text",
+    }
+    assert {key: value for key, value in ggplot2.items() if key not in changed} == {
+        key: value for key, value in grey.items() if key not in changed
+    }
+
+
+def test_text_is_drawn_in_ggplot2_colors():
+    svg = points(gg.theme_ggplot2()).to_svg().lower()
+    assert "#4d4d4d" in svg  # axis text
+    assert "#333333" in svg  # ticks
+    red = gg.theme(axis_text=gg.element_text(color="red"))
+    overridden = points(gg.theme_ggplot2(), red).to_svg().lower()
+    assert "#4d4d4d" not in overridden
+    assert "#ff0000" in overridden
 
 
 def test_spec_names_the_theme():
@@ -112,3 +151,19 @@ def test_one_level_takes_the_first_hue_like_r():
     # R: scales::hue_pal()(1); lets-plot's scale_color_hue() keeps the middle hue.
     assert colors(plot + gg.theme_ggplot2()) == ["#F8766D"]
     assert colors(plot + gg.scale_color_hue()) == ["#7CAE00"]
+
+
+def test_flavor_after_the_preset_mixes_its_own_ink_and_paper():
+    # darcula: ink #BBBBBB on paper #303030; ggplot2's col_mix steps.
+    darcula = gg.theme_defaults("ggplot2", flavor="darcula")
+    assert darcula["text"]["color"] == "#bbbbbb"
+    assert darcula["axis_text"]["color"] == "#919191"  # 30 % toward paper
+    assert darcula["axis_ticks"]["color"] == "#9f9f9f"  # 20 %
+    standard = gg.theme_defaults("ggplot2", flavor="standard")
+    assert standard["text"]["color"] == "#000000"
+
+
+def test_text_size_reaches_the_small_labels():
+    plot = points(gg.theme_ggplot2(), gg.theme(text=gg.element_text(size=20)))
+    sizes = set(re.findall(r'font-size="([0-9.]+)', plot.to_svg()))
+    assert "20" in sizes or "20.0" in sizes

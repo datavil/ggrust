@@ -764,6 +764,45 @@ fn named(name: &str) -> Option<(Values, Option<Flavor>)> {
     Some((values, flavor))
 }
 
+/// ggplot2 4.0.1 `theme_grey(base_size = 11)` text and ticks on top of the grey
+/// theme (`theme_ggplot2()`), in pixels at 96 dpi. Colors mix `ink` into `paper`
+/// as ggplot2's `col_mix` does: text in ink, axis text 30 % of the way to paper
+/// (grey30 on white), strip text 10 % (grey10), ticks 20 % (grey20). The default is
+/// black ink on white paper; a `flavor_*()` supplies its own, so the text stays
+/// readable. `text` is the size of the small labels (8.8 pt: axis, legend and
+/// strip text inherit it, as in the grey theme); titles set their own.
+fn ggplot2_text_and_ticks(values: &mut Values, ink: Color, paper: Color) {
+    const PIXELS_PER_POINT: f64 = 96.0 / 72.0;
+    let base = 11.0 * PIXELS_PER_POINT;
+    let mix = |amount: f64| {
+        let channel = |from: u8, to: u8| {
+            (f64::from(from) + (f64::from(to) - f64::from(from)) * amount).round() as u8
+        };
+        Paint::Color(Color::rgb(
+            channel(ink.red, paper.red),
+            channel(ink.green, paper.green),
+            channel(ink.blue, paper.blue),
+        ))
+    };
+    let props = |size: Option<f64>, color: Option<Paint>| Props {
+        size,
+        color,
+        ..Props::default()
+    };
+    values.element("text", props(Some(base * 0.8), Some(mix(0.0))));
+    for key in ["title", "axis_title", "legend_title", "plot_subtitle"] {
+        values.element(key, props(Some(base), None));
+    }
+    for key in ["plot_title", "plot_tag"] {
+        values.element(key, props(Some(base * 1.2), None));
+    }
+    values.element("plot_caption", props(Some(base * 0.8), None));
+    values.element("axis_text", props(None, Some(mix(0.3))));
+    values.element("strip_text", props(None, Some(mix(0.1))));
+    values.element("axis_ticks", props(None, Some(mix(0.2))));
+    values.value("axis_ticks_length", Value::from(2.75 * PIXELS_PER_POINT));
+}
+
 /// The theme options of a spec: the named theme (default `minimal2`), the user's
 /// options on top, and the flavor for symbolic colors. Errors name the option.
 pub fn theme_values(spec: Option<&ThemeSpec>) -> Result<(Values, Flavor), String> {
@@ -777,27 +816,32 @@ pub fn theme_values(spec: Option<&ThemeSpec>) -> Result<(Values, Flavor), String
         )
     })?;
     let mut flavor = default_flavor;
+    let mut user_flavor = None;
+    if let Some(value) = spec.and_then(|spec| spec.elements.get("flavor")) {
+        let Value::String(flavor_name) = scalar(value) else {
+            return Err(format!("at 'theme.flavor': expected one of {FLAVOR_NAMES}"));
+        };
+        user_flavor = Flavor::named(flavor_name).ok_or_else(|| {
+            format!(
+                "at 'theme.flavor': unknown flavor '{flavor_name}'; expected one of \
+                 {FLAVOR_NAMES}{}",
+                crate::suggest::did_you_mean(flavor_name, crate::suggest::quoted(FLAVOR_NAMES))
+            )
+        })?;
+        flavor = user_flavor.or(default_flavor);
+    }
+    if name == "ggplot2" {
+        // ggplot2's black on white, unless a flavor brings its own ink and paper.
+        let (ink, paper) = user_flavor.map_or((Color::BLACK, Color::WHITE), |flavor| {
+            (flavor.black, flavor.white)
+        });
+        ggplot2_text_and_ticks(&mut values, ink, paper);
+    }
     if let Some(spec) = spec {
         for (key, value) in &spec.elements {
-            if key == "flavor" {
-                let Value::String(flavor_name) = scalar(value) else {
-                    return Err(format!("at 'theme.flavor': expected one of {FLAVOR_NAMES}"));
-                };
-                flavor = Flavor::named(flavor_name)
-                    .ok_or_else(|| {
-                        format!(
-                            "at 'theme.flavor': unknown flavor '{flavor_name}'; expected one \
-                             of {FLAVOR_NAMES}{}",
-                            crate::suggest::did_you_mean(
-                                flavor_name,
-                                crate::suggest::quoted(FLAVOR_NAMES)
-                            )
-                        )
-                    })?
-                    .or(default_flavor);
-                continue;
+            if key != "flavor" {
+                values.set(key, user_entry(key, value)?);
             }
-            values.set(key, user_entry(key, value)?);
         }
     }
     let flavor = flavor.unwrap_or(Flavor::base(LIGHT_GREY, LIGHT_GREY, LIGHT_GREY));

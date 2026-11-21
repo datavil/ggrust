@@ -578,6 +578,7 @@ Combine plots into one figure, and configure tooltips and the zoom/pan toolbar.
 |---|---|
 | [`gggrid()`](api/gggrid.md) | Combine plots into a grid. |
 | [`SupPlotsSpec`](api/SupPlotsSpec.md) | Several plots in one figure. Build it with ``gggrid()``. |
+| [`GridCells`](api/GridCells.md) | A view of several cells of a grid, for ``grid[:] += feature``. |
 | [`GGBunch`](api/GGBunch.md) | A free-layout bunch of plots. Not supported: use insets or ``gggrid`` instead. |
 | [`layer_tooltips()`](api/layer_tooltips.md) | Configure hover tooltips. |
 | [`ggtb()`](api/ggtb.md) | Add the zoom/pan toolbar to an HTML plot. |

@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import copy
 from types import NotImplementedType
-from typing import TYPE_CHECKING, TypeAlias, cast
+from typing import TYPE_CHECKING, TypeAlias, cast, overload
 
 from ggrust.errors import PlotIndexError, SpecError, did_you_mean
 from ggrust.plot.core import (
@@ -24,6 +24,7 @@ from ggrust.plot.core import (
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from typing import Any
 
     from ggrust._rendered import HTML, PNG, SVG
@@ -34,6 +35,14 @@ Figure: TypeAlias = "PlotSpec | SupPlotsSpec | None"
 
 Cell: TypeAlias = "int | tuple[int, int]"
 """A grid cell: its index in ``figures`` or its ``(row, column)``."""
+
+Cells: TypeAlias = "slice | tuple[slice, int] | tuple[int, slice] | tuple[slice, slice]"
+"""Several grid cells: a slice of ``figures``, or a ``(row, column)`` pair with a slice."""
+
+_CELL_FORMS = (
+    "a grid cell is an int or a (row, column) pair of ints, and several cells are a "
+    "slice (grid[:], grid[1:3]) or a pair with a slice (grid[0, :], grid[:, 1])"
+)
 
 # ``gggrid()`` options ``with_layout`` accepts (``nrow`` follows from ``ncol``).
 LAYOUT_OPTIONS = (
@@ -53,7 +62,7 @@ LAYOUT_OPTIONS = (
 )
 
 
-__all__ = ["SupPlotsSpec"]
+__all__ = ["GridCells", "SupPlotsSpec"]
 
 
 class SupPlotsLayoutSpec:
@@ -80,7 +89,9 @@ class SupPlotsSpec(FeatureSpec):
     theirs), ``labels``, ``grid[i]`` or ``grid[row, column]``, and ``plots()``
     (every plot, nested grids flattened). ``with_figure()`` and ``with_layout()``
     return changed copies; ``grid[i] = figure`` and ``grid[i] += layer`` change one
-    cell in place. A grid has no ``build()``: build its plots one by one.
+    cell in place. ``grid[:] += feature`` (or ``grid[0, :]``, ``grid[:, 1]``,
+    ``grid[1:3]``) adds a feature to every plot of several cells, through a
+    ``GridCells`` view. A grid has no ``build()``: build its plots one by one.
 
     Examples
     --------
@@ -256,19 +267,94 @@ class SupPlotsSpec(FeatureSpec):
                 paths[path] = figure
         return paths
 
-    def __getitem__(self, cell: Cell) -> Figure:
-        """Return the figure of a cell: ``grid[i]`` or ``grid[row, column]``.
+    @overload
+    def __getitem__(self, cell: Cell) -> Figure: ...
 
+    @overload
+    def __getitem__(self, cell: Cells) -> GridCells: ...
+
+    def __getitem__(self, cell: Cell | Cells) -> Figure | GridCells:
+        """Return the figure of a cell, or a ``GridCells`` view of several cells.
+
+        ``grid[i]`` and ``grid[row, column]`` return the figure. A slice
+        (``grid[:]``, ``grid[1:3]``, ``grid[::2]``) selects figures by index; a pair
+        with a slice part (``grid[0, :]``, ``grid[:, 1]``) selects rows and columns.
         Negative values count from the end, as for tuples.
+
+        Parameters
+        ----------
+        cell : int, tuple of (int, int), slice or tuple with a slice
+            The cell(s) to read.
+
+        Returns
+        -------
+        PlotSpec, SupPlotsSpec, None or GridCells
+            The figure (None for an empty cell), or a view of the selected cells for
+            ``grid[...] += feature``.
 
         Raises
         ------
         PlotIndexError
-            If the cell is outside the grid.
+            If the cell (or an int part of a pair) is outside the grid.
         TypeError
-            If ``cell`` is not an int or a pair of ints.
+            If ``cell`` is not one of the forms above.
+
+        Examples
+        --------
+        >>> from ggrust import *
+        >>> grid = gggrid([ggplot(), ggplot(), ggplot(), ggplot()], ncol=2)
+        >>> grid[0, :]
+        GridCells(grid[0, :]: figures [0, 1] of a 2 x 2 grid)
         """
+        if _is_slice_key(cell):
+            return self.__cells(cell)
         return self.__figures[self.__cell_position(cell)]
+
+    def __cells(self, key: object) -> GridCells:
+        """Return the ``GridCells`` view of a slice key (see ``__getitem__``)."""
+        selection = f"grid[{_describe_key(key)}]"
+        count = len(self.__figures)
+        if isinstance(key, slice):
+            positions = list(range(count)[_checked_slice(key, selection)])
+        else:
+            row_part, column_part = cast("tuple[object, object]", key)
+            rows = self.__axis_indices(row_part, self.nrow, "row", selection)
+            columns = self.__axis_indices(column_part, self.ncol, "column", selection)
+            areas = self.__layout.options().get("areas")
+            positions = []
+            for row in rows:
+                for column in columns:
+                    position = self.__area_position(areas, row, column)
+                    if position is not None and position not in positions:
+                        positions.append(position)
+        figures = tuple(self.__figures[position] for position in positions)
+        return GridCells(self, selection, tuple(positions), figures, figures)
+
+    @staticmethod
+    def __axis_indices(part: object, length: int, axis: str, selection: str) -> range:
+        """Return the rows or columns one part of a ``(row, column)`` key selects."""
+        if isinstance(part, slice):
+            return range(length)[_checked_slice(part, selection)]
+        index = cast("int", part)
+        if not -length <= index < length:
+            plural = "s" if length != 1 else ""
+            message = (
+                f"{selection}: {axis} {index} is out of range: the grid has {length} "
+                f"{axis}{plural}; {axis}s 0..{length - 1} (or -{length}..-1)"
+            )
+            raise PlotIndexError(message, index=index, length=length)
+        return range(index % length, index % length + 1)
+
+    def __area_position(
+        self, areas: list[tuple[int, int, int, int]] | None, row: int, column: int
+    ) -> int | None:
+        """Return the index in ``figures`` of cell ``(row, column)``; None for a ``#`` cell."""
+        if areas is None:
+            return row * self.ncol + column
+        for index, (left, top, right, bottom) in enumerate(areas):
+            if left <= column <= right and top <= row <= bottom:
+                return index
+        return None
 
     def with_figure(self, cell: Cell, figure: Figure) -> SupPlotsSpec:
         """Return a copy of the grid with one cell replaced; this grid is not changed.
@@ -306,27 +392,37 @@ class SupPlotsSpec(FeatureSpec):
         grid.__figures[position] = figure
         return grid
 
-    def __setitem__(self, cell: Cell, figure: Figure) -> None:
+    @overload
+    def __setitem__(self, cell: Cell, figure: Figure) -> None: ...
+
+    @overload
+    def __setitem__(self, cell: Cells, figure: GridCells) -> None: ...
+
+    def __setitem__(self, cell: Cell | Cells, figure: Figure | GridCells) -> None:
         """Replace the figure of a cell in place: ``grid[i] = plot``.
 
         Makes ``grid[i] += layer`` add a layer (or any feature) to one cell's
-        figure. This grid is changed; grids copied from it earlier are not.
-        Use ``with_figure`` for a changed copy instead.
+        figure. With a slice, ``grid[:] += feature`` adds it to every plot of the
+        selected cells: the slice takes back the ``GridCells`` view that
+        ``grid[:] + feature`` returned. This grid is changed; grids copied from it
+        earlier are not. Use ``with_figure`` for a changed copy instead.
 
         Parameters
         ----------
-        cell : int or tuple of (int, int)
-            The cell's index in ``figures``, or its ``(row, column)``.
-            Negative values count from the end.
-        figure : PlotSpec, SupPlotsSpec or None
-            The new figure; None empties the cell.
+        cell : int, tuple of (int, int), slice or tuple with a slice
+            The cell's index in ``figures``, or its ``(row, column)``; or a slice
+            form as for ``grid[...]``. Negative values count from the end.
+        figure : PlotSpec, SupPlotsSpec, None or GridCells
+            The new figure; None empties the cell. A slice takes a ``GridCells``
+            view of the same cells of this grid.
 
         Raises
         ------
         PlotIndexError
             If the cell is outside the grid.
         TypeError
-            If ``cell`` is malformed or ``figure`` is not a plot, a grid or None.
+            If ``cell`` is malformed, ``figure`` is not a plot, a grid or None, or
+            a slice is given anything but a view of the same cells of this grid.
 
         Examples
         --------
@@ -336,8 +432,59 @@ class SupPlotsSpec(FeatureSpec):
         >>> [layer.geom for layer in grid[0].layers]
         ['point', 'line']
         """
+        if _is_slice_key(cell):
+            self.__set_cells(cell, figure)
+            return
+        if isinstance(figure, GridCells):
+            message = (
+                f"grid[cell] = figure: one cell takes a figure, got a GridCells view "
+                f"({figure._selection}); assign a view back to its own slice: "
+                f"{figure._selection} = view, or use grid[i] += feature for one cell"
+            )
+            raise TypeError(message)
         self.__check_figure("grid[cell] = figure", figure)
         self.__figures[self.__cell_position(cell)] = figure
+
+    def __set_cells(self, key: object, view: object) -> None:
+        """Write a ``GridCells`` view back to the cells of a slice key."""
+        target = self.__cells(key)
+        if not isinstance(view, GridCells):
+            message = (
+                f"{target._selection} = value: a slice of a grid takes the GridCells view "
+                f"of the same cells, got {type(view).__name__}; add a feature to every "
+                f"cell with {target._selection} += feature, or set one cell with "
+                "grid[i] = figure"
+            )
+            raise TypeError(message)
+        if view._grid is not self:
+            message = (
+                f"{target._selection} = view: the view ({view._selection}) was taken from "
+                "another grid; assign a view back to the grid it came from, e.g. "
+                f"{target._selection} += feature"
+            )
+            raise TypeError(message)
+        if view._positions != target._positions:
+            message = (
+                f"{target._selection} = view: the view selects figures "
+                f"{list(view._positions)} ({view._selection}), not figures "
+                f"{list(target._positions)}; assign it back to the same cells, as "
+                f"{view._selection} += feature does"
+            )
+            raise TypeError(message)
+        changed = [
+            position
+            for position, taken in zip(view._positions, view._taken, strict=True)
+            if self.__figures[position] is not taken
+        ]
+        if changed:
+            message = (
+                f"{target._selection} = view: figures {changed} changed after the view "
+                f"was taken ({view._selection}), so writing it back would undo that "
+                f"change; take a new view instead: {view._selection} += feature"
+            )
+            raise TypeError(message)
+        for position, figure in zip(view._positions, view._figures, strict=True):
+            self.__figures[position] = figure
 
     @staticmethod
     def __check_figure(where: str, figure: object) -> None:
@@ -426,7 +573,7 @@ class SupPlotsSpec(FeatureSpec):
         ncol, nrow = self.ncol, self.nrow
         if isinstance(cell, tuple):
             if len(cell) != 2 or not all(_is_index(part) for part in cell):
-                message = f"a grid cell is an int or a (row, column) pair of ints, got {cell!r}"
+                message = f"{_CELL_FORMS}, got {cell!r}"
                 raise TypeError(message)
             row, column = cell
             if not (-nrow <= row < nrow and -ncol <= column < ncol):
@@ -449,10 +596,7 @@ class SupPlotsSpec(FeatureSpec):
             )
             raise PlotIndexError(message, index=cell, length=count)
         if not _is_index(cell):
-            message = (
-                f"a grid cell is an int or a (row, column) pair of ints, got "
-                f"{type(cell).__name__} {cell!r}"
-            )
+            message = f"{_CELL_FORMS}, got {type(cell).__name__} {cell!r}"
             raise TypeError(message)
         index = cast("int", cell)
         if not -count <= index < count:
@@ -836,3 +980,173 @@ class SupPlotsSpec(FeatureSpec):
 def _is_index(value: object) -> bool:
     """Whether ``value`` is an int usable as an index (bools are not)."""
     return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _is_slice_key(key: object) -> bool:
+    """Whether ``key`` selects several cells: a slice, or a pair with a slice part.
+
+    The other part of a pair must be an int or a slice; anything else is left to the
+    single-cell path, which raises the shared ``TypeError``.
+    """
+    if isinstance(key, slice):
+        return True
+    return (
+        isinstance(key, tuple)
+        and len(key) == 2
+        and any(isinstance(part, slice) for part in key)
+        and all(isinstance(part, slice) or _is_index(part) for part in key)
+    )
+
+
+def _describe_key(key: object) -> str:
+    """Write a slice key as it is typed: ``:``, ``0, :``, ``1:3``, ``::2``."""
+
+    def describe(part: object) -> str:
+        if not isinstance(part, slice):
+            return repr(part)
+        bounds = ["" if bound is None else repr(bound) for bound in (part.start, part.stop)]
+        text = ":".join(bounds)
+        return text if part.step is None else f"{text}:{part.step!r}"
+
+    if isinstance(key, tuple):
+        return ", ".join(describe(part) for part in key)
+    return describe(key)
+
+
+def _is_slice_bound(value: object) -> bool:
+    """Whether ``value`` is a slice bound: an int or any ``__index__`` type, not a bool."""
+    return hasattr(type(value), "__index__") and not isinstance(value, bool)
+
+
+def _checked_slice(part: slice, selection: str) -> slice:
+    """Return ``part`` if its bounds and step are ints or None, else raise ``TypeError``."""
+    bounds = (part.start, part.stop, part.step)
+    if not all(bound is None or _is_slice_bound(bound) for bound in bounds):
+        message = (
+            f"{selection}: slice bounds and step must be ints or None, got "
+            f"{part!r}; e.g. grid[:], grid[1:3], grid[::2]"
+        )
+        raise TypeError(message)
+    if part.step == 0:
+        message = f"{selection}: slice step cannot be zero; e.g. grid[::2] or grid[::-1]"
+        raise ValueError(message)
+    return part
+
+
+class GridCells:
+    """A view of several cells of a grid, for ``grid[:] += feature``.
+
+    ``grid[:]``, ``grid[0, :]``, ``grid[:, 1]`` and ``grid[1:3]`` return one. Do not
+    create it directly. ``view + feature`` returns a new view in which every plot of
+    the selected cells has the feature added (``plot + feature``); nested grids get it
+    on every plot inside them, empty cells stay empty. Assigning the view back to the
+    same slice (which ``grid[:] += feature`` does) writes those figures into the grid
+    in place; grids copied earlier are not changed.
+
+    Figure-level features (``theme``, ``ggsize``, ``ggtitle``, tags) go to each plot
+    too: ``grid[:] += theme(...)`` themes every plot, while ``grid + theme(...)``
+    themes the grid figure. A design area spanning several selected cells counts
+    once, and ``#`` cells of a design are skipped.
+
+    The view is read-only: ``len(view)`` and ``for figure in view`` give the selected
+    figures in selection order (None for an empty cell).
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"weight": [2.6, 2.9, 3.2, 3.4], "mpg": [31, 28, 24, 22]}
+    >>> points = ggplot(data, aes("weight", "mpg")) + geom_point()
+    >>> grid = gggrid([points, points, points, None], ncol=2)
+    >>> grid[:] += geom_line()
+    >>> [len(plot.layers) for plot in grid.plots()]
+    [2, 2, 2]
+    >>> grid[:, 0] += geom_smooth()
+    >>> [len(plot.layers) for plot in grid.plots()]
+    [3, 2, 3]
+    >>> len(grid[0, :]), grid[1, :]
+    (2, GridCells(grid[1, :]: figures [2, 3] of a 2 x 2 grid))
+    """
+
+    def __init__(
+        self,
+        grid: SupPlotsSpec,
+        selection: str,
+        positions: tuple[int, ...],
+        figures: tuple[Figure, ...],
+        taken: tuple[Figure, ...],
+    ) -> None:
+        self._grid = grid
+        self._selection = selection
+        self._positions = positions
+        self._figures = figures
+        # The grid's figures when the view was taken, to refuse a stale write back.
+        self._taken = taken
+
+    def __len__(self) -> int:
+        """Return the number of selected cells (a spanning design area counts once)."""
+        return len(self._figures)
+
+    def __iter__(self) -> Iterator[Figure]:
+        """Yield the selected figures in selection order, None for an empty cell."""
+        return iter(self._figures)
+
+    def __repr__(self) -> str:
+        """Return ``GridCells(grid[0, :]: figures [0, 1] of a 2 x 2 grid)``."""
+        return (
+            f"GridCells({self._selection}: figures {list(self._positions)} of a "
+            f"{self._grid.nrow} x {self._grid.ncol} grid)"
+        )
+
+    def __add__(self, other: object) -> GridCells:
+        """Return a new view with ``other`` added to every plot of the selected cells.
+
+        Parameters
+        ----------
+        other : FeatureSpec
+            A layer, scale, coord, labels, theme or any other plot feature.
+
+        Returns
+        -------
+        GridCells
+            The changed view; assign it back (``grid[:] += feature``) to change the
+            grid. The figures of this view and of the grid are not changed.
+
+        Raises
+        ------
+        Exception
+            Whatever ``plot + other`` raises for a plot, with a note naming that
+            plot's spec path (``figures[2].figures[1]``).
+        """
+        if isinstance(other, DummySpec):
+            return self
+        if not isinstance(other, FeatureSpec) or isinstance(other, PlotSpec | SupPlotsSpec):
+            return NotImplemented
+        figures = tuple(
+            _add_to_figure(figure, other, f"figures[{position}]", self._selection)
+            for position, figure in zip(self._positions, self._figures, strict=True)
+        )
+        return GridCells(self._grid, self._selection, self._positions, figures, self._taken)
+
+
+def _add_to_figure(figure: Figure, feature: FeatureSpec, path: str, selection: str) -> Figure:
+    """Return ``figure`` with ``feature`` added to each of its plots (nested grids too)."""
+    if figure is None:
+        return None
+    if isinstance(figure, SupPlotsSpec):
+        nested = SupPlotsSpec.duplicate(figure)
+        for index, child in enumerate(figure.figures):
+            nested[index] = _add_to_figure(child, feature, f"{path}.figures[{index}]", selection)
+        return nested
+    try:
+        added = figure + feature
+    except Exception as error:
+        error.add_note(f"in {selection} + {feature.kind}: adding to the plot at {path}")
+        raise
+    if not isinstance(added, PlotSpec):
+        message = (
+            f"{selection} + {feature.kind}: the plot at {path} did not accept it "
+            f"(plot + {type(feature).__name__} gave {type(added).__name__}); add "
+            "features a plot accepts, such as layers, scales, labels or a theme"
+        )
+        raise TypeError(message)
+    return added

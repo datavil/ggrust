@@ -373,7 +373,7 @@ from ggrust.plot.stat_layer import (
 )
 from ggrust.plot.stat_pubr import stat_compare_means, stat_cor, stat_poly_eq
 from ggrust.plot.stat_pubr_brackets import geom_pwc, stat_pvalue_manual
-from ggrust.plot.subplots import SupPlotsSpec
+from ggrust.plot.subplots import GridCells, SupPlotsSpec
 from ggrust.plot.theme import (
     element_blank,
     element_geom,
@@ -408,6 +408,7 @@ from ggrust.plot.tooltip import layer_tooltips
 __all__ = [
     "ClusterTree",
     "GGBunch",
+    "GridCells",
     "Labeller",
     "RangeKey",
     "SupPlotsSpec",

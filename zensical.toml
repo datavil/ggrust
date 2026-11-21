@@ -533,6 +533,7 @@ nav = [
     { "Grids and interactivity" = [
       "reference/api/gggrid.md",
       "reference/api/SupPlotsSpec.md",
+      "reference/api/GridCells.md",
       "reference/api/GGBunch.md",
       "reference/api/layer_tooltips.md",
       "reference/api/ggtb.md",

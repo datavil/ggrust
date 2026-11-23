@@ -1,0 +1,1776 @@
+{
+  "date": "2026-11-18T18:13:15+00:00",
+  "machine": {
+    "platform": "macOS-27.2.1-arm64-arm-64bit-Mach-O",
+    "processor": "arm",
+    "python": "3.14.7",
+    "ggrust": "1.0.0",
+    "matplotlib": "3.11.2"
+  },
+  "import_seconds": {
+    "ggrust": 0.08363983398885466,
+    "matplotlib": 0.6073953750019427
+  },
+  "results": [
+    {
+      "library": "ggrust",
+      "scenario": "scatter",
+      "points": 1000,
+      "output": "png",
+      "cold_seconds": 0.0076301250082906336,
+      "warm_seconds": 0.005286541010718793,
+      "bytes": 130404,
+      "peak_mb": 25.078125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "scatter",
+      "points": 1000,
+      "output": "png",
+      "cold_seconds": 0.036665249994257465,
+      "warm_seconds": 0.018959457986056805,
+      "bytes": 37229,
+      "peak_mb": 18.96875
+    },
+    {
+      "library": "ggrust",
+      "scenario": "scatter",
+      "points": 1000,
+      "output": "svg",
+      "cold_seconds": 0.0014787919935770333,
+      "warm_seconds": 0.00035945800482295454,
+      "bytes": 45303,
+      "peak_mb": 12.578125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "scatter",
+      "points": 1000,
+      "output": "svg",
+      "cold_seconds": 0.028783584013581276,
+      "warm_seconds": 0.014494291972368956,
+      "bytes": 100361,
+      "peak_mb": 3.65625
+    },
+    {
+      "library": "ggrust",
+      "scenario": "scatter_plot",
+      "points": 1000,
+      "output": "png",
+      "cold_seconds": 0.0070950419758446515,
+      "warm_seconds": 0.005220459017436951,
+      "bytes": 130404,
+      "peak_mb": 25.140625
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "scatter_plot",
+      "points": 1000,
+      "output": "png",
+      "cold_seconds": 0.037060959002701566,
+      "warm_seconds": 0.018911874998593703,
+      "bytes": 38075,
+      "peak_mb": 18.84375
+    },
+    {
+      "library": "ggrust",
+      "scenario": "scatter_plot",
+      "points": 1000,
+      "output": "svg",
+      "cold_seconds": 0.0015314169868361205,
+      "warm_seconds": 0.00034708299790509045,
+      "bytes": 45303,
+      "peak_mb": 12.46875
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "scatter_plot",
+      "points": 1000,
+      "output": "svg",
+      "cold_seconds": 0.026895999995758757,
+      "warm_seconds": 0.014121874992270023,
+      "bytes": 100302,
+      "peak_mb": 3.71875
+    },
+    {
+      "library": "ggrust",
+      "scenario": "color_discrete",
+      "points": 1000,
+      "output": "png",
+      "cold_seconds": 0.0074082080100197345,
+      "warm_seconds": 0.005631999985780567,
+      "bytes": 125438,
+      "peak_mb": 23.53125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "color_discrete",
+      "points": 1000,
+      "output": "png",
+      "cold_seconds": 0.059153417008928955,
+      "warm_seconds": 0.04023195800255053,
+      "bytes": 55645,
+      "peak_mb": 25.828125
+    },
+    {
+      "library": "ggrust",
+      "scenario": "color_discrete",
+      "points": 1000,
+      "output": "svg",
+      "cold_seconds": 0.0017700000025797635,
+      "warm_seconds": 0.0005725829978473485,
+      "bytes": 75540,
+      "peak_mb": 13.046875
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "color_discrete",
+      "points": 1000,
+      "output": "svg",
+      "cold_seconds": 0.05039275001036003,
+      "warm_seconds": 0.03605870800674893,
+      "bytes": 110379,
+      "peak_mb": 14.875
+    },
+    {
+      "library": "ggrust",
+      "scenario": "color_continuous",
+      "points": 1000,
+      "output": "png",
+      "cold_seconds": 0.007117415982065722,
+      "warm_seconds": 0.005528665991732851,
+      "bytes": 131318,
+      "peak_mb": 23.46875
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "color_continuous",
+      "points": 1000,
+      "output": "png",
+      "cold_seconds": 0.048441583989188075,
+      "warm_seconds": 0.02960916599840857,
+      "bytes": 116095,
+      "peak_mb": 15.5
+    },
+    {
+      "library": "ggrust",
+      "scenario": "color_continuous",
+      "points": 1000,
+      "output": "svg",
+      "cold_seconds": 0.0017539580003358424,
+      "warm_seconds": 0.000589625007705763,
+      "bytes": 76878,
+      "peak_mb": 12.953125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "color_continuous",
+      "points": 1000,
+      "output": "svg",
+      "cold_seconds": 0.056105249997926876,
+      "warm_seconds": 0.033132457989268005,
+      "bytes": 157744,
+      "peak_mb": 4.765625
+    },
+    {
+      "library": "ggrust",
+      "scenario": "log_scales",
+      "points": 1000,
+      "output": "png",
+      "cold_seconds": 0.006893209007102996,
+      "warm_seconds": 0.005561291996855289,
+      "bytes": 134642,
+      "peak_mb": 23.75
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "log_scales",
+      "points": 1000,
+      "output": "png",
+      "cold_seconds": 0.12111645800177939,
+      "warm_seconds": 0.04693812501500361,
+      "bytes": 42759,
+      "peak_mb": 28.828125
+    },
+    {
+      "library": "ggrust",
+      "scenario": "log_scales",
+      "points": 1000,
+      "output": "svg",
+      "cold_seconds": 0.001561875018524006,
+      "warm_seconds": 0.0004295410180930048,
+      "bytes": 43864,
+      "peak_mb": 12.5625
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "log_scales",
+      "points": 1000,
+      "output": "svg",
+      "cold_seconds": 0.1130211660056375,
+      "warm_seconds": 0.04367458401247859,
+      "bytes": 117653,
+      "peak_mb": 13.390625
+    },
+    {
+      "library": "ggrust",
+      "scenario": "histogram",
+      "points": 1000,
+      "output": "png",
+      "cold_seconds": 0.011201541987247765,
+      "warm_seconds": 0.009644292003940791,
+      "bytes": 36407,
+      "peak_mb": 23.390625
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "histogram",
+      "points": 1000,
+      "output": "png",
+      "cold_seconds": 0.03949983400525525,
+      "warm_seconds": 0.02222608297597617,
+      "bytes": 19484,
+      "peak_mb": 15.453125
+    },
+    {
+      "library": "ggrust",
+      "scenario": "histogram",
+      "points": 1000,
+      "output": "svg",
+      "cold_seconds": 0.0015801250119693577,
+      "warm_seconds": 0.00024820902035571635,
+      "bytes": 5848,
+      "peak_mb": 13.0625
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "histogram",
+      "points": 1000,
+      "output": "svg",
+      "cold_seconds": 0.028545457986183465,
+      "warm_seconds": 0.015791417012223974,
+      "bytes": 19069,
+      "peak_mb": 4.109375
+    },
+    {
+      "library": "ggrust",
+      "scenario": "bar",
+      "points": 1000,
+      "output": "png",
+      "cold_seconds": 0.009181957982946187,
+      "warm_seconds": 0.007313957990845665,
+      "bytes": 44613,
+      "peak_mb": 23.34375
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "bar",
+      "points": 1000,
+      "output": "png",
+      "cold_seconds": 0.0391398339997977,
+      "warm_seconds": 0.019428332976531237,
+      "bytes": 24495,
+      "peak_mb": 27.609375
+    },
+    {
+      "library": "ggrust",
+      "scenario": "bar",
+      "points": 1000,
+      "output": "svg",
+      "cold_seconds": 0.0014879160153213888,
+      "warm_seconds": 0.00023574999067932367,
+      "bytes": 4827,
+      "peak_mb": 12.953125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "bar",
+      "points": 1000,
+      "output": "svg",
+      "cold_seconds": 0.02759720798349008,
+      "warm_seconds": 0.012834958004532382,
+      "bytes": 17309,
+      "peak_mb": 12.1875
+    },
+    {
+      "library": "ggrust",
+      "scenario": "boxplot",
+      "points": 1000,
+      "output": "png",
+      "cold_seconds": 0.0072897920035757124,
+      "warm_seconds": 0.005399499990744516,
+      "bytes": 38969,
+      "peak_mb": 25.515625
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "boxplot",
+      "points": 1000,
+      "output": "png",
+      "cold_seconds": 0.04144187498604879,
+      "warm_seconds": 0.023114292009267956,
+      "bytes": 22105,
+      "peak_mb": 22.53125
+    },
+    {
+      "library": "ggrust",
+      "scenario": "boxplot",
+      "points": 1000,
+      "output": "svg",
+      "cold_seconds": 0.0016964999958872795,
+      "warm_seconds": 0.00045633400441147387,
+      "bytes": 7426,
+      "peak_mb": 13.578125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "boxplot",
+      "points": 1000,
+      "output": "svg",
+      "cold_seconds": 0.030214416998205706,
+      "warm_seconds": 0.01658516697352752,
+      "bytes": 22417,
+      "peak_mb": 14.890625
+    },
+    {
+      "library": "ggrust",
+      "scenario": "violin",
+      "points": 1000,
+      "output": "png",
+      "cold_seconds": 0.009691209008451551,
+      "warm_seconds": 0.007778416998917237,
+      "bytes": 92263,
+      "peak_mb": 25.484375
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "violin",
+      "points": 1000,
+      "output": "png",
+      "cold_seconds": 0.04540095801348798,
+      "warm_seconds": 0.026739749999251217,
+      "bytes": 41138,
+      "peak_mb": 25.9375
+    },
+    {
+      "library": "ggrust",
+      "scenario": "violin",
+      "points": 1000,
+      "output": "svg",
+      "cold_seconds": 0.002779959002509713,
+      "warm_seconds": 0.0012784159916918725,
+      "bytes": 172682,
+      "peak_mb": 15.875
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "violin",
+      "points": 1000,
+      "output": "svg",
+      "cold_seconds": 0.031097707978915423,
+      "warm_seconds": 0.017145917023299262,
+      "bytes": 48003,
+      "peak_mb": 14.640625
+    },
+    {
+      "library": "ggrust",
+      "scenario": "line",
+      "points": 1000,
+      "output": "png",
+      "cold_seconds": 0.016343334020348266,
+      "warm_seconds": 0.014773542003240436,
+      "bytes": 127545,
+      "peak_mb": 23.75
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "line",
+      "points": 1000,
+      "output": "png",
+      "cold_seconds": 0.06262758298544213,
+      "warm_seconds": 0.04368941599386744,
+      "bytes": 160470,
+      "peak_mb": 28.640625
+    },
+    {
+      "library": "ggrust",
+      "scenario": "line",
+      "points": 1000,
+      "output": "svg",
+      "cold_seconds": 0.0017228329961653799,
+      "warm_seconds": 0.0005278750031720847,
+      "bytes": 18963,
+      "peak_mb": 13.375
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "line",
+      "points": 1000,
+      "output": "svg",
+      "cold_seconds": 0.04490658300346695,
+      "warm_seconds": 0.028664124984061345,
+      "bytes": 41503,
+      "peak_mb": 15.859375
+    },
+    {
+      "library": "ggrust",
+      "scenario": "facet",
+      "points": 1000,
+      "output": "png",
+      "cold_seconds": 0.008753125002840534,
+      "warm_seconds": 0.006920082989381626,
+      "bytes": 126016,
+      "peak_mb": 23.328125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "facet",
+      "points": 1000,
+      "output": "png",
+      "cold_seconds": 0.09952587500447407,
+      "warm_seconds": 0.07300745902466588,
+      "bytes": 43592,
+      "peak_mb": 30.984375
+    },
+    {
+      "library": "ggrust",
+      "scenario": "facet",
+      "points": 1000,
+      "output": "svg",
+      "cold_seconds": 0.0017162909789476544,
+      "warm_seconds": 0.00044495900510810316,
+      "bytes": 49098,
+      "peak_mb": 13.0625
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "facet",
+      "points": 1000,
+      "output": "svg",
+      "cold_seconds": 0.1031861669907812,
+      "warm_seconds": 0.07146933299372904,
+      "bytes": 111355,
+      "peak_mb": 19.640625
+    },
+    {
+      "library": "ggrust",
+      "scenario": "scatter",
+      "points": 10000,
+      "output": "png",
+      "cold_seconds": 0.008043874986469746,
+      "warm_seconds": 0.006361500010825694,
+      "bytes": 349771,
+      "peak_mb": 21.71875
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "scatter",
+      "points": 10000,
+      "output": "png",
+      "cold_seconds": 0.04177549999440089,
+      "warm_seconds": 0.024927375023253262,
+      "bytes": 103302,
+      "peak_mb": 19.078125
+    },
+    {
+      "library": "ggrust",
+      "scenario": "scatter",
+      "points": 10000,
+      "output": "svg",
+      "cold_seconds": 0.002319291001185775,
+      "warm_seconds": 0.001097750006010756,
+      "bytes": 421222,
+      "peak_mb": 13.203125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "scatter",
+      "points": 10000,
+      "output": "svg",
+      "cold_seconds": 0.06561412502196617,
+      "warm_seconds": 0.052669000026071444,
+      "bytes": 910012,
+      "peak_mb": 4.75
+    },
+    {
+      "library": "ggrust",
+      "scenario": "scatter_plot",
+      "points": 10000,
+      "output": "png",
+      "cold_seconds": 0.007969291997142136,
+      "warm_seconds": 0.0063556249951943755,
+      "bytes": 349771,
+      "peak_mb": 21.859375
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "scatter_plot",
+      "points": 10000,
+      "output": "png",
+      "cold_seconds": 0.03973308400600217,
+      "warm_seconds": 0.021764416014775634,
+      "bytes": 105889,
+      "peak_mb": 18.90625
+    },
+    {
+      "library": "ggrust",
+      "scenario": "scatter_plot",
+      "points": 10000,
+      "output": "svg",
+      "cold_seconds": 0.0023617919941898435,
+      "warm_seconds": 0.001149582996731624,
+      "bytes": 421222,
+      "peak_mb": 13.5
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "scatter_plot",
+      "points": 10000,
+      "output": "svg",
+      "cold_seconds": 0.06542783297481947,
+      "warm_seconds": 0.052559042000211775,
+      "bytes": 909953,
+      "peak_mb": 5.40625
+    },
+    {
+      "library": "ggrust",
+      "scenario": "color_discrete",
+      "points": 10000,
+      "output": "png",
+      "cold_seconds": 0.009306584019213915,
+      "warm_seconds": 0.0074313329823780805,
+      "bytes": 361602,
+      "peak_mb": 23.0625
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "color_discrete",
+      "points": 10000,
+      "output": "png",
+      "cold_seconds": 0.06318666698643938,
+      "warm_seconds": 0.04444554200745188,
+      "bytes": 194382,
+      "peak_mb": 29.921875
+    },
+    {
+      "library": "ggrust",
+      "scenario": "color_discrete",
+      "points": 10000,
+      "output": "svg",
+      "cold_seconds": 0.0038191670028027147,
+      "warm_seconds": 0.002525375020923093,
+      "bytes": 712384,
+      "peak_mb": 14.78125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "color_discrete",
+      "points": 10000,
+      "output": "svg",
+      "cold_seconds": 0.0885650000127498,
+      "warm_seconds": 0.07511583299492486,
+      "bytes": 918369,
+      "peak_mb": 20.140625
+    },
+    {
+      "library": "ggrust",
+      "scenario": "color_continuous",
+      "points": 10000,
+      "output": "png",
+      "cold_seconds": 0.00886520798667334,
+      "warm_seconds": 0.0070806670119054615,
+      "bytes": 387381,
+      "peak_mb": 22.59375
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "color_continuous",
+      "points": 10000,
+      "output": "png",
+      "cold_seconds": 0.06667666701832786,
+      "warm_seconds": 0.04829249999602325,
+      "bytes": 280966,
+      "peak_mb": 15.453125
+    },
+    {
+      "library": "ggrust",
+      "scenario": "color_continuous",
+      "points": 10000,
+      "output": "svg",
+      "cold_seconds": 0.0037049169768579304,
+      "warm_seconds": 0.002371209004195407,
+      "bytes": 713709,
+      "peak_mb": 13.8125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "color_continuous",
+      "points": 10000,
+      "output": "svg",
+      "cold_seconds": 0.1968802500050515,
+      "warm_seconds": 0.17245312500745058,
+      "bytes": 1425488,
+      "peak_mb": 11.59375
+    },
+    {
+      "library": "ggrust",
+      "scenario": "log_scales",
+      "points": 10000,
+      "output": "png",
+      "cold_seconds": 0.008189625019440427,
+      "warm_seconds": 0.006730541994329542,
+      "bytes": 412546,
+      "peak_mb": 21.359375
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "log_scales",
+      "points": 10000,
+      "output": "png",
+      "cold_seconds": 0.12932620901847258,
+      "warm_seconds": 0.05408654100028798,
+      "bytes": 115105,
+      "peak_mb": 29.4375
+    },
+    {
+      "library": "ggrust",
+      "scenario": "log_scales",
+      "points": 10000,
+      "output": "svg",
+      "cold_seconds": 0.002528667013393715,
+      "warm_seconds": 0.0013709159975405782,
+      "bytes": 411189,
+      "peak_mb": 13.65625
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "log_scales",
+      "points": 10000,
+      "output": "svg",
+      "cold_seconds": 0.15416599999298342,
+      "warm_seconds": 0.08511629200074822,
+      "bytes": 918586,
+      "peak_mb": 16.515625
+    },
+    {
+      "library": "ggrust",
+      "scenario": "histogram",
+      "points": 10000,
+      "output": "png",
+      "cold_seconds": 0.011157291010022163,
+      "warm_seconds": 0.00953404200845398,
+      "bytes": 40810,
+      "peak_mb": 21.75
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "histogram",
+      "points": 10000,
+      "output": "png",
+      "cold_seconds": 0.04144345800159499,
+      "warm_seconds": 0.023561708017950878,
+      "bytes": 21960,
+      "peak_mb": 15.390625
+    },
+    {
+      "library": "ggrust",
+      "scenario": "histogram",
+      "points": 10000,
+      "output": "svg",
+      "cold_seconds": 0.0016576250200159848,
+      "warm_seconds": 0.0003262090031057596,
+      "bytes": 6079,
+      "peak_mb": 12.953125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "histogram",
+      "points": 10000,
+      "output": "svg",
+      "cold_seconds": 0.03040087499539368,
+      "warm_seconds": 0.017542707995744422,
+      "bytes": 22147,
+      "peak_mb": 4.125
+    },
+    {
+      "library": "ggrust",
+      "scenario": "bar",
+      "points": 10000,
+      "output": "png",
+      "cold_seconds": 0.009602749982150272,
+      "warm_seconds": 0.007783749984810129,
+      "bytes": 48098,
+      "peak_mb": 21.671875
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "bar",
+      "points": 10000,
+      "output": "png",
+      "cold_seconds": 0.03934741602279246,
+      "warm_seconds": 0.020555499999318272,
+      "bytes": 27175,
+      "peak_mb": 27.890625
+    },
+    {
+      "library": "ggrust",
+      "scenario": "bar",
+      "points": 10000,
+      "output": "svg",
+      "cold_seconds": 0.0016862500051502138,
+      "warm_seconds": 0.0004186249861959368,
+      "bytes": 4644,
+      "peak_mb": 13.0
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "bar",
+      "points": 10000,
+      "output": "svg",
+      "cold_seconds": 0.027435083989985287,
+      "warm_seconds": 0.01350666698999703,
+      "bytes": 19678,
+      "peak_mb": 12.921875
+    },
+    {
+      "library": "ggrust",
+      "scenario": "boxplot",
+      "points": 10000,
+      "output": "png",
+      "cold_seconds": 0.00764949998119846,
+      "warm_seconds": 0.005922583979554474,
+      "bytes": 47798,
+      "peak_mb": 22.921875
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "boxplot",
+      "points": 10000,
+      "output": "png",
+      "cold_seconds": 0.043495874997461215,
+      "warm_seconds": 0.025006417010445148,
+      "bytes": 40122,
+      "peak_mb": 26.0
+    },
+    {
+      "library": "ggrust",
+      "scenario": "boxplot",
+      "points": 10000,
+      "output": "svg",
+      "cold_seconds": 0.0023998329997994006,
+      "warm_seconds": 0.0008402500243391842,
+      "bytes": 10730,
+      "peak_mb": 14.90625
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "boxplot",
+      "points": 10000,
+      "output": "svg",
+      "cold_seconds": 0.03013312499388121,
+      "warm_seconds": 0.016430166986538097,
+      "bytes": 30419,
+      "peak_mb": 17.578125
+    },
+    {
+      "library": "ggrust",
+      "scenario": "violin",
+      "points": 10000,
+      "output": "png",
+      "cold_seconds": 0.011389916995540261,
+      "warm_seconds": 0.009390916005941108,
+      "bytes": 81525,
+      "peak_mb": 24.03125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "violin",
+      "points": 10000,
+      "output": "png",
+      "cold_seconds": 0.047904750012094155,
+      "warm_seconds": 0.029412124975351617,
+      "bytes": 34542,
+      "peak_mb": 32.59375
+    },
+    {
+      "library": "ggrust",
+      "scenario": "violin",
+      "points": 10000,
+      "output": "svg",
+      "cold_seconds": 0.005222875013714656,
+      "warm_seconds": 0.0037200420047156513,
+      "bytes": 172819,
+      "peak_mb": 16.578125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "violin",
+      "points": 10000,
+      "output": "svg",
+      "cold_seconds": 0.03562491698539816,
+      "warm_seconds": 0.02151483399211429,
+      "bytes": 46617,
+      "peak_mb": 17.8125
+    },
+    {
+      "library": "ggrust",
+      "scenario": "line",
+      "points": 10000,
+      "output": "png",
+      "cold_seconds": 0.03033599999616854,
+      "warm_seconds": 0.030562832980649546,
+      "bytes": 86973,
+      "peak_mb": 22.578125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "line",
+      "points": 10000,
+      "output": "png",
+      "cold_seconds": 0.08418391601298936,
+      "warm_seconds": 0.065096333011752,
+      "bytes": 101797,
+      "peak_mb": 51.875
+    },
+    {
+      "library": "ggrust",
+      "scenario": "line",
+      "points": 10000,
+      "output": "svg",
+      "cold_seconds": 0.003270749992225319,
+      "warm_seconds": 0.0019966659892816097,
+      "bytes": 142807,
+      "peak_mb": 14.734375
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "line",
+      "points": 10000,
+      "output": "svg",
+      "cold_seconds": 0.044512374995974824,
+      "warm_seconds": 0.030145374999847263,
+      "bytes": 185256,
+      "peak_mb": 22.109375
+    },
+    {
+      "library": "ggrust",
+      "scenario": "facet",
+      "points": 10000,
+      "output": "png",
+      "cold_seconds": 0.008875750005245209,
+      "warm_seconds": 0.00720649998402223,
+      "bytes": 186947,
+      "peak_mb": 23.109375
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "facet",
+      "points": 10000,
+      "output": "png",
+      "cold_seconds": 0.10365745800663717,
+      "warm_seconds": 0.08144187499419786,
+      "bytes": 78842,
+      "peak_mb": 35.765625
+    },
+    {
+      "library": "ggrust",
+      "scenario": "facet",
+      "points": 10000,
+      "output": "svg",
+      "cold_seconds": 0.002537416003178805,
+      "warm_seconds": 0.0013780830195173621,
+      "bytes": 421287,
+      "peak_mb": 14.65625
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "facet",
+      "points": 10000,
+      "output": "svg",
+      "cold_seconds": 0.13300904200877994,
+      "warm_seconds": 0.11637841700576246,
+      "bytes": 916435,
+      "peak_mb": 25.90625
+    },
+    {
+      "library": "ggrust",
+      "scenario": "scatter",
+      "points": 100000,
+      "output": "png",
+      "cold_seconds": 0.017255667014978826,
+      "warm_seconds": 0.01579937501810491,
+      "bytes": 335847,
+      "peak_mb": 23.109375
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "scatter",
+      "points": 100000,
+      "output": "png",
+      "cold_seconds": 0.04832762500154786,
+      "warm_seconds": 0.030276291974587366,
+      "bytes": 104983,
+      "peak_mb": 26.03125
+    },
+    {
+      "library": "ggrust",
+      "scenario": "scatter",
+      "points": 100000,
+      "output": "svg",
+      "cold_seconds": 0.009175124985631555,
+      "warm_seconds": 0.007628541992744431,
+      "bytes": 4179692,
+      "peak_mb": 21.140625
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "scatter",
+      "points": 100000,
+      "output": "svg",
+      "cold_seconds": 0.44712245799019,
+      "warm_seconds": 0.4336229159962386,
+      "bytes": 8989414,
+      "peak_mb": 50.453125
+    },
+    {
+      "library": "ggrust",
+      "scenario": "scatter_plot",
+      "points": 100000,
+      "output": "png",
+      "cold_seconds": 0.01769079201039858,
+      "warm_seconds": 0.01574204198550433,
+      "bytes": 335847,
+      "peak_mb": 22.953125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "scatter_plot",
+      "points": 100000,
+      "output": "png",
+      "cold_seconds": 0.048025541997049004,
+      "warm_seconds": 0.029840665985830128,
+      "bytes": 107819,
+      "peak_mb": 31.03125
+    },
+    {
+      "library": "ggrust",
+      "scenario": "scatter_plot",
+      "points": 100000,
+      "output": "svg",
+      "cold_seconds": 0.009210416988935322,
+      "warm_seconds": 0.007745458016870543,
+      "bytes": 4179692,
+      "peak_mb": 21.109375
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "scatter_plot",
+      "points": 100000,
+      "output": "svg",
+      "cold_seconds": 0.4456257080018986,
+      "warm_seconds": 0.4333614160132129,
+      "bytes": 8989355,
+      "peak_mb": 52.515625
+    },
+    {
+      "library": "ggrust",
+      "scenario": "color_discrete",
+      "points": 100000,
+      "output": "png",
+      "cold_seconds": 0.024412208003923297,
+      "warm_seconds": 0.023164084006566554,
+      "bytes": 578429,
+      "peak_mb": 30.125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "color_discrete",
+      "points": 100000,
+      "output": "png",
+      "cold_seconds": 0.07356237500789575,
+      "warm_seconds": 0.05482741701416671,
+      "bytes": 235998,
+      "peak_mb": 45.0
+    },
+    {
+      "library": "ggrust",
+      "scenario": "color_discrete",
+      "points": 100000,
+      "output": "svg",
+      "cold_seconds": 0.023391750000882894,
+      "warm_seconds": 0.021413042006315663,
+      "bytes": 7080743,
+      "peak_mb": 21.671875
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "color_discrete",
+      "points": 100000,
+      "output": "svg",
+      "cold_seconds": 0.46852695898269303,
+      "warm_seconds": 0.4611106659867801,
+      "bytes": 8993672,
+      "peak_mb": 71.671875
+    },
+    {
+      "library": "ggrust",
+      "scenario": "color_continuous",
+      "points": 100000,
+      "output": "png",
+      "cold_seconds": 0.023217583016958088,
+      "warm_seconds": 0.021358707977924496,
+      "bytes": 602478,
+      "peak_mb": 26.171875
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "color_continuous",
+      "points": 100000,
+      "output": "png",
+      "cold_seconds": 0.23688354197656736,
+      "warm_seconds": 0.21849533400381915,
+      "bytes": 445115,
+      "peak_mb": 32.375
+    },
+    {
+      "library": "ggrust",
+      "scenario": "color_continuous",
+      "points": 100000,
+      "output": "svg",
+      "cold_seconds": 0.021738790994277224,
+      "warm_seconds": 0.02039595801034011,
+      "bytes": 7082767,
+      "peak_mb": 18.75
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "color_continuous",
+      "points": 100000,
+      "output": "svg",
+      "cold_seconds": 1.5898601659864653,
+      "warm_seconds": 1.587690707994625,
+      "bytes": 14094806,
+      "peak_mb": 119.09375
+    },
+    {
+      "library": "ggrust",
+      "scenario": "log_scales",
+      "points": 100000,
+      "output": "png",
+      "cold_seconds": 0.020411457982845604,
+      "warm_seconds": 0.018440875021042302,
+      "bytes": 390774,
+      "peak_mb": 24.8125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "log_scales",
+      "points": 100000,
+      "output": "png",
+      "cold_seconds": 0.14258170800167136,
+      "warm_seconds": 0.06667420797748491,
+      "bytes": 116781,
+      "peak_mb": 37.765625
+    },
+    {
+      "library": "ggrust",
+      "scenario": "log_scales",
+      "points": 100000,
+      "output": "svg",
+      "cold_seconds": 0.011816000012913719,
+      "warm_seconds": 0.010273541993228719,
+      "bytes": 4081196,
+      "peak_mb": 22.484375
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "log_scales",
+      "points": 100000,
+      "output": "svg",
+      "cold_seconds": 0.5429907499928959,
+      "warm_seconds": 0.473320084012812,
+      "bytes": 8904296,
+      "peak_mb": 59.875
+    },
+    {
+      "library": "ggrust",
+      "scenario": "histogram",
+      "points": 100000,
+      "output": "png",
+      "cold_seconds": 0.01279183299629949,
+      "warm_seconds": 0.010850000020582229,
+      "bytes": 49558,
+      "peak_mb": 24.328125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "histogram",
+      "points": 100000,
+      "output": "png",
+      "cold_seconds": 0.043263915984425694,
+      "warm_seconds": 0.025068292015930638,
+      "bytes": 21998,
+      "peak_mb": 15.375
+    },
+    {
+      "library": "ggrust",
+      "scenario": "histogram",
+      "points": 100000,
+      "output": "svg",
+      "cold_seconds": 0.002894167002523318,
+      "warm_seconds": 0.0018982920155394822,
+      "bytes": 6608,
+      "peak_mb": 15.546875
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "histogram",
+      "points": 100000,
+      "output": "svg",
+      "cold_seconds": 0.031211582972900942,
+      "warm_seconds": 0.018156667007133365,
+      "bytes": 22665,
+      "peak_mb": 4.421875
+    },
+    {
+      "library": "ggrust",
+      "scenario": "bar",
+      "points": 100000,
+      "output": "png",
+      "cold_seconds": 0.011338874988723546,
+      "warm_seconds": 0.00989779198425822,
+      "bytes": 51945,
+      "peak_mb": 23.453125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "bar",
+      "points": 100000,
+      "output": "png",
+      "cold_seconds": 0.040641750005306676,
+      "warm_seconds": 0.02152304199989885,
+      "bytes": 27168,
+      "peak_mb": 32.65625
+    },
+    {
+      "library": "ggrust",
+      "scenario": "bar",
+      "points": 100000,
+      "output": "svg",
+      "cold_seconds": 0.0037147080001886934,
+      "warm_seconds": 0.0025724589941091835,
+      "bytes": 4668,
+      "peak_mb": 14.59375
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "bar",
+      "points": 100000,
+      "output": "svg",
+      "cold_seconds": 0.02869870900758542,
+      "warm_seconds": 0.014280375005910173,
+      "bytes": 20274,
+      "peak_mb": 17.5625
+    },
+    {
+      "library": "ggrust",
+      "scenario": "boxplot",
+      "points": 100000,
+      "output": "png",
+      "cold_seconds": 0.013945041981060058,
+      "warm_seconds": 0.01254733299720101,
+      "bytes": 50401,
+      "peak_mb": 29.359375
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "boxplot",
+      "points": 100000,
+      "output": "png",
+      "cold_seconds": 0.04649412501021288,
+      "warm_seconds": 0.027322041016304865,
+      "bytes": 36579,
+      "peak_mb": 37.984375
+    },
+    {
+      "library": "ggrust",
+      "scenario": "boxplot",
+      "points": 100000,
+      "output": "svg",
+      "cold_seconds": 0.006108250003308058,
+      "warm_seconds": 0.004856250016018748,
+      "bytes": 35457,
+      "peak_mb": 26.109375
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "boxplot",
+      "points": 100000,
+      "output": "svg",
+      "cold_seconds": 0.03506066699628718,
+      "warm_seconds": 0.021418124990304932,
+      "bytes": 91788,
+      "peak_mb": 30.75
+    },
+    {
+      "library": "ggrust",
+      "scenario": "violin",
+      "points": 100000,
+      "output": "png",
+      "cold_seconds": 0.016033874999266118,
+      "warm_seconds": 0.014427582995267585,
+      "bytes": 82668,
+      "peak_mb": 29.15625
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "violin",
+      "points": 100000,
+      "output": "png",
+      "cold_seconds": 0.08412858299561776,
+      "warm_seconds": 0.06496787501964718,
+      "bytes": 34613,
+      "peak_mb": 44.421875
+    },
+    {
+      "library": "ggrust",
+      "scenario": "violin",
+      "points": 100000,
+      "output": "svg",
+      "cold_seconds": 0.010462000005645677,
+      "warm_seconds": 0.008940500003518537,
+      "bytes": 172965,
+      "peak_mb": 24.46875
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "violin",
+      "points": 100000,
+      "output": "svg",
+      "cold_seconds": 0.07156608300283551,
+      "warm_seconds": 0.05726783399586566,
+      "bytes": 46715,
+      "peak_mb": 28.84375
+    },
+    {
+      "library": "ggrust",
+      "scenario": "line",
+      "points": 100000,
+      "output": "png",
+      "cold_seconds": 0.21187920798547566,
+      "warm_seconds": 0.21484816700103693,
+      "bytes": 85704,
+      "peak_mb": 29.984375
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "line",
+      "points": 100000,
+      "output": "png",
+      "cold_seconds": 0.2355857499933336,
+      "warm_seconds": 0.21202745899790898,
+      "bytes": 89184,
+      "peak_mb": 194.328125
+    },
+    {
+      "library": "ggrust",
+      "scenario": "line",
+      "points": 100000,
+      "output": "svg",
+      "cold_seconds": 0.01694445899920538,
+      "warm_seconds": 0.015567791007924825,
+      "bytes": 1381166,
+      "peak_mb": 23.984375
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "line",
+      "points": 100000,
+      "output": "svg",
+      "cold_seconds": 0.05189445801079273,
+      "warm_seconds": 0.03774029199848883,
+      "bytes": 439520,
+      "peak_mb": 52.375
+    },
+    {
+      "library": "ggrust",
+      "scenario": "facet",
+      "points": 100000,
+      "output": "png",
+      "cold_seconds": 0.018594958004541695,
+      "warm_seconds": 0.01779195899143815,
+      "bytes": 184651,
+      "peak_mb": 28.265625
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "facet",
+      "points": 100000,
+      "output": "png",
+      "cold_seconds": 0.11296183301601559,
+      "warm_seconds": 0.08996204199502245,
+      "bytes": 81856,
+      "peak_mb": 50.21875
+    },
+    {
+      "library": "ggrust",
+      "scenario": "facet",
+      "points": 100000,
+      "output": "svg",
+      "cold_seconds": 0.008150083012878895,
+      "warm_seconds": 0.006663250009296462,
+      "bytes": 4156783,
+      "peak_mb": 29.8125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "facet",
+      "points": 100000,
+      "output": "svg",
+      "cold_seconds": 0.5132359589915723,
+      "warm_seconds": 0.5063001670059748,
+      "bytes": 8929344,
+      "peak_mb": 77.96875
+    },
+    {
+      "library": "ggrust",
+      "scenario": "scatter",
+      "points": 1000000,
+      "output": "png",
+      "cold_seconds": 0.11039587500272319,
+      "warm_seconds": 0.10915733300498687,
+      "bytes": 266146,
+      "peak_mb": 23.25
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "scatter",
+      "points": 1000000,
+      "output": "png",
+      "cold_seconds": 0.12454270798480138,
+      "warm_seconds": 0.10554525000043213,
+      "bytes": 89997,
+      "peak_mb": 111.921875
+    },
+    {
+      "library": "ggrust",
+      "scenario": "scatter",
+      "points": 1000000,
+      "output": "svg",
+      "cold_seconds": 0.08371629100292921,
+      "warm_seconds": 0.07626950001576915,
+      "bytes": 41759608,
+      "peak_mb": 92.6875
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "scatter",
+      "points": 1000000,
+      "output": "svg",
+      "cold_seconds": 4.262755583011312,
+      "warm_seconds": 4.222085124987643,
+      "bytes": 89782811,
+      "peak_mb": 454.09375
+    },
+    {
+      "library": "ggrust",
+      "scenario": "scatter_plot",
+      "points": 1000000,
+      "output": "png",
+      "cold_seconds": 0.11046591601916589,
+      "warm_seconds": 0.10992995899869129,
+      "bytes": 266146,
+      "peak_mb": 23.15625
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "scatter_plot",
+      "points": 1000000,
+      "output": "png",
+      "cold_seconds": 0.12451475000125356,
+      "warm_seconds": 0.1060079580056481,
+      "bytes": 92382,
+      "peak_mb": 184.1875
+    },
+    {
+      "library": "ggrust",
+      "scenario": "scatter_plot",
+      "points": 1000000,
+      "output": "svg",
+      "cold_seconds": 0.08136462501715869,
+      "warm_seconds": 0.07611666701268405,
+      "bytes": 41759608,
+      "peak_mb": 92.78125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "scatter_plot",
+      "points": 1000000,
+      "output": "svg",
+      "cold_seconds": 4.2983708340034354,
+      "warm_seconds": 4.184580333996564,
+      "bytes": 89782752,
+      "peak_mb": 524.578125
+    },
+    {
+      "library": "ggrust",
+      "scenario": "color_discrete",
+      "points": 1000000,
+      "output": "png",
+      "cold_seconds": 0.17912745900684968,
+      "warm_seconds": 0.17587800000910647,
+      "bytes": 619499,
+      "peak_mb": 196.890625
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "color_discrete",
+      "points": 1000000,
+      "output": "png",
+      "cold_seconds": 0.15543941600481048,
+      "warm_seconds": 0.13715358398621902,
+      "bytes": 193155,
+      "peak_mb": 212.953125
+    },
+    {
+      "library": "ggrust",
+      "scenario": "color_discrete",
+      "points": 1000000,
+      "output": "svg",
+      "cold_seconds": 0.2199901659914758,
+      "warm_seconds": 0.2171933329955209,
+      "bytes": 70761111,
+      "peak_mb": 195.171875
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "color_discrete",
+      "points": 1000000,
+      "output": "svg",
+      "cold_seconds": 4.259213750017807,
+      "warm_seconds": 4.307991583016701,
+      "bytes": 89733512,
+      "peak_mb": 526.28125
+    },
+    {
+      "library": "ggrust",
+      "scenario": "color_continuous",
+      "points": 1000000,
+      "output": "png",
+      "cold_seconds": 0.16555479099042714,
+      "warm_seconds": 0.16407541700755246,
+      "bytes": 689733,
+      "peak_mb": 188.921875
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "color_continuous",
+      "points": 1000000,
+      "output": "png",
+      "cold_seconds": 1.9582907919830177,
+      "warm_seconds": 1.9238218330137897,
+      "bytes": 508975,
+      "peak_mb": 218.15625
+    },
+    {
+      "library": "ggrust",
+      "scenario": "color_continuous",
+      "points": 1000000,
+      "output": "svg",
+      "cold_seconds": 0.2085863339889329,
+      "warm_seconds": 0.20455537500674836,
+      "bytes": 70762210,
+      "peak_mb": 174.046875
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "color_continuous",
+      "points": 1000000,
+      "output": "svg",
+      "cold_seconds": 15.910201457998483,
+      "warm_seconds": 15.828663541004062,
+      "bytes": 140787103,
+      "peak_mb": 574.15625
+    },
+    {
+      "library": "ggrust",
+      "scenario": "log_scales",
+      "points": 1000000,
+      "output": "png",
+      "cold_seconds": 0.13910579102230258,
+      "warm_seconds": 0.13677604199619964,
+      "bytes": 348362,
+      "peak_mb": 38.328125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "log_scales",
+      "points": 1000000,
+      "output": "png",
+      "cold_seconds": 0.2283632500038948,
+      "warm_seconds": 0.15069879198563285,
+      "bytes": 105403,
+      "peak_mb": 119.90625
+    },
+    {
+      "library": "ggrust",
+      "scenario": "log_scales",
+      "points": 1000000,
+      "output": "svg",
+      "cold_seconds": 0.10870245800470002,
+      "warm_seconds": 0.10304512502625585,
+      "bytes": 40779588,
+      "peak_mb": 106.15625
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "log_scales",
+      "points": 1000000,
+      "output": "svg",
+      "cold_seconds": 4.398212750005769,
+      "warm_seconds": 4.278361417003907,
+      "bytes": 88732852,
+      "peak_mb": 470.25
+    },
+    {
+      "library": "ggrust",
+      "scenario": "histogram",
+      "points": 1000000,
+      "output": "png",
+      "cold_seconds": 0.0273000419838354,
+      "warm_seconds": 0.02782991700223647,
+      "bytes": 53444,
+      "peak_mb": 101.03125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "histogram",
+      "points": 1000000,
+      "output": "png",
+      "cold_seconds": 0.04995312500977889,
+      "warm_seconds": 0.03141475000302307,
+      "bytes": 24234,
+      "peak_mb": 15.625
+    },
+    {
+      "library": "ggrust",
+      "scenario": "histogram",
+      "points": 1000000,
+      "output": "svg",
+      "cold_seconds": 0.019191500003216788,
+      "warm_seconds": 0.018821375007973984,
+      "bytes": 6617,
+      "peak_mb": 92.390625
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "histogram",
+      "points": 1000000,
+      "output": "svg",
+      "cold_seconds": 0.03789591701934114,
+      "warm_seconds": 0.024145750008756295,
+      "bytes": 24295,
+      "peak_mb": 4.25
+    },
+    {
+      "library": "ggrust",
+      "scenario": "bar",
+      "points": 1000000,
+      "output": "png",
+      "cold_seconds": 0.035964666021754965,
+      "warm_seconds": 0.030914417002350092,
+      "bytes": 56432,
+      "peak_mb": 70.359375
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "bar",
+      "points": 1000000,
+      "output": "png",
+      "cold_seconds": 0.0484025829937309,
+      "warm_seconds": 0.02899425002397038,
+      "bytes": 26357,
+      "peak_mb": 54.796875
+    },
+    {
+      "library": "ggrust",
+      "scenario": "bar",
+      "points": 1000000,
+      "output": "svg",
+      "cold_seconds": 0.025550542020937428,
+      "warm_seconds": 0.024360999988857657,
+      "bytes": 4671,
+      "peak_mb": 60.546875
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "bar",
+      "points": 1000000,
+      "output": "svg",
+      "cold_seconds": 0.03638274999684654,
+      "warm_seconds": 0.02194087498355657,
+      "bytes": 20874,
+      "peak_mb": 43.4375
+    },
+    {
+      "library": "ggrust",
+      "scenario": "boxplot",
+      "points": 1000000,
+      "output": "png",
+      "cold_seconds": 0.0566172499966342,
+      "warm_seconds": 0.05573320799157955,
+      "bytes": 47019,
+      "peak_mb": 178.484375
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "boxplot",
+      "points": 1000000,
+      "output": "png",
+      "cold_seconds": 0.0684564590046648,
+      "warm_seconds": 0.04763566699693911,
+      "bytes": 35317,
+      "peak_mb": 150.234375
+    },
+    {
+      "library": "ggrust",
+      "scenario": "boxplot",
+      "points": 1000000,
+      "output": "svg",
+      "cold_seconds": 0.050171124981716275,
+      "warm_seconds": 0.04709716700017452,
+      "bytes": 299452,
+      "peak_mb": 169.78125
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "boxplot",
+      "points": 1000000,
+      "output": "svg",
+      "cold_seconds": 0.08513774999300949,
+      "warm_seconds": 0.06898774998262525,
+      "bytes": 747302,
+      "peak_mb": 148.609375
+    },
+    {
+      "library": "ggrust",
+      "scenario": "violin",
+      "points": 1000000,
+      "output": "png",
+      "cold_seconds": 0.06301145799807273,
+      "warm_seconds": 0.061901249981019646,
+      "bytes": 79758,
+      "peak_mb": 121.546875
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "violin",
+      "points": 1000000,
+      "output": "png",
+      "cold_seconds": 0.43663495901273564,
+      "warm_seconds": 0.41913925000699237,
+      "bytes": 33317,
+      "peak_mb": 159.28125
+    },
+    {
+      "library": "ggrust",
+      "scenario": "violin",
+      "points": 1000000,
+      "output": "svg",
+      "cold_seconds": 0.056363957992289215,
+      "warm_seconds": 0.05590008301078342,
+      "bytes": 172509,
+      "peak_mb": 116.0625
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "violin",
+      "points": 1000000,
+      "output": "svg",
+      "cold_seconds": 0.42470983299426734,
+      "warm_seconds": 0.40852991701103747,
+      "bytes": 46642,
+      "peak_mb": 143.03125
+    },
+    {
+      "library": "ggrust",
+      "scenario": "line",
+      "points": 1000000,
+      "output": "png",
+      "cold_seconds": 1.8523214580200147,
+      "warm_seconds": 1.8862131250207312,
+      "bytes": 92228,
+      "peak_mb": 239.0625
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "line",
+      "points": 1000000,
+      "output": "png",
+      "cold_seconds": 0.4808913750166539,
+      "warm_seconds": 0.45061104200431146,
+      "bytes": 80829,
+      "peak_mb": 581.375
+    },
+    {
+      "library": "ggrust",
+      "scenario": "line",
+      "points": 1000000,
+      "output": "svg",
+      "cold_seconds": 0.17744895900250413,
+      "warm_seconds": 0.17107829201268032,
+      "bytes": 13761534,
+      "peak_mb": 297.671875
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "line",
+      "points": 1000000,
+      "output": "svg",
+      "cold_seconds": 0.0964395840128418,
+      "warm_seconds": 0.08237625000765547,
+      "bytes": 551779,
+      "peak_mb": 258.203125
+    },
+    {
+      "library": "ggrust",
+      "scenario": "facet",
+      "points": 1000000,
+      "output": "png",
+      "cold_seconds": 0.12535550000029616,
+      "warm_seconds": 0.12312329100677744,
+      "bytes": 162189,
+      "peak_mb": 74.484375
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "facet",
+      "points": 1000000,
+      "output": "png",
+      "cold_seconds": 0.18969670898513868,
+      "warm_seconds": 0.16587629198329523,
+      "bytes": 71599,
+      "peak_mb": 216.171875
+    },
+    {
+      "library": "ggrust",
+      "scenario": "facet",
+      "points": 1000000,
+      "output": "svg",
+      "cold_seconds": 0.06787145798443817,
+      "warm_seconds": 0.06441179098328575,
+      "bytes": 41443802,
+      "peak_mb": 215.671875
+    },
+    {
+      "library": "matplotlib",
+      "scenario": "facet",
+      "points": 1000000,
+      "output": "svg",
+      "cold_seconds": 4.44174437498441,
+      "warm_seconds": 4.492911207984434,
+      "bytes": 89047338,
+      "peak_mb": 519.578125
+    }
+  ]
+}

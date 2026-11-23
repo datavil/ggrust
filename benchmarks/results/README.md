@@ -7,6 +7,7 @@ numbers moved. Interpreted write-ups: [../REPORT.md](../REPORT.md),
 
 | Kind | Latest | Older runs |
 |---|---|---|
+| matplotlib (ggrust vs matplotlib, `matplotlib_compare.py`) | [matplotlib-20261118-180806.md](matplotlib-20261118-180806.md) | |
 | Animation (ggrust, R gganimate + gifski) | [animation-20261114-222441.md](animation-20261114-222441.md) | 20261114-221447 |
 | Three-way (ggrust, lets-plot, R ggplot2) | [three-way-20261108-123445.md](three-way-20261108-123445.md) | 20261108-112228, 20261108-112328 |
 | Scenarios | [scenarios-20261031-164621.md](scenarios-20261031-164621.md) | 20261027-013439, 20261031-161717 |

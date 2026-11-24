@@ -454,7 +454,7 @@ dependencies = [
 
 [[package]]
 name = "ggrust-core"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "ahash",
  "arrow-array",
@@ -483,7 +483,7 @@ dependencies = [
 
 [[package]]
 name = "ggrust-python"
-version = "1.0.0"
+version = "1.1.0"
 dependencies = [
  "ggrust-core",
  "pyo3",

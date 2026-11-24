@@ -152,6 +152,8 @@ pub fn build_figure_with(
                 }
                 // A plot with insets.
                 Figure::Plot(spec) => {
+                    let inherited = inset::with_inherited_options(spec);
+                    let spec = inherited.as_ref().unwrap_or(spec);
                     let mut plot = PlotData::from_frames(spec, frames)
                         .and_then(|data| crate::build::prepare_plot(spec, &data))?;
                     warnings.append(&mut plot.warnings);
@@ -1352,6 +1354,7 @@ const CELL_PANEL_MIN_SIZE: f64 = 1.0;
 /// `ThemeConfig.mergeUserOptions`).
 const INHERITED_THEME_OPTIONS: &[&str] = &[
     "flavor",
+    "background_fill",
     "legend_position",
     "legend_justification",
     "legend_direction",

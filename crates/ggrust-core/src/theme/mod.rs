@@ -639,6 +639,7 @@ const BUILT_OPTIONS: &[&str] = &[
     "panel_spacing_x",
     "panel_spacing_y",
     "flavor",
+    "background_fill",
     "geom",
 ];
 

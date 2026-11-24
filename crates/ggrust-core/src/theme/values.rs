@@ -837,15 +837,63 @@ pub fn theme_values(spec: Option<&ThemeSpec>) -> Result<(Values, Flavor), String
         });
         ggplot2_text_and_ticks(&mut values, ink, paper);
     }
+    if let Some(fill) = background_fill(spec)? {
+        // Under the user's options, so `theme(...)` still sets any of these fills.
+        paper_backgrounds(&mut values, fill);
+    }
     if let Some(spec) = spec {
         for (key, value) in &spec.elements {
-            if key != "flavor" {
+            if key != "flavor" && key != "background_fill" {
                 values.set(key, user_entry(key, value)?);
             }
         }
     }
     let flavor = flavor.unwrap_or(Flavor::base(LIGHT_GREY, LIGHT_GREY, LIGHT_GREY));
     Ok((values, flavor))
+}
+
+/// Backgrounds that `background_fill` recolors when the theme fills them with paper.
+const PAPER_BACKGROUNDS: [(&str, &[&str]); 5] = [
+    ("plot_background", &["plot_background", "rect"]),
+    ("panel_background", &["panel_background", "rect"]),
+    ("legend_background", &["legend_background", "rect"]),
+    ("legend_key", &["legend_key", "rect"]),
+    ("strip_background", &["strip_background", "rect"]),
+];
+
+/// `theme.background_fill` (`flavor_transparent()`, `ggsave(bg=)`): the color that
+/// replaces the paper of the backgrounds, or None when unset.
+fn background_fill(spec: Option<&ThemeSpec>) -> Result<Option<Color>, String> {
+    let Some(value) = spec.and_then(|spec| spec.elements.get("background_fill")) else {
+        return Ok(None);
+    };
+    let Value::String(text) = scalar(value) else {
+        return Err(
+            "at 'theme.background_fill': expected a color such as 'transparent' \
+             or 'white'; use flavor_transparent() or ggsave(bg=...)"
+                .to_owned(),
+        );
+    };
+    Color::parse(text)
+        .map(Some)
+        .map_err(|error| format!("at 'theme.background_fill': {error}"))
+}
+
+/// Recolor the backgrounds the theme fills with paper (the flavor's white) to `fill`.
+/// Backgrounds with a color of their own (`theme_grey`'s grey panel and strips) keep
+/// it; borders stay, and blank backgrounds stay blank.
+fn paper_backgrounds(values: &mut Values, fill: Color) {
+    for (key, chain) in PAPER_BACKGROUNDS {
+        if values.element_props(chain).fill == Some(Paint::Symbol(Symbol::White)) {
+            values.element(
+                key,
+                Props {
+                    fill: Some(Paint::Color(fill)),
+                    ..Props::default()
+                },
+            );
+        }
+    }
 }
 
 fn scalar(value: &ThemeValue) -> &Value {
@@ -1054,5 +1102,65 @@ mod defaults_tests {
         assert!(error.contains("unknown theme 'bww'"), "{error}");
         let error = theme_defaults("bw", Some("dracula")).unwrap_err();
         assert!(error.contains("unknown flavor 'dracula'"), "{error}");
+    }
+
+    fn background_spec(json: &str) -> ThemeSpec {
+        serde_json::from_str(json).unwrap()
+    }
+
+    fn fill(values: &Values, chain: &[&str]) -> Option<Paint> {
+        values.element_props(chain).fill
+    }
+
+    #[test]
+    fn background_fill_recolors_paper_and_keeps_theme_colors() {
+        let spec = background_spec(r#"{"name": "grey", "background_fill": "transparent"}"#);
+        let (values, _) = theme_values(Some(&spec)).unwrap();
+        let clear = Some(Paint::Color(Color::TRANSPARENT));
+        assert_eq!(fill(&values, &["plot_background", "rect"]), clear);
+        assert_eq!(fill(&values, &["legend_background", "rect"]), clear);
+        // theme_grey's grey panel and strips are colors of their own.
+        for chain in [["panel_background", "rect"], ["strip_background", "rect"]] {
+            let kept = fill(&values, &chain);
+            assert!(matches!(kept, Some(Paint::Symbol(symbol)) if symbol != Symbol::White));
+        }
+        // theme_bw's white panel is paper: cleared, its border kept.
+        let spec = background_spec(r#"{"name": "bw", "background_fill": "transparent"}"#);
+        let (values, _) = theme_values(Some(&spec)).unwrap();
+        let panel = values.element_props(&["panel_background", "rect"]);
+        assert_eq!(panel.fill, clear);
+        assert!(panel.color.is_some());
+    }
+
+    #[test]
+    fn background_fill_yields_to_user_fills() {
+        let spec = background_spec(
+            r##"{"name": "bw", "background_fill": "transparent",
+                 "panel_background": {"fill": "#FFFFF0"}}"##,
+        );
+        let (values, _) = theme_values(Some(&spec)).unwrap();
+        assert_eq!(
+            fill(&values, &["panel_background", "rect"]),
+            Some(Paint::Color(Color::rgb(255, 255, 240)))
+        );
+    }
+
+    #[test]
+    fn background_fill_leaves_a_user_blank_blank() {
+        let blank = r#""plot_background": {"blank": true}"#;
+        let spec = background_spec(&format!(r#"{{"background_fill": "navy", {blank}}}"#));
+        let (values, _) = theme_values(Some(&spec)).unwrap();
+        // The user's blank comes after the fill, so it stays blank.
+        assert_eq!(values.element_props(&["plot_background"]).blank, Some(true));
+    }
+
+    #[test]
+    fn background_fill_rejects_a_non_color() {
+        let spec = background_spec(r#"{"background_fill": true}"#);
+        let error = theme_values(Some(&spec)).unwrap_err();
+        assert!(error.contains("at 'theme.background_fill'"), "{error}");
+        let spec = background_spec(r#"{"background_fill": "notacolor"}"#);
+        let error = theme_values(Some(&spec)).unwrap_err();
+        assert!(error.contains("invalid color 'notacolor'"), "{error}");
     }
 }

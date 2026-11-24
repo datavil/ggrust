@@ -569,6 +569,7 @@ Building blocks for `theme()`, and color flavors for any theme.
 | [`flavor_solarized_dark()`](api/flavor_solarized_dark.md) | Use the Solarized dark color flavor. |
 | [`flavor_high_contrast_light()`](api/flavor_high_contrast_light.md) | Use the high-contrast light color flavor. |
 | [`flavor_high_contrast_dark()`](api/flavor_high_contrast_dark.md) | Use the high-contrast dark color flavor. |
+| [`flavor_transparent()`](api/flavor_transparent.md) | Make the theme's white backgrounds transparent, keeping its colored ones. |
 
 ## Grids and interactivity
 

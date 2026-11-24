@@ -546,6 +546,7 @@ SECTIONS: dict[str, tuple[str, list[str]]] = {
             "flavor_solarized_dark",
             "flavor_high_contrast_light",
             "flavor_high_contrast_dark",
+            "flavor_transparent",
         ],
     ),
     "Grids and interactivity": (

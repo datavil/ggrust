@@ -529,6 +529,7 @@ nav = [
       "reference/api/flavor_solarized_dark.md",
       "reference/api/flavor_high_contrast_light.md",
       "reference/api/flavor_high_contrast_dark.md",
+      "reference/api/flavor_transparent.md",
     ] },
     { "Grids and interactivity" = [
       "reference/api/gggrid.md",

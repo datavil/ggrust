@@ -639,10 +639,11 @@ class SupPlotsSpec(FeatureSpec):
                     key: value for key, value in other.props().items() if value is not None
                 }
                 if "name" in new_options:
-                    # A named theme replaces the theme, keeping the flavor.
-                    flavor = supplots.props().get("theme", {}).get("flavor")
-                    if flavor is not None:
-                        new_options["flavor"] = flavor
+                    # A named theme replaces the theme, keeping the flavors.
+                    for key in ("flavor", "background_fill"):
+                        flavor = supplots.props().get("theme", {}).get(key)
+                        if flavor is not None:
+                            new_options[key] = flavor
                     supplots.props()["theme"] = new_options
                 else:
                     old_options = supplots.props().get("theme", {})

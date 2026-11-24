@@ -59,6 +59,28 @@ outlines, the dark grey ink of lines and outlines), and so do the axis breaks.
 - `element_rect(...)` styles boxes: `fill`, `color`, `size`.
 - `element_blank()` removes the element.
 
+## Transparent backgrounds
+
+For a plot on a slide, a web page or a dark notebook, `flavor_transparent()` makes
+the theme's white backgrounds transparent: the plot, panel, legend, legend key and
+strip backgrounds that the theme fills with its paper color. Backgrounds with a color
+of their own stay, such as the grey panel and strips of `theme_grey()`, and so do
+borders, grid lines, text and data:
+
+```python
+plot + theme_bw() + flavor_transparent()
+```
+
+Like the other flavors it stays when a `theme_*()` is added later, and it combines
+with them: `flavor_darcula() + flavor_transparent()` keeps Darcula's light text for
+a dark background. A `theme(...)` fill, such as
+`theme(panel_background=element_rect(fill="ivory"))`, still wins.
+
+For a single file, `ggsave(plot, "plot.png", bg="transparent")` gives the same
+picture. `bg` also takes a color (`bg="white"`), which replaces the same white
+backgrounds. Insets of the plot follow both. PNG, TIFF, SVG, PDF and HTML keep the
+transparency; JPEG and GIF have none and show white.
+
 ## Arrow axes
 
 Axis lines can end in arrow heads and cover only part of the axis, as the corner

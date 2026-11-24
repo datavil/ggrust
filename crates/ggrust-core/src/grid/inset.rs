@@ -14,7 +14,7 @@ use crate::Result;
 use crate::build::{Arrangement, PlotData, PreparedPlot, prepare_plot};
 use crate::grid_tags::FigureTags;
 use crate::scene::{Group, Node, Rect};
-use crate::spec::{Figure, InsetAlign, InsetSpec};
+use crate::spec::{Figure, InsetAlign, InsetSpec, PlotSpec, ThemeSpec, ThemeValue};
 use crate::tooltip::Interaction;
 
 use super::{Element, GridContext, Placed, PreparedGrid, figure_plot_spec, nest, nest_error};
@@ -56,6 +56,48 @@ pub(super) fn prepared_rows(insets: &[PreparedInset]) -> usize {
         .iter()
         .map(|inset| inset.element.prepared_rows())
         .sum()
+}
+
+/// The theme options a plot passes down to its insets (and theirs): only
+/// `background_fill` (`flavor_transparent()`, `ggsave(bg=)`), so a transparent file
+/// has transparent insets. Insets in a grid inherit it with the grid's options.
+const INSET_INHERITED_OPTIONS: &[&str] = &["background_fill"];
+
+/// `spec` with its inherited theme options set on every inset figure that does not
+/// set them itself, or None when it has none to pass down.
+pub(super) fn with_inherited_options(spec: &PlotSpec) -> Option<PlotSpec> {
+    let inherited: Vec<(&str, &ThemeValue)> = INSET_INHERITED_OPTIONS
+        .iter()
+        .filter_map(|key| {
+            let value = spec.theme.as_ref()?.elements.get(*key)?;
+            Some((*key, value))
+        })
+        .collect();
+    if inherited.is_empty() || spec.insets.is_empty() {
+        return None;
+    }
+    let mut spec = spec.clone();
+    inherit(&mut spec.insets, &inherited);
+    Some(spec)
+}
+
+fn inherit(insets: &mut [InsetSpec], inherited: &[(&str, &ThemeValue)]) {
+    for inset in insets {
+        let theme = match &mut inset.figure {
+            Figure::Plot(plot) => {
+                inherit(&mut plot.insets, inherited);
+                &mut plot.theme
+            }
+            Figure::Subplots(grid) => &mut grid.theme,
+        };
+        let theme = theme.get_or_insert_with(ThemeSpec::default);
+        for (key, value) in inherited {
+            theme
+                .elements
+                .entry((*key).to_owned())
+                .or_insert_with(|| (*value).clone());
+        }
+    }
 }
 
 /// Prepare the insets of a figure. `context` is the host's: its container theme,

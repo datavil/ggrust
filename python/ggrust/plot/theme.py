@@ -31,6 +31,7 @@ __all__ = [
     "flavor_solarized_dark",
     "flavor_solarized_light",
     "flavor_standard",
+    "flavor_transparent",
     "margin",
     "theme",
     "theme_bw",
@@ -1286,3 +1287,45 @@ def flavor_standard() -> FeatureSpec:
     >>> plot = plot + theme_bw() + flavor_standard()
     """
     return _flavor("standard")
+
+
+def flavor_transparent() -> FeatureSpec:
+    """Make the theme's white backgrounds transparent, keeping its colored ones.
+
+    Every background the theme fills with its paper color (white, or the flavor's
+    paper, such as Darcula's dark grey) becomes transparent: the plot, panel, legend,
+    legend key and facet strip backgrounds. Backgrounds the theme gives a color of its
+    own stay, such as the grey panel and strips of ``theme_grey()``. Borders, grid
+    lines, axes, text and data stay too, so the plot sits on whatever is behind it: a
+    slide, a web page, a dark notebook. Insets of the plot follow it. PNG, TIFF, SVG,
+    PDF and HTML keep the transparency; JPEG and GIF have none and show white.
+
+    Like the color flavors, it stays when a ``theme_*()`` is added later, and it
+    combines with them: ``flavor_darcula() + flavor_transparent()`` keeps Darcula's
+    light text and lines on a transparent background. ``theme(...)`` options set any
+    of these fills again, whatever their order. ``ggsave(plot, ..., bg="transparent")``
+    gives the same result for one file. Not in lets_plot or ggplot2.
+
+    Returns
+    -------
+    FeatureSpec
+        The flavor.
+
+    See Also
+    --------
+    ggsave : ``bg=`` recolors the same backgrounds in a saved file.
+
+    Examples
+    --------
+    >>> from ggrust import *
+    >>> data = {"age": [1, 3, 5, 7, 2, 4, 6, 8, 3, 9],
+    ...         "weight": [4, 6, 6, 7, 8, 12, 14, 15, 2, 3],
+    ...         "pet": ["cat"] * 4 + ["dog"] * 4 + ["rabbit"] * 2}
+    >>> plot = ggplot(data, aes("age", "weight", color="pet")) + geom_point(size=5)
+    >>> plot = plot + flavor_transparent()
+
+    On a dark slide, with Darcula's light text:
+
+    >>> plot = plot + flavor_darcula() + flavor_transparent()
+    """
+    return FeatureSpec("theme", name=None, background_fill="transparent")

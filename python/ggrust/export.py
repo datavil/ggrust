@@ -11,8 +11,8 @@ from __future__ import annotations
 import os
 from typing import cast
 
-from ggrust.errors import ExportError, did_you_mean
-from ggrust.plot.core import PlotSpec
+from ggrust.errors import ExportError, SpecError, did_you_mean
+from ggrust.plot.core import FeatureSpec, PlotSpec
 from ggrust.plot.subplots import SupPlotsSpec
 
 __all__ = ["ggsave"]
@@ -31,6 +31,7 @@ def ggsave(
     dpi: int | None = None,
     quality: int | None = None,
     metadata: bool = True,
+    bg: str | None = None,
 ) -> str:
     """Save a plot to ``filename`` (inside ``path`` if given); the extension picks the format.
 
@@ -68,6 +69,15 @@ def ggsave(
         SVG comment, the HTML ``generator`` meta tag. Never drawn, and nothing about
         you or your machine. Pass False to leave it out (not for ``.ggrs``). Not in
         lets_plot.
+    bg : str, optional
+        Background color of the file, such as ``"transparent"`` or ``"white"``. Every
+        background the theme fills with its paper color (the plot, panel, legend,
+        legend key and strip backgrounds when white) takes ``bg``; backgrounds with a
+        color of their own (the grey panel of ``theme_grey()``), borders and blank
+        backgrounds stay. ``bg="transparent"`` matches ``flavor_transparent()``. When
+        None, the theme's backgrounds are used. JPEG and GIF have no transparency and
+        show white. Not for ``.ggrs``. Not in lets_plot;
+        ggplot2's ``bg`` paints only under the plot background (see ``deviations.md``).
 
     Notes
     -----
@@ -81,7 +91,7 @@ def ggsave(
     ------
     ExportError
         If ``plot`` is not a plot, the extension is missing or unsupported, or an
-        option does not apply to the format.
+        option does not apply to the format, or ``bg`` is not a color.
 
     Returns
     -------
@@ -99,16 +109,11 @@ def ggsave(
     A TIFF at 600 dpi, 3 by 2 inches (1800 x 1200 pixels):
 
     >>> path = ggsave(plot, "fuel.tiff", path=tempfile.mkdtemp(), w=3, h=2, dpi=600)
-    """
-    from ggrust._render import (
-        export_html,
-        export_pdf,
-        export_png,
-        export_raster,
-        export_svg,
-        is_animated,
-    )
 
+    A PNG with a transparent plot background:
+
+    >>> path = ggsave(plot, "fuel.png", path=tempfile.mkdtemp(), bg="transparent")
+    """
     if not isinstance(plot, PlotSpec | SupPlotsSpec):
         message = (
             f"ggsave(): 'plot' must be a PlotSpec or SupPlotsSpec (from ggplot() or gggrid()), "
@@ -137,6 +142,61 @@ def ggsave(
             "(they hold the plot, not an output); remove it"
         )
         raise ExportError(message)
+    if bg is not None:
+        if extension == "ggrs":
+            message = (
+                "ggsave(): 'bg' applies to rendered files, not .ggrs plot files; "
+                "add flavor_transparent() or theme(plot_background=...) to the plot instead"
+            )
+            raise ExportError(message)
+        plot = _with_background(plot, bg)
+    try:
+        _export(plot, pathname, extension, iframe, scale, w, h, unit, dpi, quality, metadata)
+    except SpecError as error:
+        if bg is not None and f"invalid color {bg!r}" in str(error):
+            message = (
+                f"ggsave(): 'bg' {bg!r} is not a color; use a color name ('white', "
+                "'transparent'), '#rrggbb', 'rgb(r, g, b)' or 'rgba(r, g, b, opacity)'"
+            )
+            raise ExportError(message) from error
+        raise
+    return os.path.abspath(pathname)
+
+
+def _with_background(plot: PlotSpec | SupPlotsSpec, bg: str) -> PlotSpec | SupPlotsSpec:
+    """Return ``plot`` with its paper-colored backgrounds set to ``bg`` (``ggsave(bg=)``)."""
+    if not isinstance(bg, str):
+        message = f"ggsave(): 'bg' must be a color string such as 'white', got {type(bg).__name__}"
+        raise ExportError(message)
+    if not bg.strip():
+        message = "ggsave(): 'bg' is empty; pass a color such as 'transparent' or 'white'"
+        raise ExportError(message)
+    return plot + FeatureSpec("theme", name=None, background_fill=bg)
+
+
+def _export(
+    plot: PlotSpec | SupPlotsSpec,
+    pathname: str,
+    extension: str,
+    iframe: bool,
+    scale: float | None,
+    w: float | None,
+    h: float | None,
+    unit: str | None,
+    dpi: int | None,
+    quality: int | None,
+    metadata: bool,
+) -> None:
+    """Write ``plot`` to ``pathname`` in the format of ``extension`` (no leading dot)."""
+    from ggrust._render import (
+        export_html,
+        export_pdf,
+        export_png,
+        export_raster,
+        export_svg,
+        is_animated,
+    )
+
     if extension == "gif" or (extension in ["png", "apng"] and is_animated(plot)):
         _save_animation(plot, pathname, extension, scale, w, h, unit, dpi, metadata)
     elif extension == "svg":
@@ -186,7 +246,6 @@ def ggsave(
             f"'ggrs', 'gif'{did_you_mean(extension, extensions)}"
         )
         raise ExportError(message)
-    return os.path.abspath(pathname)
 
 
 def _save_animation(

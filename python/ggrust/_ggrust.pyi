@@ -193,6 +193,7 @@ def render(
     functions: list[Callable[..., object]] | None = None,
     quality: int | None = None,
     metadata: bool = True,
+    columns: int | None = None,
 ) -> tuple[bytes, list[str]]:
     """Build and render a plot.
 

@@ -12,7 +12,7 @@ mod _ggrust {
     use ggrust_core::grid::build_figure_with;
     use ggrust_core::render::{
         DEFAULT_JPEG_QUALITY, HtmlDocument, HtmlOptions, SCREEN_DPI, rasterize_layers,
-        rgba_png_data_url, to_html, to_jpeg, to_pdf, to_png_with_dpi, to_svg, to_tiff,
+        rgba_png_data_url, to_braille, to_html, to_jpeg, to_pdf, to_png_with_dpi, to_svg, to_tiff,
     };
     use ggrust_core::spec::Figure;
     use pyo3::IntoPyObjectExt;
@@ -686,11 +686,12 @@ mod _ggrust {
     /// `quality` is the JPEG quality (1..=100, default 75); `html_id` is the
     /// root element id of HTML outputs, unique per display (required for them);
     /// `functions` are the secondary axis transforms the spec indexes (`sec_axis`);
-    /// `metadata` records `ggrust vX.Y.Z` in the output (`render::GENERATOR`).
+    /// `metadata` records `ggrust vX.Y.Z` in the output (`render::GENERATOR`);
+    /// `columns` is the width in terminal cells of `"braille"` output (default 80).
     /// Returns the encoded output (UTF-8 for text) and the build warnings.
     /// The GIL is released while building and rendering.
     #[pyfunction]
-    #[pyo3(signature = (spec_json, frames, output, scale, html_id=None, dpi=None, functions=None, quality=None, metadata=true))]
+    #[pyo3(signature = (spec_json, frames, output, scale, html_id=None, dpi=None, functions=None, quality=None, metadata=true, columns=None))]
     #[allow(clippy::too_many_arguments)]
     fn render<'py>(
         python: Python<'py>,
@@ -703,6 +704,7 @@ mod _ggrust {
         functions: Option<Vec<Py<PyAny>>>,
         quality: Option<u8>,
         metadata: bool,
+        columns: Option<u32>,
     ) -> PyResult<(Bound<'py, PyBytes>, Vec<String>)> {
         let functions = axis_functions(functions);
         let frames = frames
@@ -714,14 +716,14 @@ mod _ggrust {
         let (bytes, warnings) = python
             .detach(move || -> ggrust_core::Result<(Vec<u8>, Vec<String>)> {
                 let document = match output.as_str() {
-                    "svg" | "png" | "jpeg" | "tiff" | "pdf" => None,
+                    "svg" | "png" | "jpeg" | "tiff" | "pdf" | "braille" => None,
                     "html" => Some(HtmlDocument::Fragment),
                     "html_page" => Some(HtmlDocument::Page),
                     "html_iframe" => Some(HtmlDocument::Iframe),
                     other => {
                         return Err(ggrust_core::Error::render(format!(
                             "unknown output format '{other}'; expected 'svg', 'png', 'jpeg', \
-                             'tiff', 'pdf', 'html', 'html_page' or 'html_iframe'"
+                             'tiff', 'pdf', 'braille', 'html', 'html_page' or 'html_iframe'"
                         )));
                     }
                 };
@@ -743,6 +745,9 @@ mod _ggrust {
                     }
                     None if output == "png" => {
                         to_png_with_dpi(&built.scene, scale, dpi.unwrap_or(SCREEN_DPI))?
+                    }
+                    None if output == "braille" => {
+                        to_braille(&built.scene, columns.unwrap_or(80))?.into_bytes()
                     }
                     None if output == "jpeg" => to_jpeg(
                         &built.scene,

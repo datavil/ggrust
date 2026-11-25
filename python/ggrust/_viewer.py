@@ -402,14 +402,45 @@ end tell
     subprocess.run(["osascript", "-e", script], check=True)
 
 
-if __name__ == "__main__":
-    arguments = sys.argv[1:]
-    if arguments == ["workspace"]:
-        workspace()
-    elif not arguments or arguments[0] in ("auto", "dark", "light", "none"):
-        serve(arguments[0] if arguments else "auto")  # ty: ignore[invalid-argument-type]
+_USAGE = """\
+usage: ggrust [pane [auto|dark|light|none]]
+
+  ggrust         open a Ghostty window: Python REPL left, plot pane right (macOS)
+  ggrust pane    run only the plot pane in this terminal; plots typed in a REPL
+                 with the same GGRUST_VIEWER_SOCKET show in it. The style picks how
+                 plots without a flavor of their own look (default: auto, which
+                 asks the terminal whether its background is dark or light)."""
+
+_STYLES = ("auto", "dark", "light", "none")
+
+
+def main(arguments: list[str] | None = None) -> None:
+    """Run the ``ggrust`` command (see ``_USAGE``).
+
+    Parameters
+    ----------
+    arguments : list of str or None, default=None
+        The command-line arguments; ``sys.argv[1:]`` when None.
+    """
+    arguments = sys.argv[1:] if arguments is None else arguments
+    if not arguments:
+        if sys.platform != "darwin":
+            sys.exit("ggrust: the REPL window needs Ghostty on macOS; run 'ggrust pane' instead")
+        try:
+            workspace()
+        except (OSError, subprocess.CalledProcessError) as error:
+            sys.exit(f"ggrust: could not open a Ghostty window ({error}); is Ghostty installed?")
+    elif arguments[0] in ("-h", "--help"):
+        print(_USAGE)
+    elif arguments[0] == "pane" and len(arguments) <= 2:
+        style = arguments[1] if len(arguments) == 2 else "auto"
+        if style not in _STYLES:
+            sys.exit(f"ggrust: unknown pane style {style!r}; use one of {', '.join(_STYLES)}")
+        serve(style)
     else:
-        sys.exit(
-            f"unknown argument {arguments[0]!r}; use 'workspace', or a pane style: "
-            "'auto' (default), 'dark', 'light' or 'none'"
-        )
+        sys.exit(f"ggrust: unknown arguments {' '.join(arguments)!r}\n\n{_USAGE}")
+
+
+if __name__ == "__main__":
+    # ``python -m ggrust._viewer [style]`` is what the workspace's right pane runs.
+    main(["pane", *sys.argv[1:]])

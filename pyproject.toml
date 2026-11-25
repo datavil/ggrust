@@ -28,6 +28,9 @@ dependencies = [
     "polars>=1.30",
 ]
 
+[project.scripts]
+ggrust = "ggrust._viewer:main"
+
 [project.urls]
 Repository = "https://github.com/datavil/ggrust"
 

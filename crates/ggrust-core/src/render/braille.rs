@@ -6,10 +6,8 @@
 //! enough of its pixels differ from the plot background, and colours each cell
 //! with the mean colour of its ink pixels. Text nodes are then written as real
 //! terminal characters in the cells they anchor to (rotated text stacked one
-//! character per row), over the dots. Colours are 24-bit ANSI escapes. By
-//! default the terminal's background shows and neutral colours (text, axes)
-//! take the terminal's text colour; `plot_background` paints the plot's
-//! background behind every cell and keeps all of the plot's colours.
+//! character per row), over the dots. Every cell gets the plot background, so
+//! the plot's own text colours keep their contrast. 24-bit ANSI escapes.
 //!
 //! What it does not do: keep font sizes (every label is one cell tall), draw a
 //! label that would overlap an earlier one (it is skipped), or detect what the
@@ -28,8 +26,6 @@ const OVERSAMPLE: f64 = 3.0;
 const INK_DISTANCE: i32 = 40;
 /// A dot lights when at least this share of its pixels is ink.
 const INK_SHARE: f64 = 0.2;
-/// Colours whose channels spread less than this are neutral (greys).
-const NEUTRAL_SPREAD: u8 = 24;
 /// Braille dot bits for (column, row) within a cell, Unicode order.
 const DOT_BITS: [[u32; 4]; 2] = [[0x01, 0x02, 0x04, 0x40], [0x08, 0x10, 0x20, 0x80]];
 
@@ -49,10 +45,8 @@ const EMPTY: Cell = Cell {
 
 /// Draw `scene` as `columns` terminal cells wide: braille for shapes, plain
 /// characters for text, with 24-bit colour escapes. One line per cell row, each
-/// ending in a reset and `\n`. `plot_background` paints every cell with the
-/// plot's background and keeps all of the plot's colours; otherwise the
-/// terminal's background shows and neutral colours use the terminal's text colour.
-pub fn to_braille(scene: &Scene, columns: u32, plot_background: bool) -> Result<String> {
+/// ending in a reset and `\n`.
+pub fn to_braille(scene: &Scene, columns: u32) -> Result<String> {
     if !(1..=1000).contains(&columns) {
         return Err(Error::render(format!(
             "braille output needs 1 to 1000 columns, got {columns}"
@@ -72,7 +66,7 @@ pub fn to_braille(scene: &Scene, columns: u32, plot_background: bool) -> Result<
     for text in &texts {
         place_text(&mut grid, text, cell_width, cell_width * 2.0);
     }
-    Ok(encode(&grid, background.filter(|_| plot_background)))
+    Ok(encode(&grid, background))
 }
 
 /// `nodes` with every text node removed (recursively), the removed ones pushed
@@ -211,45 +205,29 @@ fn place_text(grid: &mut [Vec<Cell>], text: &Text, cell_width: f64, cell_height:
     }
 }
 
-/// The grid as text with 24-bit colour escapes. With a `background`, every cell
-/// gets it and keeps the plot's colours. Without one the terminal's own
-/// background shows, and neutral colours (greys, black, white: text, axes,
-/// uncoloured marks) become the terminal's own text colour so they stay legible.
+/// The grid as text with 24-bit colour escapes, `background` behind every cell.
 fn encode(grid: &[Vec<Cell>], background: Option<[u8; 3]>) -> String {
     let mut out = String::new();
     for line in grid {
         if let Some([red, green, blue]) = background {
             out.push_str(&format!("\x1b[48;2;{red};{green};{blue}m"));
         }
-        let mut last_color: Option<Option<[u8; 3]>> = None;
+        let mut last_color: Option<[u8; 3]> = None;
         for cell in line {
-            if let Some(color) = cell.color {
-                // `None` is the terminal's default text colour.
-                let color = if background.is_none() && is_neutral(color) {
-                    None
-                } else {
-                    Some(color)
-                };
-                if last_color != Some(color) {
-                    match color {
-                        Some([red, green, blue]) => {
-                            out.push_str(&format!("\x1b[38;2;{red};{green};{blue}m"));
-                        }
-                        None => out.push_str("\x1b[39m"),
-                    }
-                    last_color = Some(color);
-                }
+            if let Some(color) = cell.color
+                && last_color != Some(color)
+            {
+                out.push_str(&format!(
+                    "\x1b[38;2;{};{};{}m",
+                    color[0], color[1], color[2]
+                ));
+                last_color = Some(color);
             }
             out.push(cell.glyph);
         }
         out.push_str("\x1b[0m\n");
     }
     out
-}
-
-/// Whether a colour is grey-ish: its channels differ by less than [`NEUTRAL_SPREAD`].
-fn is_neutral([red, green, blue]: [u8; 3]) -> bool {
-    red.max(green).max(blue) - red.min(green).min(blue) < NEUTRAL_SPREAD
 }
 
 /// Ink pixels under one dot: their share of the dot and their summed colour.
@@ -316,7 +294,7 @@ mod tests {
 
     #[test]
     fn blank_scene_is_spaces_with_square_dots() {
-        let text = to_braille(&blank(200.0, 100.0), 10, true).expect("renders");
+        let text = to_braille(&blank(200.0, 100.0), 10).expect("renders");
         let lines: Vec<&str> = text.lines().collect();
         // 10 cells = 20 dots wide; 100 / 200 * 20 = 10 dots tall = 3 cell rows.
         assert_eq!(lines.len(), 3);
@@ -330,7 +308,7 @@ mod tests {
 
     #[test]
     fn zero_columns_is_an_error() {
-        let error = to_braille(&blank(10.0, 10.0), 0, false).expect_err("rejects");
+        let error = to_braille(&blank(10.0, 10.0), 0).expect_err("rejects");
         assert!(error.to_string().contains("1 to 1000 columns"));
     }
 
@@ -351,12 +329,8 @@ mod tests {
             angle: 0.0,
             halo: None,
         }));
-        let text = to_braille(&scene, 20, true).expect("renders");
+        let text = to_braille(&scene, 20).expect("renders");
         assert!(text.contains("\x1b[38;2;10;20;30mhwy"), "{text:?}");
-        // On the terminal's background the dark grey text takes its text colour.
-        let text = to_braille(&scene, 20, false).expect("renders");
-        assert!(text.contains("\x1b[39mhwy"), "{text:?}");
-        assert!(!text.contains("\x1b[48;2;"), "{text:?}");
         assert!(
             !text
                 .chars()

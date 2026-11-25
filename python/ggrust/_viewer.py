@@ -51,6 +51,7 @@ PaneStyle = Literal["dark", "light", "none"]
 
 _SCALE = 2.0  # device pixels per layout pixel (retina)
 _FOOTER_ROWS = 1
+_FRAME = 1  # cells of box border on each side of the plot
 _RESIZE_PAUSE = 0.15  # seconds without resize events before re-rendering
 
 
@@ -112,18 +113,24 @@ class _Viewer:
         rows, columns, width, height = _plot_area()
         if self.index < 0:
             out.write("ggrust plots: waiting for a plot...\r\n")
+            out.flush()
+            return
+        cell_width = width / max(columns, 1)
+        cell_height = height / max(rows, 1)
+        framed = rows > 2 * _FRAME and columns > 2 * _FRAME
+        inner_rows, inner_columns = rows, columns
+        if framed:
+            out.write(_frame(rows, columns, f"plot {self.index + 1}/{len(self.history)}"))
+            inner_rows, inner_columns = rows - 2 * _FRAME, columns - 2 * _FRAME
+            out.write(f"\x1b[{1 + _FRAME};{1 + _FRAME}H")
+        try:
+            png = self.render(round(inner_columns * cell_width), round(inner_rows * cell_height))
+        except Exception as error:  # show any render failure in the pane
+            out.write(f"could not draw plot {self.index + 1}: {error}")
         else:
-            try:
-                png = self.render(width, height)
-            except Exception as error:  # show any render failure in the pane
-                out.write(f"could not draw plot {self.index + 1}: {error}\r\n")
-            else:
-                out.write(_fit_escape(png, rows, columns))
-            footer = (
-                f" plot {self.index + 1}/{len(self.history)}   style {self.style}"
-                "   <- -> history   q quit"
-            )
-            out.write(f"\x1b[{rows + 1};1H\x1b[2m{footer[:columns]}\x1b[0m")
+            out.write(_fit_escape(png, inner_rows, inner_columns, cell_width, cell_height))
+        footer = f" style {self.style}   <- -> history   q quit"
+        out.write(f"\x1b[{rows + 1};1H\x1b[2m{footer[:columns]}\x1b[0m")
         out.flush()
 
     def receive(self, connection: socket.socket) -> None:
@@ -159,15 +166,23 @@ def _png_size(png: bytes) -> tuple[int, int]:
     return width, height
 
 
-def _fit_escape(png: bytes, rows: int, columns: int) -> str:
+def _frame(rows: int, columns: int, title: str) -> str:
+    """Draw a dim rounded box over ``rows`` x ``columns`` cells, ``title`` in its top edge."""
+    label = f" {title} "[: max(columns - 4, 0)]
+    top = "\u256d\u2500" + label + "\u2500" * (columns - 3 - len(label)) + "\u256e"
+    side = "\u2502" + " " * (columns - 2) + "\u2502"
+    bottom = "\u2570" + "\u2500" * (columns - 2) + "\u256f"
+    lines = [top] + [side] * (rows - 2) + [bottom]
+    body = "".join(f"\x1b[{row};1H{line}" for row, line in enumerate(lines, start=1))
+    return f"\x1b[2m{body}\x1b[0m"
+
+
+def _fit_escape(png: bytes, rows: int, columns: int, cell_width: float, cell_height: float) -> str:
     """Kitty escapes drawing ``png`` as large as fits in ``rows`` x ``columns`` cells."""
-    _, _, pane_width, pane_height = _plot_area()
-    cell_width = pane_width / max(columns, 1)
-    cell_height = pane_height / max(rows, 1)
     if cell_width <= 0 or cell_height <= 0:
         return kitty_escape(png, columns, move_cursor=False)
     width, height = _png_size(png)
-    # Largest scale that fits both ways, in whole cells, never past the pane.
+    # Largest scale that fits both ways, in whole cells, never past the area.
     scale = min(columns * cell_width / width, rows * cell_height / height)
     fit_columns = min(max(round(width * scale / cell_width), 1), columns)
     fit_rows = min(max(round(height * scale / cell_height), 1), rows)

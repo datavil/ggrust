@@ -10,7 +10,10 @@ right arrows (or ``h`` / ``l``) page through the plot history; ``q`` quits.
 ``python -m ggrust._viewer workspace`` opens a Ghostty window (AppleScript, macOS)
 with a Python REPL on the left and the viewer on the right.
 
-Plots travel pickled over a socket only the user can open. Does not: work without
+Plots that set no flavor of their own get ``flavor_high_contrast_dark()`` (or the
+light one, after asking the terminal for its background) and ``flavor_transparent()``,
+so they sit on the terminal's background. Plots travel pickled over a socket only the
+user can open. Does not: work without
 Kitty graphics, or handle tmux. Not part of the public API: a prototype on its own branch.
 """
 
@@ -20,6 +23,8 @@ import fcntl
 import io
 import os
 import pickle
+import re
+import select
 import selectors
 import signal
 import socket
@@ -32,7 +37,7 @@ import time
 import tty
 import warnings
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from ggrust._terminal import kitty_escape
 
@@ -41,6 +46,8 @@ if TYPE_CHECKING:
 
     from ggrust.plot.core import PlotSpec
     from ggrust.plot.subplots import SupPlotsSpec
+
+PaneStyle = Literal["dark", "light", "none"]
 
 _SCALE = 2.0  # device pixels per layout pixel (retina)
 _FOOTER_ROWS = 1
@@ -79,10 +86,11 @@ def _plot_area() -> tuple[int, int, int, int]:
 class _Viewer:
     """The pane: plot history, rendering at the pane's size, and drawing."""
 
-    def __init__(self) -> None:
+    def __init__(self, style: PaneStyle = "none") -> None:
         self.history: list[PlotSpec | SupPlotsSpec] = []
         self.index = -1
         self.cache: tuple[int, int, int, bytes] | None = None  # index, width, height, png
+        self.style = style
 
     def render(self, width: int, height: int) -> bytes:
         """Render the current plot as PNG bytes of ``width`` x ``height`` pixels (cached)."""
@@ -91,7 +99,7 @@ class _Viewer:
         buffer = io.BytesIO()
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            self.history[self.index].to_png(
+            styled(self.history[self.index], self.style).to_png(
                 buffer, w=width / _SCALE, h=height / _SCALE, unit="px", scale=_SCALE
             )
         png = buffer.getvalue()
@@ -111,7 +119,10 @@ class _Viewer:
                 out.write(f"could not draw plot {self.index + 1}: {error}\r\n")
             else:
                 out.write(_fit_escape(png, rows, columns))
-            footer = f" plot {self.index + 1}/{len(self.history)}   <- -> history   q quit"
+            footer = (
+                f" plot {self.index + 1}/{len(self.history)}   style {self.style}"
+                "   <- -> history   q quit"
+            )
             out.write(f"\x1b[{rows + 1};1H\x1b[2m{footer[:columns]}\x1b[0m")
         out.flush()
 
@@ -176,8 +187,67 @@ def _read_exact(connection: socket.socket, length: int) -> bytes | None:
     return b"".join(chunks)
 
 
-def serve() -> None:
-    """Run the plot pane in this terminal until ``q`` (blocks)."""
+def styled(plot: PlotSpec | SupPlotsSpec, style: PaneStyle) -> PlotSpec | SupPlotsSpec:
+    """Dress a plot for the pane, unless it picks its own flavor.
+
+    Parameters
+    ----------
+    plot : PlotSpec or SupPlotsSpec
+        The plot as sent.
+    style : {"dark", "light", "none"}
+        ``"dark"`` adds ``flavor_high_contrast_dark() + flavor_transparent()``,
+        ``"light"`` the light high-contrast flavor, ``"none"`` leaves the plot alone.
+
+    Returns
+    -------
+    PlotSpec or SupPlotsSpec
+        A new plot; ``plot`` itself is unchanged.
+    """
+    from ggrust.plot.theme import (
+        flavor_high_contrast_dark,
+        flavor_high_contrast_light,
+        flavor_transparent,
+    )
+
+    theme = plot.as_dict().get("theme") or {}
+    if style == "none" or "flavor" in theme:
+        return plot
+    flavor = flavor_high_contrast_dark() if style == "dark" else flavor_high_contrast_light()
+    return plot + flavor + flavor_transparent()
+
+
+def _terminal_style(timeout: float = 0.3) -> PaneStyle:
+    """Ask the terminal for its background colour (OSC 11) and pick a style.
+
+    Needs stdin in cbreak mode. Terminals that do not answer in ``timeout``
+    seconds get ``"dark"``.
+    """
+    sys.stdout.write("\x1b]11;?\x1b\\")
+    sys.stdout.flush()
+    reply = b""
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline and not reply.endswith((b"\x07", b"\x1b\\")):
+        ready, _, _ = select.select([sys.stdin], [], [], max(deadline - time.monotonic(), 0))
+        if not ready:
+            break
+        reply += os.read(sys.stdin.fileno(), 64)
+    match = re.search(rb"rgb:([0-9a-fA-F]+)/([0-9a-fA-F]+)/([0-9a-fA-F]+)", reply)
+    if match is None:
+        return "dark"
+    red, green, blue = (int(part, 16) / (16 ** len(part) - 1) for part in match.groups())
+    luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+    return "dark" if luminance < 0.5 else "light"
+
+
+def serve(style: PaneStyle | Literal["auto"] = "auto") -> None:
+    """Run the plot pane in this terminal until ``q`` (blocks).
+
+    Parameters
+    ----------
+    style : {"auto", "dark", "light", "none"}, default="auto"
+        How plots without a flavor of their own are dressed (see ``styled``);
+        ``"auto"`` asks the terminal whether its background is dark or light.
+    """
     path = socket_path()
     path.unlink(missing_ok=True)
     server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
@@ -198,6 +268,7 @@ def serve() -> None:
     redraw_at: float | None = None  # re-render once resizing pauses
     try:
         tty.setcbreak(sys.stdin.fileno())
+        viewer.style = _terminal_style() if style == "auto" else style
         viewer.draw()
         running = True
         while running:
@@ -263,14 +334,19 @@ def install_displayhook() -> None:
     sys.displayhook = hook
 
 
-_STARTUP = """\
+_STARTUP = '''\
 from ggrust import *
 from ggrust.data import *
 from ggrust._viewer import install_displayhook as _install
 _install()
 del _install
-print("ggrust REPL: type a plot, e.g. ggplot(mpg, aes('displ', 'hwy')) + geom_point()")
-"""
+print("""ggrust REPL: plain Python. These two imports already ran for you:
+    from ggrust import *        # ggplot, aes, geom_*, scale_*, theme_*, flavor_*, ...
+    from ggrust.data import *   # sample data: mpg, penguins, iris, economics
+A plot you type shows in the pane on the right, e.g.
+    ggplot(mpg, aes('displ', 'hwy', color='class')) + geom_point()
+Plots without a flavor of their own get the pane's high-contrast, transparent look.""")
+'''
 
 
 def _applescript_string(text: str) -> str:
@@ -285,16 +361,21 @@ def workspace() -> None:
     repl = _applescript_string(f"{python} -q")
     pane = _applescript_string(f"{python} -m ggrust._viewer")
     directory = _applescript_string(os.getcwd())
-    environment = _applescript_string(f"PYTHONSTARTUP={startup}")
+    shared = [f"GGRUST_VIEWER_SOCKET={socket_path()}"]
+    left_environment = ", ".join(
+        _applescript_string(item) for item in [f"PYTHONSTARTUP={startup}", *shared]
+    )
+    right_environment = ", ".join(_applescript_string(item) for item in shared)
     script = f"""
 tell application "Ghostty"
     set left_config to new surface configuration
     set initial working directory of left_config to {directory}
     set command of left_config to {repl}
-    set environment variables of left_config to {{{environment}}}
+    set environment variables of left_config to {{{left_environment}}}
     set right_config to new surface configuration
     set initial working directory of right_config to {directory}
     set command of right_config to {pane}
+    set environment variables of right_config to {{{right_environment}}}
     set new_window to new window with configuration left_config
     set left_terminal to focused terminal of selected tab of new_window
     split left_terminal direction right with configuration right_config
@@ -305,7 +386,13 @@ end tell
 
 
 if __name__ == "__main__":
-    if sys.argv[1:] == ["workspace"]:
+    arguments = sys.argv[1:]
+    if arguments == ["workspace"]:
         workspace()
+    elif not arguments or arguments[0] in ("auto", "dark", "light", "none"):
+        serve(arguments[0] if arguments else "auto")  # ty: ignore[invalid-argument-type]
     else:
-        serve()
+        sys.exit(
+            f"unknown argument {arguments[0]!r}; use 'workspace', or a pane style: "
+            "'auto' (default), 'dark', 'light' or 'none'"
+        )

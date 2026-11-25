@@ -1,21 +1,17 @@
 //! Terminal text output: a scene drawn as coloured Unicode braille (prototype).
 //!
-//! What it does: [`to_braille`] rasterises the scene without its text through the
-//! PNG backend, splits it into braille cells (2 x 4 dots each, so dots are about
-//! square in a terminal whose cells are twice as tall as wide), lights a dot where
-//! enough of its pixels differ from the plot background, and colours each cell
-//! with the mean colour of its ink pixels. Text nodes are then written as real
-//! terminal characters in the cells they anchor to (rotated text stacked one
-//! character per row), over the dots. Every cell gets the plot background, so
-//! the plot's own text colours keep their contrast. 24-bit ANSI escapes.
+//! What it does: [`to_braille`] rasterises the scene with the PNG backend, splits
+//! it into braille cells (2 x 4 dots each, so dots are about square in a terminal
+//! whose cells are twice as tall as wide), lights a dot where enough of its pixels
+//! differ from the plot background, and colours each cell with the mean colour of
+//! its ink pixels (24-bit ANSI escapes). For terminals without an image protocol.
 //!
-//! What it does not do: keep font sizes (every label is one cell tall), draw a
-//! label that would overlap an earlier one (it is skipped), or detect what the
-//! terminal supports (the caller chooses).
+//! What it does not do: keep text legible (labels become dot shapes), draw the
+//! plot background, or detect what the terminal supports (the caller chooses).
 
 use resvg::tiny_skia::Pixmap;
 
-use crate::scene::{Group, HorizontalAlign, Node, Raster, Scene, Text, VerticalAlign};
+use crate::scene::Scene;
 use crate::{Error, Result};
 
 use super::png::render_pixmap;
@@ -29,81 +25,26 @@ const INK_SHARE: f64 = 0.2;
 /// Braille dot bits for (column, row) within a cell, Unicode order.
 const DOT_BITS: [[u32; 4]; 2] = [[0x01, 0x02, 0x04, 0x40], [0x08, 0x10, 0x20, 0x80]];
 
-/// One terminal cell: a glyph and its colour; `None` colour is an empty cell.
-#[derive(Clone, Copy)]
-struct Cell {
-    glyph: char,
-    color: Option<[u8; 3]>,
-    text: bool,
-}
-
-const EMPTY: Cell = Cell {
-    glyph: ' ',
-    color: None,
-    text: false,
-};
-
-/// Draw `scene` as `columns` terminal cells wide: braille for shapes, plain
-/// characters for text, with 24-bit colour escapes. One line per cell row, each
-/// ending in a reset and `\n`.
+/// Draw `scene` as `columns` terminal cells wide of braille text with 24-bit
+/// colour escapes, one line per cell row, each line ending in a reset and `\n`.
 pub fn to_braille(scene: &Scene, columns: u32) -> Result<String> {
     if !(1..=1000).contains(&columns) {
         return Err(Error::render(format!(
             "braille output needs 1 to 1000 columns, got {columns}"
         )));
     }
-    let mut texts = Vec::new();
-    let shapes = Scene {
-        nodes: without_text(&scene.nodes, &mut texts),
-        ..scene.clone()
-    };
-    let background = scene
-        .background
-        .filter(|color| color.alpha == 255)
-        .map(|color| [color.red, color.green, color.blue]);
-    let mut grid = braille_grid(&shapes, columns, background.unwrap_or([255, 255, 255]))?;
-    let cell_width = scene.width / f64::from(columns);
-    for text in &texts {
-        place_text(&mut grid, text, cell_width, cell_width * 2.0);
-    }
-    Ok(encode(&grid, background))
-}
-
-/// `nodes` with every text node removed (recursively), the removed ones pushed
-/// to `texts`. Halo copies (outline only) are dropped.
-fn without_text(nodes: &[Node], texts: &mut Vec<Text>) -> Vec<Node> {
-    let mut kept = Vec::with_capacity(nodes.len());
-    for node in nodes {
-        match node {
-            Node::Text(text) => {
-                if text.halo.is_none() {
-                    texts.push(text.clone());
-                }
-            }
-            Node::Group(group) => kept.push(Node::Group(Group {
-                nodes: without_text(&group.nodes, texts),
-                ..group.clone()
-            })),
-            Node::Raster(raster) => kept.push(Node::Raster(Raster {
-                nodes: without_text(&raster.nodes, texts),
-                ..raster.clone()
-            })),
-            other => kept.push(other.clone()),
-        }
-    }
-    kept
-}
-
-/// The scene's shapes as rows of braille cells.
-fn braille_grid(scene: &Scene, columns: u32, background: [u8; 3]) -> Result<Vec<Vec<Cell>>> {
     let dots_wide = f64::from(columns) * 2.0;
     let scale = dots_wide * OVERSAMPLE / scene.width;
     let pixmap = render_pixmap(scene, scale)?;
+    let background = scene
+        .background
+        .map(|color| [color.red, color.green, color.blue])
+        .unwrap_or([255, 255, 255]);
     let dot_size = f64::from(pixmap.width()) / dots_wide;
     let rows = ((f64::from(pixmap.height()) / dot_size) / 4.0).ceil() as u32;
-    let mut grid = Vec::with_capacity(rows as usize);
+    let mut out = String::new();
     for row in 0..rows {
-        let mut line = Vec::with_capacity(columns as usize);
+        let mut last_color: Option<[u8; 3]> = None;
         for column in 0..columns {
             let mut bits = 0u32;
             let mut sum = [0u64; 3];
@@ -122,112 +63,23 @@ fn braille_grid(scene: &Scene, columns: u32, background: [u8; 3]) -> Result<Vec<
                     }
                 }
             }
-            line.push(if bits == 0 {
-                EMPTY
-            } else {
-                Cell {
-                    glyph: char::from_u32(0x2800 + bits).unwrap_or(' '),
-                    color: Some(sum.map(|total| (total / count.max(1)) as u8)),
-                    text: false,
-                }
-            });
-        }
-        grid.push(line);
-    }
-    Ok(grid)
-}
-
-/// Write `text` into the cells it anchors to, unless a cell already holds text.
-fn place_text(grid: &mut [Vec<Cell>], text: &Text, cell_width: f64, cell_height: f64) {
-    let mut content = text.content.clone();
-    if let Some(superscript) = &text.superscript {
-        content.push('^');
-        content.push_str(superscript);
-    }
-    if let Some(suffix) = &text.suffix {
-        content.push_str(suffix);
-    }
-    let glyphs: Vec<char> = content.trim().chars().collect();
-    if glyphs.is_empty() {
-        return;
-    }
-    let length = glyphs.len() as f64;
-    // Share of the label before the anchor, along its reading direction.
-    let before = match text.horizontal {
-        HorizontalAlign::Start => 0.0,
-        HorizontalAlign::Middle => 0.5,
-        HorizontalAlign::End => 1.0,
-    };
-    // Offset from the anchor to the line's middle, across the reading direction.
-    let across = match text.vertical {
-        VerticalAlign::Top => 0.4,
-        VerticalAlign::Middle => 0.0,
-        VerticalAlign::Baseline => -0.3,
-        VerticalAlign::Bottom => -0.4,
-    } * text.size;
-    let angle = text.angle.rem_euclid(360.0);
-    let cells: Vec<(i64, i64)> =
-        if (45.0..135.0).contains(&angle) || (225.0..315.0).contains(&angle) {
-            // Rotated: stack the characters top to bottom around the anchor.
-            let column = ((text.x + across) / cell_width).floor() as i64;
-            let reads_up = (45.0..135.0).contains(&angle);
-            let top = if reads_up { 1.0 - before } else { before };
-            let first = (text.y / cell_height - top * length).round() as i64;
-            (0..glyphs.len() as i64)
-                .map(|index| (first + index, column))
-                .collect()
-        } else {
-            let row = ((text.y + across) / cell_height).floor() as i64;
-            let first = (text.x / cell_width - before * length).round() as i64;
-            (0..glyphs.len() as i64)
-                .map(|index| (row, first + index))
-                .collect()
-        };
-    let (rows, columns) = (grid.len() as i64, grid.first().map_or(0, Vec::len) as i64);
-    let inside =
-        |&(row, column): &(i64, i64)| (0..rows).contains(&row) && (0..columns).contains(&column);
-    if cells
-        .iter()
-        .filter(|cell| inside(cell))
-        .any(|&(row, column)| grid[row as usize][column as usize].text)
-    {
-        return;
-    }
-    let color = [text.color.red, text.color.green, text.color.blue];
-    for (&glyph, cell) in glyphs.iter().zip(&cells) {
-        if inside(cell) {
-            grid[cell.0 as usize][cell.1 as usize] = Cell {
-                glyph,
-                color: Some(color),
-                text: true,
-            };
-        }
-    }
-}
-
-/// The grid as text with 24-bit colour escapes, `background` behind every cell.
-fn encode(grid: &[Vec<Cell>], background: Option<[u8; 3]>) -> String {
-    let mut out = String::new();
-    for line in grid {
-        if let Some([red, green, blue]) = background {
-            out.push_str(&format!("\x1b[48;2;{red};{green};{blue}m"));
-        }
-        let mut last_color: Option<[u8; 3]> = None;
-        for cell in line {
-            if let Some(color) = cell.color
-                && last_color != Some(color)
-            {
+            if bits == 0 {
+                out.push(' ');
+                continue;
+            }
+            let color = sum.map(|total| (total / count.max(1)) as u8);
+            if last_color != Some(color) {
                 out.push_str(&format!(
                     "\x1b[38;2;{};{};{}m",
                     color[0], color[1], color[2]
                 ));
                 last_color = Some(color);
             }
-            out.push(cell.glyph);
+            out.push(char::from_u32(0x2800 + bits).unwrap_or(' '));
         }
         out.push_str("\x1b[0m\n");
     }
-    out
+    Ok(out)
 }
 
 /// Ink pixels under one dot: their share of the dot and their summed colour.
@@ -298,43 +150,16 @@ mod tests {
         let lines: Vec<&str> = text.lines().collect();
         // 10 cells = 20 dots wide; 100 / 200 * 20 = 10 dots tall = 3 cell rows.
         assert_eq!(lines.len(), 3);
-        assert!(lines.iter().all(|line| {
-            line.starts_with("\x1b[48;2;255;255;255m")
-                && !line
-                    .chars()
-                    .any(|glyph| ('\u{2801}'..='\u{28ff}').contains(&glyph))
-        }));
+        assert!(
+            lines
+                .iter()
+                .all(|line| line.trim_end_matches("\x1b[0m").trim().is_empty())
+        );
     }
 
     #[test]
     fn zero_columns_is_an_error() {
         let error = to_braille(&blank(10.0, 10.0), 0).expect_err("rejects");
         assert!(error.to_string().contains("1 to 1000 columns"));
-    }
-
-    #[test]
-    fn text_is_written_as_characters_not_dots() {
-        let mut scene = blank(200.0, 100.0);
-        scene.nodes.push(Node::Text(Text {
-            content: "hwy".to_owned(),
-            superscript: None,
-            suffix: None,
-            x: 100.0,
-            y: 50.0,
-            size: 12.0,
-            font: crate::text::Font::default(),
-            color: Color::rgb(10, 20, 30),
-            horizontal: HorizontalAlign::Middle,
-            vertical: VerticalAlign::Middle,
-            angle: 0.0,
-            halo: None,
-        }));
-        let text = to_braille(&scene, 20).expect("renders");
-        assert!(text.contains("\x1b[38;2;10;20;30mhwy"), "{text:?}");
-        assert!(
-            !text
-                .chars()
-                .any(|glyph| ('\u{2801}'..='\u{28ff}').contains(&glyph))
-        );
     }
 }

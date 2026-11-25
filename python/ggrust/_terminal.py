@@ -20,7 +20,12 @@ if TYPE_CHECKING:
 _CHUNK_SIZE = 4096  # the protocol caps each escape's payload at 4096 base64 bytes
 
 
-def kitty_escape(png: bytes, columns: int | None = None) -> str:
+def kitty_escape(
+    png: bytes,
+    columns: int | None = None,
+    rows: int | None = None,
+    move_cursor: bool = True,
+) -> str:
     """Encode PNG bytes as Kitty graphics escapes that display the image at the cursor.
 
     Parameters
@@ -30,6 +35,11 @@ def kitty_escape(png: bytes, columns: int | None = None) -> str:
     columns : int or None, default=None
         Width in terminal cells; the height follows the image's aspect ratio.
         None draws the image at its pixel size.
+    rows : int or None, default=None
+        Height in terminal cells; with ``columns`` too, the image is stretched to fit.
+    move_cursor : bool, default=True
+        Move the cursor below the image (False keeps it in place, so an image
+        that ends on the last row never scrolls the screen).
 
     Returns
     -------
@@ -39,6 +49,8 @@ def kitty_escape(png: bytes, columns: int | None = None) -> str:
     payload = base64.standard_b64encode(png).decode("ascii")
     chunks = [payload[i : i + _CHUNK_SIZE] for i in range(0, len(payload), _CHUNK_SIZE)] or [""]
     size = f",c={columns}" if columns is not None else ""
+    size += f",r={rows}" if rows is not None else ""
+    size += "" if move_cursor else ",C=1"
     parts: list[str] = []
     for index, chunk in enumerate(chunks):
         more = 1 if index < len(chunks) - 1 else 0

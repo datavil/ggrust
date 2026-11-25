@@ -1,0 +1,291 @@
+"""Prototype: an RStudio-style plot pane for the terminal.
+
+A viewer process (``python -m ggrust._viewer``) owns a terminal pane and draws
+every plot sent to it, sized to fill the pane, with the Kitty graphics protocol
+(Ghostty, Kitty, WezTerm). A REPL in another pane sends plots over a Unix socket:
+``install_displayhook()`` makes a bare plot expression go to the pane. Left and
+right arrows (or ``h`` / ``l``) page through the plot history; ``q`` quits.
+
+``python -m ggrust._viewer workspace`` opens a Ghostty window (AppleScript, macOS)
+with a Python REPL on the left and the viewer on the right.
+
+Does not: work without Kitty graphics, re-render on pane resize (the last image is
+rescaled), or handle tmux. Not part of the public API: a prototype on its own branch.
+"""
+
+from __future__ import annotations
+
+import fcntl
+import os
+import selectors
+import signal
+import socket
+import struct
+import subprocess
+import sys
+import tempfile
+import termios
+import tty
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from ggrust._terminal import kitty_escape
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from ggrust.plot.core import PlotSpec
+    from ggrust.plot.subplots import SupPlotsSpec
+
+_SCALE = 2.0  # device pixels per layout pixel (retina)
+_FOOTER_ROWS = 1
+
+
+def socket_path() -> Path:
+    """Where the viewer listens: ``$GGRUST_VIEWER_SOCKET``, else a per-user temp file.
+
+    Returns
+    -------
+    Path
+        The Unix socket path.
+    """
+    override = os.environ.get("GGRUST_VIEWER_SOCKET")
+    if override:
+        return Path(override)
+    return Path(tempfile.gettempdir()) / f"ggrust-viewer-{os.getuid()}.sock"
+
+
+def _pane_size() -> tuple[int, int, int, int]:
+    """Rows, columns, width and height in pixels of the terminal on stdout."""
+    packed = fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, b"\0" * 8)
+    rows, columns, width, height = struct.unpack("HHHH", packed)
+    return rows, columns, width, height
+
+
+def _plot_area() -> tuple[int, int, int, int]:
+    """Rows, columns and pixel size of the pane above the footer."""
+    rows, columns, width, height = _pane_size()
+    plot_rows = max(rows - _FOOTER_ROWS, 1)
+    plot_height = height * plot_rows // max(rows, 1)
+    return plot_rows, columns, width, plot_height
+
+
+class _Viewer:
+    """The pane: plot history, drawing, and the socket protocol."""
+
+    def __init__(self) -> None:
+        self.history: list[bytes] = []
+        self.index = -1
+
+    def draw(self) -> None:
+        out = sys.stdout
+        out.write("\x1b_Ga=d,q=2\x1b\\\x1b[2J\x1b[H")  # delete images, clear, home
+        rows, columns, _, _ = _plot_area()
+        if self.index < 0:
+            out.write("ggrust plots: waiting for a plot...\r\n")
+        else:
+            out.write(_fit_escape(self.history[self.index], rows, columns))
+            footer = f" plot {self.index + 1}/{len(self.history)}   <- -> history   q quit"
+            out.write(f"\x1b[{rows + 1};1H\x1b[2m{footer[:columns]}\x1b[0m")
+        out.flush()
+
+    def receive(self, connection: socket.socket) -> None:
+        with connection:
+            _, _, width, height = _plot_area()
+            connection.sendall(f"{width} {height}\n".encode())
+            header = _read_exact(connection, 8)
+            if header is None:
+                return
+            (length,) = struct.unpack(">Q", header)
+            png = _read_exact(connection, length)
+            if png is None:
+                return
+        self.history.append(png)
+        self.index = len(self.history) - 1
+        self.draw()
+
+    def key(self, key: str) -> bool:
+        """Handle a key; False means quit."""
+        if key == "q":
+            return False
+        if key in ("\x1b[D", "h") and self.index > 0:
+            self.index -= 1
+            self.draw()
+        elif key in ("\x1b[C", "l") and self.index < len(self.history) - 1:
+            self.index += 1
+            self.draw()
+        return True
+
+
+def _png_size(png: bytes) -> tuple[int, int]:
+    """Width and height from a PNG's IHDR chunk."""
+    width, height = struct.unpack(">II", png[16:24])
+    return width, height
+
+
+def _fit_escape(png: bytes, rows: int, columns: int) -> str:
+    """Kitty escapes drawing ``png`` as large as fits in ``rows`` x ``columns`` cells."""
+    _, _, pane_width, pane_height = _plot_area()
+    cell_width = pane_width / max(columns, 1)
+    cell_height = pane_height / max(rows, 1)
+    if cell_width <= 0 or cell_height <= 0:
+        return kitty_escape(png, columns, move_cursor=False)
+    width, height = _png_size(png)
+    # Largest scale that fits both ways, in whole cells, never past the pane.
+    scale = min(columns * cell_width / width, rows * cell_height / height)
+    fit_columns = min(max(round(width * scale / cell_width), 1), columns)
+    fit_rows = min(max(round(height * scale / cell_height), 1), rows)
+    return kitty_escape(png, fit_columns, fit_rows, move_cursor=False)
+
+
+def _read_exact(connection: socket.socket, length: int) -> bytes | None:
+    """``length`` bytes from ``connection``, or None if it closes first."""
+    chunks: list[bytes] = []
+    remaining = length
+    while remaining:
+        chunk = connection.recv(min(remaining, 1 << 20))
+        if not chunk:
+            return None
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks)
+
+
+def serve() -> None:
+    """Run the plot pane in this terminal until ``q`` (blocks)."""
+    path = socket_path()
+    path.unlink(missing_ok=True)
+    server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    server.bind(str(path))
+    server.listen()
+    viewer = _Viewer()
+    selector = selectors.DefaultSelector()
+    selector.register(server, selectors.EVENT_READ, "socket")
+    selector.register(sys.stdin, selectors.EVENT_READ, "keys")
+    read_end, write_end = os.pipe()
+    os.set_blocking(write_end, False)
+    signal.set_wakeup_fd(write_end)
+    signal.signal(signal.SIGWINCH, lambda *_: None)
+    selector.register(read_end, selectors.EVENT_READ, "resize")
+    saved = termios.tcgetattr(sys.stdin.fileno())
+    sys.stdout.write("\x1b[?25l")  # hide the cursor
+    try:
+        tty.setcbreak(sys.stdin.fileno())
+        viewer.draw()
+        running = True
+        while running:
+            for event, _ in selector.select():
+                if event.data == "socket":
+                    connection, _ = server.accept()
+                    viewer.receive(connection)
+                elif event.data == "resize":
+                    os.read(read_end, 64)
+                    viewer.draw()
+                else:
+                    running = viewer.key(os.read(sys.stdin.fileno(), 16).decode(errors="ignore"))
+    except KeyboardInterrupt:
+        pass
+    finally:
+        termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, saved)
+        sys.stdout.write("\x1b_Ga=d,q=2\x1b\\\x1b[?25h\x1b[2J\x1b[H")
+        sys.stdout.flush()
+        server.close()
+        path.unlink(missing_ok=True)
+
+
+def send(plot: PlotSpec | SupPlotsSpec) -> bool:
+    """Send a plot to a running viewer, rendered at the viewer's pane size.
+
+    Parameters
+    ----------
+    plot : PlotSpec or SupPlotsSpec
+        The plot or grid of plots.
+
+    Returns
+    -------
+    bool
+        True when a viewer drew it, False when no viewer is listening.
+    """
+    import io
+
+    try:
+        connection = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        connection.connect(str(socket_path()))
+    except OSError:
+        return False
+    with connection:
+        line = b""
+        while not line.endswith(b"\n"):
+            chunk = connection.recv(64)
+            if not chunk:
+                return False
+            line += chunk
+        width, height = (int(part) for part in line.split())
+        buffer = io.BytesIO()
+        plot.to_png(buffer, w=width / _SCALE, h=height / _SCALE, unit="px", scale=_SCALE)
+        png = buffer.getvalue()
+        connection.sendall(struct.pack(">Q", len(png)) + png)
+    return True
+
+
+def install_displayhook() -> None:
+    """Send plots typed at the REPL to the viewer; everything else prints as usual."""
+    from ggrust.plot.core import PlotSpec
+    from ggrust.plot.subplots import SupPlotsSpec
+
+    previous: Callable[[object], None] = sys.displayhook
+
+    def hook(value: object) -> None:
+        if isinstance(value, PlotSpec | SupPlotsSpec) and send(value):
+            return
+        previous(value)
+
+    sys.displayhook = hook
+
+
+_STARTUP = """\
+from ggrust import *
+from ggrust.data import *
+from ggrust._viewer import install_displayhook as _install
+_install()
+del _install
+print("ggrust REPL: type a plot, e.g. ggplot(mpg, aes('displ', 'hwy')) + geom_point()")
+"""
+
+
+def _applescript_string(text: str) -> str:
+    return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def workspace() -> None:
+    """Open a Ghostty window: Python REPL on the left, plot pane on the right (macOS)."""
+    startup = Path(tempfile.gettempdir()) / f"ggrust-startup-{os.getuid()}.py"
+    startup.write_text(_STARTUP, encoding="utf-8")
+    python = sys.executable
+    repl = _applescript_string(f"{python} -q")
+    pane = _applescript_string(f"{python} -m ggrust._viewer")
+    directory = _applescript_string(os.getcwd())
+    environment = _applescript_string(f"PYTHONSTARTUP={startup}")
+    script = f"""
+tell application "Ghostty"
+    set left_config to new surface configuration
+    set initial working directory of left_config to {directory}
+    set command of left_config to {repl}
+    set environment variables of left_config to {{{environment}}}
+    set right_config to new surface configuration
+    set initial working directory of right_config to {directory}
+    set command of right_config to {pane}
+    set new_window to new window with configuration left_config
+    set left_terminal to focused terminal of selected tab of new_window
+    split left_terminal direction right with configuration right_config
+    focus left_terminal
+end tell
+"""
+    subprocess.run(["osascript", "-e", script], check=True)
+
+
+if __name__ == "__main__":
+    if sys.argv[1:] == ["workspace"]:
+        workspace()
+    else:
+        serve()

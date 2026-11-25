@@ -279,7 +279,9 @@ def serve(style: PaneStyle | Literal["auto"] = "auto") -> None:
     signal.signal(signal.SIGWINCH, lambda *_: None)
     selector.register(read_end, selectors.EVENT_READ, "resize")
     saved = termios.tcgetattr(sys.stdin.fileno())
-    sys.stdout.write("\x1b[?25l")  # hide the cursor
+    # Alternate screen (no scrollback, so a resize cannot push old frames into it),
+    # no line wrapping, hidden cursor: the usual setup of a full-screen terminal app.
+    sys.stdout.write("\x1b[?1049h\x1b[?7l\x1b[?25l")
     redraw_at: float | None = None  # re-render once resizing pauses
     try:
         tty.setcbreak(sys.stdin.fileno())
@@ -304,7 +306,7 @@ def serve(style: PaneStyle | Literal["auto"] = "auto") -> None:
         pass
     finally:
         termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, saved)
-        sys.stdout.write("\x1b_Ga=d,q=2\x1b\\\x1b[?25h\x1b[2J\x1b[H")
+        sys.stdout.write("\x1b_Ga=d,q=2\x1b\\\x1b[?25h\x1b[?7h\x1b[?1049l")
         sys.stdout.flush()
         server.close()
         path.unlink(missing_ok=True)

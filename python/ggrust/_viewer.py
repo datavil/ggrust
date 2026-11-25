@@ -1,7 +1,8 @@
 """Prototype: an RStudio-style plot pane for the terminal.
 
 A viewer process (``python -m ggrust._viewer``) owns a terminal pane and draws
-every plot sent to it, sized to fill the pane, with the Kitty graphics protocol
+every plot sent to it, rendered to fill the pane (and re-rendered when the pane
+is resized), with the Kitty graphics protocol
 (Ghostty, Kitty, WezTerm). A REPL in another pane sends plots over a Unix socket:
 ``install_displayhook()`` makes a bare plot expression go to the pane. Left and
 right arrows (or ``h`` / ``l``) page through the plot history; ``q`` quits.
@@ -9,14 +10,16 @@ right arrows (or ``h`` / ``l``) page through the plot history; ``q`` quits.
 ``python -m ggrust._viewer workspace`` opens a Ghostty window (AppleScript, macOS)
 with a Python REPL on the left and the viewer on the right.
 
-Does not: work without Kitty graphics, re-render on pane resize (the last image is
-rescaled), or handle tmux. Not part of the public API: a prototype on its own branch.
+Plots travel pickled over a socket only the user can open. Does not: work without
+Kitty graphics, or handle tmux. Not part of the public API: a prototype on its own branch.
 """
 
 from __future__ import annotations
 
 import fcntl
+import io
 import os
+import pickle
 import selectors
 import signal
 import socket
@@ -25,7 +28,9 @@ import subprocess
 import sys
 import tempfile
 import termios
+import time
 import tty
+import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -39,6 +44,7 @@ if TYPE_CHECKING:
 
 _SCALE = 2.0  # device pixels per layout pixel (retina)
 _FOOTER_ROWS = 1
+_RESIZE_PAUSE = 0.15  # seconds without resize events before re-rendering
 
 
 def socket_path() -> Path:
@@ -71,36 +77,55 @@ def _plot_area() -> tuple[int, int, int, int]:
 
 
 class _Viewer:
-    """The pane: plot history, drawing, and the socket protocol."""
+    """The pane: plot history, rendering at the pane's size, and drawing."""
 
     def __init__(self) -> None:
-        self.history: list[bytes] = []
+        self.history: list[PlotSpec | SupPlotsSpec] = []
         self.index = -1
+        self.cache: tuple[int, int, int, bytes] | None = None  # index, width, height, png
+
+    def render(self, width: int, height: int) -> bytes:
+        """Render the current plot as PNG bytes of ``width`` x ``height`` pixels (cached)."""
+        if self.cache is not None and self.cache[:3] == (self.index, width, height):
+            return self.cache[3]
+        buffer = io.BytesIO()
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore")
+            self.history[self.index].to_png(
+                buffer, w=width / _SCALE, h=height / _SCALE, unit="px", scale=_SCALE
+            )
+        png = buffer.getvalue()
+        self.cache = (self.index, width, height, png)
+        return png
 
     def draw(self) -> None:
         out = sys.stdout
         out.write("\x1b_Ga=d,q=2\x1b\\\x1b[2J\x1b[H")  # delete images, clear, home
-        rows, columns, _, _ = _plot_area()
+        rows, columns, width, height = _plot_area()
         if self.index < 0:
             out.write("ggrust plots: waiting for a plot...\r\n")
         else:
-            out.write(_fit_escape(self.history[self.index], rows, columns))
+            try:
+                png = self.render(width, height)
+            except Exception as error:  # show any render failure in the pane
+                out.write(f"could not draw plot {self.index + 1}: {error}\r\n")
+            else:
+                out.write(_fit_escape(png, rows, columns))
             footer = f" plot {self.index + 1}/{len(self.history)}   <- -> history   q quit"
             out.write(f"\x1b[{rows + 1};1H\x1b[2m{footer[:columns]}\x1b[0m")
         out.flush()
 
     def receive(self, connection: socket.socket) -> None:
         with connection:
-            _, _, width, height = _plot_area()
-            connection.sendall(f"{width} {height}\n".encode())
             header = _read_exact(connection, 8)
             if header is None:
                 return
             (length,) = struct.unpack(">Q", header)
-            png = _read_exact(connection, length)
-            if png is None:
+            payload = _read_exact(connection, length)
+            if payload is None:
                 return
-        self.history.append(png)
+        # The socket is the user's own (mode 0600), so the payload is trusted.
+        self.history.append(pickle.loads(payload))
         self.index = len(self.history) - 1
         self.draw()
 
@@ -157,6 +182,7 @@ def serve() -> None:
     path.unlink(missing_ok=True)
     server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     server.bind(str(path))
+    path.chmod(0o600)
     server.listen()
     viewer = _Viewer()
     selector = selectors.DefaultSelector()
@@ -169,20 +195,25 @@ def serve() -> None:
     selector.register(read_end, selectors.EVENT_READ, "resize")
     saved = termios.tcgetattr(sys.stdin.fileno())
     sys.stdout.write("\x1b[?25l")  # hide the cursor
+    redraw_at: float | None = None  # re-render once resizing pauses
     try:
         tty.setcbreak(sys.stdin.fileno())
         viewer.draw()
         running = True
         while running:
-            for event, _ in selector.select():
+            timeout = None if redraw_at is None else max(redraw_at - time.monotonic(), 0.0)
+            for event, _ in selector.select(timeout):
                 if event.data == "socket":
                     connection, _ = server.accept()
                     viewer.receive(connection)
                 elif event.data == "resize":
                     os.read(read_end, 64)
-                    viewer.draw()
+                    redraw_at = time.monotonic() + _RESIZE_PAUSE
                 else:
                     running = viewer.key(os.read(sys.stdin.fileno(), 16).decode(errors="ignore"))
+            if redraw_at is not None and time.monotonic() >= redraw_at:
+                redraw_at = None
+                viewer.draw()
     except KeyboardInterrupt:
         pass
     finally:
@@ -194,37 +225,26 @@ def serve() -> None:
 
 
 def send(plot: PlotSpec | SupPlotsSpec) -> bool:
-    """Send a plot to a running viewer, rendered at the viewer's pane size.
+    """Send a plot to a running viewer, which renders it at its pane size.
 
     Parameters
     ----------
     plot : PlotSpec or SupPlotsSpec
-        The plot or grid of plots.
+        The plot or grid of plots (with its data, so the pane can re-render it).
 
     Returns
     -------
     bool
-        True when a viewer drew it, False when no viewer is listening.
+        True when a viewer took it, False when no viewer is listening.
     """
-    import io
-
+    payload = pickle.dumps(plot)
     try:
         connection = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         connection.connect(str(socket_path()))
     except OSError:
         return False
     with connection:
-        line = b""
-        while not line.endswith(b"\n"):
-            chunk = connection.recv(64)
-            if not chunk:
-                return False
-            line += chunk
-        width, height = (int(part) for part in line.split())
-        buffer = io.BytesIO()
-        plot.to_png(buffer, w=width / _SCALE, h=height / _SCALE, unit="px", scale=_SCALE)
-        png = buffer.getvalue()
-        connection.sendall(struct.pack(">Q", len(png)) + png)
+        connection.sendall(struct.pack(">Q", len(payload)) + payload)
     return True
 
 

@@ -18,6 +18,8 @@ plots that fit stay pixel-identical to lets-plot.
 - End x labels (lp3.3, #906): an overflowing first/last centred label narrows the area by its overhang
   (+1 px), keeping the first pass's breaks (re-choosing flipped a parity case to vertical); repeat, since
   a label moves only by its share of the panel. Single panels only.
+- Axis titles (#1, 2026-11-25): fitted at draw time in `axis_title_node` via `TitleBounds` (plot inside its margin, minus the tag box
+  when it crosses the title band): moved inside, else cut in the middle. No extra layout pass; grid-collected titles pass `None`.
 - Geoms stay clipped to the panel, as in both references (text too: #339 is not a ggrust bug).
 
 **Why:** the user chose robustness over copying shared bugs ([[deviate-from-lets-plot-via-ggplot2]]).

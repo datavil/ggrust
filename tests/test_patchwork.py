@@ -422,3 +422,36 @@ def test_bad_tag_levels_type_and_engine_tag_level():
     spec["layout"]["tag_level"] = "x"
     with pytest.raises(ValueError, match=r"tag_level.*'keep', 'new' or 'unit'"):
         _render_raw(spec)
+
+
+# Axis titles and tags (#1)
+
+SHORT_BOXES = {"group": ["a", "b", "c"], "flipper_length_mm": [190.0, 200.0, 210.0]}
+
+
+def _short_boxes(height: int):
+    return (
+        gg.ggplot(SHORT_BOXES, gg.aes("group", "flipper_length_mm"))
+        + gg.geom_point()
+        + gg.labs(tag="C")
+        + gg.ggsize(500, height)
+    )
+
+
+def test_long_y_title_on_a_short_plot_is_cut_clear_of_the_tag():
+    svg = _short_boxes(125).to_svg()
+    assert "flipper_length_mm" not in svg
+    assert re.search(r">flipp[^<]*\.\.\.[^<]*mm<", svg)
+    assert _tags(svg, {"C"}) == ["C"]
+
+
+def test_y_title_that_fits_is_drawn_whole():
+    assert ">flipper_length_mm<" in _short_boxes(400).to_svg()
+
+
+def test_short_grid_row_cuts_its_y_title():
+    tall = gg.ggplot(DATA, gg.aes("x", "y")) + gg.geom_point()
+    grid = gg.gggrid([tall, _short_boxes(125)], ncol=1, heights=[3, 1], tag_levels="A")
+    svg = (grid + gg.ggsize(500, 500)).to_svg()
+    assert "flipper_length_mm" not in svg
+    assert _tags(svg, {"A", "B"}) == ["A", "B"]

@@ -264,8 +264,10 @@ def test_justified_axis_title_longer_than_its_axis_is_centred():
         + gg.labs(x="L" * 120)
         + gg.theme(axis_title_x=gg.element_text(hjust=1))
     )
-    match = re.search(r'<text x="([\d.-]+)"[^>]*>L{120}</text>', plot.to_svg())
+    # Longer than the plot: cut in the middle to fit, centred (#1).
+    match = re.search(r'<text x="([\d.-]+)"[^>]*>(L+\.\.\.L+)</text>', plot.to_svg())
     assert match is not None
+    assert len(match.group(2)) < 120
     assert 0 < float(match.group(1)) < 600
 
 

@@ -1805,7 +1805,7 @@ impl PreparedPlot {
             crate::layout::side_titles(layout.axis_sides, far_sides, &arrangement.titles)
                 .into_iter()
                 .find(|(title_side, _)| *title_side == side)?;
-        crate::layout::axis_title_node(layout, &self.theme, text, side, span)
+        crate::layout::axis_title_node(layout, &self.theme, text, side, span, None)
     }
 
     /// Lay the plot out to fill `area`, with panels at least `panel_min_size` px

@@ -69,15 +69,11 @@ pub fn tag_bands(theme: &Theme, tag: &Option<String>) -> Margins {
     bands
 }
 
-/// The tag's nodes. `plot` is the plot inside its margin (the tag's area for the
-/// `plot` and `margin` locations), `panel` the panels.
-pub fn tag_nodes(theme: &Theme, tag: &Option<String>, plot: Rect, panel: Rect) -> Vec<Node> {
-    let (Some(style), Some(text)) = (theme.plot_tag, tag_text(theme, tag)) else {
-        return Vec::new();
-    };
-    let Some((width, height)) = box_size(theme, &text) else {
-        return Vec::new();
-    };
+/// The tag's box on the page (margins included), or `None` without a tag.
+/// `plot` and `panel` as in [`tag_nodes`].
+pub fn tag_box(theme: &Theme, tag: &Option<String>, plot: Rect, panel: Rect) -> Option<Rect> {
+    let text = tag_text(theme, tag)?;
+    let (width, height) = box_size(theme, &text)?;
     let area = match theme.plot_tag_location {
         TagLocation::Panel => panel,
         TagLocation::Plot | TagLocation::Margin => plot,
@@ -104,6 +100,30 @@ pub fn tag_nodes(theme: &Theme, tag: &Option<String>, plot: Rect, panel: Rect) -
             )
         }
     };
+    Some(Rect {
+        x: left,
+        y: top,
+        width,
+        height,
+    })
+}
+
+/// The tag's nodes. `plot` is the plot inside its margin (the tag's area for the
+/// `plot` and `margin` locations), `panel` the panels.
+pub fn tag_nodes(theme: &Theme, tag: &Option<String>, plot: Rect, panel: Rect) -> Vec<Node> {
+    let (Some(style), Some(text), Some(tag_box)) = (
+        theme.plot_tag,
+        tag_text(theme, tag),
+        tag_box(theme, tag, plot, panel),
+    ) else {
+        return Vec::new();
+    };
+    let Rect {
+        x: left,
+        y: top,
+        width,
+        height,
+    } = tag_box;
     // The text block inside the box, by the element's justification.
     let band = text_band(style);
     let lines: Vec<&str> = text.split('\n').collect();

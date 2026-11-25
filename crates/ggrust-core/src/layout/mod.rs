@@ -1593,6 +1593,15 @@ pub fn draw_titles(layout: &PlotLayout, theme: &Theme, titles: &Titles) -> Node 
     let content = layout.content;
     let mut titles_nodes = Vec::new();
     let far_sides = [layout.secondary_far_side(0), layout.secondary_far_side(1)];
+    let bounds = TitleBounds {
+        area: plot_inner(content, theme, titles),
+        tag: tag::tag_box(
+            theme,
+            &titles.tag,
+            plot_inner(content, theme, titles),
+            panel,
+        ),
+    };
     for (side, text) in side_titles(layout.axis_sides, far_sides, titles) {
         // A title a grid collected is drawn by another plot or by the grid.
         if theme.grid_collected.title(side) != side::TitleRoom::Drawn {
@@ -1603,7 +1612,14 @@ pub fn draw_titles(layout: &PlotLayout, theme: &Theme, titles: &Titles) -> Node 
         } else {
             (panel.y, panel.height)
         };
-        titles_nodes.extend(axis_title_node(layout, theme, text, side, span));
+        titles_nodes.extend(axis_title_node(
+            layout,
+            theme,
+            text,
+            side,
+            span,
+            Some(bounds),
+        ));
     }
     let span = |position: TitlePosition| match position {
         TitlePosition::Panel => (panel.x, panel.width),
@@ -1658,15 +1674,109 @@ pub(crate) fn side_titles<'a>(
     sides
 }
 
+/// Where an axis title may be drawn: inside `area` (the plot inside its margin)
+/// and clear of the plot's `tag` box.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct TitleBounds {
+    pub area: Rect,
+    pub tag: Option<Rect>,
+}
+
+impl TitleBounds {
+    /// The area's stretch along a title's axis, and the tag's stretch along it
+    /// when the tag crosses the title's band (`across`: its start and end).
+    fn along(&self, horizontal: bool, across: (f64, f64)) -> ((f64, f64), Option<(f64, f64)>) {
+        let along_of = |rect: Rect| {
+            if horizontal {
+                (rect.x, rect.x + rect.width)
+            } else {
+                (rect.y, rect.y + rect.height)
+            }
+        };
+        let across_of = |rect: Rect| {
+            if horizontal {
+                (rect.y, rect.y + rect.height)
+            } else {
+                (rect.x, rect.x + rect.width)
+            }
+        };
+        let (low, high) = along_of(self.area);
+        let tag = self.tag.filter(|tag| {
+            let (start, end) = across_of(*tag);
+            end > across.0 && start < across.1
+        });
+        ((low, high), tag.map(along_of))
+    }
+}
+
+/// An axis title kept within `(low, high)` along its axis and off the tag's
+/// stretch `tag`: unchanged when its extent `[centre - along / 2, centre + along
+/// / 2]` fits and misses the tag; else moved into the longer room beside the tag
+/// when short enough; else cut in the middle ("...") to fit and centred there.
+/// A ggrust deviation (#1): lets-plot and ggplot2 let a title longer than a short
+/// panel run off the canvas and under the plot tag. Returns the text and centre.
+fn fit_axis_title(
+    title: &str,
+    centre: f64,
+    ((low, high), tag): ((f64, f64), Option<(f64, f64)>),
+    extent: impl Fn(&str) -> f64,
+) -> (String, f64) {
+    let along = extent(title);
+    let (start, end) = (centre - along / 2.0, centre + along / 2.0);
+    // A hair of slack, so layouts that fit stay byte-identical.
+    let slack = 1e-6;
+    let misses_tag = tag.is_none_or(|(tag_start, tag_end)| end <= tag_start || start >= tag_end);
+    if start >= low - slack && end <= high + slack && misses_tag {
+        return (title.to_owned(), centre);
+    }
+    // The longer room beside the tag (all of it when the tag is elsewhere).
+    let (low, high) = match tag {
+        Some((tag_start, tag_end)) if tag_end > low && tag_start < high => {
+            let before = (low, tag_start.max(low));
+            let after = (tag_end.min(high), high);
+            if before.1 - before.0 >= after.1 - after.0 {
+                before
+            } else {
+                after
+            }
+        }
+        _ => (low, high),
+    };
+    let room = high - low;
+    if along <= room {
+        return (
+            title.to_owned(),
+            centre.clamp(low + along / 2.0, high - along / 2.0),
+        );
+    }
+    let characters = title.chars().count();
+    let cut = |kept: usize| cut_label(&Label::plain(title.to_owned()), kept).text;
+    // The most characters that fit (fewer never take more space).
+    let (mut lower, mut upper) = (1, characters.saturating_sub(1));
+    let mut best = cut(1);
+    while lower <= upper {
+        let middle = (lower + upper) / 2;
+        let candidate = cut(middle);
+        if extent(&candidate) <= room {
+            best = candidate;
+            lower = middle + 1;
+        } else {
+            upper = middle - 1;
+        }
+    }
+    (best, (low + high) / 2.0)
+}
+
 /// The axis title `text` on `side` of `layout`, justified along `span` (start,
-/// length; the panel's, or a run of panels for a title a grid collected). None
-/// when blank or absent.
+/// length; the panel's, or a run of panels for a title a grid collected), and,
+/// with `bounds`, kept inside them ([`fit_axis_title`]). None when blank or absent.
 pub(crate) fn axis_title_node(
     layout: &PlotLayout,
     theme: &Theme,
     text: &Option<String>,
     side: Side,
     (start, length): (f64, f64),
+    bounds: Option<TitleBounds>,
 ) -> Option<Node> {
     let panel = layout.panel;
     let content = layout.content;
@@ -1695,8 +1805,17 @@ pub(crate) fn axis_title_node(
                 + across / 2.0
         };
         let x = justified_at(start, length, along, axis_title_justification(style, 0.0).0);
+        let (title, x) = match bounds {
+            Some(bounds) => fit_axis_title(
+                title,
+                x,
+                bounds.along(true, (y - across / 2.0, y + across / 2.0)),
+                |text| axis_title_extent(style, text, 0.0).0,
+            ),
+            None => (title.to_owned(), x),
+        };
         return Some(text_node(
-            title,
+            &title,
             style,
             (x, y),
             HorizontalAlign::Middle,
@@ -1721,10 +1840,19 @@ pub(crate) fn axis_title_node(
     } else {
         content.x + layout.legend_space.left + theme.axis_title_y_margin.left + across / 2.0
     };
+    let (title, y) = match bounds {
+        Some(bounds) => fit_axis_title(
+            title,
+            start + length - centre,
+            bounds.along(false, (x - across / 2.0, x + across / 2.0)),
+            |text| axis_title_extent(style, text, 90.0).0,
+        ),
+        None => (title.to_owned(), start + length - centre),
+    };
     Some(text_node(
-        title,
+        &title,
         style,
-        (x, start + length - centre),
+        (x, y),
         HorizontalAlign::Middle,
         angle,
     ))
@@ -2162,6 +2290,81 @@ fn text_node(
 mod tests {
     use super::*;
     use crate::scale::ContinuousPositionScale;
+
+    /// Width of each character: 10 px.
+    fn ten_per_character(text: &str) -> f64 {
+        10.0 * text.chars().count() as f64
+    }
+
+    #[test]
+    fn an_axis_title_that_fits_is_unchanged() {
+        let fitted = fit_axis_title("abcd", 50.0, ((0.0, 100.0), None), ten_per_character);
+        assert_eq!(fitted, ("abcd".to_owned(), 50.0));
+    }
+
+    #[test]
+    fn a_short_axis_title_past_its_bounds_moves_inside() {
+        let fitted = fit_axis_title("abcd", 90.0, ((0.0, 100.0), None), ten_per_character);
+        assert_eq!(fitted, ("abcd".to_owned(), 80.0));
+    }
+
+    #[test]
+    fn a_long_axis_title_is_cut_in_the_middle_to_fit() {
+        let (text, centre) = fit_axis_title(
+            "abcdefghijkl",
+            50.0,
+            ((0.0, 100.0), Some((0.0, 20.0))),
+            ten_per_character,
+        );
+        assert_eq!(text, "abc...kl");
+        assert_eq!(centre, 60.0);
+    }
+
+    #[test]
+    fn title_bounds_leave_out_the_tag_crossing_the_title_band() {
+        let area = Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 500.0,
+            height: 100.0,
+        };
+        let tag = Rect {
+            x: 0.0,
+            y: 0.0,
+            width: 15.0,
+            height: 25.0,
+        };
+        let bounds = TitleBounds {
+            area,
+            tag: Some(tag),
+        };
+        // A y title band at x 2..20 crosses the tag; an x title band at the bottom does not.
+        assert_eq!(
+            bounds.along(false, (2.0, 20.0)),
+            ((0.0, 100.0), Some((0.0, 25.0)))
+        );
+        assert_eq!(bounds.along(true, (80.0, 95.0)), ((0.0, 500.0), None));
+    }
+
+    #[test]
+    fn an_axis_title_clear_of_a_crossing_tag_is_unchanged() {
+        // The tag sits mid-axis, the title fits above it: not moved (bug hunt #1).
+        let fitted = fit_axis_title(
+            "ab",
+            20.0,
+            ((0.0, 100.0), Some((60.0, 80.0))),
+            ten_per_character,
+        );
+        assert_eq!(fitted, ("ab".to_owned(), 20.0));
+        // Overlapping it: moved into the longer room, above.
+        let moved = fit_axis_title(
+            "ab",
+            65.0,
+            ((0.0, 100.0), Some((60.0, 80.0))),
+            ten_per_character,
+        );
+        assert_eq!(moved, ("ab".to_owned(), 50.0));
+    }
 
     #[test]
     fn a_plot_laid_out_in_an_offset_area_is_translated() {

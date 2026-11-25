@@ -26,6 +26,7 @@ if TYPE_CHECKING:
 _CHUNK_SIZE = 4096  # the protocol caps each escape's payload at 4096 base64 bytes
 
 TerminalMode = Literal["auto", "kitty", "braille"]
+BrailleBackground = Literal["terminal", "plot"]
 
 
 def detect_mode() -> Literal["kitty", "braille"]:
@@ -48,7 +49,9 @@ def detect_mode() -> Literal["kitty", "braille"]:
     return "braille"
 
 
-def braille_text(plot: PlotSpec | SupPlotsSpec, columns: int) -> str:
+def braille_text(
+    plot: PlotSpec | SupPlotsSpec, columns: int, background: BrailleBackground = "terminal"
+) -> str:
     """Render a plot as coloured braille text (24-bit ANSI colour escapes).
 
     Parameters
@@ -57,6 +60,9 @@ def braille_text(plot: PlotSpec | SupPlotsSpec, columns: int) -> str:
         The plot or grid of plots.
     columns : int
         Width in terminal cells, 1 to 1000.
+    background : {"terminal", "plot"}, default="terminal"
+        ``"terminal"`` keeps the terminal's background and draws neutral colours
+        (text, axes) in its text colour; ``"plot"`` paints the plot's background.
 
     Returns
     -------
@@ -65,7 +71,13 @@ def braille_text(plot: PlotSpec | SupPlotsSpec, columns: int) -> str:
     """
     spec_json, exported, functions = _engine_input(plot, None, False)
     encoded, messages = render(
-        spec_json, exported, "braille", 1.0, functions=functions, columns=columns
+        spec_json,
+        exported,
+        "braille",
+        1.0,
+        functions=functions,
+        columns=columns,
+        plot_background=background == "plot",
     )
     for message in messages:
         warnings.warn(message, GgrustWarning, stacklevel=3)
@@ -104,6 +116,7 @@ def show_in_terminal(
     columns: int | None = None,
     stream: TextIO | None = None,
     mode: TerminalMode = "auto",
+    background: BrailleBackground = "terminal",
 ) -> None:
     """Draw a plot inline in the terminal: an image, or braille text as a fallback.
 
@@ -118,15 +131,22 @@ def show_in_terminal(
     mode : {"auto", "kitty", "braille"}, default="auto"
         ``"kitty"`` draws the PNG with the Kitty graphics protocol, ``"braille"``
         draws text, ``"auto"`` picks by terminal (see ``detect_mode``).
+    background : {"terminal", "plot"}, default="terminal"
+        Braille only: keep the terminal's background, or paint the plot's.
 
     Raises
     ------
     SpecError
-        If ``mode`` is not one of the accepted values.
+        If ``mode`` or ``background`` is not one of the accepted values.
     """
     if mode not in ("auto", "kitty", "braille"):
         raise SpecError(
             f"show_in_terminal(mode={mode!r}) is not a mode; expected 'auto', 'kitty' or 'braille'"
+        )
+    if background not in ("terminal", "plot"):
+        raise SpecError(
+            f"show_in_terminal(background={background!r}) is not a background; "
+            "expected 'terminal' or 'plot'"
         )
     out = stream if stream is not None else sys.stdout
     if columns is None:
@@ -136,7 +156,7 @@ def show_in_terminal(
             columns = 80
     chosen = detect_mode() if mode == "auto" else mode
     if chosen == "braille":
-        out.write(braille_text(plot, columns))
+        out.write(braille_text(plot, columns, background))
     else:
         buffer = io.BytesIO()
         plot.to_png(buffer)

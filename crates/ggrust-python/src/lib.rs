@@ -687,11 +687,12 @@ mod _ggrust {
     /// root element id of HTML outputs, unique per display (required for them);
     /// `functions` are the secondary axis transforms the spec indexes (`sec_axis`);
     /// `metadata` records `ggrust vX.Y.Z` in the output (`render::GENERATOR`);
-    /// `columns` is the width in terminal cells of `"braille"` output (default 80).
+    /// `columns` is the width in terminal cells of `"braille"` output (default 80)
+    /// and `plot_background` paints the plot's background behind it.
     /// Returns the encoded output (UTF-8 for text) and the build warnings.
     /// The GIL is released while building and rendering.
     #[pyfunction]
-    #[pyo3(signature = (spec_json, frames, output, scale, html_id=None, dpi=None, functions=None, quality=None, metadata=true, columns=None))]
+    #[pyo3(signature = (spec_json, frames, output, scale, html_id=None, dpi=None, functions=None, quality=None, metadata=true, columns=None, plot_background=false))]
     #[allow(clippy::too_many_arguments)]
     fn render<'py>(
         python: Python<'py>,
@@ -705,6 +706,7 @@ mod _ggrust {
         quality: Option<u8>,
         metadata: bool,
         columns: Option<u32>,
+        plot_background: bool,
     ) -> PyResult<(Bound<'py, PyBytes>, Vec<String>)> {
         let functions = axis_functions(functions);
         let frames = frames
@@ -747,7 +749,8 @@ mod _ggrust {
                         to_png_with_dpi(&built.scene, scale, dpi.unwrap_or(SCREEN_DPI))?
                     }
                     None if output == "braille" => {
-                        to_braille(&built.scene, columns.unwrap_or(80))?.into_bytes()
+                        to_braille(&built.scene, columns.unwrap_or(80), plot_background)?
+                            .into_bytes()
                     }
                     None if output == "jpeg" => to_jpeg(
                         &built.scene,

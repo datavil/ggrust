@@ -194,6 +194,7 @@ def render(
     quality: int | None = None,
     metadata: bool = True,
     columns: int | None = None,
+    plot_background: bool = False,
 ) -> tuple[bytes, list[str]]:
     """Build and render a plot.
 

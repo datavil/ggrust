@@ -9,7 +9,6 @@
 
 mod animation;
 mod apng;
-mod braille;
 mod canvas;
 mod gif;
 mod html;
@@ -27,7 +26,6 @@ pub const GENERATOR: &str = concat!("ggrust v", env!("CARGO_PKG_VERSION"));
 
 pub use animation::FrameSource;
 pub use apng::to_apng;
-pub use braille::to_braille;
 pub use gif::to_gif;
 pub use html::{HtmlDocument, HtmlOptions, to_html, to_html_animation};
 pub use image::{DEFAULT_JPEG_QUALITY, to_jpeg, to_tiff};

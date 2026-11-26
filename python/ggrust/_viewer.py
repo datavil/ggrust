@@ -36,6 +36,7 @@ import termios
 import time
 import tty
 import warnings
+import webbrowser
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
@@ -89,7 +90,9 @@ class _Viewer:
 
     def __init__(self, style: PaneStyle = "none") -> None:
         self.history: list[PlotSpec | SupPlotsSpec] = []
+        self.titles: list[str] = []  # each plot's ggtitle, "" when it has none
         self.index = -1
+        self.notice = ""  # one-off message shown in the footer
         self.cache: tuple[int, int, int, bytes] | None = None  # index, width, height, png
         self.style = style
 
@@ -120,7 +123,10 @@ class _Viewer:
         framed = rows > 2 * _FRAME and columns > 2 * _FRAME
         inner_rows, inner_columns = rows, columns
         if framed:
-            out.write(_frame(rows, columns, f"plot {self.index + 1}/{len(self.history)}"))
+            label = f"plot {self.index + 1}/{len(self.history)}"
+            if self.titles[self.index]:
+                label += f" \u00b7 {self.titles[self.index]}"
+            out.write(_frame(rows, columns, label))
             inner_rows, inner_columns = rows - 2 * _FRAME, columns - 2 * _FRAME
             out.write(f"\x1b[{1 + _FRAME};{1 + _FRAME}H")
         try:
@@ -129,9 +135,36 @@ class _Viewer:
             out.write(f"could not draw plot {self.index + 1}: {error}")
         else:
             out.write(_fit_escape(png, inner_rows, inner_columns, cell_width, cell_height))
-        footer = f" style {self.style}   <- -> history   q quit"
-        out.write(f"\x1b[{rows + 1};1H\x1b[2m{footer[:columns]}\x1b[0m")
-        out.flush()
+        self.write_footer()
+
+    def write_footer(self) -> None:
+        """Write the footer row: a pending notice, else the style and the keys."""
+        rows, columns, _, _ = _plot_area()
+        footer = self.notice or f"style {self.style}   <- -> history   o browser   q quit"
+        text = f" {footer}"[:columns]
+        sys.stdout.write(f"\x1b[{rows + 1};1H\x1b[2K\x1b[2m{text}\x1b[0m")
+        sys.stdout.flush()
+        self.notice = ""
+
+    def open_in_browser(self) -> None:
+        """Save the current plot as interactive HTML and open it in the default browser."""
+        if self.index < 0:
+            return
+        path = Path(tempfile.gettempdir()) / f"ggrust-plot-{os.getpid()}-{self.index + 1}.html"
+        try:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                self.history[self.index].to_html(path)  # as sent: browsers have a light page
+            opened = webbrowser.open(path.as_uri())
+        except Exception as error:  # report any failure in the footer
+            self.notice = f"could not open plot {self.index + 1} in a browser: {error}"
+        else:
+            self.notice = (
+                f"opened plot {self.index + 1} in the browser"
+                if opened
+                else f"no browser found; the plot is saved at {path}"
+            )
+        self.write_footer()
 
     def receive(self, connection: socket.socket) -> None:
         with connection:
@@ -143,7 +176,9 @@ class _Viewer:
             if payload is None:
                 return
         # The socket is the user's own (mode 0600), so the payload is trusted.
-        self.history.append(pickle.loads(payload))
+        plot = pickle.loads(payload)
+        self.history.append(plot)
+        self.titles.append(_title(plot))
         self.index = len(self.history) - 1
         self.draw()
 
@@ -151,6 +186,8 @@ class _Viewer:
         """Handle a key; False means quit."""
         if key == "q":
             return False
+        if key == "o":
+            self.open_in_browser()
         if key in ("\x1b[D", "h") and self.index > 0:
             self.index -= 1
             self.draw()
@@ -158,6 +195,12 @@ class _Viewer:
             self.index += 1
             self.draw()
         return True
+
+
+def _title(plot: PlotSpec | SupPlotsSpec) -> str:
+    """Return the plot's ``ggtitle`` text on one line, or "" when it has none."""
+    title = (plot.as_dict().get("ggtitle") or {}).get("text")
+    return " ".join(str(title).split()) if title else ""
 
 
 def _png_size(png: bytes) -> tuple[int, int]:
@@ -168,7 +211,10 @@ def _png_size(png: bytes) -> tuple[int, int]:
 
 def _frame(rows: int, columns: int, title: str) -> str:
     """Draw a dim rounded box over ``rows`` x ``columns`` cells, ``title`` in its top edge."""
-    label = f" {title} "[: max(columns - 4, 0)]
+    room = max(columns - 4, 0)
+    label = f" {title} "
+    if len(label) > room:  # cut long titles, marking the cut
+        label = label[: max(room - 2, 0)] + "\u2026 "
     top = "\u256d\u2500" + label + "\u2500" * (columns - 3 - len(label)) + "\u256e"
     side = "\u2502" + " " * (columns - 2) + "\u2502"
     bottom = "\u2570" + "\u2500" * (columns - 2) + "\u256f"

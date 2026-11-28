@@ -42,6 +42,7 @@ import subprocess
 import sys
 import tempfile
 import termios
+import threading
 import time
 import tty
 import warnings
@@ -83,6 +84,7 @@ _MAX_PENDING = 4096  # characters of an unfinished escape sequence kept between 
 _REPLY_TIMEOUT = 120.0  # seconds a client waits for the pane to draw and answer
 _PROTOCOL = "ggrust-pane/1"  # first item of every message tuple
 _MAX_TABLE_ROWS = 10_000  # rows of a frame sent to the pane; the rest is only counted
+_MAX_PLOT_SIDE = 20_000  # layout pixels; ``pane.size`` refuses larger sides
 
 
 class PaneError(RuntimeError):
@@ -205,10 +207,18 @@ class _Viewer:
         return self.pages[self.index] if 0 <= self.index < len(self.pages) else None
 
     def add(self, page: Page) -> None:
-        """Append ``page`` to the history and show it."""
+        """Append ``page`` to the history and show it; if drawing it fails, take it back out."""
+        previous = self.index
         self.pages.append(page)
         self.index = len(self.pages) - 1
-        self.draw()
+        try:
+            self.draw()
+        except Exception:
+            self.pages.pop()
+            self.index = previous
+            with contextlib.suppress(Exception):  # put the page that was on screen back
+                self.draw()
+            raise
 
     def render(self, width: int, height: int) -> bytes:
         """Render the current plot as PNG bytes of ``width`` x ``height`` pixels (cached).
@@ -289,6 +299,8 @@ class _Viewer:
     def text_page_lines(self, page: Page, rows: int, columns: int) -> list[str]:
         """Return the lines of a table or text page that are on screen."""
         if page.kind == "table":
+            if page.frame is not None:  # the last row stays at the bottom, as the pane resizes
+                page.top = max(min(page.top, page.frame.height - table_rows_on_screen(rows)), 0)
             return table_lines(page, rows, columns)
         lines = text_lines(page.text, columns)
         page.top = max(min(page.top, len(lines) - rows), 0)
@@ -372,9 +384,11 @@ class _Viewer:
             When the message is too big, too slow, cut short, or not one the pane knows.
         """
         deadline = time.monotonic() + _RECEIVE_TIMEOUT
-        with connection:
+        failure: Exception | None = None
+        try:
             header = _read_exact(connection, 8, deadline)
             if header is None:
+                connection.close()
                 return
             (length,) = struct.unpack(">Q", header)
             if length > _MAX_PAYLOAD:
@@ -382,18 +396,14 @@ class _Viewer:
             payload = _read_exact(connection, length, deadline)
             if payload is None:
                 raise MessageError(f"the sender hung up before sending all {length} bytes")
-            kind, body = _load_message(payload)
-            refusal: MessageError | None = None
-            try:
-                reply = self.handle(kind, body)
-            except MessageError as error:  # tell the sender why, then report it here too
-                reply, refusal = self.reply(error=str(error)), error
-            answer = pickle.dumps(reply)
-            with contextlib.suppress(OSError):  # the sender stopped listening: fine
-                connection.settimeout(_RECEIVE_TIMEOUT)
-                connection.sendall(struct.pack(">Q", len(answer)) + answer)
-        if refusal is not None:
-            raise refusal
+            reply = self.handle(*_load_message(payload))
+        except Exception as error:  # tell the sender why, then report it here too
+            message = str(error) if isinstance(error, MessageError) else _describe(error)
+            reply, failure = self.reply(error=message), error
+        answer = pickle.dumps(reply)
+        _send_reply(connection, struct.pack(">Q", len(answer)) + answer)
+        if failure is not None:
+            raise failure
 
     def handle(self, kind: MessageKind, body: object) -> Reply:
         """Act on one message and return the reply.
@@ -464,12 +474,12 @@ class _Viewer:
                 raise MessageError(f"unknown style {argument!r}; use 'dark', 'light' or 'none'")
             self.style = argument
         elif name == "size":
-            if argument is not None and not (
-                isinstance(argument, tuple)
-                and len(argument) == 2
-                and all(isinstance(side, int | float) and side > 0 for side in argument)
-            ):
-                raise MessageError("size takes None or a (width, height) pair of positive numbers")
+            if argument is not None:
+                if not (isinstance(argument, tuple) and len(argument) == 2):
+                    raise MessageError("size takes None or a (width, height) pair")
+                problem = size_problem(*argument)
+                if problem is not None:
+                    raise MessageError(problem)
             self.fixed_size = None if argument is None else (float(argument[0]), float(argument[1]))
         elif name == "clear":
             self.pages.clear()
@@ -486,16 +496,21 @@ class _Viewer:
         if page is None or page.kind == "plot":
             return
         if page.kind == "table" and page.frame is not None:
-            limit = max(page.frame.height - 1, 0)
+            limit = max(page.frame.height - table_rows_on_screen(self.inner_rows()), 0)
             page.left = max(min(page.left + columns, page.frame.width - 1), 0)
         else:
             limit = 1 << 30  # text pages clamp when drawn, once the wrapping is known
         page.top = max(min(page.top + rows if to is None else to, limit), 0)
         self.draw()
 
+    def inner_rows(self) -> int:
+        """Return the lines inside the frame (the whole plot area when it is too small for one)."""
+        rows, columns = _plot_area()[:2]
+        return rows - 2 * _FRAME if rows > 2 * _FRAME and columns > 2 * _FRAME else max(rows, 1)
+
     def page_step(self) -> int:
         """Return how many rows or lines a page-down moves: a screenful less one."""
-        rows = max(_plot_area()[0] - 2 * _FRAME, 1)
+        rows = self.inner_rows()
         if self.page is not None and self.page.kind == "table":
             rows = table_rows_on_screen(rows)
         return max(rows - 1, 1)
@@ -529,6 +544,55 @@ class _Viewer:
         elif key == "[":
             self.scroll(columns=-1)
         return True
+
+
+def _describe(error: Exception) -> str:
+    """Return ``error`` as one line for a reply or the footer: ``TypeError: ...``."""
+    return f"{type(error).__name__}: {error}"
+
+
+def _send_reply(connection: socket.socket, data: bytes) -> None:
+    """Send ``data`` and close ``connection`` without making the pane wait on the client.
+
+    What fits in the socket's buffer goes at once; the rest (a large ``last`` plot to
+    a client that does not read) is finished by a background thread, which gives up
+    after ``_RECEIVE_TIMEOUT`` seconds without progress.
+    """
+    try:
+        connection.setblocking(False)
+        sent = connection.send(data)
+    except BlockingIOError:
+        sent = 0
+    except OSError:  # the sender stopped listening: fine
+        connection.close()
+        return
+    if sent >= len(data):
+        connection.close()
+        return
+
+    def finish() -> None:
+        with connection, contextlib.suppress(OSError):
+            connection.settimeout(_RECEIVE_TIMEOUT)
+            connection.sendall(data[sent:])
+
+    threading.Thread(target=finish, name="ggrust-pane-reply", daemon=True).start()
+
+
+def size_problem(width: object, height: object) -> str | None:
+    """Return why ``(width, height)`` is no plot size for ``pane.size``, or None if it is one.
+
+    Each side must be a finite number of layout pixels (not a bool) in
+    ``(0, _MAX_PLOT_SIDE]``.
+    """
+    for label, side in (("w", width), ("h", height)):
+        if isinstance(side, bool) or not isinstance(side, int | float):
+            return f"pane.size {label} must be a number of pixels, got {type(side).__name__}"
+        if not 0 < side <= _MAX_PLOT_SIDE:  # refuses nan, inf and huge ints
+            return (
+                f"pane.size {label}={side!r} is out of range; use a number of pixels "
+                f"above 0 and at most {_MAX_PLOT_SIDE:,}"
+            )
+    return None
 
 
 def _load_plot(payload: bytes) -> PlotSpec | SupPlotsSpec:
@@ -975,11 +1039,17 @@ def request(kind: MessageKind, body: object, timeout: float = _REPLY_TIMEOUT) ->
         answer in time.
     """
     payload = pickle.dumps((_PROTOCOL, kind, body))
+    if len(payload) > _MAX_PAYLOAD:
+        return Reply(error=f"the message is {len(payload):,} bytes; the limit is {_MAX_PAYLOAD:,}")
     connection = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     with connection:
         try:
             connection.connect(str(socket_path()))
+        except OSError:  # no pane
+            return None
+        with contextlib.suppress(OSError):  # the pane may refuse it unread: read its reply
             connection.sendall(struct.pack(">Q", len(payload)) + payload)
+        try:
             connection.settimeout(timeout)
             header = _recv_exact(connection, 8)
             if header is None:

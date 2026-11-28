@@ -9,12 +9,14 @@ Not part of the public API: a prototype on its own branch.
 from __future__ import annotations
 
 import inspect
-import textwrap
+import re
 import unicodedata
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Literal
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     import polars as pl
 
     from ggrust.plot.core import PlotSpec
@@ -66,7 +68,7 @@ class Page:
     text: str = ""
     top: int = 0
     left: int = 0
-    widths: list[int] = field(default_factory=list)  # table column widths, computed once
+    widths: dict[int, int] = field(default_factory=dict)  # table column widths, as drawn
     failed: bool = False  # a plot that could not be drawn
 
 
@@ -92,22 +94,67 @@ def _clean_text(text: str) -> str:
 
 
 def _cell_width(character: str) -> int:
-    """Terminal cells ``character`` takes: 2 for wide and full-width, 0 for combining marks."""
-    if unicodedata.combining(character) or unicodedata.category(character) in ("Mn", "Me", "Cf"):
+    """Terminal cells ``character`` takes alone: 2 for wide, 0 for combining and control."""
+    if unicodedata.combining(character) or unicodedata.category(character) in (
+        "Mn",
+        "Me",
+        "Cf",
+        "Cc",
+    ):
         return 0
     return 2 if unicodedata.east_asian_width(character) in ("W", "F") else 1
 
 
+_ZERO_WIDTH_JOINER = "\u200d"
+_EMOJI_PRESENTATION = "\ufe0f"  # VS16: the character before it is drawn as a 2-cell emoji
+
+
+def _is_skin_tone(character: str) -> bool:
+    return 0x1F3FB <= ord(character) <= 0x1F3FF
+
+
+def _is_regional_indicator(character: str) -> bool:
+    return 0x1F1E6 <= ord(character) <= 0x1F1FF
+
+
+def _widths(text: str) -> Iterator[int]:
+    """Yield the cells each character of ``text`` adds, as a terminal draws emoji sequences.
+
+    VS16 widens a 1-cell character before it to 2 (``❤️``); a character joined by a
+    ZWJ, or a skin tone after an emoji, adds nothing (``👩‍💻``, ``👍🏽``); a pair of
+    regional indicators is one 2-cell flag, counted on its first half so a cut never
+    splits it.
+    """
+    previous = 0  # cells of the character before, once VS16 is applied
+    joined = False  # the character before was a ZWJ
+    open_flag = False  # the character before started a pair of regional indicators
+    for character in text:
+        if character == _EMOJI_PRESENTATION:
+            width = 1 if previous == 1 else 0
+            previous = 2 if previous else 0
+        elif _is_regional_indicator(character):
+            width = 0 if open_flag else 2
+            open_flag = not open_flag
+            previous = 2
+        else:
+            joins = joined or (_is_skin_tone(character) and previous == 2)
+            width = 0 if joins else _cell_width(character)
+            previous = width or previous
+            open_flag = False
+        joined = character == _ZERO_WIDTH_JOINER
+        yield width
+
+
 def _cells(text: str) -> int:
     """Terminal cells ``text`` takes."""
-    return sum(_cell_width(character) for character in text)
+    return sum(_widths(text))
 
 
 def _cut(text: str, cells: int) -> str:
     """Return the longest start of ``text`` that fits in ``cells`` terminal cells."""
     used = 0
-    for index, character in enumerate(text):
-        used += _cell_width(character)
+    for index, width in enumerate(_widths(text)):
+        used += width
         if used > cells:
             return text[:index]
     return text
@@ -170,27 +217,34 @@ def _dtype_name(dtype: object) -> str:
         return str(dtype)
 
 
-def _column_widths(frame: pl.DataFrame) -> list[int]:
-    """Cells each column needs for its name, its type and its values (capped)."""
-    widths: list[int] = []
-    for column in frame.columns:
-        series = frame.get_column(column)
-        values = [_format_value(value) for value in series.to_list()]
-        needed = max([_cells(column), _cells(_dtype_name(series.dtype)), *map(_cells, values)])
-        widths.append(min(needed, _MAX_COLUMN_CELLS))
-    return widths
+def _column_width(page: Page, column: int) -> int:
+    """Cells column ``column`` needs for its name, its type and its values (capped).
+
+    Computed the first time the column is drawn and kept in ``page.widths``, so a wide
+    frame costs only the columns that reach the screen. Values are measured on their
+    first ``_MAX_COLUMN_CELLS + 1`` characters, which is all the cap can use.
+    """
+    if column not in page.widths:
+        assert page.frame is not None
+        series = page.frame.to_series(column)
+        limit = _MAX_COLUMN_CELLS + 1
+        needed = max(
+            _cells(_clean_label(series.name)[:limit]),
+            _cells(_dtype_name(series.dtype)),
+            *(_cells(_format_value(value)[:limit]) for value in series.to_list()),
+        )
+        page.widths[column] = min(needed, _MAX_COLUMN_CELLS)
+    return page.widths[column]
 
 
 def visible_columns(page: Page, cells: int) -> range:
     """Return the columns of a table page that fit in ``cells``, starting at ``page.left``."""
     assert page.frame is not None
-    if not page.widths:
-        page.widths = _column_widths(page.frame)
     index_cells = len(str(page.total_rows)) + _COLUMN_GAP
     used = index_cells
     end = page.left
-    while end < len(page.widths):
-        used += page.widths[end] + (_COLUMN_GAP if end > page.left else 0)
+    while end < page.frame.width:
+        used += _column_width(page, end) + (_COLUMN_GAP if end > page.left else 0)
         if used > cells and end > page.left:
             break
         end += 1
@@ -231,7 +285,7 @@ def table_lines(page: Page, rows: int, cells: int) -> list[str]:
         return render_line(segments, cells)
 
     lines = [
-        line("", names, BOLD),
+        line("", [_clean_label(name) for name in names], BOLD),
         line("", [_dtype_name(frame.get_column(name).dtype) for name in names], DIM),
         render_line([(DIM, "─" * cells)], cells),
     ]
@@ -276,6 +330,7 @@ def help_text(target: object) -> tuple[str, str]:
         empty = inspect.Parameter.empty
         parameters = [parameter.replace(annotation=empty) for parameter in full.parameters.values()]
         signature = str(full.replace(parameters=parameters, return_annotation=empty))
+        signature = re.sub(r"\s*\n\s*", " ", signature)  # a default whose repr spans lines
     documentation = inspect.getdoc(target) or "No documentation."
     return name, f"{name}{signature}\n\n{documentation}"
 
@@ -351,6 +406,33 @@ def _marked_segments(line: str, code: str, in_code: bool) -> tuple[list[Segment]
     return segments, in_code
 
 
+def _wrap(text: str, cells: int, first: str, later: str) -> list[str]:
+    """Wrap ``text`` at spaces into lines of at most ``cells`` terminal cells.
+
+    The first line starts with ``first``, later ones with ``later``; a word too
+    long for a line is broken across lines. Widths count cells, not characters.
+    """
+    lines: list[str] = []
+    current, used, has_word = first, _cells(first), False
+    for word in text.split():
+        while word:
+            needed = _cells(word) + (1 if has_word else 0)
+            if used + needed <= cells:
+                current += (" " if has_word else "") + word
+                used, has_word, word = used + needed, True, ""
+            elif has_word:  # start a new line and try the word again
+                lines.append(current)
+                current, used, has_word = later, _cells(later), False
+            else:  # the word alone is too long: break it
+                piece = _cut(word, max(cells - used, 1)) or word[0]
+                lines.append(current + piece)
+                word = word[len(piece) :]
+                current, used = later, _cells(later)
+    if has_word or not lines:
+        lines.append(current)
+    return lines
+
+
 def text_lines(text: str, cells: int) -> list[str]:
     """Lay out a text page: reflow and color a NumPy-style docstring to ``cells``.
 
@@ -371,7 +453,7 @@ def text_lines(text: str, cells: int) -> list[str]:
     list of str
         All lines, each at most ``cells`` cells, with SGR escapes.
     """
-    width = max(cells, 8)
+    width = max(cells, 1)
     lines: list[str] = []
     for kind, indent, body in _blocks(text):
         if kind == "blank":
@@ -389,14 +471,7 @@ def text_lines(text: str, cells: int) -> list[str]:
             first = " " * min(indent, width // 2)
             later = " " * min(indent + (4 if kind == "signature" else 0), width // 2)
             code = ACCENT if kind == "signature" else PLAIN
-            wrapped = textwrap.wrap(
-                body if kind == "signature" else _mark_code(body),
-                width=width,
-                initial_indent=first,
-                subsequent_indent=later,
-                break_on_hyphens=False,
-                break_long_words=True,
-            )
+            wrapped = _wrap(body if kind == "signature" else _mark_code(body), width, first, later)
             in_code = False
             for part in wrapped or [""]:
                 segments, in_code = _marked_segments(part, code, in_code)

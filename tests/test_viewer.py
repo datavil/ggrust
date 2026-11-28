@@ -643,8 +643,8 @@ def test_pane_replies_with_page_numbers_and_shows_tables_and_help(
     assert pane.socket is not None
     first = _request(pane.socket, "plot", _plot("first"))
     assert first is not None and (first.index, first.total, first.error) == (1, 1, None)
-    frame = pl.DataFrame({"species": ["Adelie", "Gentoo"], "mass": [3700.0, 5000.0]})
-    table = _request(pane.socket, "table", ("penguins", frame, 344))
+    frame = pl.DataFrame({"species": ["Adelie", "Gentoo"] * 100, "mass": [3700.0, 5000.0] * 100})
+    table = _request(pane.socket, "table", ("penguins", frame, 344))  # taller than the pane
     assert table is not None and table.index == 2
     assert _wait(lambda: b"data 2/2" in pane.text() and b"Adelie" in pane.text())
     assert _wait(lambda: b"344" in pane.text())
@@ -690,3 +690,226 @@ def test_blocks_time_repl_code_only_and_skip_empty_lines(
     assert "╰─ 1 " in capsys.readouterr().out
     blocks.finish()  # nothing ran since: no second divider
     assert capsys.readouterr().out == ""
+
+
+# --- second bug-hunt round -------------------------------------------------------------------
+
+
+def test_column_names_are_cleaned_of_escapes() -> None:
+    import polars as pl
+    from ggrust._pane_pages import table_lines
+
+    frame = pl.DataFrame({"a\x1b]0;pwned\x07b": [1], "c‮d": [2]})
+    lines = table_lines(Page("table", "t", frame=frame, total_rows=1), 6, 60)
+    assert all("\x1b]" not in line and "\x07" not in line and "‮" not in line for line in lines)
+    assert "a]0;pwnedb" in _plain(lines[0]) and "cd" in _plain(lines[0])
+
+
+def test_column_widths_are_measured_only_for_columns_on_screen() -> None:
+    import polars as pl
+    from ggrust._pane_pages import table_lines
+
+    frame = pl.DataFrame({f"column{i}": list(range(10_000)) for i in range(200)})
+    page = Page("table", "t", frame=frame, total_rows=10_000)
+    lines = table_lines(page, 10, 80)
+    assert 0 < len(page.widths) < 20
+    assert "column0" in _plain(lines[0])
+    page.left = 150
+    table_lines(page, 10, 80)
+    assert 150 in page.widths and 100 not in page.widths
+
+
+def _exchange(viewer: _viewer._Viewer, data: bytes) -> tuple[_viewer.Reply, Exception | None]:
+    """Run ``viewer.receive`` on one end of a socket pair that ``data`` was sent into."""
+    client, server = socket.socketpair()
+    with client:
+        client.sendall(data)
+        failure: Exception | None = None
+        try:
+            viewer.receive(server)
+        except Exception as error:
+            failure = error
+        client.settimeout(5)
+        header = client.recv(8, socket.MSG_WAITALL)
+        (length,) = struct.unpack(">Q", header)
+        answer = b""
+        while len(answer) < length:
+            answer += client.recv(length - len(answer))
+    return pickle.loads(answer), failure
+
+
+def _framed(message: object) -> bytes:
+    payload = pickle.dumps(message)
+    return struct.pack(">Q", len(payload)) + payload
+
+
+def test_refused_messages_still_get_a_reply() -> None:
+    viewer = _viewer._Viewer("none")
+    reply, failure = _exchange(viewer, _framed((_viewer._PROTOCOL, "nope", None)))
+    assert isinstance(failure, _viewer.MessageError)
+    assert reply.error is not None and "unknown message kind 'nope'" in reply.error
+    reply, failure = _exchange(viewer, struct.pack(">Q", _viewer._MAX_PAYLOAD + 1))
+    assert isinstance(failure, _viewer.MessageError)
+    assert reply.error is not None and "refused" in reply.error
+
+
+def test_a_page_that_fails_to_draw_is_taken_back_and_reported(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    viewer = _viewer._Viewer("none")
+    viewer.handle("text", ("first", "first()\n\nText."))
+
+    def broken(page: Page, rows: int, cells: int) -> list[str]:
+        raise RuntimeError("cannot lay it out")
+
+    monkeypatch.setattr(_viewer, "table_lines", broken)
+    import polars as pl
+
+    message = (_viewer._PROTOCOL, "table", ("t", pl.DataFrame({"a": [1]}), 1))
+    reply, failure = _exchange(viewer, _framed(message))
+    assert isinstance(failure, RuntimeError)
+    assert reply.error == "RuntimeError: cannot lay it out"
+    assert [page.title for page in viewer.pages] == ["first"] and viewer.index == 0
+
+
+@pytest.mark.parametrize(
+    "size", [(float("inf"), 100), (100, float("nan")), (True, 100), (1e9, 1), (10**400, 5)]
+)
+def test_size_refuses_infinite_bool_and_huge_sides(size: tuple[float, float]) -> None:
+    from ggrust._pane_repl import Pane
+
+    viewer = _viewer._Viewer("none")
+    with pytest.raises(_viewer.MessageError, match=r"pane\.size"):
+        viewer.handle("control", ("size", size))
+    assert viewer.fixed_size is None
+    expected = TypeError if any(isinstance(side, bool) for side in size) else ValueError
+    with pytest.raises(expected, match=r"pane\.size"):
+        Pane().size(*size)  # refused before anything is sent
+
+
+def test_table_scrolling_stops_with_the_last_row_at_the_bottom() -> None:
+    import polars as pl
+    from ggrust._pane_pages import table_rows_on_screen
+
+    viewer = _viewer._Viewer("none")
+    viewer.handle("table", ("t", pl.DataFrame({"a": range(200)}), 200))
+    end = 200 - table_rows_on_screen(viewer.inner_rows())
+    viewer.key("G")
+    assert viewer.page is not None and viewer.page.top == end
+    viewer.key("j")
+    viewer.key(" ")
+    assert viewer.page.top == end
+    viewer.handle("table", ("small", pl.DataFrame({"a": range(3)}), 3))
+    viewer.key("G")
+    viewer.key("j")
+    assert viewer.page.top == 0  # it all fits: nothing to scroll
+
+
+def test_completer_binds_methods_and_classmethods() -> None:
+    from ggrust._pane_repl import Pane, _Completer, _keywords
+
+    class Maker:
+        @classmethod
+        def make(cls, first: int, second: int = 1) -> None: ...
+
+        @staticmethod
+        def build(third: int) -> None: ...
+
+    namespace: dict[str, object] = {"pane": Pane(), "Maker": Maker, "maker": Maker()}
+    completer = _Completer(namespace, lambda: "")
+    assert _keywords(completer.lookup("pane.save")) == ["filename", "w", "h"]
+    assert _keywords(completer.lookup("Maker.make")) == ["first", "second"]
+    assert _keywords(completer.lookup("maker.make")) == ["first", "second"]
+    assert _keywords(completer.lookup("maker.build")) == ["third"]
+
+
+def test_show_runs_a_lazy_query_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    import polars as pl
+    from ggrust import _pane_repl
+
+    runs: list[int] = []
+
+    def count(frame: pl.DataFrame) -> pl.DataFrame:
+        runs.append(1)
+        return frame
+
+    sent: list[object] = []
+    monkeypatch.setattr(
+        _pane_repl, "_ask", lambda kind, body: (sent.append(body), _viewer.Reply(1, 1))[1]
+    )
+    lazy = pl.LazyFrame({"a": range(50_000), "__ggrust_rows": 0}).map_batches(count)
+    _pane_repl.Pane().show(lazy, name="lazy")
+    title, frame, total = sent[0]  # type: ignore[misc]
+    assert len(runs) == 1 and total == 50_000 and title == "lazy"
+    assert frame.height == _viewer._MAX_TABLE_ROWS and frame.columns == ["a", "__ggrust_rows"]
+    _pane_repl.Pane().show(pl.LazyFrame({"a": [1]}).filter(pl.col("a") > 5))
+    assert sent[1][2] == 0  # type: ignore[index]
+
+
+def test_open_call_ignores_strings_and_comments_and_typed_keywords_are_not_offered() -> None:
+    from ggrust import geom_point
+    from ggrust._pane_repl import _Completer, _open_call
+
+    assert _open_call('geom_point(label="(", s') == "geom_point"
+    assert _open_call("geom_point(label=')', ") == "geom_point"
+    assert _open_call('geom_point(label="a\\"(", ') == "geom_point"
+    assert _open_call("geom_point(size=2,  # f(") == "geom_point"
+    assert _open_call('geom_point(label="(') is None  # inside a string
+    line = ""
+    completer = _Completer({"geom_point": geom_point}, lambda: line)
+    line = "geom_point(size=2, aes(stat=1), s"
+    found: list[str] = []
+    while (match := completer.complete("s", len(found))) is not None:
+        found.append(match)
+    assert "size=" not in found and "stat=" in found  # stat= was given to aes, not here
+
+
+def test_text_wraps_by_cells_and_narrow_widths_keep_every_character() -> None:
+    from ggrust._pane_pages import _cells, text_lines
+
+    text = "sig()\n\n" + "日本語のテキスト " * 6
+    for cells in (3, 5, 11, 30):
+        lines = [_plain(line) for line in text_lines(text, cells)]
+        assert all(_cells(line) <= cells for line in lines)
+        assert "".join(lines[2:]).replace(" ", "") == "日本語のテキスト" * 6
+    lines = [_plain(line) for line in text_lines("sig()\n\nhello wonderful world", 4)]
+    assert "".join(lines[2:]).replace(" ", "") == "hellowonderfulworld"
+
+
+def test_emoji_sequences_take_two_cells() -> None:
+    from ggrust._pane_pages import _cells, _cut
+
+    assert _cells("❤️") == 2  # heart with VS16
+    assert _cells("\U0001f1f9\U0001f1f7") == 2  # a flag
+    assert _cells("\U0001f469‍\U0001f4bb") == 2  # ZWJ sequence
+    assert _cells("a❤b") == 3  # text presentation stays 1
+    assert _cut("a\U0001f1f9\U0001f1f7b", 2) == "a"  # a flag is never split
+
+
+def test_a_client_that_does_not_read_its_reply_does_not_stall_the_pane() -> None:
+    client, server = socket.socketpair()
+    data = b"x" * (32 << 20)
+    started = time.monotonic()
+    _viewer._send_reply(server, data)
+    assert time.monotonic() - started < 0.5
+    client.settimeout(10)
+    received = 0
+    while chunk := client.recv(1 << 20):
+        received += len(chunk)
+    client.close()
+    assert received == len(data)  # the rest still arrives, from the background
+
+
+def test_help_signature_stays_on_one_line_with_a_multiline_default() -> None:
+    from ggrust._pane_pages import _blocks, help_text
+
+    class Odd:
+        def __repr__(self) -> str:
+            return "Odd(\n  1\n)"
+
+    def function(a: int, b: object = Odd(), c: str = "x  y") -> None:
+        """Do it."""
+
+    _, text = help_text(function)
+    kind, _, signature = _blocks(text)[0]
+    assert kind == "signature" and "function(a, b=Odd( 1 ), c='x  y')" in signature

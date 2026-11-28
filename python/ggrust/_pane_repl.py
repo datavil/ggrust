@@ -22,10 +22,11 @@ import rlcompleter
 import shutil
 import sys
 import time
+import types
 from typing import TYPE_CHECKING, Literal
 
 from ggrust._pane_pages import help_text
-from ggrust._viewer import _MAX_TABLE_ROWS, PaneError, Reply, request
+from ggrust._viewer import _MAX_TABLE_ROWS, PaneError, Reply, request, size_problem
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -153,9 +154,14 @@ class Pane:
             return
         import polars as pl
 
-        if isinstance(data, pl.LazyFrame):
-            frame = data.head(_MAX_TABLE_ROWS).collect()
-            total = data.select(pl.len()).collect().item()
+        if isinstance(data, pl.LazyFrame):  # one run of the query gives the rows and the count
+            names = set(data.collect_schema().names())
+            count = "__ggrust_rows"
+            while count in names:
+                count += "_"
+            head = data.with_columns(pl.len().alias(count)).head(_MAX_TABLE_ROWS).collect()
+            total = head.get_column(count)[0] if head.height else 0
+            frame = head.drop(count)
         else:
             whole = _as_polars(data)
             frame, total = whole.head(_MAX_TABLE_ROWS), whole.height
@@ -259,9 +265,19 @@ class Pane:
         ------
         PaneError
             When no pane is running, or only one side is given.
+        TypeError
+            When a side is not a number (a bool is not one).
+        ValueError
+            When a side is not finite, not positive, or above 20,000 pixels.
         """
         if (w is None) != (h is None):
             raise PaneError("give both w and h, or neither to fill the pane")
+        if w is not None:
+            problem = size_problem(w, h)
+            if problem is not None:
+                number = not isinstance(w, bool) and not isinstance(h, bool)
+                number = number and all(isinstance(side, int | float) for side in (w, h))
+                raise (ValueError if number else TypeError)(problem)
         _ask("control", ("size", None if w is None else (w, h)))
 
     def clear(self) -> None:
@@ -306,24 +322,88 @@ def install_displayhook() -> None:
 # --- keyword completion ---------------------------------------------------------
 
 _CALL = re.compile(r"([A-Za-z_][\w.]*)\($")
+_TYPED_KEYWORD = re.compile(r"(?:^|,)\s*([A-Za-z_]\w*)\s*=(?!=)")
 
 
-def _open_call(line: str) -> str | None:
-    """Return the dotted name of the innermost call still open at the end of ``line``."""
-    depth = 0
-    for index in range(len(line) - 1, -1, -1):
+def _code_only(line: str) -> str | None:
+    """Return ``line`` with string contents blanked and any comment cut off.
+
+    Brackets and ``=`` inside strings and comments then no longer count. Returns None
+    when the line ends inside a string (nothing to complete there).
+    """
+    out: list[str] = []
+    index, quote = 0, ""
+    while index < len(line):
         character = line[index]
+        if quote:
+            if character == "\\":
+                out.append("  ")
+                index += 2
+                continue
+            if line.startswith(quote, index):
+                out.append(quote)
+                index += len(quote)
+                quote = ""
+                continue
+            out.append(" ")
+        elif character == "#":
+            break
+        elif character in "'\"":
+            quote = character * 3 if line.startswith(character * 3, index) else character
+            out.append(quote)
+            index += len(quote)
+            continue
+        else:
+            out.append(character)
+        index += 1
+    return None if quote else "".join(out)
+
+
+def _call_at_end(line: str) -> tuple[str, str] | None:
+    """Return the innermost call still open at the end of ``line``, and its arguments so far.
+
+    The arguments are the text typed at the call's own level (nested brackets left out).
+    """
+    code = _code_only(line)
+    if code is None:
+        return None
+    depth = 0
+    for index in range(len(code) - 1, -1, -1):
+        character = code[index]
         if character in ")]}":
             depth += 1
         elif character in "([{":
             if depth:
                 depth -= 1
             elif character == "(":
-                match = _CALL.search(line[: index + 1])
-                return match.group(1) if match else None
+                match = _CALL.search(code[: index + 1])
+                if match is None:
+                    return None
+                arguments: list[str] = []
+                level = 0
+                for character in code[index + 1 :]:
+                    if character in "([{":
+                        level += 1
+                    elif character in ")]}":
+                        level -= 1
+                    elif level == 0:
+                        arguments.append(character)
+                return match.group(1), "".join(arguments)
             else:
                 return None
     return None
+
+
+def _open_call(line: str) -> str | None:
+    """Return the dotted name of the innermost call still open at the end of ``line``."""
+    call = _call_at_end(line)
+    return None if call is None else call[0]
+
+
+def _typed_keywords(line: str) -> set[str]:
+    """Return the keywords already given in the call still open at the end of ``line``."""
+    call = _call_at_end(line)
+    return set() if call is None else set(_TYPED_KEYWORD.findall(call[1]))
 
 
 def _keywords(target: object) -> list[str]:
@@ -359,9 +439,21 @@ class _Completer(rlcompleter.Completer):
             return None
         target = self.namespace_.get(parts[0], getattr(builtins, parts[0], None))
         for part in parts[1:]:
-            target = inspect.getattr_static(target, part, None)
+            owner = target
+            target = inspect.getattr_static(owner, part, None)
             if target is None:
                 return None
+            # bind methods as attribute access would (without running any code), so the
+            # signature drops ``self`` / ``cls``
+            if isinstance(target, staticmethod):
+                target = target.__func__
+            elif isinstance(target, classmethod):
+                cls = owner if isinstance(owner, type) else type(owner)
+                target = types.MethodType(target.__func__, cls)
+            elif isinstance(target, types.FunctionType) and not isinstance(
+                owner, type | types.ModuleType
+            ):
+                target = types.MethodType(target, owner)
         return target
 
     def complete(self, text: str, state: int) -> str | None:
@@ -374,8 +466,11 @@ class _Completer(rlcompleter.Completer):
                 if call is not None and not keyword.iskeyword(call):
                     target = self.lookup(call)
                     if target is not None and (text == "" or text.isidentifier()):
+                        typed = _typed_keywords(before)
                         self.matches_ = [
-                            f"{name}=" for name in _keywords(target) if name.startswith(text)
+                            f"{name}="
+                            for name in _keywords(target)
+                            if name.startswith(text) and name not in typed
                         ]
             if text and not self.matches_:  # keywords that match win; else names
                 base: list[str] = []

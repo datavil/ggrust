@@ -316,7 +316,7 @@ def test_workspace_quotes_python_and_gives_each_window_a_socket(
         assert stat.S_IMODE(runtime.stat().st_mode) == 0o700
         startup = runtime / "startup.py"
         assert stat.S_IMODE(startup.stat().st_mode) == 0o600
-        assert "ggrust._pane_repl import start" in startup.read_text()
+        assert "from ggrust._pane_repl import" in startup.read_text()
     finally:
         for file in runtime.glob("*"):
             file.unlink()
@@ -657,3 +657,36 @@ def test_pane_replies_with_page_numbers_and_shows_tables_and_help(
     refused = _request(pane.socket, "control", ("bogus", None))
     assert refused is not None and refused.error is not None and "unknown control" in refused.error
     assert pane.alive()
+
+
+def test_divider_shows_number_failure_and_time_at_full_width(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from ggrust._pane_repl import divider
+
+    monkeypatch.setenv("NO_COLOR", "1")
+    line = divider(3, 0.24, failed=False, columns=40)
+    assert line.startswith("╰─ 3 ") and line.endswith(" 0.24s ─")
+    assert len(line) == 40
+    assert "✗" in divider(4, 75.0, failed=True, columns=40)
+    assert "1m 15s" in divider(4, 75.0, failed=True, columns=40)
+
+
+def test_blocks_time_repl_code_only_and_skip_empty_lines(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    from ggrust._pane_repl import _Blocks
+
+    monkeypatch.setenv("NO_COLOR", "1")
+    blocks = _Blocks()
+    blocks.audit("exec", (compile("x = 1", "startup.py", "exec"),))  # not typed: no block
+    blocks.finish()
+    blocks.audit("exec", (compile("pass", "<console>", "single"),))  # an empty line
+    blocks.finish()
+    assert capsys.readouterr().out == ""
+    blocks.audit("exec", (compile("x = 1", "<python-input-0>", "single"),))
+    blocks.audit("open", ("file", "r", 0))
+    blocks.finish()
+    assert "╰─ 1 " in capsys.readouterr().out
+    blocks.finish()  # nothing ran since: no second divider
+    assert capsys.readouterr().out == ""

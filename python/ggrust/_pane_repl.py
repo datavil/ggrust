@@ -12,13 +12,16 @@ own branch.
 from __future__ import annotations
 
 import builtins
+import code
 import contextlib
 import inspect
 import keyword
 import os
 import re
 import rlcompleter
+import shutil
 import sys
+import time
 from typing import TYPE_CHECKING, Literal
 
 from ggrust._pane_pages import help_text
@@ -384,6 +387,17 @@ class _Completer(rlcompleter.Completer):
         return self.matches_[state] if state < len(self.matches_) else None
 
 
+def _new_repl() -> bool:
+    """Whether the REPL that starts after the startup file is Python 3.13+'s ``_pyrepl``."""
+    if os.environ.get("PYTHON_BASIC_REPL"):
+        return False
+    try:
+        from _pyrepl.main import CAN_USE_PYREPL  # ty: ignore[unresolved-import]
+    except ImportError:
+        return False
+    return bool(CAN_USE_PYREPL) and sys.stdin.isatty() and sys.stdout.isatty()
+
+
 def install_completer() -> bool:
     """Make Tab complete keyword arguments too, in the new REPL and the basic one.
 
@@ -398,21 +412,144 @@ def install_completer() -> bool:
     """
     namespace = vars(sys.modules["__main__"])
     installed = False
-    if not os.environ.get("PYTHON_BASIC_REPL"):
+    if _new_repl():
         with contextlib.suppress(Exception):  # private API: fall back quietly if it moved
             from _pyrepl import readline as pyrepl  # ty: ignore[unresolved-import]
-            from _pyrepl.main import CAN_USE_PYREPL  # ty: ignore[unresolved-import]
 
-            if CAN_USE_PYREPL:
-                pyrepl._setup(namespace)
-                pyrepl.set_completer(_Completer(namespace, pyrepl.get_line_buffer).complete)
-                installed = True
+            pyrepl._setup(namespace)
+            pyrepl.set_completer(_Completer(namespace, pyrepl.get_line_buffer).complete)
+            installed = True
     try:
         import readline
     except ImportError:
         return installed
     readline.set_completer(_Completer(namespace, readline.get_line_buffer).complete)
     readline.parse_and_bind("tab: complete")
+    return True
+
+
+# --- block dividers ------------------------------------------------------------
+
+
+def _duration(seconds: float) -> str:
+    """Return a short run time: ``0.24s``, ``12.3s``, ``2m 05s``."""
+    if seconds < 10:
+        return f"{seconds:.2f}s"
+    if seconds < 60:
+        return f"{seconds:.1f}s"
+    minutes, rest = divmod(round(seconds), 60)
+    return f"{minutes}m {rest:02d}s"
+
+
+def divider(number: int, seconds: float, failed: bool, columns: int) -> str:
+    """Return the dim rule drawn under a block: its number, a red cross if it raised, its run time.
+
+    Parameters
+    ----------
+    number : int
+        The block's number, counting from 1.
+    seconds : float
+        How long it ran.
+    failed : bool
+        Whether it raised an exception.
+    columns : int
+        The terminal's width; the rule fills it.
+
+    Returns
+    -------
+    str
+        The line, with colors unless ``NO_COLOR`` is set or stdout is no terminal.
+    """
+    left = f"\u2570\u2500 {number} "
+    mark = "\u2717 " if failed else ""
+    right = f" {_duration(seconds)} \u2500"
+    fill = max(columns - len(left) - len(mark) - len(right), 2)
+    return _dim(left) + _color("31", mark) + _dim("\u2500" * fill + right)
+
+
+class _Blocks:
+    """Counts the blocks the REPL runs, times them, and draws a divider under each.
+
+    A block starts when the REPL runs code it compiled from your input (the
+    ``exec`` audit event for ``<stdin>``, ``<console>`` or ``<python-input-N>`` code) and ends
+    when the REPL asks for the next input. Empty lines and syntax errors run no
+    code, so they get no divider.
+    """
+
+    def __init__(self) -> None:
+        self.count = 0
+        self.started: float | None = None
+        self.last_exception: object = getattr(sys, "last_exc", None)
+
+    def audit(self, event: str, arguments: tuple[object, ...]) -> None:
+        """Note when the REPL starts running a block (audit hooks must be fast)."""
+        if event != "exec" or self.started is not None or not arguments:
+            return
+        filename = getattr(arguments[0], "co_filename", "")
+        names = getattr(arguments[0], "co_names", ())
+        constants = getattr(arguments[0], "co_consts", ())
+        if not names and all(constant is None for constant in constants):
+            return  # an empty line, which code.InteractiveConsole runs as ``pass``
+        if filename in ("<stdin>", "<console>") or filename.startswith("<python-input-"):
+            self.started = time.perf_counter()
+
+    def finish(self) -> None:
+        """Draw the divider for the block that just ran, if one did."""
+        if self.started is None:
+            return
+        seconds = time.perf_counter() - self.started
+        self.started = None
+        self.count += 1
+        exception = getattr(sys, "last_exc", None)
+        failed = exception is not None and exception is not self.last_exception
+        self.last_exception = exception
+        columns = shutil.get_terminal_size((80, 24)).columns
+        sys.stdout.write(divider(self.count, seconds, failed, columns) + "\n")
+        sys.stdout.flush()
+
+
+class _Prompt:
+    """``sys.ps1`` for the basic REPL: draws the last block's divider, then reads as ``>>> ``."""
+
+    def __init__(self, blocks: _Blocks, prompt: str) -> None:
+        self.blocks = blocks
+        self.prompt = prompt
+
+    def __str__(self) -> str:
+        with contextlib.suppress(Exception):  # a prompt must never fail
+            self.blocks.finish()
+        return self.prompt
+
+
+def install_dividers() -> bool:
+    """Draw a numbered, timed divider under every block the REPL runs.
+
+    The new REPL (``_pyrepl``) gets it by wrapping the function it calls to read the
+    next input. Otherwise ``sys.ps1`` draws it when the prompt is shown; that needs
+    the REPL to run blocks with ``exec`` (an audit event), which Python's C REPL does
+    not, so ``interact()`` runs ``code.InteractiveConsole`` in its place.
+
+    Returns
+    -------
+    bool
+        False when ``GGRUST_NO_DIVIDERS`` is set, so no dividers are drawn.
+    """
+    if os.environ.get("GGRUST_NO_DIVIDERS"):
+        return False
+    blocks = _Blocks()
+    sys.addaudithook(blocks.audit)
+    sys.ps1 = _Prompt(blocks, str(getattr(sys, "ps1", ">>> ")))
+    with contextlib.suppress(Exception):  # private API: the basic REPL's way still works
+        from _pyrepl import simple_interact  # ty: ignore[unresolved-import]
+
+        read = simple_interact.multiline_input
+
+        def multiline_input(more_lines: object, ps1: object, ps2: object) -> str:
+            with contextlib.suppress(Exception):
+                blocks.finish()
+            return read(more_lines, str(ps1), ps2)
+
+        simple_interact.multiline_input = multiline_input
     return True
 
 
@@ -451,6 +588,22 @@ def repl_banner() -> str:
     return "\n".join(lines)
 
 
+def interact() -> None:
+    """Run the REPL here when the new REPL is not available (Python 3.11/3.12, or basic).
+
+    ``code.InteractiveConsole`` runs each block with ``exec``, so the dividers work,
+    and uses ``readline`` for editing, history and completion as the C REPL does.
+    Returns at once under the new REPL; otherwise exits Python when you leave it.
+    """
+    if _new_repl() or not sys.stdin.isatty():
+        return
+    with contextlib.suppress(ImportError):
+        import readline  # noqa: F401  # line editing for input()
+    console = code.InteractiveConsole(vars(sys.modules["__main__"]))
+    console.interact(banner="", exitmsg="")
+    raise SystemExit(0)
+
+
 def start() -> Pane:
     """Set up the workspace REPL: plot hook, Tab completion, banner; return ``pane``.
 
@@ -461,5 +614,6 @@ def start() -> Pane:
     """
     install_displayhook()
     install_completer()
+    install_dividers()
     print(repl_banner())
     return Pane()

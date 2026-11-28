@@ -1028,9 +1028,11 @@ def send(plot: PlotSpec | SupPlotsSpec) -> bool:
 _STARTUP = """\
 from ggrust import *
 from ggrust.data import *
-from ggrust._pane_repl import start as _start
+from ggrust._pane_repl import interact as _interact, start as _start
 pane = _start()
 del _start
+_interact()  # only without the new REPL: runs one whose blocks get dividers
+del _interact
 """
 
 

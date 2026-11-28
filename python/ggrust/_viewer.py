@@ -19,6 +19,7 @@ Kitty graphics, or handle tmux. Not part of the public API: a prototype on its o
 
 from __future__ import annotations
 
+import builtins
 import fcntl
 import io
 import os
@@ -372,13 +373,13 @@ def send(plot: PlotSpec | SupPlotsSpec) -> bool:
         True when a viewer took it, False when no viewer is listening.
     """
     payload = pickle.dumps(plot)
-    try:
-        connection = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        connection.connect(str(socket_path()))
-    except OSError:
-        return False
+    connection = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
     with connection:
-        connection.sendall(struct.pack(">Q", len(payload)) + payload)
+        try:
+            connection.connect(str(socket_path()))
+            connection.sendall(struct.pack(">Q", len(payload)) + payload)
+        except OSError:  # no pane, or it went away while we were sending
+            return False
     return True
 
 
@@ -390,26 +391,71 @@ def install_displayhook() -> None:
     previous: Callable[[object], None] = sys.displayhook
 
     def hook(value: object) -> None:
-        if isinstance(value, PlotSpec | SupPlotsSpec) and send(value):
+        if not isinstance(value, PlotSpec | SupPlotsSpec):
+            previous(value)
             return
-        previous(value)
+        setattr(builtins, "_", value)  # noqa: B010  # like the default hook: ``_`` is the last plot
+        if send(value):
+            print(_dim("  \u21b3 sent to the plot pane"))
+        else:
+            print(_dim("  no plot pane is running; start one with 'ggrust pane' in another"))
+            print(_dim("  terminal, or save the plot with ggsave(_, 'plot.png')"))
 
     sys.displayhook = hook
 
 
-_STARTUP = '''\
+_STARTUP = """\
 from ggrust import *
 from ggrust.data import *
-from ggrust._viewer import install_displayhook as _install
+from ggrust._viewer import install_displayhook as _install, repl_banner as _banner
 _install()
-del _install
-print("""ggrust REPL: plain Python. These two imports already ran for you:
-    from ggrust import *        # ggplot, aes, geom_*, scale_*, theme_*, flavor_*, ...
-    from ggrust.data import *   # sample data: mpg, penguins, iris, economics
-A plot you type shows in the pane on the right, e.g.
-    ggplot(mpg, aes('displ', 'hwy', color='class')) + geom_point()
-Plots without a flavor of their own get the pane's high-contrast, transparent look.""")
-'''
+print(_banner())
+del _install, _banner
+"""
+
+
+def _color(code: str, text: str) -> str:
+    """Wrap ``text`` in an SGR color ``code`` unless NO_COLOR is set or stdout is no tty."""
+    if os.environ.get("NO_COLOR") or not sys.stdout.isatty():
+        return text
+    return f"\x1b[{code}m{text}\x1b[0m"
+
+
+def _dim(text: str) -> str:
+    return _color("2", text)
+
+
+def repl_banner() -> str:
+    """Return the REPL's welcome text: what was imported, the data, and how to start.
+
+    Starts by clearing the screen, so the shell's login line does not show.
+
+    Returns
+    -------
+    str
+        The banner, with colors unless ``NO_COLOR`` is set or stdout is no terminal.
+    """
+    from ggrust import __version__
+
+    def row(label: str, text: str) -> str:
+        return f"  {_dim(f'{label:<9}')} {text}"
+
+    clear = "\x1b[H\x1b[2J" if sys.stdout.isatty() else ""
+    code = lambda text: _color("36", text)  # noqa: E731
+    lines = [
+        clear
+        + _color("1", "ggrust")
+        + _dim(f" {__version__} \u00b7 plots show in the pane \u2192"),
+        "",
+        row("imported", code("from ggrust import *")),
+        row("", code("from ggrust.data import *")),
+        row("data", "mpg, penguins, iris, economics"),
+        row("style", "high contrast unless a flavor is set"),
+        row("try", ""),
+        "    " + code("ggplot(mpg, aes('displ', 'hwy')) + geom_point()"),
+        "",
+    ]
+    return "\n".join(lines)
 
 
 def _applescript_string(text: str) -> str:

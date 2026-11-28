@@ -945,3 +945,19 @@ def test_repl_gets_bare_names_and_help_falls_back_to_python(
     bound["help"](geom_point)
     assert shown == [geom_point] and len(asked) == 2  # a running pane gets it
     assert "help()" in repr(bound["help"])
+
+
+def test_prompt_is_a_dim_marker_with_a_blank_continuation(monkeypatch: pytest.MonkeyPatch) -> None:
+    from ggrust import _pane_repl
+
+    monkeypatch.setenv("NO_COLOR", "1")
+    assert _pane_repl.prompts() == (_pane_repl._MARKER, "  ")
+    monkeypatch.delenv("NO_COLOR")
+    monkeypatch.setattr(sys.stdout, "isatty", lambda: True)
+    first, continuation = _pane_repl.prompts()
+    assert re.sub(r"\x01.*?\x02", "", first) == _pane_repl._MARKER and "\x1b[2m" in first
+    assert continuation == "  "
+    monkeypatch.setattr(sys, "ps1", ">>> ", raising=False)
+    monkeypatch.setattr(sys, "ps2", "... ", raising=False)
+    _pane_repl.install_prompt()
+    assert ">>>" not in str(sys.ps1) and str(sys.ps2) == "  "

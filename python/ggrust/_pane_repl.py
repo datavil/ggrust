@@ -525,6 +525,34 @@ def install_completer() -> bool:
     return True
 
 
+# --- prompt -------------------------------------------------------------------
+
+_MARKER = "\u276f "  # a chevron, U+276F
+
+
+def prompts() -> tuple[str, str]:
+    r"""Return the REPL's prompts: a dim chevron (U+276F) and, for continuation lines, blanks.
+
+    The blank continuation has the marker's width, so the lines of a block line up.
+    The color escapes sit between ``\x01`` and ``\x02``, which both REPLs (``_pyrepl``
+    and ``readline``) leave out when they measure the prompt.
+
+    Returns
+    -------
+    tuple of (str, str)
+        ``sys.ps1`` and ``sys.ps2``; uncolored when ``NO_COLOR`` is set or stdout is no tty.
+    """
+    blank = " " * len(_MARKER)
+    if os.environ.get("NO_COLOR") or not sys.stdout.isatty():
+        return _MARKER, blank
+    return f"\x01\x1b[2m\x02{_MARKER}\x01\x1b[0m\x02", blank
+
+
+def install_prompt() -> None:
+    """Replace ``>>>`` and ``...`` with the workspace's prompts (see ``prompts``)."""
+    sys.ps1, sys.ps2 = prompts()
+
+
 # --- block dividers ------------------------------------------------------------
 
 
@@ -702,7 +730,7 @@ def interact() -> None:
 
 
 def start() -> Pane:
-    """Set up the workspace REPL: plot hook, Tab completion, banner; return ``pane``.
+    """Set up the workspace REPL: plot hook, Tab completion, prompt, banner; return ``pane``.
 
     Returns
     -------
@@ -711,6 +739,7 @@ def start() -> Pane:
     """
     install_displayhook()
     install_completer()
+    install_prompt()  # before the dividers, which wrap ``sys.ps1``
     install_dividers()
     print(repl_banner())
     return Pane()

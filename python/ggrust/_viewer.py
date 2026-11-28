@@ -1,25 +1,27 @@
 """Prototype: an RStudio-style plot pane for the terminal.
 
-A viewer process (``python -m ggrust._viewer``) owns a terminal pane and draws
-every plot sent to it, rendered to fill the pane (and re-rendered when the pane
-is resized), with the Kitty graphics protocol
-(Ghostty, Kitty, WezTerm). A REPL in another pane sends plots over a Unix socket:
-``install_displayhook()`` makes a bare plot expression go to the pane. Left and
-right arrows (or ``h`` / ``l``) page through the plot history; ``q`` quits.
+A viewer process (``python -m ggrust._viewer``) owns a terminal pane and keeps a
+history of pages: plots, rendered to fill the pane (and re-rendered when it is
+resized) with the Kitty graphics protocol (Ghostty, Kitty, WezTerm); data tables;
+and help pages. A REPL in another pane talks to it over a Unix socket: each message
+is a pickled ``(protocol, kind, body)`` tuple, and the pane answers with a ``Reply``
+(the page's number, or why it failed). ``ggrust._pane_repl`` is that REPL side.
+Left and right arrows (or ``h`` / ``l``) page through the history, up and down (``j``
+/ ``k``, space, ``b``) scroll tables and help, ``[`` / ``]`` scroll table columns,
+``o`` opens a plot in the browser, ``q`` quits.
 
-``python -m ggrust._viewer workspace`` opens a Ghostty window (AppleScript, macOS)
-with a Python REPL on the left and the viewer on the right.
+``ggrust`` opens a Ghostty window (AppleScript, macOS) with a Python REPL on the left
+and the viewer on the right.
 
 Plots that set no flavor of their own get ``flavor_high_contrast_dark()`` (or the
 light one, after asking the terminal for its background) and ``flavor_transparent()``,
-so they sit on the terminal's background. Plots travel pickled over a socket only the
-user can open (in a 0700 directory of the user's own). Does not: work without
+so they sit on the terminal's background. Messages travel pickled over a socket only
+the user can open (in a 0700 directory of the user's own). Does not: work without
 Kitty graphics, or handle tmux. Not part of the public API: a prototype on its own branch.
 """
 
 from __future__ import annotations
 
-import builtins
 import codecs
 import contextlib
 import fcntl
@@ -42,16 +44,26 @@ import tempfile
 import termios
 import time
 import tty
-import unicodedata
 import warnings
 import webbrowser
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
+from ggrust._pane_pages import (
+    Page,
+    _cells,
+    _clean_label,
+    _cut,
+    table_lines,
+    table_rows_on_screen,
+    text_lines,
+    visible_columns,
+)
 from ggrust._terminal import kitty_escape
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    import polars as pl
 
     from ggrust.plot.core import PlotSpec
     from ggrust.plot.subplots import SupPlotsSpec
@@ -68,6 +80,9 @@ _MAX_SOCKET_PATH = 103  # bytes; macOS caps AF_UNIX paths at 104 with the NUL
 _FALLBACK_CELL = (10, 20)  # device pixels per cell when the terminal reports none
 _FALLBACK_SIZE = (24, 80)  # rows and columns when the terminal reports none
 _MAX_PENDING = 4096  # characters of an unfinished escape sequence kept between reads
+_REPLY_TIMEOUT = 120.0  # seconds a client waits for the pane to draw and answer
+_PROTOCOL = "ggrust-pane/1"  # first item of every message tuple
+_MAX_TABLE_ROWS = 10_000  # rows of a frame sent to the pane; the rest is only counted
 
 
 class PaneError(RuntimeError):
@@ -75,7 +90,32 @@ class PaneError(RuntimeError):
 
 
 class MessageError(ValueError):
-    """A message on the pane's socket is not a plot: too big, too slow, cut short or junk."""
+    """A message on the pane's socket is not usable: too big, too slow, cut short or junk."""
+
+
+MessageKind = Literal["plot", "table", "text", "control"]
+
+
+@dataclass
+class Reply:
+    """The pane's answer to one message.
+
+    Attributes
+    ----------
+    index : int
+        1-based position of the page the message added (or that is on screen), 0 if none.
+    total : int
+        Pages in the history.
+    error : str or None
+        Why the message failed, or why a plot could not be drawn.
+    value : object
+        What a ``control`` message asked for (``last``, ``state``), else None.
+    """
+
+    index: int = 0
+    total: int = 0
+    error: str | None = None
+    value: object = None
 
 
 def _runtime_directory() -> Path:
@@ -121,7 +161,10 @@ def socket_path() -> Path:
 
 def _pane_size() -> tuple[int, int, int, int]:
     """Rows, columns, width and height in pixels of the terminal on stdout."""
-    packed = fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, b"\0" * 8)
+    try:
+        packed = fcntl.ioctl(sys.stdout.fileno(), termios.TIOCGWINSZ, b"\0" * 8)
+    except (OSError, ValueError):  # no terminal: the caller falls back to a default size
+        return 0, 0, 0, 0
     rows, columns, width, height = struct.unpack("HHHH", packed)
     return rows, columns, width, height
 
@@ -143,73 +186,155 @@ def _plot_area() -> tuple[int, int, int, int]:
 
 
 class _Viewer:
-    """The pane: plot history, rendering at the pane's size, and drawing."""
+    """The pane: a history of pages (plots, tables, text), rendering and drawing."""
 
     def __init__(self, style: PaneStyle = "none") -> None:
-        self.history: list[PlotSpec | SupPlotsSpec] = []
-        self.titles: list[str] = []  # each plot's ggtitle, "" when it has none
+        self.pages: list[Page] = []
         self.index = -1
         self.notice = ""  # one-off message shown in the footer
-        self.cache: tuple[int, int, int, bytes] | None = None  # index, width, height, png
+        # page identity, width, height, style, png
+        self.cache: tuple[int, int, int, str, bytes] | None = None
         self.style = style
+        self.fixed_size: tuple[float, float] | None = None  # layout px set by ``pane.size``
+        self.render_error: str | None = None  # why the last plot drawn failed, if it did
         self.html_directory: Path | None = None  # made on the first ``o``, removed at exit
 
+    @property
+    def page(self) -> Page | None:
+        """The page on screen, or None when the history is empty."""
+        return self.pages[self.index] if 0 <= self.index < len(self.pages) else None
+
+    def add(self, page: Page) -> None:
+        """Append ``page`` to the history and show it."""
+        self.pages.append(page)
+        self.index = len(self.pages) - 1
+        self.draw()
+
     def render(self, width: int, height: int) -> bytes:
-        """Render the current plot as PNG bytes of ``width`` x ``height`` pixels (cached)."""
-        if self.cache is not None and self.cache[:3] == (self.index, width, height):
-            return self.cache[3]
+        """Render the current plot as PNG bytes of ``width`` x ``height`` pixels (cached).
+
+        With a fixed size (``pane.size``) the plot is rendered at that size instead,
+        and drawn as large as fits in the frame.
+        """
+        page = self.page
+        assert page is not None and page.plot is not None
+        if self.fixed_size is not None:
+            width, height = (round(side * _SCALE) for side in self.fixed_size)
+        key = (id(page), width, height, self.style)
+        if self.cache is not None and self.cache[:4] == key:
+            return self.cache[4]
         buffer = io.BytesIO()
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            styled(self.history[self.index], self.style).to_png(
+            styled(page.plot, self.style).to_png(
                 buffer, w=width / _SCALE, h=height / _SCALE, unit="px", scale=_SCALE
             )
         png = buffer.getvalue()
-        self.cache = (self.index, width, height, png)
+        self.cache = (*key, png)
         return png
 
+    def label(self) -> str:
+        """Return the frame's title: what the page is, its place in the history, its title."""
+        page = self.page
+        assert page is not None
+        word = {"plot": "plot", "table": "data", "text": "help"}[page.kind]
+        label = f"{word} {self.index + 1}/{len(self.pages)}"
+        if page.kind == "table" and page.frame is not None:
+            label += f" \u00b7 {page.title} \u00b7 {page.total_rows:,} \u00d7 {page.frame.width}"
+        elif page.title:
+            label += f" \u00b7 {page.title}"
+        return label
+
     def draw(self) -> None:
-        """Clear the pane and draw the current plot in its frame, then the footer."""
+        """Clear the pane and draw the current page in its frame, then the footer."""
         out = sys.stdout
         out.write("\x1b_Ga=d,q=2\x1b\\\x1b[2J\x1b[H")  # delete images, clear, home
         rows, columns, width, height = _plot_area()
-        if self.index < 0:
+        page = self.page
+        self.render_error = None
+        if page is None:
             out.write("ggrust plots: waiting for a plot...\r\n")
-            out.flush()
+            self.write_footer()
             return
         cell_width = width / max(columns, 1)
         cell_height = height / max(rows, 1)
         framed = rows > 2 * _FRAME and columns > 2 * _FRAME
         inner_rows, inner_columns = rows, columns
         if framed:
-            label = f"plot {self.index + 1}/{len(self.history)}"
-            if self.titles[self.index]:
-                label += f" \u00b7 {self.titles[self.index]}"
-            out.write(_frame(rows, columns, label))
+            out.write(_frame(rows, columns, self.label()))
             inner_rows, inner_columns = rows - 2 * _FRAME, columns - 2 * _FRAME
-            out.write(f"\x1b[{1 + _FRAME};{1 + _FRAME}H")
-        try:
-            png = self.render(round(inner_columns * cell_width), round(inner_rows * cell_height))
-        except Exception as error:  # show any render failure in the pane
-            out.write(
-                _cut(_clean_label(f"could not draw plot {self.index + 1}: {error}"), inner_columns)
-            )
-        else:
-            out.write(_fit_escape(png, inner_rows, inner_columns, cell_width, cell_height))
+        top = 1 + _FRAME if framed else 1
+        left = 1 + _FRAME if framed else 1
+        if page.kind == "plot":
+            out.write(f"\x1b[{top};{left}H")
+            try:
+                png = self.render(
+                    round(inner_columns * cell_width), round(inner_rows * cell_height)
+                )
+            except Exception as error:  # show any render failure in the pane
+                self.render_error = f"{type(error).__name__}: {error}"
+                page.failed = True
+                message = f"could not draw plot {self.index + 1}: {self.render_error}"
+                out.write(_cut(_clean_label(message), inner_columns))
+            else:
+                page.failed = False
+                out.write(_fit_escape(png, inner_rows, inner_columns, cell_width, cell_height))
+        else:  # one cell of padding inside the frame on both sides
+            pad = 1 if inner_columns > 4 else 0
+            lines = self.text_page_lines(page, inner_rows, inner_columns - 2 * pad)
+            for offset, line in enumerate(lines):
+                out.write(f"\x1b[{top + offset};{left + pad}H{line}")
         self.write_footer()
 
-    def write_footer(self) -> None:
-        """Write the footer row: a pending notice, else the style and the keys."""
+    def text_page_lines(self, page: Page, rows: int, columns: int) -> list[str]:
+        """Return the lines of a table or text page that are on screen."""
+        if page.kind == "table":
+            return table_lines(page, rows, columns)
+        lines = text_lines(page.text, columns)
+        page.top = max(min(page.top, len(lines) - rows), 0)
+        return lines[page.top : page.top + rows]
+
+    def footer(self) -> str:
+        """Return the footer text for the current page: where you are and the keys that apply."""
+        page = self.page
+        history = "\u2190 \u2192 pages   q quit"
+        if page is None:
+            return f"style {self.style}   q quit"
+        if page.kind == "plot":
+            size = (
+                ""
+                if self.fixed_size is None
+                else f"   size {self.fixed_size[0]:g}x{self.fixed_size[1]:g}"
+            )
+            return f"style {self.style}{size}   {history}   o browser"
         rows, columns, _, _ = _plot_area()
-        footer = self.notice or f"style {self.style}   <- -> history   o browser   q quit"
-        text = _cut(" " + _clean_label(footer), columns)
+        inner_rows, inner_columns = rows - 2 * _FRAME, columns - 2 * _FRAME
+        if page.kind == "table":
+            assert page.frame is not None
+            shown = table_rows_on_screen(inner_rows)
+            last_row = min(page.top + shown, page.frame.height)
+            visible = visible_columns(page, inner_columns - 2)
+            more = page.frame.height < page.total_rows
+            where = f"rows {page.top + 1}-{last_row}/{page.frame.height:,}"
+            where += f" (of {page.total_rows:,})" if more else ""
+            where += f"  cols {visible.start + 1}-{visible.stop}/{page.frame.width}"
+            return f"{where}   \u2191\u2193 scroll  [ ] cols  \u2190 \u2192 pages  q quit"
+        return f"\u2191\u2193 space scroll   {history}"
+
+    def write_footer(self) -> None:
+        """Write the footer row: a pending notice, else where you are and the keys."""
+        rows, columns, _, _ = _plot_area()
+        text = _cut(" " + _clean_label(self.notice or self.footer()), columns)
         sys.stdout.write(f"\x1b[{rows + 1};1H\x1b[2K\x1b[2m{text}\x1b[0m")
         sys.stdout.flush()
         self.notice = ""
 
     def open_in_browser(self) -> None:
         """Save the current plot as interactive HTML and open it in the default browser."""
-        if self.index < 0:
+        page = self.page
+        if page is None or page.plot is None:
+            self.notice = "o opens plots in the browser; this page is not a plot"
+            self.write_footer()
             return
         try:
             if self.html_directory is None:
@@ -217,7 +342,7 @@ class _Viewer:
             path = self.html_directory / f"plot-{self.index + 1}.html"
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
-                self.history[self.index].to_html(path)  # as sent: browsers have a light page
+                page.plot.to_html(path)  # as sent: browsers have a light page
             opened = webbrowser.open(path.as_uri())
         except Exception as error:  # report any failure in the footer
             self.notice = f"could not open plot {self.index + 1} in a browser: {error}"
@@ -236,14 +361,15 @@ class _Viewer:
             self.html_directory = None
 
     def receive(self, connection: socket.socket) -> None:
-        """Read one plot from ``connection``, add it to the history and draw it.
+        """Read one message from ``connection``, act on it, and send the reply back.
 
-        A connection that closes before sending anything (a probe) is ignored.
+        A connection that closes before sending anything (a probe) is ignored, and so
+        is a client that hangs up before reading the reply.
 
         Raises
         ------
         MessageError
-            When the message is too big, too slow, cut short, or not a plot.
+            When the message is too big, too slow, cut short, or not one the pane knows.
         """
         deadline = time.monotonic() + _RECEIVE_TIMEOUT
         with connection:
@@ -256,15 +382,123 @@ class _Viewer:
             payload = _read_exact(connection, length, deadline)
             if payload is None:
                 raise MessageError(f"the sender hung up before sending all {length} bytes")
-        plot = _load_plot(payload)
-        try:
-            title = _title(plot)
-        except Exception as error:  # a plot whose spec cannot be read
-            raise MessageError(f"could not read the plot's spec: {error}") from error
-        self.history.append(plot)
-        self.titles.append(title)
-        self.index = len(self.history) - 1
+            kind, body = _load_message(payload)
+            refusal: MessageError | None = None
+            try:
+                reply = self.handle(kind, body)
+            except MessageError as error:  # tell the sender why, then report it here too
+                reply, refusal = self.reply(error=str(error)), error
+            answer = pickle.dumps(reply)
+            with contextlib.suppress(OSError):  # the sender stopped listening: fine
+                connection.settimeout(_RECEIVE_TIMEOUT)
+                connection.sendall(struct.pack(">Q", len(answer)) + answer)
+        if refusal is not None:
+            raise refusal
+
+    def handle(self, kind: MessageKind, body: object) -> Reply:
+        """Act on one message and return the reply.
+
+        Raises
+        ------
+        MessageError
+            When the body does not fit the kind.
+        """
+        if kind == "plot":
+            plot = _as_plot(body)
+            try:
+                title = _title(plot)
+            except Exception as error:  # a plot whose spec cannot be read
+                raise MessageError(f"could not read the plot's spec: {error}") from error
+            self.add(Page("plot", title, plot=plot))
+            return self.reply(error=self.render_error)
+        if kind == "table":
+            name, frame, total_rows = _as_table(body)
+            self.add(Page("table", _clean_label(name), frame=frame, total_rows=total_rows))
+            return self.reply()
+        if kind == "text":
+            if not (
+                isinstance(body, tuple) and len(body) == 2 and all(isinstance(x, str) for x in body)
+            ):
+                raise MessageError("a text message holds a (title, text) pair of strings")
+            title, text = body
+            self.add(Page("text", _clean_label(title), text=text))
+            return self.reply()
+        return self.control(body)
+
+    def reply(self, error: str | None = None, value: object = None) -> Reply:
+        """Return a reply naming the page on screen."""
+        return Reply(self.index + 1, len(self.pages), error, value)
+
+    def last_plot(self) -> PlotSpec | SupPlotsSpec | None:
+        """Return the plot on screen, else the nearest one before it; failed plots are skipped."""
+        for page in reversed(self.pages[: self.index + 1]):
+            if page.plot is not None and not page.failed:
+                return page.plot
+        return None
+
+    def control(self, body: object) -> Reply:
+        """Act on a ``control`` message: ``(name, argument)``.
+
+        Names: ``last`` (the plot on screen), ``state`` (history position and the
+        plot area's size in layout pixels), ``style``, ``size`` and ``clear``.
+
+        Raises
+        ------
+        MessageError
+            When the name is unknown or the argument does not fit it.
+        """
+        if not (isinstance(body, tuple) and len(body) == 2 and isinstance(body[0], str)):
+            raise MessageError("a control message holds a (name, argument) pair")
+        name, argument = body
+        if name == "last":
+            return self.reply(value=self.last_plot())
+        if name == "state":
+            rows, columns, width, height = _plot_area()
+            inner = (
+                width * (columns - 2 * _FRAME) / max(columns, 1) / _SCALE,
+                height * (rows - 2 * _FRAME) / max(rows, 1) / _SCALE,
+            )
+            return self.reply(value={"size": self.fixed_size or inner, "style": self.style})
+        if name == "style":
+            if argument not in ("dark", "light", "none"):
+                raise MessageError(f"unknown style {argument!r}; use 'dark', 'light' or 'none'")
+            self.style = argument
+        elif name == "size":
+            if argument is not None and not (
+                isinstance(argument, tuple)
+                and len(argument) == 2
+                and all(isinstance(side, int | float) and side > 0 for side in argument)
+            ):
+                raise MessageError("size takes None or a (width, height) pair of positive numbers")
+            self.fixed_size = None if argument is None else (float(argument[0]), float(argument[1]))
+        elif name == "clear":
+            self.pages.clear()
+            self.index = -1
+            self.cache = None
+        else:
+            raise MessageError(f"unknown control {name!r}")
         self.draw()
+        return self.reply()
+
+    def scroll(self, rows: int = 0, columns: int = 0, to: int | None = None) -> None:
+        """Scroll a table or text page by ``rows`` / ``columns`` (or to row ``to``)."""
+        page = self.page
+        if page is None or page.kind == "plot":
+            return
+        if page.kind == "table" and page.frame is not None:
+            limit = max(page.frame.height - 1, 0)
+            page.left = max(min(page.left + columns, page.frame.width - 1), 0)
+        else:
+            limit = 1 << 30  # text pages clamp when drawn, once the wrapping is known
+        page.top = max(min(page.top + rows if to is None else to, limit), 0)
+        self.draw()
+
+    def page_step(self) -> int:
+        """Return how many rows or lines a page-down moves: a screenful less one."""
+        rows = max(_plot_area()[0] - 2 * _FRAME, 1)
+        if self.page is not None and self.page.kind == "table":
+            rows = table_rows_on_screen(rows)
+        return max(rows - 1, 1)
 
     def key(self, key: str) -> bool:
         """Handle a key; False means quit."""
@@ -272,12 +506,28 @@ class _Viewer:
             return False
         if key == "o":
             self.open_in_browser()
-        if key in ("\x1b[D", "\x1bOD", "h") and self.index > 0:
+        elif key in ("\x1b[D", "\x1bOD", "h") and self.index > 0:
             self.index -= 1
             self.draw()
-        elif key in ("\x1b[C", "\x1bOC", "l") and self.index < len(self.history) - 1:
+        elif key in ("\x1b[C", "\x1bOC", "l") and self.index < len(self.pages) - 1:
             self.index += 1
             self.draw()
+        elif key in ("\x1b[A", "\x1bOA", "k"):
+            self.scroll(rows=-1)
+        elif key in ("\x1b[B", "\x1bOB", "j"):
+            self.scroll(rows=1)
+        elif key in (" ", "\x1b[6~"):
+            self.scroll(rows=self.page_step())
+        elif key in ("b", "\x1b[5~"):
+            self.scroll(rows=-self.page_step())
+        elif key in ("g", "\x1b[H"):
+            self.scroll(to=0)
+        elif key in ("G", "\x1b[F"):
+            self.scroll(to=1 << 30)
+        elif key == "]":
+            self.scroll(columns=1)
+        elif key == "[":
+            self.scroll(columns=-1)
         return True
 
 
@@ -304,45 +554,69 @@ def _load_plot(payload: bytes) -> PlotSpec | SupPlotsSpec:
     return plot
 
 
+def _as_plot(body: object) -> PlotSpec | SupPlotsSpec:
+    """``body`` if it is a plot or grid of plots.
+
+    Raises
+    ------
+    MessageError
+        When it is something else.
+    """
+    from ggrust.plot.core import PlotSpec
+    from ggrust.plot.subplots import SupPlotsSpec
+
+    if not isinstance(body, PlotSpec | SupPlotsSpec):
+        raise MessageError(f"expected a PlotSpec or SupPlotsSpec, got {type(body).__name__}")
+    return body
+
+
+def _as_table(body: object) -> tuple[str, pl.DataFrame, int]:
+    """``body`` as a ``(name, frame, total_rows)`` table message.
+
+    Raises
+    ------
+    MessageError
+        When it is something else.
+    """
+    import polars as pl
+
+    if not (
+        isinstance(body, tuple)
+        and len(body) == 3
+        and isinstance(body[0], str)
+        and isinstance(body[1], pl.DataFrame)
+        and isinstance(body[2], int)
+    ):
+        raise MessageError("a table message holds (name, polars.DataFrame, total_rows)")
+    return body[0], body[1], body[2]
+
+
+def _load_message(payload: bytes) -> tuple[MessageKind, object]:
+    """Unpickle a message: ``(protocol, kind, body)``, or a bare plot (sent by ``send``).
+
+    Raises
+    ------
+    MessageError
+        When the payload does not unpickle, or is not a message the pane knows.
+    """
+    try:
+        message = pickle.loads(payload)
+    except Exception as error:  # pickle raises many kinds
+        raise MessageError(
+            f"not a pickled plot or message ({type(error).__name__}: {error})"
+        ) from error
+    if isinstance(message, tuple) and len(message) == 3 and message[0] == _PROTOCOL:
+        _, kind, body = message
+        if kind not in ("plot", "table", "text", "control"):
+            raise MessageError(f"unknown message kind {kind!r}")
+        return kind, body
+    return "plot", _as_plot(message)
+
+
 def _title(plot: PlotSpec | SupPlotsSpec) -> str:
     """Return the plot's ``ggtitle`` text on one line, or "" when it has none."""
     title = (plot.as_dict().get("ggtitle") or {}).get("text")
     return _clean_label(str(title)) if title else ""
-
-
-def _clean_label(text: str) -> str:
-    """``text`` on one line with control characters removed, so it is safe to print.
-
-    Runs of whitespace become one space; C0, DEL and C1 characters (ESC among them)
-    and format characters (the right-to-left override among them) are dropped, so
-    a title cannot send escape sequences to the terminal or reorder the text.
-    """
-    words = " ".join(text.split())
-    return "".join(
-        character for character in words if unicodedata.category(character) not in ("Cc", "Cf")
-    )
-
-
-def _cell_width(character: str) -> int:
-    """Terminal cells ``character`` takes: 2 for wide and full-width, 0 for combining marks."""
-    if unicodedata.combining(character) or unicodedata.category(character) in ("Mn", "Me", "Cf"):
-        return 0
-    return 2 if unicodedata.east_asian_width(character) in ("W", "F") else 1
-
-
-def _cells(text: str) -> int:
-    """Terminal cells ``text`` takes."""
-    return sum(_cell_width(character) for character in text)
-
-
-def _cut(text: str, cells: int) -> str:
-    """Return the longest start of ``text`` that fits in ``cells`` terminal cells."""
-    used = 0
-    for index, character in enumerate(text):
-        used += _cell_width(character)
-        if used > cells:
-            return text[:index]
-    return text
 
 
 def _png_size(png: bytes) -> tuple[int, int]:
@@ -682,8 +956,61 @@ def serve(style: PaneStyle | Literal["auto"] = "auto") -> None:
         viewer.cleanup()
 
 
+def request(kind: MessageKind, body: object, timeout: float = _REPLY_TIMEOUT) -> Reply | None:
+    """Send one message to the running pane and wait for its reply.
+
+    Parameters
+    ----------
+    kind : {"plot", "table", "text", "control"}
+        What ``body`` is.
+    body : object
+        The plot; ``(name, frame, total_rows)``; ``(title, text)``; or ``(name, argument)``.
+    timeout : float, default=120
+        Seconds to wait for the pane to act (drawing a plot can take a while).
+
+    Returns
+    -------
+    Reply or None
+        The pane's reply; None when no pane is listening, it went away, or it did not
+        answer in time.
+    """
+    payload = pickle.dumps((_PROTOCOL, kind, body))
+    connection = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    with connection:
+        try:
+            connection.connect(str(socket_path()))
+            connection.sendall(struct.pack(">Q", len(payload)) + payload)
+            connection.settimeout(timeout)
+            header = _recv_exact(connection, 8)
+            if header is None:
+                return None
+            (length,) = struct.unpack(">Q", header)
+            answer = _recv_exact(connection, length)
+        except OSError:  # no pane, it went away, or it took too long
+            return None
+    if answer is None:
+        return None
+    try:
+        reply = pickle.loads(answer)
+    except Exception:  # a pane of another version
+        return None
+    return reply if isinstance(reply, Reply) else None
+
+
+def _recv_exact(connection: socket.socket, length: int) -> bytes | None:
+    """``length`` bytes from a socket with a timeout set, or None if it closes first."""
+    chunks: list[bytes] = []
+    while length:
+        chunk = connection.recv(min(length, 1 << 20))
+        if not chunk:
+            return None
+        chunks.append(chunk)
+        length -= len(chunk)
+    return b"".join(chunks)
+
+
 def send(plot: PlotSpec | SupPlotsSpec) -> bool:
-    """Send a plot to a running viewer, which renders it at its pane size.
+    """Send a plot to a running pane, which renders it at its pane size.
 
     Parameters
     ----------
@@ -693,92 +1020,18 @@ def send(plot: PlotSpec | SupPlotsSpec) -> bool:
     Returns
     -------
     bool
-        True when a viewer took it, False when no viewer is listening.
+        True when a pane took it, False when no pane is listening.
     """
-    payload = pickle.dumps(plot)
-    connection = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    with connection:
-        try:
-            connection.connect(str(socket_path()))
-            connection.sendall(struct.pack(">Q", len(payload)) + payload)
-        except OSError:  # no pane, or it went away while we were sending
-            return False
-    return True
-
-
-def install_displayhook() -> None:
-    """Send plots typed at the REPL to the viewer; everything else prints as usual."""
-    from ggrust.plot.core import PlotSpec
-    from ggrust.plot.subplots import SupPlotsSpec
-
-    previous: Callable[[object], None] = sys.displayhook
-
-    def hook(value: object) -> None:
-        if not isinstance(value, PlotSpec | SupPlotsSpec):
-            previous(value)
-            return
-        setattr(builtins, "_", value)  # noqa: B010  # like the default hook: ``_`` is the last plot
-        if send(value):
-            print(_dim("  \u21b3 sent to the plot pane"))
-        else:
-            print(_dim("  no plot pane is running; start one with 'ggrust pane' in another"))
-            print(_dim("  terminal, or save the plot with ggsave(_, 'plot.png')"))
-
-    sys.displayhook = hook
+    return request("plot", plot) is not None
 
 
 _STARTUP = """\
 from ggrust import *
 from ggrust.data import *
-from ggrust._viewer import install_displayhook as _install, repl_banner as _banner
-_install()
-print(_banner())
-del _install, _banner
+from ggrust._pane_repl import start as _start
+pane = _start()
+del _start
 """
-
-
-def _color(code: str, text: str) -> str:
-    """Wrap ``text`` in an SGR color ``code`` unless NO_COLOR is set or stdout is no tty."""
-    if os.environ.get("NO_COLOR") or not sys.stdout.isatty():
-        return text
-    return f"\x1b[{code}m{text}\x1b[0m"
-
-
-def _dim(text: str) -> str:
-    return _color("2", text)
-
-
-def repl_banner() -> str:
-    """Return the REPL's welcome text: what was imported, the data, and how to start.
-
-    Starts by clearing the screen, so the shell's login line does not show.
-
-    Returns
-    -------
-    str
-        The banner, with colors unless ``NO_COLOR`` is set or stdout is no terminal.
-    """
-    from ggrust import __version__
-
-    def row(label: str, text: str) -> str:
-        return f"  {_dim(f'{label:<9}')} {text}"
-
-    clear = "\x1b[H\x1b[2J" if sys.stdout.isatty() else ""
-    code = lambda text: _color("36", text)  # noqa: E731
-    lines = [
-        clear
-        + _color("1", "ggrust")
-        + _dim(f" {__version__} \u00b7 plots show in the pane \u2192"),
-        "",
-        row("imported", code("from ggrust import *")),
-        row("", code("from ggrust.data import *")),
-        row("data", "mpg, penguins, iris, economics"),
-        row("style", "high contrast unless a flavor is set"),
-        row("try", ""),
-        "    " + code("ggplot(mpg, aes('displ', 'hwy')) + geom_point()"),
-        "",
-    ]
-    return "\n".join(lines)
 
 
 def _write_private(path: Path, text: str) -> Path:
@@ -881,4 +1134,8 @@ def main(arguments: list[str] | None = None) -> None:
 
 if __name__ == "__main__":
     # ``python -m ggrust._viewer [style]`` is what the workspace's right pane runs.
-    main(["pane", *sys.argv[1:]])
+    # Run from the imported module, not this ``__main__`` copy, so the replies it
+    # pickles (``Reply``) name ``ggrust._viewer`` and the REPL can unpickle them.
+    from ggrust import _viewer
+
+    _viewer.main(["pane", *sys.argv[1:]])

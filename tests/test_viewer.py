@@ -11,6 +11,7 @@ import fcntl
 import itertools
 import os
 import pickle
+import re
 import socket
 import stat
 import struct
@@ -30,6 +31,7 @@ if sys.platform == "win32":  # pragma: no cover
 import pty
 
 from ggrust import _viewer
+from ggrust._pane_pages import Page
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator
@@ -283,7 +285,7 @@ def test_open_in_browser_files_are_removed_at_cleanup(monkeypatch: pytest.Monkey
     monkeypatch.setattr(_viewer.webbrowser, "open", lambda url: opened.append(url) or True)
     monkeypatch.setattr(_viewer._Viewer, "write_footer", lambda self: None)
     viewer = _viewer._Viewer()
-    viewer.history, viewer.titles, viewer.index = [_plot()], [""], 0
+    viewer.pages, viewer.index = [Page("plot", "", plot=_plot())], 0
     viewer.open_in_browser()
     directory = viewer.html_directory
     assert directory is not None
@@ -314,7 +316,7 @@ def test_workspace_quotes_python_and_gives_each_window_a_socket(
         assert stat.S_IMODE(runtime.stat().st_mode) == 0o700
         startup = runtime / "startup.py"
         assert stat.S_IMODE(startup.stat().st_mode) == 0o600
-        assert "install_displayhook" in startup.read_text()
+        assert "ggrust._pane_repl import start" in startup.read_text()
     finally:
         for file in runtime.glob("*"):
             file.unlink()
@@ -504,3 +506,154 @@ def test_pane_without_a_terminal_fails_cleanly() -> None:
     assert result.returncode != 0
     assert "needs a terminal" in result.stderr
     assert not Path(path).exists()
+
+
+# --- pages, messages and the REPL side ------------------------------------------
+
+_SGR = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def _plain(line: str) -> str:
+    return _SGR.sub("", line)
+
+
+def _request(path: str, kind: str, body: object) -> _viewer.Reply | None:
+    previous = os.environ.get("GGRUST_VIEWER_SOCKET")
+    os.environ["GGRUST_VIEWER_SOCKET"] = path
+    try:
+        return _viewer.request(kind, body, timeout=20)  # type: ignore[arg-type]
+    finally:
+        if previous is None:
+            os.environ.pop("GGRUST_VIEWER_SOCKET")
+        else:
+            os.environ["GGRUST_VIEWER_SOCKET"] = previous
+
+
+def test_table_lines_show_names_types_and_rows_within_the_width() -> None:
+    import polars as pl
+    from ggrust._pane_pages import table_lines
+
+    frame = pl.DataFrame({"name": ["a", "bb", None], "value": [2.0, 0.5, 3.25], "n": [1, 2, 3]})
+    page = Page("table", "frame", frame=frame, total_rows=3)
+    lines = [_plain(line) for line in table_lines(page, 10, 40)]
+    assert lines[0].split() == ["name", "value", "n"]
+    assert lines[1].split() == ["str", "f64", "i64"]
+    assert lines[3].split() == ["1", "a", "2.0", "1"]  # floats keep their decimal point
+    assert "null" in lines[5]
+    assert all(_viewer._cells(line) <= 40 for line in lines)
+    narrow = [_plain(line) for line in table_lines(page, 10, 12)]
+    assert all(_viewer._cells(line) <= 12 for line in narrow)
+
+
+def test_table_columns_scroll_from_left() -> None:
+    import polars as pl
+    from ggrust._pane_pages import table_lines, visible_columns
+
+    frame = pl.DataFrame({f"column_{index}": [index] for index in range(10)})
+    page = Page("table", "wide", frame=frame, total_rows=1)
+    shown = visible_columns(page, 40)
+    assert shown.start == 0 and 0 < len(shown) < 10
+    page.left = 5
+    assert _plain(table_lines(page, 4, 40)[0]).split()[0] == "column_5"
+
+
+def test_help_page_reflows_and_styles_a_numpy_docstring() -> None:
+    from ggrust import geom_point
+    from ggrust._pane_pages import help_text, text_lines
+
+    title, text = help_text(geom_point)
+    assert title == "geom_point"
+    assert text.startswith("geom_point(mapping=None, *, data=None")  # no type hints
+    lines = text_lines(text, 60)
+    plain = [_plain(line) for line in lines]
+    assert "Parameters" in plain and "----------" not in plain
+    assert "\x1b[1mParameters" in lines[plain.index("Parameters")]
+    assert any(line.startswith("mapping : ") for line in plain)
+    assert all(_viewer._cells(line) <= 60 for line in plain)
+    assert "\x1b" not in "".join(_plain(line) for line in text_lines("a\x1b]0;x\x07b", 20))
+
+
+def test_open_call_finds_the_innermost_open_call() -> None:
+    from ggrust._pane_repl import _open_call
+
+    assert _open_call("geom_point(") == "geom_point"
+    assert _open_call("ggplot(mpg, aes('x', 'y')) + geom_point(size=2, ") == "geom_point"
+    assert _open_call("ggplot(mpg, aes('x', ") == "aes"
+    assert _open_call("x = [1, ") is None
+    assert _open_call("print(1)") is None
+
+
+def test_completer_offers_keywords_of_the_open_call() -> None:
+    from ggrust import geom_point
+    from ggrust._pane_repl import _Completer
+
+    namespace: dict[str, object] = {"geom_point": geom_point, "sample": 1}
+    line = ""
+    completer = _Completer(namespace, lambda: line)
+
+    def matches(text: str) -> list[str]:
+        found: list[str] = []
+        while (match := completer.complete(text, len(found))) is not None:
+            found.append(match)
+        return found
+
+    line = "geom_point(s"
+    assert set(matches("s")) == {"stat=", "show_legend=", "sampling=", "size_unit="}
+    line = "geom_point(sa"
+    assert matches("sa") == ["sampling="]
+    line = "geom_point(sam"
+    assert "sample" not in matches("sam")  # a matching keyword wins
+    line = "geom_point(x, sampl"
+    assert matches("sampl") == ["sampling="]
+    line = "samp"
+    assert matches("samp") == ["sample"]  # outside a call: names as usual
+
+
+def test_controls_change_the_pane_and_last_skips_failed_plots() -> None:
+    viewer = _viewer._Viewer("dark")
+    good = _plot("good")
+    viewer.handle("plot", good)
+    bad = ggplot_bad = _plot() + __import__("ggrust").aes(y="missing")
+    reply = viewer.handle("plot", ggplot_bad)
+    assert reply.error is not None and "missing" in reply.error
+    assert reply.index == 2 and reply.total == 2
+    assert viewer.handle("control", ("last", None)).value is good  # plot 2 failed
+    del bad
+    viewer.handle("control", ("style", "light"))
+    assert viewer.style == "light"
+    viewer.handle("control", ("size", (400, 300)))
+    assert viewer.fixed_size == (400.0, 300.0)
+    state = viewer.handle("control", ("state", None)).value
+    assert isinstance(state, dict) and state["size"] == (400.0, 300.0)
+    viewer.handle("control", ("size", None))
+    assert viewer.fixed_size is None
+    viewer.handle("control", ("clear", None))
+    assert viewer.pages == [] and viewer.index == -1
+    for body in [("style", "neon"), ("size", (0, 1)), ("nope", None), "junk"]:
+        with pytest.raises(_viewer.MessageError):
+            viewer.handle("control", body)
+
+
+def test_pane_replies_with_page_numbers_and_shows_tables_and_help(
+    pane_factory: Callable[..., _Pane],
+) -> None:
+    import polars as pl
+
+    pane = pane_factory()
+    assert pane.socket is not None
+    first = _request(pane.socket, "plot", _plot("first"))
+    assert first is not None and (first.index, first.total, first.error) == (1, 1, None)
+    frame = pl.DataFrame({"species": ["Adelie", "Gentoo"], "mass": [3700.0, 5000.0]})
+    table = _request(pane.socket, "table", ("penguins", frame, 344))
+    assert table is not None and table.index == 2
+    assert _wait(lambda: b"data 2/2" in pane.text() and b"Adelie" in pane.text())
+    assert _wait(lambda: b"344" in pane.text())
+    help_page = _request(pane.socket, "text", ("geom_point", "geom_point()\n\nScatter points."))
+    assert help_page is not None and help_page.index == 3
+    assert _wait(lambda: b"help 3/3" in pane.text())
+    pane.type(b"h")  # back to the table, then scroll it
+    pane.type(b"j")
+    assert _wait(lambda: b"rows 2-" in pane.text())
+    refused = _request(pane.socket, "control", ("bogus", None))
+    assert refused is not None and refused.error is not None and "unknown control" in refused.error
+    assert pane.alive()

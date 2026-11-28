@@ -1,7 +1,7 @@
 """Prototype: the pages the terminal plot pane shows, and how text pages are laid out.
 
-The pane's history holds pages: a plot, a data table (``pane.show(frame)``) or a text
-page (``pane.help(geom_point)``). This module lays out tables and text as lines of
+The pane's history holds pages: a plot, a data table (``show(frame)``) or a text
+page (``help(geom_point)``). This module lays out tables and text as lines of
 terminal cells, with colors, cut to the pane's width. It does no terminal I/O.
 Not part of the public API: a prototype on its own branch.
 """

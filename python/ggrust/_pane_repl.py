@@ -2,11 +2,11 @@
 
 ``start()`` runs from the REPL's startup file. It sends plots you type to the pane
 and says where they went (or why they could not be drawn), completes keyword
-arguments on Tab, prints the banner, and returns the ``pane`` object: workspace
-controls (``pane.show``, ``pane.help``, ``pane.last``, ``pane.save``, ``pane.style``,
-``pane.size``, ``pane.clear``). These exist only in the workspace REPL; nothing is
-added to ``from ggrust import *``. Not part of the public API: a prototype on its
-own branch.
+arguments on Tab, prints the banner, and returns the ``pane`` object. ``names(pane)``
+gives the REPL the workspace controls as bare names: ``show``, ``help`` (in the pane,
+else Python's), ``last``, ``save``, ``style``, ``size`` and ``clear``. These exist only
+in the workspace REPL; nothing is added to ``from ggrust import *``. Not part of the
+public API: a prototype on its own branch.
 """
 
 from __future__ import annotations
@@ -97,34 +97,36 @@ def _as_polars(data: object) -> pl.DataFrame:
         if isinstance(frame, pl.DataFrame):
             return frame
     raise TypeError(
-        f"pane.show takes a plot or a data frame (polars or pandas), got {type(data).__name__}"
+        f"show takes a plot or a data frame (polars or pandas), got {type(data).__name__}"
     )
 
 
 class Pane:
     """Controls for the plot pane, available as ``pane`` in the ggrust REPL.
 
+    The REPL also has each method as a bare name (see ``names``).
+
     Examples
     --------
-    >>> pane.show(mpg)                 # the data as a table in the pane
-    >>> pane.help(geom_point)          # the docstring, formatted, in the pane
-    >>> pane.last() + theme_bw()       # the plot on screen, to build on
-    >>> pane.save("plot.png")          # save it at the pane's size
-    >>> pane.style("light")            # restyle plots without a flavor
-    >>> pane.size(800, 500)            # draw plots at a fixed size; pane.size() undoes it
-    >>> pane.clear()                   # empty the history
+    >>> show(mpg)                 # the data as a table in the pane
+    >>> help(geom_point)          # the docstring, formatted, in the pane
+    >>> last() + theme_bw()       # the plot on screen, to build on
+    >>> save("plot.png")          # save it at the pane's size
+    >>> style("light")            # restyle plots without a flavor
+    >>> size(800, 500)            # draw plots at a fixed size; size() undoes it
+    >>> clear()                   # empty the history
     """
 
     def __repr__(self) -> str:
         lines = [
             "pane: the plot pane on the right",
-            "  pane.show(mpg)            data as a table (also plots)",
-            "  pane.help(geom_point)     a docstring, formatted",
-            "  pane.last()               the plot on screen",
-            "  pane.save('plot.png')     save it at the pane's size",
-            "  pane.style('light')       'dark', 'light' or 'none'",
-            "  pane.size(800, 500)       fixed size; pane.size() fills the pane",
-            "  pane.clear()              empty the history",
+            "  show(mpg)            data as a table (also plots)",
+            "  help(geom_point)     a docstring, formatted; help() is Python's",
+            "  last()               the plot on screen",
+            "  save('plot.png')     save it at the pane's size",
+            "  style('light')       'dark', 'light' or 'none'",
+            "  size(800, 500)       fixed size; size() fills the pane",
+            "  clear()              empty the history",
         ]
         return "\n".join(lines)
 
@@ -192,7 +194,7 @@ class Pane:
         Returns
         -------
         PlotSpec or SupPlotsSpec
-            The plot, to build on: ``pane.last() + theme_bw()``.
+            The plot, to build on: ``last() + theme_bw()``.
 
         Raises
         ------
@@ -216,7 +218,7 @@ class Pane:
         filename : str or PathLike
             Where to save; the extension picks the format, as in ``ggsave``.
         w, h : float or None, default=None
-            Size in pixels; the pane's plot area (or ``pane.size``) when None.
+            Size in pixels; the pane's plot area (or ``size``) when None.
 
         Returns
         -------
@@ -674,7 +676,7 @@ def repl_banner() -> str:
         row("imported", code("from ggrust import *")),
         row("", code("from ggrust.data import *")),
         row("data", "mpg, penguins, iris, economics"),
-        row("pane", code("pane.show(mpg)") + "  " + code("pane.help(aes)")),
+        row("pane", code("show(mpg)") + "  " + code("help(aes)")),
         row("", _dim("type ") + code("pane") + _dim(" for the rest")),
         row("try", ""),
         "    " + code("ggplot(mpg, aes('displ', 'hwy')) + geom_point()"),
@@ -712,3 +714,64 @@ def start() -> Pane:
     install_dividers()
     print(repl_banner())
     return Pane()
+
+
+class _Help:
+    """``help`` in the workspace REPL: help pages in the pane, else Python's own ``help``.
+
+    ``help(geom_point)`` shows the page in the pane; with no pane running it prints
+    Python's help instead. ``help()`` with no argument is Python's interactive help.
+    """
+
+    def __init__(self, pane: Pane) -> None:
+        self.pane = pane
+
+    def __repr__(self) -> str:
+        return "Type help(object) for its help in the pane, or help() for Python's help."
+
+    def __call__(self, target: object = None, /) -> None:
+        """Show ``target``'s help in the pane (Python's help when no pane is running).
+
+        Parameters
+        ----------
+        target : object, default=None
+            What to explain; None opens Python's interactive help.
+
+        Raises
+        ------
+        PaneError
+            When the pane refused the page.
+        """
+        if target is None:
+            builtins.help()
+            return
+        try:
+            self.pane.help(target)
+        except PaneError as error:
+            if str(error) != _NO_PANE:
+                raise
+            builtins.help(target)
+
+
+def names(pane: Pane) -> dict[str, object]:
+    """Return the workspace controls as the bare names the REPL gets.
+
+    Parameters
+    ----------
+    pane : Pane
+        The pane controls, which stay available as ``pane`` too.
+
+    Returns
+    -------
+    dict of str to object
+        ``show``, ``help``, ``last``, ``save``, ``style``, ``size`` and ``clear``.
+    """
+    return {
+        "show": pane.show,
+        "help": _Help(pane),
+        "last": pane.last,
+        "save": pane.save,
+        "style": pane.style,
+        "size": pane.size,
+        "clear": pane.clear,
+    }

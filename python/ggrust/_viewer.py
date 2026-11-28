@@ -84,7 +84,7 @@ _MAX_PENDING = 4096  # characters of an unfinished escape sequence kept between 
 _REPLY_TIMEOUT = 120.0  # seconds a client waits for the pane to draw and answer
 _PROTOCOL = "ggrust-pane/1"  # first item of every message tuple
 _MAX_TABLE_ROWS = 10_000  # rows of a frame sent to the pane; the rest is only counted
-_MAX_PLOT_SIDE = 20_000  # layout pixels; ``pane.size`` refuses larger sides
+_MAX_PLOT_SIDE = 20_000  # layout pixels; ``size`` refuses larger sides
 
 
 class PaneError(RuntimeError):
@@ -197,7 +197,7 @@ class _Viewer:
         # page identity, width, height, style, png
         self.cache: tuple[int, int, int, str, bytes] | None = None
         self.style = style
-        self.fixed_size: tuple[float, float] | None = None  # layout px set by ``pane.size``
+        self.fixed_size: tuple[float, float] | None = None  # layout px set by ``size``
         self.render_error: str | None = None  # why the last plot drawn failed, if it did
         self.html_directory: Path | None = None  # made on the first ``o``, removed at exit
 
@@ -223,7 +223,7 @@ class _Viewer:
     def render(self, width: int, height: int) -> bytes:
         """Render the current plot as PNG bytes of ``width`` x ``height`` pixels (cached).
 
-        With a fixed size (``pane.size``) the plot is rendered at that size instead,
+        With a fixed size (``size``) the plot is rendered at that size instead,
         and drawn as large as fits in the frame.
         """
         page = self.page
@@ -579,17 +579,17 @@ def _send_reply(connection: socket.socket, data: bytes) -> None:
 
 
 def size_problem(width: object, height: object) -> str | None:
-    """Return why ``(width, height)`` is no plot size for ``pane.size``, or None if it is one.
+    """Return why ``(width, height)`` is no plot size for ``size``, or None if it is one.
 
     Each side must be a finite number of layout pixels (not a bool) in
     ``(0, _MAX_PLOT_SIDE]``.
     """
     for label, side in (("w", width), ("h", height)):
         if isinstance(side, bool) or not isinstance(side, int | float):
-            return f"pane.size {label} must be a number of pixels, got {type(side).__name__}"
+            return f"size(): {label} must be a number of pixels, got {type(side).__name__}"
         if not 0 < side <= _MAX_PLOT_SIDE:  # refuses nan, inf and huge ints
             return (
-                f"pane.size {label}={side!r} is out of range; use a number of pixels "
+                f"size(): {label}={side!r} is out of range; use a number of pixels "
                 f"above 0 and at most {_MAX_PLOT_SIDE:,}"
             )
     return None
@@ -1098,9 +1098,10 @@ def send(plot: PlotSpec | SupPlotsSpec) -> bool:
 _STARTUP = """\
 from ggrust import *
 from ggrust.data import *
-from ggrust._pane_repl import interact as _interact, start as _start
+from ggrust._pane_repl import interact as _interact, names as _names, start as _start
 pane = _start()
-del _start
+globals().update(_names(pane))  # show, help, last, save, style, size, clear
+del _start, _names
 _interact()  # only without the new REPL: runs one whose blocks get dividers
 del _interact
 """

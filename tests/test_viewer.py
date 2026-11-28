@@ -779,11 +779,11 @@ def test_size_refuses_infinite_bool_and_huge_sides(size: tuple[float, float]) ->
     from ggrust._pane_repl import Pane
 
     viewer = _viewer._Viewer("none")
-    with pytest.raises(_viewer.MessageError, match=r"pane\.size"):
+    with pytest.raises(_viewer.MessageError, match=r"size\(\)"):
         viewer.handle("control", ("size", size))
     assert viewer.fixed_size is None
     expected = TypeError if any(isinstance(side, bool) for side in size) else ValueError
-    with pytest.raises(expected, match=r"pane\.size"):
+    with pytest.raises(expected, match=r"size\(\)"):
         Pane().size(*size)  # refused before anything is sent
 
 
@@ -913,3 +913,35 @@ def test_help_signature_stays_on_one_line_with_a_multiline_default() -> None:
     _, text = help_text(function)
     kind, _, signature = _blocks(text)[0]
     assert kind == "signature" and "function(a, b=Odd( 1 ), c='x  y')" in signature
+
+
+def test_repl_gets_bare_names_and_help_falls_back_to_python(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    import builtins
+
+    from ggrust import geom_point
+    from ggrust._pane_repl import Pane, names
+
+    assert "globals().update(_names(pane))" in _viewer._STARTUP
+    pane = Pane()
+    bound = names(pane)
+    assert set(bound) == {"show", "help", "last", "save", "style", "size", "clear"}
+    assert bound["show"] == pane.show and bound["clear"] == pane.clear
+    import ggrust
+    import ggrust.data
+
+    exported = set(ggrust.__all__) | set(getattr(ggrust.data, "__all__", dir(ggrust.data)))
+    assert not exported & set(bound)  # star imports never shadow them
+
+    asked: list[tuple[object, ...]] = []
+    monkeypatch.setattr(builtins, "help", lambda *target: asked.append(target))
+    monkeypatch.setenv("GGRUST_VIEWER_SOCKET", str(tmp_path / "none.sock"))  # no pane
+    bound["help"](geom_point)
+    bound["help"]()
+    assert asked == [(geom_point,), ()]
+    shown: list[object] = []
+    monkeypatch.setattr(Pane, "help", lambda self, target: shown.append(target))
+    bound["help"](geom_point)
+    assert shown == [geom_point] and len(asked) == 2  # a running pane gets it
+    assert "help()" in repr(bound["help"])

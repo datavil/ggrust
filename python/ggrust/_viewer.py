@@ -13,22 +13,28 @@ with a Python REPL on the left and the viewer on the right.
 Plots that set no flavor of their own get ``flavor_high_contrast_dark()`` (or the
 light one, after asking the terminal for its background) and ``flavor_transparent()``,
 so they sit on the terminal's background. Plots travel pickled over a socket only the
-user can open. Does not: work without
+user can open (in a 0700 directory of the user's own). Does not: work without
 Kitty graphics, or handle tmux. Not part of the public API: a prototype on its own branch.
 """
 
 from __future__ import annotations
 
 import builtins
+import codecs
+import contextlib
 import fcntl
 import io
 import os
 import pickle
 import re
+import secrets
 import select
 import selectors
+import shlex
+import shutil
 import signal
 import socket
+import stat
 import struct
 import subprocess
 import sys
@@ -36,6 +42,7 @@ import tempfile
 import termios
 import time
 import tty
+import unicodedata
 import warnings
 import webbrowser
 from pathlib import Path
@@ -55,10 +62,51 @@ _SCALE = 2.0  # device pixels per layout pixel (retina)
 _FOOTER_ROWS = 1
 _FRAME = 1  # cells of box border on each side of the plot
 _RESIZE_PAUSE = 0.15  # seconds without resize events before re-rendering
+_RECEIVE_TIMEOUT = 3.0  # seconds a client may take to send one plot
+_MAX_PAYLOAD = 1 << 30  # bytes; larger messages are refused unread
+_MAX_SOCKET_PATH = 103  # bytes; macOS caps AF_UNIX paths at 104 with the NUL
+_FALLBACK_CELL = (10, 20)  # device pixels per cell when the terminal reports none
+_FALLBACK_SIZE = (24, 80)  # rows and columns when the terminal reports none
+_MAX_PENDING = 4096  # characters of an unfinished escape sequence kept between reads
+
+
+class PaneError(RuntimeError):
+    """The plot pane cannot start: no terminal, a live pane on the socket, or a bad path."""
+
+
+class MessageError(ValueError):
+    """A message on the pane's socket is not a plot: too big, too slow, cut short or junk."""
+
+
+def _runtime_directory() -> Path:
+    """Return the user's private ggrust directory in the temp directory (not created here)."""
+    return Path(tempfile.gettempdir()) / f"ggrust-{os.getuid()}"
+
+
+def _private_directory() -> Path:
+    """Create (or check) the user's 0700 runtime directory and return it.
+
+    Raises
+    ------
+    PaneError
+        When the path exists but is a symlink, not a directory, or someone else's.
+    """
+    directory = _runtime_directory()
+    with contextlib.suppress(FileExistsError):
+        directory.mkdir(mode=0o700)
+    info = directory.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != os.getuid():
+        raise PaneError(
+            f"{directory} is not a directory owned by you; remove it, or set "
+            "GGRUST_VIEWER_SOCKET to a socket path in a directory of your own"
+        )
+    if info.st_mode & 0o077:
+        directory.chmod(0o700)
+    return directory
 
 
 def socket_path() -> Path:
-    """Where the viewer listens: ``$GGRUST_VIEWER_SOCKET``, else a per-user temp file.
+    """Where the viewer listens: ``$GGRUST_VIEWER_SOCKET``, else the user's private directory.
 
     Returns
     -------
@@ -68,7 +116,7 @@ def socket_path() -> Path:
     override = os.environ.get("GGRUST_VIEWER_SOCKET")
     if override:
         return Path(override)
-    return Path(tempfile.gettempdir()) / f"ggrust-viewer-{os.getuid()}.sock"
+    return _runtime_directory() / "viewer.sock"
 
 
 def _pane_size() -> tuple[int, int, int, int]:
@@ -79,8 +127,16 @@ def _pane_size() -> tuple[int, int, int, int]:
 
 
 def _plot_area() -> tuple[int, int, int, int]:
-    """Rows, columns and pixel size of the pane above the footer."""
+    """Rows, columns and pixel size of the pane above the footer.
+
+    Terminals that report no size get 24 x 80 cells; ones that report no pixel
+    size get ``_FALLBACK_CELL`` pixels per cell, so a plot still renders.
+    """
     rows, columns, width, height = _pane_size()
+    if rows <= 0 or columns <= 0:
+        rows, columns = _FALLBACK_SIZE
+    if width <= 0 or height <= 0:
+        width, height = columns * _FALLBACK_CELL[0], rows * _FALLBACK_CELL[1]
     plot_rows = max(rows - _FOOTER_ROWS, 1)
     plot_height = height * plot_rows // max(rows, 1)
     return plot_rows, columns, width, plot_height
@@ -96,6 +152,7 @@ class _Viewer:
         self.notice = ""  # one-off message shown in the footer
         self.cache: tuple[int, int, int, bytes] | None = None  # index, width, height, png
         self.style = style
+        self.html_directory: Path | None = None  # made on the first ``o``, removed at exit
 
     def render(self, width: int, height: int) -> bytes:
         """Render the current plot as PNG bytes of ``width`` x ``height`` pixels (cached)."""
@@ -112,6 +169,7 @@ class _Viewer:
         return png
 
     def draw(self) -> None:
+        """Clear the pane and draw the current plot in its frame, then the footer."""
         out = sys.stdout
         out.write("\x1b_Ga=d,q=2\x1b\\\x1b[2J\x1b[H")  # delete images, clear, home
         rows, columns, width, height = _plot_area()
@@ -133,7 +191,9 @@ class _Viewer:
         try:
             png = self.render(round(inner_columns * cell_width), round(inner_rows * cell_height))
         except Exception as error:  # show any render failure in the pane
-            out.write(f"could not draw plot {self.index + 1}: {error}")
+            out.write(
+                _cut(_clean_label(f"could not draw plot {self.index + 1}: {error}"), inner_columns)
+            )
         else:
             out.write(_fit_escape(png, inner_rows, inner_columns, cell_width, cell_height))
         self.write_footer()
@@ -142,7 +202,7 @@ class _Viewer:
         """Write the footer row: a pending notice, else the style and the keys."""
         rows, columns, _, _ = _plot_area()
         footer = self.notice or f"style {self.style}   <- -> history   o browser   q quit"
-        text = f" {footer}"[:columns]
+        text = _cut(" " + _clean_label(footer), columns)
         sys.stdout.write(f"\x1b[{rows + 1};1H\x1b[2K\x1b[2m{text}\x1b[0m")
         sys.stdout.flush()
         self.notice = ""
@@ -151,8 +211,10 @@ class _Viewer:
         """Save the current plot as interactive HTML and open it in the default browser."""
         if self.index < 0:
             return
-        path = Path(tempfile.gettempdir()) / f"ggrust-plot-{os.getpid()}-{self.index + 1}.html"
         try:
+            if self.html_directory is None:
+                self.html_directory = Path(tempfile.mkdtemp(prefix="ggrust-pane-"))
+            path = self.html_directory / f"plot-{self.index + 1}.html"
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore")
                 self.history[self.index].to_html(path)  # as sent: browsers have a light page
@@ -167,19 +229,40 @@ class _Viewer:
             )
         self.write_footer()
 
+    def cleanup(self) -> None:
+        """Remove the HTML files saved for the browser (at exit, once it has loaded them)."""
+        if self.html_directory is not None:
+            shutil.rmtree(self.html_directory, ignore_errors=True)
+            self.html_directory = None
+
     def receive(self, connection: socket.socket) -> None:
+        """Read one plot from ``connection``, add it to the history and draw it.
+
+        A connection that closes before sending anything (a probe) is ignored.
+
+        Raises
+        ------
+        MessageError
+            When the message is too big, too slow, cut short, or not a plot.
+        """
+        deadline = time.monotonic() + _RECEIVE_TIMEOUT
         with connection:
-            header = _read_exact(connection, 8)
+            header = _read_exact(connection, 8, deadline)
             if header is None:
                 return
             (length,) = struct.unpack(">Q", header)
-            payload = _read_exact(connection, length)
+            if length > _MAX_PAYLOAD:
+                raise MessageError(f"refused a {length}-byte message; the limit is {_MAX_PAYLOAD}")
+            payload = _read_exact(connection, length, deadline)
             if payload is None:
-                return
-        # The socket is the user's own (mode 0600), so the payload is trusted.
-        plot = pickle.loads(payload)
+                raise MessageError(f"the sender hung up before sending all {length} bytes")
+        plot = _load_plot(payload)
+        try:
+            title = _title(plot)
+        except Exception as error:  # a plot whose spec cannot be read
+            raise MessageError(f"could not read the plot's spec: {error}") from error
         self.history.append(plot)
-        self.titles.append(_title(plot))
+        self.titles.append(title)
         self.index = len(self.history) - 1
         self.draw()
 
@@ -189,19 +272,77 @@ class _Viewer:
             return False
         if key == "o":
             self.open_in_browser()
-        if key in ("\x1b[D", "h") and self.index > 0:
+        if key in ("\x1b[D", "\x1bOD", "h") and self.index > 0:
             self.index -= 1
             self.draw()
-        elif key in ("\x1b[C", "l") and self.index < len(self.history) - 1:
+        elif key in ("\x1b[C", "\x1bOC", "l") and self.index < len(self.history) - 1:
             self.index += 1
             self.draw()
         return True
 
 
+def _load_plot(payload: bytes) -> PlotSpec | SupPlotsSpec:
+    """Unpickle a plot sent to the pane.
+
+    The socket is the user's own (mode 0600 in a 0700 directory), so the payload
+    is trusted; this only rejects junk and pickles of other things.
+
+    Raises
+    ------
+    MessageError
+        When the payload does not unpickle, or holds something other than a plot.
+    """
+    from ggrust.plot.core import PlotSpec
+    from ggrust.plot.subplots import SupPlotsSpec
+
+    try:
+        plot = pickle.loads(payload)
+    except Exception as error:  # pickle raises many kinds
+        raise MessageError(f"not a pickled plot ({type(error).__name__}: {error})") from error
+    if not isinstance(plot, PlotSpec | SupPlotsSpec):
+        raise MessageError(f"expected a PlotSpec or SupPlotsSpec, got {type(plot).__name__}")
+    return plot
+
+
 def _title(plot: PlotSpec | SupPlotsSpec) -> str:
     """Return the plot's ``ggtitle`` text on one line, or "" when it has none."""
     title = (plot.as_dict().get("ggtitle") or {}).get("text")
-    return " ".join(str(title).split()) if title else ""
+    return _clean_label(str(title)) if title else ""
+
+
+def _clean_label(text: str) -> str:
+    """``text`` on one line with control characters removed, so it is safe to print.
+
+    Runs of whitespace become one space; C0, DEL and C1 characters (ESC among them)
+    and format characters (the right-to-left override among them) are dropped, so
+    a title cannot send escape sequences to the terminal or reorder the text.
+    """
+    words = " ".join(text.split())
+    return "".join(
+        character for character in words if unicodedata.category(character) not in ("Cc", "Cf")
+    )
+
+
+def _cell_width(character: str) -> int:
+    """Terminal cells ``character`` takes: 2 for wide and full-width, 0 for combining marks."""
+    if unicodedata.combining(character) or unicodedata.category(character) in ("Mn", "Me", "Cf"):
+        return 0
+    return 2 if unicodedata.east_asian_width(character) in ("W", "F") else 1
+
+
+def _cells(text: str) -> int:
+    """Terminal cells ``text`` takes."""
+    return sum(_cell_width(character) for character in text)
+
+
+def _cut(text: str, cells: int) -> str:
+    """Return the longest start of ``text`` that fits in ``cells`` terminal cells."""
+    used = 0
+    for index, character in enumerate(text):
+        used += _cell_width(character)
+        if used > cells:
+            return text[:index]
+    return text
 
 
 def _png_size(png: bytes) -> tuple[int, int]:
@@ -211,12 +352,17 @@ def _png_size(png: bytes) -> tuple[int, int]:
 
 
 def _frame(rows: int, columns: int, title: str) -> str:
-    """Draw a dim rounded box over ``rows`` x ``columns`` cells, ``title`` in its top edge."""
-    room = max(columns - 4, 0)
+    """Draw a dim rounded box over ``rows`` x ``columns`` cells, ``title`` in its top edge.
+
+    Needs ``rows`` and ``columns`` of at least 3. Every edge is exactly ``columns``
+    cells wide; a title that does not fit is cut (marked with an ellipsis) or dropped.
+    """
+    title = _clean_label(title)
+    room = columns - 4  # the corners, one rule cell before the label and one after
     label = f" {title} "
-    if len(label) > room:  # cut long titles, marking the cut
-        label = label[: max(room - 2, 0)] + "\u2026 "
-    top = "\u256d\u2500" + label + "\u2500" * (columns - 3 - len(label)) + "\u256e"
+    if _cells(label) > room:  # cut long titles, marking the cut
+        label = " " + _cut(title, room - 3) + "\u2026 " if room >= 3 else ""
+    top = "\u256d\u2500" + label + "\u2500" * (columns - 3 - _cells(label)) + "\u256e"
     side = "\u2502" + " " * (columns - 2) + "\u2502"
     bottom = "\u2570" + "\u2500" * (columns - 2) + "\u256f"
     lines = [top] + [side] * (rows - 2) + [bottom]
@@ -236,12 +382,27 @@ def _fit_escape(png: bytes, rows: int, columns: int, cell_width: float, cell_hei
     return kitty_escape(png, fit_columns, fit_rows, move_cursor=False)
 
 
-def _read_exact(connection: socket.socket, length: int) -> bytes | None:
-    """``length`` bytes from ``connection``, or None if it closes first."""
+def _read_exact(connection: socket.socket, length: int, deadline: float) -> bytes | None:
+    """``length`` bytes from ``connection``, or None if it closes first.
+
+    Raises
+    ------
+    MessageError
+        When the bytes have not all arrived by ``deadline`` (``time.monotonic``).
+    """
     chunks: list[bytes] = []
     remaining = length
     while remaining:
-        chunk = connection.recv(min(remaining, 1 << 20))
+        left = deadline - time.monotonic()
+        if left <= 0:
+            raise MessageError(f"timed out after {_RECEIVE_TIMEOUT:g} s waiting for a plot")
+        connection.settimeout(left)
+        try:
+            chunk = connection.recv(min(remaining, 1 << 20))
+        except TimeoutError as error:
+            raise MessageError(
+                f"timed out after {_RECEIVE_TIMEOUT:g} s waiting for a plot"
+            ) from error
         if not chunk:
             return None
         chunks.append(chunk)
@@ -278,27 +439,164 @@ def styled(plot: PlotSpec | SupPlotsSpec, style: PaneStyle) -> PlotSpec | SupPlo
     return plot + flavor + flavor_transparent()
 
 
-def _terminal_style(timeout: float = 0.3) -> PaneStyle:
+_OSC_11_REPLY = re.compile(r"\x1b\]11;rgb:([0-9a-fA-F]+)/([0-9a-fA-F]+)/([0-9a-fA-F]+)")
+
+
+def _terminal_style(keys: _KeyReader, timeout: float = 0.3) -> PaneStyle:
     """Ask the terminal for its background colour (OSC 11) and pick a style.
 
-    Needs stdin in cbreak mode. Terminals that do not answer in ``timeout``
-    seconds get ``"dark"``.
+    Needs stdin in cbreak mode. The reply is read through ``keys``, so it is read up
+    to its terminator however it is split, and a reply that comes after ``timeout``
+    is dropped there rather than taken as keys. Keys typed while waiting are dropped.
+    Terminals that do not answer in ``timeout`` seconds get ``"dark"``.
     """
     sys.stdout.write("\x1b]11;?\x1b\\")
     sys.stdout.flush()
-    reply = b""
     deadline = time.monotonic() + timeout
-    while time.monotonic() < deadline and not reply.endswith((b"\x07", b"\x1b\\")):
-        ready, _, _ = select.select([sys.stdin], [], [], max(deadline - time.monotonic(), 0))
+    while (left := deadline - time.monotonic()) > 0:
+        ready, _, _ = select.select([sys.stdin], [], [], left)
         if not ready:
             break
-        reply += os.read(sys.stdin.fileno(), 64)
-    match = re.search(rb"rgb:([0-9a-fA-F]+)/([0-9a-fA-F]+)/([0-9a-fA-F]+)", reply)
-    if match is None:
-        return "dark"
-    red, green, blue = (int(part, 16) / (16 ** len(part) - 1) for part in match.groups())
-    luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
-    return "dark" if luminance < 0.5 else "light"
+        for token in keys.feed(os.read(sys.stdin.fileno(), 64)):
+            match = _OSC_11_REPLY.match(token)
+            if match is None:
+                continue
+            red, green, blue = (int(part, 16) / (16 ** len(part) - 1) for part in match.groups())
+            luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue
+            return "dark" if luminance < 0.5 else "light"
+    return "dark"
+
+
+def _token_end(text: str, start: int) -> int | None:
+    """End of the key or escape sequence starting at ``text[start]``; None if unfinished."""
+    if text[start] != "\x1b":
+        return start + 1
+    if start + 1 == len(text):
+        return None  # a lone ESC: maybe the start of a sequence split across reads
+    kind = text[start + 1]
+    if kind == "[":  # CSI: parameters and intermediates, then one final byte
+        for index in range(start + 2, len(text)):
+            if "\x40" <= text[index] <= "\x7e":
+                return index + 1
+            if not "\x20" <= text[index] <= "\x3f":
+                return index  # malformed: end it before the stray character
+        return None
+    if kind == "O":  # SS3, as arrow keys send in application mode
+        return start + 3 if start + 2 < len(text) else None
+    # OSC, as the terminal's replies (``ESC ] 11;...``) start with digits; ESC ] then
+    # anything else is Alt+] and a key, so it cannot hold the input back.
+    if kind == "]" and (start + 2 == len(text) or text[start + 2].isdigit()):
+        for index in range(start + 2, len(text)):
+            if text[index] == "\x07":
+                return index + 1
+            if text[index] == "\x1b":
+                if index + 1 == len(text):
+                    return None
+                if text[index + 1] == "\\":
+                    return index + 2
+        return None
+    return start + 1  # ESC before an ordinary key: ESC on its own
+
+
+def _split_keys(text: str) -> tuple[list[str], str]:
+    """Split terminal input into keys and escape sequences.
+
+    Returns
+    -------
+    tuple of (list of str, str)
+        The complete tokens, and an unfinished escape sequence left at the end.
+    """
+    tokens: list[str] = []
+    position = 0
+    while position < len(text):
+        end = _token_end(text, position)
+        if end is None:
+            return tokens, text[position:]
+        tokens.append(text[position:end])
+        position = end
+    return tokens, ""
+
+
+class _KeyReader:
+    """Turn raw reads from the terminal into keys, across split and batched reads."""
+
+    def __init__(self) -> None:
+        self.decoder = codecs.getincrementaldecoder("utf-8")(errors="replace")
+        self.pending = ""  # an escape sequence that has not finished arriving
+
+    def feed(self, data: bytes) -> list[str]:
+        """Return the complete keys and escape sequences in ``data`` and earlier leftovers."""
+        tokens, self.pending = _split_keys(self.pending + self.decoder.decode(data))
+        if len(self.pending) > _MAX_PENDING:  # an unterminated sequence: give up on it
+            self.pending = ""
+        return tokens
+
+
+def _listen(path: Path) -> tuple[socket.socket, tuple[int, int]]:
+    """Bind and listen on ``path``, refusing to take over a live pane.
+
+    A socket file nobody answers on is stale and is replaced. The socket is created
+    under umask 077, so it is never open to others, even briefly.
+
+    Returns
+    -------
+    tuple of (socket.socket, tuple of (int, int))
+        The listening socket, and the device and inode of its file (to tell, at
+        exit, whether the file is still ours).
+
+    Raises
+    ------
+    PaneError
+        When a pane already listens on ``path``, the path is not a socket, or the
+        path is too long for a Unix socket.
+    """
+    if len(os.fsencode(path)) > _MAX_SOCKET_PATH:
+        raise PaneError(
+            f"the socket path {str(path)!r} is longer than {_MAX_SOCKET_PATH} bytes; "
+            "set GGRUST_VIEWER_SOCKET to a shorter path"
+        )
+    if path.exists() or path.is_symlink():
+        if not stat.S_ISSOCK(path.lstat().st_mode):
+            raise PaneError(f"{path} exists and is not a socket; remove it or pick another path")
+        probe = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        with probe:
+            try:
+                probe.connect(str(path))
+            except (ConnectionRefusedError, FileNotFoundError):  # a pane that died
+                try:
+                    path.unlink(missing_ok=True)
+                except OSError as error:
+                    raise PaneError(f"could not remove the stale socket {path}: {error}") from error
+            except OSError as error:  # busy or not ours: never remove it
+                raise PaneError(f"could not check the socket {path}: {error}") from error
+            else:
+                raise PaneError(
+                    f"a plot pane is already running on {path}; use that one, or set "
+                    "GGRUST_VIEWER_SOCKET to another path for a second pane"
+                )
+    server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    previous_umask = os.umask(0o077)
+    try:
+        server.bind(str(path))
+    except OSError as error:
+        server.close()
+        raise PaneError(f"could not listen on {path}: {error}") from error
+    finally:
+        os.umask(previous_umask)
+    path.chmod(0o600)
+    server.listen()
+    info = path.stat()
+    return server, (info.st_dev, info.st_ino)
+
+
+def _unlink_if_ours(path: Path, identity: tuple[int, int]) -> None:
+    """Remove the socket file at ``path`` unless another pane has replaced it."""
+    try:
+        info = path.lstat()
+    except OSError:
+        return
+    if (info.st_dev, info.st_ino) == identity:
+        path.unlink(missing_ok=True)
 
 
 def serve(style: PaneStyle | Literal["auto"] = "auto") -> None:
@@ -309,54 +607,79 @@ def serve(style: PaneStyle | Literal["auto"] = "auto") -> None:
     style : {"auto", "dark", "light", "none"}, default="auto"
         How plots without a flavor of their own are dressed (see ``styled``);
         ``"auto"`` asks the terminal whether its background is dark or light.
+
+    Raises
+    ------
+    PaneError
+        When stdin or stdout is not a terminal, or another pane owns the socket.
     """
-    path = socket_path()
-    path.unlink(missing_ok=True)
-    server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-    server.bind(str(path))
-    path.chmod(0o600)
-    server.listen()
-    viewer = _Viewer()
-    selector = selectors.DefaultSelector()
-    selector.register(server, selectors.EVENT_READ, "socket")
-    selector.register(sys.stdin, selectors.EVENT_READ, "keys")
-    read_end, write_end = os.pipe()
-    os.set_blocking(write_end, False)
-    signal.set_wakeup_fd(write_end)
-    signal.signal(signal.SIGWINCH, lambda *_: None)
-    selector.register(read_end, selectors.EVENT_READ, "resize")
+    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+        raise PaneError("the ggrust pane needs a terminal; run it in a terminal window")
     saved = termios.tcgetattr(sys.stdin.fileno())
-    # Alternate screen (no scrollback, so a resize cannot push old frames into it),
-    # no line wrapping, hidden cursor: the usual setup of a full-screen terminal app.
-    sys.stdout.write("\x1b[?1049h\x1b[?7l\x1b[?25l")
+    path = socket_path()
+    if not os.environ.get("GGRUST_VIEWER_SOCKET"):  # as in ``socket_path``
+        _private_directory()
+    server, identity = _listen(path)
+    viewer = _Viewer()
+    keys = _KeyReader()
+    selector = selectors.DefaultSelector()
+    read_end, write_end = os.pipe()
     redraw_at: float | None = None  # re-render once resizing pauses
     try:
+        selector.register(server, selectors.EVENT_READ, "socket")
+        selector.register(sys.stdin, selectors.EVENT_READ, "keys")
+        os.set_blocking(write_end, False)
+        signal.set_wakeup_fd(write_end)
+        signal.signal(signal.SIGWINCH, lambda *_: None)
+        selector.register(read_end, selectors.EVENT_READ, "resize")
+        # Alternate screen (no scrollback, so a resize cannot push old frames into it),
+        # no line wrapping, hidden cursor: the usual setup of a full-screen terminal app.
+        sys.stdout.write("\x1b[?1049h\x1b[?7l\x1b[?25l")
         tty.setcbreak(sys.stdin.fileno())
-        viewer.style = _terminal_style() if style == "auto" else style
+        viewer.style = _terminal_style(keys) if style == "auto" else style
         viewer.draw()
         running = True
         while running:
             timeout = None if redraw_at is None else max(redraw_at - time.monotonic(), 0.0)
             for event, _ in selector.select(timeout):
-                if event.data == "socket":
-                    connection, _ = server.accept()
-                    viewer.receive(connection)
-                elif event.data == "resize":
-                    os.read(read_end, 64)
-                    redraw_at = time.monotonic() + _RESIZE_PAUSE
-                else:
-                    running = viewer.key(os.read(sys.stdin.fileno(), 16).decode(errors="ignore"))
+                try:
+                    if event.data == "socket":
+                        connection, _ = server.accept()
+                        viewer.receive(connection)
+                    elif event.data == "resize":
+                        os.read(read_end, 64)
+                        redraw_at = time.monotonic() + _RESIZE_PAUSE
+                    else:
+                        for key in keys.feed(os.read(sys.stdin.fileno(), 1024)):
+                            running = viewer.key(key)
+                            if not running:
+                                break
+                except MessageError as error:  # junk on the socket: say so and carry on
+                    viewer.notice = f"ignored a message: {error}"
+                    viewer.write_footer()
+                except Exception as error:  # never let one plot take the pane down
+                    viewer.notice = f"error: {type(error).__name__}: {error}"
+                    viewer.write_footer()
             if redraw_at is not None and time.monotonic() >= redraw_at:
                 redraw_at = None
-                viewer.draw()
+                try:
+                    viewer.draw()
+                except Exception as error:
+                    viewer.notice = f"error: {type(error).__name__}: {error}"
+                    viewer.write_footer()
     except KeyboardInterrupt:
         pass
     finally:
         termios.tcsetattr(sys.stdin.fileno(), termios.TCSADRAIN, saved)
         sys.stdout.write("\x1b_Ga=d,q=2\x1b\\\x1b[?25h\x1b[?7h\x1b[?1049l")
         sys.stdout.flush()
+        signal.set_wakeup_fd(-1)
+        selector.close()
+        os.close(read_end)
+        os.close(write_end)
         server.close()
-        path.unlink(missing_ok=True)
+        _unlink_if_ours(path, identity)
+        viewer.cleanup()
 
 
 def send(plot: PlotSpec | SupPlotsSpec) -> bool:
@@ -458,19 +781,37 @@ def repl_banner() -> str:
     return "\n".join(lines)
 
 
+def _write_private(path: Path, text: str) -> Path:
+    """Write ``text`` to ``path`` with mode 0600, replacing (never following) what is there."""
+    descriptor, temporary = tempfile.mkstemp(dir=path.parent, prefix=".tmp-", suffix=path.suffix)
+    with os.fdopen(descriptor, "w", encoding="utf-8") as file:
+        file.write(text)
+    os.replace(temporary, path)
+    return path
+
+
 def _applescript_string(text: str) -> str:
     return '"' + text.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
 def workspace() -> None:
-    """Open a Ghostty window: Python REPL on the left, plot pane on the right (macOS)."""
-    startup = Path(tempfile.gettempdir()) / f"ggrust-startup-{os.getuid()}.py"
-    startup.write_text(_STARTUP, encoding="utf-8")
-    python = sys.executable
+    """Open a Ghostty window: Python REPL on the left, plot pane on the right (macOS).
+
+    Each window gets its own socket, so two workspaces never share a pane.
+
+    Raises
+    ------
+    PaneError
+        When the private runtime directory is unsafe (see ``_private_directory``).
+    """
+    directory_path = _private_directory()
+    startup = _write_private(directory_path / "startup.py", _STARTUP)
+    python = shlex.quote(sys.executable)
     repl = _applescript_string(f"{python} -q")
     pane = _applescript_string(f"{python} -m ggrust._viewer")
     directory = _applescript_string(os.getcwd())
-    shared = [f"GGRUST_VIEWER_SOCKET={socket_path()}"]
+    window_socket = directory_path / f"pane-{secrets.token_hex(4)}.sock"
+    shared = [f"GGRUST_VIEWER_SOCKET={window_socket}"]
     left_environment = ", ".join(
         _applescript_string(item) for item in [f"PYTHONSTARTUP={startup}", *shared]
     )
@@ -520,6 +861,8 @@ def main(arguments: list[str] | None = None) -> None:
             sys.exit("ggrust: the REPL window needs Ghostty on macOS; run 'ggrust pane' instead")
         try:
             workspace()
+        except PaneError as error:
+            sys.exit(f"ggrust: {error}")
         except (OSError, subprocess.CalledProcessError) as error:
             sys.exit(f"ggrust: could not open a Ghostty window ({error}); is Ghostty installed?")
     elif arguments[0] in ("-h", "--help"):
@@ -528,7 +871,10 @@ def main(arguments: list[str] | None = None) -> None:
         style = arguments[1] if len(arguments) == 2 else "auto"
         if style not in _STYLES:
             sys.exit(f"ggrust: unknown pane style {style!r}; use one of {', '.join(_STYLES)}")
-        serve(style)
+        try:
+            serve(style)
+        except PaneError as error:
+            sys.exit(f"ggrust: {error}")
     else:
         sys.exit(f"ggrust: unknown arguments {' '.join(arguments)!r}\n\n{_USAGE}")
 
